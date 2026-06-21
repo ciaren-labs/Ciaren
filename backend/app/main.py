@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import datasets, flows, runs, transformations
 from app.core.config import get_settings
+from app.core.exceptions import NotFoundError
 from app.core.logging import setup_logging
 
 
@@ -37,6 +39,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(NotFoundError)
+    async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc)},
+        )
 
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
