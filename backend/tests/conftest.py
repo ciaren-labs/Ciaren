@@ -1,6 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
 from app.main import app
@@ -8,14 +9,15 @@ from app.main import app
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def engine():
-    _engine = create_async_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+    # StaticPool keeps the same connection alive so the in-memory DB is shared
+    # across all operations within a single test.
+    _engine = create_async_engine(
+        TEST_DB_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield _engine
@@ -24,10 +26,9 @@ async def engine():
 
 @pytest.fixture
 async def db_session(engine):
-    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
-    async with session_factory() as session:
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    async with factory() as session:
         yield session
-        await session.rollback()
 
 
 @pytest.fixture
