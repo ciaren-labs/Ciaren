@@ -4,5 +4,8 @@ from app.schemas.run import FlowRunCreate, FlowRunRead
 
 
 class ExecutionService:
-    async def run(self, db: AsyncSession, flow_id: str, data: FlowRunCreate) -> FlowRunRead:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def run(self, flow_id: str, data: FlowRunCreate) -> FlowRunRead:
         raise NotImplementedError

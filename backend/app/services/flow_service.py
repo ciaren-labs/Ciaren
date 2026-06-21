@@ -4,17 +4,20 @@ from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
 
 
 class FlowService:
-    async def list(self, db: AsyncSession) -> list[FlowRead]:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def list(self) -> list[FlowRead]:
         raise NotImplementedError
 
-    async def create(self, db: AsyncSession, data: FlowCreate) -> FlowRead:
+    async def create(self, data: FlowCreate) -> FlowRead:
         raise NotImplementedError
 
-    async def get(self, db: AsyncSession, flow_id: str) -> FlowRead:
+    async def get(self, flow_id: str) -> FlowRead:
         raise NotImplementedError
 
-    async def update(self, db: AsyncSession, flow_id: str, data: FlowUpdate) -> FlowRead:
+    async def update(self, flow_id: str, data: FlowUpdate) -> FlowRead:
         raise NotImplementedError
 
-    async def delete(self, db: AsyncSession, flow_id: str) -> None:
+    async def delete(self, flow_id: str) -> None:
         raise NotImplementedError
