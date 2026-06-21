@@ -1,0 +1,26 @@
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    APP_NAME: str = "FlowFrame"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = False
+
+    DATABASE_URL: str = "sqlite+aiosqlite:///./flowframe.db"
+    DATA_DIR: str = ".data"
+
+    CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    MAX_UPLOAD_SIZE_MB: int = 100
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
