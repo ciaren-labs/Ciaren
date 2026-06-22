@@ -32,26 +32,40 @@ class ExecutionService:
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
+            # Default the run's dataset to the first input so runs are filterable
+            # by dataset even when the caller didn't pass one explicitly.
+            if run.input_dataset_id is None and resolved_versions:
+                run.input_dataset_id = resolved_versions[0]["dataset_id"]
+
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
-            outputs = FlowExecutor().execute(flow.graph_json, dataset_paths, output_dir)
+            result = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, output_dir)
 
-            run.status = "success"
-            # Store a path relative to the outputs dir so we never leak the
-            # absolute server filesystem layout in API responses.
-            run.output_location = (
-                f"{run.id}/{next(iter(outputs.values())).name}" if outputs else None
-            )
-            # Record exactly which dataset versions were used so the run is
-            # reproducible/auditable even after newer versions are uploaded.
-            run.logs_json = [
-                {"level": "info", "message": f"Flow executed, wrote {len(outputs)} output(s)"},
-                {
-                    "level": "info",
-                    "message": "Resolved dataset versions",
-                    "versions": resolved_versions,
-                },
-            ]
+            run.node_results_json = [r.as_dict() for r in result.node_results]
+            if result.error is None:
+                run.status = "success"
+                # Store a path relative to the outputs dir so we never leak the
+                # absolute server filesystem layout in API responses.
+                run.output_location = (
+                    f"{run.id}/{next(iter(result.output_paths.values())).name}"
+                    if result.output_paths
+                    else None
+                )
+                run.logs_json = [
+                    {
+                        "level": "info",
+                        "message": f"Flow executed, wrote {len(result.output_paths)} output(s)",
+                    },
+                    {
+                        "level": "info",
+                        "message": "Resolved dataset versions",
+                        "versions": resolved_versions,
+                    },
+                ]
+            else:
+                run.status = "failed"
+                run.error_message = result.error
+                run.logs_json = [{"level": "error", "message": result.error}]
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             run.status = "failed"
             run.error_message = str(exc)

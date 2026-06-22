@@ -107,6 +107,46 @@ def test_concat_pipeline(tmp_path):
     assert len(result) == 4
 
 
+def test_run_with_results_captures_per_node_stats(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = FlowExecutor().run_with_results(
+        _pipeline_graph(), _paths(ds1=input_csv), out_dir
+    )
+    assert result.error is None
+    assert "out1" in result.output_paths
+    by_id = {r.node_id: r for r in result.node_results}
+    assert by_id["in1"].status == "success"
+    assert by_id["in1"].rows == 3  # raw input
+    assert by_id["drop"].rows == 2  # one null row dropped
+    assert by_id["ren"].columns == ["alpha", "b"]
+    assert by_id["in1"].sample  # a small preview is recorded
+
+
+def test_run_with_results_marks_failed_and_skipped(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    # dropColumns on a non-existent column fails mid-graph.
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "drop", "type": "dropColumns", "data": {"config": {"columns": ["nope"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "drop", "target": "out1"},
+        ],
+    }
+    result = FlowExecutor().run_with_results(graph, _paths(ds1=input_csv), out_dir)
+    assert result.error is not None
+    assert result.output_paths == {}  # nothing written on failure
+    by_id = {r.node_id: r for r in result.node_results}
+    assert by_id["in1"].status == "success"
+    assert by_id["drop"].status == "failed"
+    assert by_id["out1"].status == "skipped"
+
+
 def test_unknown_engine_raises(tmp_path, input_csv):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
