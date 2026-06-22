@@ -113,6 +113,35 @@ export function hasCycle(nodes: GraphNodeLike[], edges: GraphEdgeLike[]): boolea
 }
 
 /**
+ * Would adding an edge from `source` to `target` introduce a directed cycle?
+ * True when source === target, or when `target` can already reach `source`
+ * (so the new edge would close a loop). Used to reject invalid connections.
+ */
+export function wouldCreateCycle(
+  edges: GraphEdgeLike[],
+  source: string,
+  target: string,
+): boolean {
+  if (source === target) return true;
+  const outgoing = new Map<string, string[]>();
+  for (const e of edges) {
+    const list = outgoing.get(e.source) ?? [];
+    list.push(e.target);
+    outgoing.set(e.source, list);
+  }
+  const stack = [target];
+  const seen = new Set<string>();
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node === source) return true;
+    if (seen.has(node)) continue;
+    seen.add(node);
+    for (const next of outgoing.get(node) ?? []) stack.push(next);
+  }
+  return false;
+}
+
+/**
  * Best-effort output columns of a node given its input columns and config.
  * The mapping mirrors what each transformation does to the schema; it is used
  * only to populate column pickers, so approximations (e.g. join = union) are
