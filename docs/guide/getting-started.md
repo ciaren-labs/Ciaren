@@ -120,7 +120,7 @@ FlowFrame runs entirely locally on your machine. No data is sent anywhere. (No S
 
 ### Can I use my own database?
 
-Not yet. FlowFrame currently works with files (CSV, Excel, Parquet). Database support is planned for v1.0.
+Not currently. FlowFrame works with files (CSV, Excel, Parquet).
 
 ## Still Have Questions?
 

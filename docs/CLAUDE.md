@@ -5,6 +5,7 @@ User-facing documentation site built with VitePress and deployed to GitHub Pages
 ## Project Summary
 
 This is the official documentation for FlowFrame — a visual ETL builder. The docs are:
+
 - **User-focused** — for analysts, developers, educators
 - **Example-driven** — every feature has walkthroughs and sample data
 - **Beginner-friendly** — explains concepts clearly
@@ -19,6 +20,7 @@ Published at: `https://rodrigo-arenas.github.io/FlowFrame`
 **Goal:** Make FlowFrame easy to learn and use through clear, example-rich documentation.
 
 **Audience:**
+
 - Analysts learning to build ETL flows visually
 - Data-curious business users
 - Python developers wanting visual pipelines
@@ -110,6 +112,7 @@ docs/
 ### Structure
 
 Every page should have:
+
 1. **Brief intro** — what you'll learn (2-3 sentences)
 2. **Prerequisites** — what you need to know/have
 3. **Step-by-step guide** — with screenshots/GIFs
@@ -273,13 +276,6 @@ df_output = df.drop(columns=['col1', 'col2'])
 - Indexed at build time
 - No external service needed
 
-### Versioning (Future)
-
-When v1.0 releases:
-- Keep current docs as "latest"
-- Archive v0.x docs at `/v0.x/`
-- Use version selector in header
-
 ---
 
 ## Documentation Development
@@ -344,34 +340,6 @@ npm run build
 
 ---
 
-## Content Calendar
-
-### MVP Launch
-
-- [ ] Getting started guide
-- [ ] Quick start tutorial
-- [ ] All transformation reference docs
-- [ ] FAQ with 20+ questions
-- [ ] 3 real-world examples
-
-### v0.2 (Month 2)
-
-- [ ] Advanced guides (custom nodes, deployment)
-- [ ] API reference
-- [ ] Video tutorials (linked)
-- [ ] Community examples showcase
-- [ ] Troubleshooting expanded
-
-### v1.0 (Month 3)
-
-- [ ] Performance optimization guide
-- [ ] Integration examples
-- [ ] Architecture deep-dive
-- [ ] Contribution guide (link to CONTRIBUTING.md)
-- [ ] Archived v0.x docs
-
----
-
 ## SEO & Analytics
 
 ### Search Engine Optimization
@@ -385,6 +353,7 @@ npm run build
 ### Analytics (Optional)
 
 Can add Google Analytics or Plausible:
+
 ```ts
 // .vitepress/config.ts
 export default {
@@ -409,6 +378,7 @@ export default {
 ### Review Process
 
 Before publishing:
+
 1. Technical review — accuracy
 2. UX review — clarity & structure
 3. Copy edit — grammar & tone
@@ -420,18 +390,22 @@ Before publishing:
 ## Tools & Dependencies
 
 ### Core
+
 - **VitePress** — static site generator
 - **Vue 3** — for interactive components (if needed)
 - **TypeScript** — config files
 
 ### Build & Optimization
+
 - **@vitejs/plugin-vue** — Vue support
 - **vite** — bundler
 
 ### Search (Optional)
+
 - **@vitepress-plugin/search** — local search
 
 ### Sample Data
+
 - **faker.js** — generate test data
 
 ---

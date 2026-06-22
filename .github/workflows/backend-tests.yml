@@ -12,39 +12,20 @@ on:
       - backend/**
       - .github/workflows/backend-tests.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: Test Python ${{ matrix.python-version }} | DB ${{ matrix.database }}
+    name: Test | Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-        database: [sqlite, postgresql]
-        exclude:
-          # PostgreSQL is heavy, only test on one Python version to save CI time
-          # Remove this if you want full matrix coverage
-          - python-version: "3.12"
-            database: postgresql
-          - python-version: "3.13"
-            database: postgresql
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: flowframe_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - name: Checkout code
@@ -56,9 +37,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v2
-        with:
-          version: latest
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         working-directory: backend
@@ -66,41 +45,25 @@ jobs:
 
       - name: Lint with Ruff
         working-directory: backend
-        run: uv run ruff check app tests --exclude migrations
+        run: uv run ruff check app tests
 
       - name: Type check with mypy
         working-directory: backend
         run: uv run mypy app
 
-      - name: Set database URL (SQLite)
-        if: matrix.database == 'sqlite'
-        run: echo "DATABASE_URL=sqlite:///./test.db" >> $GITHUB_ENV
-
-      - name: Set database URL (PostgreSQL)
-        if: matrix.database == 'postgresql'
-        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/flowframe_test" >> $GITHUB_ENV
-
+      # The test suite runs against in-memory SQLite (see tests/conftest.py),
+      # so no external database service is needed here.
       - name: Run tests with coverage
         working-directory: backend
-        run: uv run pytest tests --cov=app --cov-report=term-out --cov-report=xml --cov-fail-under=95
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: uv run pytest tests --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=95
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: ./backend/coverage.xml
-          flags: backend-py${{ matrix.python-version }}-${{ matrix.database }}
+          flags: backend-py${{ matrix.python-version }}
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && matrix.python-version == '3.11' && matrix.database == 'sqlite'
-        uses: py-cov-action/python-coverage-comment-action@v3
-        with:
-          GITHUB_TOKEN: ${{ github.token }}
-          MINIMUM_GREEN: 95
-          MINIMUM_ORANGE: 85
 
   test-summary:
     name: Test Summary
@@ -111,9 +74,8 @@ jobs:
     steps:
       - name: Check test results
         run: |
-          if [ "${{ needs.test.result }}" == "failure" ]; then
+          if [ "${{ needs.test.result }}" != "success" ]; then
             echo "❌ Backend tests failed"
             exit 1
-          else
-            echo "✅ All backend tests passed"
           fi
+          echo "✅ All backend tests passed"

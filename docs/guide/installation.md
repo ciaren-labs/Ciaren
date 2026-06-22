@@ -52,6 +52,13 @@ The `--reload` flag restarts the server when you change code. Remove it in produ
 
 ### 3. Start the Frontend
 
+:::warning UI in development
+The visual editor is not available yet — the `frontend/` directory is not part of
+the repository today. For now, FlowFrame runs as a backend service you can drive
+through its REST API (see the [API Reference](/api/rest-api)). The steps below
+describe the planned frontend setup.
+:::
+
 In a new terminal:
 
 ```bash
@@ -304,6 +311,7 @@ npm run dev -- --port 3000
 ### "Database connection failed"
 
 Check:
+
 1. DATABASE_URL in `.env`
 2. PostgreSQL is running (if using it)
 3. Migrations were run: `alembic upgrade head`

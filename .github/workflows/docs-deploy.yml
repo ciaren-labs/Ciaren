@@ -44,7 +44,6 @@ jobs:
       - name: Lint markdown
         working-directory: docs
         run: npm run lint
-        continue-on-error: false
 
   test:
     name: Test Documentation Build
