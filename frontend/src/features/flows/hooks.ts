@@ -11,8 +11,11 @@ import type {
   FlowUpdate,
 } from "@/lib/types";
 
-export function useFlows() {
-  return useQuery({ queryKey: queryKeys.flows, queryFn: flowsApi.list });
+export function useFlows(projectId?: string) {
+  return useQuery({
+    queryKey: queryKeys.flowsByProject(projectId),
+    queryFn: () => flowsApi.list(projectId),
+  });
 }
 
 export function useFlow(id: string | null) {
@@ -51,6 +54,18 @@ export function useDeleteFlow() {
   });
 }
 
+export function useToggleFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_disabled }: { id: string; is_disabled: boolean }) =>
+      flowsApi.update(id, { is_disabled }),
+    onSuccess: (flow) => {
+      qc.invalidateQueries({ queryKey: queryKeys.flows });
+      qc.invalidateQueries({ queryKey: queryKeys.flow(flow.id) });
+    },
+  });
+}
+
 export function useFlowPreview(id: string) {
   return useMutation({
     mutationFn: (body: FlowPreviewRequest) => flowsApi.preview(id, body),
@@ -63,9 +78,28 @@ export function useExportPython(id: string) {
   });
 }
 
-export function useCreateRun(id: string) {
+export function useRunFlow() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (inputDatasetId?: string) =>
-      flowsApi.createRun(id, inputDatasetId),
+    mutationFn: ({
+      flowId,
+      engine = "pandas",
+      inputDatasetId,
+    }: {
+      flowId: string;
+      engine?: string;
+      inputDatasetId?: string;
+    }) => flowsApi.createRun(flowId, { engine, inputDatasetId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+  });
+}
+
+export function useCreateRun(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (options?: { inputDatasetId?: string; engine?: string }) =>
+      flowsApi.createRun(id, options ?? {}),
+    // Invalidate every run query (lists + details) so history refreshes.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
   });
 }

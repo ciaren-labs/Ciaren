@@ -52,6 +52,27 @@ def test_fill_nulls_columns(engine, df):
     assert out["a"].tolist() == [1, 2, 2, 0]
 
 
+def test_fill_nulls_mean_strategy(engine, df):
+    out = run("fillNulls", engine, {"in": df}, {"strategy": "mean", "columns": ["a"]})
+    # mean of [1, 2, 2] = 5/3
+    assert out["a"].tolist() == pytest.approx([1, 2, 2, 5 / 3])
+
+
+def test_fill_nulls_mode_strategy(engine, df):
+    out = run("fillNulls", engine, {"in": df}, {"strategy": "mode", "columns": ["a"]})
+    assert out["a"].tolist() == [1, 2, 2, 2]  # mode is 2
+
+
+def test_fill_nulls_strategy_needs_no_value(engine, df):
+    # The 'constant' default needs a value, but a strategy does not.
+    get_transformation("fillNulls").validate_config({"strategy": "median"})
+
+
+def test_fill_nulls_bad_strategy_rejected():
+    with pytest.raises(ValueError):
+        get_transformation("fillNulls").validate_config({"strategy": "bogus"})
+
+
 def test_drop_columns(engine, df):
     out = run("dropColumns", engine, {"in": df}, {"columns": ["c"]})
     assert list(out.columns) == ["a", "b"]
@@ -80,6 +101,33 @@ def test_filter_rows_numeric(engine, df):
 def test_filter_rows_isnull(engine, df):
     out = run("filterRows", engine, {"in": df}, {"column": "a", "operator": "isnull"})
     assert len(out) == 1
+
+
+def test_filter_rows_between(engine, df):
+    out = run(
+        "filterRows",
+        engine,
+        {"in": df},
+        {"column": "c", "operator": "between", "value": 15, "value2": 25},
+    )
+    assert out["c"].tolist() == [20.0, 20.0]
+
+
+def test_filter_rows_between_needs_value2():
+    with pytest.raises(ValueError):
+        get_transformation("filterRows").validate_config(
+            {"column": "c", "operator": "between", "value": 1}
+        )
+
+
+def test_filter_rows_in(engine, df):
+    out = run(
+        "filterRows",
+        engine,
+        {"in": df},
+        {"column": "b", "operator": "in", "value": "x, z"},
+    )
+    assert out["b"].tolist() == ["x", "z"]
 
 
 def test_sort_rows(engine, df):

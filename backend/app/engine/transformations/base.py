@@ -19,6 +19,14 @@ class BaseTransformation(ABC):
 
     type: str
 
+    #: Named input handles this node reads from. Single-input nodes use the
+    #: default ``("in",)``; join overrides it with ``("left", "right")``.
+    input_handles: tuple[str, ...] = ("in",)
+
+    #: When true the node accepts an arbitrary number of incoming edges on its
+    #: ``"in"`` handle (concat). ``input_handles`` is then advisory.
+    multi_input: bool = False
+
     @abstractmethod
     def validate_config(self, config: dict[str, Any]) -> None: ...
 
@@ -36,4 +44,17 @@ class BaseTransformation(ABC):
         input_vars: dict[str, str],
         output_vars: dict[str, str],
         config: dict[str, Any],
-    ) -> str: ...
+    ) -> str:
+        """Readable **pandas** code for this node (``df`` variables)."""
+        ...
+
+    @abstractmethod
+    def to_polars_code(
+        self,
+        input_vars: dict[str, str],
+        output_vars: dict[str, str],
+        config: dict[str, Any],
+    ) -> str:
+        """Readable **polars** code for this node, co-located with ``execute`` and
+        ``to_python_code`` so a node's whole definition lives in one place."""
+        ...

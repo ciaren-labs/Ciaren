@@ -9,7 +9,8 @@ documentation deployment.
 
 Runs on every pull request and push to `main` that touches `backend/**`.
 
-- **Python versions:** 3.11, 3.12, 3.13 (matrix, run in parallel)
+- **Python versions:** 3.12, 3.13 (matrix, run in parallel)
+- **Operating systems:** Ubuntu, Windows, and macOS (matrix, run in parallel)
 - **Checks:**
   - Linting (Ruff)
   - Type checking (mypy)
@@ -74,9 +75,18 @@ npm run test:links
 
 ## Frontend Testing
 
-The frontend does not exist yet, so `frontend-tests.yml` is disabled
-(manual `workflow_dispatch` only). It will be enabled once the React app and its
-tests are added.
+The React frontend lives in `frontend/` and has a Vitest unit-test suite
+(`npm run test`). The `frontend-tests.yml` workflow (lint → type-check → test →
+build, plus a Playwright E2E job) is currently **manual only**
+(`workflow_dispatch`) while the test suite is being filled out; it is not yet wired
+to run automatically on every push. Run the checks locally with:
+
+```bash
+cd frontend
+npm ci
+npm run build      # type-check + production build
+npm run test       # Vitest unit tests
+```
 
 ## Secrets
 
@@ -86,7 +96,9 @@ tests are added.
 
 ### Tests pass locally but fail in CI
 
-- **Python version mismatch** — CI runs 3.11, 3.12, and 3.13; test against each.
+- **Python version mismatch** — CI runs 3.12 and 3.13; test against each.
+- **OS-specific behavior** — CI runs on Ubuntu, Windows, and macOS; watch for
+  path separators, line endings, and temp-dir differences.
 - **Dependencies** — run `uv sync --all-groups` to match CI.
 
 ### Coverage drops below 95%

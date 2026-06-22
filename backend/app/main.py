@@ -6,9 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import datasets, flows, runs, transformations
+from app.api.routes import datasets, flows, projects, runs, schedules, transformations
 from app.core.config import get_settings
-from app.core.database import init_db
+from app.core.database import AsyncSessionLocal, init_db
 from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
@@ -30,7 +30,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await init_db()
 
-    yield
+    runner = None
+    if settings.SCHEDULER_ENABLED:
+        from app.scheduler import SchedulerRunner
+
+        runner = SchedulerRunner(AsyncSessionLocal, settings)
+        await runner.start()
+
+    try:
+        yield
+    finally:
+        if runner is not None:
+            await runner.stop()
+        # Lazily import so the multiprocessing machinery is only touched when the
+        # process pool was actually used (EXECUTION_MODE="process").
+        from app.engine.process_pool import shutdown_process_pool
+
+        shutdown_process_pool()
 
 
 def create_app() -> FastAPI:
@@ -77,9 +93,11 @@ def create_app() -> FastAPI:
     async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
 
+    app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
     app.include_router(runs.router, prefix="/api", tags=["runs"])
+    app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(
         transformations.router, prefix="/api/transformations", tags=["transformations"]
     )

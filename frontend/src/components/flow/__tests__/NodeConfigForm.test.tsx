@@ -9,6 +9,9 @@ function dataset(id: string, source: Dataset["source_type"]): Dataset {
     id,
     name: `${id}.${source}`,
     source_type: source,
+    dataset_kind: "input",
+    is_disabled: false,
+    project_id: null,
     latest_version: 1,
     version_count: 1,
     column_schema: [{ name: "a", type: "string" }],
@@ -103,6 +106,100 @@ describe("NodeConfigForm", () => {
       columns: [],
     });
     expect(screen.getByText(/Connect an upstream input/i)).toBeInTheDocument();
+  });
+
+  it("hides the fill value input unless the constant strategy is selected", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="fillNulls"
+          config={{ strategy: "constant", value: "", columns: [] }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={onChange}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("Fill value")).toBeInTheDocument();
+
+    // Switch to mean → the constant value input disappears.
+    rerender(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="fillNulls"
+          config={{ strategy: "mean", value: "", columns: [] }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={onChange}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.queryByText("Fill value")).not.toBeInTheDocument();
+  });
+
+  it("shows an upper-bound field for the 'between' filter operator", () => {
+    renderForm({
+      type: "filterRows",
+      config: { column: "a", operator: "between", value: "1", value2: "9" },
+      columns: ["a"],
+    });
+    expect(screen.getByText("From (lower bound)")).toBeInTheDocument();
+    expect(screen.getByText("To (upper bound)")).toBeInTheDocument();
+  });
+
+  it("shows method-specific fields for Remove Outliers", () => {
+    const { rerender } = render(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="removeOutliers"
+          config={{ columns: ["a"], method: "iqr", action: "drop" }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("IQR factor")).toBeInTheDocument();
+    expect(screen.queryByText("Lower percentile")).not.toBeInTheDocument();
+
+    rerender(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="removeOutliers"
+          config={{ columns: ["a"], method: "percentile", action: "clip" }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("Lower percentile")).toBeInTheDocument();
+    expect(screen.queryByText("IQR factor")).not.toBeInTheDocument();
+  });
+
+  it("shows pad fields only for the 'pad' string operation", () => {
+    renderForm({
+      type: "stringTransform",
+      config: { column: "a", operation: "pad", width: 5 },
+      columns: ["a"],
+    });
+    expect(screen.getByText("Target width")).toBeInTheDocument();
+    expect(screen.getByText("Fill character")).toBeInTheDocument();
+  });
+
+  it("renders date-part chips for Extract Date Parts", () => {
+    renderForm({
+      type: "extractDateParts",
+      config: { column: "d", parts: ["year"] },
+      columns: ["d"],
+    });
+    expect(screen.getByRole("button", { name: "year" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "month" })).toBeInTheDocument();
   });
 
   it("selecting a chip reports the chosen column", () => {

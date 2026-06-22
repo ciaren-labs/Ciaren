@@ -1,13 +1,82 @@
 ---
 title: Time Series Analysis
-description: Work with time-based data
-search: example time series temporal
+description: Aggregate time-stamped data into monthly summaries
+search: example time series date parts monthly aggregate temporal
 ---
 
-# Time Series Analysis Example
+# Time Series Analysis
 
-Resample and smooth time-based data.
+Turn a stream of time-stamped events into a tidy monthly summary. FlowFrame does
+this by **extracting date parts** and grouping by them.
 
-:::info
-This page is coming soon!
+**You'll use:** CSV Input → Cast Types → Extract Date Parts → Group by + Aggregate
+→ Rename → Sort → CSV Output.
+
+::: info Scope
+FlowFrame aggregates time data by calendar period (year, month, day, weekday,
+hour). It does not do rolling windows or `resample`-style smoothing — for those,
+export the Python and add a `.rolling(...)` step. See *Next steps* below.
 :::
+
+## Sample data
+
+`events.csv`:
+
+```csv
+event_id,occurred_at,value
+1,2024-01-05,10
+2,2024-01-20,14
+3,2024-02-02,9
+4,2024-02-18,21
+5,2024-03-01,17
+6,2024-03-29,13
+```
+
+Upload it on the **Datasets** page.
+
+## Build the flow
+
+1. **CSV Input** — select `events.csv`.
+2. **Cast Types** — `casts: { "occurred_at": "datetime", "value": "float" }`.
+3. **Extract Date Parts** — `column: "occurred_at"`, `parts: ["year", "month"]`.
+   This adds `occurred_at_year` and `occurred_at_month` columns.
+4. **Group by + Aggregate** —
+   `group_by: ["occurred_at_year", "occurred_at_month"]`,
+   `aggregations: { "value": "sum", "event_id": "count" }`.
+5. **Rename Columns** —
+   `mapping: { "value": "total_value", "event_id": "num_events" }`.
+6. **Sort Rows** — `columns: ["occurred_at_year", "occurred_at_month"]`,
+   `ascending: true`.
+7. **CSV Output** — `path: "monthly_summary.csv"`.
+
+## Exported Python
+
+```python
+import pandas as pd
+
+df_1 = pd.read_csv("events.csv")
+df_2 = df_1.assign(**{'occurred_at': pd.to_datetime(df_1['occurred_at'])})
+df_2 = df_2.assign(**{'value': df_2['value'].astype('float64')})
+_dt = pd.to_datetime(df_2['occurred_at'])
+df_3 = df_2.assign(**{'occurred_at_year': _dt.dt.year, 'occurred_at_month': _dt.dt.month})
+df_4 = df_3.groupby(['occurred_at_year', 'occurred_at_month']).agg({'value': 'sum', 'event_id': 'count'}).reset_index()
+df_5 = df_4.rename(columns={'value': 'total_value', 'event_id': 'num_events'})
+df_6 = df_5.sort_values(by=['occurred_at_year', 'occurred_at_month'], ascending=True)
+df_6.to_csv("monthly_summary.csv", index=False)
+```
+
+## Result
+
+| occurred_at_year | occurred_at_month | total_value | num_events |
+|---|---|---|---|
+| 2024 | 1 | 24.0 | 2 |
+| 2024 | 2 | 30.0 | 2 |
+| 2024 | 3 | 30.0 | 2 |
+
+## Next steps
+
+- **Smoothing / moving averages.** Export the flow and add a rolling window to the
+  result, e.g. `df_6['rolling_avg'] = df_6['total_value'].rolling(3).mean()`.
+- **Day-of-week patterns.** Add `weekday` to the Extract Date Parts node and group
+  by it instead.
+- [Data Quality Checks](/examples/data-quality)

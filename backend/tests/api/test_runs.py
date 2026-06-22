@@ -6,11 +6,15 @@ Flow run endpoint tests.
 """
 
 import io
+import time
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pytest
 from httpx import AsyncClient
+
+from app.engine.executor import FlowExecutor, RunResult
 
 ROWS: list[dict[str, Any]] = [
     {"name": "Alice", "age": 30},
@@ -70,6 +74,22 @@ async def test_run_flow_success(client: AsyncClient, tmp_path: Path) -> None:
     assert len(pd.read_csv(out_file)) == 2
 
 
+async def test_run_records_node_results_and_dataset(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    # input_dataset_id is defaulted from the resolved input even though we didn't pass one.
+    assert run["input_dataset_id"] == ds["id"]
+
+    results = {r["node_id"]: r for r in run["node_results"]}
+    assert results["in1"]["status"] == "success"
+    assert results["in1"]["rows"] == 3
+    assert results["drop"]["rows"] == 2  # null row dropped
+    assert results["in1"]["columns"] == ["name", "age"]
+    assert results["in1"]["sample"]  # preview rows recorded
+
+
 async def test_run_flow_records_failure(client: AsyncClient) -> None:
     ds = await _upload(client)
     # Reference a column that doesn't exist -> execution error captured on the run.
@@ -92,6 +112,51 @@ async def test_run_flow_records_failure(client: AsyncClient) -> None:
     assert run["error_message"]
 
 
+async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "polars"})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["engine"] == "polars"
+    assert run["status"] == "success"
+
+
+async def test_run_with_unknown_engine_is_400(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "spark"})
+    assert r.status_code == 400
+
+
+async def test_run_defaults_to_polars_engine(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    assert run["engine"] == "polars"
+
+
+async def test_run_times_out(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+
+    def slow(self: FlowExecutor, *args: Any, **kwargs: Any) -> RunResult:
+        time.sleep(2)  # longer than the 1s limit below
+        return RunResult({}, [], None)
+
+    monkeypatch.setattr(FlowExecutor, "run_with_results", slow)
+    monkeypatch.setenv("FLOWFRAME_RUN_TIMEOUT_SECONDS", "1")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["status"] == "failed"
+    assert "time limit" in run["error_message"]
+
+
 async def test_run_flow_missing_flow_is_404(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/runs", json={})
     assert r.status_code == 404
@@ -111,3 +176,50 @@ async def test_get_run(client: AsyncClient) -> None:
 async def test_get_run_missing_is_404(client: AsyncClient) -> None:
     r = await client.get("/api/runs/nope")
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /api/runs — history list + filters
+# ---------------------------------------------------------------------------
+
+
+async def test_list_runs_returns_summaries_with_flow_name(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    await client.post(f"/api/flows/{flow['id']}/runs", json={})
+
+    r = await client.get("/api/runs")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 1
+    assert rows[0]["flow_name"] == flow["name"]
+    assert rows[0]["status"] == "success"
+    # The summary must not carry the heavy per-node payload.
+    assert "node_results" not in rows[0]
+
+
+async def test_list_runs_filters_by_flow_status_and_dataset(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    ok_flow = await _create_flow(client, _full_graph(ds["id"]))
+    bad_graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "drop", "type": "dropColumns", "data": {"config": {"columns": ["ghost"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "drop", "target": "out1"},
+        ],
+    }
+    bad_flow = await _create_flow(client, bad_graph)
+    await client.post(f"/api/flows/{ok_flow['id']}/runs", json={})
+    await client.post(f"/api/flows/{bad_flow['id']}/runs", json={})
+
+    assert len(((await client.get("/api/runs")).json())) == 2
+    assert len((await client.get("/api/runs?status=success")).json()) == 1
+    assert len((await client.get("/api/runs?status=failed")).json()) == 1
+    by_flow = (await client.get(f"/api/runs?flow_id={ok_flow['id']}")).json()
+    assert [row["flow_id"] for row in by_flow] == [ok_flow["id"]]
+    by_ds = (await client.get(f"/api/runs?dataset_id={ds['id']}")).json()
+    assert len(by_ds) == 2  # both flows read the same dataset
