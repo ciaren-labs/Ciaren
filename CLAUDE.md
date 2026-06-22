@@ -127,10 +127,16 @@ node records a `duration_ms` (in the run DAG / `node_results`) for observability
 
 ## Running
 
-`flowframe serve` (the `flowframe` console script, `app/cli.py`) boots the API
-and the background scheduler in a single process — no broker, no extra services.
-Flags: `--host/--port/--reload`, `--db-url` (overrides `DATABASE_URL`), and
-`--no-scheduler`.
+The `flowframe` console script (`app/cli.py`, stdlib argparse) is the setup
+surface. Commands:
+- `flowframe serve` — boots the API + background scheduler in a single process
+  (no broker). Flags map to env vars before the app imports:
+  `--host/--port/--reload/--log-level`, `--db-url`, `--data-dir`, `--engine`,
+  `--execution-mode`, `--no-scheduler`.
+- `flowframe init` — write a commented starter `.env` (`--path`, `--force`).
+- `flowframe info` — print the resolved settings (DB password redacted).
+- `flowframe check` — validate the environment: data dir writable, async driver,
+  database reachable, engines available (exit 1 on failure).
 
 ## Scheduling
 
