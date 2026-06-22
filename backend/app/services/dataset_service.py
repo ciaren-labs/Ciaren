@@ -73,7 +73,10 @@ class DatasetService:
         if dataset is None:
             resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
             dataset = Dataset(
-                name=name, source_type=source_type, project_id=resolved_project_id, dataset_kind="input"
+                name=name,
+                source_type=source_type,
+                project_id=resolved_project_id,
+                dataset_kind="input",
             )
             self.db.add(dataset)
             await self.db.flush()  # populate dataset.id

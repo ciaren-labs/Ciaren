@@ -21,6 +21,15 @@ _OUTPUT_WRITE = {
 }
 
 _SIMPLE_OPS = {"==", "!=", ">", ">=", "<", "<="}
+# Fill-null strategy -> polars fill_null(strategy=...) name.
+_FILL_STRATEGY = {
+    "mean": "mean",
+    "min": "min",
+    "max": "max",
+    "zero": "zero",
+    "ffill": "forward",
+    "bfill": "backward",
+}
 _CAST_DTYPE = {
     "integer": "pl.Int64",
     "float": "pl.Float64",
@@ -108,14 +117,29 @@ def _node_code(
         return f"{dst} = {src}.drop_nulls()"
 
     if node_type == "fillNulls":
-        value = config.get("value")
         columns = config.get("columns")
-        if columns:
+        strategy = config.get("strategy", "constant")
+        cols_iter = f"{columns!r}" if columns else f"{src}.columns"
+        if strategy == "constant":
+            value = config.get("value")
+            if columns:
+                return (
+                    f"{dst} = {src}.with_columns("
+                    f"[pl.col(c).fill_null({value!r}) for c in {columns!r}])"
+                )
+            return f"{dst} = {src}.fill_null({value!r})"
+        if strategy in _FILL_STRATEGY:
+            strat = _FILL_STRATEGY[strategy]
             return (
                 f"{dst} = {src}.with_columns("
-                f"[pl.col(c).fill_null({value!r}) for c in {columns!r}])"
+                f"[pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
             )
-        return f"{dst} = {src}.fill_null({value!r})"
+        # median / mode: compute the value per column, then fill.
+        agg = "median" if strategy == "median" else "mode().first"
+        return (
+            f"{dst} = {src}.with_columns("
+            f"[pl.col(c).fill_null({src}[c].{agg}()) for c in {cols_iter}])"
+        )
 
     if node_type == "dropColumns":
         return f"{dst} = {src}.drop({config['columns']!r})"
@@ -143,6 +167,18 @@ def _node_code(
             return f"{dst} = {src}.filter(pl.col({col!r}).is_null())"
         if op == "notnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_not_null())"
+        if op == "between":
+            return (
+                f"{dst} = {src}.filter(pl.col({col!r})"
+                f".is_between({val!r}, {config.get('value2')!r}))"
+            )
+        if op == "in":
+            items = (
+                val
+                if isinstance(val, list)
+                else [v.strip() for v in str(val).split(",") if v.strip()]
+            )
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({items!r}))"
         if op in {"contains", "startswith", "endswith"}:
             method = {
                 "contains": "contains",

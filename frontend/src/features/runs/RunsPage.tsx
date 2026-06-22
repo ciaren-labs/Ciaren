@@ -32,6 +32,18 @@ const DATE_CLASS =
 const STATUSES: RunStatus[] = ["success", "failed", "running", "pending"];
 const PAGE_SIZE = 25;
 
+/** Dataset cell label: a single name, or "first +N" for multi-input runs. */
+function datasetLabel(run: FlowRunSummary, datasetName: Map<string, string>): string {
+  const inputs = run.input_datasets?.length
+    ? run.input_datasets.map((d) => d.dataset_id)
+    : run.input_dataset_id
+      ? [run.input_dataset_id]
+      : [];
+  if (inputs.length === 0) return "—";
+  const first = datasetName.get(inputs[0]) ?? "—";
+  return inputs.length > 1 ? `${first} +${inputs.length - 1}` : first;
+}
+
 type SortField = "created_at" | "started_at" | "status";
 
 export function RunsPage() {
@@ -372,7 +384,7 @@ function RunRow({
         <StatusBadge status={run.status} />
       </td>
       <td className="px-4 py-2.5 text-muted-foreground">
-        {run.input_dataset_id ? datasetName.get(run.input_dataset_id) ?? "—" : "—"}
+        {datasetLabel(run, datasetName)}
       </td>
       <td className="px-4 py-2.5 text-muted-foreground">{fmt(run.created_at)}</td>
       <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
@@ -416,9 +428,9 @@ function RunCard({
           {proj.name}
         </span>
       )}
-      {run.input_dataset_id && (
+      {(run.input_datasets?.length || run.input_dataset_id) && (
         <span className="text-xs text-muted-foreground">
-          {datasetName.get(run.input_dataset_id) ?? "—"}
+          {datasetLabel(run, datasetName)}
         </span>
       )}
       <div className="flex items-center justify-between text-xs text-muted-foreground">

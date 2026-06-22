@@ -19,6 +19,14 @@ class BaseTransformation(ABC):
 
     type: str
 
+    #: Named input handles this node reads from. Single-input nodes use the
+    #: default ``("in",)``; join overrides it with ``("left", "right")``.
+    input_handles: tuple[str, ...] = ("in",)
+
+    #: When true the node accepts an arbitrary number of incoming edges on its
+    #: ``"in"`` handle (concat). ``input_handles`` is then advisory.
+    multi_input: bool = False
+
     @abstractmethod
     def validate_config(self, config: dict[str, Any]) -> None: ...
 

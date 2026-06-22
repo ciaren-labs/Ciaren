@@ -104,6 +104,11 @@ class PolarsEngine:
                 expr = col.cast(pl.Utf8).str.starts_with(str(value))
             case "endswith":
                 expr = col.cast(pl.Utf8).str.ends_with(str(value))
+            case "between":
+                low, high = value
+                expr = col.is_between(low, high)
+            case "in":
+                expr = col.is_in(list(value))
             case "isnull":
                 expr = col.is_null()
             case "notnull":
@@ -112,18 +117,41 @@ class PolarsEngine:
                 raise ValueError(f"Unknown filter operator: {operator!r}")
         return df.filter(expr)
 
+    # Strategies polars' fill_null accepts directly (rest are computed manually).
+    _FILL_STRATEGY = {
+        "mean": "mean",
+        "min": "min",
+        "max": "max",
+        "zero": "zero",
+        "ffill": "forward",
+        "bfill": "backward",
+    }
+
     def fill_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, value: Any
+        self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any
     ) -> pl.DataFrame:
         targets = columns or df.columns
         exprs = []
         for col_name in targets:
-            col_dtype = df[col_name].dtype
-            try:
-                typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
-                exprs.append(pl.col(col_name).fill_null(typed_value))
-            except Exception:
-                exprs.append(pl.col(col_name))
+            col = pl.col(col_name)
+            if strategy == "constant":
+                col_dtype = df[col_name].dtype
+                try:
+                    typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
+                    exprs.append(col.fill_null(typed_value))
+                except Exception:
+                    exprs.append(col)
+            elif strategy in self._FILL_STRATEGY:
+                exprs.append(
+                    col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy]))
+                )
+            elif strategy == "median":
+                exprs.append(col.fill_null(df[col_name].median()))
+            elif strategy == "mode":
+                modes = df[col_name].drop_nulls().mode()
+                exprs.append(col.fill_null(modes[0]) if len(modes) else col)
+            else:
+                raise ValueError(f"Unknown fill strategy: {strategy!r}")
         return df.with_columns(exprs)
 
     def drop_nulls(self, df: pl.DataFrame, columns: list[str] | None) -> pl.DataFrame:

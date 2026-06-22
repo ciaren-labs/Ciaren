@@ -108,6 +108,48 @@ describe("NodeConfigForm", () => {
     expect(screen.getByText(/Connect an upstream input/i)).toBeInTheDocument();
   });
 
+  it("hides the fill value input unless the constant strategy is selected", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="fillNulls"
+          config={{ strategy: "constant", value: "", columns: [] }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={onChange}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("Fill value")).toBeInTheDocument();
+
+    // Switch to mean → the constant value input disappears.
+    rerender(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="fillNulls"
+          config={{ strategy: "mean", value: "", columns: [] }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={onChange}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.queryByText("Fill value")).not.toBeInTheDocument();
+  });
+
+  it("shows an upper-bound field for the 'between' filter operator", () => {
+    renderForm({
+      type: "filterRows",
+      config: { column: "a", operator: "between", value: "1", value2: "9" },
+      columns: ["a"],
+    });
+    expect(screen.getByText("From (lower bound)")).toBeInTheDocument();
+    expect(screen.getByText("To (upper bound)")).toBeInTheDocument();
+  });
+
   it("selecting a chip reports the chosen column", () => {
     const onChange = vi.fn();
     renderForm({

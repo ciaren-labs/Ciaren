@@ -51,6 +51,41 @@ def test_polars_codegen_is_valid_and_uses_polars() -> None:
     compile(code, "<generated-polars>", "exec")
 
 
+def test_polars_codegen_fill_strategy_and_filter_ops() -> None:
+    graph = {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {
+                "id": "fill",
+                "type": "fillNulls",
+                "data": {"config": {"strategy": "mean", "columns": ["a"]}},
+            },
+            {
+                "id": "flt",
+                "type": "filterRows",
+                "data": {"config": {"column": "a", "operator": "between", "value": 1, "value2": 9}},
+            },
+            {
+                "id": "flt2",
+                "type": "filterRows",
+                "data": {"config": {"column": "b", "operator": "in", "value": "x, y"}},
+            },
+            {"id": "out", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "fill"},
+            {"id": "e2", "source": "fill", "target": "flt"},
+            {"id": "e3", "source": "flt", "target": "flt2"},
+            {"id": "e4", "source": "flt2", "target": "out"},
+        ],
+    }
+    code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"})
+    assert "fill_null(strategy='mean')" in code
+    assert ".is_between(1, 9)" in code
+    assert ".is_in(['x', 'y'])" in code
+    compile(code, "<generated-polars-fill>", "exec")
+
+
 def test_polars_join_and_concat() -> None:
     graph = {
         "nodes": [

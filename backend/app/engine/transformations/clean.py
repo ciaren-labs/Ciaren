@@ -30,28 +30,74 @@ class DropNullsTransformation(BaseTransformation):
 class FillNullsTransformation(BaseTransformation):
     type = "fillNulls"
 
+    _VALID_STRATEGIES = {
+        "constant",
+        "mean",
+        "median",
+        "mode",
+        "min",
+        "max",
+        "zero",
+        "ffill",
+        "bfill",
+    }
+    # Strategy -> the per-column pandas expression that computes the fill value.
+    _STRATEGY_FILL = {
+        "mean": "{s}[c].mean()",
+        "median": "{s}[c].median()",
+        "min": "{s}[c].min()",
+        "max": "{s}[c].max()",
+        "mode": "{s}[c].mode().iloc[0]",
+        "zero": "0",
+    }
+
     def validate_config(self, config: dict[str, Any]) -> None:
-        if "value" not in config:
-            raise ValueError("fillNulls requires a 'value' config key")
+        strategy = config.get("strategy", "constant")
+        if strategy not in self._VALID_STRATEGIES:
+            raise ValueError(
+                f"fillNulls 'strategy' must be one of {sorted(self._VALID_STRATEGIES)}"
+            )
+        if strategy == "constant" and "value" not in config:
+            raise ValueError("fillNulls with the 'constant' strategy requires a 'value'")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
         columns = config.get("columns") or None
-        return {"out": engine.fill_nulls(inputs["in"], columns, config["value"])}
+        strategy = config.get("strategy", "constant")
+        return {
+            "out": engine.fill_nulls(inputs["in"], columns, strategy, config.get("value"))
+        }
 
     def to_python_code(
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns = config.get("columns")
-        value = config["value"]
-        if columns:
+        strategy = config.get("strategy", "constant")
+
+        if strategy == "constant":
+            value = config.get("value")
+            if columns:
+                return (
+                    f"{dst} = {src}.assign(**{{c: {src}[c].fillna({value!r}) "
+                    f"for c in {columns!r}}})"
+                )
+            return f"{dst} = {src}.fillna({value!r})"
+
+        cols = columns or "all columns"
+        target = f"{columns!r}" if columns else f"{src}.columns"
+        if strategy in ("ffill", "bfill"):
+            method = strategy
             return (
-                f"{dst} = {src}.assign(**{{c: {src}[c].fillna({value!r}) "
-                f"for c in {columns!r}}})"
+                f"{dst} = {src}.assign(**{{c: {src}[c].{method}() "
+                f"for c in {target}}})  # fill nulls ({cols})"
             )
-        return f"{dst} = {src}.fillna({value!r})"
+        fill_expr = self._STRATEGY_FILL[strategy].format(s=src)
+        return (
+            f"{dst} = {src}.assign(**{{c: {src}[c].fillna({fill_expr}) "
+            f"for c in {target}}})  # {strategy} fill ({cols})"
+        )
 
 
 class DropColumnsTransformation(BaseTransformation):
@@ -145,17 +191,31 @@ class FilterRowsTransformation(BaseTransformation):
         required = {"column", "operator"}
         if not required.issubset(config):
             raise ValueError(f"filterRows requires keys: {required}")
+        op = config["operator"]
         # value is not required for unary operators (isnull/notnull)
-        if config["operator"] not in {"isnull", "notnull"} and "value" not in config:
+        if op not in {"isnull", "notnull"} and "value" not in config:
             raise ValueError("filterRows requires a 'value' for this operator")
+        if op == "between" and "value2" not in config:
+            raise ValueError("filterRows 'between' requires a 'value2' (upper bound)")
+
+    def _values(self, config: dict[str, Any]) -> Any:
+        """Normalize the config value(s) into what the engine expects per operator."""
+        op = config["operator"]
+        val = config.get("value")
+        if op == "between":
+            return [val, config.get("value2")]
+        if op == "in":
+            if isinstance(val, list):
+                return val
+            return [v.strip() for v in str(val).split(",") if v.strip()]
+        return val
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
         col = config["column"]
         op = config["operator"]
-        val = config.get("value")
-        return {"out": engine.filter_rows(inputs["in"], col, op, val)}
+        return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
 
     def to_python_code(
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
@@ -170,6 +230,11 @@ class FilterRowsTransformation(BaseTransformation):
             return f"{dst} = {src}[{src}[{col!r}].isna()]"
         if op == "notnull":
             return f"{dst} = {src}[{src}[{col!r}].notna()]"
+        if op == "between":
+            low, high = self._values(config)
+            return f"{dst} = {src}[{src}[{col!r}].between({low!r}, {high!r})]"
+        if op == "in":
+            return f"{dst} = {src}[{src}[{col!r}].isin({self._values(config)!r})]"
         if op in {"contains", "startswith", "endswith"}:
             return f"{dst} = {src}[{src}[{col!r}].astype(str).str.{op}({val!r})]"
         raise ValueError(f"Unknown filter operator: {op!r}")
