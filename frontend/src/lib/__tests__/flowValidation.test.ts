@@ -12,6 +12,7 @@ function dataset(
     id,
     name: `${id}`,
     source_type: source,
+    dataset_kind: "input",
     project_id: null,
     latest_version: latestVersion,
     version_count: latestVersion,

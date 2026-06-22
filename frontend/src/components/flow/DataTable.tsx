@@ -17,7 +17,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
   }
   return (
     <div className="overflow-auto">
-      <table className="w-full border-collapse text-xs">
+      <table className="border-collapse text-xs">
         <thead className="sticky top-0 bg-muted">
           <tr>
             {columns.map((col) => (

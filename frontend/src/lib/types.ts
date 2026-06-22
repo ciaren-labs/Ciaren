@@ -56,6 +56,7 @@ export interface DatasetVersion {
   version_number: number;
   row_count: number;
   column_schema: DatasetSchemaField[] | null;
+  source_run_id: string | null;
   created_at: string;
 }
 
