@@ -1,6 +1,9 @@
 from collections.abc import AsyncGenerator
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import Column, ColumnDefault, Table, inspect
+from sqlalchemy.engine import Connection
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -43,11 +46,16 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Create any missing tables on startup.
+    """Create missing tables (and missing columns) on startup.
 
-    Idempotent (only creates tables that don't exist), so it's safe to run on
-    every boot. This is the MVP convenience path; a production deployment should
-    manage schema changes through Alembic migrations instead.
+    Idempotent and database-agnostic: ``create_all`` makes any missing tables,
+    then we add columns that exist on the models but not yet in the database —
+    useful for dev databases created before a column was introduced. The DDL is
+    rendered by SQLAlchemy for the active dialect (SQLite / PostgreSQL / MySQL),
+    so there is no hand-written, dialect-specific SQL.
+
+    This is the zero-setup MVP path; a production deployment should manage schema
+    changes through Alembic migrations instead.
     """
     # Import models inside the function so they register on Base.metadata
     # without creating an import cycle (models import Base from this module).
@@ -55,21 +63,58 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        statements = await conn.run_sync(_pending_column_ddl)
 
-    # Safe migrations: add columns to databases that predate them. Each runs in
-    # its OWN transaction — on PostgreSQL a failing statement (e.g. the column
-    # already exists, which is the common case) aborts the whole transaction, so
-    # batching them together would roll back create_all above.
-    for stmt in [
-        "ALTER TABLE datasets ADD COLUMN dataset_kind TEXT DEFAULT 'input'",
-        "ALTER TABLE dataset_versions ADD COLUMN source_run_id TEXT",
-        "ALTER TABLE flows ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE datasets ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE flow_runs ADD COLUMN input_datasets_json JSON",
-    ]:
+    # Each ADD COLUMN runs in its own transaction: on PostgreSQL a failing
+    # statement aborts the whole transaction, so batching could roll back others.
+    for stmt in statements:
         try:
             async with engine.begin() as conn:
-                await conn.execute(text(stmt))
+                await conn.exec_driver_sql(stmt)
         except Exception:
-            pass  # Column already present (or table just created) — nothing to do
+            pass  # Best-effort additive migration; never block startup
+
+
+def _pending_column_ddl(connection: Connection) -> list[str]:
+    """Return ``ALTER TABLE … ADD COLUMN`` statements for every column present on
+    the models but missing from the live schema, rendered for this dialect."""
+    inspector = inspect(connection)
+    existing = set(inspector.get_table_names())
+    statements: list[str] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing:
+            continue  # whole table was just created by create_all
+        present = {col["name"] for col in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name not in present:
+                statements.append(_add_column_ddl(table, column, connection.dialect))
+    return statements
+
+
+def _add_column_ddl(table: Table, column: Column[Any], dialect: Dialect) -> str:
+    parts = [
+        f"ALTER TABLE {table.name} ADD COLUMN "
+        f"{column.name} {column.type.compile(dialect=dialect)}"
+    ]
+    default = _default_literal(column)
+    if default is not None:
+        parts.append(f"DEFAULT {default}")
+    if not column.nullable:
+        parts.append("NOT NULL")
+    return " ".join(parts)
+
+
+def _default_literal(column: Column[Any]) -> str | None:
+    """Render a column's scalar Python default as a portable SQL literal, so a
+    NOT NULL column can be added to a table that already has rows."""
+    default = column.default
+    if not isinstance(default, ColumnDefault) or not default.is_scalar:
+        return None
+    value = default.arg
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return None
