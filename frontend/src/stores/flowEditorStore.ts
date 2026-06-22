@@ -33,6 +33,7 @@ interface FlowEditorState {
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
   updateNodeLabel: (id: string, label: string) => void;
   selectNode: (id: string | null) => void;
+  setNodes: (nodes: FlowNodeType[]) => void;
   setSidebarOpen: (open: boolean) => void;
   setPreviewOpen: (open: boolean) => void;
   markClean: () => void;
@@ -114,6 +115,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   selectNode: (id) =>
     set({ selectedNodeId: id, sidebarOpen: id !== null ? true : undefined }),
 
+  setNodes: (nodes) => set({ nodes, dirty: true }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPreviewOpen: (open) => set({ previewOpen: open }),
   markClean: () => set({ dirty: false }),

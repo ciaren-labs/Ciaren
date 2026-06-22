@@ -116,7 +116,15 @@ class PolarsEngine:
         self, df: pl.DataFrame, columns: list[str] | None, value: Any
     ) -> pl.DataFrame:
         targets = columns or df.columns
-        return df.with_columns(pl.col(targets).fill_null(value))
+        exprs = []
+        for col_name in targets:
+            col_dtype = df[col_name].dtype
+            try:
+                typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
+                exprs.append(pl.col(col_name).fill_null(typed_value))
+            except Exception:
+                exprs.append(pl.col(col_name))
+        return df.with_columns(exprs)
 
     def drop_nulls(self, df: pl.DataFrame, columns: list[str] | None) -> pl.DataFrame:
         return df.drop_nulls(subset=columns or None)

@@ -5,6 +5,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  Panel,
   addEdge,
   useReactFlow,
   type Connection,
@@ -13,12 +14,14 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { hasReadyInput, isInputType, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
+import { autoLayout } from "@/lib/autoLayout";
 
 const defaultEdgeOptions = {
   type: "smoothstep" as const,
@@ -35,14 +38,13 @@ export function FlowCanvas() {
   const onNodesChange = useFlowEditorStore((s) => s.onNodesChange);
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const setEdges = useFlowEditorStore((s) => s.setEdges);
+  const setNodes = useFlowEditorStore((s) => s.setNodes);
   const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      // Enforce handle topology: a single-input target can only have one
-      // incoming edge per handle; join uses left/right; concatRows allows many.
       const targetDef = getNodeTypeDef(
         nodes.find((n) => n.id === connection.target)?.type ?? "",
       );
@@ -67,9 +69,6 @@ export function FlowCanvas() {
     [edges, nodes, setEdges],
   );
 
-  // Guard which connections are allowed. Fan-out (one source → many targets)
-  // is intentionally permitted; self-loops, cycles, duplicates, and edges into
-  // input nodes / out of output nodes are rejected.
   const isValidConnection = useCallback<IsValidConnection>(
     (conn) => {
       if (!conn.source || !conn.target || conn.source === conn.target) return false;
@@ -93,8 +92,6 @@ export function FlowCanvas() {
     [nodes, edges],
   );
 
-  // Accept nodes dragged from the palette. Non-input nodes stay blocked until a
-  // dataset-bound input exists (the same gate the palette enforces visually).
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -116,7 +113,12 @@ export function FlowCanvas() {
     [nodes, screenToFlowPosition, addNode],
   );
 
-  // Minimalist: every node renders the same brand tint in the minimap.
+  const handleAutoLayout = useCallback(() => {
+    const laid = autoLayout(nodes, edges);
+    setNodes(laid);
+    setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
+  }, [nodes, edges, setNodes, fitView]);
+
   const minimapColor = (_node: Node) => "#a78bfa";
 
   return (
@@ -135,6 +137,7 @@ export function FlowCanvas() {
         onDrop={onDrop}
         onDragOver={onDragOver}
         fitView
+        fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#cbd5e1" />
@@ -145,6 +148,16 @@ export function FlowCanvas() {
           nodeColor={minimapColor}
           className="!rounded-lg !border !border-border"
         />
+        <Panel position="top-right">
+          <button
+            onClick={handleAutoLayout}
+            title="Auto-arrange nodes"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-accent transition-colors"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Auto-arrange
+          </button>
+        </Panel>
       </ReactFlow>
     </div>
   );
