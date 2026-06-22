@@ -45,7 +45,12 @@ console.log(`Found ${mdFiles.length} markdown files\n`);
 // Check each file for broken links
 mdFiles.forEach((file) => {
   const relPath = path.relative(DOCS_DIR, file);
-  const content = fs.readFileSync(file, 'utf8');
+  const rawContent = fs.readFileSync(file, 'utf8');
+  // Strip fenced code blocks and inline code so example links inside them
+  // (e.g. documentation templates) are not treated as real links.
+  const content = rawContent
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`]*`/g, '');
   const matches = content.matchAll(MARKDOWN_PATTERN);
 
   for (const match of matches) {
