@@ -86,6 +86,103 @@ async def test_reconcile_keeps_missed_slot_with_catch_up(engine: AsyncEngine) ->
         assert schedule.next_run_at < datetime.utcnow()
 
 
+_MISSING_INPUT_GRAPH = {
+    "nodes": [{"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "missing"}}}],
+    "edges": [],
+}
+
+
+async def _make_failing_schedule(
+    factory: async_sessionmaker[AsyncSession], **kwargs: Any
+) -> str:
+    """A schedule whose flow references a non-existent dataset, so every run fails
+    (at dataset resolution, before any output dir is touched)."""
+    async with factory() as db:
+        flow = Flow(name="f", graph_json=_MISSING_INPUT_GRAPH)
+        db.add(flow)
+        await db.flush()
+        schedule = Schedule(
+            flow_id=flow.id, cron="* * * * *", timezone="UTC", next_run_at=datetime.utcnow(),
+            **kwargs,
+        )
+        db.add(schedule)
+        await db.commit()
+        return schedule.id
+
+
+def test_backoff_is_exponential_and_capped() -> None:
+    assert SchedulerRunner._backoff_seconds(60, 1) == 60
+    assert SchedulerRunner._backoff_seconds(60, 2) == 120
+    assert SchedulerRunner._backoff_seconds(60, 3) == 240
+    assert SchedulerRunner._backoff_seconds(60, 30) == 3600  # capped
+
+
+async def test_recover_orphaned_runs_marks_running_as_failed(engine: AsyncEngine) -> None:
+    factory = _factory(engine)
+    async with factory() as db:
+        flow = Flow(name="f", graph_json={})
+        db.add(flow)
+        await db.flush()
+        alive = FlowRun(flow_id=flow.id, status="running", started_at=datetime.utcnow())
+        done = FlowRun(flow_id=flow.id, status="success", started_at=datetime.utcnow())
+        db.add_all([alive, done])
+        await db.commit()
+        alive_id, done_id = alive.id, done.id
+
+    await SchedulerRunner(factory, get_settings())._recover_orphaned_runs()
+
+    async with factory() as db:
+        recovered = await db.get(FlowRun, alive_id)
+        untouched = await db.get(FlowRun, done_id)
+        assert recovered is not None and recovered.status == "failed"
+        assert recovered.error_message == "Run interrupted by a server restart."
+        assert recovered.finished_at is not None
+        assert untouched is not None and untouched.status == "success"  # left alone
+
+
+async def test_auto_disable_after_consecutive_failures(engine: AsyncEngine) -> None:
+    factory = _factory(engine)
+    # Default threshold is 5; start one short so a single failing fire trips it.
+    sid = await _make_failing_schedule(factory, consecutive_failures=4)
+
+    await SchedulerRunner(factory, get_settings())._fire(sid)
+
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        assert schedule.consecutive_failures == 5
+        assert schedule.enabled is False
+        assert schedule.next_run_at is None
+        assert schedule.disabled_reason is not None
+        assert "Auto-disabled" in schedule.disabled_reason
+
+
+async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: AsyncEngine) -> None:
+    factory = _factory(engine)
+    sid = await _make_failing_schedule(factory, max_retries=2, retry_delay_seconds=60)
+    runner = SchedulerRunner(factory, get_settings())
+
+    # First two failures consume retries (next_run_at = backoff, in the future).
+    for expected_retry in (1, 2):
+        await runner._fire(sid)
+        async with factory() as db:
+            schedule = await db.get(Schedule, sid)
+            assert schedule is not None
+            assert schedule.enabled is True
+            assert schedule.retry_count == expected_retry
+            assert schedule.next_run_at is not None
+            assert schedule.next_run_at > datetime.utcnow()
+
+    # Third failure exhausts retries -> reset counter, advance to next cron slot.
+    await runner._fire(sid)
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        assert schedule.retry_count == 0
+        assert schedule.consecutive_failures == 3
+        assert schedule.enabled is True
+
+
 async def test_tick_skips_in_flight_schedule(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.utcnow() - timedelta(minutes=1)

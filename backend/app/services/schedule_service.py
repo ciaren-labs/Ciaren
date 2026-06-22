@@ -74,6 +74,13 @@ class ScheduleService:
         for field, value in updates.items():
             setattr(schedule, field, value)
 
+        # Re-enabling clears the failure streak so an auto-disabled schedule gets
+        # a clean slate instead of tripping the threshold again immediately.
+        if updates.get("enabled") is True:
+            schedule.consecutive_failures = 0
+            schedule.retry_count = 0
+            schedule.disabled_reason = None
+
         # Recompute the next fire time when the cadence changed or the schedule
         # was just (re)enabled; clear it when disabled so the poller ignores it.
         if not schedule.enabled:
@@ -106,13 +113,17 @@ class ScheduleService:
             trigger="schedule",
         )
         # Reflect the manual fire on the schedule, but leave next_run_at untouched
-        # so an ad-hoc run doesn't shift the recurring cadence.
+        # so an ad-hoc run doesn't shift the recurring cadence. A manual run stays
+        # out of the auto-disable/retry machinery: a success clears the failure
+        # streak (a good "it's fixed now" signal), but a failure never counts
+        # toward auto-disabling — only the scheduler's own runs do.
         schedule.last_fired_at = datetime.utcnow()
         schedule.last_status = run.status
         schedule.last_run_id = run.id
-        schedule.consecutive_failures = (
-            0 if run.status == "success" else schedule.consecutive_failures + 1
-        )
+        if run.status == "success":
+            schedule.consecutive_failures = 0
+            schedule.retry_count = 0
+            schedule.disabled_reason = None
         await self.db.commit()
         return run
 

@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_POLL_INTERVAL_SECONDS: int = 30
     SCHEDULER_MAX_CONCURRENT_RUNS: int = 1
+    # Auto-disable a schedule after this many consecutive failed runs (0 = never).
+    SCHEDULER_MAX_CONSECUTIVE_FAILURES: int = 5
 
     @property
     def max_upload_bytes(self) -> int:

@@ -13,6 +13,8 @@ class ScheduleCreate(BaseModel):
     input_dataset_id: str | None = None
     enabled: bool = True
     catch_up: bool = False
+    max_retries: int = Field(0, ge=0, le=10)
+    retry_delay_seconds: int = Field(60, ge=1)
 
 
 class ScheduleUpdate(BaseModel):
@@ -24,6 +26,8 @@ class ScheduleUpdate(BaseModel):
     input_dataset_id: str | None = None
     enabled: bool | None = None
     catch_up: bool | None = None
+    max_retries: int | None = Field(None, ge=0, le=10)
+    retry_delay_seconds: int | None = Field(None, ge=1)
 
 
 class ScheduleRead(BaseModel):
@@ -37,11 +41,15 @@ class ScheduleRead(BaseModel):
     input_dataset_id: str | None
     enabled: bool
     catch_up: bool
+    max_retries: int
+    retry_delay_seconds: int
     next_run_at: datetime | None
     last_fired_at: datetime | None
     last_run_id: str | None
     last_status: str | None
     consecutive_failures: int
+    retry_count: int
+    disabled_reason: str | None
     created_at: datetime
     updated_at: datetime
 
