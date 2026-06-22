@@ -75,9 +75,18 @@ npm run test:links
 
 ## Frontend Testing
 
-The frontend does not exist yet, so `frontend-tests.yml` is disabled
-(manual `workflow_dispatch` only). It will be enabled once the React app and its
-tests are added.
+The React frontend lives in `frontend/` and has a Vitest unit-test suite
+(`npm run test`). The `frontend-tests.yml` workflow (lint → type-check → test →
+build, plus a Playwright E2E job) is currently **manual only**
+(`workflow_dispatch`) while the test suite is being filled out; it is not yet wired
+to run automatically on every push. Run the checks locally with:
+
+```bash
+cd frontend
+npm ci
+npm run build      # type-check + production build
+npm run test       # Vitest unit tests
+```
 
 ## Secrets
 

@@ -27,8 +27,8 @@ const FEATURES = [
   },
   {
     icon: Zap,
-    title: "pandas or polars",
-    body: "Run on pandas by default, or switch to polars for faster, lighter execution.",
+    title: "polars or pandas",
+    body: "Runs on polars by default for fast, light execution — switch to pandas per run any time.",
   },
   {
     icon: Database,

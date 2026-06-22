@@ -4,10 +4,10 @@ FlowFrame uses a **purple-based, minimalist** visual language. This page is the
 single source of truth for colour, type, spacing, motion and component style —
 the web app and this documentation site share the same palette.
 
-::: info Status
-The visual editor (`frontend/`) is in progress. This page documents the design
-language it targets; references to `frontend/` tokens describe the planned
-implementation. The documentation site itself already uses this purple palette.
+::: info
+This page is the single source of truth for the FlowFrame visual language. The
+web app (`frontend/`) and this documentation site share the same purple palette.
+Token references point at the live implementation in `frontend/src/`.
 :::
 
 > For contributors: tokens live in `frontend/src/index.css` as CSS variables and
