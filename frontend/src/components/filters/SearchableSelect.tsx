@@ -86,7 +86,7 @@ export function SearchableSelect({
       </button>
 
       {open && (
-        <div className="animate-scale-in absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+        <div className="animate-scale-in absolute z-50 mt-1 min-w-full w-max max-w-xs overflow-hidden rounded-lg border border-border bg-popover shadow-md">
           <div className="flex items-center gap-2 border-b border-border px-2.5">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
@@ -136,7 +136,7 @@ function Row({
       )}
     >
       <Check className={cn("h-3.5 w-3.5 shrink-0", active ? "opacity-100 text-primary" : "opacity-0")} />
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
 }

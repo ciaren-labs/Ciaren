@@ -24,6 +24,7 @@ class DatasetRead(BaseModel):
     id: str
     name: str
     source_type: str
+    dataset_kind: str = "input"  # "input" (uploaded) or "output" (flow-generated)
     project_id: str | None = None
     latest_version: int
     version_count: int

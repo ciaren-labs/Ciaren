@@ -12,6 +12,9 @@ from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
+from app.services.dataset_service import DatasetService
+
+_OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
 
 
 class ExecutionService:
@@ -72,6 +75,26 @@ class ExecutionService:
                         "versions": resolved_versions,
                     },
                 ]
+                # Register named output nodes as reusable output datasets (best-effort).
+                if result.output_paths:
+                    dataset_service = DatasetService(self.db)
+                    graph_nodes = (flow.graph_json or {}).get("nodes", [])
+                    for node_id, out_path in result.output_paths.items():
+                        node = next((n for n in graph_nodes if n["id"] == node_id), None)
+                        if node:
+                            config = node.get("data", {}).get("config", {})
+                            dataset_name = (config.get("dataset_name") or "").strip()
+                            if dataset_name:
+                                src_type = _OUTPUT_TYPE_MAP.get(node.get("type", ""), "csv")
+                                try:
+                                    await dataset_service.register_output(
+                                        name=dataset_name,
+                                        source_type=src_type,
+                                        file_path=out_path,
+                                        project_id=flow.project_id,
+                                    )
+                                except Exception:  # noqa: BLE001
+                                    pass  # Don't fail the run on dataset registration errors
             else:
                 run.status = "failed"
                 run.error_message = result.error

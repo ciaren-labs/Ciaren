@@ -105,9 +105,9 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   }),
   concatRows: z.object({}),
 
-  csvOutput: z.object({ path: z.string().optional() }),
-  excelOutput: z.object({ path: z.string().optional() }),
-  parquetOutput: z.object({ path: z.string().optional() }),
+  csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
+  excelOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
+  parquetOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
 };
 
 export function getConfigSchema(type: string): z.ZodTypeAny {

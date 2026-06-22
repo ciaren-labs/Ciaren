@@ -55,6 +55,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [uploadProjectId, setUploadProjectId] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
   const [selected, setSelected] = useState<Dataset | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
@@ -101,12 +102,13 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
     let list = datasets ?? [];
     if (scoped) list = list.filter((d) => d.project_id === projectId);
     else if (projectFilter) list = list.filter((d) => d.project_id === projectFilter);
+    if (kindFilter) list = list.filter((d) => d.dataset_kind === kindFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((d) => d.name.toLowerCase().includes(q));
     }
     return list;
-  }, [datasets, scoped, projectId, projectFilter, search]);
+  }, [datasets, scoped, projectId, projectFilter, kindFilter, search]);
 
   const groups = useMemo(() => {
     if (scoped || projectFilter) return null;
@@ -192,6 +194,17 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
             />
           </FilterField>
         )}
+        <FilterField label="Type" className="min-w-[8rem]">
+          <SearchableSelect
+            value={kindFilter}
+            onChange={setKindFilter}
+            allLabel="All types"
+            options={[
+              { value: "input", label: "Uploads" },
+              { value: "output", label: "Outputs" },
+            ]}
+          />
+        </FilterField>
       </FilterBar>
 
       {isLoading && (
@@ -291,8 +304,15 @@ function DatasetCard({ dataset: d, onClick }: { dataset: Dataset; onClick: () =>
           <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-white shadow-sm", meta.tint)}>
             <Icon className="h-5 w-5" />
           </span>
-          <div className="min-w-0">
-            <CardTitle className="truncate text-sm">{d.name}</CardTitle>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <CardTitle className="truncate text-sm">{d.name}</CardTitle>
+              {d.dataset_kind === "output" && (
+                <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                  output
+                </span>
+              )}
+            </div>
             <CardDescription className="text-xs">
               {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
               {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : "v1"}

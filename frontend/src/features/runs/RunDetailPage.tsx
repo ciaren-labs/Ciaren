@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Download, Loader2 } from "lucide-react";
 import { useRun } from "./hooks";
 import { useFlow } from "@/features/flows/hooks";
 import { RunDag } from "@/components/run/RunDag";
@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import type { NodeResult } from "@/lib/types";
+
+const OUTPUT_NODE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -81,7 +83,7 @@ export function RunDetailPage() {
         {/* Node inspector */}
         <aside className="flex w-[26rem] shrink-0 flex-col border-l border-border bg-muted/20">
           {selected ? (
-            <NodeInspector result={selected} />
+            <NodeInspector result={selected} runId={runId ?? ""} />
           ) : (
             <RunSummary results={results} />
           )}
@@ -131,7 +133,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
   );
 }
 
-function NodeInspector({ result }: { result: NodeResult }) {
+function NodeInspector({ result, runId }: { result: NodeResult; runId: string }) {
   const Icon = getNodeIcon(result.type);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -148,6 +150,18 @@ function NodeInspector({ result }: { result: NodeResult }) {
         </div>
         <StatusBadge status={result.status} />
       </div>
+
+      {OUTPUT_NODE_TYPES.has(result.type) && result.status === "success" && (
+        <div className="border-b border-border px-4 py-2">
+          <a
+            href={`/api/runs/${runId}/output?node_id=${encodeURIComponent(result.node_id)}`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100"
+          >
+            <Download className="h-4 w-4" /> Download output
+          </a>
+        </div>
+      )}
 
       {result.status === "failed" && result.error ? (
         <div className="m-4 rounded-lg bg-destructive/5 p-3 text-xs text-destructive">
