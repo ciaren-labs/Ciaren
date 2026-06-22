@@ -5,13 +5,16 @@ export interface DatasetSchemaField {
   type: string;
 }
 
+export type DatasetSourceType = "csv" | "excel" | "parquet";
+
 export interface Dataset {
   id: string;
   name: string;
-  source_type: string;
-  location: string;
-  schema_json: DatasetSchemaField[] | null;
-  sample_json: Record<string, unknown>[] | null;
+  source_type: DatasetSourceType;
+  // The backend exposes these under aliased names (column_schema / data_sample);
+  // `location` is intentionally never sent to the client.
+  column_schema: DatasetSchemaField[] | null;
+  data_sample: Record<string, unknown>[] | null;
   created_at: string;
   updated_at: string;
 }

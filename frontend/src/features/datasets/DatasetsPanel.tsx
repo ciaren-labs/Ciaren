@@ -64,7 +64,7 @@ export function DatasetsPanel() {
               <CardTitle className="text-base">{d.name}</CardTitle>
               <CardDescription>
                 {d.source_type} ·{" "}
-                {d.schema_json ? `${d.schema_json.length} columns` : "schema n/a"}
+                {d.column_schema ? `${d.column_schema.length} columns` : "schema n/a"}
               </CardDescription>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground">
