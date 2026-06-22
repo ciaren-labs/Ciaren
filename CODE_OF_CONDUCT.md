@@ -30,23 +30,6 @@ Examples of unacceptable behavior include:
 
 ---
 
-## Enforcement
-
-### Reporting Incidents
-
-If you witness or experience unacceptable behavior, or have any other concerns, **please report it** to the maintainers:
-
-📧 Email: rodrigo.arenas456@gmail.com
-
-**Please include:**
-- Who was involved
-- What happened (as much detail as comfortable)
-- When it occurred
-- Any relevant links or screenshots
-- How it affected you or others
-
-All reports will be handled confidentially.
-
 ### Consequences
 
 Maintainers who do not follow or enforce the Code of Conduct will face consequences determined by project leadership. Possible consequences include:
