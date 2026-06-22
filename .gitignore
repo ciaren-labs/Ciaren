@@ -220,3 +220,7 @@ __marimo__/
 .idea/
 .CLAUDE.md
 .architecture.md
+
+# Local dev databases / data dirs (SQLite default; not for VCS)
+backend/*.db
+backend/.dev_data/
