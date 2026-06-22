@@ -1,5 +1,6 @@
 // Small helper inputs used inside node config forms. These work on plain
 // values and call onChange — the parent form wires them to the editor store.
+import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -33,6 +34,16 @@ export function Field({ label, error, children, hint, help }: FieldProps) {
 function withSelected(columns: string[], extra: string[]): string[] {
   const seen = new Set(columns);
   return [...columns, ...extra.filter((c) => c && !seen.has(c))];
+}
+
+/** Shown when a column picker has no schema yet (node not connected to a source). */
+export function ConnectHint() {
+  return (
+    <p className="text-[11px] text-muted-foreground">
+      Connect an upstream input to pick columns from its schema. You can also type
+      names manually.
+    </p>
+  );
 }
 
 interface CsvListInputProps {
@@ -70,11 +81,14 @@ interface ColumnSelectProps {
 export function ColumnSelect({ value, columns, onChange, placeholder }: ColumnSelectProps) {
   if (columns.length === 0) {
     return (
-      <Input
-        value={value ?? ""}
-        placeholder={placeholder ?? "column name"}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div className="flex flex-col gap-1">
+        <Input
+          value={value ?? ""}
+          placeholder={placeholder ?? "column name"}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <ConnectHint />
+      </div>
     );
   }
   const options = withSelected(columns, value ? [value] : []);
@@ -106,7 +120,12 @@ export function ColumnMultiSelect({
 }: ColumnMultiSelectProps) {
   const selected = value ?? [];
   if (columns.length === 0) {
-    return <CsvListInput value={value} onChange={onChange} placeholder={placeholder} />;
+    return (
+      <div className="flex flex-col gap-1">
+        <CsvListInput value={value} onChange={onChange} placeholder={placeholder} />
+        <ConnectHint />
+      </div>
+    );
   }
   const options = withSelected(columns, selected);
   const toggle = (c: string) =>
@@ -134,6 +153,90 @@ export function ColumnMultiSelect({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+interface ColumnKeyedEditorProps {
+  value: Record<string, string> | undefined;
+  /** Known upstream columns (this editor is only used when non-empty). */
+  columns: string[];
+  onChange: (v: Record<string, string>) => void;
+  /** Renders the value cell for a row (e.g. a dtype or aggregation select). */
+  renderValue: (val: string, onValueChange: (v: string) => void) => React.ReactNode;
+  /** Value assigned to a newly-added column. */
+  defaultValue: string;
+}
+
+/**
+ * Edits a Record<column, value> where the key is chosen from a real column
+ * dropdown (no free typing). Each row has a remove button; the add control only
+ * offers columns not yet used. Used by Change Type, Group-By and Rename when the
+ * upstream schema is known.
+ */
+export function ColumnKeyedEditor({
+  value,
+  columns,
+  onChange,
+  renderValue,
+  defaultValue,
+}: ColumnKeyedEditorProps) {
+  const entries = Object.entries(value ?? {});
+  const used = new Set(entries.map(([k]) => k));
+
+  const commit = (next: [string, string][]) => {
+    const obj: Record<string, string> = {};
+    for (const [k, v] of next) if (k) obj[k] = v;
+    onChange(obj);
+  };
+  const updateKey = (idx: number, key: string) =>
+    commit(entries.map((e, i) => (i === idx ? [key, e[1]] : e)));
+  const updateVal = (idx: number, val: string) =>
+    commit(entries.map((e, i) => (i === idx ? [e[0], val] : e)));
+  const removeRow = (idx: number) => commit(entries.filter((_, i) => i !== idx));
+  const addRow = (key: string) => key && commit([...entries, [key, defaultValue]]);
+
+  const available = columns.filter((c) => !used.has(c));
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {entries.map(([k, v], idx) => {
+        const options = withSelected(columns.filter((c) => c === k || !used.has(c)), [k]);
+        return (
+          <div key={idx} className="flex items-center gap-1">
+            <Select
+              className="h-8 flex-1"
+              value={k}
+              onChange={(e) => updateKey(idx, e.target.value)}
+            >
+              {options.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            {renderValue(v, (nv) => updateVal(idx, nv))}
+            <button
+              type="button"
+              onClick={() => removeRow(idx)}
+              aria-label={`Remove ${k}`}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })}
+      {available.length > 0 && (
+        <Select className="h-8" value="" onChange={(e) => addRow(e.target.value)}>
+          <option value="">+ Add column…</option>
+          {available.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   );
 }
