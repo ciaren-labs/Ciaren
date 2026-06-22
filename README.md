@@ -212,6 +212,7 @@ required copyright notices and license text. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
+- Created and maintained by **Rodrigo Arenas** — [rodrigo-arenas.com](https://www.rodrigo-arenas.com/) · [GitHub](https://github.com/rodrigo-arenas)
 - Built with [FastAPI](https://fastapi.tiangolo.com/), [React Flow](https://reactflow.dev/),
   [pandas](https://pandas.pydata.org/), [polars](https://pola.rs/), and [shadcn/ui](https://ui.shadcn.com/)
 - Inspired by the simplicity of pandas and the visual design of node-based editors

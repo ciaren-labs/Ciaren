@@ -17,7 +17,10 @@ Python.
 
 ### Who created FlowFrame?
 
-FlowFrame is open-source and created by [Rodrigo Arenas](https://github.com/rodrigo-arenas). [Contributions welcome!](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+FlowFrame was created and is maintained by **Rodrigo Arenas** —
+[personal site](https://www.rodrigo-arenas.com/) ·
+[GitHub](https://github.com/rodrigo-arenas). It is open-source and
+[contributions are welcome](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
 
 ### How much does FlowFrame cost?
 
