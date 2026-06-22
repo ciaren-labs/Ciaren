@@ -20,10 +20,17 @@ import {
   useUpdateProject,
 } from "./hooks";
 import { ProjectFormDialog } from "./ProjectFormDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { projectColor } from "@/lib/projectColors";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+type PendingAction =
+  | { kind: "disable"; project: Project }
+  | { kind: "enable"; project: Project }
+  | { kind: "delete"; project: Project };
 
 export function ProjectsPage() {
   const navigate = useNavigate();
@@ -35,7 +42,44 @@ export function ProjectsPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [layout, setLayout] = useState<"cards" | "table">("cards");
+  const [layout, setLayout] = useLayoutPreference("projects", "cards");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+
+  const handleConfirm = () => {
+    if (!pendingAction) return;
+    const { kind, project } = pendingAction;
+    setPendingAction(null);
+    if (kind === "delete") deleteProject.mutate(project.id);
+    else if (kind === "disable") toggleProject.mutate({ id: project.id, is_disabled: true });
+    else toggleProject.mutate({ id: project.id, is_disabled: false });
+  };
+
+  const confirmTitle =
+    pendingAction?.kind === "delete"
+      ? `Delete "${pendingAction.project.name}"?`
+      : pendingAction?.kind === "disable"
+        ? `Disable "${pendingAction.project.name}"?`
+        : `Enable "${pendingAction.project.name}"?`;
+
+  const confirmDescription =
+    pendingAction?.kind === "delete" ? (
+      <p>
+        This will permanently delete the project. Its datasets and flows will be moved to the
+        Default project.
+      </p>
+    ) : pendingAction?.kind === "disable" ? (
+      <div className="space-y-1.5">
+        <p>
+          The project will be marked as disabled. All its datasets and flows will also be disabled.
+        </p>
+        <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
+          Flows in this project will become read-only and cannot be run until the project or each
+          flow is re-enabled individually.
+        </p>
+      </div>
+    ) : (
+      <p>The project will be re-enabled. Datasets and flows disabled by this project cascade are not automatically re-enabled — do that individually if needed.</p>
+    );
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -90,16 +134,10 @@ export function ProjectsPage() {
               project={project}
               onOpen={() => navigate(`/projects/${project.id}`)}
               onEdit={() => setEditing(project)}
-              onToggle={() => toggleProject.mutate({ id: project.id, is_disabled: !project.is_disabled })}
-              onDelete={() => {
-                if (
-                  confirm(
-                    `Delete project "${project.name}"? Its datasets and flows move to Default.`,
-                  )
-                ) {
-                  deleteProject.mutate(project.id);
-                }
-              }}
+              onToggle={() =>
+                setPendingAction({ kind: project.is_disabled ? "enable" : "disable", project })
+              }
+              onDelete={() => setPendingAction({ kind: "delete", project })}
             />
           ))}
         </div>
@@ -108,11 +146,8 @@ export function ProjectsPage() {
           projects={projects ?? []}
           onOpen={(id) => navigate(`/projects/${id}`)}
           onEdit={(p) => setEditing(p)}
-          onToggle={(p) => toggleProject.mutate({ id: p.id, is_disabled: !p.is_disabled })}
-          onDelete={(p) => {
-            if (confirm(`Delete project "${p.name}"? Its datasets and flows move to Default.`))
-              deleteProject.mutate(p.id);
-          }}
+          onToggle={(p) => setPendingAction({ kind: p.is_disabled ? "enable" : "disable", project: p })}
+          onDelete={(p) => setPendingAction({ kind: "delete", project: p })}
         />
       )}
 
@@ -140,6 +175,23 @@ export function ProjectsPage() {
             { onSuccess: () => setEditing(null) },
           )
         }
+      />
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(o) => !o && setPendingAction(null)}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={
+          pendingAction?.kind === "delete"
+            ? "Delete"
+            : pendingAction?.kind === "disable"
+              ? "Disable"
+              : "Enable"
+        }
+        variant={pendingAction?.kind === "delete" ? "destructive" : "warning"}
+        isPending={deleteProject.isPending || toggleProject.isPending}
+        onConfirm={handleConfirm}
       />
     </div>
   );
@@ -211,7 +263,10 @@ function ProjectCard({
           <>
             <button
               onClick={onToggle}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className={cn(
+                "rounded-md p-1.5 transition-colors hover:bg-muted",
+                project.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+              )}
               title={project.is_disabled ? "Enable project" : "Disable project"}
             >
               <Power className="h-3.5 w-3.5" />
@@ -301,7 +356,10 @@ function ProjectTable({
                       <>
                         <button
                           onClick={() => onToggle(project)}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className={cn(
+                            "rounded-md p-1.5 transition-colors hover:bg-muted",
+                            project.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+                          )}
                           title={project.is_disabled ? "Enable" : "Disable"}
                         >
                           <Power className="h-3.5 w-3.5" />

@@ -7,11 +7,13 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Pencil,
   Play,
   Power,
   Save,
 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { FlowEditDialog } from "./FlowEditDialog";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
@@ -56,6 +58,7 @@ export function FlowEditorPage() {
   const projectName = (projects ?? []).find((p) => p.id === flowProjectId)?.name ?? null;
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
   const createRun = useCreateRun(flowId ?? "");
   const toggleFlow = useToggleFlow();
@@ -154,6 +157,13 @@ export function FlowEditorPage() {
               <ArrowLeft className="h-4 w-4" /> Flows
             </Button>
             <h1 className="text-sm font-semibold">{flow.name}</h1>
+            <button
+              onClick={() => setEditOpen(true)}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Rename flow"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
             {projectName && (
               <span className="text-xs text-muted-foreground">
                 / {projectName}
@@ -273,6 +283,20 @@ export function FlowEditorPage() {
         flowId={flow.id}
         open={exportOpen}
         onOpenChange={setExportOpen}
+      />
+
+      <FlowEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        flow={flow}
+        submitting={updateFlow.isPending}
+        error={updateFlow.error}
+        onSubmit={(values) =>
+          updateFlow.mutate(
+            { id: flow.id, body: { name: values.name, description: values.description } },
+            { onSuccess: () => setEditOpen(false) },
+          )
+        }
       />
     </ReactFlowProvider>
   );
