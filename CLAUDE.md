@@ -135,11 +135,25 @@ surface. Commands:
 - `flowframe serve` — boots the API + background scheduler in a single process
   (no broker). Flags map to env vars before the app imports:
   `--host/--port/--reload/--log-level`, `--db-url`, `--data-dir`, `--engine`,
-  `--execution-mode`, `--no-scheduler`.
+  `--execution-mode`, `--no-scheduler`. Default port is **8055**.
 - `flowframe init` — write a commented starter `.env` (`--path`, `--force`).
 - `flowframe info` — print the resolved settings (DB password redacted).
 - `flowframe check` — validate the environment: data dir writable, async driver,
   database reachable, engines available (exit 1 on failure).
+- `flowframe db upgrade|current|reset` — Alembic schema management (see DB note).
+- `flowframe transformations list` — list registered node types from the registry.
+
+Commands that resolve settings accept `--env-file PATH` (load a specific `.env`
+before settings resolve; existing env vars win, serve flags still override).
+`info`/`check`/`transformations list` accept `--output table|json`.
+
+**Database migrations:** the Alembic environment lives in `app/migrations/` (so
+it ships in the wheel, not a sibling dir). `flowframe db upgrade` applies
+migrations; because `serve` still bootstraps the schema via `create_all`,
+`upgrade` **adopts** an existing un-migrated DB by stamping the current head
+instead of re-creating tables — so adopting Alembic is non-destructive. SQLite
+runs migrations in batch mode (`render_as_batch`). `db reset` is destructive,
+requires `--yes`, and refuses when `ENVIRONMENT=production` unless `--force`.
 
 ## Scheduling
 

@@ -27,7 +27,7 @@ FlowFrame uses async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or
 Install the matching driver (`asyncpg`, `aiomysql`) for non-SQLite databases.
 The schema is created automatically on startup, so there is no migration step.
 
-## "Port 8000 already in use"
+## "Port 8055 already in use"
 
 Start the server on another port:
 
@@ -37,7 +37,7 @@ flowframe serve --port 8001
 
 ## Frontend can't reach the backend
 
-The dev server proxies `/api` to `http://localhost:8000` by default. If your
+The dev server proxies `/api` to `http://localhost:8055` by default. If your
 backend runs elsewhere, point the proxy at it:
 
 ```bash

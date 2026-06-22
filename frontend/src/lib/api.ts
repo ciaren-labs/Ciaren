@@ -1,5 +1,5 @@
 // Centralized, typed API client for the FlowFrame backend.
-// All requests go through the Vite dev proxy: /api -> http://localhost:8000
+// All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
   Dataset,

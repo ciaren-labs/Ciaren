@@ -8,16 +8,19 @@ Exposed as the ``flowframe`` console script (see ``[project.scripts]``), so a
 ``serve`` boots the FastAPI app in one process; the app's lifespan starts the
 background scheduler, so the API and scheduled runs share that single process —
 no broker, no extra services. The ``init`` / ``info`` / ``check`` commands help
-first-time setup and troubleshooting. Uses only argparse (stdlib) to keep setup
-trivial; serve flags are translated to the env vars the Settings layer reads
-before the app is imported.
+first-time setup and troubleshooting, ``db`` manages the schema through Alembic
+migrations, and ``transformations`` lists the available node types. Uses only
+argparse (stdlib) to keep setup trivial; serve flags are translated to the env
+vars the Settings layer reads before the app is imported.
 """
 
 import argparse
+import json
 import os
 import re
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Any
 
 _ASYNC_SCHEMES = ("sqlite+aiosqlite", "postgresql+asyncpg", "mysql+aiomysql")
 
@@ -73,11 +76,32 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command")
 
+    # Shared across commands that resolve settings: point at a specific .env file
+    # instead of the ./.env picked up by default.
+    env_file_parent = argparse.ArgumentParser(add_help=False)
+    env_file_parent.add_argument(
+        "--env-file",
+        default=None,
+        metavar="PATH",
+        help="Load environment variables from this file before resolving settings.",
+    )
+
+    # Shared by read-only commands that can emit machine-readable output.
+    output_parent = argparse.ArgumentParser(add_help=False)
+    output_parent.add_argument(
+        "--output",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table).",
+    )
+
     serve = sub.add_parser(
-        "serve", help="Run the API server together with the background scheduler."
+        "serve",
+        help="Run the API server together with the background scheduler.",
+        parents=[env_file_parent],
     )
     serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1).")
-    serve.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000).")
+    serve.add_argument("--port", type=int, default=8055, help="Bind port (default: 8055).")
     serve.add_argument(
         "--reload", action="store_true", help="Auto-reload on code changes (development only)."
     )
@@ -121,11 +145,73 @@ def build_parser() -> argparse.ArgumentParser:
         "--force", action="store_true", help="Overwrite the file if it already exists."
     )
 
-    sub.add_parser("info", help="Print the resolved configuration the server would use.")
     sub.add_parser(
-        "check", help="Validate the environment (data dir, database connectivity, engines)."
+        "info",
+        help="Print the resolved configuration the server would use.",
+        parents=[env_file_parent, output_parent],
+    )
+    sub.add_parser(
+        "check",
+        help="Validate the environment (data dir, database connectivity, engines).",
+        parents=[env_file_parent, output_parent],
+    )
+
+    db = sub.add_parser("db", help="Manage the database schema (Alembic migrations).")
+    db_sub = db.add_subparsers(dest="db_command")
+    db_upgrade = db_sub.add_parser(
+        "upgrade",
+        help="Apply migrations up to the latest revision (safe to re-run).",
+        parents=[env_file_parent],
+    )
+    db_upgrade.add_argument(
+        "--revision", default="head", help="Target revision (default: head)."
+    )
+    db_sub.add_parser(
+        "current",
+        help="Show the revision the database is currently stamped at.",
+        parents=[env_file_parent],
+    )
+    db_reset = db_sub.add_parser(
+        "reset",
+        help="DROP all tables and rebuild them from migrations (destructive).",
+        parents=[env_file_parent],
+    )
+    db_reset.add_argument(
+        "--yes", action="store_true", help="Confirm the destructive reset (required)."
+    )
+    db_reset.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow reset even when ENVIRONMENT=production.",
+    )
+
+    transformations = sub.add_parser(
+        "transformations", help="Inspect the available transformation node types."
+    )
+    tf_sub = transformations.add_subparsers(dest="transformations_command")
+    tf_sub.add_parser(
+        "list",
+        help="List every registered transformation node type.",
+        parents=[output_parent],
     )
     return parser
+
+
+def _load_env_file(args: argparse.Namespace) -> None:
+    """Load a user-supplied --env-file into the process environment before any
+    settings are resolved. Existing environment variables win (override=False),
+    matching pydantic's "env vars > .env" precedence; `serve` flags are applied
+    afterwards, so they still take precedence over the file."""
+    env_file = getattr(args, "env_file", None)
+    if not env_file:
+        return
+    path = Path(env_file)
+    if not path.is_file():
+        raise SystemExit(f"--env-file not found: {path}")
+
+    from dotenv import load_dotenv
+
+    load_dotenv(path, override=False)
 
 
 def _apply_serve_env(args: argparse.Namespace) -> None:
@@ -145,6 +231,7 @@ def _apply_serve_env(args: argparse.Namespace) -> None:
 
 
 def _serve(args: argparse.Namespace) -> None:
+    _load_env_file(args)
     _apply_serve_env(args)
     import uvicorn
 
@@ -159,6 +246,7 @@ def _serve(args: argparse.Namespace) -> None:
 
 
 def _info(args: argparse.Namespace) -> None:
+    _load_env_file(args)
     from app.core.config import get_settings
 
     s = get_settings()
@@ -176,6 +264,9 @@ def _info(args: argparse.Namespace) -> None:
         "run_timeout_seconds": s.RUN_TIMEOUT_SECONDS,
         "max_upload_size_mb": s.MAX_UPLOAD_SIZE_MB,
     }
+    if getattr(args, "output", "table") == "json":
+        print(json.dumps(rows, indent=2))
+        return
     width = max(len(k) for k in rows)
     print("FlowFrame resolved configuration:")
     for key, value in rows.items():
@@ -183,11 +274,12 @@ def _info(args: argparse.Namespace) -> None:
 
 
 def _check(args: argparse.Namespace) -> None:
+    _load_env_file(args)
     from app.core.config import get_settings
     from app.engine.backends import available_engines
 
     s = get_settings()
-    ok = True
+    checks: list[dict[str, str]] = []
 
     # Data dir writable?
     data_dir = Path(s.DATA_DIR)
@@ -196,30 +288,49 @@ def _check(args: argparse.Namespace) -> None:
         probe = data_dir / ".flowframe-write-test"
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
-        print(f"[ok]   data dir writable: {data_dir.resolve()}")
+        checks.append(
+            {"name": "data_dir", "status": "ok", "detail": str(data_dir.resolve())}
+        )
     except OSError as exc:
-        ok = False
-        print(f"[FAIL] data dir not writable: {data_dir} ({exc})")
+        checks.append({"name": "data_dir", "status": "fail", "detail": str(exc)})
 
     # Async driver?
     if any(s.DATABASE_URL.startswith(scheme) for scheme in _ASYNC_SCHEMES):
-        print(f"[ok]   database driver is async: {_redact_url(s.DATABASE_URL)}")
+        checks.append(
+            {"name": "async_driver", "status": "ok", "detail": _redact_url(s.DATABASE_URL)}
+        )
     else:
-        print(
-            f"[warn] database URL may not use an async driver: {_redact_url(s.DATABASE_URL)} "
-            f"(expected one of {', '.join(_ASYNC_SCHEMES)})"
+        checks.append(
+            {
+                "name": "async_driver",
+                "status": "warn",
+                "detail": f"{_redact_url(s.DATABASE_URL)} (expected one of "
+                f"{', '.join(_ASYNC_SCHEMES)})",
+            }
         )
 
     # Database reachable?
     try:
         _probe_database(s.DATABASE_URL)
-        print("[ok]   database reachable")
+        checks.append({"name": "database", "status": "ok", "detail": "reachable"})
     except Exception as exc:  # noqa: BLE001 - report any connection failure
-        ok = False
-        print(f"[FAIL] database unreachable: {exc}")
+        checks.append({"name": "database", "status": "fail", "detail": str(exc)})
 
-    print(f"[ok]   engines available: {', '.join(available_engines())}")
+    checks.append(
+        {"name": "engines", "status": "ok", "detail": ", ".join(available_engines())}
+    )
 
+    ok = all(c["status"] != "fail" for c in checks)
+
+    if getattr(args, "output", "table") == "json":
+        print(json.dumps({"ok": ok, "checks": checks}, indent=2))
+        if not ok:
+            raise SystemExit(1)
+        return
+
+    labels = {"ok": "[ok]  ", "warn": "[warn]", "fail": "[FAIL]"}
+    for c in checks:
+        print(f"{labels[c['status']]} {c['name']}: {c['detail']}")
     if not ok:
         print("\nSome checks failed.")
         raise SystemExit(1)
@@ -254,10 +365,76 @@ def _init(args: argparse.Namespace) -> None:
     print(f"Wrote {path}. Edit it, then run `flowframe serve`.")
 
 
+def _db(args: argparse.Namespace) -> None:
+    _load_env_file(args)
+    from app.core.config import get_settings
+    from app.db import migrations
+
+    command = getattr(args, "db_command", None)
+    if command == "upgrade":
+        adopted = migrations.upgrade(args.revision)
+        if adopted:
+            print(
+                "Existing schema detected without migration history — adopted it "
+                "(stamped current revision)."
+            )
+        print(f"Database is up to date ({args.revision}).")
+    elif command == "current":
+        migrations.current()
+    elif command == "reset":
+        if get_settings().ENVIRONMENT == "production" and not args.force:
+            raise SystemExit(
+                "Refusing to reset the database while ENVIRONMENT=production. "
+                "Pass --force if you really mean it."
+            )
+        if not args.yes:
+            raise SystemExit(
+                "`db reset` drops every table. Re-run with --yes to confirm."
+            )
+        migrations.reset()
+        print("Database reset: all tables dropped and rebuilt from migrations.")
+    else:
+        print("usage: flowframe db {upgrade,current,reset}")
+
+
+def _transformations(args: argparse.Namespace) -> None:
+    if getattr(args, "transformations_command", None) != "list":
+        print("usage: flowframe transformations list")
+        return
+    from app.engine.registry import get_transformation, list_transformation_types
+
+    rows: list[dict[str, Any]] = []
+    for type_name in list_transformation_types():
+        t = get_transformation(type_name)
+        rows.append(
+            {
+                "type": type_name,
+                "inputs": "many" if t.multi_input else str(len(t.input_handles)),
+                "input_handles": list(t.input_handles),
+            }
+        )
+
+    if getattr(args, "output", "table") == "json":
+        print(json.dumps(rows, indent=2))
+        return
+
+    width = max(len(r["type"]) for r in rows)
+    print(f"{len(rows)} transformation node types:")
+    for r in rows:
+        print(f"  {r['type'].ljust(width)}  inputs={r['inputs']}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
-    handlers = {"serve": _serve, "init": _init, "info": _info, "check": _check}
+    handlers = {
+        "serve": _serve,
+        "init": _init,
+        "info": _info,
+        "check": _check,
+        "db": _db,
+        "transformations": _transformations,
+    }
     handler = handlers.get(args.command)
     if handler is None:
         parser.print_help()

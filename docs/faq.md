@@ -151,7 +151,7 @@ No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
 
 :::info
 Run `flowframe check` for a quick environment diagnostic. For API-level
-debugging, the interactive docs at `http://localhost:8000/docs` let you inspect
+debugging, the interactive docs at `http://localhost:8055/docs` let you inspect
 requests and responses directly.
 :::
 
@@ -177,7 +177,7 @@ See [Installation Guide](/guide/installation#troubleshooting) for more.
 
 ### "Port already in use" error
 
-The backend uses port 8000. If it is occupied:
+The backend uses port 8055. If it is occupied:
 
 ```bash
 flowframe serve --port 8001
