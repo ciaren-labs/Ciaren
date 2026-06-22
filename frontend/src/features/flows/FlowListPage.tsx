@@ -31,6 +31,7 @@ export function FlowListPage() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [newFlowProjectId, setNewFlowProjectId] = useState("");
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -65,7 +66,7 @@ export function FlowListPage() {
       {
         name: values.name,
         description: values.description,
-        project_id: projectFilter || undefined,
+        project_id: newFlowProjectId || undefined,
         graph_json: { nodes: [], edges: [] },
       },
       {
@@ -92,7 +93,7 @@ export function FlowListPage() {
             </p>
           </div>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4" /> New flow
@@ -113,6 +114,16 @@ export function FlowListPage() {
               <div className="flex flex-col gap-1">
                 <Label>Description</Label>
                 <Textarea {...register("description")} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>Project</Label>
+                <SearchableSelect
+                  value={newFlowProjectId}
+                  onChange={setNewFlowProjectId}
+                  allLabel="No project"
+                  placeholder="Search projects…"
+                  options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+                />
               </div>
               <Button type="submit" disabled={createFlow.isPending}>
                 {createFlow.isPending ? "Creating…" : "Create"}
