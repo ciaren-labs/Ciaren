@@ -97,7 +97,7 @@ const countHtmlFiles = (dir) => {
       const filePath = path.join(d, file);
       if (fs.statSync(filePath).isDirectory()) {
         walk(filePath);
-      } else if (file === 'index.html') {
+      } else if (file.endsWith('.html')) {
         count++;
       }
     });
