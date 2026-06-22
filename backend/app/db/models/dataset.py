@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,6 +22,7 @@ class Dataset(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv | excel | parquet
     dataset_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, default="input")  # input | output
+    is_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     project_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )

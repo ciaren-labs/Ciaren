@@ -4,6 +4,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class DatasetUpdate(BaseModel):
+    is_disabled: bool | None = None
+
+
 class DatasetVersionRead(BaseModel):
     """One immutable snapshot of a dataset."""
 
@@ -26,6 +30,7 @@ class DatasetRead(BaseModel):
     name: str
     source_type: str
     dataset_kind: str = "input"  # "input" (uploaded) or "output" (flow-generated)
+    is_disabled: bool = False
     project_id: str | None = None
     latest_version: int
     version_count: int

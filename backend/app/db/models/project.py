@@ -22,8 +22,8 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A brand-palette accent key (e.g. "violet") used by the UI for the card.
     color: Mapped[str] = mapped_column(String(32), nullable=False, default="violet")
-    # Exactly one project is the default; it cannot be deleted.
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

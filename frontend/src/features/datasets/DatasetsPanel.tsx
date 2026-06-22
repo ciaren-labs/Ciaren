@@ -6,14 +6,17 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  EyeOff,
   FileSpreadsheet,
   FileText,
   LayoutGrid,
   List,
   Loader2,
+  Power,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
-import { useDatasets, useUploadDataset } from "./hooks";
+import { useDatasetFlows, useDatasets, useDeleteDataset, usePatchDataset, useUploadDataset } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
@@ -53,6 +56,8 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const { data: datasets, isLoading } = useDatasets();
   const { data: projects } = useProjects();
   const upload = useUploadDataset();
+  const patchDataset = usePatchDataset();
+  const deleteDataset = useDeleteDataset();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [search, setSearch] = useState("");
@@ -64,6 +69,11 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
   const [layout, setLayout] = useState<"cards" | "table">("cards");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // Pending disable/delete action with cascade confirmation
+  const [pendingAction, setPendingAction] = useState<{
+    dataset: Dataset;
+    kind: "disable" | "enable" | "delete";
+  } | null>(null);
 
   const targetProject = scoped ? projectId : uploadProjectId || undefined;
 
@@ -273,9 +283,9 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
                 </button>
                 {!collapsed && (
                   layout === "cards" ? (
-                    <DatasetGrid datasets={items} onSelect={setSelected} />
+                    <DatasetGrid datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
                   ) : (
-                    <DatasetTable datasets={items} onSelect={setSelected} />
+                    <DatasetTable datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
                   )
                 )}
               </section>
@@ -284,9 +294,9 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         </div>
       ) : (
         layout === "cards" ? (
-          <DatasetGrid datasets={filtered} onSelect={setSelected} />
+          <DatasetGrid datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         ) : (
-          <DatasetTable datasets={filtered} onSelect={setSelected} />
+          <DatasetTable datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         )
       )}
 
@@ -303,6 +313,26 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         open={selected !== null}
         onOpenChange={(o) => !o && setSelected(null)}
       />
+
+      {/* Disable / delete confirmation */}
+      {pendingAction && (
+        <DatasetActionDialog
+          dataset={pendingAction.dataset}
+          kind={pendingAction.kind}
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => {
+            const { dataset, kind } = pendingAction;
+            setPendingAction(null);
+            if (kind === "disable")
+              patchDataset.mutate({ id: dataset.id, body: { is_disabled: true } });
+            else if (kind === "enable")
+              patchDataset.mutate({ id: dataset.id, body: { is_disabled: false } });
+            else
+              deleteDataset.mutate(dataset.id);
+          }}
+          isPending={patchDataset.isPending || deleteDataset.isPending}
+        />
+      )}
 
       {/* New-version warning */}
       <Dialog open={versionWarnOpen} onOpenChange={(o) => !o && cancelNewVersion()}>
@@ -336,14 +366,16 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 function DatasetGrid({
   datasets,
   onSelect,
+  onAction,
 }: {
   datasets: Dataset[];
   onSelect: (d: Dataset) => void;
+  onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {datasets.map((d) => (
-        <DatasetCard key={d.id} dataset={d} onClick={() => onSelect(d)} />
+        <DatasetCard key={d.id} dataset={d} onClick={() => onSelect(d)} onAction={onAction} />
       ))}
     </div>
   );
@@ -352,9 +384,11 @@ function DatasetGrid({
 function DatasetTable({
   datasets,
   onSelect,
+  onAction,
 }: {
   datasets: Dataset[];
   onSelect: (d: Dataset) => void;
+  onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
 }) {
   return (
     <div className="overflow-auto rounded-lg border border-border">
@@ -366,18 +400,31 @@ function DatasetTable({
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Kind</th>
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Columns</th>
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Versions</th>
+            {onAction && <th className="border-b border-border px-3 py-2" />}
           </tr>
         </thead>
         <tbody>
           {datasets.map((d) => (
             <tr
               key={d.id}
-              onClick={() => onSelect(d)}
-              className="cursor-pointer odd:bg-background even:bg-muted/30 hover:bg-accent/40 transition-colors"
+              className={cn(
+                "odd:bg-background even:bg-muted/30 hover:bg-accent/40 transition-colors",
+                d.is_disabled && "opacity-50",
+              )}
             >
-              <td className="border-b border-border px-3 py-2 font-medium">{d.name}</td>
-              <td className="border-b border-border px-3 py-2 uppercase text-muted-foreground">{d.source_type}</td>
-              <td className="border-b border-border px-3 py-2">
+              <td
+                className="border-b border-border px-3 py-2 font-medium cursor-pointer"
+                onClick={() => onSelect(d)}
+              >
+                {d.name}
+                {d.is_disabled && (
+                  <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                    disabled
+                  </span>
+                )}
+              </td>
+              <td className="border-b border-border px-3 py-2 uppercase text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>{d.source_type}</td>
+              <td className="border-b border-border px-3 py-2 cursor-pointer" onClick={() => onSelect(d)}>
                 {d.dataset_kind === "output" ? (
                   <span className="rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
                     output
@@ -386,12 +433,32 @@ function DatasetTable({
                   <span className="text-muted-foreground">upload</span>
                 )}
               </td>
-              <td className="border-b border-border px-3 py-2 text-muted-foreground">
+              <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>
                 {d.column_schema?.length ?? 0}
               </td>
-              <td className="border-b border-border px-3 py-2 text-muted-foreground">
+              <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>
                 v{d.latest_version} ({d.version_count})
               </td>
+              {onAction && (
+                <td className="border-b border-border px-3 py-2">
+                  <div className="flex items-center gap-1 justify-end">
+                    <button
+                      onClick={() => onAction(d, d.is_disabled ? "enable" : "disable")}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      title={d.is_disabled ? "Enable dataset" : "Disable dataset"}
+                    >
+                      {d.is_disabled ? <Power className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => onAction(d, "delete")}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      title="Delete dataset"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -400,57 +467,90 @@ function DatasetTable({
   );
 }
 
-function DatasetCard({ dataset: d, onClick }: { dataset: Dataset; onClick: () => void }) {
+function DatasetCard({
+  dataset: d,
+  onClick,
+  onAction,
+}: {
+  dataset: Dataset;
+  onClick: () => void;
+  onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
+}) {
   const meta = SOURCE_META[d.source_type] ?? SOURCE_META.csv;
   const Icon = meta.icon;
   const schema = d.column_schema ?? [];
 
   return (
-    <button onClick={onClick} className="text-left">
+    <div className={cn("group text-left", d.is_disabled && "opacity-60")}>
       <Card className="animate-fade-in-up h-full overflow-hidden transition-shadow hover:shadow-md">
-        <CardHeader className="flex-row items-center gap-3 space-y-0">
-          <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-white shadow-sm", meta.tint)}>
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <CardTitle className="truncate text-sm">{d.name}</CardTitle>
-              {d.dataset_kind === "output" && (
-                <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
-                  output
-                </span>
-              )}
+        <button onClick={onClick} className="block w-full text-left">
+          <CardHeader className="flex-row items-center gap-3 space-y-0">
+            <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-white shadow-sm", meta.tint)}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="truncate text-sm">{d.name}</CardTitle>
+                {d.dataset_kind === "output" && (
+                  <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                    output
+                  </span>
+                )}
+                {d.is_disabled && (
+                  <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    disabled
+                  </span>
+                )}
+              </div>
+              <CardDescription className="text-xs">
+                {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
+                {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : "v1"}
+              </CardDescription>
             </div>
-            <CardDescription className="text-xs">
-              {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
-              {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : "v1"}
-            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {schema.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {schema.slice(0, 8).map((col) => (
+                  <span
+                    key={col.name}
+                    className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                    title={`${col.name}: ${col.type}`}
+                  >
+                    {col.name}
+                  </span>
+                ))}
+                {schema.length > 8 && (
+                  <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    +{schema.length - 8} more
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Schema unavailable.</p>
+            )}
+          </CardContent>
+        </button>
+        {onAction && (
+          <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => onAction(d, d.is_disabled ? "enable" : "disable")}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title={d.is_disabled ? "Enable dataset" : "Disable dataset"}
+            >
+              {d.is_disabled ? <Power className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={() => onAction(d, "delete")}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Delete dataset"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {schema.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {schema.slice(0, 8).map((col) => (
-                <span
-                  key={col.name}
-                  className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
-                  title={`${col.name}: ${col.type}`}
-                >
-                  {col.name}
-                </span>
-              ))}
-              {schema.length > 8 && (
-                <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  +{schema.length - 8} more
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">Schema unavailable.</p>
-          )}
-        </CardContent>
+        )}
       </Card>
-    </button>
+    </div>
   );
 }
 
@@ -516,5 +616,84 @@ function UploadDropzone({
         </span>
       )}
     </button>
+  );
+}
+
+function DatasetActionDialog({
+  dataset,
+  kind,
+  onCancel,
+  onConfirm,
+  isPending,
+}: {
+  dataset: Dataset;
+  kind: "disable" | "enable" | "delete";
+  onCancel: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  const { data: flows } = useDatasetFlows(dataset.id);
+  const affectedFlows = flows ?? [];
+
+  const isDelete = kind === "delete";
+  const isEnable = kind === "enable";
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            {isDelete ? "Delete dataset?" : isEnable ? "Enable dataset?" : "Disable dataset?"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-sm text-muted-foreground space-y-2">
+          {isDelete && (
+            <>
+              <p>
+                This will permanently delete <strong className="text-foreground">{dataset.name}</strong> and all its versions from the database. The underlying files will remain on disk.
+              </p>
+              {affectedFlows.length > 0 && (
+                <p className="rounded-md bg-amber-50 p-2.5 text-amber-800 text-xs">
+                  {affectedFlows.length} flow{affectedFlows.length > 1 ? "s" : ""} reference this dataset as an input and will fail to run after deletion:{" "}
+                  <strong>{affectedFlows.map((f) => f.name).join(", ")}</strong>.
+                </p>
+              )}
+            </>
+          )}
+          {kind === "disable" && (
+            <>
+              <p>
+                <strong className="text-foreground">{dataset.name}</strong> will be marked as disabled and hidden from use in new flows.
+              </p>
+              {affectedFlows.length > 0 && (
+                <p className="rounded-md bg-amber-50 p-2.5 text-amber-800 text-xs">
+                  {affectedFlows.length} flow{affectedFlows.length > 1 ? "s" : ""} that use this dataset will also be disabled:{" "}
+                  <strong>{affectedFlows.map((f) => f.name).join(", ")}</strong>.
+                </p>
+              )}
+            </>
+          )}
+          {isEnable && (
+            <p>
+              <strong className="text-foreground">{dataset.name}</strong> will be re-enabled. Flows that were disabled due to this dataset are <em>not</em> automatically re-enabled — enable them separately if needed.
+            </p>
+          )}
+        </div>
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={isPending}
+            variant={isDelete ? "destructive" : "default"}
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isDelete ? "Delete" : isEnable ? "Enable" : "Disable"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

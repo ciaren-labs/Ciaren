@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Database,
   FolderKanban,
+  LayoutGrid,
+  List,
   Loader2,
   Pencil,
   Plus,
+  Power,
   Trash2,
   Workflow,
 } from "lucide-react";
@@ -13,6 +16,7 @@ import {
   useCreateProject,
   useDeleteProject,
   useProjects,
+  useToggleProject,
   useUpdateProject,
 } from "./hooks";
 import { ProjectFormDialog } from "./ProjectFormDialog";
@@ -27,9 +31,11 @@ export function ProjectsPage() {
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
+  const toggleProject = useToggleProject();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [layout, setLayout] = useState<"cards" | "table">("cards");
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -45,9 +51,29 @@ export function ProjectsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> New project
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
+            <button
+              type="button"
+              onClick={() => setLayout("cards")}
+              className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+              title="Card view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayout("table")}
+              className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+              title="Table view"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" /> New project
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -56,25 +82,39 @@ export function ProjectsPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {(projects ?? []).map((project) => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            onOpen={() => navigate(`/projects/${project.id}`)}
-            onEdit={() => setEditing(project)}
-            onDelete={() => {
-              if (
-                confirm(
-                  `Delete project "${project.name}"? Its datasets and flows move to Default.`,
-                )
-              ) {
-                deleteProject.mutate(project.id);
-              }
-            }}
-          />
-        ))}
-      </div>
+      {layout === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(projects ?? []).map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onOpen={() => navigate(`/projects/${project.id}`)}
+              onEdit={() => setEditing(project)}
+              onToggle={() => toggleProject.mutate({ id: project.id, is_disabled: !project.is_disabled })}
+              onDelete={() => {
+                if (
+                  confirm(
+                    `Delete project "${project.name}"? Its datasets and flows move to Default.`,
+                  )
+                ) {
+                  deleteProject.mutate(project.id);
+                }
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <ProjectTable
+          projects={projects ?? []}
+          onOpen={(id) => navigate(`/projects/${id}`)}
+          onEdit={(p) => setEditing(p)}
+          onToggle={(p) => toggleProject.mutate({ id: p.id, is_disabled: !p.is_disabled })}
+          onDelete={(p) => {
+            if (confirm(`Delete project "${p.name}"? Its datasets and flows move to Default.`))
+              deleteProject.mutate(p.id);
+          }}
+        />
+      )}
 
       <ProjectFormDialog
         open={createOpen}
@@ -109,16 +149,18 @@ function ProjectCard({
   project,
   onOpen,
   onEdit,
+  onToggle,
   onDelete,
 }: {
   project: Project;
   onOpen: () => void;
   onEdit: () => void;
+  onToggle: () => void;
   onDelete: () => void;
 }) {
   const theme = projectColor(project.color);
   return (
-    <div className="group animate-fade-in-up overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+    <div className={cn("group animate-fade-in-up overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md", project.is_disabled && "opacity-60")}>
       <button onClick={onOpen} className="block w-full text-left">
         <div className={cn("flex items-center gap-3 px-4 py-3", theme.tint)}>
           <span
@@ -135,6 +177,11 @@ function ProjectCard({
               {project.is_default && (
                 <span className="rounded-full bg-card/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                   default
+                </span>
+              )}
+              {project.is_disabled && (
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  disabled
                 </span>
               )}
             </div>
@@ -161,15 +208,120 @@ function ProjectCard({
           <Pencil className="h-3.5 w-3.5" />
         </button>
         {!project.is_default && (
-          <button
-            onClick={onDelete}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-            title="Delete project"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <>
+            <button
+              onClick={onToggle}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title={project.is_disabled ? "Enable project" : "Disable project"}
+            >
+              <Power className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              title="Delete project"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ProjectTable({
+  projects,
+  onOpen,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  projects: Project[];
+  onOpen: (id: string) => void;
+  onEdit: (p: Project) => void;
+  onToggle: (p: Project) => void;
+  onDelete: (p: Project) => void;
+}) {
+  if (projects.length === 0) return null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-4 py-2.5 text-left font-semibold">Name</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Datasets</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Flows</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Status</th>
+            <th className="px-4 py-2.5" />
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map((project) => {
+            const theme = projectColor(project.color);
+            return (
+              <tr
+                key={project.id}
+                className={cn("border-t border-border hover:bg-accent/40 transition-colors", project.is_disabled && "opacity-60")}
+              >
+                <td className="px-4 py-2.5">
+                  <button onClick={() => onOpen(project.id)} className="flex items-center gap-2 font-medium hover:underline">
+                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", theme.dot)} />
+                    {project.name}
+                    {project.is_default && (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        default
+                      </span>
+                    )}
+                  </button>
+                </td>
+                <td className="px-4 py-2.5 text-muted-foreground">{project.dataset_count}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{project.flow_count}</td>
+                <td className="px-4 py-2.5">
+                  {project.is_disabled ? (
+                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      disabled
+                    </span>
+                  ) : (
+                    <span className="rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">
+                      active
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onEdit(project)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    {!project.is_default && (
+                      <>
+                        <button
+                          onClick={() => onToggle(project)}
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          title={project.is_disabled ? "Enable" : "Disable"}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(project)}
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

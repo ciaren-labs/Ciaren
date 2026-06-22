@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { Loader2, Plus, Trash2, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows } from "./hooks";
+import { LayoutGrid, List, Loader2, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useToggleFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,13 @@ export function FlowListPage() {
   const { data: projects } = useProjects();
   const createFlow = useCreateFlow();
   const deleteFlow = useDeleteFlow();
+  const toggleFlow = useToggleFlow();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [newFlowProjectId, setNewFlowProjectId] = useState("");
+  const [layout, setLayout] = useState<"cards" | "table">("cards");
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -152,6 +154,24 @@ export function FlowListPage() {
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
           />
         </FilterField>
+        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
+          <button
+            type="button"
+            onClick={() => setLayout("cards")}
+            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+            title="Card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setLayout("table")}
+            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
+            title="Table view"
+          >
+            <List className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </FilterBar>
 
       {isLoading && (
@@ -160,22 +180,35 @@ export function FlowListPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((flow) => (
-          <FlowCard
-            key={flow.id}
-            flow={flow}
-            projectName={flow.project_id ? projectById.get(flow.project_id)?.name : undefined}
-            projectColorKey={
-              flow.project_id ? projectById.get(flow.project_id)?.color : undefined
-            }
-            onOpen={() => navigate(`/flows/${flow.id}`)}
-            onDelete={() => {
-              if (confirm(`Delete flow "${flow.name}"?`)) deleteFlow.mutate(flow.id);
-            }}
-          />
-        ))}
-      </div>
+      {layout === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((flow) => (
+            <FlowCard
+              key={flow.id}
+              flow={flow}
+              projectName={flow.project_id ? projectById.get(flow.project_id)?.name : undefined}
+              projectColorKey={flow.project_id ? projectById.get(flow.project_id)?.color : undefined}
+              onOpen={() => navigate(`/flows/${flow.id}`)}
+              onToggle={() => toggleFlow.mutate({ id: flow.id, is_disabled: !flow.is_disabled })}
+              onDelete={() => {
+                if (confirm(`Delete flow "${flow.name}"? Its run history will be lost.`))
+                  deleteFlow.mutate(flow.id);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <FlowTable
+          flows={filtered}
+          projectById={projectById}
+          onOpen={(id) => navigate(`/flows/${id}`)}
+          onToggle={(flow) => toggleFlow.mutate({ id: flow.id, is_disabled: !flow.is_disabled })}
+          onDelete={(flow) => {
+            if (confirm(`Delete flow "${flow.name}"? Its run history will be lost.`))
+              deleteFlow.mutate(flow.id);
+          }}
+        />
+      )}
 
       {!isLoading && filtered.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -193,21 +226,28 @@ function FlowCard({
   projectName,
   projectColorKey,
   onOpen,
+  onToggle,
   onDelete,
 }: {
   flow: Flow;
   projectName?: string;
   projectColorKey?: string;
   onOpen: () => void;
+  onToggle: () => void;
   onDelete: () => void;
 }) {
   const theme = projectColor(projectColorKey);
   return (
-    <div className="group animate-fade-in-up flex flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled && "opacity-60")}>
       <button onClick={onOpen} className="flex-1 text-left">
         <div className="flex items-center gap-2">
           <Workflow className="h-4 w-4 text-brand-600" />
           <span className="truncate font-semibold">{flow.name}</span>
+          {flow.is_disabled && (
+            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              disabled
+            </span>
+          )}
         </div>
         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
           {flow.description || "No description"}
@@ -227,6 +267,13 @@ function FlowCard({
           Open
         </Button>
         <button
+          onClick={onToggle}
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title={flow.is_disabled ? "Enable flow" : "Disable flow"}
+        >
+          <Power className="h-4 w-4" />
+        </button>
+        <button
           onClick={onDelete}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           title="Delete flow"
@@ -234,6 +281,95 @@ function FlowCard({
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+function FlowTable({
+  flows,
+  projectById,
+  onOpen,
+  onToggle,
+  onDelete,
+}: {
+  flows: Flow[];
+  projectById: Map<string, { name: string; color: string }>;
+  onOpen: (id: string) => void;
+  onToggle: (flow: Flow) => void;
+  onDelete: (flow: Flow) => void;
+}) {
+  if (flows.length === 0) return null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-4 py-2.5 text-left font-semibold">Name</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Project</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Nodes</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Status</th>
+            <th className="px-4 py-2.5" />
+          </tr>
+        </thead>
+        <tbody>
+          {flows.map((flow) => {
+            const proj = flow.project_id ? projectById.get(flow.project_id) : undefined;
+            const theme = projectColor(proj?.color);
+            return (
+              <tr
+                key={flow.id}
+                className={cn("border-t border-border hover:bg-accent/40 transition-colors", flow.is_disabled && "opacity-60")}
+              >
+                <td className="px-4 py-2.5">
+                  <button onClick={() => onOpen(flow.id)} className="font-medium hover:underline">
+                    {flow.name}
+                  </button>
+                </td>
+                <td className="px-4 py-2.5 text-muted-foreground">
+                  {proj ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className={cn("h-2 w-2 rounded-full", theme.dot)} />
+                      {proj.name}
+                    </span>
+                  ) : "—"}
+                </td>
+                <td className="px-4 py-2.5 text-muted-foreground">
+                  {flow.graph_json?.nodes.length ?? 0}
+                </td>
+                <td className="px-4 py-2.5">
+                  {flow.is_disabled ? (
+                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      disabled
+                    </span>
+                  ) : (
+                    <span className="rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">
+                      active
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onToggle(flow)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title={flow.is_disabled ? "Enable" : "Disable"}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(flow)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -17,6 +17,7 @@ function dataset(id: string, cols: string[], source: Dataset["source_type"] = "c
     name: `${id}.csv`,
     source_type: source,
     dataset_kind: "input",
+    is_disabled: false,
     project_id: null,
     latest_version: 1,
     version_count: 1,

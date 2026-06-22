@@ -1,7 +1,10 @@
 // Small presentation helpers shared across pages.
 
 /** A compact absolute timestamp, e.g. "Jun 21, 2026, 14:32". */
-export function formatDateTime(iso: string | null | undefined): string {
+export function formatDateTime(
+  iso: string | null | undefined,
+  timezone?: string,
+): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
@@ -11,6 +14,7 @@ export function formatDateTime(iso: string | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: timezone || undefined,
   });
 }
 
