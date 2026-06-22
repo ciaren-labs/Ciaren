@@ -12,14 +12,16 @@ dependencies = [
     "aiosqlite>=0.20",
     "alembic>=1.14",
     "pandas>=2.2",
+    "polars>=1.0",
     "openpyxl>=3.1",
+    "xlsxwriter>=3.1",
     "pyarrow>=17",
     "python-multipart>=0.0.9",
     "aiofiles>=24.0",
+    "croniter>=3.0",
 ]
 
 [project.optional-dependencies]
-polars = ["polars>=1.0"]
 postgres = ["asyncpg>=0.30"]
 
 [dependency-groups]
@@ -31,7 +33,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "pandas-stubs>=2.2",
-    "polars>=1.0",
+    "types-croniter>=3.0",
     "psycopg[binary]>=3.1",
 ]
 

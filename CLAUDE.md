@@ -88,6 +88,8 @@ REST only (no GraphQL for MVP).
 - Flows: `GET/POST /api/flows`, `GET/PUT/DELETE /api/flows/{id}`
 - Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
 - Runs: `POST /api/flows/{id}/runs`, `GET /api/runs/{id}`
+- Schedules: `GET/POST /api/flows/{id}/schedules`, `GET /api/schedules`,
+  `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`
 - Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
   `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
 - Code export: `POST /api/flows/{id}/export/python`
@@ -111,6 +113,21 @@ class Transformation:
 
 Graph JSON is React Flow-compatible (`nodes` with `id/type/position/data.config`,
 `edges` with `id/source/target`).
+
+The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE`); a run
+may override it per request. The synchronous executor runs in a worker thread
+(`asyncio.to_thread`) so it never blocks the event loop.
+
+## Scheduling
+
+A `Schedule` (cron + timezone + optional engine) runs a flow automatically. The
+scheduler is a single in-process asyncio poller (`app/scheduler/runner.py`)
+started in the FastAPI lifespan; `Schedule.next_run_at` (naive UTC) is the single
+source of truth, so it survives restarts without a separate jobstore. It isolates
+per-schedule failures, caps concurrency, skips overlapping runs, and applies a
+per-schedule `catch_up` policy for slots missed while the server was down.
+Configurable via `SCHEDULER_ENABLED` / `SCHEDULER_POLL_INTERVAL_SECONDS` /
+`SCHEDULER_MAX_CONCURRENT_RUNS` (disabled in tests).
 
 ## Coding Standards
 

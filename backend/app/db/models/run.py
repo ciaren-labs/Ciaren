@@ -26,6 +26,11 @@ class FlowRun(Base):
     engine: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pandas"
     )  # pandas | polars — the dataframe engine the run executed on
+    # How the run was started, and (for scheduled runs) which schedule fired it.
+    trigger: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="manual"
+    )  # manual | schedule
+    schedule_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     output_location: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

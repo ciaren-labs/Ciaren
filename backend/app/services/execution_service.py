@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -22,13 +23,20 @@ class ExecutionService:
         self.db = db
         self.settings = get_settings()
 
-    async def run(self, flow_id: str, data: FlowRunCreate) -> FlowRunRead:
+    async def run(
+        self,
+        flow_id: str,
+        data: FlowRunCreate,
+        *,
+        schedule_id: str | None = None,
+        trigger: str = "manual",
+    ) -> FlowRunRead:
         flow = await self._get_flow(flow_id)
 
         if flow.is_disabled:
             raise ValidationError("This flow is disabled and cannot be run.")
 
-        engine = data.engine or "pandas"
+        engine = data.engine or self.settings.DEFAULT_ENGINE
         if engine not in available_engines():
             raise ValidationError(
                 f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}."
@@ -38,6 +46,8 @@ class ExecutionService:
             flow_id=flow_id,
             input_dataset_id=data.input_dataset_id,
             engine=engine,
+            trigger=trigger,
+            schedule_id=schedule_id,
             status="running",
             started_at=datetime.utcnow(),
         )
@@ -55,8 +65,16 @@ class ExecutionService:
 
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
-            result = FlowExecutor().run_with_results(
-                flow.graph_json, dataset_paths, output_dir, engine_name=engine
+            # The executor is synchronous (pandas/polars compute); offload it to a
+            # worker thread so it never blocks the event loop — keeping the API
+            # responsive while a manual or scheduled run is in flight. It takes no
+            # DB session, so running it off-loop is safe.
+            result = await asyncio.to_thread(
+                FlowExecutor().run_with_results,
+                flow.graph_json,
+                dataset_paths,
+                output_dir,
+                engine_name=engine,
             )
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
@@ -174,6 +192,8 @@ class ExecutionService:
                 input_datasets=run.input_datasets_json,
                 status=run.status,
                 engine=run.engine,
+                trigger=run.trigger,
+                schedule_id=run.schedule_id,
                 output_location=run.output_location,
                 started_at=run.started_at,
                 finished_at=run.finished_at,
