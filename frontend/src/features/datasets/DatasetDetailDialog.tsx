@@ -28,7 +28,7 @@ export function DatasetDetailDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl overflow-hidden">
         {dataset && (
           <>
             <DialogHeader>
