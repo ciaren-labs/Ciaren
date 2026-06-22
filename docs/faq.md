@@ -22,7 +22,7 @@ FlowFrame is **free and open-source** under the MIT License. You can use it for 
 
 ### Is FlowFrame production-ready?
 
-FlowFrame is in **active development**. It's suitable for learning, exploration, and personal use. For mission-critical pipelines, we recommend Airflow or dbt.
+FlowFrame is in **active development**. It's suitable for learning, exploration, and personal use. Always test flows thoroughly before running on production data.
 
 ### Can I use FlowFrame at work?
 
@@ -67,11 +67,11 @@ FlowFrame currently supports CSV, Excel, and Parquet files. Loading from a datab
 
 ### What's the maximum dataset size?
 
-FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact limits depend on your available RAM. For 100GB+ datasets, use Spark or DuckDB.
+FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact limits depend on your available RAM.
 
 ### Can I schedule flows to run automatically?
 
-Not from within FlowFrame. For scheduled production workflows, export the Python code and run it with your own scheduler, or use [Airflow](https://airflow.apache.org/).
+Not from within FlowFrame. For scheduled production workflows, export the Python code and run it with your own scheduler.
 
 ### Can I run flows via command line?
 
@@ -206,29 +206,6 @@ Yes! See [Contributing Guide](../CONTRIBUTING.md) for:
 ### Is FlowFrame community-driven?
 
 Yes! We welcome contributions, feedback, and ideas from the community.
-
-## Comparison with Other Tools
-
-### FlowFrame vs Airflow
-
-- **FlowFrame:** Simple, local, visual, no code needed
-- **Airflow:** Complex, distributed, production-grade orchestration
-
-Use Airflow if you need enterprise scheduling. Use FlowFrame if you want simplicity.
-
-### FlowFrame vs dbt
-
-- **FlowFrame:** Visual, SQL-agnostic, local-first
-- **dbt:** SQL-focused, version control, data warehouse transformation
-
-Use dbt if you're transforming warehouse data. Use FlowFrame if you're cleaning files.
-
-### FlowFrame vs Zapier
-
-- **FlowFrame:** Data transformation, no cost, open-source, no integrations
-- **Zapier:** SaaS automation, 5000+ integrations, cloud-hosted
-
-Use Zapier for SaaS automation. Use FlowFrame for data cleaning.
 
 ## More Questions?
 

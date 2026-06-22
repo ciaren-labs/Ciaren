@@ -120,16 +120,14 @@ automatically.
 
 ## Why FlowFrame?
 
-| Feature | FlowFrame | Airflow | dbt | Spark |
-|---------|-----------|---------|-----|-------|
-| **Visual Editor** | ✓ | ✗ | ✗ | ✗ |
-| **Code Export** | ✓ | ✗ | ✓ | ✗ |
-| **Local-First** | ✓ | ✗ | ✓ | ✗ |
-| **No Setup** | ✓ | ✗ | ✗ | ✗ |
-| **Pandas** | ✓ | ✓ | ✗ | ✗ |
-| **100+ nodes** | ✗ | ✓ | ✗ | ✓ |
-
-FlowFrame doesn't compete with Airflow or Spark. It's designed for the 80% of ETL work: simple, repeatable pandas transformations on small-to-medium datasets.
+| Feature | Details |
+|---------|---------|
+| **Visual Editor** | Build pipelines by connecting nodes — no code required |
+| **Code Export** | Every flow generates a readable, standalone Python script |
+| **Local-First** | Runs entirely on your machine — no accounts, no cloud |
+| **Live Preview** | See data changes at each step before executing the full flow |
+| **Multiple Engines** | Choose pandas or Polars per run |
+| **Open Source** | MIT licensed — inspect, modify, and self-host freely |
 
 ## Community
 
