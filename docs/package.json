@@ -8,8 +8,11 @@
     "dev": "vitepress dev .",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
+    "test": "npm run lint && npm run build && npm run test:build && npm run test:links",
+    "test:build": "node ./scripts/test-build.js",
+    "test:links": "node ./scripts/check-links.js",
     "search:build": "node ./scripts/build-search.js",
-    "lint": "markdownlint '**/*.md' --ignore node_modules",
+    "lint": "markdownlint '**/*.md' --ignore node_modules --ignore '.vitepress'",
     "format": "prettier --write '**/*.md' --prose-wrap always"
   },
   "dependencies": {
