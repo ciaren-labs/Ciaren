@@ -9,7 +9,7 @@ from app.core.exceptions import NotFoundError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.executor import FlowExecutor
-from app.schemas.run import FlowRunCreate, FlowRunRead
+from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 
 
@@ -83,6 +83,57 @@ class ExecutionService:
         if run is None:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
+
+    async def list_runs(
+        self,
+        flow_id: str | None = None,
+        project_id: str | None = None,
+        dataset_id: str | None = None,
+        status: str | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        limit: int = 100,
+    ) -> list[FlowRunSummary]:
+        """Run history, newest first, with optional filters for the runs page.
+
+        Joins the flow so each row carries the flow name and project even though
+        runs only store ``flow_id``.
+        """
+        stmt = (
+            select(FlowRun, Flow.name, Flow.project_id)
+            .join(Flow, Flow.id == FlowRun.flow_id, isouter=True)
+            .order_by(FlowRun.created_at.desc())
+        )
+        if flow_id is not None:
+            stmt = stmt.where(FlowRun.flow_id == flow_id)
+        if project_id is not None:
+            stmt = stmt.where(Flow.project_id == project_id)
+        if dataset_id is not None:
+            stmt = stmt.where(FlowRun.input_dataset_id == dataset_id)
+        if status is not None:
+            stmt = stmt.where(FlowRun.status == status)
+        if started_after is not None:
+            stmt = stmt.where(FlowRun.created_at >= started_after)
+        if started_before is not None:
+            stmt = stmt.where(FlowRun.created_at <= started_before)
+        stmt = stmt.limit(limit)
+
+        result = await self.db.execute(stmt)
+        return [
+            FlowRunSummary(
+                id=run.id,
+                flow_id=run.flow_id,
+                flow_name=flow_name,
+                project_id=flow_project_id,
+                input_dataset_id=run.input_dataset_id,
+                status=run.status,
+                output_location=run.output_location,
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+                created_at=run.created_at,
+            )
+            for run, flow_name, flow_project_id in result.all()
+        ]
 
     # -- Internals ------------------------------------------------------
 
