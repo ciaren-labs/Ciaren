@@ -119,6 +119,20 @@ img {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Home hero logo — sit the brand-purple logomark on a surface so it stays
+   legible against the purple background glow (the mark shares the brand hue). */
+.VPHero .image-src {
+  background: var(--vp-c-bg);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 10px 34px rgba(76, 29, 149, 0.18);
+}
+
+.dark .VPHero .image-src {
+  background: var(--vp-c-bg-soft);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
 /* Feature grid (for index page) */
 .feature-grid {
   display: grid;
