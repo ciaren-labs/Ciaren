@@ -21,6 +21,21 @@ class NodeResultRead(BaseModel):
     error: str | None = None
 
 
+class FlowRunSummary(BaseModel):
+    """A lightweight run row for the history list (no per-node samples)."""
+
+    id: str
+    flow_id: str
+    flow_name: str | None
+    project_id: str | None
+    input_dataset_id: str | None
+    status: str
+    output_location: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+
+
 class FlowRunRead(BaseModel):
     id: str
     flow_id: str

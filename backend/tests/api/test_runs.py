@@ -127,3 +127,50 @@ async def test_get_run(client: AsyncClient) -> None:
 async def test_get_run_missing_is_404(client: AsyncClient) -> None:
     r = await client.get("/api/runs/nope")
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /api/runs — history list + filters
+# ---------------------------------------------------------------------------
+
+
+async def test_list_runs_returns_summaries_with_flow_name(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    await client.post(f"/api/flows/{flow['id']}/runs", json={})
+
+    r = await client.get("/api/runs")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 1
+    assert rows[0]["flow_name"] == flow["name"]
+    assert rows[0]["status"] == "success"
+    # The summary must not carry the heavy per-node payload.
+    assert "node_results" not in rows[0]
+
+
+async def test_list_runs_filters_by_flow_status_and_dataset(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    ok_flow = await _create_flow(client, _full_graph(ds["id"]))
+    bad_graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "drop", "type": "dropColumns", "data": {"config": {"columns": ["ghost"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "drop", "target": "out1"},
+        ],
+    }
+    bad_flow = await _create_flow(client, bad_graph)
+    await client.post(f"/api/flows/{ok_flow['id']}/runs", json={})
+    await client.post(f"/api/flows/{bad_flow['id']}/runs", json={})
+
+    assert len(((await client.get("/api/runs")).json())) == 2
+    assert len((await client.get("/api/runs?status=success")).json()) == 1
+    assert len((await client.get("/api/runs?status=failed")).json()) == 1
+    by_flow = (await client.get(f"/api/runs?flow_id={ok_flow['id']}")).json()
+    assert [row["flow_id"] for row in by_flow] == [ok_flow["id"]]
+    by_ds = (await client.get(f"/api/runs?dataset_id={ds['id']}")).json()
+    assert len(by_ds) == 2  # both flows read the same dataset
