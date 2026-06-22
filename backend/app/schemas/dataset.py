@@ -24,6 +24,7 @@ class DatasetRead(BaseModel):
     id: str
     name: str
     source_type: str
+    project_id: str | None = None
     latest_version: int
     version_count: int
     column_schema: list[dict[str, Any]] | None = None
