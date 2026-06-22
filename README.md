@@ -166,7 +166,11 @@ We welcome contributions! Whether you're fixing bugs, adding transformations, im
 
 ## 📜 License
 
-MIT License — See [LICENSE](LICENSE) for details.
+FlowFrame is licensed under the Apache License 2.0.
+
+You are free to use, modify, distribute, and commercialize this software, provided that you include the required copyright notices and license text.
+
+See [LICENSE](LICENSE) for details.
 
 ---
 
