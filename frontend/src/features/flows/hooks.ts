@@ -78,6 +78,22 @@ export function useExportPython(id: string) {
   });
 }
 
+export function useRunFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      flowId,
+      engine = "pandas",
+      inputDatasetId,
+    }: {
+      flowId: string;
+      engine?: string;
+      inputDatasetId?: string;
+    }) => flowsApi.createRun(flowId, { engine, inputDatasetId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+  });
+}
+
 export function useCreateRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
