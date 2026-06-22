@@ -1,23 +1,38 @@
 from app.engine.transformations.base import BaseTransformation
-from app.engine.transformations.clean import (
+from app.engine.transformations.columns import (
     CastDtypesTransformation,
     DropColumnsTransformation,
-    DropNullsTransformation,
-    FillNullsTransformation,
-    FilterRowsTransformation,
-    LimitRowsTransformation,
-    RemoveDuplicatesTransformation,
     RenameColumnsTransformation,
-    ReplaceValuesTransformation,
     SelectColumnsTransformation,
-    SortRowsTransformation,
-    StringTransformTransformation,
 )
 from app.engine.transformations.join import JoinTransformation
+from app.engine.transformations.nulls import (
+    DropNullsTransformation,
+    FillNullsTransformation,
+)
+from app.engine.transformations.numeric import (
+    BinColumnTransformation,
+    RemoveOutliersTransformation,
+    RoundNumbersTransformation,
+)
 from app.engine.transformations.reshape import (
     ConcatRowsTransformation,
     CreateCalculatedColumnTransformation,
+    ExtractDatePartsTransformation,
     GroupByAggregateTransformation,
+    PivotTransformation,
+    UnpivotTransformation,
+)
+from app.engine.transformations.rows import (
+    FilterRowsTransformation,
+    LimitRowsTransformation,
+    RemoveDuplicatesTransformation,
+    SampleRowsTransformation,
+    SortRowsTransformation,
+)
+from app.engine.transformations.text import (
+    ReplaceValuesTransformation,
+    StringTransformTransformation,
 )
 
 _REGISTRY: dict[str, BaseTransformation] = {}
@@ -45,6 +60,13 @@ _register(
     ConcatRowsTransformation(),
     CreateCalculatedColumnTransformation(),
     JoinTransformation(),
+    SampleRowsTransformation(),
+    RemoveOutliersTransformation(),
+    RoundNumbersTransformation(),
+    BinColumnTransformation(),
+    ExtractDatePartsTransformation(),
+    UnpivotTransformation(),
+    PivotTransformation(),
 )
 
 

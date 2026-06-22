@@ -151,6 +151,35 @@ describe("computeNodeColumns", () => {
     expect(cols.get("calc")?.output).toContain("total");
   });
 
+  it("adds the bin column to the output schema", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("bin", "binColumn", { column: "age", new_column: "age_bucket", bins: 3 }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "bin")], datasets);
+    expect(cols.get("bin")?.output).toContain("age_bucket");
+  });
+
+  it("adds extracted date-part columns", () => {
+    const ds = [dataset("d1", ["when"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("ex", "extractDateParts", { column: "when", parts: ["year", "month"] }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "ex")], ds);
+    expect(cols.get("ex")?.output).toEqual(["when", "when_year", "when_month"]);
+  });
+
+  it("reshapes columns for unpivot", () => {
+    const ds = [dataset("d1", ["id", "jan", "feb"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("u", "unpivot", { id_vars: ["id"], var_name: "month", value_name: "amount" }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "u")], ds);
+    expect(cols.get("u")?.output).toEqual(["id", "month", "amount"]);
+  });
+
   it("unions the two sides of a join", () => {
     const ds = [dataset("d1", ["id", "name"]), dataset("d2", ["id", "amount"])];
     const nodes = [

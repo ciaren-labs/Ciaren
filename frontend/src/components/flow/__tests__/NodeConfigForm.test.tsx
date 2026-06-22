@@ -150,6 +150,58 @@ describe("NodeConfigForm", () => {
     expect(screen.getByText("To (upper bound)")).toBeInTheDocument();
   });
 
+  it("shows method-specific fields for Remove Outliers", () => {
+    const { rerender } = render(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="removeOutliers"
+          config={{ columns: ["a"], method: "iqr", action: "drop" }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("IQR factor")).toBeInTheDocument();
+    expect(screen.queryByText("Lower percentile")).not.toBeInTheDocument();
+
+    rerender(
+      <TooltipProvider>
+        <NodeConfigForm
+          type="removeOutliers"
+          config={{ columns: ["a"], method: "percentile", action: "clip" }}
+          datasets={[]}
+          columns={["a"]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByText("Lower percentile")).toBeInTheDocument();
+    expect(screen.queryByText("IQR factor")).not.toBeInTheDocument();
+  });
+
+  it("shows pad fields only for the 'pad' string operation", () => {
+    renderForm({
+      type: "stringTransform",
+      config: { column: "a", operation: "pad", width: 5 },
+      columns: ["a"],
+    });
+    expect(screen.getByText("Target width")).toBeInTheDocument();
+    expect(screen.getByText("Fill character")).toBeInTheDocument();
+  });
+
+  it("renders date-part chips for Extract Date Parts", () => {
+    renderForm({
+      type: "extractDateParts",
+      config: { column: "d", parts: ["year"] },
+      columns: ["d"],
+    });
+    expect(screen.getByRole("button", { name: "year" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "month" })).toBeInTheDocument();
+  });
+
   it("selecting a chip reports the chosen column", () => {
     const onChange = vi.fn();
     renderForm({

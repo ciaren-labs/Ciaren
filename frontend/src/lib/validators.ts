@@ -44,11 +44,35 @@ export const stringOperations = [
   "strip",
   "title",
   "capitalize",
+  "len",
+  "replace",
+  "pad",
 ] as const;
 
-export const aggFunctions = ["sum", "mean", "count", "min", "max", "median", "nunique"] as const;
+// Operations needing extra inputs, so the form can render them conditionally.
+export const STRING_OPS_WITH_FIND = new Set(["replace"]);
+export const STRING_OPS_WITH_PAD = new Set(["pad"]);
+
+export const aggFunctions = [
+  "sum",
+  "mean",
+  "count",
+  "min",
+  "max",
+  "median",
+  "nunique",
+  "std",
+  "var",
+  "first",
+  "last",
+] as const;
 
 export const joinHows = ["inner", "left", "right", "outer"] as const;
+
+export const outlierMethods = ["iqr", "zscore", "percentile"] as const;
+export const outlierActions = ["drop", "clip"] as const;
+export const binMethods = ["equalwidth", "quantile"] as const;
+export const dateParts = ["year", "month", "day", "weekday", "hour"] as const;
 export const dtypes = [
   "integer",
   "float",
@@ -70,6 +94,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
 
   dropNulls: z.object({
     subset: stringArray.optional(),
+    how: z.enum(["any", "all"]).optional(),
   }),
   fillNulls: z.object({
     // Absent strategy means the legacy "constant" fill, using `value`.
@@ -110,22 +135,49 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   sortRows: z.object({
     columns: stringArray.min(1, "Add at least one column"),
     ascending: z.boolean().optional(),
+    na_position: z.enum(["first", "last"]).optional(),
   }),
   castDtypes: z.object({
     casts: z.record(z.string(), z.enum(dtypes)),
+    errors: z.enum(["raise", "coerce"]).optional(),
+    format: z.string().optional(),
   }),
   limitRows: z.object({
     n: z.coerce.number().int().min(1, "Must be at least 1"),
+    offset: z.coerce.number().int().min(0).optional(),
   }),
   replaceValues: z.object({
     column: z.string().min(1, "Column is required"),
     to_replace: z.string(),
     value: z.string(),
+    regex: z.boolean().optional(),
   }),
-  stringTransform: z.object({
-    column: z.string().min(1, "Column is required"),
-    operation: z.enum(stringOperations),
-  }),
+  stringTransform: z
+    .object({
+      column: z.string().min(1, "Column is required"),
+      operation: z.enum(stringOperations),
+      find: z.string().optional(),
+      replace_with: z.string().optional(),
+      width: z.coerce.number().int().min(1).optional(),
+      fill_char: z.string().optional(),
+      side: z.enum(["left", "right"]).optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.operation === "replace" && !cfg.find) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["find"],
+          message: "Text to find is required",
+        });
+      }
+      if (cfg.operation === "pad" && !cfg.width) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["width"],
+          message: "Target width is required",
+        });
+      }
+    }),
   calculatedColumn: z.object({
     column_name: z.string().min(1, "Column name is required"),
     expression: z.string().min(1, "Expression is required"),
@@ -134,11 +186,78 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     group_by: stringArray.min(1, "Add at least one group-by column"),
     aggregations: z.record(z.string(), z.string()),
   }),
-  join: z.object({
-    on: z.union([z.string(), stringArray]),
-    how: z.enum(joinHows),
-  }),
+  join: z
+    .object({
+      on: z.union([z.string(), stringArray]).optional(),
+      left_on: stringArray.optional(),
+      right_on: stringArray.optional(),
+      how: z.enum(joinHows),
+      suffixes: z.array(z.string()).length(2).optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      const hasOn = Array.isArray(cfg.on) ? cfg.on.length > 0 : !!cfg.on;
+      const hasSplit = !!cfg.left_on?.length && !!cfg.right_on?.length;
+      if (!hasOn && !hasSplit) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["on"],
+          message: "Provide a join key (or both left & right keys)",
+        });
+      }
+    }),
   concatRows: z.object({}),
+
+  // ----- New transform nodes -----
+  sampleRows: z
+    .object({
+      n: z.coerce.number().int().min(1).optional(),
+      frac: z.coerce.number().gt(0).max(1).optional(),
+      seed: z.coerce.number().int().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.n == null && cfg.frac == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["n"],
+          message: "Set a row count or a fraction",
+        });
+      }
+    }),
+  removeOutliers: z.object({
+    columns: stringArray.min(1, "Add at least one column"),
+    method: z.enum(outlierMethods),
+    action: z.enum(outlierActions),
+    factor: z.coerce.number().gt(0).optional(),
+    threshold: z.coerce.number().gt(0).optional(),
+    lower: z.coerce.number().min(0).max(100).optional(),
+    upper: z.coerce.number().min(0).max(100).optional(),
+  }),
+  roundNumbers: z.object({
+    columns: stringArray.min(1, "Add at least one column"),
+    decimals: z.coerce.number().int().min(0),
+  }),
+  binColumn: z.object({
+    column: z.string().min(1, "Column is required"),
+    new_column: z.string().min(1, "New column name is required"),
+    method: z.enum(binMethods),
+    bins: z.coerce.number().int().min(2, "At least 2 bins"),
+  }),
+  extractDateParts: z.object({
+    column: z.string().min(1, "Column is required"),
+    parts: z.array(z.enum(dateParts)).min(1, "Pick at least one part"),
+  }),
+  unpivot: z.object({
+    id_vars: stringArray.min(1, "Keep at least one identifier column"),
+    value_vars: stringArray.optional(),
+    var_name: z.string().optional(),
+    value_name: z.string().optional(),
+  }),
+  pivot: z.object({
+    index: stringArray.min(1, "Add at least one index column"),
+    columns: z.string().min(1, "Column is required"),
+    values: z.string().min(1, "Values column is required"),
+    aggfunc: z.enum(aggFunctions),
+  }),
 
   csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
   excelOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
