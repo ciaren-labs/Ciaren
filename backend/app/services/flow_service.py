@@ -12,7 +12,7 @@ class FlowService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def list(self) -> list[FlowRead]:
+    async def list_all(self) -> list[FlowRead]:
         result = await self.db.execute(select(Flow).order_by(Flow.updated_at.desc()))
         return [FlowRead.model_validate(f) for f in result.scalars().all()]
 
