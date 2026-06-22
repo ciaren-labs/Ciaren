@@ -7,6 +7,8 @@ import { FlowEditorPage } from "@/features/flows/FlowEditorPage";
 import { DatasetsPage } from "@/features/datasets/DatasetsPage";
 import { RunsPage } from "@/features/runs/RunsPage";
 import { RunDetailPage } from "@/features/runs/RunDetailPage";
+import { SchedulesPage } from "@/features/schedules/SchedulesPage";
+import { ScheduleDetailPage } from "@/features/schedules/ScheduleDetailPage";
 import { ProjectsPage } from "@/features/projects/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
 
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="/datasets" element={<DatasetsPage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:runId" element={<RunDetailPage />} />
+          <Route path="/schedules" element={<SchedulesPage />} />
+          <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
           <Route path="/flows/:flowId" element={<FlowEditorPage />} />
         </Routes>
       </main>
