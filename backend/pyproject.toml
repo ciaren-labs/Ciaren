@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 polars = ["polars>=1.0"]
+postgres = ["asyncpg>=0.30"]
 
 [dependency-groups]
 dev = [

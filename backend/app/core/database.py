@@ -55,16 +55,21 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Safe migrations: add columns to existing databases that predate them.
-        for stmt in [
-            "ALTER TABLE datasets ADD COLUMN dataset_kind TEXT DEFAULT 'input'",
-            "ALTER TABLE dataset_versions ADD COLUMN source_run_id TEXT",
-            "ALTER TABLE flows ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE datasets ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE flow_runs ADD COLUMN input_datasets_json JSON",
-        ]:
-            try:
+
+    # Safe migrations: add columns to databases that predate them. Each runs in
+    # its OWN transaction — on PostgreSQL a failing statement (e.g. the column
+    # already exists, which is the common case) aborts the whole transaction, so
+    # batching them together would roll back create_all above.
+    for stmt in [
+        "ALTER TABLE datasets ADD COLUMN dataset_kind TEXT DEFAULT 'input'",
+        "ALTER TABLE dataset_versions ADD COLUMN source_run_id TEXT",
+        "ALTER TABLE flows ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE datasets ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE flow_runs ADD COLUMN input_datasets_json JSON",
+    ]:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text(stmt))
-            except Exception:
-                pass  # Column already present — nothing to do
+        except Exception:
+            pass  # Column already present (or table just created) — nothing to do
