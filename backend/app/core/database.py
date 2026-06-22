@@ -1,6 +1,11 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
@@ -10,9 +15,9 @@ class Base(DeclarativeBase):
     pass
 
 
-def _make_engine():
+def _make_engine() -> AsyncEngine:
     settings = get_settings()
-    connect_args = {}
+    connect_args: dict[str, object] = {}
     if settings.DATABASE_URL.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
     return create_async_engine(
