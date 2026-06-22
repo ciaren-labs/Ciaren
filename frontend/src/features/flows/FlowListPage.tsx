@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { LayoutGrid, List, Loader2, Plus, Power, Trash2, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useToggleFlow } from "./hooks";
+import { LayoutGrid, List, Loader2, Pencil, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
+import { FlowEditDialog } from "./FlowEditDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +20,15 @@ import {
 } from "@/components/ui/dialog";
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { projectColor } from "@/lib/projectColors";
 import type { Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+type PendingAction =
+  | { kind: "disable"; flow: Flow }
+  | { kind: "enable"; flow: Flow }
+  | { kind: "delete"; flow: Flow };
 
 export function FlowListPage() {
   const { data: flows, isLoading } = useFlows();
@@ -28,12 +36,15 @@ export function FlowListPage() {
   const createFlow = useCreateFlow();
   const deleteFlow = useDeleteFlow();
   const toggleFlow = useToggleFlow();
+  const updateFlow = useUpdateFlow();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [newFlowProjectId, setNewFlowProjectId] = useState("");
-  const [layout, setLayout] = useState<"cards" | "table">("cards");
+  const [layout, setLayout] = useLayoutPreference("flows", "cards");
+  const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -80,6 +91,36 @@ export function FlowListPage() {
       },
     );
   });
+
+  const handleConfirm = () => {
+    if (!pendingAction) return;
+    const { kind, flow } = pendingAction;
+    setPendingAction(null);
+    if (kind === "delete") deleteFlow.mutate(flow.id);
+    else if (kind === "disable") toggleFlow.mutate({ id: flow.id, is_disabled: true });
+    else toggleFlow.mutate({ id: flow.id, is_disabled: false });
+  };
+
+  const confirmTitle =
+    pendingAction?.kind === "delete"
+      ? `Delete "${pendingAction.flow.name}"?`
+      : pendingAction?.kind === "disable"
+        ? `Disable "${pendingAction.flow.name}"?`
+        : `Enable "${pendingAction.flow.name}"?`;
+
+  const confirmDescription =
+    pendingAction?.kind === "delete" ? (
+      <p>
+        This will permanently delete the flow and its run history. Datasets are not affected.
+      </p>
+    ) : pendingAction?.kind === "disable" ? (
+      <p>
+        The flow will be marked as disabled. It will become read-only and cannot be triggered or
+        run until re-enabled.
+      </p>
+    ) : (
+      <p>The flow will be re-enabled and available for running again.</p>
+    );
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -138,11 +179,7 @@ export function FlowListPage() {
       {/* Filters */}
       <FilterBar className="mb-4">
         <FilterField label="Search" className="flex-1 min-w-[10rem]">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search flows…"
-          />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search flows…" />
         </FilterField>
         <FilterField label="Project">
           <SearchableSelect
@@ -189,11 +226,9 @@ export function FlowListPage() {
               projectName={flow.project_id ? projectById.get(flow.project_id)?.name : undefined}
               projectColorKey={flow.project_id ? projectById.get(flow.project_id)?.color : undefined}
               onOpen={() => navigate(`/flows/${flow.id}`)}
-              onToggle={() => toggleFlow.mutate({ id: flow.id, is_disabled: !flow.is_disabled })}
-              onDelete={() => {
-                if (confirm(`Delete flow "${flow.name}"? Its run history will be lost.`))
-                  deleteFlow.mutate(flow.id);
-              }}
+              onEdit={() => setEditingFlow(flow)}
+              onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+              onDelete={() => setPendingAction({ kind: "delete", flow })}
             />
           ))}
         </div>
@@ -202,11 +237,9 @@ export function FlowListPage() {
           flows={filtered}
           projectById={projectById}
           onOpen={(id) => navigate(`/flows/${id}`)}
-          onToggle={(flow) => toggleFlow.mutate({ id: flow.id, is_disabled: !flow.is_disabled })}
-          onDelete={(flow) => {
-            if (confirm(`Delete flow "${flow.name}"? Its run history will be lost.`))
-              deleteFlow.mutate(flow.id);
-          }}
+          onEdit={(flow) => setEditingFlow(flow)}
+          onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+          onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
         />
       )}
 
@@ -217,6 +250,38 @@ export function FlowListPage() {
             : "No flows yet. Create one to start building."}
         </p>
       )}
+
+      <FlowEditDialog
+        open={editingFlow !== null}
+        onOpenChange={(o) => !o && setEditingFlow(null)}
+        flow={editingFlow}
+        submitting={updateFlow.isPending}
+        error={updateFlow.error}
+        onSubmit={(values) =>
+          editingFlow &&
+          updateFlow.mutate(
+            { id: editingFlow.id, body: { name: values.name, description: values.description } },
+            { onSuccess: () => setEditingFlow(null) },
+          )
+        }
+      />
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(o) => !o && setPendingAction(null)}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={
+          pendingAction?.kind === "delete"
+            ? "Delete"
+            : pendingAction?.kind === "disable"
+              ? "Disable"
+              : "Enable"
+        }
+        variant={pendingAction?.kind === "delete" ? "destructive" : "warning"}
+        isPending={deleteFlow.isPending || toggleFlow.isPending}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }
@@ -226,6 +291,7 @@ function FlowCard({
   projectName,
   projectColorKey,
   onOpen,
+  onEdit,
   onToggle,
   onDelete,
 }: {
@@ -233,6 +299,7 @@ function FlowCard({
   projectName?: string;
   projectColorKey?: string;
   onOpen: () => void;
+  onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -267,8 +334,18 @@ function FlowCard({
           Open
         </Button>
         <button
-          onClick={onToggle}
+          onClick={onEdit}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title="Edit name & description"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onToggle}
+          className={cn(
+            "rounded-md p-2 transition-colors hover:bg-muted",
+            flow.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+          )}
           title={flow.is_disabled ? "Enable flow" : "Disable flow"}
         >
           <Power className="h-4 w-4" />
@@ -289,12 +366,14 @@ function FlowTable({
   flows,
   projectById,
   onOpen,
+  onEdit,
   onToggle,
   onDelete,
 }: {
   flows: Flow[];
   projectById: Map<string, { name: string; color: string }>;
   onOpen: (id: string) => void;
+  onEdit: (flow: Flow) => void;
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
 }) {
@@ -350,8 +429,18 @@ function FlowTable({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
                     <button
-                      onClick={() => onToggle(flow)}
+                      onClick={() => onEdit(flow)}
                       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onToggle(flow)}
+                      className={cn(
+                        "rounded-md p-1.5 transition-colors hover:bg-muted",
+                        flow.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+                      )}
                       title={flow.is_disabled ? "Enable" : "Disable"}
                     >
                       <Power className="h-3.5 w-3.5" />
