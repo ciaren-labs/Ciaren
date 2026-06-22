@@ -33,7 +33,7 @@ export function DatasetsPanel() {
   const [dragging, setDragging] = useState(false);
 
   const submit = (file: File | undefined) => {
-    if (file) upload.mutate(file);
+    if (file) upload.mutate({ file });
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {

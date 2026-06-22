@@ -11,8 +11,11 @@ import type {
   FlowUpdate,
 } from "@/lib/types";
 
-export function useFlows() {
-  return useQuery({ queryKey: queryKeys.flows, queryFn: flowsApi.list });
+export function useFlows(projectId?: string) {
+  return useQuery({
+    queryKey: queryKeys.flowsByProject(projectId),
+    queryFn: () => flowsApi.list(projectId),
+  });
 }
 
 export function useFlow(id: string | null) {
