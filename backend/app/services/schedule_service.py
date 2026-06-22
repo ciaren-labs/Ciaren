@@ -38,7 +38,6 @@ class ScheduleService:
             cron=data.cron,
             timezone=data.timezone,
             engine=data.engine,
-            input_dataset_id=data.input_dataset_id,
             enabled=data.enabled,
             catch_up=data.catch_up,
             next_run_at=(
@@ -108,7 +107,7 @@ class ScheduleService:
         schedule = await self._get_or_raise(schedule_id)
         run = await ExecutionService(self.db).run(
             schedule.flow_id,
-            FlowRunCreate(input_dataset_id=schedule.input_dataset_id, engine=schedule.engine),
+            FlowRunCreate(engine=schedule.engine),
             schedule_id=schedule.id,
             trigger="schedule",
         )

@@ -146,7 +146,6 @@ export interface Schedule {
   timezone: string;
   /** null = fall back to the server's default engine when the run fires. */
   engine: string | null;
-  input_dataset_id: string | null;
   enabled: boolean;
   catch_up: boolean;
   max_retries: number;
@@ -170,7 +169,6 @@ export interface ScheduleCreate {
   description?: string;
   timezone?: string;
   engine?: string | null;
-  input_dataset_id?: string | null;
   enabled?: boolean;
   catch_up?: boolean;
   max_retries?: number;
@@ -183,7 +181,6 @@ export interface ScheduleUpdate {
   description?: string;
   timezone?: string;
   engine?: string | null;
-  input_dataset_id?: string | null;
   enabled?: boolean;
   catch_up?: boolean;
   max_retries?: number;
