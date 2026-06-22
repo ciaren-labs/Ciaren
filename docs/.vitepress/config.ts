@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'FlowFrame',
-  description: 'Visual ETL builder for pandas — Simple, local-first data pipelines',
+  description: 'Visual ETL builder — Simple, local-first data pipelines on polars or pandas',
   lang: 'en-US',
 
   head: [
@@ -64,6 +64,15 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Features',
+          items: [
+            { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
+            { text: 'Engines (polars / pandas)', link: '/guide/engines' },
+            { text: 'Scheduling', link: '/guide/scheduling' },
+            { text: 'CLI Reference', link: '/guide/cli' },
+          ],
+        },
+        {
           text: 'Reference',
           items: [
             { text: 'Design System', link: '/guide/design-system' },
@@ -121,7 +130,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the MIT License.',
+      message: 'Released under the Apache License 2.0.',
       copyright: 'Copyright © 2026 Rodrigo Arenas',
     },
   },

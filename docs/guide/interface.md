@@ -1,37 +1,68 @@
 ---
 title: Interface Tour
-description: The planned FlowFrame visual editor
-search: interface ui tour navigation editor
+description: A tour of the FlowFrame visual editor
+search: interface ui tour navigation editor canvas
 ---
 
 # Interface Tour
 
-:::warning In development
-The visual editor (`frontend/`) is not shipped yet. This page describes the
-intended interface. To use FlowFrame today, drive the backend through the
-[REST API](/api/rest-api).
-:::
+The FlowFrame editor follows the [design system](/guide/design-system) — a
+purple-based, minimalist layout. This page walks through the main screens.
 
-## Planned layout
+## Top-level pages
 
-The visual editor will follow the [design system](/guide/design-system) and is
-expected to include:
+FlowFrame is organized around a few pages, reachable from the navigation:
 
-- **Canvas** — a node-based editor where each node maps to one pandas operation.
-- **Node palette** — input, cleaning, transform, and output nodes grouped by
-  category (see the [Transformations Reference](/transformations/overview)).
+- **Landing** (`/`) — the marketing/start page.
+- **Projects** (`/projects`) — lightweight workspaces that group related datasets
+  and flows. A `Default` project always exists. See
+  [Projects & Runs](/guide/projects-and-runs).
+- **Datasets** (`/datasets`) — upload and inspect source files (CSV, Excel,
+  Parquet), with versioning.
+- **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
+- **Runs** (`/runs`) — execution history; open a run for status, logs, and
+  per-node results.
+- **Schedules** (`/schedules`) — automated flows; see [Scheduling](/guide/scheduling).
+
+## The flow editor
+
+Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
+[React Flow](https://reactflow.dev/):
+
+- **Canvas** — where you place and connect nodes. Each node maps to exactly one
+  dataframe operation. Drag from a node's output handle to another node's input
+  handle to create an edge.
+- **Node palette** — input, cleaning, transform/reshape, and output nodes, grouped
+  by category and color-coded (input = emerald, clean = sky, transform = violet,
+  output = amber). See the [Transformations Reference](/transformations/overview).
 - **Config panel** — per-node settings (column selection, operators, target
-  types, aggregations).
-- **Live preview** — sample output that updates as you edit, backed by
-  `POST /api/flows/{id}/preview`.
-- **Code export** — readable pandas code from
-  `POST /api/flows/{id}/export/python`.
+  types, aggregations). Forms are validated as you type for fast feedback; the
+  backend re-validates on run.
+- **Live preview** — a sample of the selected node's output, updated as you edit,
+  backed by `POST /api/flows/{id}/preview` and
+  `POST /api/transformations/preview`.
+- **Run** — executes the whole flow and records a run.
+- **Export** — generates standalone Python (polars and pandas) for the flow.
 
-## Use it today
+## Node handles
 
-Until the editor lands, the same capabilities are available over HTTP:
+Most nodes have a single input handle (`in`) and a single output handle (`out`).
+Two nodes are different:
 
-- Build the flow graph as JSON and save it with the flows endpoints.
-- Preview and run it, then export Python.
+- **Join** has two input handles, `left` and `right`.
+- **Union / Concat** accepts multiple inputs (connect as many upstream nodes as
+  you need to stack).
 
-See the [Quick Start](/guide/quick-start) for an end-to-end API walkthrough.
+## Runs view
+
+A run's detail page (`/runs/:runId`) shows the flow as a read-only DAG. Each node
+reports its status (`success` / `failed` / `skipped`), row and column counts, a
+small sample of its output, and a `duration_ms` for performance insight. The run
+also records which engine it used and the resolved dataset versions, so it is
+fully reproducible.
+
+## Next steps
+
+- [Quick Start](/guide/quick-start) — build your first flow
+- [Transformations Reference](/transformations/overview) — every node and its config
+- [Projects & Runs](/guide/projects-and-runs) — organizing and monitoring work

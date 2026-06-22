@@ -10,7 +10,10 @@ search: faq help questions answers
 
 ### What is FlowFrame?
 
-FlowFrame is a **visual ETL builder** for pandas. It lets you build data transformation pipelines by dragging and dropping nodes instead of writing code.
+FlowFrame is a **local-first visual ETL builder**. It lets you build data
+transformation pipelines by dragging and dropping nodes instead of writing code,
+then run them on **polars** (default) or **pandas** and export the equivalent
+Python.
 
 ### Who created FlowFrame?
 
@@ -18,7 +21,7 @@ FlowFrame is open-source and created by [Rodrigo Arenas](https://github.com/rodr
 
 ### How much does FlowFrame cost?
 
-FlowFrame is **free and open-source** under the MIT License. You can use it for personal and commercial projects.
+FlowFrame is **free and open-source** under the Apache License 2.0. You can use it for personal and commercial projects.
 
 ### Is FlowFrame production-ready?
 
@@ -26,18 +29,19 @@ FlowFrame is in **active development**. It's suitable for learning, exploration,
 
 ### Can I use FlowFrame at work?
 
-Yes! The MIT license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
+Yes! The Apache 2.0 license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
 
 ## Installation & Setup
 
 ### What are the system requirements?
 
-- Python 3.12+
+- Python 3.12+ (backend)
+- Node.js 18+ (frontend / visual editor)
 - SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
-- 500MB free disk space
+- ~500MB free disk space
 
-Node.js will be required for the visual editor once it ships; it is not needed
-to run the backend today.
+You can run the backend on its own and drive it through the
+[REST API](/api/rest-api); Node.js is only needed for the visual editor.
 
 ### Can I run FlowFrame on Windows?
 
@@ -71,17 +75,24 @@ FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact l
 
 ### Can I schedule flows to run automatically?
 
-Not from within FlowFrame. For scheduled production workflows, export the Python code and run it with your own scheduler.
+Yes. FlowFrame has a built-in cron scheduler: attach a `Schedule` (cron
+expression + timezone, optional engine) to a flow and it runs automatically. The
+scheduler handles retries, catch-up for missed slots, overlap protection, and
+auto-disable on repeated failures. See [Scheduling](/guide/scheduling). (For
+heavier orchestration, you can still export the Python and run it with your own
+scheduler.)
 
 ### Can I run flows via command line?
 
-You can export flows as Python code and run them with Python:
+FlowFrame ships a `flowframe` CLI for running the server and managing config
+(`flowframe serve | init | info | check`) — see the [CLI reference](/guide/cli).
+There isn't a "run this flow id" subcommand; to run a flow headlessly, either
+call the REST API (`POST /api/flows/{id}/runs`) or export it as Python and run
+that script:
 
 ```bash
 python my_flow.py
 ```
-
-There is no dedicated FlowFrame CLI.
 
 ## Data & Privacy
 
@@ -108,10 +119,11 @@ driver).
 
 ### What transformations are available?
 
-16 transformation nodes plus file input/output, including:
+23 transformation nodes plus file input/output, including:
 
-- Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, change types, replace values, string ops, sort, limit
-- Transform: calculated columns, group by + aggregate, join, union/concat
+- Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
+- Rows: sort, limit, sample
+- Reshape & combine: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, extract date parts, bin a column
 
 [See full list →](/transformations/overview)
 
@@ -125,7 +137,8 @@ A join node combines two datasets at a time. Chain multiple join nodes for more.
 
 ### Can I export as formats other than Python?
 
-FlowFrame exports Python (pandas) code.
+FlowFrame exports Python — and for each flow it generates **both** the pandas and
+the polars version, so you can use whichever library you prefer.
 
 ### Does FlowFrame support streaming data?
 
@@ -134,9 +147,9 @@ No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
 ## Troubleshooting
 
 :::info
-FlowFrame currently runs as a backend service, so most issues today are
-API-related. Use the interactive docs at `http://localhost:8000/docs` to inspect
-requests and responses.
+Run `flowframe check` for a quick environment diagnostic. For API-level
+debugging, the interactive docs at `http://localhost:8000/docs` let you inspect
+requests and responses directly.
 :::
 
 ### My changes aren't taking effect
@@ -164,7 +177,7 @@ See [Installation Guide](/guide/installation#troubleshooting) for more.
 The backend uses port 8000. If it is occupied:
 
 ```bash
-uvicorn app.main:app --reload --port 8001
+flowframe serve --port 8001
 ```
 
 ### Preview isn't working
