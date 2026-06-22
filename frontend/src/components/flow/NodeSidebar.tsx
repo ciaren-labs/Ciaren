@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NodeConfigForm } from "./NodeConfigForm";
+import { NodeGuide } from "./NodeGuide";
 
 /**
  * Right-hand sidebar that edits the selected node's label and config. Writes
@@ -66,36 +68,47 @@ export function NodeSidebar() {
         </Button>
       </div>
 
-      {def?.description && (
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          {def.description}
-        </p>
-      )}
+      <Tabs defaultValue="configure" className="flex flex-col gap-3">
+        <TabsList className="w-full">
+          <TabsTrigger value="configure" className="flex-1">
+            Configure
+          </TabsTrigger>
+          <TabsTrigger value="guide" className="flex-1">
+            Guide
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-col gap-1.5">
-        <Label>Label</Label>
-        <Input value={node.data.label} onChange={(e) => updateNodeLabel(node.id, e.target.value)} />
-      </div>
+        <TabsContent value="configure" className="mt-0 flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Label</Label>
+            <Input value={node.data.label} onChange={(e) => updateNodeLabel(node.id, e.target.value)} />
+          </div>
 
-      <div className="h-px bg-border" />
+          <div className="h-px bg-border" />
 
-      <div className="flex flex-col gap-3.5">
-        <NodeConfigForm
-          type={node.type ?? ""}
-          config={node.data.config}
-          datasets={datasets ?? []}
-          columns={columns}
-          onChange={(config) => updateNodeConfig(node.id, config)}
-          onErrors={setHasErrors}
-        />
-      </div>
+          <div className="flex flex-col gap-3.5">
+            <NodeConfigForm
+              type={node.type ?? ""}
+              config={node.data.config}
+              datasets={datasets ?? []}
+              columns={columns}
+              onChange={(config) => updateNodeConfig(node.id, config)}
+              onErrors={setHasErrors}
+            />
+          </div>
 
-      {hasErrors && (
-        <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          Fix the highlighted fields before running.
-        </p>
-      )}
+          {hasErrors && (
+            <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Fix the highlighted fields before running.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="guide" className="mt-0">
+          <NodeGuide type={node.type ?? ""} />
+        </TabsContent>
+      </Tabs>
 
       <div className="mt-auto pt-2">
         <Button variant="destructive" size="sm" className="w-full" onClick={() => removeNode(node.id)}>

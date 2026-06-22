@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
 import type { Dataset } from "@/lib/types";
@@ -77,6 +77,21 @@ describe("NodeConfigForm", () => {
     expect(options).toContain("name");
     expect(options).toContain("age");
     expect(options).toContain("+ Add column…");
+  });
+
+  it("fills the formula from a template using upstream column names", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "calculatedColumn",
+      config: { column_name: "total", expression: "" },
+      columns: ["price", "quantity"],
+      onChange,
+    });
+    const templateSelect = screen.getAllByRole("combobox")[0];
+    fireEvent.change(templateSelect, { target: { value: "Product" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ expression: "price * quantity" }),
+    );
   });
 
   it("falls back to a connect hint when no columns are known", () => {
