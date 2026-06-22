@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -54,3 +55,10 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Safe migration: add dataset_kind to existing databases that predate this column.
+        try:
+            await conn.execute(
+                text("ALTER TABLE datasets ADD COLUMN dataset_kind TEXT DEFAULT 'input'")
+            )
+        except Exception:
+            pass  # Column already present — nothing to do

@@ -21,6 +21,7 @@ class Dataset(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv | excel | parquet
+    dataset_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, default="input")  # input | output
     project_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )

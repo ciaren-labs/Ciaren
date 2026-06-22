@@ -453,12 +453,16 @@ export function NodeConfigForm({
     case "parquetOutput":
       return (
         <Field
-          label="Output path (optional)"
-          hint="Leave empty to auto-generate"
-          help="Where the result file is written. Defaults to a generated path."
-          error={errors.path}
+          label="Dataset name"
+          hint="e.g. cleaned_sales"
+          help="The output is saved as a reusable dataset in your project under this name. Re-running adds a new version."
+          error={errors.dataset_name}
         >
-          <Input value={c.path ?? ""} onChange={(e) => set({ path: e.target.value })} />
+          <Input
+            value={c.dataset_name ?? ""}
+            onChange={(e) => set({ dataset_name: e.target.value })}
+            placeholder="my_output_dataset"
+          />
         </Field>
       );
 

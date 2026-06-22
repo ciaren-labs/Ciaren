@@ -69,8 +69,10 @@ export function FlowEditorPage() {
     if (flow?.graph_json) {
       const { nodes, edges } = graphToStore(flow.graph_json);
       setGraph(nodes, edges);
+      setEngine(flow.graph_json.engine ?? "pandas");
     } else if (flow) {
       setGraph([], []);
+      setEngine("pandas");
     }
     setFlowProjectId(flow?.project_id ?? null);
     return () => reset();
@@ -88,6 +90,7 @@ export function FlowEditorPage() {
       useFlowEditorStore.getState().nodes,
       useFlowEditorStore.getState().edges,
     );
+    graph.engine = engine;
     updateFlow.mutate(
       { id: flowId, body: { graph_json: graph } },
       { onSuccess: () => markClean() },
@@ -116,6 +119,7 @@ export function FlowEditorPage() {
       useFlowEditorStore.getState().nodes,
       useFlowEditorStore.getState().edges,
     );
+    graph.engine = engine;
     updateFlow.mutate(
       { id: flowId, body: { graph_json: graph } },
       {

@@ -73,7 +73,7 @@ class DatasetService:
         if dataset is None:
             resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
             dataset = Dataset(
-                name=name, source_type=source_type, project_id=resolved_project_id
+                name=name, source_type=source_type, project_id=resolved_project_id, dataset_kind="input"
             )
             self.db.add(dataset)
             await self.db.flush()  # populate dataset.id
@@ -143,6 +143,52 @@ class DatasetService:
     # Internals
     # ------------------------------------------------------------------
 
+    async def register_output(
+        self,
+        name: str,
+        source_type: str,
+        file_path: Path,
+        project_id: str | None,
+    ) -> DatasetRead:
+        """Register a flow-generated output file as a versioned output dataset."""
+        content = file_path.read_bytes()
+        df = _parse_dataframe(content, source_type, str(file_path))
+        schema = _extract_schema(df)
+        sample = _df_to_records(df, _SAMPLE_ROWS)
+
+        dataset = await self._get_by_name(name)
+        if dataset is None:
+            resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
+            dataset = Dataset(
+                name=name,
+                source_type=source_type,
+                project_id=resolved_project_id,
+                dataset_kind="output",
+            )
+            self.db.add(dataset)
+            await self.db.flush()
+            version_number = 1
+        else:
+            if dataset.source_type != source_type:
+                raise ConflictError(
+                    f"'{name}' is a {dataset.source_type.upper()} dataset; the output "
+                    f"produces {source_type.upper()}. Use a different dataset name."
+                )
+            version_number = await self._next_version_number(dataset.id)
+            dataset.updated_at = datetime.utcnow()
+
+        version = DatasetVersion(
+            dataset_id=dataset.id,
+            version_number=version_number,
+            location=str(file_path),
+            schema_json=schema,
+            sample_json=sample,
+            row_count=int(len(df)),
+        )
+        self.db.add(version)
+        await self.db.flush()
+        return await self._read(dataset.id)
+
     def _to_read(self, dataset: Dataset) -> DatasetRead:
         """Build a DatasetRead, surfacing the latest version's schema/sample."""
         versions = sorted(dataset.versions, key=lambda v: v.version_number)
@@ -151,6 +197,7 @@ class DatasetService:
             id=dataset.id,
             name=dataset.name,
             source_type=dataset.source_type,
+            dataset_kind=dataset.dataset_kind or "input",
             project_id=dataset.project_id,
             latest_version=latest.version_number if latest else 0,
             version_count=len(versions),
