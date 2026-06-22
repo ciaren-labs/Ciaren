@@ -181,5 +181,8 @@ export interface TransformationPreviewRequest {
 }
 
 export interface ExportCodeResponse {
+  /** pandas script (kept as `code` for back-compat). */
   code: string;
+  /** polars equivalent. */
+  polars: string;
 }

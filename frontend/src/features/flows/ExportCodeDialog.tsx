@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useExportPython } from "./hooks";
 import { ApiError } from "@/lib/api";
@@ -21,28 +23,17 @@ export function ExportCodeDialog({
   onOpenChange,
 }: ExportCodeDialogProps) {
   const exportPython = useExportPython(flowId);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setCopied(false);
-      exportPython.mutate();
-    }
+    if (open) exportPython.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  const copy = async () => {
-    if (exportPython.data?.code) {
-      await navigator.clipboard.writeText(exportPython.data.code);
-      setCopied(true);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Generated Python</DialogTitle>
+          <DialogTitle>Generated code</DialogTitle>
         </DialogHeader>
 
         {exportPython.isPending && (
@@ -54,18 +45,45 @@ export function ExportCodeDialog({
           </p>
         )}
         {exportPython.data && (
-          <>
-            <pre className="max-h-96 overflow-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
-              <code>{exportPython.data.code}</code>
-            </pre>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={copy}>
-                {copied ? "Copied!" : "Copy"}
-              </Button>
-            </div>
-          </>
+          <Tabs defaultValue="pandas">
+            <TabsList>
+              <TabsTrigger value="pandas">pandas</TabsTrigger>
+              <TabsTrigger value="polars">polars</TabsTrigger>
+            </TabsList>
+            <TabsContent value="pandas">
+              <CodeBlock code={exportPython.data.code} />
+            </TabsContent>
+            <TabsContent value="polars">
+              <CodeBlock code={exportPython.data.polars} />
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CodeBlock({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={copy}
+        className="absolute right-2 top-2 z-10"
+      >
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? "Copied" : "Copy"}
+      </Button>
+      <pre className="max-h-96 overflow-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
+        <code>{code}</code>
+      </pre>
+    </div>
   );
 }
