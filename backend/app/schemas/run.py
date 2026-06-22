@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 
 class FlowRunCreate(BaseModel):
     input_dataset_id: str | None = None
-    engine: str = "pandas"
+    # None falls back to the server's DEFAULT_ENGINE in ExecutionService.
+    engine: str | None = None
 
 
 class InputDatasetRef(BaseModel):
@@ -40,6 +41,8 @@ class FlowRunSummary(BaseModel):
     input_datasets: list[InputDatasetRef] | None = None
     status: str
     engine: str
+    trigger: str = "manual"
+    schedule_id: str | None = None
     output_location: str | None
     started_at: datetime | None
     finished_at: datetime | None
@@ -55,6 +58,8 @@ class FlowRunRead(BaseModel):
     )
     status: str
     engine: str
+    trigger: str = "manual"
+    schedule_id: str | None = None
     output_location: str | None
     started_at: datetime | None
     finished_at: datetime | None

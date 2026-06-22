@@ -49,8 +49,9 @@ class PolarsEngine:
         if source_type == "parquet":
             return pl.read_parquet(path)
         if source_type == "excel":
-            # Route through pandas+openpyxl to avoid an extra optional dep.
-            return pl.from_pandas(pd.read_excel(path))
+            # Native polars read (via openpyxl, already a dependency) so Excel gets
+            # the same type inference as the CSV/Parquet paths — not pandas'.
+            return pl.read_excel(path, engine="openpyxl")
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pl.DataFrame, path: str, source_type: str) -> None:
@@ -59,7 +60,7 @@ class PolarsEngine:
         elif source_type == "parquet":
             df.write_parquet(path)
         elif source_type == "excel":
-            df.to_pandas().to_excel(path, index=False)
+            df.write_excel(path)
         else:
             raise ValueError(f"Unsupported source_type: {source_type!r}")
 

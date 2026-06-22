@@ -16,6 +16,9 @@ _INPUT_READ = {
     "excelInput": "pl.read_excel",
     "parquetInput": "pl.read_parquet",
 }
+# Extra keyword args appended to a read call, per input type. Excel reads via
+# openpyxl to match the engine and FlowFrame's shipped deps (no fastexcel needed).
+_INPUT_READ_KWARGS = {"excelInput": ', engine="openpyxl"'}
 _OUTPUT_WRITE = {
     "csvOutput": "write_csv",
     "excelOutput": "write_excel",
@@ -51,7 +54,8 @@ class PolarsCodeGenerator:
                 var = next_var()
                 node_var[node_id] = var
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
-                lines.append(f'{var} = {_INPUT_READ[node_type]}("{path}")')
+                extra = _INPUT_READ_KWARGS.get(node_type, "")
+                lines.append(f'{var} = {_INPUT_READ[node_type]}("{path}"{extra})')
             elif node_type in _OUTPUT_WRITE:
                 src_var = node_var[incoming[node_id][0]["source"]]
                 out_path = config.get("path", "output.csv")

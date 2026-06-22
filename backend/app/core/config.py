@@ -17,8 +17,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./flowframe.db"
     DATA_DIR: str = ".data"
 
+    # Default dataframe engine for runs that don't request one explicitly.
+    # "polars" is faster on medium data; "pandas" remains fully supported.
+    DEFAULT_ENGINE: str = "polars"
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
+
+    # Background cron scheduler. Disabled in tests (ASGITransport skips lifespan).
+    SCHEDULER_ENABLED: bool = True
+    SCHEDULER_POLL_INTERVAL_SECONDS: int = 30
+    SCHEDULER_MAX_CONCURRENT_RUNS: int = 1
 
     @property
     def max_upload_bytes(self) -> int:

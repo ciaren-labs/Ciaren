@@ -125,11 +125,11 @@ async def test_run_with_unknown_engine_is_400(client: AsyncClient) -> None:
     assert r.status_code == 400
 
 
-async def test_run_defaults_to_pandas_engine(client: AsyncClient) -> None:
+async def test_run_defaults_to_polars_engine(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))
     run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
-    assert run["engine"] == "pandas"
+    assert run["engine"] == "polars"
 
 
 async def test_run_flow_missing_flow_is_404(client: AsyncClient) -> None:
