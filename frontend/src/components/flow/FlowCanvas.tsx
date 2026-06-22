@@ -2,16 +2,30 @@ import { useCallback } from "react";
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   addEdge,
   type Connection,
   type Edge,
+  type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodeTypes";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
-import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, type NodeCategory } from "@/lib/nodeCatalog";
+
+const MINIMAP_COLORS: Record<NodeCategory, string> = {
+  input: "#10b981",
+  clean: "#0ea5e9",
+  transform: "#8b5cf6",
+  output: "#f59e0b",
+};
+
+const defaultEdgeOptions = {
+  type: "smoothstep" as const,
+  animated: true,
+};
 
 /**
  * The @xyflow canvas. All graph mutations are funneled through the zustand
@@ -53,12 +67,18 @@ export function FlowCanvas() {
     [edges, nodes, setEdges],
   );
 
+  const minimapColor = (node: Node) => {
+    const cat = getNodeTypeDef(node.type ?? "")?.category;
+    return cat ? MINIMAP_COLORS[cat] : "#94a3b8";
+  };
+
   return (
-    <div className="h-full w-full">
+    <div className="canvas-surface h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -67,9 +87,14 @@ export function FlowCanvas() {
         fitView
         proOptions={{ hideAttribution: true }}
       >
-        <Background />
-        <Controls />
-        <MiniMap pannable zoomable />
+        <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#cbd5e1" />
+        <Controls className="!rounded-lg !border !border-border !shadow-sm" showInteractive={false} />
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={minimapColor}
+          className="!rounded-lg !border !border-border"
+        />
       </ReactFlow>
     </div>
   );
