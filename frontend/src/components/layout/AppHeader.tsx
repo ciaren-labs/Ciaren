@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { Database, History, Workflow } from "lucide-react";
+import { Database, FolderKanban, History, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Flows", icon: Workflow },
+  { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
   { to: "/runs", label: "Runs", icon: History },
 ];
