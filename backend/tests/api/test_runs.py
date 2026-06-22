@@ -70,6 +70,22 @@ async def test_run_flow_success(client: AsyncClient, tmp_path: Path) -> None:
     assert len(pd.read_csv(out_file)) == 2
 
 
+async def test_run_records_node_results_and_dataset(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    # input_dataset_id is defaulted from the resolved input even though we didn't pass one.
+    assert run["input_dataset_id"] == ds["id"]
+
+    results = {r["node_id"]: r for r in run["node_results"]}
+    assert results["in1"]["status"] == "success"
+    assert results["in1"]["rows"] == 3
+    assert results["drop"]["rows"] == 2  # null row dropped
+    assert results["in1"]["columns"] == ["name", "age"]
+    assert results["in1"]["sample"]  # preview rows recorded
+
+
 async def test_run_flow_records_failure(client: AsyncClient) -> None:
     ds = await _upload(client)
     # Reference a column that doesn't exist -> execution error captured on the run.
