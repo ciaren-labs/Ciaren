@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dataset } from "@/lib/types";
 import {
+  aggFunctions,
   dtypes,
   filterOperators,
   getConfigSchema,
@@ -10,6 +11,7 @@ import {
   stringOperations,
 } from "@/lib/validators";
 import {
+  ColumnKeyedEditor,
   ColumnMultiSelect,
   ColumnSelect,
   Field,
@@ -135,13 +137,29 @@ export function NodeConfigForm({
     case "renameColumns":
       return (
         <Field label="Rename mapping" error={errors.mapping} help="Map each existing column to its new name.">
-          <KeyValueEditor
-            value={c.mapping}
-            onChange={(v) => set({ mapping: v })}
-            keyLabel="old name"
-            valueLabel="new name"
-            keySuggestions={columns}
-          />
+          {columns.length ? (
+            <ColumnKeyedEditor
+              value={c.mapping}
+              columns={columns}
+              onChange={(v) => set({ mapping: v })}
+              defaultValue=""
+              renderValue={(val, onValueChange) => (
+                <Input
+                  className="h-8 w-32"
+                  placeholder="new name"
+                  value={val}
+                  onChange={(e) => onValueChange(e.target.value)}
+                />
+              )}
+            />
+          ) : (
+            <KeyValueEditor
+              value={c.mapping}
+              onChange={(v) => set({ mapping: v })}
+              keyLabel="old name"
+              valueLabel="new name"
+            />
+          )}
         </Field>
       );
 
@@ -212,7 +230,29 @@ export function NodeConfigForm({
     case "castDtypes":
       return (
         <Field label="Casts" hint="column → type" error={errors.casts} help="Convert each column to the chosen data type.">
-          <DtypeEditor value={c.casts} columns={columns} onChange={(v) => set({ casts: v })} />
+          {columns.length ? (
+            <ColumnKeyedEditor
+              value={c.casts}
+              columns={columns}
+              onChange={(v) => set({ casts: v })}
+              defaultValue="string"
+              renderValue={(val, onValueChange) => (
+                <Select
+                  className="h-8 w-28"
+                  value={val || "string"}
+                  onChange={(e) => onValueChange(e.target.value)}
+                >
+                  {dtypes.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+          ) : (
+            <DtypeEditor value={c.casts} columns={columns} onChange={(v) => set({ casts: v })} />
+          )}
         </Field>
       );
 
@@ -281,17 +321,38 @@ export function NodeConfigForm({
           </Field>
           <Field
             label="Aggregations"
-            hint="column → agg (sum, mean, count, min, max)"
+            hint="column → aggregation"
             help="For each column, choose how to combine the grouped rows."
             error={errors.aggregations}
           >
-            <KeyValueEditor
-              value={c.aggregations}
-              onChange={(v) => set({ aggregations: v })}
-              keyLabel="column"
-              valueLabel="agg"
-              keySuggestions={columns}
-            />
+            {columns.length ? (
+              <ColumnKeyedEditor
+                value={c.aggregations}
+                columns={columns}
+                onChange={(v) => set({ aggregations: v })}
+                defaultValue="sum"
+                renderValue={(val, onValueChange) => (
+                  <Select
+                    className="h-8 w-28"
+                    value={val || "sum"}
+                    onChange={(e) => onValueChange(e.target.value)}
+                  >
+                    {aggFunctions.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              />
+            ) : (
+              <KeyValueEditor
+                value={c.aggregations}
+                onChange={(v) => set({ aggregations: v })}
+                keyLabel="column"
+                valueLabel="agg"
+              />
+            )}
           </Field>
         </>
       );

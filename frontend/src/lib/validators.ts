@@ -25,6 +25,8 @@ export const stringOperations = [
   "capitalize",
 ] as const;
 
+export const aggFunctions = ["sum", "mean", "count", "min", "max", "median", "nunique"] as const;
+
 export const joinHows = ["inner", "left", "right", "outer"] as const;
 export const dtypes = [
   "integer",
