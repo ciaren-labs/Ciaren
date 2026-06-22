@@ -6,8 +6,8 @@ search: flowframe etl visual pandas data pipeline
 
 hero:
   name: FlowFrame
-  text: Visual ETL for Everyone
-  tagline: Build data pipelines with drag-and-drop. No code knowledge required.
+  text: Visual ETL for pandas
+  tagline: Build local-first data pipelines and export readable Python. Backend available today; visual editor in progress.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -40,8 +40,8 @@ features:
     details: Runs entirely on your machine. No SaaS, no cloud lock-in, no subscriptions.
 
   - icon: 📁
-    title: Many Formats
-    details: Work with CSV, Excel, Parquet, and other formats seamlessly.
+    title: Common Formats
+    details: Read and write CSV, Excel, and Parquet files.
 
   - icon: ♾️
     title: Extensible
@@ -95,16 +95,19 @@ pip install -e .
 uvicorn app.main:app --reload
 ```
 
+The backend starts on `http://localhost:8000` and creates its database
+automatically.
+
 [Full installation guide →](/guide/installation)
 
-### Your First Flow (5 minutes)
+### Explore the API (5 minutes)
 
-1. Open <http://localhost:5173>
-2. Upload `sample.csv`
-3. Add 3 transformation nodes
-4. Export Python code
+1. Open the interactive docs at <http://localhost:8000/docs>
+2. Upload a CSV with `POST /api/datasets/upload`
+3. Create a flow with `POST /api/flows`
+4. Export Python with `POST /api/flows/{id}/export/python`
 
-[Quick start tutorial →](/guide/quick-start)
+[API reference →](/api/rest-api)
 
 </div>
 
