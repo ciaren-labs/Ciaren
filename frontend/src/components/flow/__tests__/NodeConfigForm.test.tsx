@@ -9,6 +9,7 @@ function dataset(id: string, source: Dataset["source_type"]): Dataset {
     id,
     name: `${id}.${source}`,
     source_type: source,
+    project_id: null,
     latest_version: 1,
     version_count: 1,
     column_schema: [{ name: "a", type: "string" }],
