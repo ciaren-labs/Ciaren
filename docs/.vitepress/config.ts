@@ -6,7 +6,7 @@ export default defineConfig({
   lang: 'en-US',
 
   head: [
-    ['meta', { name: 'theme-color', content: '#3c3c3d' }],
+    ['meta', { name: 'theme-color', content: '#7c3aed' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en' }],
   ],
@@ -61,6 +61,12 @@ export default defineConfig({
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Interface Tour', link: '/guide/interface' },
+          ],
+        },
+        {
+          text: 'Reference',
+          items: [
+            { text: 'Design System', link: '/guide/design-system' },
           ],
         },
         {

@@ -4,13 +4,23 @@
  */
 
 :root {
-  /* Brand colors */
-  --vp-c-brand: #3c3c3d;
-  --vp-c-brand-light: #535355;
-  --vp-c-brand-lighter: #9e9ea6;
-  --vp-c-brand-lightest: #f5f5f5;
-  --vp-c-brand-dark: #1a1a1a;
-  --vp-c-brand-darker: #000000;
+  /*
+   * Brand palette — purple (see docs/guide/design-system.md).
+   * Canonical brand = brand-600 = hsl(262 83% 58%). The whole ramp is a single
+   * violet hue stepped from tint to shade; values mirror the design-system tokens.
+   */
+  --vp-c-brand-1: hsl(263 70% 50%); /* brand-700 — text/link contrast on light bg */
+  --vp-c-brand-2: hsl(262 83% 58%); /* brand-600 — primary */
+  --vp-c-brand-3: hsl(262 83% 62%); /* brand-500 — hover */
+  --vp-c-brand-soft: hsla(262, 83%, 58%, 0.14); /* tinted fills, code bg */
+
+  /* Back-compat aliases used by this theme's custom.css */
+  --vp-c-brand: var(--vp-c-brand-2);
+  --vp-c-brand-light: var(--vp-c-brand-3);
+  --vp-c-brand-lighter: hsl(264 78% 71%); /* brand-400 */
+  --vp-c-brand-lightest: hsl(270 70% 98%); /* brand-50 */
+  --vp-c-brand-dark: hsl(263 70% 50%); /* brand-700 */
+  --vp-c-brand-darker: hsl(263 67% 41%); /* brand-800 */
 
   /* Semantic colors */
   --vp-c-green: #18794f;
@@ -56,9 +66,29 @@
   --vp-code-line-diff-remove-symbol-color: #f43f5e;
 
   /* Button */
-  --vp-button-brand-bg: var(--vp-c-brand);
-  --vp-button-brand-hover-bg: var(--vp-c-brand-light);
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: var(--vp-c-brand-2);
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: var(--vp-c-brand-3);
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #ffffff;
   --vp-button-brand-active-bg: var(--vp-c-brand-dark);
+
+  /* Hero name gradient (135° brand-600 → fuchsia, per design-system.md) */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(
+    135deg,
+    hsl(262 83% 58%),
+    hsl(292 84% 61%)
+  );
+  --vp-home-hero-image-background-image: linear-gradient(
+    135deg,
+    hsl(262 83% 58% / 0.5),
+    hsl(292 84% 61% / 0.5)
+  );
+  --vp-home-hero-image-filter: blur(44px);
 
   /* Search */
   --vp-search-result-button-hover-bg: #f3f6f8;
@@ -86,9 +116,15 @@ html.dark {
   --vp-code-line-diff-add-bg: rgba(16, 185, 129, 0.2);
   --vp-code-line-diff-remove-bg: rgba(244, 63, 94, 0.2);
 
-  --vp-button-brand-bg: var(--vp-c-brand-light);
-  --vp-button-brand-hover-bg: var(--vp-c-brand-lighter);
-  --vp-button-brand-active-bg: var(--vp-c-brand);
+  /* Brand: brighten a step for contrast on dark surfaces */
+  --vp-c-brand-1: hsl(264 78% 71%); /* brand-400 */
+  --vp-c-brand-2: hsl(262 83% 62%); /* brand-500 */
+  --vp-c-brand-3: hsl(262 83% 58%); /* brand-600 */
+  --vp-c-brand-soft: hsla(264, 78%, 71%, 0.16);
+
+  --vp-button-brand-bg: var(--vp-c-brand-3);
+  --vp-button-brand-hover-bg: var(--vp-c-brand-2);
+  --vp-button-brand-active-bg: var(--vp-c-brand-1);
 
   --vp-search-result-button-hover-bg: #21262d;
 }
