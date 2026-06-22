@@ -4,6 +4,7 @@
 import type {
   Dataset,
   DatasetSchemaField,
+  DatasetVersion,
   ExportCodeResponse,
   Flow,
   FlowCreate,
@@ -113,10 +114,16 @@ export const runsApi = {
 export const datasetsApi = {
   list: () => request<Dataset[]>("/datasets"),
   get: (id: string) => request<Dataset>(`/datasets/${id}`),
-  schema: (id: string) =>
-    request<DatasetSchemaField[]>(`/datasets/${id}/schema`),
-  sample: (id: string) =>
-    request<Record<string, unknown>[]>(`/datasets/${id}/sample`),
+  versions: (id: string) =>
+    request<DatasetVersion[]>(`/datasets/${id}/versions`),
+  schema: (id: string, version?: number) =>
+    request<DatasetSchemaField[]>(
+      `/datasets/${id}/schema${version ? `?version=${version}` : ""}`,
+    ),
+  sample: (id: string, version?: number) =>
+    request<Record<string, unknown>[]>(
+      `/datasets/${id}/sample${version ? `?version=${version}` : ""}`,
+    ),
   upload: async (file: File): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);

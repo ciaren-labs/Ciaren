@@ -70,29 +70,73 @@ export function NodeConfigForm({
     const accepted =
       type === "csvInput" ? "csv" : type === "excelInput" ? "excel" : "parquet";
     const compatible = datasets.filter((d) => d.source_type === accepted);
+    const selected = datasets.find((d) => d.id === c.dataset_id);
+    const pinned = (c.dataset_version as number | null | undefined) ?? selected?.latest_version;
+    const isOutdated =
+      selected != null && pinned != null && pinned < selected.latest_version;
+
     return (
-      <Field
-        label="Dataset"
-        error={errors.dataset_id}
-        help={`Only ${accepted.toUpperCase()} datasets can be loaded by this node.`}
-      >
-        <Select
-          value={(c.dataset_id as string) ?? ""}
-          onChange={(e) => set({ dataset_id: e.target.value })}
+      <>
+        <Field
+          label="Dataset"
+          error={errors.dataset_id}
+          help={`Only ${accepted.toUpperCase()} datasets can be loaded by this node.`}
         >
-          <option value="">Select a dataset…</option>
-          {compatible.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </Select>
-        {compatible.length === 0 && (
-          <p className="text-[11px] text-amber-600">
-            No {accepted.toUpperCase()} datasets uploaded yet.
-          </p>
+          <Select
+            value={(c.dataset_id as string) ?? ""}
+            onChange={(e) => {
+              // Default to pinning the chosen dataset's latest version.
+              const ds = datasets.find((d) => d.id === e.target.value);
+              set({ dataset_id: e.target.value, dataset_version: ds?.latest_version ?? null });
+            }}
+          >
+            <option value="">Select a dataset…</option>
+            {compatible.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
+          {compatible.length === 0 && (
+            <p className="text-[11px] text-amber-600">
+              No {accepted.toUpperCase()} datasets uploaded yet.
+            </p>
+          )}
+        </Field>
+
+        {selected && (
+          <Field
+            label="Version"
+            help="Pin a specific version so scheduled runs always read the same data. New versions don't affect this flow until you update."
+          >
+            <Select
+              value={String(pinned ?? selected.latest_version)}
+              onChange={(e) => set({ dataset_version: Number(e.target.value) })}
+            >
+              {Array.from({ length: selected.latest_version }, (_, i) => selected.latest_version - i).map(
+                (v) => (
+                  <option key={v} value={v}>
+                    v{v}
+                    {v === selected.latest_version ? " (latest)" : ""}
+                  </option>
+                ),
+              )}
+            </Select>
+            {isOutdated && (
+              <p className="flex flex-wrap items-center gap-1 text-[11px] text-amber-600">
+                Pinned to v{pinned}; v{selected.latest_version} is now available.
+                <button
+                  type="button"
+                  className="font-medium text-primary underline underline-offset-2"
+                  onClick={() => set({ dataset_version: selected.latest_version })}
+                >
+                  Update to latest
+                </button>
+              </p>
+            )}
+          </Field>
         )}
-      </Field>
+      </>
     );
   }
 

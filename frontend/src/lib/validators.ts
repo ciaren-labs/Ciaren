@@ -38,6 +38,8 @@ export const dtypes = [
 
 const inputConfig = z.object({
   dataset_id: z.string().min(1, "Select a dataset"),
+  // Pinned version number; null/absent means "use latest".
+  dataset_version: z.number().int().positive().nullable().optional(),
 });
 
 export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
