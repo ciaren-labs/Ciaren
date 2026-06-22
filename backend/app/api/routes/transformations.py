@@ -1,14 +1,20 @@
-from typing import Any
-
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
 from app.api.deps import PreviewServiceDep
+from app.engine.registry import list_transformation_types
+from app.schemas.preview import PreviewResponse, TransformationPreviewRequest
 
 router = APIRouter()
 
 
-@router.post("/preview")
+@router.get("")
+async def list_transformations() -> list[str]:
+    """The transformation node types the engine supports."""
+    return list_transformation_types()
+
+
+@router.post("/preview", response_model=PreviewResponse)
 async def preview_transformation(
-    body: dict[str, Any], service: PreviewServiceDep
-) -> dict[str, Any]:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    body: TransformationPreviewRequest, service: PreviewServiceDep
+) -> PreviewResponse:
+    return await service.preview_transformation(body)
