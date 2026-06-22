@@ -125,10 +125,33 @@ def test_join(engine):
     assert len(out) == 2
 
 
+def test_limit_rows(engine, df):
+    out = run("limitRows", engine, {"in": df}, {"n": 2})
+    assert len(out) == 2
+
+
+def test_replace_values(engine, df):
+    out = run("replaceValues", engine, {"in": df}, {"column": "b", "to_replace": "y", "value": "Y"})
+    assert out["b"].tolist() == ["x", "Y", "Y", "z"]
+
+
+def test_string_transform_upper(engine, df):
+    out = run("stringTransform", engine, {"in": df}, {"column": "b", "operation": "upper"})
+    assert out["b"].tolist() == ["X", "Y", "Y", "Z"]
+
+
+def test_string_transform_invalid_op(engine, df):
+    with pytest.raises(ValueError):
+        run("stringTransform", engine, {"in": df}, {"column": "b", "operation": "reverse"})
+
+
 @pytest.mark.parametrize(
     "node_type,config",
     [
         ("dropColumns", {}),
+        ("limitRows", {"n": -1}),
+        ("replaceValues", {"column": "a"}),
+        ("stringTransform", {"column": "a", "operation": "bogus"}),
         ("renameColumns", {}),
         ("selectColumns", {"columns": []}),
         ("fillNulls", {}),

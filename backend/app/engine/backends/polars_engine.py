@@ -174,3 +174,26 @@ class PolarsEngine:
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         return pl.concat(frames, how="vertical_relaxed")
+
+    def limit_rows(self, df: pl.DataFrame, n: int) -> pl.DataFrame:
+        return df.head(n)
+
+    def replace_values(
+        self, df: pl.DataFrame, column: str, to_replace: Any, value: Any
+    ) -> pl.DataFrame:
+        return df.with_columns(pl.col(column).replace(to_replace, value))
+
+    def string_transform(
+        self, df: pl.DataFrame, column: str, operation: str
+    ) -> pl.DataFrame:
+        col = pl.col(column).cast(pl.Utf8).str
+        ops = {
+            "lower": col.to_lowercase,
+            "upper": col.to_uppercase,
+            "strip": col.strip_chars,
+            "title": col.to_titlecase,
+            "capitalize": col.to_titlecase,
+        }
+        if operation not in ops:
+            raise ValueError(f"Unknown string operation: {operation!r}")
+        return df.with_columns(ops[operation]().alias(column))

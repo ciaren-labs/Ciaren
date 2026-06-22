@@ -254,3 +254,89 @@ class SortRowsTransformation(BaseTransformation):
             f"{dst} = {src}.sort_values(by={config['columns']!r}, "
             f"ascending={ascending!r})"
         )
+
+
+class LimitRowsTransformation(BaseTransformation):
+    type = "limitRows"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        n = config.get("n")
+        if not isinstance(n, int) or n < 0:
+            raise ValueError("limitRows requires a non-negative integer 'n'")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        return {"out": engine.limit_rows(inputs["in"], config["n"])}
+
+    def to_python_code(
+        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
+    ) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        return f"{dst} = {src}.head({config['n']!r})"
+
+
+class ReplaceValuesTransformation(BaseTransformation):
+    type = "replaceValues"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("column"):
+            raise ValueError("replaceValues requires a 'column'")
+        if "to_replace" not in config or "value" not in config:
+            raise ValueError("replaceValues requires 'to_replace' and 'value'")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        result = engine.replace_values(
+            inputs["in"], config["column"], config["to_replace"], config["value"]
+        )
+        return {"out": result}
+
+    def to_python_code(
+        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
+    ) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        return (
+            f"{dst} = {src}.assign(**{{{col!r}: {src}[{col!r}]"
+            f".replace({config['to_replace']!r}, {config['value']!r})}})"
+        )
+
+
+class StringTransformTransformation(BaseTransformation):
+    type = "stringTransform"
+
+    _VALID_OPS = {"lower", "upper", "strip", "title", "capitalize"}
+    _CODE_OP = {
+        "lower": "lower",
+        "upper": "upper",
+        "strip": "strip",
+        "title": "title",
+        "capitalize": "capitalize",
+    }
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("column"):
+            raise ValueError("stringTransform requires a 'column'")
+        if config.get("operation") not in self._VALID_OPS:
+            raise ValueError(f"stringTransform 'operation' must be one of {self._VALID_OPS}")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        result = engine.string_transform(
+            inputs["in"], config["column"], config["operation"]
+        )
+        return {"out": result}
+
+    def to_python_code(
+        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
+    ) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        method = self._CODE_OP[config["operation"]]
+        return (
+            f"{dst} = {src}.assign(**{{{col!r}: "
+            f"{src}[{col!r}].astype('string').str.{method}()}})"
+        )
