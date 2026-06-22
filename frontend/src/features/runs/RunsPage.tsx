@@ -4,14 +4,12 @@ import { History, Loader2, RotateCcw } from "lucide-react";
 import { useRuns } from "./hooks";
 import { useFlows } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import {
-  FilterBar,
-  FilterField,
-  FilterSelect,
-} from "@/components/filters/FilterBar";
+import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { formatDateTime, formatDuration } from "@/lib/format";
+import { projectColor } from "@/lib/projectColors";
 import type { RunListFilters, RunStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +22,12 @@ export function RunsPage() {
   const navigate = useNavigate();
   const { data: flows } = useFlows();
   const { data: datasets } = useDatasets();
+  const { data: projects } = useProjects();
 
   const [flowId, setFlowId] = useState("");
   const [status, setStatus] = useState("");
   const [datasetId, setDatasetId] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [after, setAfter] = useState("");
   const [before, setBefore] = useState("");
 
@@ -36,10 +36,11 @@ export function RunsPage() {
       flow_id: flowId || undefined,
       status: (status || undefined) as RunStatus | undefined,
       dataset_id: datasetId || undefined,
+      project_id: projectId || undefined,
       started_after: after ? `${after}T00:00:00` : undefined,
       started_before: before ? `${before}T23:59:59` : undefined,
     }),
-    [flowId, status, datasetId, after, before],
+    [flowId, status, datasetId, projectId, after, before],
   );
 
   const { data: runs, isLoading } = useRuns(filters);
@@ -52,12 +53,17 @@ export function RunsPage() {
     () => new Map((datasets ?? []).map((d) => [d.id, d.name])),
     [datasets],
   );
+  const projectById = useMemo(
+    () => new Map((projects ?? []).map((p) => [p.id, p])),
+    [projects],
+  );
 
-  const hasFilters = flowId || status || datasetId || after || before;
+  const hasFilters = flowId || status || datasetId || projectId || after || before;
   const reset = () => {
     setFlowId("");
     setStatus("");
     setDatasetId("");
+    setProjectId("");
     setAfter("");
     setBefore("");
   };
@@ -87,6 +93,15 @@ export function RunsPage() {
             options={(flows ?? []).map((f) => ({ value: f.id, label: f.name }))}
           />
         </FilterField>
+        <FilterField label="Project">
+          <SearchableSelect
+            value={projectId}
+            onChange={setProjectId}
+            allLabel="All projects"
+            placeholder="Search projects…"
+            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          />
+        </FilterField>
         <FilterField label="Dataset">
           <SearchableSelect
             value={datasetId}
@@ -97,14 +112,13 @@ export function RunsPage() {
           />
         </FilterField>
         <FilterField label="Status" className="min-w-[8rem]">
-          <FilterSelect value={status} onChange={setStatus}>
-            <option value="">Any status</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s[0].toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </FilterSelect>
+          <SearchableSelect
+            value={status}
+            onChange={setStatus}
+            allLabel="Any status"
+            placeholder="Search status…"
+            options={STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))}
+          />
         </FilterField>
         <FilterField label="From" className="min-w-[8rem]">
           <input
@@ -125,7 +139,7 @@ export function RunsPage() {
         {hasFilters && (
           <button
             onClick={reset}
-            className="flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-10 self-end items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Clear
           </button>
@@ -142,6 +156,7 @@ export function RunsPage() {
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Project</th>
                 <th className="px-4 py-2.5 text-left font-semibold">Status</th>
                 <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
                 <th className="px-4 py-2.5 text-left font-semibold">Started</th>
@@ -159,6 +174,22 @@ export function RunsPage() {
                 >
                   <td className="px-4 py-2.5 font-medium">
                     {run.flow_name ?? flowName.get(run.flow_id) ?? "—"}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {run.project_id ? (
+                      (() => {
+                        const proj = projectById.get(run.project_id);
+                        const theme = projectColor(proj?.color);
+                        return (
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />
+                            {proj?.name ?? "—"}
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     <StatusBadge status={run.status} />

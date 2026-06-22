@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Trash2, X } from "lucide-react";
+import { AlertTriangle, FolderOpen, Trash2, X } from "lucide-react";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { useDatasets } from "@/features/datasets/hooks";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
@@ -25,7 +25,8 @@ export function NodeSidebar() {
   const updateNodeLabel = useFlowEditorStore((s) => s.updateNodeLabel);
   const removeNode = useFlowEditorStore((s) => s.removeNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
-  const { data: datasets } = useDatasets();
+  const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
+  const { data: datasets } = useDatasets(flowProjectId ?? undefined);
   const [hasErrors, setHasErrors] = useState(false);
 
   // Columns available on the wire into the selected node, derived from the
@@ -96,6 +97,13 @@ export function NodeSidebar() {
               onErrors={setHasErrors}
             />
           </div>
+
+          {flowProjectId && (
+            <p className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+              <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+              Showing datasets from this flow's project only.
+            </p>
+          )}
 
           {hasErrors && (
             <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">

@@ -48,6 +48,7 @@ export function FlowEditorPage() {
   const previewOpen = useFlowEditorStore((s) => s.previewOpen);
   const setPreviewOpen = useFlowEditorStore((s) => s.setPreviewOpen);
   const setInvalidNodeIds = useFlowEditorStore((s) => s.setInvalidNodeIds);
+  const setFlowProjectId = useFlowEditorStore((s) => s.setFlowProjectId);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
@@ -71,6 +72,7 @@ export function FlowEditorPage() {
     } else if (flow) {
       setGraph([], []);
     }
+    setFlowProjectId(flow?.project_id ?? null);
     return () => reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow?.id]);
