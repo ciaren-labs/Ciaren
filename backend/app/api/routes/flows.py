@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import FlowServiceDep, PreviewServiceDep
-from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
+from app.api.deps import CodegenServiceDep, FlowServiceDep, PreviewServiceDep
+from app.schemas.flow import CodeExportResponse, FlowCreate, FlowRead, FlowUpdate
 from app.schemas.preview import FlowPreviewRequest, PreviewResponse
 
 router = APIRouter()
@@ -37,3 +37,11 @@ async def preview_flow(
     flow_id: str, body: FlowPreviewRequest, service: PreviewServiceDep
 ) -> PreviewResponse:
     return await service.preview_flow(flow_id, body)
+
+
+@router.post("/{flow_id}/export/python", response_model=CodeExportResponse)
+async def export_flow_python(
+    flow_id: str, service: CodegenServiceDep
+) -> CodeExportResponse:
+    code = await service.export_python(flow_id)
+    return CodeExportResponse(code=code)
