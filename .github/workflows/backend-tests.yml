@@ -45,8 +45,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-        # Only start PostgreSQL service when needed
-        if: matrix.database == 'postgresql'
 
     steps:
       - name: Checkout code

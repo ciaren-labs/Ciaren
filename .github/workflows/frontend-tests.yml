@@ -1,16 +1,8 @@
-name: Frontend Tests
+name: Frontend Tests (Disabled - No Tests Yet)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - frontend/**
-      - .github/workflows/frontend-tests.yml
-  pull_request:
-    branches: [main]
-    paths:
-      - frontend/**
-      - .github/workflows/frontend-tests.yml
+  # Frontend tests disabled: no tests defined yet
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
