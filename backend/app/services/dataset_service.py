@@ -9,11 +9,12 @@ from typing import Any, cast
 import aiofiles
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import (
+    ConflictError,
     DatasetParseError,
     FileTooLargeError,
     NotFoundError,
@@ -47,6 +48,9 @@ class DatasetService:
         filename = file.filename or "upload"
         source_type = _validate_extension(filename)
 
+        name = Path(filename).name
+        await self._ensure_name_available(name)
+
         content = await file.read()
         if len(content) > self.max_upload_bytes:
             settings = get_settings()
@@ -57,7 +61,7 @@ class DatasetService:
         sample = _df_to_records(df, _SAMPLE_ROWS)
 
         dataset = Dataset(
-            name=Path(filename).name,
+            name=name,
             source_type=source_type,
             location="",  # filled in after we know the id
             schema_json=schema,
@@ -93,6 +97,22 @@ class DatasetService:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    async def _ensure_name_available(self, name: str) -> None:
+        """Reject a duplicate dataset name (case-insensitive) with a clean 409.
+
+        We pre-check rather than relying on the DB unique constraint so the
+        client gets a helpful message instead of an opaque IntegrityError, and
+        so the match is case-insensitive across dialects.
+        """
+        result = await self.db.execute(
+            select(Dataset.id).where(func.lower(Dataset.name) == name.lower())
+        )
+        if result.scalar_one_or_none() is not None:
+            raise ConflictError(
+                f"A dataset named '{name}' already exists. "
+                "Rename the file or delete the existing dataset first."
+            )
 
     async def _get_or_raise(self, dataset_id: str) -> Dataset:
         result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id))

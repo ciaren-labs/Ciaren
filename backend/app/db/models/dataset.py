@@ -12,7 +12,7 @@ class Dataset(Base):
     __tablename__ = "datasets"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv | excel | parquet
     location: Mapped[str] = mapped_column(Text, nullable=False)
     schema_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
