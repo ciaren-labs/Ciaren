@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+*.tsbuildinfo
+
+# The repo-root .gitignore (Python) ignores lib/; keep our source lib tracked.
+!src/lib/
+!src/lib/**
