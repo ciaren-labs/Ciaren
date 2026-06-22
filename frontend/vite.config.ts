@@ -9,6 +9,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy, rarely-changing vendor code so the main bundle stays
+        // small and these chunks cache across deploys.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          flow: ["@xyflow/react"],
+          query: ["@tanstack/react-query"],
+        },
+      },
+    },
+  },
   server: {
     port: Number(process.env.VITE_PORT) || 5173,
     proxy: {
