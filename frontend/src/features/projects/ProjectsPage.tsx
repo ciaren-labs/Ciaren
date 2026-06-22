@@ -54,32 +54,35 @@ export function ProjectsPage() {
     else toggleProject.mutate({ id: project.id, is_disabled: false });
   };
 
-  const confirmTitle =
-    pendingAction?.kind === "delete"
+  const confirmTitle = pendingAction
+    ? pendingAction.kind === "delete"
       ? `Delete "${pendingAction.project.name}"?`
-      : pendingAction?.kind === "disable"
+      : pendingAction.kind === "disable"
         ? `Disable "${pendingAction.project.name}"?`
-        : `Enable "${pendingAction.project.name}"?`;
+        : `Enable "${pendingAction.project.name}"?`
+    : "";
 
-  const confirmDescription =
-    pendingAction?.kind === "delete" ? (
+  const confirmDescription = pendingAction ? (
+    pendingAction.kind === "delete" ? (
       <p>
         This will permanently delete the project. Its datasets and flows will be moved to the
         Default project.
       </p>
-    ) : pendingAction?.kind === "disable" ? (
+    ) : pendingAction.kind === "disable" ? (
       <div className="space-y-1.5">
-        <p>
-          The project will be marked as disabled. All its datasets and flows will also be disabled.
-        </p>
+        <p>The project will be marked as disabled. All its datasets and flows will also be disabled.</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
-          Flows in this project will become read-only and cannot be run until the project or each
-          flow is re-enabled individually.
+          Flows in this project become read-only and cannot be run until the project or each flow is
+          re-enabled individually.
         </p>
       </div>
     ) : (
-      <p>The project will be re-enabled. Datasets and flows disabled by this project cascade are not automatically re-enabled — do that individually if needed.</p>
-    );
+      <p>
+        The project will be re-enabled. Datasets and flows disabled by this cascade are not
+        automatically re-enabled — enable them individually if needed.
+      </p>
+    )
+  ) : null;
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -212,7 +215,7 @@ function ProjectCard({
 }) {
   const theme = projectColor(project.color);
   return (
-    <div className={cn("group animate-fade-in-up overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md", project.is_disabled && "opacity-60")}>
+    <div className={cn("group animate-fade-in-up overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md", project.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
       <button onClick={onOpen} className="block w-full text-left">
         <div className={cn("flex items-center gap-3 px-4 py-3", theme.tint)}>
           <span
@@ -232,7 +235,7 @@ function ProjectCard({
                 </span>
               )}
               {project.is_disabled && (
-                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                   disabled
                 </span>
               )}
@@ -317,7 +320,7 @@ function ProjectTable({
             return (
               <tr
                 key={project.id}
-                className={cn("border-t border-border hover:bg-accent/40 transition-colors", project.is_disabled && "opacity-60")}
+                className={cn("border-t border-border hover:bg-accent/40 transition-colors", project.is_disabled && "bg-amber-50/30 opacity-70")}
               >
                 <td className="px-4 py-2.5">
                   <button onClick={() => onOpen(project.id)} className="flex items-center gap-2 font-medium hover:underline">
@@ -334,7 +337,7 @@ function ProjectTable({
                 <td className="px-4 py-2.5 text-muted-foreground">{project.flow_count}</td>
                 <td className="px-4 py-2.5">
                   {project.is_disabled ? (
-                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                       disabled
                     </span>
                   ) : (
