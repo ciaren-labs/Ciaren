@@ -48,9 +48,9 @@ pip install -e .
 flowframe serve
 ```
 
-The backend runs on `http://localhost:8000`. The database schema is **created
+The backend runs on `http://localhost:8055`. The database schema is **created
 automatically** on first start — there is no migration step. Open the interactive
-API docs at `http://localhost:8000/docs`.
+API docs at `http://localhost:8055/docs`.
 
 :::tip flowframe serve vs. uvicorn
 `flowframe serve` is the recommended entry point — it boots the API and the
@@ -73,7 +73,7 @@ npm run dev
 ```
 
 The editor runs on `http://localhost:5173` and proxies `/api` calls to the
-backend on port `8000`.
+backend on port `8055`.
 
 ### 4. Open in your browser
 
@@ -197,7 +197,7 @@ MySQL works the same way with `pip install aiomysql` and a
 ### Backend health
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8055/health
 ```
 
 Expected response: `{"status":"ok"}`
@@ -206,12 +206,12 @@ You can also run `flowframe check` for a fuller diagnostic.
 
 ### Explore the API
 
-Open `http://localhost:8000/docs` for the interactive Swagger UI, where you can
+Open `http://localhost:8055/docs` for the interactive Swagger UI, where you can
 list datasets, create flows, run them, and export Python code.
 
 ## Troubleshooting
 
-### "Port 8000 already in use"
+### "Port 8055 already in use"
 
 ```bash
 flowframe serve --port 8001

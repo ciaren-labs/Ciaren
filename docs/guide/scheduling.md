@@ -24,7 +24,7 @@ In the UI, open a flow (or the **Schedules** page) and add a schedule with a cro
 expression and timezone. Over the API:
 
 ```bash
-curl -X POST http://localhost:8000/api/flows/{flow_id}/schedules \
+curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
   -H "Content-Type: application/json" \
   -d '{
         "cron": "0 7 * * *",

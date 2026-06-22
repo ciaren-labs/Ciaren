@@ -8,11 +8,11 @@ search: api rest endpoints datasets flows runs export
 
 FlowFrame is a FastAPI service. The visual editor is built entirely on this REST
 API, and you can drive every feature with it directly. All endpoints are served
-under `http://localhost:8000` by default.
+under `http://localhost:8055` by default.
 
 :::tip Interactive docs
-Run the backend and open `http://localhost:8000/docs` for the live Swagger UI,
-or `http://localhost:8000/redoc` for ReDoc. Both are generated from the running
+Run the backend and open `http://localhost:8055/docs` for the live Swagger UI,
+or `http://localhost:8055/redoc` for ReDoc. Both are generated from the running
 app, so they always match your version.
 :::
 

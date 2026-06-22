@@ -30,7 +30,7 @@ flowframe serve --no-scheduler
 | Flag | Default | Description |
 |---|---|---|
 | `--host` | `127.0.0.1` | Bind host |
-| `--port` | `8000` | Bind port |
+| `--port` | `8055` | Bind port |
 | `--reload` | off | Auto-reload on code changes (development only) |
 | `--db-url` | — | Async database URL; overrides `FLOWFRAME_DATABASE_URL` |
 | `--data-dir` | — | Uploads/outputs directory; overrides `FLOWFRAME_DATA_DIR` |
@@ -38,9 +38,29 @@ flowframe serve --no-scheduler
 | `--execution-mode` | — | `thread` \| `process`; overrides `FLOWFRAME_EXECUTION_MODE` |
 | `--log-level` | — | uvicorn log level (`critical`…`trace`) |
 | `--no-scheduler` | off | Start the API without the background scheduler |
+| `--env-file` | — | Load environment variables from this file before resolving settings |
 
 Flags are translated into the matching environment variables before the app is
 imported, so they take precedence over your `.env`.
+
+### Pointing at a specific env file
+
+By default FlowFrame reads `./.env`. Use `--env-file` to load a different file
+(for example a per-environment config) before settings are resolved:
+
+```bash
+flowframe serve --env-file /etc/flowframe/production.env
+```
+
+Precedence is **flags > existing environment variables > `--env-file` > defaults**,
+so values already exported in your shell are not overridden by the file. The same
+flag works on `flowframe info` and `flowframe check`, which is handy for
+inspecting or validating a specific config:
+
+```bash
+flowframe info  --env-file /etc/flowframe/production.env
+flowframe check --env-file /etc/flowframe/production.env
+```
 
 ## `flowframe init`
 
@@ -88,12 +108,78 @@ flowframe check
 ```
 
 ```text
-[ok]   data dir writable: /path/to/.data
-[ok]   database driver is async: sqlite+aiosqlite:///./flowframe.db
-[ok]   database reachable
-[ok]   engines available: pandas, polars
+[ok]   data_dir: /path/to/.data
+[ok]   async_driver: sqlite+aiosqlite:///./flowframe.db
+[ok]   database: reachable
+[ok]   engines: pandas, polars
 
 All checks passed.
+```
+
+Both `info` and `check` accept `--output json` for scripting and CI:
+
+```bash
+flowframe info --output json
+flowframe check --output json   # {"ok": true, "checks": [...]}; exit 1 on failure
+```
+
+## `flowframe db`
+
+Manage the database schema through **Alembic migrations**. This is the
+production-grade path: it versions the schema and applies changes in order,
+across SQLite, PostgreSQL, and MySQL.
+
+```bash
+flowframe db upgrade            # apply all migrations up to the latest revision
+flowframe db upgrade --revision <id>
+flowframe db current            # show the revision the database is stamped at
+flowframe db reset --yes        # DROP every table and rebuild from migrations
+```
+
+| Subcommand | Description |
+|---|---|
+| `upgrade` | Apply migrations up to `--revision` (default `head`). Safe to re-run. |
+| `current` | Print the revision the database is currently at. |
+| `reset` | **Destructive.** Drop all tables and rebuild. Requires `--yes`; refuses when `FLOWFRAME_ENVIRONMENT=production` unless `--force`. |
+
+All three accept `--env-file` so you can target a specific environment's config.
+
+:::tip Upgrading an existing database is safe
+`flowframe serve` creates any missing tables on startup, so an existing
+FlowFrame database has the full schema but no migration history. The first
+`flowframe db upgrade` detects this and **adopts** the schema (records the
+current revision) instead of trying to re-create existing tables — so adopting
+Alembic never destroys or rewrites your data. From then on, upgrades apply only
+the new migrations.
+:::
+
+:::warning `db reset` deletes all data
+`reset` drops every table. It exists for local development and test
+environments. It refuses to run in production unless you pass `--force`.
+:::
+
+### Recommended production flow
+
+1. Set `FLOWFRAME_DATABASE_URL` to your async Postgres/MySQL URL.
+2. Run `flowframe db upgrade` as part of each deploy (before starting the app).
+3. Start the server with `flowframe serve`.
+
+## `flowframe transformations`
+
+Inspect the transformation node types the engine supports — the same set the
+visual editor exposes.
+
+```bash
+flowframe transformations list
+flowframe transformations list --output json
+```
+
+```text
+23 transformation node types:
+  binColumn         inputs=1
+  calculatedColumn  inputs=1
+  concatRows        inputs=many
+  ...
 ```
 
 ## Environment variables
