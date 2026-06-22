@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { LayoutGrid, List, Loader2, Pencil, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { AlertCircle, LayoutGrid, List, Loader2, Pencil, Plus, Power, Trash2, Workflow } from "lucide-react";
 import { useCreateFlow, useDeleteFlow, useFlows, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
@@ -210,6 +210,13 @@ export function FlowListPage() {
           </button>
         </div>
       </FilterBar>
+
+      {(toggleFlow.isError || deleteFlow.isError) && (
+        <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {((toggleFlow.error || deleteFlow.error) as Error)?.message ?? "Operation failed. Check the console for details."}
+        </div>
+      )}
 
       {isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
