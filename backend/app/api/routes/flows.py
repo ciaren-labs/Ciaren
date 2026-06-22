@@ -1,7 +1,8 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import FlowServiceDep
+from app.api.deps import FlowServiceDep, PreviewServiceDep
 from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
+from app.schemas.preview import FlowPreviewRequest, PreviewResponse
 
 router = APIRouter()
 
@@ -29,3 +30,10 @@ async def update_flow(flow_id: str, body: FlowUpdate, service: FlowServiceDep) -
 @router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flow(flow_id: str, service: FlowServiceDep) -> None:
     await service.delete(flow_id)
+
+
+@router.post("/{flow_id}/preview", response_model=PreviewResponse)
+async def preview_flow(
+    flow_id: str, body: FlowPreviewRequest, service: PreviewServiceDep
+) -> PreviewResponse:
+    return await service.preview_flow(flow_id, body)

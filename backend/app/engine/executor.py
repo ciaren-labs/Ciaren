@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from app.engine.backends import AnyFrame, get_engine
+from app.engine.backends import AnyFrame, EngineBackend, get_engine
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.registry import get_transformation
 
@@ -29,6 +29,45 @@ def _build_inputs(
 
 
 class FlowExecutor:
+    def compute_frames(
+        self,
+        graph: dict[str, Any],
+        dataset_paths: dict[str, Path],
+        engine: EngineBackend,
+        require_output: bool = True,
+    ) -> dict[str, AnyFrame]:
+        """Run the graph in memory and return each node's resulting frame.
+
+        Output nodes pass their upstream frame through unchanged (no file is
+        written here), which is what preview needs.
+        """
+        validate_graph(graph, require_output=require_output)
+        order = topological_sort(graph)
+
+        nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
+        for edge in graph.get("edges", []):
+            incoming[edge["target"]].append(edge)
+
+        frames: dict[str, AnyFrame] = {}
+        for node_id in order:
+            node = nodes_by_id[node_id]
+            node_type = node["type"]
+            config: dict[str, Any] = node.get("data", {}).get("config", {})
+
+            if node_type in _INPUT_TYPES:
+                path = dataset_paths[config["dataset_id"]]
+                frames[node_id] = engine.read(str(path), _INPUT_TYPES[node_type])
+            elif node_type in _OUTPUT_TYPES:
+                frames[node_id] = frames[incoming[node_id][0]["source"]]
+            else:
+                transformation = get_transformation(node_type)
+                inputs = _build_inputs(incoming[node_id], frames)
+                result = transformation.execute(engine, inputs, config)
+                frames[node_id] = result.get("out", next(iter(result.values())))
+
+        return frames
+
     def execute(
         self,
         graph: dict[str, Any],
@@ -36,41 +75,17 @@ class FlowExecutor:
         output_dir: Path,
         engine_name: str = "pandas",
     ) -> dict[str, Path]:
-        validate_graph(graph)
-        order = topological_sort(graph)
         engine = get_engine(engine_name)
+        frames = self.compute_frames(graph, dataset_paths, engine)
 
-        nodes_by_id = {n["id"]: n for n in graph["nodes"]}
-        edges = graph.get("edges", [])
-
-        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
-        for edge in edges:
-            incoming[edge["target"]].append(edge)
-
-        frames: dict[str, AnyFrame] = {}
         output_paths: dict[str, Path] = {}
-
-        for node_id in order:
-            node = nodes_by_id[node_id]
+        for node in graph["nodes"]:
             node_type = node["type"]
-            config: dict[str, Any] = node.get("data", {}).get("config", {})
-
-            if node_type in _INPUT_TYPES:
-                source_type = _INPUT_TYPES[node_type]
-                path = dataset_paths[config["dataset_id"]]
-                frames[node_id] = engine.read(str(path), source_type)
-
-            elif node_type in _OUTPUT_TYPES:
-                source_type = _OUTPUT_TYPES[node_type]
-                df = frames[incoming[node_id][0]["source"]]
-                out_path = output_dir / f"{node_id}{_OUTPUT_SUFFIX[source_type]}"
-                engine.write(df, str(out_path), source_type)
-                output_paths[node_id] = out_path
-
-            else:
-                transformation = get_transformation(node_type)
-                inputs = _build_inputs(incoming[node_id], frames)
-                result = transformation.execute(engine, inputs, config)
-                frames[node_id] = result.get("out", next(iter(result.values())))
+            if node_type not in _OUTPUT_TYPES:
+                continue
+            source_type = _OUTPUT_TYPES[node_type]
+            out_path = output_dir / f"{node['id']}{_OUTPUT_SUFFIX[source_type]}"
+            engine.write(frames[node["id"]], str(out_path), source_type)
+            output_paths[node["id"]] = out_path
 
         return output_paths

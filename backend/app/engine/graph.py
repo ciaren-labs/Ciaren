@@ -9,7 +9,7 @@ class GraphValidationError(Exception):
     pass
 
 
-def validate_graph(graph: dict[str, Any]) -> None:
+def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
     nodes: list[dict[str, Any]] = graph.get("nodes", [])
     edges: list[dict[str, Any]] = graph.get("edges", [])
 
@@ -29,7 +29,7 @@ def validate_graph(graph: dict[str, Any]) -> None:
 
     if not input_nodes:
         raise GraphValidationError("Graph must have at least one input node")
-    if not output_nodes:
+    if require_output and not output_nodes:
         raise GraphValidationError("Graph must have at least one output node")
 
     if _has_cycle(node_ids, edges):

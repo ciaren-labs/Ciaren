@@ -13,6 +13,7 @@ from app.core.exceptions import (
     FileTooLargeError,
     NotFoundError,
     UnsupportedFileTypeError,
+    ValidationError,
 )
 from app.core.logging import setup_logging
 
@@ -62,6 +63,10 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(DatasetParseError)
     async def parse_error_handler(request: Request, exc: DatasetParseError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(ValidationError)
+    async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
