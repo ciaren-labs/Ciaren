@@ -1,5 +1,6 @@
 from app.engine.transformations.base import BaseTransformation
 from app.engine.transformations.clean import (
+    CastDtypesTransformation,
     DropColumnsTransformation,
     DropNullsTransformation,
     FillNullsTransformation,
@@ -33,6 +34,7 @@ _register(
     RemoveDuplicatesTransformation(),
     FilterRowsTransformation(),
     SortRowsTransformation(),
+    CastDtypesTransformation(),
     GroupByAggregateTransformation(),
     ConcatRowsTransformation(),
     CreateCalculatedColumnTransformation(),
