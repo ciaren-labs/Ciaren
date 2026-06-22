@@ -108,6 +108,30 @@ async def test_run_flow_records_failure(client: AsyncClient) -> None:
     assert run["error_message"]
 
 
+async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "polars"})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["engine"] == "polars"
+    assert run["status"] == "success"
+
+
+async def test_run_with_unknown_engine_is_400(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "spark"})
+    assert r.status_code == 400
+
+
+async def test_run_defaults_to_pandas_engine(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    assert run["engine"] == "pandas"
+
+
 async def test_run_flow_missing_flow_is_404(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/runs", json={})
     assert r.status_code == 404

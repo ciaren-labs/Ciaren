@@ -19,6 +19,9 @@ class FlowRun(Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )  # pending, running, success, failed
+    engine: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pandas"
+    )  # pandas | polars — the dataframe engine the run executed on
     output_location: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

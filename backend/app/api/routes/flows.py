@@ -45,5 +45,5 @@ async def preview_flow(
 async def export_flow_python(
     flow_id: str, service: CodegenServiceDep
 ) -> CodeExportResponse:
-    code = await service.export_python(flow_id)
-    return CodeExportResponse(code=code)
+    code = await service.export(flow_id)
+    return CodeExportResponse(code=code["pandas"], polars=code["polars"])
