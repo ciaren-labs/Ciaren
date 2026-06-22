@@ -224,3 +224,4 @@ __marimo__/
 # Local dev databases / data dirs (SQLite default; not for VCS)
 backend/*.db
 backend/.dev_data/
+backend/.data/
