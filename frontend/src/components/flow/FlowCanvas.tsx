@@ -6,6 +6,7 @@ import {
   Controls,
   MiniMap,
   addEdge,
+  useReactFlow,
   type Connection,
   type Edge,
   type IsValidConnection,
@@ -13,9 +14,11 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodeTypes";
+import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef, type NodeCategory } from "@/lib/nodeCatalog";
-import { wouldCreateCycle } from "@/lib/flowGraph";
+import { hasReadyInput, isInputType, wouldCreateCycle } from "@/lib/flowGraph";
+import { createFlowNode } from "@/lib/createNode";
 
 const MINIMAP_COLORS: Record<NodeCategory, string> = {
   input: "#10b981",
@@ -39,7 +42,9 @@ export function FlowCanvas() {
   const onNodesChange = useFlowEditorStore((s) => s.onNodesChange);
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const setEdges = useFlowEditorStore((s) => s.setEdges);
+  const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
+  const { screenToFlowPosition } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -95,6 +100,29 @@ export function FlowCanvas() {
     [nodes, edges],
   );
 
+  // Accept nodes dragged from the palette. Non-input nodes stay blocked until a
+  // dataset-bound input exists (the same gate the palette enforces visually).
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const type = event.dataTransfer.getData(NODE_DND_MIME);
+      const def = getNodeTypeDef(type);
+      if (!def) return;
+      if (!isInputType(def.type) && !hasReadyInput(nodes)) return;
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      addNode(createFlowNode(def, position));
+    },
+    [nodes, screenToFlowPosition, addNode],
+  );
+
   const minimapColor = (node: Node) => {
     const cat = getNodeTypeDef(node.type ?? "")?.category;
     return cat ? MINIMAP_COLORS[cat] : "#94a3b8";
@@ -113,6 +141,8 @@ export function FlowCanvas() {
         isValidConnection={isValidConnection}
         onNodeClick={(_, node) => selectNode(node.id)}
         onPaneClick={() => selectNode(null)}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         fitView
         proOptions={{ hideAttribution: true }}
       >
