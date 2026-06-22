@@ -28,6 +28,7 @@ class NodeResultRead(BaseModel):
     columns: list[str] = Field(default_factory=list)
     sample: list[dict[str, Any]] = Field(default_factory=list)
     error: str | None = None
+    duration_ms: float | None = None
 
 
 class FlowRunSummary(BaseModel):

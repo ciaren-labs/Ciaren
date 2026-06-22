@@ -56,3 +56,17 @@ def shutdown_process_pool() -> None:
     if _pool is not None:
         _pool.shutdown(wait=True)
         _pool = None
+
+
+def recycle_process_pool() -> None:
+    """Discard the current pool without waiting, so a fresh one is created lazily.
+
+    Used after a run timeout in process mode. The stdlib pool cannot force-kill a
+    worker mid-task, but dropping the pool stops new work queueing behind a hung
+    worker and gives subsequent runs fresh capacity; the orphaned worker is
+    reaped once its (abandoned) task returns.
+    """
+    global _pool
+    if _pool is not None:
+        _pool.shutdown(wait=False, cancel_futures=True)
+        _pool = None

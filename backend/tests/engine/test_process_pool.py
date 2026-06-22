@@ -15,6 +15,7 @@ import pandas as pd
 from app.engine.executor import dataset_ref_key
 from app.engine.process_pool import (
     get_process_pool,
+    recycle_process_pool,
     run_graph_in_process,
     shutdown_process_pool,
 )
@@ -69,6 +70,16 @@ def test_get_process_pool_is_singleton_and_resettable() -> None:
     third = get_process_pool()
     try:
         assert third is not first  # a fresh pool after shutdown
+    finally:
+        shutdown_process_pool()
+
+
+def test_recycle_process_pool_replaces_instance() -> None:
+    first = get_process_pool()
+    try:
+        recycle_process_pool()  # drop without waiting
+        second = get_process_pool()
+        assert second is not first  # a fresh pool is created lazily
     finally:
         shutdown_process_pool()
 
