@@ -15,6 +15,8 @@ import { useDatasets } from "@/features/datasets/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
 import { type NodeTypeDef } from "@/lib/nodeCatalog";
+import { createFlowNode } from "@/lib/createNode";
+import { hasReadyInput } from "@/lib/flowGraph";
 import { validateFlow } from "@/lib/flowValidation";
 import { FlowCanvas } from "@/components/flow/FlowCanvas";
 import { NodePalette } from "@/components/flow/NodePalette";
@@ -29,8 +31,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-let nodeCounter = 0;
 
 export function FlowEditorPage() {
   const { flowId } = useParams<{ flowId: string }>();
@@ -75,22 +75,10 @@ export function FlowEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow?.id]);
 
-  const handleAddNode = (def: NodeTypeDef) => {
-    nodeCounter += 1;
-    const id = `${def.type}_${Date.now()}_${nodeCounter}`;
-    addNode({
-      id,
-      type: def.type,
-      position: {
-        x: 140 + (nodeCounter % 5) * 48,
-        y: 120 + (nodeCounter % 5) * 48,
-      },
-      data: {
-        label: def.label,
-        config: structuredClone(def.defaultConfig),
-      },
-    });
-  };
+  const handleAddNode = (def: NodeTypeDef) => addNode(createFlowNode(def));
+
+  // Gate: the first step must be an input node with a dataset chosen.
+  const inputReady = hasReadyInput(nodes);
 
   const handleSave = () => {
     if (!flowId) return;
@@ -176,7 +164,7 @@ export function FlowEditorPage() {
         </div>
 
         <div className="flex min-h-0 flex-1">
-          <NodePalette onAdd={handleAddNode} />
+          <NodePalette onAdd={handleAddNode} unlocked={inputReady} />
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
               <FlowCanvas />

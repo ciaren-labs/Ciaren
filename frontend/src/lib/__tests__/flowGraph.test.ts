@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeNodeColumns,
   hasCycle,
+  hasReadyInput,
   isInputType,
   topologicalOrder,
   wouldCreateCycle,
@@ -38,6 +39,24 @@ describe("isInputType", () => {
     expect(isInputType("excelInput")).toBe(true);
     expect(isInputType("dropColumns")).toBe(false);
     expect(isInputType(undefined)).toBe(false);
+  });
+});
+
+describe("hasReadyInput", () => {
+  it("is false with no nodes", () => {
+    expect(hasReadyInput([])).toBe(false);
+  });
+
+  it("is false when an input node has no dataset chosen", () => {
+    expect(hasReadyInput([node("in", "csvInput", { dataset_id: "" })])).toBe(false);
+  });
+
+  it("is false when only non-input nodes exist", () => {
+    expect(hasReadyInput([node("d", "dropColumns", { columns: [] })])).toBe(false);
+  });
+
+  it("is true once an input node has a dataset", () => {
+    expect(hasReadyInput([node("in", "csvInput", { dataset_id: "d1" })])).toBe(true);
   });
 });
 
