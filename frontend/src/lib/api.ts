@@ -111,10 +111,16 @@ export const flowsApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
-  createRun: (id: string, inputDatasetId?: string) =>
+  createRun: (
+    id: string,
+    options: { inputDatasetId?: string; engine?: string } = {},
+  ) =>
     request<FlowRun>(`/flows/${id}/runs`, {
       method: "POST",
-      body: JSON.stringify({ input_dataset_id: inputDatasetId }),
+      body: JSON.stringify({
+        input_dataset_id: options.inputDatasetId,
+        engine: options.engine ?? "pandas",
+      }),
     }),
 };
 

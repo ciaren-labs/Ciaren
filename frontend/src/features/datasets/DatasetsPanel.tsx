@@ -6,12 +6,13 @@ import {
   FileSpreadsheet,
   FileText,
   Loader2,
-  Search,
   UploadCloud,
 } from "lucide-react";
 import { useDatasets, useUploadDataset } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
+import { SearchInput } from "@/components/filters/FilterBar";
+import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import {
   Card,
   CardContent,
@@ -29,9 +30,6 @@ const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: stri
   excel: { icon: FileSpreadsheet, tint: "bg-green-600" },
   parquet: { icon: Database, tint: "bg-indigo-500" },
 };
-
-const SELECT_CLASS =
-  "h-9 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 interface DatasetsPanelProps {
   /** When set, the panel is scoped to one project: no grouping, uploads land here. */
@@ -101,28 +99,21 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search datasets…"
-            className={cn(SELECT_CLASS, "w-full pl-8")}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search datasets…"
+          className="flex-1 sm:max-w-xs"
+        />
         {!scoped && (
-          <select
-            className={SELECT_CLASS}
+          <SearchableSelect
             value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
-          >
-            <option value="">All projects</option>
-            {(projects ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={setProjectFilter}
+            allLabel="All projects"
+            placeholder="Search projects…"
+            className="sm:w-52"
+            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          />
         )}
       </div>
 

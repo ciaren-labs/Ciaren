@@ -5,12 +5,18 @@ import { useRuns } from "./hooks";
 import { useFlows } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  FilterBar,
+  FilterField,
+  FilterSelect,
+} from "@/components/filters/FilterBar";
+import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import type { RunListFilters, RunStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const SELECT_CLASS =
-  "h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const DATE_CLASS =
+  "h-10 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const STATUSES: RunStatus[] = ["success", "failed", "running", "pending"];
 
@@ -71,66 +77,60 @@ export function RunsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
-        <Filter label="Flow">
-          <select className={SELECT_CLASS} value={flowId} onChange={(e) => setFlowId(e.target.value)}>
-            <option value="">All flows</option>
-            {(flows ?? []).map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </Filter>
-        <Filter label="Status">
-          <select className={SELECT_CLASS} value={status} onChange={(e) => setStatus(e.target.value)}>
+      <FilterBar className="mb-4">
+        <FilterField label="Flow">
+          <SearchableSelect
+            value={flowId}
+            onChange={setFlowId}
+            allLabel="All flows"
+            placeholder="Search flows…"
+            options={(flows ?? []).map((f) => ({ value: f.id, label: f.name }))}
+          />
+        </FilterField>
+        <FilterField label="Dataset">
+          <SearchableSelect
+            value={datasetId}
+            onChange={setDatasetId}
+            allLabel="All datasets"
+            placeholder="Search datasets…"
+            options={(datasets ?? []).map((d) => ({ value: d.id, label: d.name }))}
+          />
+        </FilterField>
+        <FilterField label="Status" className="min-w-[8rem]">
+          <FilterSelect value={status} onChange={setStatus}>
             <option value="">Any status</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s[0].toUpperCase() + s.slice(1)}
               </option>
             ))}
-          </select>
-        </Filter>
-        <Filter label="Dataset">
-          <select
-            className={SELECT_CLASS}
-            value={datasetId}
-            onChange={(e) => setDatasetId(e.target.value)}
-          >
-            <option value="">All datasets</option>
-            {(datasets ?? []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </Filter>
-        <Filter label="From">
+          </FilterSelect>
+        </FilterField>
+        <FilterField label="From" className="min-w-[8rem]">
           <input
             type="date"
-            className={SELECT_CLASS}
+            className={DATE_CLASS}
             value={after}
             onChange={(e) => setAfter(e.target.value)}
           />
-        </Filter>
-        <Filter label="To">
+        </FilterField>
+        <FilterField label="To" className="min-w-[8rem]">
           <input
             type="date"
-            className={SELECT_CLASS}
+            className={DATE_CLASS}
             value={before}
             onChange={(e) => setBefore(e.target.value)}
           />
-        </Filter>
+        </FilterField>
         {hasFilters && (
           <button
             onClick={reset}
-            className="flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Clear
           </button>
         )}
-      </div>
+      </FilterBar>
 
       {isLoading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -189,16 +189,5 @@ export function RunsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function Filter({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
