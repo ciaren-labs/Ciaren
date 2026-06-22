@@ -38,7 +38,7 @@ Core promise:
 
 ## Tech Stack
 
-**Backend:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
+**Backend:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
 Alembic, pandas. Optional dataframe engines behind a backend abstraction
 (`app/engine/backends/`): pandas (default), polars.
 

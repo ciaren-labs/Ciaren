@@ -2,10 +2,16 @@
 
 > **Visual ETL builder for analysts and developers** — Upload data, build a transformation pipeline, preview results, and export readable Python code.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+[![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![React](https://img.shields.io/badge/React-18-blue)
-![Status](https://img.shields.io/badge/Status-Active%20Development-green)
+![Status](https://img.shields.io/badge/Status-Alpha-orange)
+
+---
+
+> ⚠️ **Alpha software.** FlowFrame is in early development. APIs, the data model,
+> and generated code may change without notice between releases, and there is no
+> stability guarantee yet. Use it for experimentation — not production pipelines.
 
 ---
 
@@ -41,7 +47,7 @@ Built for analysts, data-curious business users, and Python learners who want to
 
 ### Requirements
 
-- Python 3.11+
+- Python 3.12+
 - Node.js 18+
 - PostgreSQL (or configure SQLite for local development)
 
@@ -126,7 +132,7 @@ Frontend runs on `http://localhost:5173`
 
 ## 🏗️ Tech Stack
 
-**Backend:** Python 3.11, FastAPI, SQLAlchemy, Pydantic, Pandas
+**Backend:** Python 3.12+, FastAPI, SQLAlchemy, Pydantic, Pandas
 **Frontend:** React, TypeScript, Vite, @xyflow/react, TanStack Query, Zustand, Tailwind CSS
 **Database:** PostgreSQL (or SQLite for dev)
 
