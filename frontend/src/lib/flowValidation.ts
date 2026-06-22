@@ -122,6 +122,25 @@ export function validateFlow(
             nodeId: node.id,
             message: `${def.label} expects a ${expected.toUpperCase()} dataset, but "${ds.name}" is ${ds.source_type.toUpperCase()}.`,
           });
+        } else {
+          // Version pin checks: a pin beyond the latest version is broken; a pin
+          // behind the latest is a (non-blocking) drift warning.
+          const pinned = node.data.config.dataset_version;
+          if (typeof pinned === "number" && pinned > ds.latest_version) {
+            issues.push({
+              severity: "error",
+              code: "VERSION_MISSING",
+              nodeId: node.id,
+              message: `${def.label}: pinned version v${pinned} of "${ds.name}" no longer exists (latest is v${ds.latest_version}).`,
+            });
+          } else if (typeof pinned === "number" && pinned < ds.latest_version) {
+            issues.push({
+              severity: "warning",
+              code: "VERSION_OUTDATED",
+              nodeId: node.id,
+              message: `${def.label}: pinned to v${pinned} of "${ds.name}"; v${ds.latest_version} is available.`,
+            });
+          }
         }
       }
     } else {
