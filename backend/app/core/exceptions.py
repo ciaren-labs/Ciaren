@@ -14,6 +14,15 @@ class ValidationError(Exception):
         super().__init__(detail)
 
 
+class ConflictError(Exception):
+    """Raised when a request would violate a uniqueness constraint
+    (e.g. uploading a dataset whose name is already taken)."""
+
+    def __init__(self, detail: str) -> None:
+        self.detail = detail
+        super().__init__(detail)
+
+
 class UnsupportedFileTypeError(Exception):
     ALLOWED = (".csv", ".xlsx", ".xls", ".parquet")
 

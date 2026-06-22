@@ -206,6 +206,47 @@ async def test_upload_too_large_returns_413(client: AsyncClient, monkeypatch) ->
 
 
 # ---------------------------------------------------------------------------
+# POST /api/datasets/upload — unique names
+# ---------------------------------------------------------------------------
+
+
+async def test_upload_duplicate_name_returns_409(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "sales.csv")
+    r = await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    assert r.status_code == 409
+    assert "already exists" in r.json()["detail"].lower()
+
+
+async def test_upload_duplicate_name_case_insensitive(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "Sales.csv")
+    r = await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    assert r.status_code == 409
+
+
+async def test_upload_duplicate_name_does_not_create_second_row(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "sales.csv")
+    await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    r = await client.get("/api/datasets")
+    assert len(r.json()) == 1
+
+
+async def test_upload_different_names_both_succeed(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "a.csv")
+    await _upload(client, _csv(), "b.csv")
+    r = await client.get("/api/datasets")
+    assert len(r.json()) == 2
+
+
+# ---------------------------------------------------------------------------
 # GET /api/datasets — list
 # ---------------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ from app.api.routes import datasets, flows, runs, transformations
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.exceptions import (
+    ConflictError,
     DatasetParseError,
     FileTooLargeError,
     NotFoundError,
@@ -71,6 +72,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(ValidationError)
     async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(ConflictError)
+    async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
