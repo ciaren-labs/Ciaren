@@ -16,16 +16,9 @@ import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
-import { getNodeTypeDef, type NodeCategory } from "@/lib/nodeCatalog";
+import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { hasReadyInput, isInputType, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
-
-const MINIMAP_COLORS: Record<NodeCategory, string> = {
-  input: "#10b981",
-  clean: "#0ea5e9",
-  transform: "#8b5cf6",
-  output: "#f59e0b",
-};
 
 const defaultEdgeOptions = {
   type: "smoothstep" as const,
@@ -123,10 +116,8 @@ export function FlowCanvas() {
     [nodes, screenToFlowPosition, addNode],
   );
 
-  const minimapColor = (node: Node) => {
-    const cat = getNodeTypeDef(node.type ?? "")?.category;
-    return cat ? MINIMAP_COLORS[cat] : "#94a3b8";
-  };
+  // Minimalist: every node renders the same brand tint in the minimap.
+  const minimapColor = (_node: Node) => "#a78bfa";
 
   return (
     <div className="canvas-surface h-full w-full">
