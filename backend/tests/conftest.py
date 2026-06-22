@@ -32,7 +32,18 @@ async def db_session(engine):
 
 
 @pytest.fixture
-async def client(db_session):
+async def client(db_session, tmp_path, monkeypatch):
+    # Point DATA_DIR at a per-test temp directory so file uploads are isolated
+    # and cleaned up automatically after each test.
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    get_settings.cache_clear()
+
+    # ASGITransport does not send lifespan events, so create the data dirs manually.
+    for subdir in ("uploads", "outputs", "previews"):
+        (tmp_path / subdir).mkdir(parents=True, exist_ok=True)
+
     async def override_get_db():
         yield db_session
 
@@ -40,3 +51,4 @@ async def client(db_session):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+    get_settings.cache_clear()

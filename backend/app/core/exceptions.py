@@ -3,3 +3,24 @@ class NotFoundError(Exception):
         self.resource = resource
         self.resource_id = resource_id
         super().__init__(f"{resource} '{resource_id}' not found")
+
+
+class UnsupportedFileTypeError(Exception):
+    ALLOWED = (".csv", ".xlsx", ".xls", ".parquet")
+
+    def __init__(self, filename: str) -> None:
+        self.filename = filename
+        allowed = ", ".join(self.ALLOWED)
+        super().__init__(f"'{filename}' has an unsupported file type. Allowed: {allowed}")
+
+
+class FileTooLargeError(Exception):
+    def __init__(self, max_mb: int) -> None:
+        self.max_mb = max_mb
+        super().__init__(f"File exceeds the {max_mb} MB limit")
+
+
+class DatasetParseError(Exception):
+    def __init__(self, filename: str, detail: str) -> None:
+        self.filename = filename
+        super().__init__(f"Could not parse '{filename}': {detail}")
