@@ -1,11 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
-import { Database, Workflow } from "lucide-react";
+import { Database, History, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Flows", icon: Workflow },
   { to: "/datasets", label: "Datasets", icon: Database },
+  { to: "/runs", label: "Runs", icon: History },
 ];
+
+function isActive(pathname: string, to: string): boolean {
+  if (to === "/") return pathname === "/" || pathname.startsWith("/flows");
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
 
 export function AppHeader() {
   const { pathname } = useLocation();
@@ -19,7 +25,7 @@ export function AppHeader() {
       </Link>
       <nav className="flex items-center gap-1">
         {NAV.map((item) => {
-          const active = pathname === item.to;
+          const active = isActive(pathname, item.to);
           const Icon = item.icon;
           return (
             <Link

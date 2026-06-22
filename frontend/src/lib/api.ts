@@ -10,10 +10,24 @@ import type {
   FlowCreate,
   FlowPreviewRequest,
   FlowRun,
+  FlowRunSummary,
   FlowUpdate,
   PreviewResponse,
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  RunListFilters,
   TransformationPreviewRequest,
 } from "./types";
+
+/** Build a `?a=b&c=d` query string from defined values only. */
+function queryString(params: Record<string, string | number | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+  if (entries.length === 0) return "";
+  const usp = new URLSearchParams();
+  for (const [k, v] of entries) usp.set(k, String(v));
+  return `?${usp.toString()}`;
+}
 
 const BASE_URL = "/api";
 
@@ -72,7 +86,8 @@ async function request<T>(
 // ---- Flows -----------------------------------------------------------------
 
 export const flowsApi = {
-  list: () => request<Flow[]>("/flows"),
+  list: (projectId?: string) =>
+    request<Flow[]>(`/flows${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Flow>(`/flows/${id}`),
   create: (body: FlowCreate) =>
     request<Flow>("/flows", {
@@ -103,19 +118,35 @@ export const flowsApi = {
     }),
 };
 
+// ---- Projects --------------------------------------------------------------
+
+export const projectsApi = {
+  list: () => request<Project[]>("/projects"),
+  get: (id: string) => request<Project>(`/projects/${id}`),
+  create: (body: ProjectCreate) =>
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
+  update: (id: string, body: ProjectUpdate) =>
+    request<Project>(`/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  remove: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+};
+
 // ---- Runs ------------------------------------------------------------------
 
 export const runsApi = {
   get: (id: string) => request<FlowRun>(`/runs/${id}`),
+  list: (filters: RunListFilters = {}) =>
+    request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
 };
 
 // ---- Datasets --------------------------------------------------------------
 
 export const datasetsApi = {
-  list: () => request<Dataset[]>("/datasets"),
+  list: (projectId?: string) =>
+    request<Dataset[]>(`/datasets${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Dataset>(`/datasets/${id}`),
   versions: (id: string) =>
     request<DatasetVersion[]>(`/datasets/${id}/versions`),
+  flows: (id: string) => request<Flow[]>(`/datasets/${id}/flows`),
   schema: (id: string, version?: number) =>
     request<DatasetSchemaField[]>(
       `/datasets/${id}/schema${version ? `?version=${version}` : ""}`,
@@ -124,13 +155,13 @@ export const datasetsApi = {
     request<Record<string, unknown>[]>(
       `/datasets/${id}/sample${version ? `?version=${version}` : ""}`,
     ),
-  upload: async (file: File): Promise<Dataset> => {
+  upload: async (file: File, projectId?: string): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE_URL}/datasets/upload`, {
-      method: "POST",
-      body: form,
-    });
+    const res = await fetch(
+      `${BASE_URL}/datasets/upload${queryString({ project_id: projectId })}`,
+      { method: "POST", body: form },
+    );
     if (!res.ok) {
       throw await parseError(res);
     }
