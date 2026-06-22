@@ -2,11 +2,12 @@ import { Link, useLocation } from "react-router-dom";
 import { Database, FolderKanban, Globe, History, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
+import { SearchableSelect } from "@/components/filters/SearchableSelect";
 
 const NAV = [
-  { to: "/flows", label: "Flows", icon: Workflow },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
+  { to: "/flows", label: "Flows", icon: Workflow },
   { to: "/runs", label: "Runs", icon: History },
 ];
 
@@ -52,20 +53,19 @@ export function AppHeader() {
       </nav>
 
       {/* Timezone preference */}
-      <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
         <Globe className="h-3.5 w-3.5 shrink-0" />
-        <select
+        <SearchableSelect
           value={timezone}
-          onChange={(e) => setTimezone(e.target.value)}
-          className="h-7 rounded border border-input bg-background px-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          title="Display timezone"
-        >
-          {COMMON_TIMEZONES.map((tz) => (
-            <option key={tz.value} value={tz.value}>
-              {tz.label}
-            </option>
-          ))}
-        </select>
+          onChange={setTimezone}
+          allLabel="Browser default"
+          placeholder="Search timezone…"
+          className="w-56"
+          options={COMMON_TIMEZONES.filter((tz) => tz.value !== "").map((tz) => ({
+            value: tz.value,
+            label: tz.label,
+          }))}
+        />
       </div>
     </header>
   );

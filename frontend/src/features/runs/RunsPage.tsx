@@ -22,6 +22,7 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
 import { projectColor } from "@/lib/projectColors";
+import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import type { RunListFilters, RunStatus, FlowRunSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,7 @@ export function RunsPage() {
   const [page, setPage] = useState(0);
   const [sortBy, setSortBy] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [layout, setLayout] = useState<"table" | "cards">("table");
+  const [layout, setLayout] = useLayoutPreference("runs", "table");
 
   const filters: RunListFilters = useMemo(
     () => ({

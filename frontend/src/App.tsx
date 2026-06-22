@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { AppFooter } from "@/components/layout/AppFooter";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { FlowListPage } from "@/features/flows/FlowListPage";
 import { FlowEditorPage } from "@/features/flows/FlowEditorPage";
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/flows/:flowId" element={<FlowEditorPage />} />
         </Routes>
       </main>
+      <AppFooter />
     </div>
   );
 }

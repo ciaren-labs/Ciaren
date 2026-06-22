@@ -16,6 +16,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useDatasetFlows, useDatasets, useDeleteDataset, usePatchDataset, useUploadDataset } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
@@ -67,7 +68,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [selected, setSelected] = useState<Dataset | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
-  const [layout, setLayout] = useState<"cards" | "table">("cards");
+  const [layout, setLayout] = useLayoutPreference("datasets", "cards");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   // Pending disable/delete action with cascade confirmation
   const [pendingAction, setPendingAction] = useState<{
@@ -444,7 +445,10 @@ function DatasetTable({
                   <div className="flex items-center gap-1 justify-end">
                     <button
                       onClick={() => onAction(d, d.is_disabled ? "enable" : "disable")}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      className={cn(
+                        "rounded p-1 transition-colors hover:bg-muted",
+                        d.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+                      )}
                       title={d.is_disabled ? "Enable dataset" : "Disable dataset"}
                     >
                       {d.is_disabled ? <Power className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -535,7 +539,10 @@ function DatasetCard({
           <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               onClick={() => onAction(d, d.is_disabled ? "enable" : "disable")}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className={cn(
+                "rounded-md p-1.5 transition-colors hover:bg-muted",
+                d.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+              )}
               title={d.is_disabled ? "Enable dataset" : "Disable dataset"}
             >
               {d.is_disabled ? <Power className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
