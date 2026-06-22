@@ -59,7 +59,10 @@ export function useToggleFlow() {
   return useMutation({
     mutationFn: ({ id, is_disabled }: { id: string; is_disabled: boolean }) =>
       flowsApi.update(id, { is_disabled }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
+    onSuccess: (flow) => {
+      qc.invalidateQueries({ queryKey: queryKeys.flows });
+      qc.invalidateQueries({ queryKey: queryKeys.flow(flow.id) });
+    },
   });
 }
 
