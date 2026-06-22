@@ -25,6 +25,7 @@ from app.core.exceptions import (
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
 from app.schemas.dataset import DatasetRead, DatasetVersionRead
+from app.services.project_service import ProjectService
 
 _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".csv": "csv",
@@ -47,12 +48,13 @@ class DatasetService:
     # Public API
     # ------------------------------------------------------------------
 
-    async def upload(self, file: UploadFile) -> DatasetRead:
+    async def upload(self, file: UploadFile, project_id: str | None = None) -> DatasetRead:
         """Store an upload as a new version.
 
         A new name creates a dataset at version 1; an existing name appends the
         next version (immutably), so flows pinned to an earlier version are
         unaffected. The file type must match the dataset's existing type.
+        ``project_id`` only applies when creating a new dataset.
         """
         filename = file.filename or "upload"
         source_type = _validate_extension(filename)
@@ -69,7 +71,10 @@ class DatasetService:
 
         dataset = await self._get_by_name(name)
         if dataset is None:
-            dataset = Dataset(name=name, source_type=source_type)
+            resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
+            dataset = Dataset(
+                name=name, source_type=source_type, project_id=resolved_project_id
+            )
             self.db.add(dataset)
             await self.db.flush()  # populate dataset.id
             version_number = 1
@@ -101,12 +106,15 @@ class DatasetService:
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def list_all(self) -> list[DatasetRead]:
-        result = await self.db.execute(
+    async def list_all(self, project_id: str | None = None) -> list[DatasetRead]:
+        stmt = (
             select(Dataset)
             .options(selectinload(Dataset.versions))
             .order_by(Dataset.created_at.desc())
         )
+        if project_id is not None:
+            stmt = stmt.where(Dataset.project_id == project_id)
+        result = await self.db.execute(stmt)
         return [self._to_read(d) for d in result.scalars().all()]
 
     async def get(self, dataset_id: str) -> DatasetRead:
@@ -143,6 +151,7 @@ class DatasetService:
             id=dataset.id,
             name=dataset.name,
             source_type=dataset.source_type,
+            project_id=dataset.project_id,
             latest_version=latest.version_number if latest else 0,
             version_count=len(versions),
             column_schema=latest.schema_json if latest else None,

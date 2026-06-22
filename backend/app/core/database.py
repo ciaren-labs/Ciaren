@@ -50,7 +50,7 @@ async def init_db() -> None:
     """
     # Import models inside the function so they register on Base.metadata
     # without creating an import cycle (models import Base from this module).
-    from app.db.models import dataset, dataset_version, flow, run  # noqa: F401
+    from app.db.models import dataset, dataset_version, flow, project, run  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
