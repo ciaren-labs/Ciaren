@@ -93,7 +93,7 @@ pip install -e .
 flowframe serve
 ```
 
-The backend starts on `http://localhost:8000` and creates its database
+The backend starts on `http://localhost:8055` and creates its database
 automatically. To use the visual editor, also run the frontend (`cd frontend
 && npm install && npm run dev`).
 
@@ -101,7 +101,7 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 
 ### Explore the API (5 minutes)
 
-1. Open the interactive docs at <http://localhost:8000/docs>
+1. Open the interactive docs at <http://localhost:8055/docs>
 2. Upload a CSV with `POST /api/datasets/upload`
 3. Create a flow with `POST /api/flows`
 4. Export Python with `POST /api/flows/{id}/export/python`

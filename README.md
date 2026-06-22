@@ -79,9 +79,9 @@ pip install -e .
 flowframe serve
 ```
 
-The backend starts on `http://localhost:8000` and **creates its database
+The backend starts on `http://localhost:8055` and **creates its database
 automatically** on first start — there is no migration step to run. Open the
-interactive API docs at `http://localhost:8000/docs`.
+interactive API docs at `http://localhost:8055/docs`.
 
 > `flowframe serve` is the recommended entry point. It also accepts flags such as
 > `--port`, `--db-url`, `--engine`, and `--no-scheduler`. See `flowframe --help`,
@@ -97,7 +97,7 @@ npm run dev
 ```
 
 The editor runs on `http://localhost:5173` and proxies API calls to the backend
-on port `8000`.
+on port `8055`.
 
 ### 3. Try it out
 

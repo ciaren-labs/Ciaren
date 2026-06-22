@@ -133,7 +133,7 @@ FlowFrame is local-first, but you can host it. A typical setup:
 ```bash
 pip install -e .
 # bind to all interfaces, no reload, info logs
-flowframe serve --host 0.0.0.0 --port 8000 --log-level info
+flowframe serve --host 0.0.0.0 --port 8055 --log-level info
 ```
 
 - Set `FLOWFRAME_ENVIRONMENT=production`.
@@ -165,7 +165,7 @@ server {
   location / { try_files $uri /index.html; }
 
   location /api/ {                      # proxy to the backend
-    proxy_pass http://127.0.0.1:8000;
+    proxy_pass http://127.0.0.1:8055;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }
@@ -188,7 +188,7 @@ production build) honors:
 
 - `VITE_PORT` — change the dev server port (default `5173`).
 - `VITE_API_TARGET` — where the dev proxy forwards `/api` (default
-  `http://localhost:8000`).
+  `http://localhost:8055`).
 
 ```bash
 VITE_PORT=3000 VITE_API_TARGET=http://localhost:8001 npm run dev

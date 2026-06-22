@@ -72,28 +72,28 @@ overlap protection. See [Scheduling](/guide/scheduling).
 ## Prefer the API?
 
 Everything above is also available over REST. The fastest way to explore it is
-the interactive docs at `http://localhost:8000/docs`.
+the interactive docs at `http://localhost:8055/docs`.
 
 ```bash
 # 1. Upload a dataset (note the returned id)
-curl -F "file=@sales.csv" http://localhost:8000/api/datasets/upload
+curl -F "file=@sales.csv" http://localhost:8055/api/datasets/upload
 
 # 2. Inspect it
-curl http://localhost:8000/api/datasets/{dataset_id}/schema
-curl http://localhost:8000/api/datasets/{dataset_id}/sample
+curl http://localhost:8055/api/datasets/{dataset_id}/schema
+curl http://localhost:8055/api/datasets/{dataset_id}/sample
 
 # 3. Create a flow (a React Flow-compatible graph of nodes + edges)
-curl -X POST http://localhost:8000/api/flows \
+curl -X POST http://localhost:8055/api/flows \
   -H "Content-Type: application/json" -d @flow.json
 
 # 4. Preview, then run (optionally choose an engine)
-curl -X POST http://localhost:8000/api/flows/{flow_id}/preview
-curl -X POST http://localhost:8000/api/flows/{flow_id}/runs \
+curl -X POST http://localhost:8055/api/flows/{flow_id}/preview
+curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
   -H "Content-Type: application/json" -d '{"engine": "polars"}'
-curl http://localhost:8000/api/runs/{run_id}
+curl http://localhost:8055/api/runs/{run_id}
 
 # 5. Export Python (returns both pandas and polars code)
-curl -X POST http://localhost:8000/api/flows/{flow_id}/export/python
+curl -X POST http://localhost:8055/api/flows/{flow_id}/export/python
 ```
 
 The flow graph format (node `type`s, `data.config`, and edges) is described in

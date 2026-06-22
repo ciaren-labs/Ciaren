@@ -29,6 +29,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "aiofiles>=24.0",
     "croniter>=3.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -59,6 +60,8 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 100
+# Alembic generates these; don't lint machine-written migration scripts.
+extend-exclude = ["app/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I"]
@@ -75,6 +78,8 @@ known-first-party = ["app"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# Alembic generates these; they are not written to strict-typing standards.
+exclude = ["app/migrations/versions/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
