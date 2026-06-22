@@ -141,3 +141,26 @@ class PandasEngine:
 
     def concat(self, frames: list[pd.DataFrame]) -> pd.DataFrame:
         return pd.concat(frames, ignore_index=True)
+
+    def limit_rows(self, df: pd.DataFrame, n: int) -> pd.DataFrame:
+        return df.head(n)
+
+    def replace_values(
+        self, df: pd.DataFrame, column: str, to_replace: Any, value: Any
+    ) -> pd.DataFrame:
+        return df.assign(**{column: df[column].replace(to_replace, value)})
+
+    def string_transform(
+        self, df: pd.DataFrame, column: str, operation: str
+    ) -> pd.DataFrame:
+        accessor = df[column].astype("string").str
+        ops = {
+            "lower": accessor.lower,
+            "upper": accessor.upper,
+            "strip": accessor.strip,
+            "title": accessor.title,
+            "capitalize": accessor.capitalize,
+        }
+        if operation not in ops:
+            raise ValueError(f"Unknown string operation: {operation!r}")
+        return df.assign(**{column: ops[operation]()})
