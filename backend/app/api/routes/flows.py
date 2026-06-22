@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[FlowRead])
 async def list_flows(service: FlowServiceDep) -> list[FlowRead]:
-    return await service.list()
+    return await service.list_all()
 
 
 @router.post("", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
