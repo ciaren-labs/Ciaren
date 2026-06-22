@@ -1,19 +1,16 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
-from app.db.models.dataset import Dataset
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.executor import FlowExecutor
 from app.schemas.run import FlowRunCreate, FlowRunRead
-
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
+from app.services.dataset_resolver import build_dataset_paths
 
 
 class ExecutionService:
@@ -34,7 +31,7 @@ class ExecutionService:
         await self.db.flush()  # assign run.id without committing
 
         try:
-            dataset_paths = await self._dataset_paths(flow.graph_json)
+            dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
             outputs = FlowExecutor().execute(flow.graph_json, dataset_paths, output_dir)
@@ -45,8 +42,15 @@ class ExecutionService:
             run.output_location = (
                 f"{run.id}/{next(iter(outputs.values())).name}" if outputs else None
             )
+            # Record exactly which dataset versions were used so the run is
+            # reproducible/auditable even after newer versions are uploaded.
             run.logs_json = [
-                {"level": "info", "message": f"Flow executed, wrote {len(outputs)} output(s)"}
+                {"level": "info", "message": f"Flow executed, wrote {len(outputs)} output(s)"},
+                {
+                    "level": "info",
+                    "message": "Resolved dataset versions",
+                    "versions": resolved_versions,
+                },
             ]
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             run.status = "failed"
@@ -67,23 +71,6 @@ class ExecutionService:
         return FlowRunRead.model_validate(run)
 
     # -- Internals ------------------------------------------------------
-
-    async def _dataset_paths(self, graph: dict[str, Any]) -> dict[str, Path]:
-        dataset_ids = {
-            n["data"]["config"]["dataset_id"]
-            for n in graph.get("nodes", [])
-            if n["type"] in _INPUT_TYPES
-        }
-        if not dataset_ids:
-            return {}
-        result = await self.db.execute(
-            select(Dataset).where(Dataset.id.in_(dataset_ids))
-        )
-        datasets = {d.id: d for d in result.scalars().all()}
-        missing = dataset_ids - datasets.keys()
-        if missing:
-            raise NotFoundError("Dataset", ", ".join(sorted(missing)))
-        return {ds_id: Path(ds.location) for ds_id, ds in datasets.items()}
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

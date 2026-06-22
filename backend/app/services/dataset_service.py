@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,6 +12,7 @@ import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.exceptions import (
@@ -21,7 +23,8 @@ from app.core.exceptions import (
     UnsupportedFileTypeError,
 )
 from app.db.models.dataset import Dataset
-from app.schemas.dataset import DatasetRead
+from app.db.models.dataset_version import DatasetVersion
+from app.schemas.dataset import DatasetRead, DatasetVersionRead
 
 _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".csv": "csv",
@@ -45,11 +48,15 @@ class DatasetService:
     # ------------------------------------------------------------------
 
     async def upload(self, file: UploadFile) -> DatasetRead:
+        """Store an upload as a new version.
+
+        A new name creates a dataset at version 1; an existing name appends the
+        next version (immutably), so flows pinned to an earlier version are
+        unaffected. The file type must match the dataset's existing type.
+        """
         filename = file.filename or "upload"
         source_type = _validate_extension(filename)
-
         name = Path(filename).name
-        await self._ensure_name_available(name)
 
         content = await file.read()
         if len(content) > self.max_upload_bytes:
@@ -60,59 +67,129 @@ class DatasetService:
         schema = _extract_schema(df)
         sample = _df_to_records(df, _SAMPLE_ROWS)
 
-        dataset = Dataset(
-            name=name,
-            source_type=source_type,
-            location="",  # filled in after we know the id
+        dataset = await self._get_by_name(name)
+        if dataset is None:
+            dataset = Dataset(name=name, source_type=source_type)
+            self.db.add(dataset)
+            await self.db.flush()  # populate dataset.id
+            version_number = 1
+        else:
+            if dataset.source_type != source_type:
+                raise ConflictError(
+                    f"'{name}' is a {dataset.source_type.upper()} dataset; a new "
+                    f"version must be {dataset.source_type.upper()}, not "
+                    f"{source_type.upper()}. Use a different name for a new dataset."
+                )
+            version_number = await self._next_version_number(dataset.id)
+            dataset.updated_at = datetime.utcnow()
+
+        version = DatasetVersion(
+            dataset_id=dataset.id,
+            version_number=version_number,
+            location="",  # filled in after we know the version id
             schema_json=schema,
             sample_json=sample,
+            row_count=int(len(df)),
         )
-        self.db.add(dataset)
-        await self.db.flush()  # populate dataset.id without committing
+        self.db.add(version)
+        await self.db.flush()
 
-        save_path = self.upload_dir / _storage_filename(dataset.id, filename)
+        save_path = self.upload_dir / _storage_filename(version.id, filename)
         await _write_file(content, save_path)
+        version.location = str(save_path)
 
-        dataset.location = str(save_path)
         await self.db.commit()
-        await self.db.refresh(dataset)
-        return DatasetRead.model_validate(dataset)
+        return await self._read(dataset.id)
 
     async def list_all(self) -> list[DatasetRead]:
-        result = await self.db.execute(select(Dataset).order_by(Dataset.created_at.desc()))
-        return [DatasetRead.model_validate(d) for d in result.scalars().all()]
+        result = await self.db.execute(
+            select(Dataset)
+            .options(selectinload(Dataset.versions))
+            .order_by(Dataset.created_at.desc())
+        )
+        return [self._to_read(d) for d in result.scalars().all()]
 
     async def get(self, dataset_id: str) -> DatasetRead:
-        dataset = await self._get_or_raise(dataset_id)
-        return DatasetRead.model_validate(dataset)
+        return await self._read(dataset_id)
 
-    async def get_schema(self, dataset_id: str) -> list[dict[str, Any]]:
-        dataset = await self._get_or_raise(dataset_id)
-        return dataset.schema_json or []
+    async def get_schema(
+        self, dataset_id: str, version: int | None = None
+    ) -> list[dict[str, Any]]:
+        return (await self._version(dataset_id, version)).schema_json or []
 
-    async def get_sample(self, dataset_id: str) -> list[dict[str, Any]]:
-        dataset = await self._get_or_raise(dataset_id)
-        return dataset.sample_json or []
+    async def get_sample(
+        self, dataset_id: str, version: int | None = None
+    ) -> list[dict[str, Any]]:
+        return (await self._version(dataset_id, version)).sample_json or []
+
+    async def list_versions(self, dataset_id: str) -> list[DatasetVersionRead]:
+        await self._get_or_raise(dataset_id)
+        result = await self.db.execute(
+            select(DatasetVersion)
+            .where(DatasetVersion.dataset_id == dataset_id)
+            .order_by(DatasetVersion.version_number.desc())
+        )
+        return [DatasetVersionRead.model_validate(v) for v in result.scalars().all()]
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
-    async def _ensure_name_available(self, name: str) -> None:
-        """Reject a duplicate dataset name (case-insensitive) with a clean 409.
-
-        We pre-check rather than relying on the DB unique constraint so the
-        client gets a helpful message instead of an opaque IntegrityError, and
-        so the match is case-insensitive across dialects.
-        """
-        result = await self.db.execute(
-            select(Dataset.id).where(func.lower(Dataset.name) == name.lower())
+    def _to_read(self, dataset: Dataset) -> DatasetRead:
+        """Build a DatasetRead, surfacing the latest version's schema/sample."""
+        versions = sorted(dataset.versions, key=lambda v: v.version_number)
+        latest = versions[-1] if versions else None
+        return DatasetRead(
+            id=dataset.id,
+            name=dataset.name,
+            source_type=dataset.source_type,
+            latest_version=latest.version_number if latest else 0,
+            version_count=len(versions),
+            column_schema=latest.schema_json if latest else None,
+            data_sample=latest.sample_json if latest else None,
+            created_at=dataset.created_at,
+            updated_at=dataset.updated_at,
         )
-        if result.scalar_one_or_none() is not None:
-            raise ConflictError(
-                f"A dataset named '{name}' already exists. "
-                "Rename the file or delete the existing dataset first."
+
+    async def _read(self, dataset_id: str) -> DatasetRead:
+        result = await self.db.execute(
+            select(Dataset)
+            .options(selectinload(Dataset.versions))
+            .where(Dataset.id == dataset_id)
+        )
+        dataset = result.scalar_one_or_none()
+        if dataset is None:
+            raise NotFoundError("Dataset", dataset_id)
+        return self._to_read(dataset)
+
+    async def _get_by_name(self, name: str) -> Dataset | None:
+        result = await self.db.execute(
+            select(Dataset).where(func.lower(Dataset.name) == name.lower())
+        )
+        return result.scalar_one_or_none()
+
+    async def _next_version_number(self, dataset_id: str) -> int:
+        result = await self.db.execute(
+            select(func.max(DatasetVersion.version_number)).where(
+                DatasetVersion.dataset_id == dataset_id
             )
+        )
+        return (result.scalar_one_or_none() or 0) + 1
+
+    async def _version(self, dataset_id: str, version: int | None) -> DatasetVersion:
+        await self._get_or_raise(dataset_id)
+        stmt = select(DatasetVersion).where(DatasetVersion.dataset_id == dataset_id)
+        if version is not None:
+            stmt = stmt.where(DatasetVersion.version_number == version)
+        else:
+            stmt = stmt.order_by(DatasetVersion.version_number.desc())
+        result = await self.db.execute(stmt.limit(1))
+        found = result.scalar_one_or_none()
+        if found is None:
+            raise NotFoundError(
+                "Dataset version", f"{dataset_id}:{version if version is not None else 'latest'}"
+            )
+        return found
 
     async def _get_or_raise(self, dataset_id: str) -> Dataset:
         result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id))
