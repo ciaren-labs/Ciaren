@@ -34,13 +34,17 @@ class EngineBackend(Protocol):
     def fill_nulls(
         self, df: AnyFrame, columns: list[str] | None, strategy: str, value: Any
     ) -> AnyFrame: ...
-    def drop_nulls(self, df: AnyFrame, columns: list[str] | None) -> AnyFrame: ...
+    def drop_nulls(
+        self, df: AnyFrame, columns: list[str] | None, how: str = "any"
+    ) -> AnyFrame: ...
     def drop_duplicates(
         self, df: AnyFrame, subset: list[str] | None, keep: str | bool
     ) -> AnyFrame: ...
-    def cast_column(self, df: AnyFrame, column: str, dtype: str) -> AnyFrame: ...
+    def cast_column(
+        self, df: AnyFrame, column: str, dtype: str, fmt: str | None = None, errors: str = "raise"
+    ) -> AnyFrame: ...
     def sort_rows(
-        self, df: AnyFrame, columns: list[str], ascending: list[bool]
+        self, df: AnyFrame, columns: list[str], ascending: list[bool], na_position: str = "last"
     ) -> AnyFrame: ...
     def select_columns(self, df: AnyFrame, columns: list[str]) -> AnyFrame: ...
     def add_column(self, df: AnyFrame, name: str, expression: str) -> AnyFrame: ...
@@ -48,14 +52,75 @@ class EngineBackend(Protocol):
         self, df: AnyFrame, by: list[str], aggregations: dict[str, str]
     ) -> AnyFrame: ...
     def join(
-        self, left: AnyFrame, right: AnyFrame, on: list[str], how: str
+        self,
+        left: AnyFrame,
+        right: AnyFrame,
+        on: list[str] | None,
+        how: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        suffixes: tuple[str, str] = ("_x", "_y"),
     ) -> AnyFrame: ...
     def concat(self, frames: list[AnyFrame]) -> AnyFrame: ...
-    def limit_rows(self, df: AnyFrame, n: int) -> AnyFrame: ...
+    def limit_rows(self, df: AnyFrame, n: int, offset: int = 0) -> AnyFrame: ...
     def replace_values(
-        self, df: AnyFrame, column: str, to_replace: Any, value: Any
+        self, df: AnyFrame, column: str, to_replace: Any, value: Any, regex: bool = False
     ) -> AnyFrame: ...
-    def string_transform(self, df: AnyFrame, column: str, operation: str) -> AnyFrame: ...
+    def string_transform(
+        self,
+        df: AnyFrame,
+        column: str,
+        operation: str,
+        find: str | None = None,
+        replace_with: str | None = None,
+        width: int | None = None,
+        fill_char: str = " ",
+        side: str = "left",
+    ) -> AnyFrame: ...
+    # -- New nodes (Phase 3) -------------------------------------------
+    def sample_rows(
+        self, df: AnyFrame, n: int | None, frac: float | None, seed: int | None
+    ) -> AnyFrame: ...
+    def remove_outliers(
+        self,
+        df: AnyFrame,
+        columns: list[str],
+        method: str,
+        action: str,
+        factor: float,
+        threshold: float,
+        lower: float,
+        upper: float,
+    ) -> AnyFrame: ...
+    def round_columns(self, df: AnyFrame, columns: list[str], decimals: int) -> AnyFrame: ...
+    def bin_column(
+        self,
+        df: AnyFrame,
+        column: str,
+        new_column: str,
+        method: str,
+        bins: int,
+        labels: list[str] | None,
+    ) -> AnyFrame: ...
+    def extract_date_parts(
+        self, df: AnyFrame, column: str, parts: list[str]
+    ) -> AnyFrame: ...
+    def unpivot(
+        self,
+        df: AnyFrame,
+        id_vars: list[str],
+        value_vars: list[str] | None,
+        var_name: str,
+        value_name: str,
+    ) -> AnyFrame: ...
+    def pivot(
+        self,
+        df: AnyFrame,
+        index: list[str],
+        columns: str,
+        values: str,
+        aggfunc: str,
+    ) -> AnyFrame: ...
 
 
 _REGISTRY: dict[str, type[EngineBackend]] = {}
