@@ -124,7 +124,7 @@ class SchedulerRunner:
         try:
             run = await ExecutionService(db).run(
                 schedule.flow_id,
-                FlowRunCreate(input_dataset_id=schedule.input_dataset_id, engine=schedule.engine),
+                FlowRunCreate(engine=schedule.engine),
                 schedule_id=schedule.id,
                 trigger="schedule",
             )

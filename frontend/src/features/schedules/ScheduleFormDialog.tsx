@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { CronBuilder } from "@/components/schedules/CronBuilder";
 import { useFlows } from "@/features/flows/hooks";
-import { useDatasets } from "@/features/datasets/hooks";
 import { ApiError } from "@/lib/api";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
@@ -50,7 +49,6 @@ export function ScheduleFormDialog({
   onSubmit,
 }: ScheduleFormDialogProps) {
   const { data: flows } = useFlows();
-  const { data: datasets } = useDatasets();
   const isEdit = !!schedule;
 
   const [flowId, setFlowId] = useState("");
@@ -59,7 +57,6 @@ export function ScheduleFormDialog({
   const [cronModel, setCronModel] = useState<CronModel>(DEFAULT_CRON_MODEL);
   const [timezone, setTimezone] = useState("UTC");
   const [engine, setEngine] = useState<string>("");
-  const [inputDatasetId, setInputDatasetId] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [catchUp, setCatchUp] = useState(false);
   const [maxRetries, setMaxRetries] = useState(0);
@@ -75,14 +72,11 @@ export function ScheduleFormDialog({
     setCronModel(schedule ? parseCron(schedule.cron) : DEFAULT_CRON_MODEL);
     setTimezone(schedule?.timezone ?? "UTC");
     setEngine(schedule?.engine ?? "");
-    setInputDatasetId(schedule?.input_dataset_id ?? "");
     setEnabled(schedule?.enabled ?? true);
     setCatchUp(schedule?.catch_up ?? false);
     setMaxRetries(schedule?.max_retries ?? 0);
     setRetryDelay(schedule?.retry_delay_seconds ?? 60);
-    setShowAdvanced(
-      !!schedule && (schedule.catch_up || schedule.max_retries > 0 || !!schedule.input_dataset_id),
-    );
+    setShowAdvanced(!!schedule && (schedule.catch_up || schedule.max_retries > 0));
   }, [open, schedule, lockedFlowId]);
 
   const cron = buildCron(cronModel);
@@ -98,7 +92,6 @@ export function ScheduleFormDialog({
       description: description.trim() || undefined,
       timezone,
       engine: engine || null,
-      input_dataset_id: inputDatasetId || null,
       enabled,
       catch_up: catchUp,
       max_retries: maxRetries,
@@ -230,22 +223,6 @@ export function ScheduleFormDialog({
             </button>
             {showAdvanced && (
               <div className="flex flex-col gap-3 border-t border-border p-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Input dataset (optional)</Label>
-                  <SearchableSelect
-                    value={inputDatasetId}
-                    onChange={setInputDatasetId}
-                    allLabel="Use the flow's own inputs"
-                    placeholder="Search datasets…"
-                    options={(datasets ?? [])
-                      .filter((d) => d.dataset_kind === "input")
-                      .map((d) => ({ value: d.id, label: d.name }))}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Overrides the primary input dataset for fired runs.
-                  </p>
-                </div>
-
                 <label className="flex items-center justify-between">
                   <span className="flex flex-col">
                     <span className="text-sm font-medium">Catch up missed runs</span>

@@ -6,7 +6,6 @@ import {
   CalendarClock,
   Clock,
   Cpu,
-  Database,
   Loader2,
   Pause,
   Pencil,
@@ -25,7 +24,6 @@ import {
 import { ScheduleFormDialog } from "./ScheduleFormDialog";
 import { ScheduleStateBadge } from "./SchedulesPage";
 import { useFlow } from "@/features/flows/hooks";
-import { useDatasets } from "@/features/datasets/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -41,7 +39,6 @@ export function ScheduleDetailPage() {
   const { data: schedule, isLoading } = useSchedule(scheduleId ?? null);
   const { data: flow } = useFlow(schedule?.flow_id ?? null);
   const { data: runs } = useScheduleRuns(scheduleId ?? null);
-  const { data: datasets } = useDatasets();
 
   const updateSchedule = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
@@ -60,10 +57,6 @@ export function ScheduleDetailPage() {
   if (!schedule) {
     return <div className="p-6 text-sm text-destructive">Schedule not found.</div>;
   }
-
-  const datasetName = schedule.input_dataset_id
-    ? (datasets ?? []).find((d) => d.id === schedule.input_dataset_id)?.name
-    : undefined;
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -118,13 +111,14 @@ export function ScheduleDetailPage() {
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" /> Edit
           </Button>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setConfirmDelete(true)}
-            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-            title="Delete schedule"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
-          </button>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
         </div>
       </div>
 
@@ -179,11 +173,6 @@ export function ScheduleDetailPage() {
             {schedule.catch_up && " · catch-up on"}
           </div>
         </InfoCard>
-        {datasetName && (
-          <InfoCard icon={Database} label="Input override">
-            {datasetName}
-          </InfoCard>
-        )}
       </div>
 
       {/* Run history */}
