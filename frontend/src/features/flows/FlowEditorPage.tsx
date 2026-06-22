@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import {
   ArrowLeft,
+  CalendarClock,
   Code2,
   Eye,
   EyeOff,
@@ -13,6 +14,8 @@ import {
   Save,
 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { useCreateSchedule } from "@/features/schedules/hooks";
+import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
@@ -59,8 +62,10 @@ export function FlowEditorPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
   const createRun = useCreateRun(flowId ?? "");
+  const createSchedule = useCreateSchedule();
   const toggleFlow = useToggleFlow();
 
   const validation = useMemo(
@@ -238,6 +243,9 @@ export function FlowEditorPage() {
                 >
                   <Code2 className="h-4 w-4" /> Export
                 </GatedButton>
+                <Button size="sm" variant="outline" onClick={() => setScheduleOpen(true)}>
+                  <CalendarClock className="h-4 w-4" /> Schedule
+                </Button>
                 <Button size="sm" onClick={handleSave} disabled={updateFlow.isPending}>
                   {updateFlow.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -283,6 +291,20 @@ export function FlowEditorPage() {
         flowId={flow.id}
         open={exportOpen}
         onOpenChange={setExportOpen}
+      />
+
+      <ScheduleFormDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        lockedFlowId={flow.id}
+        submitting={createSchedule.isPending}
+        error={createSchedule.error}
+        onSubmit={(flowId, body) =>
+          createSchedule.mutate(
+            { flowId, body },
+            { onSuccess: (schedule) => { setScheduleOpen(false); navigate(`/schedules/${schedule.id}`); } },
+          )
+        }
       />
 
       <FlowEditDialog

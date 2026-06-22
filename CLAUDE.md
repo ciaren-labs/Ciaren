@@ -10,14 +10,17 @@ It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
 
 ## Current Status (read first)
 
-- **Backend exists and is the working product**: FastAPI app, execution engine,
-  transformation registry, dataset/flow/run persistence, and Python code export.
-- **There is no frontend yet.** The `frontend/` directory does not exist.
-  Do not reference a running UI, `localhost:5173`, or screenshots as if they
-  exist. The React editor described below is the planned design, not shipped code.
-- **Guardrail:** never document, demo, or claim a feature that is not implemented
-  in `backend/`. When in doubt, check the code (`app/engine/registry.py` lists the
-  real transformations) before writing docs or examples.
+- **Backend is the source of truth**: FastAPI app, execution engine,
+  transformation registry, dataset/flow/run persistence, in-process scheduler,
+  and Python code export.
+- **The frontend exists** in `frontend/` (Vite + React 18 + TS strict). Shipped
+  pages: landing, projects, datasets, the React Flow editor, runs history + run
+  detail, and schedules (list + detail + cron builder). Dev runs locally — see
+  the frontend dev notes (default dev ports differ from the old `5173`).
+- **Guardrail:** never document, demo, or claim a feature that is not actually
+  implemented. Check the code before writing docs or examples — the backend
+  (`app/engine/registry.py` for transformations, `app/api/routes/` for the API)
+  and the frontend (`frontend/src/features/`) are authoritative.
 
 ## Product Vision
 
@@ -42,8 +45,8 @@ Core promise:
 Alembic, pandas. Optional dataframe engines behind a backend abstraction
 (`app/engine/backends/`): pandas (default), polars.
 
-**Frontend (planned):** React, TypeScript, Vite, @xyflow/react, TanStack Query,
-Zustand, shadcn/ui, Tailwind, React Hook Form + Zod.
+**Frontend:** React, TypeScript, Vite, @xyflow/react, TanStack Query,
+Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 
 **Database:** SQLAlchemy is the abstraction layer.
 - **Default is SQLite** (zero-setup, file or in-memory). Tests run against
@@ -169,10 +172,11 @@ handlers; business logic in `services`; dataframe logic in `app/engine`.
 Do **not** import FastAPI inside the engine, mix ORM models with Pydantic
 schemas, or use pandas directly in route files. Add tests per transformation.
 
-**Frontend (when it exists):** TypeScript, feature folders, React Flow logic in
-`components/flow`/`features/flows`, TanStack Query for server state, Zustand for
-local UI state, shadcn/ui components, Zod-validated config forms, API calls
-centralized in `lib/api.ts`.
+**Frontend:** TypeScript, feature folders under `frontend/src/features/`, React
+Flow logic in `components/flow`/`features/flows`, TanStack Query for server state
+(hooks per feature) keyed via `lib/queryClient.ts`, Zustand for local UI state,
+shadcn/ui components, Zod-validated config forms, all API calls centralized in
+`lib/api.ts` with shared types in `lib/types.ts`.
 
 **Naming:** clear and specific (`DropNullsTransformation`, `FlowExecutionService`).
 Avoid `Processor`, `Manager`, `Handler`, `Thing`, and generic abstractions.
