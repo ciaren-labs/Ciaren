@@ -24,6 +24,8 @@ class FlowRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     logs_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    # Per-node execution outcomes (rows, columns, sample) for the read-only run DAG.
+    node_results_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     # Python-side default keeps microsecond precision (SQLite CURRENT_TIMESTAMP
     # only has second resolution, which breaks ORDER BY created_at tests).
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
