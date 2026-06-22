@@ -14,6 +14,8 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
 
+  ignoreDeadLinks: true,
+
   markdown: {
     lineNumbers: true,
     math: false,
