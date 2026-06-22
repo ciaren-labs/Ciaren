@@ -6,9 +6,9 @@ search: api rest endpoints datasets flows runs export
 
 # REST API Reference
 
-FlowFrame is a FastAPI service. Today the REST API is the primary way to drive
-it (the visual editor is in progress). All endpoints are served under
-`http://localhost:8000` by default.
+FlowFrame is a FastAPI service. The visual editor is built entirely on this REST
+API, and you can drive every feature with it directly. All endpoints are served
+under `http://localhost:8000` by default.
 
 :::tip Interactive docs
 Run the backend and open `http://localhost:8000/docs` for the live Swagger UI,
@@ -69,10 +69,10 @@ Flow-compatible graph (`nodes` and `edges`).
 ## Runs
 
 Execute a flow and read run metadata, status, logs, and per-node results.
-The run request accepts an optional `engine` (`pandas` default, or `polars`),
+The run request accepts an optional `engine` (`polars` default, or `pandas`),
 which is recorded on the run for reproducibility. Each run also stores a
-per-node result (status, row/column counts, and a small sample) for the
-read-only run view.
+per-node result (status, row/column counts, a small sample, and `duration_ms`)
+for the read-only run view.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -86,6 +86,24 @@ read-only run view.
 | --- | --- | --- |
 | `GET` | `/api/transformations` | List available transformation types |
 | `POST` | `/api/transformations/preview` | Preview a single transformation against sample data |
+
+## Schedules
+
+Run a flow automatically on a cron schedule. A schedule carries a `cron`
+expression, a `timezone`, an optional `engine`, and reliability settings
+(`max_retries`, `retry_delay_seconds`, `catch_up`). See
+[Scheduling](/guide/scheduling) for the behavior.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/flows/{flow_id}/schedules` | List a flow's schedules |
+| `POST` | `/api/flows/{flow_id}/schedules` | Create a schedule for a flow |
+| `GET` | `/api/schedules` | List all schedules (optionally `?flow_id=`) |
+| `GET` | `/api/schedules/{schedule_id}` | Get one schedule |
+| `PATCH` | `/api/schedules/{schedule_id}` | Update a schedule (cron, engine, enabled, …) |
+| `DELETE` | `/api/schedules/{schedule_id}` | Delete a schedule |
+| `POST` | `/api/schedules/{schedule_id}/run-now` | Trigger a one-off run immediately |
+| `GET` | `/api/schedules/{schedule_id}/runs` | List runs created by this schedule |
 
 ## Typical workflow
 

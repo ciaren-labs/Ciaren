@@ -6,8 +6,13 @@ search: troubleshooting help issues database cors port
 
 # Troubleshooting Guide
 
-Common issues when running the FlowFrame backend. For broader questions, see the
-[FAQ](/faq).
+Common issues when running FlowFrame. For broader questions, see the [FAQ](/faq).
+
+:::tip
+Run `flowframe check` to validate your environment in one shot — it reports a
+non-writable data dir, a non-async database URL, an unreachable database, and the
+available engines.
+:::
 
 ## Database connection fails
 
@@ -27,8 +32,26 @@ The schema is created automatically on startup, so there is no migration step.
 Start the server on another port:
 
 ```bash
-uvicorn app.main:app --reload --port 8001
+flowframe serve --port 8001
 ```
+
+## Frontend can't reach the backend
+
+The dev server proxies `/api` to `http://localhost:8000` by default. If your
+backend runs elsewhere, point the proxy at it:
+
+```bash
+VITE_API_TARGET=http://localhost:8001 npm run dev
+```
+
+If the frontend port `5173` is taken, change it with `VITE_PORT=3000 npm run dev`
+— and remember to add the new origin to `FLOWFRAME_CORS_ORIGINS`.
+
+## A scheduled flow stopped running
+
+A schedule is **auto-disabled** after several consecutive failed runs (default 5),
+with a `disabled_reason`. Re-enable it to clear the streak. Manual *run-now* stays
+out of the retry/auto-disable machinery. See [Scheduling](/guide/scheduling).
 
 ## CORS errors
 

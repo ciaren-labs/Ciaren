@@ -34,68 +34,45 @@ Published at: `https://rodrigo-arenas.github.io/FlowFrame`
 
 ## Documentation Structure
 
+Actual structure (keep this in sync with the files on disk and with
+`.vitepress/config.ts`):
+
 ```text
 docs/
 ├── CLAUDE.md                    # This file (docs standards)
+├── CI_CD.md                     # CI/CD pipeline notes
 ├── index.md                     # Homepage
-├── guide/                       # User guides
-│   ├── getting-started.md       # Installation & first flow
-│   ├── installation.md          # Setup (local, Docker, cloud)
-│   ├── quick-start.md           # Your first 5-minute flow
-│   ├── interface.md             # UI tour
-│   └── troubleshooting.md       # Common issues
-├── features/                    # Feature documentation
-│   ├── datasets.md              # Upload & manage data
-│   ├── flows.md                 # Build & save flows
-│   ├── preview.md               # Live preview
-│   ├── export.md                # Code generation
-│   └── runs.md                  # Execute & monitor
-├── transformations/             # Transformation reference
-│   ├── overview.md              # All nodes & types
-│   ├── cleaning/                # Cleaning transformations
-│   │   ├── drop-columns.md
-│   │   ├── rename-columns.md
-│   │   ├── filter-rows.md
-│   │   ├── drop-nulls.md
-│   │   ├── fill-nulls.md
-│   │   ├── remove-duplicates.md
-│   │   ├── change-types.md
-│   │   └── sort.md
-│   ├── transform/               # Transform operations
-│   │   ├── select-columns.md
-│   │   ├── calculated-column.md
-│   │   ├── group-aggregate.md
-│   │   ├── join.md
-│   │   └── union.md
-│   └── io/                      # Input/output
-│       ├── csv-input.md
-│       ├── excel-input.md
-│       └── parquet-input.md
-├── examples/                    # Real-world examples
-│   ├── sales-analysis.md        # Sales data cleaning
-│   ├── customer-segmentation.md # Customer grouping
-│   ├── time-series.md           # Time-based data
-│   └── data-quality.md          # Data quality checks
-├── api/                         # API reference (auto-generated ideally)
-│   ├── rest-api.md              # REST endpoints
-│   ├── authentication.md        # Auth (future)
-│   └── errors.md                # Error codes
-├── advanced/                    # Advanced topics
-│   ├── custom-nodes.md          # Extend with custom code
-│   ├── deployment.md            # Production setup
-│   ├── performance.md           # Optimization tips
-│   └── architecture.md          # How FlowFrame works
 ├── faq.md                       # Frequently asked questions
-├── roadmap.md                   # What's coming next
-└── .vitepress/                  # VitePress config
+├── guide/                       # User guides
+│   ├── getting-started.md       # Intro & concepts
+│   ├── installation.md          # Backend + frontend setup
+│   ├── quick-start.md           # First 5-minute flow
+│   ├── interface.md             # Editor / UI tour
+│   ├── projects-and-runs.md     # Projects, dataset versioning, runs
+│   ├── engines.md               # polars vs pandas, export, exec mode
+│   ├── scheduling.md            # Built-in cron scheduler
+│   ├── cli.md                   # flowframe serve/init/info/check
+│   ├── design-system.md         # Visual language / tokens
+│   └── troubleshooting.md       # Common issues
+├── transformations/
+│   └── overview.md              # All 23 nodes + config + generated code
+├── examples/                    # Real-world, end-to-end walkthroughs
+│   ├── sales-analysis.md
+│   ├── customer-segmentation.md
+│   ├── time-series.md
+│   └── data-quality.md
+├── api/
+│   └── rest-api.md              # REST endpoints
+└── .vitepress/
     ├── config.ts
-    ├── theme/
-    │   └── index.ts
-    └── public/
-        ├── logo.svg
-        ├── favicon.ico
-        └── images/
+    └── (theme/, public/ as needed)
 ```
+
+> **Guardrail:** never document a feature that isn't implemented. The backend
+> (`backend/app/engine/registry.py`, `backend/app/api/routes/`,
+> `backend/app/core/config.py`, `backend/app/cli.py`) and the frontend
+> (`frontend/src/features/`) are authoritative — verify against them before adding
+> or expanding a page.
 
 ---
 
@@ -432,4 +409,4 @@ Before publishing:
 
 ---
 
-**Last Updated:** 2026-06-21
+**Last Updated:** 2026-06-22

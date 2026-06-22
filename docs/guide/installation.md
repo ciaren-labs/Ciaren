@@ -1,171 +1,145 @@
 ---
 title: Installation
-description: Install FlowFrame locally in minutes
-search: install setup download run requirements
+description: Install and run FlowFrame locally in minutes
+search: install setup download run requirements frontend backend
 ---
 
 # Installation Guide
 
-Get FlowFrame running on your machine in just a few minutes.
+Get FlowFrame running on your machine in a few minutes. FlowFrame has two parts:
+
+- a **backend** (FastAPI + the execution engine and scheduler), and
+- a **frontend** (the React visual editor).
+
+You can run the backend on its own and drive it through the
+[REST API](/api/rest-api), or run both for the full visual experience.
 
 ## Requirements
 
 - **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
+- **Node.js 18+** — [Download Node.js](https://nodejs.org/) (only for the frontend)
 - **Git** — [Download Git](https://git-scm.com/)
-- **PostgreSQL / MySQL (optional)** — SQLite is the zero-setup default
+- A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
+  are supported via an async driver.
 
-:::info Backend only, for now
-FlowFrame today is a backend service (FastAPI + pandas) you drive through its
-REST API. The visual editor is in development, so **Node.js is not needed yet** —
-it will be required once the `frontend/` package ships.
-:::
+## Quick Start
 
-## Quick Start (5 minutes)
-
-### 1. Clone the Repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/rodrigo-arenas/FlowFrame.git
 cd FlowFrame
 ```
 
-### 2. Start the Backend
+### 2. Start the backend
 
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate a virtual environment
 python -m venv .venv
-
-# Activate it
 source .venv/bin/activate    # macOS/Linux
-# or
-.venv\Scripts\activate        # Windows (PowerShell)
+# .venv\Scripts\activate     # Windows (PowerShell)
 
-# Install dependencies
+# Install FlowFrame (exposes the `flowframe` command)
 pip install -e .
 
-# Start the server
-uvicorn app.main:app --reload
+# Run the API + background scheduler in one process
+flowframe serve
 ```
 
-Backend runs on `http://localhost:8000`. The database schema is created
-automatically on first start, so there is no separate migration step to run.
+The backend runs on `http://localhost:8000`. The database schema is **created
+automatically** on first start — there is no migration step. Open the interactive
+API docs at `http://localhost:8000/docs`.
 
-:::tip
-The `--reload` flag restarts the server when you change code. Remove it in production.
+:::tip flowframe serve vs. uvicorn
+`flowframe serve` is the recommended entry point — it boots the API and the
+background scheduler together. It accepts flags like `--port`, `--reload`,
+`--db-url`, `--engine`, and `--no-scheduler`. See the
+[CLI reference](/guide/cli) for all of them. (Under the hood it runs the same
+`app.main:app` ASGI app, so `uvicorn app.main:app --reload` still works if you
+prefer.)
 :::
 
-Open the interactive API docs at `http://localhost:8000/docs` to explore and try
-every endpoint.
+### 3. Start the frontend (visual editor)
 
-### 3. Start the Frontend
-
-:::warning UI in development
-The visual editor is not available yet — the `frontend/` directory is not part of
-the repository today. For now, FlowFrame runs as a backend service you can drive
-through its REST API (see the [API Reference](/api/rest-api)). The steps below
-describe the planned frontend setup.
-:::
-
-In a new terminal:
+In a second terminal:
 
 ```bash
 cd frontend
 
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+The editor runs on `http://localhost:5173` and proxies `/api` calls to the
+backend on port `8000`.
 
-### 4. Open in Browser
+### 4. Open in your browser
 
-Visit `http://localhost:5173` and you're ready to build!
+Visit `http://localhost:5173` and start building flows.
 
 ## Detailed Setup
 
-### Backend Setup
+### Backend with `uv` (faster)
 
-#### Option 1: Using `uv` (Faster)
+[`uv`](https://docs.astral.sh/uv/) is a fast Python package manager:
 
 ```bash
 cd backend
-
-# Install uv
-curl https://astral.sh/uv/install.sh | sh
-
-# Install dependencies with uv
-uv sync
-
-# Start server (tables are created automatically on startup)
-uv run uvicorn app.main:app --reload
+uv sync                       # install dependencies
+uv run flowframe serve        # run the server
 ```
 
-#### Option 2: Traditional pip
+For development dependencies (tests, linting, type-checking):
 
 ```bash
-cd backend
-
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-
+uv sync --all-groups
+# or with pip:
 pip install -e .[dev]
-
-uvicorn app.main:app --reload
 ```
 
-### Frontend Setup
-
-:::warning Planned
-The `frontend/` package is not part of the repository yet. The steps below
-describe the intended setup once the visual editor ships.
-:::
+### Frontend scripts
 
 ```bash
 cd frontend
 
-npm install
+npm run dev       # start the dev server (default port 5173)
+npm run build     # type-check and build for production
+npm run preview   # preview the production build
+npm run test      # run the Vitest unit tests
+```
 
-# Development
-npm run dev
+To run the dev server on a different port, set `VITE_PORT`; to point it at a
+backend on another host/port, set `VITE_API_TARGET`:
 
-# Build for production
-npm run build
-
-# Preview built site
-npm run preview
+```bash
+VITE_PORT=3000 VITE_API_TARGET=http://localhost:8001 npm run dev
 ```
 
 ## Configuration
 
-### Backend Configuration
-
-The backend uses environment variables. Create a `.env` file:
+The backend reads environment variables (prefixed with `FLOWFRAME_`) and an
+optional `.env` file. The fastest way to create one is:
 
 ```bash
 cd backend
-touch .env
+flowframe init        # writes a commented starter .env
 ```
 
-All settings use the `FLOWFRAME_` prefix. Add:
+A minimal `.env`:
 
-```
+```bash
 # Database — FlowFrame is async, so the URL must use an async driver.
 FLOWFRAME_DATABASE_URL=sqlite+aiosqlite:///./flowframe.db
-# or PostgreSQL:
-# FLOWFRAME_DATABASE_URL=postgresql+asyncpg://user:password@localhost/flowframe
-# or MySQL:
-# FLOWFRAME_DATABASE_URL=mysql+aiomysql://user:password@localhost/flowframe
-
-# Environment
-FLOWFRAME_ENVIRONMENT=development
+# PostgreSQL: postgresql+asyncpg://user:password@localhost/flowframe
+# MySQL:      mysql+aiomysql://user:password@localhost/flowframe
 
 # Where uploads, outputs, and previews are written
 FLOWFRAME_DATA_DIR=.data
+
+# Default dataframe engine for runs that don't request one: polars | pandas
+FLOWFRAME_DEFAULT_ENGINE=polars
 
 # Allowed CORS origins (JSON list)
 FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
@@ -174,33 +148,27 @@ FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
 FLOWFRAME_MAX_UPLOAD_SIZE_MB=100
 ```
 
+Run `flowframe info` to print the resolved configuration (the database password
+is redacted), and `flowframe check` to validate it (writable data dir, async
+driver, database reachable, engines available). The full list of settings is in
+the [CLI reference](/guide/cli#environment-variables).
+
 :::warning Async driver required
 The app runs on async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or
-`mysql://` URL will fail to connect — always use the async variant
-(`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`).
+`mysql://` URL will fail — always use the async variant (`sqlite+aiosqlite://`,
+`postgresql+asyncpg://`, `mysql+aiomysql://`).
 :::
 
-The default when no `.env` is present is
-`sqlite+aiosqlite:///./flowframe.db`, so the backend runs with zero
-configuration.
-
-:::warning
-Never commit `.env` to git. Add it to `.gitignore`.
+:::warning Don't commit `.env`
+Keep secrets out of version control — `.env` is already in `.gitignore`.
 :::
 
-### Frontend Configuration (planned)
-
-Once the visual editor ships, its environment variables will go in
-`frontend/.env.local`:
-
-```
-VITE_API_URL=http://localhost:8000
-VITE_APP_NAME=FlowFrame
-```
+When no `.env` is present, the backend defaults to
+`sqlite+aiosqlite:///./flowframe.db`, so it runs with zero configuration.
 
 ## Database Setup
 
-### SQLite (Default)
+### SQLite (default)
 
 SQLite requires no setup — it uses a local file (`flowframe.db`), and the schema
 is created automatically the first time the backend starts. Tests run against
@@ -208,104 +176,32 @@ in-memory SQLite regardless of `DATABASE_URL`.
 
 ### PostgreSQL
 
-If you prefer PostgreSQL (install the `asyncpg` driver, e.g. `pip install asyncpg`):
-
-#### Install PostgreSQL
-
-- **macOS:** `brew install postgresql`
-- **Windows:** [PostgreSQL Installer](https://www.postgresql.org/download/windows/)
-- **Linux:** `sudo apt-get install postgresql`
-
-#### Create Database
+Install the async driver and point FlowFrame at your database:
 
 ```bash
-psql -U postgres
-
-CREATE DATABASE flowframe_dev;
-CREATE USER flowframe WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE flowframe_dev TO flowframe;
+pip install asyncpg
 ```
 
-#### Configure Backend
-
-Update `backend/.env`:
-
-```
+```bash
+# in backend/.env
 FLOWFRAME_DATABASE_URL=postgresql+asyncpg://flowframe:password@localhost/flowframe_dev
 ```
 
-The backend creates its tables on startup, so no manual migration step is needed.
+The backend creates its tables on startup, so there is no manual migration step.
+MySQL works the same way with `pip install aiomysql` and a
+`mysql+aiomysql://` URL.
 
-## Docker Setup (Optional)
+## Verify the Install
 
-### Using Docker Compose
-
-The `frontend` service below is shown for completeness but is **planned** — the
-visual editor is not in the repository yet. Run just the `backend` and
-`postgres` services for now.
-
-Create `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://flowframe:password@postgres/flowframe
-      ENVIRONMENT: development
-    depends_on:
-      - postgres
-    volumes:
-      - ./backend:/app
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: flowframe
-      POSTGRES_USER: flowframe
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-Start:
-
-```bash
-docker-compose up -d
-```
-
-Access at `http://localhost:5173`
-
-## Verify Installation
-
-### Backend Health
+### Backend health
 
 ```bash
 curl http://localhost:8000/health
 ```
 
 Expected response: `{"status":"ok"}`
+
+You can also run `flowframe check` for a fuller diagnostic.
 
 ### Explore the API
 
@@ -316,41 +212,40 @@ list datasets, create flows, run them, and export Python code.
 
 ### "Port 8000 already in use"
 
-Change port:
-
 ```bash
-uvicorn app.main:app --reload --port 8001
+flowframe serve --port 8001
 ```
 
 ### "Port 5173 already in use"
 
-Change port:
-
 ```bash
-npm run dev -- --port 3000
+VITE_PORT=3000 npm run dev
 ```
 
 ### "Database connection failed"
 
-Check:
+1. `FLOWFRAME_DATABASE_URL` must use an **async** driver
+   (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`).
+2. The database server is running (for PostgreSQL / MySQL).
+3. The matching async driver package is installed (`asyncpg`, `aiomysql`).
 
-1. `FLOWFRAME_DATABASE_URL` in `.env` uses an **async** driver
-   (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`)
-2. The database server is running (if using PostgreSQL or MySQL)
-3. The matching async driver package is installed (`asyncpg`, `aiomysql`)
+`flowframe check` reports all three at once.
 
 ### Module not found errors
 
-Reinstall dependencies:
+Reinstall the backend from a clean virtual environment:
 
 ```bash
-# Backend
 cd backend
 rm -rf .venv
 python -m venv .venv
+source .venv/bin/activate    # or .venv\Scripts\activate on Windows
 pip install -e .
+```
 
-# Frontend
+For the frontend, remove `node_modules` and reinstall:
+
+```bash
 cd frontend
 rm -rf node_modules
 npm install
@@ -358,9 +253,9 @@ npm install
 
 ### CORS errors
 
-Add your client's origin to `FLOWFRAME_CORS_ORIGINS` in `backend/.env`:
+Add the calling origin to `FLOWFRAME_CORS_ORIGINS` (a JSON list) in `backend/.env`:
 
-```
+```bash
 FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
@@ -373,9 +268,9 @@ FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
 ## Need Help?
 
 - **[Troubleshooting Guide](/guide/troubleshooting)**
-- **[GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)** — Report bugs
-- **[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — Ask questions
+- **[GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)** — report bugs
+- **[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — ask questions
 
 ---
 
-Once installed and running, head to [Quick Start](/guide/quick-start) to build your first ETL flow! 🚀
+Once it's running, head to [Quick Start](/guide/quick-start) to build your first ETL flow! 🚀

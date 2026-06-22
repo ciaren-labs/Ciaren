@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Visual ETL builder for pandas — Simple, local-first data pipelines
-search: flowframe etl visual pandas data pipeline
+description: Visual ETL builder — Simple, local-first data pipelines on polars or pandas
+search: flowframe etl visual polars pandas data pipeline
 
 hero:
   name: FlowFrame
-  text: Visual ETL for pandas
-  tagline: Build local-first data pipelines and export readable Python. Backend available today; visual editor in progress.
+  text: The simplest visual ETL builder
+  tagline: Upload data, build a visual cleaning pipeline, preview, run it, and export readable Python — local-first, on polars or pandas.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -23,36 +23,34 @@ hero:
       link: /transformations/overview
 
 features:
-  - icon: 👀
-    title: Live Preview
-    details: See your data transform in real-time before running the full pipeline.
-
   - icon: 📊
     title: Visual Builder
-    details: Drag-and-drop nodes for filtering, joining, aggregating, and more. No code required.
+    details: Drag-and-drop nodes for cleaning, filtering, joining, aggregating, and more. No code required.
+
+  - icon: 👀
+    title: Live Preview
+    details: See your data transform on real rows before running the full pipeline.
 
   - icon: 🐍
     title: Export Python
-    details: Generate readable, standalone Python code you can use anywhere.
+    details: Every flow exports to readable, standalone code — both polars and pandas.
+
+  - icon: ⚡
+    title: polars or pandas
+    details: Runs on polars by default for speed; switch to pandas per run any time.
 
   - icon: 🚀
     title: Local-First
     details: Runs entirely on your machine. No SaaS, no cloud lock-in, no subscriptions.
 
-  - icon: 📁
-    title: Common Formats
-    details: Read and write CSV, Excel, and Parquet files.
-
-  - icon: ♾️
-    title: Extensible
-    details: Add custom transformation nodes to extend FlowFrame for your needs.
+  - icon: ⏰
+    title: Scheduling
+    details: A built-in cron scheduler runs flows automatically, with retries and catch-up.
 ---
 
-:::info Project status
-FlowFrame is in active development. The **backend** (FastAPI engine, transformations,
-and Python code export) is working today and can be driven through the REST API.
-The **visual drag-and-drop editor** is still in development — the screens and
-walkthroughs below describe the intended experience.
+:::warning Alpha software
+FlowFrame is in early development. APIs, the data model, and generated code may
+change between releases. Use it for experimentation — not production pipelines.
 :::
 
 ## Learn in 5 Minutes
@@ -73,11 +71,11 @@ walkthroughs below describe the intended experience.
 
 ## No Code, All Power
 
-FlowFrame supports 16 transformation nodes plus file input/output out of the box:
+FlowFrame supports 23 transformation nodes plus file input/output out of the box:
 
-- **Cleaning:** Drop nulls, fill values, remove duplicates, rename columns
-- **Transform:** Filter, aggregate, join, calculate columns
-- **Reshape:** Group by, union, select, sort
+- **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
+- **Transform:** Filter, aggregate, join, calculated columns, replace/round values
+- **Reshape:** Group by, union, pivot, unpivot, bin, extract date parts, sort, sample
 - **I/O:** CSV, Excel, Parquet input and output
 
 [See all transformations →](/transformations/overview)
@@ -92,11 +90,12 @@ FlowFrame supports 16 transformation nodes plus file input/output out of the box
 git clone https://github.com/rodrigo-arenas/FlowFrame
 cd FlowFrame/backend
 pip install -e .
-uvicorn app.main:app --reload
+flowframe serve
 ```
 
 The backend starts on `http://localhost:8000` and creates its database
-automatically.
+automatically. To use the visual editor, also run the frontend (`cd frontend
+&& npm install && npm run dev`).
 
 [Full installation guide →](/guide/installation)
 
@@ -126,8 +125,8 @@ automatically.
 | **Code Export** | Every flow generates a readable, standalone Python script |
 | **Local-First** | Runs entirely on your machine — no accounts, no cloud |
 | **Live Preview** | See data changes at each step before executing the full flow |
-| **Multiple Engines** | Choose pandas or Polars per run |
-| **Open Source** | MIT licensed — inspect, modify, and self-host freely |
+| **polars or pandas** | Runs on polars by default; switch to pandas per run |
+| **Open Source** | Apache 2.0 licensed — inspect, modify, and self-host freely |
 
 ## Community
 
@@ -137,7 +136,7 @@ automatically.
 
 ## License
 
-MIT License — Free for personal and commercial use.
+Apache License 2.0 — Free for personal and commercial use.
 
 ---
 

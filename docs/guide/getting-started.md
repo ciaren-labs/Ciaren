@@ -8,22 +8,22 @@ search: getting started introduction what is flowframe
 
 Welcome to FlowFrame! This guide will help you understand what FlowFrame is and get you up and running in minutes.
 
-:::info Project status
-The **backend** (FastAPI engine, transformations, and Python code export) works
-today and is driven through the [REST API](/api/rest-api). The **visual
-drag-and-drop editor** is still in development — the visual walkthroughs below
-describe the intended experience, not a shipped UI.
+:::warning Alpha software
+FlowFrame is in early development. APIs and generated code may change between
+releases. Use it for learning and experimentation — not production pipelines.
 :::
 
 ## What is FlowFrame?
 
-FlowFrame is a **visual ETL builder** for pandas. It lets you:
+FlowFrame is a **local-first visual ETL builder**. It runs on **polars** by
+default (or pandas, per run) and lets you:
 
 - **Upload** CSV, Excel, or Parquet files
 - **Build** data transformation pipelines visually (no coding required)
 - **Preview** results in real-time
 - **Execute** full flows with a single click
-- **Export** equivalent Python code
+- **Export** equivalent Python code (both polars and pandas)
+- **Schedule** flows to run automatically with a built-in cron scheduler
 
 A drag-and-drop tool for building repeatable data cleaning and transformation workflows.
 
@@ -66,14 +66,18 @@ Your Data
 
 ## What You Can't Do (Yet)
 
-FlowFrame is designed for **local, single-machine data transformation**. It doesn't support:
+FlowFrame is designed for **local, single-machine data transformation**. It is
+**not** an Airflow/Spark/dbt replacement and doesn't support:
 
 - Distributed computing (Spark, Dask)
 - Real-time streaming pipelines
 - 100GB+ datasets
-- Database transformations
-- Complex scheduling/orchestration
-- Multi-user collaboration
+- Reading/writing directly to databases (it works with files)
+- Cross-flow DAG dependencies or complex orchestration
+- Multi-user collaboration and enterprise permissions
+
+It *does* include a lightweight cron scheduler for running a single flow on a
+schedule — see [Scheduling](/guide/scheduling).
 
 ## Next Steps
 
