@@ -206,6 +206,99 @@ async def test_upload_too_large_returns_413(client: AsyncClient, monkeypatch) ->
 
 
 # ---------------------------------------------------------------------------
+# POST /api/datasets/upload — versioning
+# ---------------------------------------------------------------------------
+
+
+async def test_first_upload_is_version_1(client: AsyncClient) -> None:
+    body = await _upload(client, _csv(), "sales.csv")
+    assert body["latest_version"] == 1
+    assert body["version_count"] == 1
+
+
+async def test_reupload_same_name_creates_new_version(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "sales.csv")
+    r = await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["latest_version"] == 2
+    assert body["version_count"] == 2
+
+
+async def test_reupload_does_not_create_second_dataset(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "sales.csv")
+    await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    r = await client.get("/api/datasets")
+    assert len(r.json()) == 1
+    assert r.json()[0]["version_count"] == 2
+
+
+async def test_reupload_name_match_is_case_insensitive(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "Sales.csv")
+    r = await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    assert r.json()["version_count"] == 2  # same logical dataset
+
+
+async def test_same_stem_different_extension_are_separate_datasets(
+    client: AsyncClient,
+) -> None:
+    # The dataset name is the full filename (incl. extension), so data.csv and
+    # data.xlsx are independent datasets, each with its own version history.
+    await _upload(client, _csv(), "data.csv")
+    excel = await _upload(client, _excel(), "data.xlsx", "application/vnd.ms-excel")
+    assert excel["source_type"] == "excel"
+    r = await client.get("/api/datasets")
+    assert len(r.json()) == 2
+
+
+async def test_different_names_create_separate_datasets(client: AsyncClient) -> None:
+    await _upload(client, _csv(), "a.csv")
+    await _upload(client, _csv(), "b.csv")
+    r = await client.get("/api/datasets")
+    assert len(r.json()) == 2
+
+
+# ---------------------------------------------------------------------------
+# GET /api/datasets/{id}/versions
+# ---------------------------------------------------------------------------
+
+
+async def test_list_versions_returns_all_newest_first(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    await client.post(
+        "/api/datasets/upload",
+        files={"file": ("sales.csv", _csv(), "text/csv")},
+    )
+    r = await client.get(f"/api/datasets/{up['id']}/versions")
+    assert r.status_code == 200
+    versions = r.json()
+    assert [v["version_number"] for v in versions] == [2, 1]
+    assert versions[0]["row_count"] == len(ROWS)
+
+
+async def test_get_schema_for_specific_version(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    r = await client.get(f"/api/datasets/{up['id']}/schema?version=1")
+    assert r.status_code == 200
+    assert {"name": "name", "type": "string"} in r.json()
+
+
+async def test_get_schema_unknown_version_404(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    r = await client.get(f"/api/datasets/{up['id']}/schema?version=99")
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # GET /api/datasets — list
 # ---------------------------------------------------------------------------
 
