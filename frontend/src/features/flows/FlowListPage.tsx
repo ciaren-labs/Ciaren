@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, LayoutGrid, List, Loader2, Pencil, Plus, Power, Trash2, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useToggleFlow, useUpdateFlow } from "./hooks";
+import { AlertCircle, LayoutGrid, List, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { FlowEditDialog } from "./FlowEditDialog";
@@ -45,6 +45,9 @@ export function FlowListPage() {
   const [layout, setLayout] = useLayoutPreference("flows", "cards");
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [runFlow, setRunFlow] = useState<Flow | null>(null);
+  const [runEngine, setRunEngine] = useState<"pandas" | "polars">("pandas");
+  const runMutation = useRunFlow();
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -234,6 +237,7 @@ export function FlowListPage() {
               projectColorKey={flow.project_id ? projectById.get(flow.project_id)?.color : undefined}
               onOpen={() => navigate(`/flows/${flow.id}`)}
               onEdit={() => setEditingFlow(flow)}
+              onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
               onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
               onDelete={() => setPendingAction({ kind: "delete", flow })}
             />
@@ -245,6 +249,7 @@ export function FlowListPage() {
           projectById={projectById}
           onOpen={(id) => navigate(`/flows/${id}`)}
           onEdit={(flow) => setEditingFlow(flow)}
+          onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
           onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
           onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
         />
@@ -257,6 +262,67 @@ export function FlowListPage() {
             : "No flows yet. Create one to start building."}
         </p>
       )}
+
+      {/* Quick-run dialog */}
+      <Dialog open={runFlow !== null} onOpenChange={(o) => !o && setRunFlow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Play className="h-4 w-4 text-brand-600" />
+              Run "{runFlow?.name}"
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Engine</Label>
+              <div className="flex items-center gap-2 overflow-hidden rounded-md border border-input text-sm">
+                {(["pandas", "polars"] as const).map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setRunEngine(e)}
+                    className={cn(
+                      "flex-1 py-2 transition-colors",
+                      runEngine === e
+                        ? "bg-brand-600 font-medium text-white"
+                        : "bg-background text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {runMutation.isError && (
+              <p className="flex items-center gap-1.5 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {(runMutation.error as Error)?.message ?? "Run failed"}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRunFlow(null)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!runFlow) return;
+                  runMutation.mutate(
+                    { flowId: runFlow.id, engine: runEngine },
+                    {
+                      onSuccess: (run) => {
+                        setRunFlow(null);
+                        navigate(`/runs/${run.id}`);
+                      },
+                    },
+                  );
+                }}
+                disabled={runMutation.isPending}
+              >
+                {runMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Run
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <FlowEditDialog
         open={editingFlow !== null}
@@ -299,6 +365,7 @@ function FlowCard({
   projectColorKey,
   onOpen,
   onEdit,
+  onRun,
   onToggle,
   onDelete,
 }: {
@@ -307,6 +374,7 @@ function FlowCard({
   projectColorKey?: string;
   onOpen: () => void;
   onEdit: () => void;
+  onRun: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -341,6 +409,14 @@ function FlowCard({
           Open
         </Button>
         <button
+          onClick={onRun}
+          disabled={flow.is_disabled}
+          className="rounded-md p-2 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-40"
+          title="Run flow"
+        >
+          <Play className="h-4 w-4" />
+        </button>
+        <button
           onClick={onEdit}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           title="Edit name & description"
@@ -374,6 +450,7 @@ function FlowTable({
   projectById,
   onOpen,
   onEdit,
+  onRun,
   onToggle,
   onDelete,
 }: {
@@ -381,6 +458,7 @@ function FlowTable({
   projectById: Map<string, { name: string; color: string }>;
   onOpen: (id: string) => void;
   onEdit: (flow: Flow) => void;
+  onRun: (flow: Flow) => void;
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
 }) {
@@ -435,6 +513,14 @@ function FlowTable({
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onRun(flow)}
+                      disabled={flow.is_disabled}
+                      className="rounded-md p-1.5 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-40"
+                      title="Run flow"
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => onEdit(flow)}
                       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
