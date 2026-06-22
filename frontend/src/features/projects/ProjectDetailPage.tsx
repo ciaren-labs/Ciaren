@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Database, Loader2, Plus, Workflow } from "lucide-react";
+import { ArrowLeft, Database, FileOutput, Loader2, Plus, Workflow } from "lucide-react";
 import { useProjects } from "./hooks";
 import { useCreateFlow, useFlows } from "@/features/flows/hooks";
+import { useDatasets } from "@/features/datasets/hooks";
+import { DatasetDetailDialog } from "@/features/datasets/DatasetDetailDialog";
 import { DatasetsPanel } from "@/features/datasets/DatasetsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { projectColor } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
+import type { Dataset } from "@/lib/types";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -62,6 +65,9 @@ export function ProjectDetailPage() {
           <TabsTrigger value="flows">
             <Workflow className="mr-1.5 h-3.5 w-3.5" /> Flows ({project.flow_count})
           </TabsTrigger>
+          <TabsTrigger value="outputs">
+            <FileOutput className="mr-1.5 h-3.5 w-3.5" /> Outputs
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="datasets" className="mt-4">
@@ -70,8 +76,70 @@ export function ProjectDetailPage() {
         <TabsContent value="flows" className="mt-4">
           <ProjectFlows projectId={project.id} />
         </TabsContent>
+        <TabsContent value="outputs" className="mt-4">
+          <ProjectOutputsTab projectId={project.id} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function ProjectOutputsTab({ projectId }: { projectId: string }) {
+  const { data: datasets, isLoading } = useDatasets(projectId);
+  const [selected, setSelected] = useState<Dataset | null>(null);
+
+  const outputs = (datasets ?? []).filter((d) => d.dataset_kind === "output");
+
+  if (isLoading) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+      </p>
+    );
+  }
+
+  if (outputs.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No outputs yet. Run a flow with an output node to generate datasets here.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {outputs.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => setSelected(d)}
+            className="animate-fade-in-up rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+          >
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                output
+              </span>
+              <span className="truncate font-semibold text-sm">{d.name}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {d.source_type.toUpperCase()} · {d.column_schema?.length ?? 0} columns
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {d.version_count === 1
+                ? "1 version"
+                : `${d.version_count} versions (latest v${d.latest_version})`}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <DatasetDetailDialog
+        dataset={selected}
+        open={selected !== null}
+        onOpenChange={(o) => !o && setSelected(null)}
+        defaultTab="versions"
+      />
+    </>
   );
 }
 

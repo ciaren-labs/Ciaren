@@ -3,9 +3,13 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Database,
   FileSpreadsheet,
   FileText,
+  LayoutGrid,
+  List,
   Loader2,
   UploadCloud,
 } from "lucide-react";
@@ -28,7 +32,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { projectColor } from "@/lib/projectColors";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
@@ -59,6 +62,8 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [selected, setSelected] = useState<Dataset | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
+  const [layout, setLayout] = useState<"cards" | "table">("cards");
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const targetProject = scoped ? projectId : uploadProjectId || undefined;
 
@@ -205,6 +210,30 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
             ]}
           />
         </FilterField>
+        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
+          <button
+            type="button"
+            onClick={() => setLayout("cards")}
+            className={cn(
+              "rounded p-1.5 transition-colors",
+              layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+            title="Card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setLayout("table")}
+            className={cn(
+              "rounded p-1.5 transition-colors",
+              layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+            title="Table view"
+          >
+            <List className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </FilterBar>
 
       {isLoading && (
@@ -214,23 +243,51 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
       )}
 
       {groups ? (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {groups.map(({ project, items }) => {
             const theme = projectColor(project.color);
+            const collapsed = collapsedSections.has(project.id);
+            const toggle = () =>
+              setCollapsedSections((prev) => {
+                const next = new Set(prev);
+                collapsed ? next.delete(project.id) : next.add(project.id);
+                return next;
+              });
             return (
               <section key={project.id} className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggle}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left transition-colors hover:bg-muted/70"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
                   <span className={cn("h-2.5 w-2.5 rounded-full", theme.dot)} />
-                  <h2 className="text-sm font-semibold">{project.name}</h2>
-                  <span className="text-xs text-muted-foreground">{items.length}</span>
-                </div>
-                <DatasetGrid datasets={items} onSelect={setSelected} />
+                  <span className="flex-1 text-sm font-semibold">{project.name}</span>
+                  <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {items.length}
+                  </span>
+                </button>
+                {!collapsed && (
+                  layout === "cards" ? (
+                    <DatasetGrid datasets={items} onSelect={setSelected} />
+                  ) : (
+                    <DatasetTable datasets={items} onSelect={setSelected} />
+                  )
+                )}
               </section>
             );
           })}
         </div>
       ) : (
-        <DatasetGrid datasets={filtered} onSelect={setSelected} />
+        layout === "cards" ? (
+          <DatasetGrid datasets={filtered} onSelect={setSelected} />
+        ) : (
+          <DatasetTable datasets={filtered} onSelect={setSelected} />
+        )
       )}
 
       {!isLoading && filtered.length === 0 && (
@@ -288,6 +345,57 @@ function DatasetGrid({
       {datasets.map((d) => (
         <DatasetCard key={d.id} dataset={d} onClick={() => onSelect(d)} />
       ))}
+    </div>
+  );
+}
+
+function DatasetTable({
+  datasets,
+  onSelect,
+}: {
+  datasets: Dataset[];
+  onSelect: (d: Dataset) => void;
+}) {
+  return (
+    <div className="overflow-auto rounded-lg border border-border">
+      <table className="w-full border-collapse text-xs">
+        <thead className="sticky top-0 bg-muted">
+          <tr>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Name</th>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Type</th>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Kind</th>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Columns</th>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Versions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {datasets.map((d) => (
+            <tr
+              key={d.id}
+              onClick={() => onSelect(d)}
+              className="cursor-pointer odd:bg-background even:bg-muted/30 hover:bg-accent/40 transition-colors"
+            >
+              <td className="border-b border-border px-3 py-2 font-medium">{d.name}</td>
+              <td className="border-b border-border px-3 py-2 uppercase text-muted-foreground">{d.source_type}</td>
+              <td className="border-b border-border px-3 py-2">
+                {d.dataset_kind === "output" ? (
+                  <span className="rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                    output
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">upload</span>
+                )}
+              </td>
+              <td className="border-b border-border px-3 py-2 text-muted-foreground">
+                {d.column_schema?.length ?? 0}
+              </td>
+              <td className="border-b border-border px-3 py-2 text-muted-foreground">
+                v{d.latest_version} ({d.version_count})
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

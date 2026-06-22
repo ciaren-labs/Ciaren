@@ -161,6 +161,8 @@ export const datasetsApi = {
     request<Record<string, unknown>[]>(
       `/datasets/${id}/sample${version ? `?version=${version}` : ""}`,
     ),
+  downloadVersionUrl: (id: string, version: number) =>
+    `${BASE_URL}/datasets/${id}/versions/${version}/download`,
   upload: async (file: File, projectId?: string): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);
