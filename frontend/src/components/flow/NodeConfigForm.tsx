@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dataset } from "@/lib/types";
+import { EXPRESSION_TEMPLATES } from "@/lib/nodeDocs";
 import {
   aggFunctions,
   dtypes,
@@ -302,10 +303,26 @@ export function NodeConfigForm({
           <Field label="New column name" error={errors.column_name}>
             <Input value={c.column_name ?? ""} onChange={(e) => set({ column_name: e.target.value })} />
           </Field>
+          <Field label="Common formula" help="Pick a starting point — it fills the formula below, which you can then edit.">
+            <Select
+              value=""
+              onChange={(e) => {
+                const t = EXPRESSION_TEMPLATES.find((t) => t.label === e.target.value);
+                if (t) set({ expression: t.build(columns) });
+              }}
+            >
+              <option value="">Choose a template…</option>
+              {EXPRESSION_TEMPLATES.map((t) => (
+                <option key={t.label} value={t.label}>
+                  {t.label} · {t.description}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field
-            label="Expression"
-            hint={columns.length ? `Available: ${columns.join(", ")}` : "e.g. price * quantity"}
-            help="A pandas expression evaluated per row. Reference columns by name."
+            label="Formula (advanced)"
+            hint={columns.length ? `Columns: ${columns.join(", ")}` : "e.g. price * quantity"}
+            help="A pandas expression evaluated per row. Reference columns by name; arithmetic (+ - * /) and comparisons (>, <, ==) are supported."
             error={errors.expression}
           >
             <Input value={c.expression ?? ""} onChange={(e) => set({ expression: e.target.value })} />
