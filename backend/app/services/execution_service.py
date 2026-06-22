@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
+from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
@@ -21,9 +22,16 @@ class ExecutionService:
     async def run(self, flow_id: str, data: FlowRunCreate) -> FlowRunRead:
         flow = await self._get_flow(flow_id)
 
+        engine = data.engine or "pandas"
+        if engine not in available_engines():
+            raise ValidationError(
+                f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}."
+            )
+
         run = FlowRun(
             flow_id=flow_id,
             input_dataset_id=data.input_dataset_id,
+            engine=engine,
             status="running",
             started_at=datetime.utcnow(),
         )
@@ -39,7 +47,9 @@ class ExecutionService:
 
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
-            result = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, output_dir)
+            result = FlowExecutor().run_with_results(
+                flow.graph_json, dataset_paths, output_dir, engine_name=engine
+            )
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:
@@ -127,6 +137,7 @@ class ExecutionService:
                 project_id=flow_project_id,
                 input_dataset_id=run.input_dataset_id,
                 status=run.status,
+                engine=run.engine,
                 output_location=run.output_location,
                 started_at=run.started_at,
                 finished_at=run.finished_at,

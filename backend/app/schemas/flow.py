@@ -19,7 +19,10 @@ class FlowUpdate(BaseModel):
 
 
 class CodeExportResponse(BaseModel):
+    # `code` is the pandas export (kept for back-compat); `polars` is the
+    # equivalent polars script.
     code: str
+    polars: str
 
 
 class FlowRead(BaseModel):
