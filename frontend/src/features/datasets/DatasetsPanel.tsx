@@ -410,7 +410,7 @@ function DatasetTable({
               key={d.id}
               className={cn(
                 "odd:bg-background even:bg-muted/30 hover:bg-accent/40 transition-colors",
-                d.is_disabled && "opacity-50",
+                d.is_disabled && "bg-amber-50/20 opacity-70",
               )}
             >
               <td
@@ -419,7 +419,7 @@ function DatasetTable({
               >
                 {d.name}
                 {d.is_disabled && (
-                  <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="ml-1.5 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-700">
                     disabled
                   </span>
                 )}
@@ -485,7 +485,7 @@ function DatasetCard({
   const schema = d.column_schema ?? [];
 
   return (
-    <div className={cn("group text-left", d.is_disabled && "opacity-60")}>
+    <div className={cn("group text-left", d.is_disabled && "opacity-70")}>
       <Card className="animate-fade-in-up h-full overflow-hidden transition-shadow hover:shadow-md">
         <button onClick={onClick} className="block w-full text-left">
           <CardHeader className="flex-row items-center gap-3 space-y-0">
@@ -501,7 +501,7 @@ function DatasetCard({
                   </span>
                 )}
                 {d.is_disabled && (
-                  <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                     disabled
                   </span>
                 )}

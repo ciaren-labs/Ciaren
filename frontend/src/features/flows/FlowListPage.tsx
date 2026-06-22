@@ -101,26 +101,26 @@ export function FlowListPage() {
     else toggleFlow.mutate({ id: flow.id, is_disabled: false });
   };
 
-  const confirmTitle =
-    pendingAction?.kind === "delete"
+  const confirmTitle = pendingAction
+    ? pendingAction.kind === "delete"
       ? `Delete "${pendingAction.flow.name}"?`
-      : pendingAction?.kind === "disable"
+      : pendingAction.kind === "disable"
         ? `Disable "${pendingAction.flow.name}"?`
-        : `Enable "${pendingAction.flow.name}"?`;
+        : `Enable "${pendingAction.flow.name}"?`
+    : "";
 
-  const confirmDescription =
-    pendingAction?.kind === "delete" ? (
+  const confirmDescription = pendingAction ? (
+    pendingAction.kind === "delete" ? (
+      <p>This will permanently delete the flow and its run history. Datasets are not affected.</p>
+    ) : pendingAction.kind === "disable" ? (
       <p>
-        This will permanently delete the flow and its run history. Datasets are not affected.
-      </p>
-    ) : pendingAction?.kind === "disable" ? (
-      <p>
-        The flow will be marked as disabled. It will become read-only and cannot be triggered or
-        run until re-enabled.
+        The flow will be marked as disabled — read-only and cannot be triggered or run until
+        re-enabled.
       </p>
     ) : (
       <p>The flow will be re-enabled and available for running again.</p>
-    );
+    )
+  ) : null;
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -305,13 +305,13 @@ function FlowCard({
 }) {
   const theme = projectColor(projectColorKey);
   return (
-    <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled && "opacity-60")}>
+    <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
       <button onClick={onOpen} className="flex-1 text-left">
         <div className="flex items-center gap-2">
           <Workflow className="h-4 w-4 text-brand-600" />
           <span className="truncate font-semibold">{flow.name}</span>
           {flow.is_disabled && (
-            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
               disabled
             </span>
           )}
@@ -397,7 +397,7 @@ function FlowTable({
             return (
               <tr
                 key={flow.id}
-                className={cn("border-t border-border hover:bg-accent/40 transition-colors", flow.is_disabled && "opacity-60")}
+                className={cn("border-t border-border hover:bg-accent/40 transition-colors", flow.is_disabled && "bg-amber-50/30 opacity-70")}
               >
                 <td className="px-4 py-2.5">
                   <button onClick={() => onOpen(flow.id)} className="font-medium hover:underline">
@@ -417,7 +417,7 @@ function FlowTable({
                 </td>
                 <td className="px-4 py-2.5">
                   {flow.is_disabled ? (
-                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                       disabled
                     </span>
                   ) : (

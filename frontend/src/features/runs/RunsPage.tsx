@@ -62,6 +62,7 @@ export function RunsPage() {
       started_before: before ? `${before}T23:59:59` : undefined,
       sort_by: sortBy,
       sort_order: sortOrder,
+      limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     }),
     [flowId, status, datasetId, projectId, after, before, sortBy, sortOrder, page],
