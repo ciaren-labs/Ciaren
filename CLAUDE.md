@@ -120,7 +120,10 @@ may override it per request. The synchronous executor runs off the event loop so
 it never blocks: `EXECUTION_MODE` selects a worker thread (`thread`, default) or
 a `ProcessPoolExecutor` (`process`, true multi-core; see
 `app/engine/process_pool.py`). Only picklable args cross the process boundary —
-the DB session always stays in the parent.
+the DB session always stays in the parent. `RUN_TIMEOUT_SECONDS` (0 = off)
+abandons an over-running run; in `process` mode the pool is recycled to reclaim
+the CPU, in `thread` mode the run is abandoned but the thread finishes. Each
+node records a `duration_ms` (in the run DAG / `node_results`) for observability.
 
 ## Running
 

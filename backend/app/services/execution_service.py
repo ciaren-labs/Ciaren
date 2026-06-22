@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable
 from datetime import datetime
 from pathlib import Path
 
@@ -10,8 +11,12 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
-from app.engine.executor import FlowExecutor
-from app.engine.process_pool import get_process_pool, run_graph_in_process
+from app.engine.executor import FlowExecutor, RunResult
+from app.engine.process_pool import (
+    get_process_pool,
+    recycle_process_pool,
+    run_graph_in_process,
+)
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
@@ -78,11 +83,12 @@ class ExecutionService:
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
             # running it off-loop (in a thread or a separate process) is safe.
+            compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
                 # processes. Only the picklable compute crosses the boundary.
                 loop = asyncio.get_running_loop()
-                result = await loop.run_in_executor(
+                compute = loop.run_in_executor(
                     get_process_pool(),
                     run_graph_in_process,
                     flow.graph_json,
@@ -91,13 +97,19 @@ class ExecutionService:
                     engine,
                 )
             else:
-                result = await asyncio.to_thread(
+                compute = asyncio.to_thread(
                     FlowExecutor().run_with_results,
                     flow.graph_json,
                     dataset_paths,
                     output_dir,
                     engine_name=engine,
                 )
+
+            timeout = self.settings.RUN_TIMEOUT_SECONDS
+            if timeout > 0:
+                result = await asyncio.wait_for(compute, timeout=timeout)
+            else:
+                result = await compute
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:
@@ -109,10 +121,19 @@ class ExecutionService:
                     if result.output_paths
                     else None
                 )
+                elapsed_ms = (
+                    round((datetime.utcnow() - run.started_at).total_seconds() * 1000, 2)
+                    if run.started_at
+                    else None
+                )
                 run.logs_json = [
                     {
                         "level": "info",
-                        "message": f"Flow executed, wrote {len(result.output_paths)} output(s)",
+                        "message": (
+                            f"Flow executed in {elapsed_ms} ms, "
+                            f"wrote {len(result.output_paths)} output(s)"
+                        ),
+                        "duration_ms": elapsed_ms,
                     },
                     {
                         "level": "info",
@@ -145,6 +166,15 @@ class ExecutionService:
                 run.status = "failed"
                 run.error_message = result.error
                 run.logs_json = [{"level": "error", "message": result.error}]
+        except asyncio.TimeoutError:
+            # In process mode, drop the pool so the abandoned worker doesn't starve
+            # later runs; in thread mode the thread keeps running but the run is
+            # abandoned and the event loop is freed.
+            if execution_mode == "process":
+                recycle_process_pool()
+            run.status = "failed"
+            run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
+            run.logs_json = [{"level": "error", "message": run.error_message}]
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             run.status = "failed"
             run.error_message = str(exc)
