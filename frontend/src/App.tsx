@@ -5,6 +5,8 @@ import { FlowEditorPage } from "@/features/flows/FlowEditorPage";
 import { DatasetsPage } from "@/features/datasets/DatasetsPage";
 import { RunsPage } from "@/features/runs/RunsPage";
 import { RunDetailPage } from "@/features/runs/RunDetailPage";
+import { ProjectsPage } from "@/features/projects/ProjectsPage";
+import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
 
 export default function App() {
   return (
@@ -13,6 +15,8 @@ export default function App() {
       <main className="min-h-0 flex-1">
         <Routes>
           <Route path="/" element={<FlowListPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/datasets" element={<DatasetsPage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:runId" element={<RunDetailPage />} />
