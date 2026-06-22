@@ -67,8 +67,11 @@ export function useExportPython(id: string) {
 }
 
 export function useCreateRun(id: string) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (inputDatasetId?: string) =>
-      flowsApi.createRun(id, inputDatasetId),
+    mutationFn: (options?: { inputDatasetId?: string; engine?: string }) =>
+      flowsApi.createRun(id, options ?? {}),
+    // Invalidate every run query (lists + details) so history refreshes.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
   });
 }
