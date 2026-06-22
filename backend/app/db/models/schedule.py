@@ -34,6 +34,11 @@ class Schedule(Base):
     # When True, a slot missed while the server was down fires once on startup;
     # when False, the scheduler skips straight to the next future slot.
     catch_up: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Retry policy: on a failed run, retry up to ``max_retries`` times before
+    # falling back to the next cron slot, with exponential backoff seeded by
+    # ``retry_delay_seconds``.
+    max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retry_delay_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
 
     # -- Runtime / observability state ---------------------------------
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
@@ -41,6 +46,11 @@ class Schedule(Base):
     last_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Retries already used within the current cron slot (reset on success or when
+    # the slot is exhausted and we advance to the next cron time).
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Set when the scheduler auto-disables a chronically failing schedule.
+    disabled_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

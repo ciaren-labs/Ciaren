@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import ScheduleServiceDep
-from app.schemas.run import FlowRunRead
+from app.api.deps import ExecutionServiceDep, ScheduleServiceDep
+from app.schemas.run import FlowRunRead, FlowRunSummary
 from app.schemas.schedule import ScheduleCreate, ScheduleRead, ScheduleUpdate
 
 router = APIRouter()
@@ -54,3 +54,15 @@ async def delete_schedule(schedule_id: str, service: ScheduleServiceDep) -> None
 )
 async def run_schedule_now(schedule_id: str, service: ScheduleServiceDep) -> FlowRunRead:
     return await service.run_now(schedule_id)
+
+
+@router.get("/schedules/{schedule_id}/runs", response_model=list[FlowRunSummary])
+async def list_schedule_runs(
+    schedule_id: str,
+    schedules: ScheduleServiceDep,
+    runs: ExecutionServiceDep,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[FlowRunSummary]:
+    await schedules.get(schedule_id)  # 404 if the schedule doesn't exist
+    return await runs.list_runs(schedule_id=schedule_id, limit=limit, offset=offset)

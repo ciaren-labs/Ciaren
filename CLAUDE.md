@@ -89,7 +89,8 @@ REST only (no GraphQL for MVP).
 - Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
 - Runs: `POST /api/flows/{id}/runs`, `GET /api/runs/{id}`
 - Schedules: `GET/POST /api/flows/{id}/schedules`, `GET /api/schedules`,
-  `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`
+  `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`,
+  `GET /api/schedules/{id}/runs`
 - Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
   `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
 - Code export: `POST /api/flows/{id}/export/python`
@@ -126,8 +127,21 @@ started in the FastAPI lifespan; `Schedule.next_run_at` (naive UTC) is the singl
 source of truth, so it survives restarts without a separate jobstore. It isolates
 per-schedule failures, caps concurrency, skips overlapping runs, and applies a
 per-schedule `catch_up` policy for slots missed while the server was down.
+
+Reliability behaviors:
+- **Orphan recovery:** on startup, runs left `running` (interrupted by a crash)
+  are marked `failed` — single-process means they can never resume.
+- **Retries:** a failed run retries up to `max_retries` with exponential backoff
+  (`retry_delay_seconds`, capped at 1h) before falling back to the next cron slot.
+- **Auto-disable:** after `SCHEDULER_MAX_CONSECUTIVE_FAILURES` consecutive failed
+  runs a schedule is disabled with a `disabled_reason`; re-enabling clears the
+  streak. Manual `run-now` stays out of the retry/auto-disable machinery.
+- **Run history:** runs carry `trigger`/`schedule_id`; filter via
+  `GET /api/runs?schedule_id=` or `GET /api/schedules/{id}/runs`.
+
 Configurable via `SCHEDULER_ENABLED` / `SCHEDULER_POLL_INTERVAL_SECONDS` /
-`SCHEDULER_MAX_CONCURRENT_RUNS` (disabled in tests).
+`SCHEDULER_MAX_CONCURRENT_RUNS` / `SCHEDULER_MAX_CONSECUTIVE_FAILURES` (the
+scheduler is disabled in tests).
 
 ## Coding Standards
 
