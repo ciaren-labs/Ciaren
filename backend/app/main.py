@@ -42,6 +42,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     finally:
         if runner is not None:
             await runner.stop()
+        # Lazily import so the multiprocessing machinery is only touched when the
+        # process pool was actually used (EXECUTION_MODE="process").
+        from app.engine.process_pool import shutdown_process_pool
+
+        shutdown_process_pool()
 
 
 def create_app() -> FastAPI:
