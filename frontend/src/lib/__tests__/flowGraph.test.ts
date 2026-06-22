@@ -4,6 +4,7 @@ import {
   hasCycle,
   isInputType,
   topologicalOrder,
+  wouldCreateCycle,
   type GraphEdgeLike,
   type GraphNodeLike,
 } from "../flowGraph";
@@ -63,6 +64,26 @@ describe("hasCycle", () => {
   it("is true when nodes form a loop", () => {
     const nodes = [node("a", "dropColumns"), node("b", "dropColumns")];
     expect(hasCycle(nodes, [edge("a", "b"), edge("b", "a")])).toBe(true);
+  });
+});
+
+describe("wouldCreateCycle", () => {
+  it("rejects a self-loop", () => {
+    expect(wouldCreateCycle([], "a", "a")).toBe(true);
+  });
+
+  it("rejects an edge that closes a loop", () => {
+    // a -> b already exists; adding b -> a would cycle.
+    expect(wouldCreateCycle([edge("a", "b")], "b", "a")).toBe(true);
+  });
+
+  it("allows a forward edge", () => {
+    expect(wouldCreateCycle([edge("a", "b")], "b", "c")).toBe(false);
+  });
+
+  it("allows fan-out from one source to multiple targets", () => {
+    const edges = [edge("a", "b")];
+    expect(wouldCreateCycle(edges, "a", "c")).toBe(false);
   });
 });
 
