@@ -28,6 +28,20 @@ export function isInputType(type: string | undefined): boolean {
   return type ? type in INPUT_SOURCE_TYPE : false;
 }
 
+/**
+ * A flow's first step must be an input node with a dataset chosen. Until that
+ * holds, the editor blocks adding any non-input node. Returns true once at least
+ * one input node has a non-empty `dataset_id`.
+ */
+export function hasReadyInput(nodes: GraphNodeLike[]): boolean {
+  return nodes.some(
+    (n) =>
+      isInputType(n.type) &&
+      typeof n.data.config.dataset_id === "string" &&
+      n.data.config.dataset_id.length > 0,
+  );
+}
+
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
