@@ -8,14 +8,16 @@ export function formatDateTime(
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
+  const opts: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: timezone || undefined,
-  });
+  };
+  // Only set timeZone when explicitly provided — omitting it uses the browser's local timezone.
+  if (timezone) opts.timeZone = timezone;
+  return d.toLocaleString(undefined, opts);
 }
 
 /** Human-friendly elapsed time between two ISO timestamps, e.g. "1.2s". */

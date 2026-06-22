@@ -140,7 +140,14 @@ class DatasetService:
         return await self._read(dataset.id)
 
     async def delete(self, dataset_id: str) -> None:
-        dataset = await self._get_or_raise(dataset_id)
+        result = await self.db.execute(
+            select(Dataset)
+            .options(selectinload(Dataset.versions))
+            .where(Dataset.id == dataset_id)
+        )
+        dataset = result.scalar_one_or_none()
+        if dataset is None:
+            raise NotFoundError("Dataset", dataset_id)
         await self.db.delete(dataset)
         await self.db.commit()
 
