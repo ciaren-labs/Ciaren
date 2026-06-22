@@ -27,5 +27,9 @@ export const queryKeys = {
   datasetFlows: (id: string) => ["datasets", id, "flows"] as const,
   run: (id: string) => ["runs", id] as const,
   runs: (filters: RunListFilters) => ["runs", "list", filters] as const,
+  schedules: ["schedules"] as const,
+  schedulesByFlow: (flowId?: string) => ["schedules", { flowId }] as const,
+  schedule: (id: string) => ["schedules", id] as const,
+  scheduleRuns: (id: string) => ["schedules", id, "runs"] as const,
   transformations: ["transformations"] as const,
 };

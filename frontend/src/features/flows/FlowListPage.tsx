@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, LayoutGrid, List, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { AlertCircle, CalendarClock, LayoutGrid, List, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
 import { useCreateFlow, useDeleteFlow, useFlows, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
+import { useCreateSchedule } from "@/features/schedules/hooks";
+import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -48,6 +50,8 @@ export function FlowListPage() {
   const [runFlow, setRunFlow] = useState<Flow | null>(null);
   const [runEngine, setRunEngine] = useState<"pandas" | "polars">("pandas");
   const runMutation = useRunFlow();
+  const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
+  const createSchedule = useCreateSchedule();
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -238,6 +242,7 @@ export function FlowListPage() {
               onOpen={() => navigate(`/flows/${flow.id}`)}
               onEdit={() => setEditingFlow(flow)}
               onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
+              onSchedule={() => setSchedulingFlow(flow)}
               onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
               onDelete={() => setPendingAction({ kind: "delete", flow })}
             />
@@ -250,6 +255,7 @@ export function FlowListPage() {
           onOpen={(id) => navigate(`/flows/${id}`)}
           onEdit={(flow) => setEditingFlow(flow)}
           onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
+          onSchedule={(flow) => setSchedulingFlow(flow)}
           onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
           onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
         />
@@ -324,6 +330,20 @@ export function FlowListPage() {
         </DialogContent>
       </Dialog>
 
+      <ScheduleFormDialog
+        open={schedulingFlow !== null}
+        onOpenChange={(o) => !o && setSchedulingFlow(null)}
+        lockedFlowId={schedulingFlow?.id}
+        submitting={createSchedule.isPending}
+        error={createSchedule.error}
+        onSubmit={(flowId, body) =>
+          createSchedule.mutate(
+            { flowId, body },
+            { onSuccess: (schedule) => { setSchedulingFlow(null); navigate(`/schedules/${schedule.id}`); } },
+          )
+        }
+      />
+
       <FlowEditDialog
         open={editingFlow !== null}
         onOpenChange={(o) => !o && setEditingFlow(null)}
@@ -366,6 +386,7 @@ function FlowCard({
   onOpen,
   onEdit,
   onRun,
+  onSchedule,
   onToggle,
   onDelete,
 }: {
@@ -375,6 +396,7 @@ function FlowCard({
   onOpen: () => void;
   onEdit: () => void;
   onRun: () => void;
+  onSchedule: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -417,6 +439,14 @@ function FlowCard({
           <Play className="h-4 w-4" />
         </button>
         <button
+          onClick={onSchedule}
+          disabled={flow.is_disabled}
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          title="Schedule flow"
+        >
+          <CalendarClock className="h-4 w-4" />
+        </button>
+        <button
           onClick={onEdit}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           title="Edit name & description"
@@ -451,6 +481,7 @@ function FlowTable({
   onOpen,
   onEdit,
   onRun,
+  onSchedule,
   onToggle,
   onDelete,
 }: {
@@ -459,6 +490,7 @@ function FlowTable({
   onOpen: (id: string) => void;
   onEdit: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
+  onSchedule: (flow: Flow) => void;
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
 }) {
@@ -520,6 +552,14 @@ function FlowTable({
                       title="Run flow"
                     >
                       <Play className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onSchedule(flow)}
+                      disabled={flow.is_disabled}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                      title="Schedule flow"
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => onEdit(flow)}

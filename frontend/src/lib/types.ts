@@ -100,6 +100,9 @@ export interface FlowRun {
   created_at: string;
 }
 
+/** How a run was triggered: a manual click or the background scheduler. */
+export type RunTrigger = "manual" | "schedule";
+
 /** Lightweight run row for the history list (no per-node samples). */
 export interface FlowRunSummary {
   id: string;
@@ -109,6 +112,9 @@ export interface FlowRunSummary {
   input_dataset_id: string | null;
   input_datasets: InputDatasetRef[] | null;
   status: RunStatus;
+  engine: string;
+  trigger: RunTrigger;
+  schedule_id: string | null;
   output_location: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -119,6 +125,7 @@ export interface RunListFilters {
   flow_id?: string;
   project_id?: string;
   dataset_id?: string;
+  schedule_id?: string;
   status?: RunStatus;
   started_after?: string;
   started_before?: string;
@@ -126,6 +133,61 @@ export interface RunListFilters {
   sort_order?: "asc" | "desc";
   limit?: number;
   offset?: number;
+}
+
+// ---- Schedules -------------------------------------------------------------
+
+export interface Schedule {
+  id: string;
+  flow_id: string;
+  name: string | null;
+  description: string | null;
+  cron: string;
+  timezone: string;
+  /** null = fall back to the server's default engine when the run fires. */
+  engine: string | null;
+  input_dataset_id: string | null;
+  enabled: boolean;
+  catch_up: boolean;
+  max_retries: number;
+  retry_delay_seconds: number;
+  // Runtime / observability state.
+  next_run_at: string | null;
+  last_fired_at: string | null;
+  last_run_id: string | null;
+  last_status: RunStatus | null;
+  consecutive_failures: number;
+  retry_count: number;
+  /** Set when the scheduler auto-disabled a chronically failing schedule. */
+  disabled_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleCreate {
+  cron: string;
+  name?: string;
+  description?: string;
+  timezone?: string;
+  engine?: string | null;
+  input_dataset_id?: string | null;
+  enabled?: boolean;
+  catch_up?: boolean;
+  max_retries?: number;
+  retry_delay_seconds?: number;
+}
+
+export interface ScheduleUpdate {
+  cron?: string;
+  name?: string;
+  description?: string;
+  timezone?: string;
+  engine?: string | null;
+  input_dataset_id?: string | null;
+  enabled?: boolean;
+  catch_up?: boolean;
+  max_retries?: number;
+  retry_delay_seconds?: number;
 }
 
 // React Flow compatible graph stored in flow.graph_json.
