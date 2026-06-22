@@ -21,8 +21,79 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Lint markdown
+        working-directory: docs
+        run: npm run lint
+        continue-on-error: false
+
+  test:
+    name: Test Documentation Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build documentation
+        working-directory: docs
+        run: npm run build
+
+      - name: Validate build output
+        working-directory: docs
+        run: npm run test:build
+
+      - name: Check for broken links
+        working-directory: docs
+        run: npm run test:links
+
+      - name: Check build size
+        run: |
+          SIZE=$(du -sh docs/.vitepress/dist | cut -f1)
+          echo "📦 Build size: $SIZE"
+
+          FILES=$(find docs/.vitepress/dist -type f | wc -l)
+          echo "📄 Total files: $FILES"
+
+          if [ "$FILES" -lt 50 ]; then
+            echo "❌ Fewer files than expected"
+            exit 1
+          fi
+
   build:
-    name: Build Documentation
+    name: Build & Deploy Docs
+    needs: [lint, test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -47,6 +118,13 @@ jobs:
         working-directory: docs
         run: npm run build
 
+      - name: Verify build artifacts
+        run: |
+          echo "🔍 Checking build artifacts..."
+          [ -d "docs/.vitepress/dist" ] || (echo "❌ dist not found" && exit 1)
+          [ -f "docs/.vitepress/dist/index.html" ] || (echo "❌ index.html not found" && exit 1)
+          echo "✅ Build artifacts verified"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -66,64 +144,33 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  test-pr:
-    name: Test Build (PR)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
-
-      - name: Install dependencies
-        working-directory: docs
-        run: npm ci
-
-      - name: Build docs (test)
-        working-directory: docs
-        run: npm run build
-
-      - name: Check build artifacts
+      - name: Deployment Summary
         run: |
-          if [ ! -d "docs/.vitepress/dist" ]; then
-            echo "❌ Build failed — dist directory not found"
-            exit 1
-          fi
-          if [ ! -f "docs/.vitepress/dist/index.html" ]; then
-            echo "❌ Build failed — index.html not found"
-            exit 1
-          fi
-          echo "✅ Docs build successful"
+          echo "✅ Documentation deployed successfully!"
+          echo ""
+          echo "📖 Published at:"
+          echo "   ${{ steps.deployment.outputs.page_url }}"
 
-  lint:
-    name: Lint Markdown
+  summary:
+    name: Test Summary
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    needs: [lint, test, build]
+    if: always()
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Test Results
+        run: |
+          echo "📊 Docs Test Results"
+          echo "===================="
+          echo ""
+          echo "Linting:     ${{ needs.lint.result == 'success' && '✅ PASS' || '❌ FAIL' }}"
+          echo "Tests:       ${{ needs.test.result == 'success' && '✅ PASS' || '❌ FAIL' }}"
+          echo "Build:       ${{ needs.build.result == 'success' && '✅ PASS' || '❌ FAIL' }}"
+          echo ""
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Documentation pipeline failed"
+            exit 1
+          fi
 
-      - name: Install dependencies
-        working-directory: docs
-        run: npm ci
-
-      - name: Lint markdown
-        working-directory: docs
-        run: npm run lint --if-present
-        continue-on-error: true
+          echo "✅ All documentation checks passed"
