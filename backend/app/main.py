@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import datasets, flows, runs, transformations
 from app.core.config import get_settings
+from app.core.database import init_db
 from app.core.exceptions import (
     DatasetParseError,
     FileTooLargeError,
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     for subdir in ("uploads", "outputs", "previews"):
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
+
+    await init_db()
 
     yield
 
