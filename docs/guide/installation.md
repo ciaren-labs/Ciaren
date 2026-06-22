@@ -150,8 +150,9 @@ FLOWFRAME_MAX_UPLOAD_SIZE_MB=100
 
 Run `flowframe info` to print the resolved configuration (the database password
 is redacted), and `flowframe check` to validate it (writable data dir, async
-driver, database reachable, engines available). The full list of settings is in
-the [CLI reference](/guide/cli#environment-variables).
+driver, database reachable, engines available). For the full settings reference,
+alternate databases, execution tuning, and production deployment, see
+**[Advanced Setup](/guide/advanced-setup)** (and the [CLI reference](/guide/cli#environment-variables)).
 
 :::warning Async driver required
 The app runs on async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or

@@ -134,6 +134,8 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 - **Found a bug?** [GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
 - **Want to contribute?** [Contributing Guide](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
 
+Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/) ([GitHub](https://github.com/rodrigo-arenas)).
+
 ## License
 
 Apache License 2.0 — Free for personal and commercial use.

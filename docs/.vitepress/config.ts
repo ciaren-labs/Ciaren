@@ -59,6 +59,7 @@ export default defineConfig({
           items: [
             { text: 'Introduction', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Interface Tour', link: '/guide/interface' },
           ],
@@ -130,8 +131,12 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the Apache License 2.0.',
-      copyright: 'Copyright © 2026 Rodrigo Arenas',
+      message:
+        'Released under the Apache License 2.0. Created by ' +
+        '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
+        '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',
+      copyright:
+        'Copyright © 2026 <a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a>',
     },
   },
 })

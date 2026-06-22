@@ -1,0 +1,8 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FlowFrame logo">
+  <!-- connector -->
+  <path d="M32 50 V58 Q32 68 42 68 H50" stroke="#7C3AED" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- input node (brand purple) -->
+  <rect x="14" y="14" width="36" height="36" rx="12" stroke="#7C3AED" stroke-width="7" fill="none"/>
+  <!-- output node (slate) -->
+  <rect x="50" y="50" width="36" height="36" rx="12" stroke="#5B6573" stroke-width="7" fill="none"/>
+</svg>
