@@ -152,6 +152,7 @@ class ExecutionService:
         flow_id: str | None = None,
         project_id: str | None = None,
         dataset_id: str | None = None,
+        schedule_id: str | None = None,
         status: str | None = None,
         started_after: datetime | None = None,
         started_before: datetime | None = None,
@@ -173,6 +174,8 @@ class ExecutionService:
             stmt = stmt.where(Flow.project_id == project_id)
         if dataset_id is not None:
             stmt = stmt.where(FlowRun.input_dataset_id == dataset_id)
+        if schedule_id is not None:
+            stmt = stmt.where(FlowRun.schedule_id == schedule_id)
         if status is not None:
             stmt = stmt.where(FlowRun.status == status)
         if started_after is not None:

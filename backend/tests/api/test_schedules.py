@@ -171,3 +171,52 @@ async def test_run_now_executes_flow_as_scheduled_run(client: AsyncClient) -> No
     assert sched["last_status"] == "success"
     assert sched["last_run_id"] == run["id"]
     assert sched["next_run_at"] == created["next_run_at"]
+
+
+async def test_schedule_run_history_is_filterable(client: AsyncClient) -> None:
+    flow = await _flow(client)
+    created = (
+        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
+    ).json()
+
+    # Two scheduled runs (via run-now) and one ad-hoc manual run on the same flow.
+    sched_run_ids = {
+        (await client.post(f"/api/schedules/{created['id']}/run-now")).json()["id"]
+        for _ in range(2)
+    }
+    manual_run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+
+    # /api/runs?schedule_id= returns only this schedule's runs.
+    by_query = (await client.get(f"/api/runs?schedule_id={created['id']}")).json()
+    assert {r["id"] for r in by_query} == sched_run_ids
+    assert manual_run["id"] not in {r["id"] for r in by_query}
+    assert all(r["trigger"] == "schedule" for r in by_query)
+
+    # The nested convenience endpoint returns the same set.
+    nested = (await client.get(f"/api/schedules/{created['id']}/runs")).json()
+    assert {r["id"] for r in nested} == sched_run_ids
+
+
+async def test_schedule_runs_unknown_schedule_is_404(client: AsyncClient) -> None:
+    assert (await client.get("/api/schedules/ghost/runs")).status_code == 404
+
+
+async def test_reenabling_clears_failure_state(client: AsyncClient) -> None:
+    flow = await _flow(client)
+    created = (
+        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
+    ).json()
+    assert created["max_retries"] == 0
+    assert created["consecutive_failures"] == 0
+
+    disabled = (
+        await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})
+    ).json()
+    assert disabled["enabled"] is False
+
+    reenabled = (
+        await client.patch(f"/api/schedules/{created['id']}", json={"enabled": True})
+    ).json()
+    assert reenabled["enabled"] is True
+    assert reenabled["consecutive_failures"] == 0
+    assert reenabled["disabled_reason"] is None

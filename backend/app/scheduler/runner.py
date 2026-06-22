@@ -16,18 +16,24 @@ brief):
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
+from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.scheduler.cron import compute_next_run
 from app.schemas.run import FlowRunCreate
 from app.services.execution_service import ExecutionService
 
 logger = logging.getLogger("flowframe.scheduler")
+
+# Upper bound on exponential backoff so a long-failing schedule still retries
+# roughly hourly rather than drifting to absurd delays.
+_MAX_BACKOFF_SECONDS = 3600
 
 
 class SchedulerRunner:
@@ -47,6 +53,7 @@ class SchedulerRunner:
         self._fire_tasks: set[asyncio.Task[None]] = set()
 
     async def start(self) -> None:
+        await self._recover_orphaned_runs()
         await self._reconcile_on_startup()
         self._task = asyncio.create_task(self._loop(), name="flowframe-scheduler")
         logger.info(
@@ -128,13 +135,76 @@ class SchedulerRunner:
             schedule.last_fired_at = datetime.utcnow()
             schedule.last_status = status
             schedule.last_run_id = run_id
-            schedule.consecutive_failures = (
-                0 if status == "success" else schedule.consecutive_failures + 1
+            if status == "success":
+                self._on_success(schedule)
+            else:
+                self._on_failure(schedule)
+            await db.commit()
+
+    def _on_success(self, schedule: Schedule) -> None:
+        schedule.consecutive_failures = 0
+        schedule.retry_count = 0
+        schedule.disabled_reason = None
+        schedule.next_run_at = compute_next_run(
+            schedule.cron, datetime.utcnow(), schedule.timezone
+        )
+
+    def _on_failure(self, schedule: Schedule) -> None:
+        """Decide what happens after a failed run: auto-disable (wins), retry with
+        backoff, or fall back to the next cron slot once retries are exhausted."""
+        schedule.consecutive_failures += 1
+        threshold = self._settings.SCHEDULER_MAX_CONSECUTIVE_FAILURES
+
+        if threshold > 0 and schedule.consecutive_failures >= threshold:
+            schedule.enabled = False
+            schedule.next_run_at = None
+            schedule.retry_count = 0
+            schedule.disabled_reason = (
+                f"Auto-disabled after {schedule.consecutive_failures} consecutive failures"
             )
-            # Advance to the next future slot regardless of outcome.
+            logger.warning(
+                "Schedule %s auto-disabled after %s consecutive failures",
+                schedule.id,
+                schedule.consecutive_failures,
+            )
+        elif schedule.retry_count < schedule.max_retries:
+            schedule.retry_count += 1
+            delay = self._backoff_seconds(schedule.retry_delay_seconds, schedule.retry_count)
+            schedule.next_run_at = datetime.utcnow() + timedelta(seconds=delay)
+        else:
+            schedule.retry_count = 0
             schedule.next_run_at = compute_next_run(
                 schedule.cron, datetime.utcnow(), schedule.timezone
             )
+
+    @staticmethod
+    def _backoff_seconds(base: int, attempt: int) -> int:
+        """Exponential backoff: base * 2**(attempt-1), capped."""
+        return min(base * (1 << (attempt - 1)), _MAX_BACKOFF_SECONDS)
+
+    async def _recover_orphaned_runs(self) -> None:
+        """Mark runs still ``running`` at startup as failed.
+
+        The app is single-process, so any run left in ``running`` was interrupted
+        by a crash/restart — it can never complete. Clearing them keeps the run
+        history honest and frees the (in-memory) overlap state implicitly.
+        """
+        now = datetime.utcnow()
+        async with self._session_factory() as db:
+            result = cast(
+                CursorResult[Any],
+                await db.execute(
+                    update(FlowRun)
+                    .where(FlowRun.status == "running")
+                    .values(
+                        status="failed",
+                        error_message="Run interrupted by a server restart.",
+                        finished_at=now,
+                    )
+                ),
+            )
+            if result.rowcount:
+                logger.warning("Recovered %s orphaned run(s) after restart", result.rowcount)
             await db.commit()
 
     async def _reconcile_on_startup(self) -> None:
