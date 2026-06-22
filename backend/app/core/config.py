@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # "polars" is faster on medium data; "pandas" remains fully supported.
     DEFAULT_ENGINE: str = "polars"
 
+    # How the synchronous flow compute is offloaded off the event loop.
+    # "thread" (default) shares the GIL; "process" uses a ProcessPoolExecutor
+    # for true multi-core parallelism.
+    EXECUTION_MODE: str = "thread"
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 

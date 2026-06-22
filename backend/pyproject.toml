@@ -24,6 +24,9 @@ dependencies = [
 [project.optional-dependencies]
 postgres = ["asyncpg>=0.30"]
 
+[project.scripts]
+flowframe = "app.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
