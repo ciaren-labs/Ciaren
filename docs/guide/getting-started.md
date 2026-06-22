@@ -25,7 +25,7 @@ FlowFrame is a **visual ETL builder** for pandas. It lets you:
 - **Execute** full flows with a single click
 - **Export** equivalent Python code
 
-Think of it as "Zapier for pandas" — a drag-and-drop tool for building repeatable data cleaning and transformation workflows.
+A drag-and-drop tool for building repeatable data cleaning and transformation workflows.
 
 ## How It Works
 
@@ -74,8 +74,6 @@ FlowFrame is designed for **local, single-machine data transformation**. It does
 - Database transformations
 - Complex scheduling/orchestration
 - Multi-user collaboration
-
-For those use cases, check out [Airflow](https://airflow.apache.org/), [dbt](https://www.getdbt.com/), or [Spark](https://spark.apache.org/).
 
 ## Next Steps
 

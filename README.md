@@ -1,6 +1,6 @@
 # FlowFrame
 
-> **Simple visual ETL for analysts and developers** — No Airflow complexity, no enterprise bloat. Just drag, drop, preview, and export.
+> **Visual ETL builder for analysts and developers** — Upload data, build a transformation pipeline, preview results, and export readable Python code.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
@@ -19,7 +19,7 @@ FlowFrame is an open-source visual ETL (Extract, Transform, Load) builder design
 - **Execute** full flows with a single click
 - **Export** the generated Python code to use anywhere
 
-Perfect for analysts, data-curious business users, and Python learners who want to build repeatable ETL pipelines without wrestling with Airflow or Spark.
+Built for analysts, data-curious business users, and Python learners who want to create repeatable data pipelines quickly.
 
 ---
 
