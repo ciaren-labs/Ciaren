@@ -14,7 +14,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <AppHeader />
-      <main className="min-h-0 flex-1">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/flows" element={<FlowListPage />} />
