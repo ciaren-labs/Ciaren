@@ -2,7 +2,17 @@
 name = "flowframe"
 version = "0.1.0"
 description = "Visual ETL builder — local-first, pandas-based"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
@@ -56,8 +66,13 @@ select = ["E", "W", "F", "I"]
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
+[tool.ruff.lint.per-file-ignores]
+# These hold wide parametrized case tables that read better unwrapped.
+"tests/engine/test_engine_backends.py" = ["E501"]
+"tests/engine/test_transformation_codegen.py" = ["E501"]
+
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 
@@ -68,6 +83,10 @@ addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["app"]
+# SQLAlchemy's async API resumes coroutine continuations inside greenlets, and
+# the executor offloads compute to worker threads; without these the tracer
+# misses everything after the first `await` on the DB and the in-thread run.
+concurrency = ["thread", "greenlet"]
 omit = [
     "*/__init__.py",
     "*/migrations/*",
@@ -82,5 +101,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "if t.TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "^\\s*\\.\\.\\.\\s*$",
 ]
-min_percentage = 95

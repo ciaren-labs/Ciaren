@@ -10,7 +10,7 @@ Get FlowFrame running on your machine in just a few minutes.
 
 ## Requirements
 
-- **Python 3.11+** — [Download Python](https://www.python.org/downloads/)
+- **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
 - **Git** — [Download Git](https://git-scm.com/)
 - **PostgreSQL / MySQL (optional)** — SQLite is the zero-setup default
 

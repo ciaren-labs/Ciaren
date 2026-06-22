@@ -433,6 +433,61 @@ async def test_dataset_response_shape(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# PATCH / DELETE / version download
+# ---------------------------------------------------------------------------
+
+
+async def test_patch_dataset_updates_is_disabled(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "old.csv")
+    r = await client.patch(f"/api/datasets/{up['id']}", json={"is_disabled": False})
+    assert r.status_code == 200, r.text
+    assert r.json()["is_disabled"] is False
+
+
+async def test_patch_dataset_disable_cascades_to_flows(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": up["id"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [{"id": "e1", "source": "in1", "target": "out1"}],
+    }
+    flow = (await client.post("/api/flows", json={"name": "f", "graph_json": graph})).json()
+
+    r = await client.patch(f"/api/datasets/{up['id']}", json={"is_disabled": True})
+    assert r.status_code == 200, r.text
+
+    refreshed = (await client.get(f"/api/flows/{flow['id']}")).json()
+    assert refreshed["is_disabled"] is True
+
+
+async def test_delete_dataset(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "tmp.csv")
+    r = await client.delete(f"/api/datasets/{up['id']}")
+    assert r.status_code == 204
+    assert (await client.get(f"/api/datasets/{up['id']}")).status_code == 404
+
+
+async def test_delete_dataset_not_found(client: AsyncClient) -> None:
+    r = await client.delete("/api/datasets/missing")
+    assert r.status_code == 404
+
+
+async def test_download_dataset_version(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    r = await client.get(f"/api/datasets/{up['id']}/versions/1/download")
+    assert r.status_code == 200
+    assert b"Alice" in r.content
+
+
+async def test_download_unknown_version_404(client: AsyncClient) -> None:
+    up = await _upload(client, _csv(), "sales.csv")
+    r = await client.get(f"/api/datasets/{up['id']}/versions/99/download")
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # Unit tests for pure helpers (no HTTP, no DB)
 # ---------------------------------------------------------------------------
 

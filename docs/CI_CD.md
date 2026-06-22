@@ -9,7 +9,8 @@ documentation deployment.
 
 Runs on every pull request and push to `main` that touches `backend/**`.
 
-- **Python versions:** 3.11, 3.12, 3.13 (matrix, run in parallel)
+- **Python versions:** 3.12, 3.13 (matrix, run in parallel)
+- **Operating systems:** Ubuntu, Windows, and macOS (matrix, run in parallel)
 - **Checks:**
   - Linting (Ruff)
   - Type checking (mypy)
@@ -86,7 +87,9 @@ tests are added.
 
 ### Tests pass locally but fail in CI
 
-- **Python version mismatch** — CI runs 3.11, 3.12, and 3.13; test against each.
+- **Python version mismatch** — CI runs 3.12 and 3.13; test against each.
+- **OS-specific behavior** — CI runs on Ubuntu, Windows, and macOS; watch for
+  path separators, line endings, and temp-dir differences.
 - **Dependencies** — run `uv sync --all-groups` to match CI.
 
 ### Coverage drops below 95%
