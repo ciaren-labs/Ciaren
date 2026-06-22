@@ -2,20 +2,34 @@ from typing import Any
 
 from fastapi import APIRouter, UploadFile, status
 
-from app.api.deps import DatasetServiceDep
+from app.api.deps import DatasetServiceDep, FlowServiceDep
 from app.schemas.dataset import DatasetRead, DatasetVersionRead
+from app.schemas.flow import FlowRead
 
 router = APIRouter()
 
 
 @router.post("/upload", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)
-async def upload_dataset(file: UploadFile, service: DatasetServiceDep) -> DatasetRead:
-    return await service.upload(file)
+async def upload_dataset(
+    file: UploadFile, service: DatasetServiceDep, project_id: str | None = None
+) -> DatasetRead:
+    return await service.upload(file, project_id)
 
 
 @router.get("", response_model=list[DatasetRead])
-async def list_datasets(service: DatasetServiceDep) -> list[DatasetRead]:
-    return await service.list_all()
+async def list_datasets(
+    service: DatasetServiceDep, project_id: str | None = None
+) -> list[DatasetRead]:
+    return await service.list_all(project_id)
+
+
+@router.get("/{dataset_id}/flows", response_model=list[FlowRead])
+async def list_dataset_flows(
+    dataset_id: str, dataset_service: DatasetServiceDep, flow_service: FlowServiceDep
+) -> list[FlowRead]:
+    # 404 if the dataset doesn't exist, then return flows that reference it.
+    await dataset_service.get(dataset_id)
+    return await flow_service.list_using_dataset(dataset_id)
 
 
 @router.get("/{dataset_id}", response_model=DatasetRead)
