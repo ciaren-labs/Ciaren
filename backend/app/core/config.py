@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     SCHEDULER_MAX_CONCURRENT_RUNS: int = 1
     # Auto-disable a schedule after this many consecutive failed runs (0 = never).
     SCHEDULER_MAX_CONSECUTIVE_FAILURES: int = 5
+    # Abandon a run (manual or scheduled) after this many seconds (0 = no limit).
+    # In "process" execution mode the worker process is also recycled so the CPU
+    # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
+    RUN_TIMEOUT_SECONDS: int = 0
 
     @property
     def max_upload_bytes(self) -> int:

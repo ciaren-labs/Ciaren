@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,8 @@ class NodeResult:
     columns: list[str] = field(default_factory=list)
     sample: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
+    # Wall-clock time spent computing this node (None for skipped nodes).
+    duration_ms: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -34,6 +37,7 @@ class NodeResult:
             "columns": self.columns,
             "sample": self.sample,
             "error": self.error,
+            "duration_ms": self.duration_ms,
         }
 
 
@@ -174,6 +178,7 @@ class FlowExecutor:
             if error is not None:
                 node_results.append(NodeResult(node_id, node["type"], label, "skipped"))
                 continue
+            started = time.perf_counter()
             try:
                 frame = self._node_frame(engine, node, incoming, frames, dataset_paths)
                 frames[node_id] = frame
@@ -187,11 +192,19 @@ class FlowExecutor:
                         rows=int(engine.row_count(frame)),
                         columns=[str(c) for c in pdf.columns],
                         sample=engine.to_records(frame, sample_rows),
+                        duration_ms=_elapsed_ms(started),
                     )
                 )
             except Exception as exc:  # noqa: BLE001 - surfaced on the run record
                 node_results.append(
-                    NodeResult(node_id, node["type"], label, "failed", error=str(exc))
+                    NodeResult(
+                        node_id,
+                        node["type"],
+                        label,
+                        "failed",
+                        error=str(exc),
+                        duration_ms=_elapsed_ms(started),
+                    )
                 )
                 error = str(exc)
 
@@ -207,6 +220,10 @@ class FlowExecutor:
                 output_paths[node["id"]] = out_path
 
         return RunResult(output_paths, node_results, error)
+
+
+def _elapsed_ms(started: float) -> float:
+    return round((time.perf_counter() - started) * 1000, 2)
 
 
 def _incoming_by_target(

@@ -123,6 +123,17 @@ def test_run_with_results_captures_per_node_stats(tmp_path, input_csv):
     assert by_id["in1"].sample  # a small preview is recorded
 
 
+def test_run_with_results_records_node_durations(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = FlowExecutor().run_with_results(
+        _pipeline_graph(), _paths(ds1=input_csv), out_dir
+    )
+    # Every executed node records a non-negative duration, surfaced in as_dict().
+    assert all(r.duration_ms is not None and r.duration_ms >= 0 for r in result.node_results)
+    assert "duration_ms" in result.node_results[0].as_dict()
+
+
 def test_run_with_results_marks_failed_and_skipped(tmp_path, input_csv):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
@@ -145,6 +156,8 @@ def test_run_with_results_marks_failed_and_skipped(tmp_path, input_csv):
     assert by_id["in1"].status == "success"
     assert by_id["drop"].status == "failed"
     assert by_id["out1"].status == "skipped"
+    assert by_id["out1"].duration_ms is None  # skipped nodes aren't timed
+    assert by_id["drop"].duration_ms is not None  # the failing node still records time
 
 
 def test_unknown_engine_raises(tmp_path, input_csv):

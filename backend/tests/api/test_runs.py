@@ -6,11 +6,15 @@ Flow run endpoint tests.
 """
 
 import io
+import time
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pytest
 from httpx import AsyncClient
+
+from app.engine.executor import FlowExecutor, RunResult
 
 ROWS: list[dict[str, Any]] = [
     {"name": "Alice", "age": 30},
@@ -130,6 +134,27 @@ async def test_run_defaults_to_polars_engine(client: AsyncClient) -> None:
     flow = await _create_flow(client, _full_graph(ds["id"]))
     run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
     assert run["engine"] == "polars"
+
+
+async def test_run_times_out(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+
+    def slow(self: FlowExecutor, *args: Any, **kwargs: Any) -> RunResult:
+        time.sleep(2)  # longer than the 1s limit below
+        return RunResult({}, [], None)
+
+    monkeypatch.setattr(FlowExecutor, "run_with_results", slow)
+    monkeypatch.setenv("FLOWFRAME_RUN_TIMEOUT_SECONDS", "1")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["status"] == "failed"
+    assert "time limit" in run["error_message"]
 
 
 async def test_run_flow_missing_flow_is_404(client: AsyncClient) -> None:
