@@ -66,6 +66,28 @@ describe("NodeConfigForm", () => {
     expect(screen.getByRole("button", { name: "age" })).toBeInTheDocument();
   });
 
+  it("offers a column dropdown for Change Type when columns are known", () => {
+    renderForm({
+      type: "castDtypes",
+      config: { casts: {} },
+      columns: ["name", "age"],
+    });
+    // The add-column select exposes the upstream columns as options.
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("name");
+    expect(options).toContain("age");
+    expect(options).toContain("+ Add column…");
+  });
+
+  it("falls back to a connect hint when no columns are known", () => {
+    renderForm({
+      type: "filterRows",
+      config: { column: "", operator: "==", value: "" },
+      columns: [],
+    });
+    expect(screen.getByText(/Connect an upstream input/i)).toBeInTheDocument();
+  });
+
   it("selecting a chip reports the chosen column", () => {
     const onChange = vi.fn();
     renderForm({
