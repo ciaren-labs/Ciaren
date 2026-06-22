@@ -87,9 +87,16 @@ class PandasEngine:
     def fill_nulls(
         self, df: pd.DataFrame, columns: list[str] | None, value: Any
     ) -> pd.DataFrame:
-        if columns:
-            return df.assign(**{c: df[c].fillna(value) for c in columns})
-        return df.fillna(value)
+        targets = columns or df.columns.tolist()
+        result = df.copy()
+        for col in targets:
+            original_dtype = df[col].dtype
+            try:
+                typed_value = pd.array([value], dtype=original_dtype)[0]
+            except (ValueError, TypeError):
+                continue
+            result[col] = df[col].fillna(typed_value)
+        return result
 
     def drop_nulls(
         self, df: pd.DataFrame, columns: list[str] | None

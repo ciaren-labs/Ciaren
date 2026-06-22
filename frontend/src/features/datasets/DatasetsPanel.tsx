@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Database,
   FileSpreadsheet,
@@ -20,6 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { projectColor } from "@/lib/projectColors";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
@@ -45,13 +54,39 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [dragging, setDragging] = useState(false);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [uploadProjectId, setUploadProjectId] = useState("");
   const [selected, setSelected] = useState<Dataset | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [versionWarnOpen, setVersionWarnOpen] = useState(false);
 
-  const targetProject = scoped ? projectId : projectFilter || undefined;
+  const targetProject = scoped ? projectId : uploadProjectId || undefined;
+
+  const doUpload = (file: File) => upload.mutate({ file, projectId: targetProject });
 
   const submit = (file: File | undefined) => {
-    if (file) upload.mutate({ file, projectId: targetProject });
+    if (!file) return;
+    const existing = (datasets ?? []).find(
+      (d) => d.name.toLowerCase() === file.name.toLowerCase(),
+    );
+    if (existing) {
+      setPendingFile(file);
+      setVersionWarnOpen(true);
+    } else {
+      doUpload(file);
+    }
   };
+
+  const confirmNewVersion = () => {
+    if (pendingFile) doUpload(pendingFile);
+    setPendingFile(null);
+    setVersionWarnOpen(false);
+  };
+
+  const cancelNewVersion = () => {
+    setPendingFile(null);
+    setVersionWarnOpen(false);
+  };
+
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     submit(e.target.files?.[0]);
     e.target.value = "";
@@ -73,7 +108,6 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
     return list;
   }, [datasets, scoped, projectId, projectFilter, search]);
 
-  // Group by project for the global view when not filtered to one project.
   const groups = useMemo(() => {
     if (scoped || projectFilter) return null;
     const byProject = new Map<string, Dataset[]>();
@@ -88,6 +122,21 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Upload destination selector (global view only) */}
+      {!scoped && (
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs text-muted-foreground">Upload to project</Label>
+          <SearchableSelect
+            value={uploadProjectId}
+            onChange={setUploadProjectId}
+            allLabel="No project"
+            placeholder="Search projects…"
+            className="sm:max-w-xs"
+            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          />
+        </div>
+      )}
+
       <UploadDropzone
         dragging={dragging}
         upload={upload}
@@ -156,6 +205,32 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         open={selected !== null}
         onOpenChange={(o) => !o && setSelected(null)}
       />
+
+      {/* New-version warning */}
+      <Dialog open={versionWarnOpen} onOpenChange={(o) => !o && cancelNewVersion()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Add new version?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            A dataset named <strong className="text-foreground">{pendingFile?.name}</strong> already
+            exists. Re-uploading will create a new version — existing data and flows that reference
+            earlier versions are not affected.
+          </p>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="outline" onClick={cancelNewVersion}>
+              Cancel
+            </Button>
+            <Button onClick={confirmNewVersion} disabled={upload.isPending}>
+              {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Add new version
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -272,9 +347,7 @@ function UploadDropzone({
       <div className="text-sm font-medium">
         {upload.isPending ? "Uploading…" : "Drop a file here, or click to browse"}
       </div>
-      <div className="text-xs text-muted-foreground">
-        CSV, Excel or Parquet · re-uploading a name adds a new version
-      </div>
+      <div className="text-xs text-muted-foreground">CSV, Excel or Parquet</div>
       {upload.isError && (
         <span className="mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
           <AlertCircle className="h-3.5 w-3.5" />
