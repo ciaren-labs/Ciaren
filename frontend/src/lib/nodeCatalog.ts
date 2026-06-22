@@ -62,7 +62,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     type: "fillNulls",
     label: "Fill Nulls",
     category: "clean",
-    defaultConfig: { value: "", columns: [] },
+    defaultConfig: { strategy: "constant", value: "", columns: [] },
     inputHandles: ["in"],
     hasOutput: true,
     description: "Replace null values with a fixed value.",

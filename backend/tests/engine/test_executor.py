@@ -163,6 +163,41 @@ def test_graph_without_input_rejected(tmp_path):
         FlowExecutor().execute(graph, {}, tmp_path)
 
 
+def test_codegen_fill_strategy_and_filter_ops_compile():
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {
+                "id": "fill",
+                "type": "fillNulls",
+                "data": {"config": {"strategy": "mean", "columns": ["a"]}},
+            },
+            {
+                "id": "flt",
+                "type": "filterRows",
+                "data": {"config": {"column": "a", "operator": "between", "value": 1, "value2": 9}},
+            },
+            {
+                "id": "flt2",
+                "type": "filterRows",
+                "data": {"config": {"column": "b", "operator": "in", "value": "x, y"}},
+            },
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "fill"},
+            {"id": "e2", "source": "fill", "target": "flt"},
+            {"id": "e3", "source": "flt", "target": "flt2"},
+            {"id": "e4", "source": "flt2", "target": "out1"},
+        ],
+    }
+    code = CodeGenerator().generate(graph, {"ds1": "/data/in.csv"})
+    assert ".mean()" in code
+    assert ".between(1, 9)" in code
+    assert ".isin(['x', 'y'])" in code
+    compile(code, "<generated>", "exec")
+
+
 def test_codegen_produces_runnable_script():
     code = CodeGenerator().generate(_pipeline_graph(), {"ds1": "/data/in.csv"})
     assert "import pandas as pd" in code

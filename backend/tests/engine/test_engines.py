@@ -98,8 +98,36 @@ def test_groupby_agg(engine, frame):
 def test_fill_nulls(engine):
     pdf = pd.DataFrame({"a": [1.0, None, 3.0]})
     frame = _to_native(get_engine(engine.name), pdf)
-    out = engine.to_pandas(engine.fill_nulls(frame, None, 0))
+    out = engine.to_pandas(engine.fill_nulls(frame, None, "constant", 0))
     assert out["a"].tolist() == [1.0, 0.0, 3.0]
+
+
+def test_fill_nulls_mean_strategy(engine):
+    pdf = pd.DataFrame({"a": [1.0, None, 3.0]})
+    frame = _to_native(get_engine(engine.name), pdf)
+    out = engine.to_pandas(engine.fill_nulls(frame, None, "mean", None))
+    assert out["a"].tolist() == [1.0, 2.0, 3.0]
+
+
+def test_fill_nulls_ffill_strategy(engine):
+    pdf = pd.DataFrame({"a": [1.0, None, 3.0]})
+    frame = _to_native(get_engine(engine.name), pdf)
+    out = engine.to_pandas(engine.fill_nulls(frame, None, "ffill", None))
+    assert out["a"].tolist() == [1.0, 1.0, 3.0]
+
+
+def test_filter_rows_between(engine):
+    pdf = pd.DataFrame({"a": [1, 5, 10, 15]})
+    frame = _to_native(get_engine(engine.name), pdf)
+    out = engine.to_pandas(engine.filter_rows(frame, "a", "between", [5, 10]))
+    assert out["a"].tolist() == [5, 10]
+
+
+def test_filter_rows_in(engine):
+    pdf = pd.DataFrame({"a": ["x", "y", "z"]})
+    frame = _to_native(get_engine(engine.name), pdf)
+    out = engine.to_pandas(engine.filter_rows(frame, "a", "in", ["x", "z"]))
+    assert out["a"].tolist() == ["x", "z"]
 
 
 def test_drop_nulls(engine):

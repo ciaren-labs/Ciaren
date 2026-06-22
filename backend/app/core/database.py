@@ -62,6 +62,7 @@ async def init_db() -> None:
             "ALTER TABLE flows ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE datasets ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE flow_runs ADD COLUMN input_datasets_json JSON",
         ]:
             try:
                 await conn.execute(text(stmt))

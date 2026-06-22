@@ -16,6 +16,10 @@ class FlowRun(Base):
     input_dataset_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("datasets.id"), nullable=True
     )
+    # Every input dataset the run resolved, with its concrete version. Lets the
+    # run view list all inputs of a multi-input flow (join/concat), not just the
+    # primary `input_dataset_id` (which stays the filterable one).
+    input_datasets_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )  # pending, running, success, failed

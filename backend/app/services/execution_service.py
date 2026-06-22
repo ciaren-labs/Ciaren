@@ -46,6 +46,8 @@ class ExecutionService:
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
+            # Record every resolved input so the run view can list them all.
+            run.input_datasets_json = resolved_versions
             # Default the run's dataset to the first input so runs are filterable
             # by dataset even when the caller didn't pass one explicitly.
             if run.input_dataset_id is None and resolved_versions:
@@ -169,6 +171,7 @@ class ExecutionService:
                 flow_name=flow_name,
                 project_id=flow_project_id,
                 input_dataset_id=run.input_dataset_id,
+                input_datasets=run.input_datasets_json,
                 status=run.status,
                 engine=run.engine,
                 output_location=run.output_location,

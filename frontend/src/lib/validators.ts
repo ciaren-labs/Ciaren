@@ -10,12 +10,33 @@ export const filterOperators = [
   ">=",
   "<",
   "<=",
+  "between",
+  "in",
   "contains",
   "startswith",
   "endswith",
   "isnull",
   "notnull",
 ] as const;
+
+// Fill-null strategies. "constant" uses the typed value; the rest are computed
+// per column. Labels drive the strategy <Select> in the node config form.
+export const fillStrategies = [
+  { value: "constant", label: "Constant value" },
+  { value: "mean", label: "Mean (average)" },
+  { value: "median", label: "Median" },
+  { value: "mode", label: "Most frequent (mode)" },
+  { value: "min", label: "Minimum" },
+  { value: "max", label: "Maximum" },
+  { value: "zero", label: "Zero" },
+  { value: "ffill", label: "Forward fill" },
+  { value: "bfill", label: "Backward fill" },
+] as const;
+
+export const fillStrategyValues = fillStrategies.map((s) => s.value) as [
+  string,
+  ...string[],
+];
 
 export const stringOperations = [
   "lower",
@@ -51,7 +72,9 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     subset: stringArray.optional(),
   }),
   fillNulls: z.object({
-    value: z.string(),
+    // Absent strategy means the legacy "constant" fill, using `value`.
+    strategy: z.enum(fillStrategyValues).optional(),
+    value: z.string().optional(),
     columns: stringArray.optional(),
   }),
   dropColumns: z.object({
@@ -67,11 +90,23 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     subset: stringArray.optional(),
     keep: z.enum(["first", "last"]).optional(),
   }),
-  filterRows: z.object({
-    column: z.string().min(1, "Column is required"),
-    operator: z.enum(filterOperators),
-    value: z.string().optional(),
-  }),
+  filterRows: z
+    .object({
+      column: z.string().min(1, "Column is required"),
+      operator: z.enum(filterOperators),
+      value: z.string().optional(),
+      // Upper bound, only used by the "between" operator.
+      value2: z.string().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.operator === "between" && (cfg.value2 == null || cfg.value2 === "")) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["value2"],
+          message: "An upper bound is required for 'between'",
+        });
+      }
+    }),
   sortRows: z.object({
     columns: stringArray.min(1, "Add at least one column"),
     ascending: z.boolean().optional(),
