@@ -133,7 +133,10 @@ function DatasetCard({ dataset: d }: { dataset: Dataset }) {
         <div className="min-w-0">
           <CardTitle className="truncate text-sm">{d.name}</CardTitle>
           <CardDescription className="text-xs">
-            {d.source_type.toUpperCase()} · {schema.length} columns
+            {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
+            {d.version_count > 1
+              ? `v${d.latest_version} (${d.version_count} versions)`
+              : "v1"}
           </CardDescription>
         </div>
       </CardHeader>

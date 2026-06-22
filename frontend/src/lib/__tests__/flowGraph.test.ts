@@ -15,6 +15,8 @@ function dataset(id: string, cols: string[], source: Dataset["source_type"] = "c
     id,
     name: `${id}.csv`,
     source_type: source,
+    latest_version: 1,
+    version_count: 1,
     column_schema: cols.map((name) => ({ name, type: "string" })),
     data_sample: [],
     created_at: "",

@@ -3,11 +3,17 @@ import { validateFlow } from "../flowValidation";
 import type { GraphEdgeLike, GraphNodeLike } from "../flowGraph";
 import type { Dataset } from "../types";
 
-function dataset(id: string, source: Dataset["source_type"] = "csv"): Dataset {
+function dataset(
+  id: string,
+  source: Dataset["source_type"] = "csv",
+  latestVersion = 1,
+): Dataset {
   return {
     id,
     name: `${id}`,
     source_type: source,
+    latest_version: latestVersion,
+    version_count: latestVersion,
     column_schema: [{ name: "a", type: "string" }],
     data_sample: [],
     created_at: "",
@@ -58,6 +64,39 @@ describe("validateFlow", () => {
     const v = validateFlow(nodes, [edge("in", "out")], [parquetDs]);
     expect(codes(v.errors)).toContain("DATASET_TYPE_MISMATCH");
     expect(v.canRun).toBe(false);
+  });
+
+  it("errors when an input pins a version beyond the latest", () => {
+    const ds = dataset("csv1", "csv", 2); // latest = v2
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1", dataset_version: 5 }),
+      node("out", "csvOutput", { path: "" }),
+    ];
+    const v = validateFlow(nodes, [edge("in", "out")], [ds]);
+    expect(codes(v.errors)).toContain("VERSION_MISSING");
+    expect(v.canRun).toBe(false);
+  });
+
+  it("warns (but allows running) when an input pins an outdated version", () => {
+    const ds = dataset("csv1", "csv", 3); // latest = v3
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1", dataset_version: 1 }),
+      node("out", "csvOutput", { path: "" }),
+    ];
+    const v = validateFlow(nodes, [edge("in", "out")], [ds]);
+    expect(v.warnings.map((w) => w.code)).toContain("VERSION_OUTDATED");
+    expect(v.canRun).toBe(true);
+  });
+
+  it("accepts an input pinned to the latest version", () => {
+    const ds = dataset("csv1", "csv", 2);
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1", dataset_version: 2 }),
+      node("out", "csvOutput", { path: "" }),
+    ];
+    const v = validateFlow(nodes, [edge("in", "out")], [ds]);
+    expect(v.errors).toEqual([]);
+    expect(v.warnings).toEqual([]);
   });
 
   it("flags a missing dataset reference", () => {
