@@ -32,7 +32,7 @@ Yes! The MIT license allows commercial use. However, note the [security disclaim
 
 ### What are the system requirements?
 
-- Python 3.11+
+- Python 3.12+
 - SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
 - 500MB free disk space
 
