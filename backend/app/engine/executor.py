@@ -10,6 +10,12 @@ _OUTPUT_TYPES = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "p
 _OUTPUT_SUFFIX = {"csv": ".csv", "excel": ".xlsx", "parquet": ".parquet"}
 
 
+def dataset_ref_key(dataset_id: str, version: int | None) -> str:
+    """Stable key for a (dataset, version) pair used in the ``dataset_paths``
+    map. ``None`` means "latest", matching graphs created before versioning."""
+    return f"{dataset_id}:{version if version is not None else 'latest'}"
+
+
 def _build_inputs(
     incoming: list[dict[str, Any]], frames: dict[str, AnyFrame]
 ) -> dict[str, AnyFrame]:
@@ -56,7 +62,8 @@ class FlowExecutor:
             config: dict[str, Any] = node.get("data", {}).get("config", {})
 
             if node_type in _INPUT_TYPES:
-                path = dataset_paths[config["dataset_id"]]
+                key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
+                path = dataset_paths[key]
                 frames[node_id] = engine.read(str(path), _INPUT_TYPES[node_type])
             elif node_type in _OUTPUT_TYPES:
                 frames[node_id] = frames[incoming[node_id][0]["source"]]

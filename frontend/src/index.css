@@ -3,18 +3,90 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 210 40% 99%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 243 75% 59%; /* indigo-600 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 214 32% 95%;
+    --secondary-foreground: 222 47% 18%;
+
+    --muted: 214 32% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 243 80% 96%;
+    --accent-foreground: 243 75% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 88%;
+    --ring: 243 75% 59%;
+
+    --radius: 0.6rem;
+  }
+
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     margin: 0;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       sans-serif;
+    font-feature-settings: "cv11", "ss01";
   }
+
   html,
   body,
   #root {
     height: 100%;
   }
+
+  /* Thin, unobtrusive scrollbars to match the minimalist surface. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+  }
+}
+
+@layer components {
+  /* Soft tinted backdrop for the flow canvas (dots are drawn by React Flow). */
+  .canvas-surface {
+    background-color: hsl(210 40% 98.5%);
+  }
+}
+
+/* Smooth, branded edges in the React Flow canvas. */
+.react-flow__edge-path {
+  stroke: hsl(215 20% 65%);
+  stroke-width: 1.75;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: hsl(var(--primary));
+}
+.react-flow__handle {
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+.react-flow__handle:hover {
+  transform: scale(1.25);
+}
+.react-flow__attribution {
+  display: none;
 }

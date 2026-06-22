@@ -20,8 +20,11 @@ interface FlowEditorState {
   sidebarOpen: boolean;
   previewOpen: boolean;
   dirty: boolean;
+  /** Ids of nodes that currently have validation errors (for canvas badges). */
+  invalidNodeIds: string[];
 
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
+  setInvalidNodeIds: (ids: string[]) => void;
   onNodesChange: OnNodesChange<FlowNodeType>;
   onEdgesChange: OnEdgesChange<FlowEdgeType>;
   addNode: (node: FlowNodeType) => void;
@@ -43,9 +46,22 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   sidebarOpen: false,
   previewOpen: false,
   dirty: false,
+  invalidNodeIds: [],
 
   setGraph: (nodes, edges) =>
     set({ nodes, edges, dirty: false, selectedNodeId: null }),
+
+  setInvalidNodeIds: (ids) =>
+    set((state) => {
+      // Avoid spurious re-renders when the set hasn't actually changed.
+      if (
+        state.invalidNodeIds.length === ids.length &&
+        state.invalidNodeIds.every((id, i) => id === ids[i])
+      ) {
+        return state;
+      }
+      return { invalidNodeIds: ids };
+    }),
 
   onNodesChange: (changes) =>
     set((state) => ({
@@ -109,5 +125,6 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       sidebarOpen: false,
       previewOpen: false,
       dirty: false,
+      invalidNodeIds: [],
     }),
 }));
