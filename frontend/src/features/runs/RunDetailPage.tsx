@@ -7,7 +7,8 @@ import { useFlow } from "@/features/flows/hooks";
 import { RunDag } from "@/components/run/RunDag";
 import { DataTable } from "@/components/flow/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatDateTime, formatDuration } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import type { NodeResult } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export function RunDetailPage() {
   const { data: flow } = useFlow(run?.flow_id ?? null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
+  const fmt = useFormatDateTime();
   const results = useMemo(() => run?.node_results ?? [], [run]);
   const selected = results.find((r) => r.node_id === selectedNodeId) ?? null;
 
@@ -49,7 +51,7 @@ export function RunDetailPage() {
           <StatusBadge status={run.status} />
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span>Started {formatDateTime(run.created_at)}</span>
+          <span>Started {fmt(run.created_at)}</span>
           <span>Duration {formatDuration(run.started_at, run.finished_at)}</span>
         </div>
       </div>

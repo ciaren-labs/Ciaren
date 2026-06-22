@@ -54,6 +54,15 @@ export function useDeleteFlow() {
   });
 }
 
+export function useToggleFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_disabled }: { id: string; is_disabled: boolean }) =>
+      flowsApi.update(id, { is_disabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
+  });
+}
+
 export function useFlowPreview(id: string) {
   return useMutation({
     mutationFn: (body: FlowPreviewRequest) => flowsApi.preview(id, body),

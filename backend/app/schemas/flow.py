@@ -16,6 +16,7 @@ class FlowUpdate(BaseModel):
     description: str | None = None
     project_id: str | None = None
     graph_json: dict[str, Any] | None = None
+    is_disabled: bool | None = None
 
 
 class CodeExportResponse(BaseModel):
@@ -31,6 +32,7 @@ class FlowRead(BaseModel):
     description: str | None
     project_id: str | None
     graph_json: dict[str, Any]
+    is_disabled: bool = False
     created_at: datetime
     updated_at: datetime
 

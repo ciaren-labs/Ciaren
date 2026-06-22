@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, ExternalLink, History, Loader2, Table2, Workflow } from "lucide-react";
 import { datasetsApi } from "@/lib/api";
@@ -11,7 +12,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/flow/DataTable";
 import { useDatasetFlows, useDatasetSample, useDatasetVersions } from "./hooks";
-import { formatDateTime } from "@/lib/format";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset } from "@/lib/types";
 
 export function DatasetDetailDialog({
@@ -71,21 +72,46 @@ export function DatasetDetailDialog({
 }
 
 function PreviewTab({ dataset }: { dataset: Dataset }) {
-  const { data: sample, isLoading } = useDatasetSample(dataset.id);
-  if (isLoading) return <Loading />;
+  const [version, setVersion] = useState<number | undefined>(undefined);
+  const { data: versions } = useDatasetVersions(dataset.id);
+  const { data: sample, isLoading } = useDatasetSample(dataset.id, version);
   const rows = sample ?? [];
   const columns =
     dataset.column_schema?.map((c) => c.name) ??
     (rows[0] ? Object.keys(rows[0]) : []);
   return (
-    <div className="max-h-[55vh] overflow-auto rounded-lg border border-border">
-      <DataTable columns={columns} rows={rows.slice(0, 50)} />
+    <div className="flex flex-col gap-2">
+      {(versions?.length ?? 0) > 1 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Version:</span>
+          <select
+            value={version ?? ""}
+            onChange={(e) => setVersion(e.target.value ? Number(e.target.value) : undefined)}
+            className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Latest (v{dataset.latest_version})</option>
+            {(versions ?? []).map((v) => (
+              <option key={v.id} value={v.version_number}>
+                v{v.version_number} — {v.row_count} rows
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
+          <DataTable columns={columns} rows={rows.slice(0, 50)} />
+        </div>
+      )}
     </div>
   );
 }
 
 function VersionsTab({ datasetId, latest }: { datasetId: string; latest: number }) {
   const navigate = useNavigate();
+  const fmt = useFormatDateTime();
   const { data: versions, isLoading } = useDatasetVersions(datasetId);
   if (isLoading) return <Loading />;
   return (
@@ -102,7 +128,7 @@ function VersionsTab({ datasetId, latest }: { datasetId: string; latest: number 
               </span>
             )}
             <span className="text-xs text-muted-foreground">
-              {v.row_count} rows · {formatDateTime(v.created_at)}
+              {v.row_count} rows · {fmt(v.created_at)}
             </span>
             <div className="ml-auto flex items-center gap-2">
               {v.source_run_id && (
