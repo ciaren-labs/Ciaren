@@ -1,13 +1,17 @@
 from app.engine.transformations.base import BaseTransformation
 from app.engine.transformations.clean import (
+    CastDtypesTransformation,
     DropColumnsTransformation,
     DropNullsTransformation,
     FillNullsTransformation,
     FilterRowsTransformation,
+    LimitRowsTransformation,
     RemoveDuplicatesTransformation,
     RenameColumnsTransformation,
+    ReplaceValuesTransformation,
     SelectColumnsTransformation,
     SortRowsTransformation,
+    StringTransformTransformation,
 )
 from app.engine.transformations.join import JoinTransformation
 from app.engine.transformations.reshape import (
@@ -33,6 +37,10 @@ _register(
     RemoveDuplicatesTransformation(),
     FilterRowsTransformation(),
     SortRowsTransformation(),
+    CastDtypesTransformation(),
+    LimitRowsTransformation(),
+    ReplaceValuesTransformation(),
+    StringTransformTransformation(),
     GroupByAggregateTransformation(),
     ConcatRowsTransformation(),
     CreateCalculatedColumnTransformation(),

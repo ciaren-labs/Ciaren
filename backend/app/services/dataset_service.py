@@ -4,7 +4,7 @@ import io
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import aiofiles
 import pandas as pd
@@ -13,8 +13,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import DatasetParseError, FileTooLargeError, UnsupportedFileTypeError
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import (
+    DatasetParseError,
+    FileTooLargeError,
+    NotFoundError,
+    UnsupportedFileTypeError,
+)
 from app.db.models.dataset import Dataset
 from app.schemas.dataset import DatasetRead
 
@@ -70,7 +74,7 @@ class DatasetService:
         await self.db.refresh(dataset)
         return DatasetRead.model_validate(dataset)
 
-    async def list(self) -> list[DatasetRead]:
+    async def list_all(self) -> list[DatasetRead]:
         result = await self.db.execute(select(Dataset).order_by(Dataset.created_at.desc()))
         return [DatasetRead.model_validate(d) for d in result.scalars().all()]
 
@@ -145,7 +149,8 @@ def _extract_schema(df: pd.DataFrame) -> list[dict[str, Any]]:
 
 def _df_to_records(df: pd.DataFrame, n: int) -> list[dict[str, Any]]:
     """Serialize top-n rows to JSON-safe dicts (NaN → None, timestamps → ISO strings)."""
-    return json.loads(df.head(n).to_json(orient="records", date_format="iso"))
+    records = json.loads(df.head(n).to_json(orient="records", date_format="iso"))
+    return cast(list[dict[str, Any]], records)
 
 
 def _storage_filename(dataset_id: str, original_filename: str) -> str:

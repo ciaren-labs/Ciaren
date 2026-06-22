@@ -15,7 +15,7 @@ async def upload_dataset(file: UploadFile, service: DatasetServiceDep) -> Datase
 
 @router.get("", response_model=list[DatasetRead])
 async def list_datasets(service: DatasetServiceDep) -> list[DatasetRead]:
-    return await service.list()
+    return await service.list_all()
 
 
 @router.get("/{dataset_id}", response_model=DatasetRead)
