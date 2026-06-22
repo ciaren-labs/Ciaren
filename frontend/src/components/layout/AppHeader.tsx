@@ -12,10 +12,10 @@ export function AppHeader() {
   return (
     <header className="flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <Link to="/" className="flex items-center gap-2 font-bold tracking-tight">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+        <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-lg text-white shadow-sm shadow-brand-600/30">
           <Workflow className="h-4 w-4" strokeWidth={2.5} />
         </span>
-        <span className="text-[15px]">FlowFrame</span>
+        <span className="brand-text-gradient text-[15px]">FlowFrame</span>
       </Link>
       <nav className="flex items-center gap-1">
         {NAV.map((item) => {
