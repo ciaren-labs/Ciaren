@@ -8,12 +8,14 @@ import {
   addEdge,
   type Connection,
   type Edge,
+  type IsValidConnection,
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { nodeTypes } from "./nodeTypes";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef, type NodeCategory } from "@/lib/nodeCatalog";
+import { wouldCreateCycle } from "@/lib/flowGraph";
 
 const MINIMAP_COLORS: Record<NodeCategory, string> = {
   input: "#10b981",
@@ -67,6 +69,32 @@ export function FlowCanvas() {
     [edges, nodes, setEdges],
   );
 
+  // Guard which connections are allowed. Fan-out (one source → many targets)
+  // is intentionally permitted; self-loops, cycles, duplicates, and edges into
+  // input nodes / out of output nodes are rejected.
+  const isValidConnection = useCallback<IsValidConnection>(
+    (conn) => {
+      if (!conn.source || !conn.target || conn.source === conn.target) return false;
+      const sourceDef = getNodeTypeDef(
+        nodes.find((n) => n.id === conn.source)?.type ?? "",
+      );
+      const targetDef = getNodeTypeDef(
+        nodes.find((n) => n.id === conn.target)?.type ?? "",
+      );
+      if (!sourceDef?.hasOutput) return false;
+      if (!targetDef || targetDef.inputHandles.length === 0) return false;
+      const duplicate = edges.some(
+        (e) =>
+          e.source === conn.source &&
+          e.target === conn.target &&
+          (e.targetHandle ?? null) === (conn.targetHandle ?? null),
+      );
+      if (duplicate) return false;
+      return !wouldCreateCycle(edges, conn.source, conn.target);
+    },
+    [nodes, edges],
+  );
+
   const minimapColor = (node: Node) => {
     const cat = getNodeTypeDef(node.type ?? "")?.category;
     return cat ? MINIMAP_COLORS[cat] : "#94a3b8";
@@ -82,6 +110,7 @@ export function FlowCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         onNodeClick={(_, node) => selectNode(node.id)}
         onPaneClick={() => selectNode(null)}
         fitView
