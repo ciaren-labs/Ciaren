@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class FlowRunCreate(BaseModel):
     input_dataset_id: str | None = None
+    engine: str = "pandas"
 
 
 class NodeResultRead(BaseModel):
@@ -30,6 +31,7 @@ class FlowRunSummary(BaseModel):
     project_id: str | None
     input_dataset_id: str | None
     status: str
+    engine: str
     output_location: str | None
     started_at: datetime | None
     finished_at: datetime | None
@@ -41,6 +43,7 @@ class FlowRunRead(BaseModel):
     flow_id: str
     input_dataset_id: str | None
     status: str
+    engine: str
     output_location: str | None
     started_at: datetime | None
     finished_at: datetime | None

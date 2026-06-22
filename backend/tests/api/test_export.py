@@ -52,12 +52,21 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
     flow = await _create_flow(client, _full_graph(ds["id"]))
     r = await client.post(f"/api/flows/{flow['id']}/export/python")
     assert r.status_code == 200, r.text
-    code = r.json()["code"]
+    body = r.json()
+    code = body["code"]
     assert "import pandas as pd" in code
     assert 'pd.read_csv("people.csv")' in code  # dataset name, not server path
     assert ".dropna()" in code
     assert ".to_csv(" in code
     compile(code, "<exported>", "exec")  # must be valid Python
+
+    # The polars equivalent is generated alongside it.
+    polars = body["polars"]
+    assert "import polars as pl" in polars
+    assert 'pl.read_csv("people.csv")' in polars
+    assert ".drop_nulls()" in polars
+    assert ".write_csv(" in polars
+    compile(polars, "<exported-polars>", "exec")
 
 
 async def test_export_python_missing_flow(client: AsyncClient) -> None:

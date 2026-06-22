@@ -8,6 +8,7 @@ from app.db.models.dataset import Dataset
 from app.db.models.flow import Flow
 from app.engine.codegen import CodeGenerator
 from app.engine.graph import GraphValidationError
+from app.engine.polars_codegen import PolarsCodeGenerator
 
 _INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
 
@@ -17,13 +18,20 @@ class CodegenService:
         self.db = db
 
     async def export_python(self, flow_id: str) -> str:
+        return (await self.export(flow_id))["pandas"]
+
+    async def export(self, flow_id: str) -> dict[str, str]:
+        """Generate both the pandas and polars equivalents of a flow."""
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
         # Use readable dataset filenames rather than absolute local paths so the
         # exported script is portable and we don't leak the server filesystem.
         dataset_names = await self._dataset_filenames(graph)
         try:
-            return CodeGenerator().generate(graph, dataset_names)
+            return {
+                "pandas": CodeGenerator().generate(graph, dataset_names),
+                "polars": PolarsCodeGenerator().generate(graph, dataset_names),
+            }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
         except KeyError as exc:
