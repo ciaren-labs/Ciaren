@@ -122,6 +122,21 @@ def test_concat(engine, frame):
     assert len(out) == 8
 
 
+def test_limit_rows(engine, frame):
+    out = engine.to_pandas(engine.limit_rows(frame, 2))
+    assert len(out) == 2
+
+
+def test_replace_values(engine, frame):
+    out = engine.to_pandas(engine.replace_values(frame, "group", "a", "z"))
+    assert sorted(out["group"].unique()) == ["b", "z"]
+
+
+def test_string_transform(engine, frame):
+    out = engine.to_pandas(engine.string_transform(frame, "group", "upper"))
+    assert set(out["group"]) == {"A", "B"}
+
+
 def test_csv_roundtrip(engine, frame, tmp_path):
     path = tmp_path / "data.csv"
     engine.write(frame, str(path), "csv")
