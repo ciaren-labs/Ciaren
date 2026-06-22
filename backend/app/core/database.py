@@ -39,3 +39,18 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
+
+
+async def init_db() -> None:
+    """Create any missing tables on startup.
+
+    Idempotent (only creates tables that don't exist), so it's safe to run on
+    every boot. This is the MVP convenience path; a production deployment should
+    manage schema changes through Alembic migrations instead.
+    """
+    # Import models inside the function so they register on Base.metadata
+    # without creating an import cycle (models import Base from this module).
+    from app.db.models import dataset, flow, run  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
