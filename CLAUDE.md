@@ -2,455 +2,276 @@
 
 ## Project Summary
 
-This project is an open-source visual ETL builder focused on simple, local-first, pandas-based data transformations.
+FlowFrame is an open-source, local-first visual ETL builder for simple,
+pandas-based data transformations. Users build common ETL flows visually,
+execute them through a Python/FastAPI backend, and export readable Python code.
 
-The goal is not to compete with Airflow, dbt, Spark, or enterprise orchestration platforms. The goal is to provide a lightweight tool where users can visually build common ETL flows through a React interface, execute them through a Python/FastAPI backend, and optionally export the generated Python code.
+It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
+
+## Current Status (read first)
+
+- **Backend exists and is the working product**: FastAPI app, execution engine,
+  transformation registry, dataset/flow/run persistence, and Python code export.
+- **There is no frontend yet.** The `frontend/` directory does not exist.
+  Do not reference a running UI, `localhost:5173`, or screenshots as if they
+  exist. The React editor described below is the planned design, not shipped code.
+- **Guardrail:** never document, demo, or claim a feature that is not implemented
+  in `backend/`. When in doubt, check the code (`app/engine/registry.py` lists the
+  real transformations) before writing docs or examples.
 
 ## Product Vision
 
-Create the simplest possible visual ETL tool for small and medium datasets.
+The simplest possible visual ETL tool for small and medium datasets.
 
-Primary user:
-- Analysts
-- Data-curious business users
-- Python beginners
-- Developers who want quick repeatable pandas pipelines
-- Educators teaching pandas/data cleaning
+Primary users: analysts, data-curious business users, Python beginners,
+developers who want quick repeatable pandas pipelines, and educators.
 
 Core promise:
-> Upload or connect data, build a visual cleaning pipeline, preview results, run it, and export readable Python code.
+> Upload data, build a visual cleaning pipeline, preview results, run it, and
+> export readable Python code.
 
-## Non-Goals for MVP
+## Non-Goals
 
-Do not build these in the first version:
-- Airflow replacement
-- Distributed execution
-- Spark support
-- Kubernetes orchestration
-- Streaming pipelines
-- Enterprise permissions
-- Complex scheduling
-- Dozens of connectors
-- Multi-tenant SaaS architecture
-- Real-time collaborative editing
+- Airflow/Spark/dbt replacement, distributed or streaming execution
+- Kubernetes orchestration, complex scheduling, dozens of connectors
+- Enterprise permissions, multi-tenant SaaS, real-time collaboration
 
-## Initial Tech Stack
+## Tech Stack
 
-### Backend
+**Backend:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
+Alembic, pandas. Optional dataframe engines behind a backend abstraction
+(`app/engine/backends/`): pandas (default), polars.
 
-- Python 3.11+
-- FastAPI
-- Pydantic v2
-- SQLAlchemy 2.x
-- Alembic
-- Pandas
-- Optional future dataframe engines:
-  - Polars
-  - DuckDB
-  - Dask
+**Frontend (planned):** React, TypeScript, Vite, @xyflow/react, TanStack Query,
+Zustand, shadcn/ui, Tailwind, React Hook Form + Zod.
 
-### Frontend
-
-- React
-- TypeScript
-- Vite
-- @xyflow/react for visual flow editor
-- TanStack Query for API state
-- Zustand for lightweight client state
-- shadcn/ui for UI components
-- Tailwind CSS
-- React Hook Form + Zod for forms and validation
-
-### Database
-
-Use SQLAlchemy as the abstraction layer.
-
-Default local development database:
-- PostgreSQL
-
-Supported later through SQLAlchemy URLs:
-- PostgreSQL
-- MySQL/MariaDB
-- SQL Server
-- Others supported by SQLAlchemy dialects
-
-The app must not hardcode database-specific behavior unless isolated behind adapters.
+**Database:** SQLAlchemy is the abstraction layer.
+- **Default is SQLite** (zero-setup, file or in-memory). Tests run against
+  in-memory SQLite (`sqlite+aiosqlite:///:memory:`).
+- PostgreSQL / MySQL / others are supported via `DATABASE_URL`.
+- **Guardrail:** the app is async — `DATABASE_URL` must use an async driver
+  (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`).
+- Never hardcode database-specific behavior unless isolated behind an adapter.
 
 ## Development Principles
 
-1. Keep the MVP small.
-2. Prefer explicit code over clever abstractions.
-3. Every visual ETL node should map to a clear Python/pandas operation.
-4. The generated Python code should be readable and educational.
-5. Backend logic is the source of truth.
-6. The frontend should validate early, but backend must validate everything again.
-7. Avoid vendor lock-in.
-8. Keep the app easy to run locally.
-9. Design for extension, but do not over-engineer.
-10. Every new transformation must include tests.
-
-## Recommended Repository Structure
-
-```text
-etl-visual/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   ├── flows.py
-│   │   │   │   ├── datasets.py
-│   │   │   │   ├── runs.py
-│   │   │   │   └── transformations.py
-│   │   │   └── deps.py
-│   │   ├── core/
-│   │   │   ├── config.py
-│   │   │   ├── database.py
-│   │   │   └── logging.py
-│   │   ├── db/
-│   │   │   ├── models/
-│   │   │   │   ├── flow.py
-│   │   │   │   ├── dataset.py
-│   │   │   │   └── run.py
-│   │   │   └── repositories/
-│   │   ├── schemas/
-│   │   │   ├── flow.py
-│   │   │   ├── dataset.py
-│   │   │   └── run.py
-│   │   ├── services/
-│   │   │   ├── flow_service.py
-│   │   │   ├── execution_service.py
-│   │   │   ├── preview_service.py
-│   │   │   └── codegen_service.py
-│   │   ├── engine/
-│   │   │   ├── graph.py
-│   │   │   ├── registry.py
-│   │   │   ├── executor.py
-│   │   │   └── transformations/
-│   │   │       ├── base.py
-│   │   │       ├── clean.py
-│   │   │       ├── reshape.py
-│   │   │       ├── join.py
-│   │   │       └── aggregate.py
-│   │   └── main.py
-│   ├── alembic/
-│   ├── tests/
-│   ├── pyproject.toml
-│   ├── alembic.ini
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   ├── flow/
-│   │   │   └── layout/
-│   │   ├── features/
-│   │   │   ├── flows/
-│   │   │   ├── datasets/
-│   │   │   ├── runs/
-│   │   │   └── transformations/
-│   │   ├── lib/
-│   │   │   ├── api.ts
-│   │   │   ├── queryClient.ts
-│   │   │   └── validators.ts
-│   │   ├── stores/
-│   │   └── main.tsx
-│   ├── package.json
-│   └── vite.config.ts
-├── docs/
-│   ├── architecture.md
-│   ├── transformations.md
-│   └── roadmap.md
-├── docker-compose.yml
-├── README.md
-└── CLAUDE.md
-```
+1. Keep the MVP small; prefer explicit code over clever abstractions.
+2. Every visual node maps to one clear pandas operation.
+3. Generated Python code must be readable and educational.
+4. Backend is the source of truth; it validates everything (the frontend only
+   validates early for UX).
+5. Avoid vendor lock-in; keep the app easy to run locally.
+6. Design for extension, but do not over-engineer.
+7. Every new transformation must include tests.
 
 ## Core Domain Model
 
-### Flow
+- **Flow** — saved pipeline: `id, name, description, graph_json, created_at, updated_at`.
+- **Dataset** — source/uploaded file: `id, name, source_type, location, schema_json, sample_json, timestamps`.
+- **FlowRun** — one execution: `id, flow_id, status, input_dataset_id, output_location, started_at, finished_at, error_message, logs_json`.
+- **Transformation Node** — graph node: `id, type, label, config, position, input_handles, output_handles`.
 
-A saved ETL pipeline.
+## Node Types
 
-Fields:
-- id
-- name
-- description
-- graph_json
-- created_at
-- updated_at
+- **Input:** CSV, Excel, Parquet
+- **Cleaning:** rename/drop/select columns, filter rows, fill/drop nulls,
+  remove duplicates, change types, sort, limit, replace values, string ops
+- **Transform:** calculated column, group by + aggregate, join/merge, union/concat
+- **Output:** CSV, Excel, Parquet
 
-### Dataset
-
-A data source or uploaded file.
-
-Fields:
-- id
-- name
-- source_type
-- location
-- schema_json
-- sample_json
-- created_at
-- updated_at
-
-### FlowRun
-
-A single execution of a flow.
-
-Fields:
-- id
-- flow_id
-- status
-- input_dataset_id
-- output_location
-- started_at
-- finished_at
-- error_message
-- logs_json
-
-### Transformation Node
-
-A visual node in the graph.
-
-Fields:
-- id
-- type
-- label
-- config
-- position
-- input_handles
-- output_handles
-
-## MVP Node Types
-
-### Input Nodes
-
-- CSV input
-- Excel input
-- Parquet input
-
-### Cleaning Nodes
-
-- Rename columns
-- Drop columns
-- Filter rows
-- Fill null values
-- Drop null values
-- Remove duplicates
-- Change data types
-- Sort rows
-- Add new calculated columns
-
-### Transform Nodes
-
-- Select columns
-- Create calculated column
-- Group by + aggregate
-- Join/merge
-- Union/concat
-
-### Output Nodes
-
-- CSV output
-- Excel output
-- Parquet output
+`app/engine/registry.py` is the authoritative list — keep docs in sync with it.
 
 ## API Design
 
-Use REST first. Avoid GraphQL for MVP.
+REST only (no GraphQL for MVP).
 
-### Flow endpoints
-
-- `GET /api/flows`
-- `POST /api/flows`
-- `GET /api/flows/{flow_id}`
-- `PUT /api/flows/{flow_id}`
-- `DELETE /api/flows/{flow_id}`
-
-### Preview endpoints
-
-- `POST /api/flows/{flow_id}/preview`
-- `POST /api/transformations/preview`
-
-### Run endpoints
-
-- `POST /api/flows/{flow_id}/runs`
-- `GET /api/runs/{run_id}`
-
-### Dataset endpoints
-
-- `POST /api/datasets/upload`
-- `GET /api/datasets`
-- `GET /api/datasets/{dataset_id}/sample`
-- `GET /api/datasets/{dataset_id}/schema`
-
-### Code generation
-
-- `POST /api/flows/{flow_id}/export/python`
+- Flows: `GET/POST /api/flows`, `GET/PUT/DELETE /api/flows/{id}`
+- Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
+- Runs: `POST /api/flows/{id}/runs`, `GET /api/runs/{id}`
+- Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
+  `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
+- Code export: `POST /api/flows/{id}/export/python`
 
 ## Execution Engine
 
-The execution engine should:
+The engine: receives graph JSON → validates structure → topologically sorts
+nodes → loads inputs → executes transformations in order → stores/returns output
+→ saves run metadata, errors, and readable logs.
 
-1. Receive graph JSON from the saved flow.
-2. Validate graph structure.
-3. Topologically sort nodes.
-4. Load input datasets.
-5. Execute transformation nodes in order.
-6. Store or return output.
-7. Save run metadata and errors.
-8. Generate readable logs.
-
-Each transformation should implement a shared interface.
-
-Example:
+Each transformation implements a shared interface:
 
 ```python
 class Transformation:
     type: str
 
-    def validate_config(self, config: dict) -> None:
-        ...
-
-    def execute(self, df, config: dict):
-        ...
-
-    def to_python_code(self, input_var: str, output_var: str, config: dict) -> str:
-        ...
+    def validate_config(self, config: dict) -> None: ...
+    def execute(self, df, config: dict): ...
+    def to_python_code(self, input_var: str, output_var: str, config: dict) -> str: ...
 ```
 
-## Graph JSON Shape
+Graph JSON is React Flow-compatible (`nodes` with `id/type/position/data.config`,
+`edges` with `id/source/target`).
 
-Prefer a format compatible with React Flow.
+## Coding Standards
 
-```json
-{
-  "nodes": [
-    {
-      "id": "input_1",
-      "type": "csvInput",
-      "position": { "x": 100, "y": 100 },
-      "data": {
-        "label": "CSV Input",
-        "config": {
-          "dataset_id": "dataset_123"
-        }
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge_1",
-      "source": "input_1",
-      "target": "drop_nulls_1"
-    }
-  ]
-}
+**Backend:** type hints everywhere; Pydantic schemas for API I/O; thin route
+handlers; business logic in `services`; dataframe logic in `app/engine`.
+Do **not** import FastAPI inside the engine, mix ORM models with Pydantic
+schemas, or use pandas directly in route files. Add tests per transformation.
+
+**Frontend (when it exists):** TypeScript, feature folders, React Flow logic in
+`components/flow`/`features/flows`, TanStack Query for server state, Zustand for
+local UI state, shadcn/ui components, Zod-validated config forms, API calls
+centralized in `lib/api.ts`.
+
+**Naming:** clear and specific (`DropNullsTransformation`, `FlowExecutionService`).
+Avoid `Processor`, `Manager`, `Handler`, `Thing`, and generic abstractions.
+
+## Testing
+
+Backend: unit tests for transformations and graph validation, API tests for flow
+CRUD, and at least one full CSV-pipeline integration test. Run with `pytest`
+(tests use in-memory SQLite regardless of `DATABASE_URL`).
+
+## Working Agreements for Claude
+
+1. Start with the smallest working vertical slice; don't add infra before needed.
+2. Make `DATABASE_URL` configurable via environment variables.
+3. Keep generated Python code readable; avoid premature optimization.
+4. Add tests when adding transformations.
+5. Update docs when architecture changes — and only document what is implemented.
+6. Ask before adding large dependencies.
+
+<!-- rtk-instructions v2 -->
+# RTK (Rust Token Killer) - Token-Optimized Commands
+
+## Golden Rule
+
+**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
+
+**Important**: Even in command chains with `&&`, use `rtk`:
+```bash
+# ❌ Wrong
+git add . && git commit -m "msg" && git push
+
+# ✅ Correct
+rtk git add . && rtk git commit -m "msg" && rtk git push
 ```
 
-## Backend Coding Standards
+## RTK Commands by Workflow
 
-- Use type hints everywhere.
-- Use Pydantic schemas for API inputs and outputs.
-- Keep route handlers thin.
-- Put business logic in services.
-- Put dataframe transformation logic in `app/engine`.
-- Do not import FastAPI inside the dataframe engine.
-- Do not mix ORM models and Pydantic schemas.
-- Do not use pandas directly in API route files.
-- Add tests for each transformation.
+### Build & Compile (80-90% savings)
+```bash
+rtk cargo build         # Cargo build output
+rtk cargo check         # Cargo check output
+rtk cargo clippy        # Clippy warnings grouped by file (80%)
+rtk tsc                 # TypeScript errors grouped by file/code (83%)
+rtk lint                # ESLint/Biome violations grouped (84%)
+rtk prettier --check    # Files needing format only (70%)
+rtk next build          # Next.js build with route metrics (87%)
+```
 
-## Frontend Coding Standards
+### Test (90-99% savings)
+```bash
+rtk cargo test          # Cargo test failures only (90%)
+rtk vitest run          # Vitest failures only (99.5%)
+rtk playwright test     # Playwright failures only (94%)
+rtk test <cmd>          # Generic test wrapper - failures only
+```
 
-- Use TypeScript.
-- Use feature-based folders.
-- Keep React Flow-specific logic inside `components/flow` or `features/flows`.
-- Use TanStack Query for server state.
-- Use Zustand only for local UI/editor state.
-- Use shadcn/ui for buttons, dialogs, forms, tabs, alerts, dropdowns, and cards.
-- Validate node config forms with Zod.
-- Keep API calls centralized in `lib/api.ts`.
+### Git (59-80% savings)
+```bash
+rtk git status          # Compact status
+rtk git log             # Compact log (works with all git flags)
+rtk git diff            # Compact diff (80%)
+rtk git show            # Compact show (80%)
+rtk git add             # Ultra-compact confirmations (59%)
+rtk git commit          # Ultra-compact confirmations (59%)
+rtk git push            # Ultra-compact confirmations
+rtk git pull            # Ultra-compact confirmations
+rtk git branch          # Compact branch list
+rtk git fetch           # Compact fetch
+rtk git stash           # Compact stash
+rtk git worktree        # Compact worktree
+```
 
-## MVP Screens
+Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
 
-1. Home / Flow list
-2. Flow editor
-3. Dataset upload
-4. Node config sidebar
-5. Data preview panel
-6. Run history panel
-7. Export Python code modal
+### GitHub (26-87% savings)
+```bash
+rtk gh pr view <num>    # Compact PR view (87%)
+rtk gh pr checks        # Compact PR checks (79%)
+rtk gh run list         # Compact workflow runs (82%)
+rtk gh issue list       # Compact issue list (80%)
+rtk gh api              # Compact API responses (26%)
+```
 
-## Suggested First Milestone
+### JavaScript/TypeScript Tooling (70-90% savings)
+```bash
+rtk pnpm list           # Compact dependency tree (70%)
+rtk pnpm outdated       # Compact outdated packages (80%)
+rtk pnpm install        # Compact install output (90%)
+rtk npm run <script>    # Compact npm script output
+rtk npx <cmd>           # Compact npx command output
+rtk prisma              # Prisma without ASCII art (88%)
+```
 
-Build a vertical slice:
+### Files & Search (60-75% savings)
+```bash
+rtk ls <path>           # Tree format, compact (65%)
+rtk read <file>         # Code reading with filtering (60%)
+rtk grep <pattern>      # Search grouped by file (75%)
+rtk find <pattern>      # Find grouped by directory (70%)
+```
 
-1. Upload CSV.
-2. Display schema and sample.
-3. Create a flow with:
-   - CSV input
-   - Drop nulls
-   - Rename columns
-   - CSV output
-4. Preview each transformation.
-5. Run the full flow.
-6. Export generated Python script.
+### Analysis & Debug (70-90% savings)
+```bash
+rtk err <cmd>           # Filter errors only from any command
+rtk log <file>          # Deduplicated logs with counts
+rtk json <file>         # JSON structure without values
+rtk deps                # Dependency overview
+rtk env                 # Environment variables compact
+rtk summary <cmd>       # Smart summary of command output
+rtk diff                # Ultra-compact diffs
+```
 
-## Testing Strategy
+### Infrastructure (85% savings)
+```bash
+rtk docker ps           # Compact container list
+rtk docker images       # Compact image list
+rtk docker logs <c>     # Deduplicated logs
+rtk kubectl get         # Compact resource list
+rtk kubectl logs        # Deduplicated pod logs
+```
 
-Backend:
-- Unit tests for transformations.
-- Unit tests for graph validation.
-- API tests for flow CRUD.
-- Integration test for one full CSV pipeline.
+### Network (65-70% savings)
+```bash
+rtk curl <url>          # Compact HTTP responses (70%)
+rtk wget <url>          # Compact download output (65%)
+```
 
-Frontend:
-- Component tests for node config forms.
-- Basic flow editor tests.
-- API mocking for editor interactions.
+### Meta Commands
+```bash
+rtk gain                # View token savings statistics
+rtk gain --history      # View command history with savings
+rtk discover            # Analyze Claude Code sessions for missed RTK usage
+rtk proxy <cmd>         # Run command without filtering (for debugging)
+rtk init                # Add RTK instructions to CLAUDE.md
+rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
+```
 
-## Naming Guidelines
+## Token Savings Overview
 
-Use clear names.
+| Category | Commands | Typical Savings |
+|----------|----------|-----------------|
+| Tests | vitest, playwright, cargo test | 90-99% |
+| Build | next, tsc, lint, prettier | 70-87% |
+| Git | status, log, diff, add, commit | 59-80% |
+| GitHub | gh pr, gh run, gh issue | 26-87% |
+| Package Managers | pnpm, npm, npx | 70-90% |
+| Files | ls, read, grep, find | 60-75% |
+| Infrastructure | docker, kubectl | 85% |
+| Network | curl, wget | 65-70% |
 
-Good:
-- `DropNullsTransformation`
-- `RenameColumnsTransformation`
-- `FlowExecutionService`
-- `TransformationRegistry`
-
-Avoid:
-- `Processor`
-- `Manager`
-- `Handler`
-- `Thing`
-- Overly generic abstractions
-
-## Claude Code Instructions
-
-When implementing this project:
-
-1. Start with the smallest working vertical slice.
-2. Do not introduce infrastructure before it is needed.
-3. Prefer SQLite as the default database.
-4. Make database URL configurable through environment variables.
-5. Use SQLAlchemy and Alembic for persistence.
-6. Keep generated Python code readable.
-7. Avoid premature optimization.
-8. Add tests when adding transformations.
-9. Update documentation when architecture changes.
-10. Ask before adding large dependencies.
-
-## Definition of Done for MVP
-
-The MVP is complete when a user can:
-
-1. Start backend and frontend locally.
-2. Upload a CSV file.
-3. Build a simple ETL graph visually.
-4. Configure at least five transformations.
-5. Preview intermediate data.
-6. Execute the full flow.
-7. Download/export the output file.
-8. Export equivalent Python/pandas code.
+Overall average: **60-90% token reduction** on common development operations.
+<!-- /rtk-instructions -->

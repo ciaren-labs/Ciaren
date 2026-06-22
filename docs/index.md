@@ -48,6 +48,13 @@ features:
     details: Add custom transformation nodes to extend FlowFrame for your needs.
 ---
 
+:::info Project status
+FlowFrame is in active development. The **backend** (FastAPI engine, transformations,
+and Python code export) is working today and can be driven through the REST API.
+The **visual drag-and-drop editor** is still in development — the screens and
+walkthroughs below describe the intended experience.
+:::
+
 ## Learn in 5 Minutes
 
 1. **Upload** a CSV or Excel file
@@ -66,11 +73,11 @@ features:
 
 ## No Code, All Power
 
-FlowFrame supports 25+ transformation nodes out of the box:
+FlowFrame supports 16 transformation nodes plus file input/output out of the box:
 
 - **Cleaning:** Drop nulls, fill values, remove duplicates, rename columns
 - **Transform:** Filter, aggregate, join, calculate columns
-- **Reshape:** Group by, pivot, union, select
+- **Reshape:** Group by, union, select, sort
 - **I/O:** CSV, Excel, Parquet input and output
 
 [See all transformations →](/transformations/overview)
@@ -80,6 +87,7 @@ FlowFrame supports 25+ transformation nodes out of the box:
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
 ### Installation (2 minutes)
+
 ```bash
 git clone https://github.com/rodrigo-arenas/FlowFrame
 cd FlowFrame/backend
@@ -90,7 +98,8 @@ uvicorn app.main:app --reload
 [Full installation guide →](/guide/installation)
 
 ### Your First Flow (5 minutes)
-1. Open http://localhost:5173
+
+1. Open <http://localhost:5173>
 2. Upload `sample.csv`
 3. Add 3 transformation nodes
 4. Export Python code
@@ -123,7 +132,7 @@ FlowFrame doesn't compete with Airflow or Spark. It's designed for the 80% of ET
 
 - **Questions?** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
 - **Found a bug?** [GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
-- **Want to contribute?** [Contributing Guide](/guide/../CONTRIBUTING.md)
+- **Want to contribute?** [Contributing Guide](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
 
 ## License
 

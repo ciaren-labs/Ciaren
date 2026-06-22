@@ -16,6 +16,10 @@ class FlowUpdate(BaseModel):
     graph_json: dict[str, Any] | None = None
 
 
+class CodeExportResponse(BaseModel):
+    code: str
+
+
 class FlowRead(BaseModel):
     id: str
     name: str

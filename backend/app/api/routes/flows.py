@@ -1,14 +1,15 @@
 from fastapi import APIRouter, status
 
-from app.api.deps import FlowServiceDep
-from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
+from app.api.deps import CodegenServiceDep, FlowServiceDep, PreviewServiceDep
+from app.schemas.flow import CodeExportResponse, FlowCreate, FlowRead, FlowUpdate
+from app.schemas.preview import FlowPreviewRequest, PreviewResponse
 
 router = APIRouter()
 
 
 @router.get("", response_model=list[FlowRead])
 async def list_flows(service: FlowServiceDep) -> list[FlowRead]:
-    return await service.list()
+    return await service.list_all()
 
 
 @router.post("", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
@@ -29,3 +30,18 @@ async def update_flow(flow_id: str, body: FlowUpdate, service: FlowServiceDep) -
 @router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flow(flow_id: str, service: FlowServiceDep) -> None:
     await service.delete(flow_id)
+
+
+@router.post("/{flow_id}/preview", response_model=PreviewResponse)
+async def preview_flow(
+    flow_id: str, body: FlowPreviewRequest, service: PreviewServiceDep
+) -> PreviewResponse:
+    return await service.preview_flow(flow_id, body)
+
+
+@router.post("/{flow_id}/export/python", response_model=CodeExportResponse)
+async def export_flow_python(
+    flow_id: str, service: CodegenServiceDep
+) -> CodeExportResponse:
+    code = await service.export_python(flow_id)
+    return CodeExportResponse(code=code)

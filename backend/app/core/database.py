@@ -1,6 +1,11 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
@@ -10,9 +15,9 @@ class Base(DeclarativeBase):
     pass
 
 
-def _make_engine():
+def _make_engine() -> AsyncEngine:
     settings = get_settings()
-    connect_args = {}
+    connect_args: dict[str, object] = {}
     if settings.DATABASE_URL.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
     return create_async_engine(
@@ -34,3 +39,18 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
+
+
+async def init_db() -> None:
+    """Create any missing tables on startup.
+
+    Idempotent (only creates tables that don't exist), so it's safe to run on
+    every boot. This is the MVP convenience path; a production deployment should
+    manage schema changes through Alembic migrations instead.
+    """
+    # Import models inside the function so they register on Base.metadata
+    # without creating an import cycle (models import Base from this module).
+    from app.db.models import dataset, flow, run  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
