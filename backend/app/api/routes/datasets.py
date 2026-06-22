@@ -1,8 +1,11 @@
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.api.deps import DatasetServiceDep, FlowServiceDep
+from app.core.exceptions import NotFoundError
 from app.schemas.dataset import DatasetRead, DatasetVersionRead
 from app.schemas.flow import FlowRead
 
@@ -42,6 +45,21 @@ async def list_dataset_versions(
     dataset_id: str, service: DatasetServiceDep
 ) -> list[DatasetVersionRead]:
     return await service.list_versions(dataset_id)
+
+
+@router.get("/{dataset_id}/versions/{version_number}/download")
+async def download_dataset_version(
+    dataset_id: str, version_number: int, service: DatasetServiceDep
+) -> FileResponse:
+    """Stream a specific dataset version's file as a download."""
+    file_path = await service.get_version_location(dataset_id, version_number)
+    if not file_path.exists():
+        raise NotFoundError("Dataset version file", f"{dataset_id}/v{version_number}")
+    return FileResponse(
+        path=str(file_path),
+        filename=file_path.name,
+        media_type="application/octet-stream",
+    )
 
 
 @router.get("/{dataset_id}/schema")

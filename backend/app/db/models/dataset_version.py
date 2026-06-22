@@ -37,6 +37,7 @@ class DatasetVersion(Base):
     schema_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     sample_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)  # set for flow-generated versions
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     dataset: Mapped["Dataset"] = relationship(back_populates="versions")

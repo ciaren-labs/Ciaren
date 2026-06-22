@@ -143,12 +143,18 @@ class DatasetService:
     # Internals
     # ------------------------------------------------------------------
 
+    async def get_version_location(self, dataset_id: str, version_number: int) -> Path:
+        """Return the filesystem path for a specific dataset version."""
+        version = await self._version(dataset_id, version_number)
+        return Path(version.location)
+
     async def register_output(
         self,
         name: str,
         source_type: str,
         file_path: Path,
         project_id: str | None,
+        run_id: str | None = None,
     ) -> DatasetRead:
         """Register a flow-generated output file as a versioned output dataset."""
         content = file_path.read_bytes()
@@ -184,6 +190,7 @@ class DatasetService:
             schema_json=schema,
             sample_json=sample,
             row_count=int(len(df)),
+            source_run_id=run_id,
         )
         self.db.add(version)
         await self.db.flush()

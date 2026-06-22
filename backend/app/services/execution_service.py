@@ -92,6 +92,7 @@ class ExecutionService:
                                         source_type=src_type,
                                         file_path=out_path,
                                         project_id=flow.project_id,
+                                        run_id=run.id,
                                     )
                                 except Exception:  # noqa: BLE001
                                     pass  # Don't fail the run on dataset registration errors

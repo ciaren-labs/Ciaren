@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCreateRun, useFlow, useUpdateFlow } from "./hooks";
 import { useDatasets } from "@/features/datasets/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
 import { type NodeTypeDef } from "@/lib/nodeCatalog";
@@ -37,6 +38,7 @@ export function FlowEditorPage() {
   const { data: flow, isLoading } = useFlow(flowId ?? null);
   const updateFlow = useUpdateFlow();
   const { data: datasets } = useDatasets();
+  const { data: projects } = useProjects();
 
   const nodes = useFlowEditorStore((s) => s.nodes);
   const edges = useFlowEditorStore((s) => s.edges);
@@ -49,6 +51,8 @@ export function FlowEditorPage() {
   const setPreviewOpen = useFlowEditorStore((s) => s.setPreviewOpen);
   const setInvalidNodeIds = useFlowEditorStore((s) => s.setInvalidNodeIds);
   const setFlowProjectId = useFlowEditorStore((s) => s.setFlowProjectId);
+  const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
+  const projectName = (projects ?? []).find((p) => p.id === flowProjectId)?.name ?? null;
 
   const [exportOpen, setExportOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
@@ -143,6 +147,11 @@ export function FlowEditorPage() {
               <ArrowLeft className="h-4 w-4" /> Flows
             </Button>
             <h1 className="text-sm font-semibold">{flow.name}</h1>
+            {projectName && (
+              <span className="text-xs text-muted-foreground">
+                / {projectName}
+              </span>
+            )}
             {dirty && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                 unsaved

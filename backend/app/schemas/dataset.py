@@ -12,6 +12,7 @@ class DatasetVersionRead(BaseModel):
     row_count: int
     # Aliased from the ORM's schema_json; never exposes the filesystem location.
     column_schema: list[dict[str, Any]] | None = Field(None, validation_alias="schema_json")
+    source_run_id: str | None = None  # set when the version was created by a flow run
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
