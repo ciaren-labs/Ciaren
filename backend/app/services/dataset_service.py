@@ -24,7 +24,7 @@ from app.core.exceptions import (
 )
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
-from app.schemas.dataset import DatasetRead, DatasetVersionRead
+from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.services.project_service import ProjectService
 
 _ALLOWED_EXTENSIONS: dict[str, str] = {
@@ -130,6 +130,20 @@ class DatasetService:
     ) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).sample_json or []
 
+    async def update(self, dataset_id: str, data: DatasetUpdate) -> DatasetRead:
+        dataset = await self._get_or_raise(dataset_id)
+        updates = data.model_dump(exclude_unset=True)
+        for field, value in updates.items():
+            setattr(dataset, field, value)
+        dataset.updated_at = datetime.utcnow()
+        await self.db.commit()
+        return await self._read(dataset.id)
+
+    async def delete(self, dataset_id: str) -> None:
+        dataset = await self._get_or_raise(dataset_id)
+        await self.db.delete(dataset)
+        await self.db.commit()
+
     async def list_versions(self, dataset_id: str) -> list[DatasetVersionRead]:
         await self._get_or_raise(dataset_id)
         result = await self.db.execute(
@@ -205,6 +219,7 @@ class DatasetService:
             name=dataset.name,
             source_type=dataset.source_type,
             dataset_kind=dataset.dataset_kind or "input",
+            is_disabled=bool(dataset.is_disabled),
             project_id=dataset.project_id,
             latest_version=latest.version_number if latest else 0,
             version_count=len(versions),

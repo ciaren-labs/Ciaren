@@ -32,7 +32,10 @@ async def list_runs(
     status: str | None = None,
     started_after: datetime | None = None,
     started_before: datetime | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
     limit: int = 100,
+    offset: int = 0,
 ) -> list[FlowRunSummary]:
     return await service.list_runs(
         flow_id=flow_id,
@@ -41,7 +44,10 @@ async def list_runs(
         status=status,
         started_after=started_after,
         started_before=started_before,
+        sort_by=sort_by,
+        sort_order=sort_order,
         limit=limit,
+        offset=offset,
     )
 
 

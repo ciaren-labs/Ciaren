@@ -47,6 +47,29 @@ export function useDatasetFlows(id: string | null) {
   });
 }
 
+export function usePatchDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: { is_disabled?: boolean } }) =>
+      datasetsApi.patch(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.datasets });
+      qc.invalidateQueries({ queryKey: queryKeys.flows }); // cascade may disable flows
+    },
+  });
+}
+
+export function useDeleteDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => datasetsApi.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.datasets });
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
 export function useUploadDataset() {
   const qc = useQueryClient();
   return useMutation({

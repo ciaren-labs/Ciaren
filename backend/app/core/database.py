@@ -59,6 +59,9 @@ async def init_db() -> None:
         for stmt in [
             "ALTER TABLE datasets ADD COLUMN dataset_kind TEXT DEFAULT 'input'",
             "ALTER TABLE dataset_versions ADD COLUMN source_run_id TEXT",
+            "ALTER TABLE flows ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE datasets ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
                 await conn.execute(text(stmt))

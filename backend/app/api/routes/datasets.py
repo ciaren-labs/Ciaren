@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import DatasetServiceDep, FlowServiceDep
 from app.core.exceptions import NotFoundError
-from app.schemas.dataset import DatasetRead, DatasetVersionRead
+from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.schemas.flow import FlowRead
 
 router = APIRouter()
@@ -24,6 +24,25 @@ async def list_datasets(
     service: DatasetServiceDep, project_id: str | None = None
 ) -> list[DatasetRead]:
     return await service.list_all(project_id)
+
+
+@router.patch("/{dataset_id}", response_model=DatasetRead)
+async def patch_dataset(
+    dataset_id: str,
+    body: DatasetUpdate,
+    service: DatasetServiceDep,
+    flow_service: FlowServiceDep,
+) -> DatasetRead:
+    """Partial-update a dataset. Disabling cascades to flows that use it as input."""
+    result = await service.update(dataset_id, body)
+    if body.is_disabled is True:
+        await flow_service.disable_flows_for_dataset(dataset_id)
+    return result
+
+
+@router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_dataset(dataset_id: str, service: DatasetServiceDep) -> None:
+    await service.delete(dataset_id)
 
 
 @router.get("/{dataset_id}/flows", response_model=list[FlowRead])

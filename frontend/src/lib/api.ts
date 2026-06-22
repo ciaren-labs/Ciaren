@@ -163,6 +163,12 @@ export const datasetsApi = {
     ),
   downloadVersionUrl: (id: string, version: number) =>
     `${BASE_URL}/datasets/${id}/versions/${version}/download`,
+  patch: (id: string, body: { is_disabled?: boolean }) =>
+    request<Dataset>(`/datasets/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
   upload: async (file: File, projectId?: string): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);

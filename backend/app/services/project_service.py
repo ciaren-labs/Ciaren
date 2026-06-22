@@ -88,6 +88,15 @@ class ProjectService:
         for field, value in updates.items():
             setattr(project, field, value)
         project.updated_at = datetime.utcnow()
+        # Cascade is_disabled to all datasets and flows in this project.
+        if "is_disabled" in updates:
+            disabled = updates["is_disabled"]
+            await self.db.execute(
+                update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled)
+            )
+            await self.db.execute(
+                update(Flow).where(Flow.project_id == project_id).values(is_disabled=disabled)
+            )
         await self.db.commit()
         await self.db.refresh(project)
         return await self.get(project.id)
@@ -125,6 +134,7 @@ class ProjectService:
             description=project.description,
             color=project.color,
             is_default=project.is_default,
+            is_disabled=bool(project.is_disabled),
             dataset_count=dataset_count,
             flow_count=flow_count,
             created_at=project.created_at,

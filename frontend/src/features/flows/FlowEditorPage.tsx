@@ -8,9 +8,10 @@ import {
   EyeOff,
   Loader2,
   Play,
+  Power,
   Save,
 } from "lucide-react";
-import { useCreateRun, useFlow, useUpdateFlow } from "./hooks";
+import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
@@ -57,6 +58,7 @@ export function FlowEditorPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
   const createRun = useCreateRun(flowId ?? "");
+  const toggleFlow = useToggleFlow();
 
   const validation = useMemo(
     () => validateFlow(nodes, edges, datasets ?? []),
@@ -112,8 +114,13 @@ export function FlowEditorPage() {
     return <div className="p-6 text-sm text-destructive">Flow not found.</div>;
   }
 
-  const runReason = validation.errors[0]?.message;
-  const previewReason = validation.errors.find((e) => e.code !== "NO_OUTPUT")?.message;
+  const isDisabled = flow.is_disabled;
+  const runReason = isDisabled
+    ? "This flow is disabled. Re-enable it first."
+    : validation.errors[0]?.message;
+  const previewReason = isDisabled
+    ? "This flow is disabled."
+    : validation.errors.find((e) => e.code !== "NO_OUTPUT")?.message;
 
   // Inputs already pin their datasets, so running just executes the saved graph
   // (on the chosen engine) and takes you to the run's results.
@@ -152,69 +159,101 @@ export function FlowEditorPage() {
                 / {projectName}
               </span>
             )}
-            {dirty && (
+            {isDisabled && (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                disabled
+              </span>
+            )}
+            {!isDisabled && dirty && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                 unsaved
               </span>
             )}
-            <ValidationSummary validation={validation} />
+            {!isDisabled && <ValidationSummary validation={validation} />}
           </div>
           <div className="flex items-center gap-2">
-            <GatedButton
-              disabled={!validation.canPreview}
-              reason={previewReason}
-              variant="outline"
-              onClick={() => setPreviewOpen(!previewOpen)}
-            >
-              {previewOpen ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-              {previewOpen ? "Hide preview" : "Preview"}
-            </GatedButton>
-            <div className="flex items-center overflow-hidden rounded-md border border-input">
-              <select
-                value={engine}
-                onChange={(e) => setEngine(e.target.value as "pandas" | "polars")}
-                title="Execution engine"
-                className="h-9 border-r border-input bg-background px-2 text-xs font-medium focus-visible:outline-none"
+            {isDisabled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+                disabled={toggleFlow.isPending}
               >
-                <option value="pandas">pandas</option>
-                <option value="polars">polars</option>
-              </select>
-              <GatedButton
-                disabled={!validation.canRun || createRun.isPending}
-                reason={runReason}
-                onClick={handleRun}
-                className="rounded-none border-0"
-              >
-                {createRun.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                Run
-              </GatedButton>
-            </div>
-            <GatedButton
-              disabled={!validation.canExport}
-              reason={runReason}
-              variant="outline"
-              onClick={() => setExportOpen(true)}
-            >
-              <Code2 className="h-4 w-4" /> Export
-            </GatedButton>
-            <Button size="sm" onClick={handleSave} disabled={updateFlow.isPending}>
-              {updateFlow.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {updateFlow.isPending ? "Saving…" : "Save"}
-            </Button>
+                <Power className="h-4 w-4" /> Re-enable flow
+              </Button>
+            ) : (
+              <>
+                <GatedButton
+                  disabled={!validation.canPreview}
+                  reason={previewReason}
+                  variant="outline"
+                  onClick={() => setPreviewOpen(!previewOpen)}
+                >
+                  {previewOpen ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  {previewOpen ? "Hide preview" : "Preview"}
+                </GatedButton>
+                <div className="flex items-center overflow-hidden rounded-md border border-input">
+                  <select
+                    value={engine}
+                    onChange={(e) => setEngine(e.target.value as "pandas" | "polars")}
+                    title="Execution engine"
+                    className="h-9 border-r border-input bg-background px-2 text-xs font-medium focus-visible:outline-none"
+                  >
+                    <option value="pandas">pandas</option>
+                    <option value="polars">polars</option>
+                  </select>
+                  <GatedButton
+                    disabled={!validation.canRun || createRun.isPending}
+                    reason={runReason}
+                    onClick={handleRun}
+                    className="rounded-none border-0"
+                  >
+                    {createRun.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Run
+                  </GatedButton>
+                </div>
+                <GatedButton
+                  disabled={!validation.canExport}
+                  reason={runReason}
+                  variant="outline"
+                  onClick={() => setExportOpen(true)}
+                >
+                  <Code2 className="h-4 w-4" /> Export
+                </GatedButton>
+                <Button size="sm" onClick={handleSave} disabled={updateFlow.isPending}>
+                  {updateFlow.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {updateFlow.isPending ? "Saving…" : "Save"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {isDisabled && (
+          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            <Power className="h-4 w-4 shrink-0" />
+            This flow is disabled — it is read-only and cannot be run. Click
+            <button
+              className="font-semibold underline underline-offset-2 hover:text-amber-900"
+              onClick={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+            >
+              Re-enable
+            </button>
+            to restore it.
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1">
           <NodePalette onAdd={handleAddNode} unlocked={inputReady} />

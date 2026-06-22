@@ -24,6 +24,19 @@ export function useUpdateProject() {
   });
 }
 
+export function useToggleProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_disabled }: { id: string; is_disabled: boolean }) =>
+      projectsApi.update(id, { is_disabled }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects });
+      qc.invalidateQueries({ queryKey: queryKeys.datasets });
+      qc.invalidateQueries({ queryKey: queryKeys.flows });
+    },
+  });
+}
+
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({

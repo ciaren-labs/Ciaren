@@ -74,6 +74,17 @@ class FlowService:
         await self.db.delete(flow)
         await self.db.commit()
 
+    async def disable_flows_for_dataset(self, dataset_id: str) -> None:
+        """Disable all flows whose graph references the given dataset as an input."""
+        result = await self.db.execute(select(Flow))
+        changed = False
+        for flow in result.scalars().all():
+            if _references_dataset(flow.graph_json or {}, dataset_id):
+                flow.is_disabled = True
+                changed = True
+        if changed:
+            await self.db.commit()
+
     async def _get_or_raise(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))
         flow = result.scalar_one_or_none()

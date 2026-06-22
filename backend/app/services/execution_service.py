@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import asc, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -24,6 +24,9 @@ class ExecutionService:
 
     async def run(self, flow_id: str, data: FlowRunCreate) -> FlowRunRead:
         flow = await self._get_flow(flow_id)
+
+        if flow.is_disabled:
+            raise ValidationError("This flow is disabled and cannot be run.")
 
         engine = data.engine or "pandas"
         if engine not in available_engines():
@@ -118,6 +121,12 @@ class ExecutionService:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
 
+    _SORT_FIELDS = {
+        "created_at": FlowRun.created_at,
+        "started_at": FlowRun.started_at,
+        "status": FlowRun.status,
+    }
+
     async def list_runs(
         self,
         flow_id: str | None = None,
@@ -126,17 +135,17 @@ class ExecutionService:
         status: str | None = None,
         started_after: datetime | None = None,
         started_before: datetime | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         limit: int = 100,
+        offset: int = 0,
     ) -> list[FlowRunSummary]:
-        """Run history, newest first, with optional filters for the runs page.
-
-        Joins the flow so each row carries the flow name and project even though
-        runs only store ``flow_id``.
-        """
+        sort_col = self._SORT_FIELDS.get(sort_by, FlowRun.created_at)
+        order_fn = asc if sort_order == "asc" else desc
         stmt = (
             select(FlowRun, Flow.name, Flow.project_id)
             .join(Flow, Flow.id == FlowRun.flow_id, isouter=True)
-            .order_by(FlowRun.created_at.desc())
+            .order_by(order_fn(sort_col))
         )
         if flow_id is not None:
             stmt = stmt.where(FlowRun.flow_id == flow_id)
@@ -150,7 +159,7 @@ class ExecutionService:
             stmt = stmt.where(FlowRun.created_at >= started_after)
         if started_before is not None:
             stmt = stmt.where(FlowRun.created_at <= started_before)
-        stmt = stmt.limit(limit)
+        stmt = stmt.offset(offset).limit(limit)
 
         result = await self.db.execute(stmt)
         return [

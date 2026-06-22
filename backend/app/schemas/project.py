@@ -13,6 +13,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     color: str | None = Field(None, max_length=32)
+    is_disabled: bool | None = None
 
 
 class ProjectRead(BaseModel):
@@ -21,6 +22,7 @@ class ProjectRead(BaseModel):
     description: str | None
     color: str
     is_default: bool
+    is_disabled: bool = False
     dataset_count: int
     flow_count: int
     created_at: datetime
