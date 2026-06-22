@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { LandingPage } from "@/features/landing/LandingPage";
 import { FlowListPage } from "@/features/flows/FlowListPage";
 import { FlowEditorPage } from "@/features/flows/FlowEditorPage";
 import { DatasetsPage } from "@/features/datasets/DatasetsPage";
@@ -14,7 +15,8 @@ export default function App() {
       <AppHeader />
       <main className="min-h-0 flex-1">
         <Routes>
-          <Route path="/" element={<FlowListPage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/flows" element={<FlowListPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/datasets" element={<DatasetsPage />} />

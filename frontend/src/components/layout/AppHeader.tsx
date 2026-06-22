@@ -3,14 +3,13 @@ import { Database, FolderKanban, History, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/", label: "Flows", icon: Workflow },
+  { to: "/flows", label: "Flows", icon: Workflow },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
   { to: "/runs", label: "Runs", icon: History },
 ];
 
 function isActive(pathname: string, to: string): boolean {
-  if (to === "/") return pathname === "/" || pathname.startsWith("/flows");
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
