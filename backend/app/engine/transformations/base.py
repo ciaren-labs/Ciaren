@@ -44,4 +44,17 @@ class BaseTransformation(ABC):
         input_vars: dict[str, str],
         output_vars: dict[str, str],
         config: dict[str, Any],
-    ) -> str: ...
+    ) -> str:
+        """Readable **pandas** code for this node (``df`` variables)."""
+        ...
+
+    @abstractmethod
+    def to_polars_code(
+        self,
+        input_vars: dict[str, str],
+        output_vars: dict[str, str],
+        config: dict[str, Any],
+    ) -> str:
+        """Readable **polars** code for this node, co-located with ``execute`` and
+        ``to_python_code`` so a node's whole definition lives in one place."""
+        ...
