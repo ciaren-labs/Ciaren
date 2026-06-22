@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CalendarClock,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  MousePointerClick,
   RotateCcw,
 } from "lucide-react";
 import { useRuns } from "./hooks";
@@ -45,6 +47,31 @@ function datasetLabel(run: FlowRunSummary, datasetName: Map<string, string>): st
 }
 
 type SortField = "created_at" | "started_at" | "status";
+
+/** How a run was triggered. Scheduled runs link back to their schedule. */
+function TriggerBadge({ run }: { run: FlowRunSummary }) {
+  const navigate = useNavigate();
+  if (run.trigger === "schedule") {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (run.schedule_id) navigate(`/schedules/${run.schedule_id}`);
+        }}
+        disabled={!run.schedule_id}
+        className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 transition-colors hover:bg-brand-100 disabled:pointer-events-none"
+        title={run.schedule_id ? "View schedule" : "Scheduled run"}
+      >
+        <CalendarClock className="h-3 w-3" /> Schedule
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+      <MousePointerClick className="h-3 w-3" /> Manual
+    </span>
+  );
+}
 
 export function RunsPage() {
   const navigate = useNavigate();
@@ -235,6 +262,7 @@ export function RunsPage() {
                         Status
                       </SortHeader>
                     </th>
+                    <th className="px-4 py-2.5 text-left font-semibold">Trigger</th>
                     <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
                     <th className="px-4 py-2.5 text-left font-semibold">
                       <SortHeader field="created_at" current={sortBy} order={sortOrder} onSort={handleSort}>
@@ -383,6 +411,9 @@ function RunRow({
       <td className="px-4 py-2.5">
         <StatusBadge status={run.status} />
       </td>
+      <td className="px-4 py-2.5">
+        <TriggerBadge run={run} />
+      </td>
       <td className="px-4 py-2.5 text-muted-foreground">
         {datasetLabel(run, datasetName)}
       </td>
@@ -420,7 +451,10 @@ function RunCard({
         <span className="font-semibold leading-tight">
           {run.flow_name ?? flowName.get(run.flow_id) ?? "—"}
         </span>
-        <StatusBadge status={run.status} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <TriggerBadge run={run} />
+          <StatusBadge status={run.status} />
+        </div>
       </div>
       {proj && (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

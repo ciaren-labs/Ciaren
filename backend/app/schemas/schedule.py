@@ -10,7 +10,6 @@ class ScheduleCreate(BaseModel):
     timezone: str = Field("UTC", max_length=64)
     # None falls back to the server's DEFAULT_ENGINE when the run fires.
     engine: str | None = None
-    input_dataset_id: str | None = None
     enabled: bool = True
     catch_up: bool = False
     max_retries: int = Field(0, ge=0, le=10)
@@ -23,7 +22,6 @@ class ScheduleUpdate(BaseModel):
     description: str | None = None
     timezone: str | None = Field(None, max_length=64)
     engine: str | None = None
-    input_dataset_id: str | None = None
     enabled: bool | None = None
     catch_up: bool | None = None
     max_retries: int | None = Field(None, ge=0, le=10)
@@ -38,7 +36,6 @@ class ScheduleRead(BaseModel):
     cron: str
     timezone: str
     engine: str | None
-    input_dataset_id: str | None
     enabled: bool
     catch_up: bool
     max_retries: int
