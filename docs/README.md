@@ -227,14 +227,6 @@ VitePress includes local search. No external service needed.
 
 Search is built at build time from page titles, descriptions, and content.
 
-## Versioning
-
-Currently at v0.1 (development). When v1.0 releases:
-
-1. Keep docs as "latest" (current)
-2. Archive v0.x docs at `/docs/v0.x/`
-3. Add version selector in header
-
 ## Style Guide
 
 - **Tone:** Friendly, clear, beginner-friendly

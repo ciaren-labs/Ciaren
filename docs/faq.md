@@ -22,11 +22,11 @@ FlowFrame is **free and open-source** under the MIT License. You can use it for 
 
 ### Is FlowFrame production-ready?
 
-FlowFrame is in **active development** and currently at v0.1. It's suitable for learning, exploration, and personal use. For mission-critical pipelines, we recommend Airflow or dbt.
+FlowFrame is in **active development**. It's suitable for learning, exploration, and personal use. For mission-critical pipelines, we recommend Airflow or dbt.
 
 ### Can I use FlowFrame at work?
 
-Yes! The MIT license allows commercial use. However, note the [security disclaimers](/SECURITY.md) about AI-generated code.
+Yes! The MIT license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
 
 ## Installation & Setup
 
@@ -43,7 +43,7 @@ Yes! FlowFrame works on Windows, macOS, and Linux.
 
 ### Can I deploy FlowFrame to the cloud?
 
-Yes, but it's designed for local use. Cloud deployment is on the [roadmap](/roadmap).
+FlowFrame is designed for local use. Cloud deployment is not officially supported.
 
 ### How do I uninstall FlowFrame?
 
@@ -61,7 +61,7 @@ No! FlowFrame is designed for non-programmers. The visual editor guides you thro
 
 ### Can I load data from a database?
 
-Not in v0.1. FlowFrame supports CSV, Excel, and Parquet files. Database support is planned.
+FlowFrame currently supports CSV, Excel, and Parquet files. Loading from a database is not supported.
 
 ### What's the maximum dataset size?
 
@@ -69,7 +69,7 @@ FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact l
 
 ### Can I schedule flows to run automatically?
 
-Not yet. v0.2 will add basic scheduling. For production workflows, check out [Airflow](https://airflow.apache.org/).
+Not from within FlowFrame. For scheduled production workflows, export the Python code and run it with your own scheduler, or use [Airflow](https://airflow.apache.org/).
 
 ### Can I run flows via command line?
 
@@ -79,7 +79,7 @@ You can export flows as Python code and run them with Python:
 python my_flow.py
 ```
 
-Direct CLI support is planned for v0.3.
+There is no dedicated FlowFrame CLI.
 
 ## Data & Privacy
 
@@ -103,24 +103,24 @@ By default, in a local SQLite database (`flowframe.db`). You can configure Postg
 
 ### What transformations are available?
 
-25+ transformations including:
-- Cleaning: drop columns, fill nulls, remove duplicates, filter rows
-- Transform: group by, aggregate, join, pivot, union
-- Reshape: select columns, sort, calculate columns
+16 transformation nodes plus file input/output, including:
+
+- Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, change types, replace values, string ops, sort, limit
+- Transform: calculated columns, group by + aggregate, join, union/concat
 
 [See full list →](/transformations/overview)
 
 ### Can I create custom transformations?
 
-Not yet in the UI, but you can extend the backend code. Custom node support is planned for v1.0.
+Not yet in the UI, but you can extend the backend code by adding a transformation to the engine.
 
 ### Can I join data from multiple sources?
 
-You can join two datasets within a flow. Multi-table joins are coming soon.
+A join node combines two datasets at a time. Chain multiple join nodes for more.
 
 ### Can I export as formats other than Python?
 
-Currently only Python. SQL export is planned for v1.0.
+FlowFrame exports Python (pandas) code.
 
 ### Does FlowFrame support streaming data?
 
@@ -131,6 +131,7 @@ No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
 ### My changes aren't showing up
 
 Try:
+
 1. Hard refresh your browser: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (macOS)
 2. Restart the frontend dev server
 3. Restart the backend server
@@ -138,6 +139,7 @@ Try:
 ### Database connection fails
 
 Check:
+
 1. `DATABASE_URL` in your `.env` file
 2. PostgreSQL is running (if using it)
 3. Migrations ran: `alembic upgrade head`
@@ -173,6 +175,7 @@ npm run dev -- --port 3000
 ### How do I report a bug?
 
 [Open an issue on GitHub](https://github.com/rodrigo-arenas/FlowFrame/issues) with:
+
 - What you expected to happen
 - What actually happened
 - Steps to reproduce
@@ -185,6 +188,7 @@ npm run dev -- --port 3000
 ### Can I contribute code?
 
 Yes! See [Contributing Guide](../CONTRIBUTING.md) for:
+
 - How to set up development environment
 - Code standards
 - Testing expectations

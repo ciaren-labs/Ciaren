@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,22 +8,26 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import datasets, flows, runs, transformations
 from app.core.config import get_settings
+from app.core.database import init_db
 from app.core.exceptions import (
     DatasetParseError,
     FileTooLargeError,
     NotFoundError,
     UnsupportedFileTypeError,
+    ValidationError,
 )
 from app.core.logging import setup_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     setup_logging(settings.ENVIRONMENT)
 
     for subdir in ("uploads", "outputs", "previews"):
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
+
+    await init_db()
 
     yield
 
@@ -61,6 +66,10 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(DatasetParseError)
     async def parse_error_handler(request: Request, exc: DatasetParseError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(ValidationError)
+    async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])

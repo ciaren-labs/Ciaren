@@ -5,6 +5,15 @@ class NotFoundError(Exception):
         super().__init__(f"{resource} '{resource_id}' not found")
 
 
+class ValidationError(Exception):
+    """Raised when a request payload is structurally valid but semantically wrong
+    (e.g. an unknown transformation type or an invalid node config)."""
+
+    def __init__(self, detail: str) -> None:
+        self.detail = detail
+        super().__init__(detail)
+
+
 class UnsupportedFileTypeError(Exception):
     ALLOWED = (".csv", ".xlsx", ".xls", ".parquet")
 

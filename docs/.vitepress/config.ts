@@ -32,11 +32,6 @@ export default defineConfig({
         activeMatch: '/guide/',
       },
       {
-        text: 'Features',
-        link: '/features/datasets',
-        activeMatch: '/features/',
-      },
-      {
         text: 'Transformations',
         link: '/transformations/overview',
         activeMatch: '/transformations/',
@@ -77,54 +72,10 @@ export default defineConfig({
         },
       ],
 
-      '/features/': [
-        {
-          text: 'Core Features',
-          items: [
-            { text: 'Datasets', link: '/features/datasets' },
-            { text: 'Flows', link: '/features/flows' },
-            { text: 'Live Preview', link: '/features/preview' },
-            { text: 'Code Export', link: '/features/export' },
-            { text: 'Runs & History', link: '/features/runs' },
-          ],
-        },
-      ],
-
       '/transformations/': [
         {
           text: 'Reference',
           items: [{ text: 'All Transformations', link: '/transformations/overview' }],
-        },
-        {
-          text: 'Cleaning',
-          items: [
-            { text: 'Drop Columns', link: '/transformations/cleaning/drop-columns' },
-            { text: 'Rename Columns', link: '/transformations/cleaning/rename-columns' },
-            { text: 'Filter Rows', link: '/transformations/cleaning/filter-rows' },
-            { text: 'Drop Nulls', link: '/transformations/cleaning/drop-nulls' },
-            { text: 'Fill Nulls', link: '/transformations/cleaning/fill-nulls' },
-            { text: 'Remove Duplicates', link: '/transformations/cleaning/remove-duplicates' },
-            { text: 'Change Data Types', link: '/transformations/cleaning/change-types' },
-            { text: 'Sort', link: '/transformations/cleaning/sort' },
-          ],
-        },
-        {
-          text: 'Transform',
-          items: [
-            { text: 'Select Columns', link: '/transformations/transform/select-columns' },
-            { text: 'Calculated Column', link: '/transformations/transform/calculated-column' },
-            { text: 'Group & Aggregate', link: '/transformations/transform/group-aggregate' },
-            { text: 'Join', link: '/transformations/transform/join' },
-            { text: 'Union', link: '/transformations/transform/union' },
-          ],
-        },
-        {
-          text: 'Input/Output',
-          items: [
-            { text: 'CSV Input', link: '/transformations/io/csv-input' },
-            { text: 'Excel Input', link: '/transformations/io/excel-input' },
-            { text: 'Parquet Input', link: '/transformations/io/parquet-input' },
-          ],
         },
       ],
 
@@ -145,19 +96,6 @@ export default defineConfig({
           text: 'API Reference',
           items: [
             { text: 'REST API', link: '/api/rest-api' },
-            { text: 'Error Codes', link: '/api/errors' },
-          ],
-        },
-      ],
-
-      '/advanced/': [
-        {
-          text: 'Advanced Topics',
-          items: [
-            { text: 'Custom Nodes', link: '/advanced/custom-nodes' },
-            { text: 'Deployment', link: '/advanced/deployment' },
-            { text: 'Performance', link: '/advanced/performance' },
-            { text: 'Architecture', link: '/advanced/architecture' },
           ],
         },
       ],
