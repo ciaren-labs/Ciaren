@@ -116,8 +116,18 @@ Graph JSON is React Flow-compatible (`nodes` with `id/type/position/data.config`
 `edges` with `id/source/target`).
 
 The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE`); a run
-may override it per request. The synchronous executor runs in a worker thread
-(`asyncio.to_thread`) so it never blocks the event loop.
+may override it per request. The synchronous executor runs off the event loop so
+it never blocks: `EXECUTION_MODE` selects a worker thread (`thread`, default) or
+a `ProcessPoolExecutor` (`process`, true multi-core; see
+`app/engine/process_pool.py`). Only picklable args cross the process boundary —
+the DB session always stays in the parent.
+
+## Running
+
+`flowframe serve` (the `flowframe` console script, `app/cli.py`) boots the API
+and the background scheduler in a single process — no broker, no extra services.
+Flags: `--host/--port/--reload`, `--db-url` (overrides `DATABASE_URL`), and
+`--no-scheduler`.
 
 ## Scheduling
 

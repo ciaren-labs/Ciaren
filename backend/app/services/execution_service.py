@@ -11,11 +11,13 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor
+from app.engine.process_pool import get_process_pool, run_graph_in_process
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
 
 _OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
+_EXECUTION_MODES = ("thread", "process")
 
 
 class ExecutionService:
@@ -42,6 +44,13 @@ class ExecutionService:
                 f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}."
             )
 
+        execution_mode = self.settings.EXECUTION_MODE
+        if execution_mode not in _EXECUTION_MODES:
+            raise ValidationError(
+                f"Unknown execution mode '{execution_mode}'. "
+                f"Allowed: {', '.join(_EXECUTION_MODES)}."
+            )
+
         run = FlowRun(
             flow_id=flow_id,
             input_dataset_id=data.input_dataset_id,
@@ -65,17 +74,30 @@ class ExecutionService:
 
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
-            # The executor is synchronous (pandas/polars compute); offload it to a
-            # worker thread so it never blocks the event loop — keeping the API
-            # responsive while a manual or scheduled run is in flight. It takes no
-            # DB session, so running it off-loop is safe.
-            result = await asyncio.to_thread(
-                FlowExecutor().run_with_results,
-                flow.graph_json,
-                dataset_paths,
-                output_dir,
-                engine_name=engine,
-            )
+            # The executor is synchronous (pandas/polars compute); offload it off
+            # the event loop so it never blocks — keeping the API responsive while
+            # a manual or scheduled run is in flight. It takes no DB session, so
+            # running it off-loop (in a thread or a separate process) is safe.
+            if execution_mode == "process":
+                # True multi-core parallelism: the GIL is not shared across
+                # processes. Only the picklable compute crosses the boundary.
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(
+                    get_process_pool(),
+                    run_graph_in_process,
+                    flow.graph_json,
+                    dataset_paths,
+                    output_dir,
+                    engine,
+                )
+            else:
+                result = await asyncio.to_thread(
+                    FlowExecutor().run_with_results,
+                    flow.graph_json,
+                    dataset_paths,
+                    output_dir,
+                    engine_name=engine,
+                )
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:
