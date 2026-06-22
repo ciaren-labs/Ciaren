@@ -1,0 +1,26 @@
+{
+  "name": "flowframe-docs",
+  "version": "0.1.0",
+  "description": "User-facing documentation for FlowFrame ETL builder",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "search:build": "node ./scripts/build-search.js",
+    "lint": "markdownlint '**/*.md' --ignore node_modules",
+    "format": "prettier --write '**/*.md' --prose-wrap always"
+  },
+  "dependencies": {
+    "vue": "^3.4.19"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vitepress": "^1.1.4",
+    "typescript": "^5.4.5",
+    "markdownlint-cli": "^0.39.0",
+    "prettier": "^3.2.5",
+    "vite": "^5.1.1"
+  }
+}

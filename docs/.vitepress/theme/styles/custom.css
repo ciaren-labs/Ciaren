@@ -1,0 +1,217 @@
+/**
+ * Custom styles for FlowFrame documentation
+ */
+
+:root {
+  /* Custom brand colors */
+  --ff-primary: #3c3c3d;
+  --ff-primary-light: #535355;
+  --ff-success: #18794f;
+  --ff-warning: #d5a021;
+  --ff-danger: #c5222b;
+  --ff-info: #0969da;
+}
+
+/* Prose customization */
+:root {
+  --vp-prose-code-bg: rgba(60, 60, 61, 0.08);
+  --vp-prose-code-color: var(--vp-c-brand);
+  --vp-prose-code-font-weight: 500;
+}
+
+/* Code block styling */
+.dark {
+  --vp-code-bg: #010409;
+  --vp-code-color: #c9d1d9;
+}
+
+/* Custom callouts */
+.custom-block {
+  padding: 12px 16px;
+  border-left: 4px solid;
+  border-radius: 4px;
+  margin: 16px 0;
+}
+
+.custom-block.info {
+  border-color: var(--vp-c-blue);
+  background-color: var(--vp-c-blue-lighter);
+  color: var(--vp-c-text-1);
+}
+
+.custom-block.tip {
+  border-color: var(--vp-c-green);
+  background-color: var(--vp-c-green-lighter);
+  color: var(--vp-c-text-1);
+}
+
+.custom-block.warning {
+  border-color: var(--vp-c-yellow);
+  background-color: var(--vp-c-yellow-lighter);
+  color: var(--vp-c-text-1);
+}
+
+.custom-block.danger {
+  border-color: var(--vp-c-red);
+  background-color: var(--vp-c-red-lighter);
+  color: var(--vp-c-text-1);
+}
+
+.dark .custom-block.info {
+  background-color: rgba(13, 110, 253, 0.1);
+}
+
+.dark .custom-block.tip {
+  background-color: rgba(24, 121, 79, 0.1);
+}
+
+.dark .custom-block.warning {
+  background-color: rgba(213, 160, 33, 0.1);
+}
+
+.dark .custom-block.danger {
+  background-color: rgba(197, 34, 43, 0.1);
+}
+
+/* Table styling */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+table th,
+table td {
+  border: 1px solid var(--vp-c-border);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+table th {
+  background-color: var(--vp-c-bg-soft);
+  font-weight: 600;
+}
+
+.dark table th {
+  background-color: var(--vp-c-bg-mute);
+}
+
+/* Link styling */
+a {
+  color: var(--vp-c-brand);
+  text-decoration: none;
+  transition: color var(--vp-transition-duration-base);
+}
+
+a:hover {
+  color: var(--vp-c-brand-light);
+}
+
+/* Screenshot/image styling */
+img {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  height: auto;
+}
+
+.dark img {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Feature grid (for index page) */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin: 40px 0;
+}
+
+.feature-card {
+  padding: 24px;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 12px;
+  transition: all var(--vp-transition-duration-base);
+}
+
+.feature-card:hover {
+  border-color: var(--vp-c-brand);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.dark .feature-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.feature-card h3 {
+  margin: 0 0 12px 0;
+  color: var(--vp-c-brand);
+}
+
+/* Hero section */
+.hero {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 48px;
+  line-height: 1.2;
+  margin: 0 0 16px 0;
+}
+
+.hero p {
+  font-size: 18px;
+  color: var(--vp-c-text-2);
+  margin: 0 0 32px 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 32px;
+  }
+
+  .hero p {
+    font-size: 16px;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Highlight for important content */
+.highlight {
+  background-color: var(--vp-c-highlight-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+/* Badge styling */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+.badge.new {
+  background-color: var(--vp-c-green-lighter);
+  color: var(--vp-c-green);
+}
+
+.badge.beta {
+  background-color: var(--vp-c-yellow-lighter);
+  color: var(--vp-c-yellow);
+}
+
+.badge.experimental {
+  background-color: var(--vp-c-blue-lighter);
+  color: var(--vp-c-blue);
+}
