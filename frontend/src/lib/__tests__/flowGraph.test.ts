@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeNodeColumns,
   hasCycle,
+  hasReadyInput,
   isInputType,
   topologicalOrder,
   wouldCreateCycle,
@@ -15,6 +16,9 @@ function dataset(id: string, cols: string[], source: Dataset["source_type"] = "c
     id,
     name: `${id}.csv`,
     source_type: source,
+    dataset_kind: "input",
+    is_disabled: false,
+    project_id: null,
     latest_version: 1,
     version_count: 1,
     column_schema: cols.map((name) => ({ name, type: "string" })),
@@ -38,6 +42,24 @@ describe("isInputType", () => {
     expect(isInputType("excelInput")).toBe(true);
     expect(isInputType("dropColumns")).toBe(false);
     expect(isInputType(undefined)).toBe(false);
+  });
+});
+
+describe("hasReadyInput", () => {
+  it("is false with no nodes", () => {
+    expect(hasReadyInput([])).toBe(false);
+  });
+
+  it("is false when an input node has no dataset chosen", () => {
+    expect(hasReadyInput([node("in", "csvInput", { dataset_id: "" })])).toBe(false);
+  });
+
+  it("is false when only non-input nodes exist", () => {
+    expect(hasReadyInput([node("d", "dropColumns", { columns: [] })])).toBe(false);
+  });
+
+  it("is true once an input node has a dataset", () => {
+    expect(hasReadyInput([node("in", "csvInput", { dataset_id: "d1" })])).toBe(true);
   });
 });
 
@@ -127,6 +149,35 @@ describe("computeNodeColumns", () => {
     ];
     const cols = computeNodeColumns(nodes, [edge("in", "calc")], datasets);
     expect(cols.get("calc")?.output).toContain("total");
+  });
+
+  it("adds the bin column to the output schema", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("bin", "binColumn", { column: "age", new_column: "age_bucket", bins: 3 }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "bin")], datasets);
+    expect(cols.get("bin")?.output).toContain("age_bucket");
+  });
+
+  it("adds extracted date-part columns", () => {
+    const ds = [dataset("d1", ["when"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("ex", "extractDateParts", { column: "when", parts: ["year", "month"] }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "ex")], ds);
+    expect(cols.get("ex")?.output).toEqual(["when", "when_year", "when_month"]);
+  });
+
+  it("reshapes columns for unpivot", () => {
+    const ds = [dataset("d1", ["id", "jan", "feb"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("u", "unpivot", { id_vars: ["id"], var_name: "month", value_name: "amount" }),
+    ];
+    const cols = computeNodeColumns(nodes, [edge("in", "u")], ds);
+    expect(cols.get("u")?.output).toEqual(["id", "month", "amount"]);
   });
 
   it("unions the two sides of a join", () => {

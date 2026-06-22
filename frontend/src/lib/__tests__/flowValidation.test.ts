@@ -12,6 +12,9 @@ function dataset(
     id,
     name: `${id}`,
     source_type: source,
+    dataset_kind: "input",
+    is_disabled: false,
+    project_id: null,
     latest_version: latestVersion,
     version_count: latestVersion,
     column_schema: [{ name: "a", type: "string" }],
@@ -47,7 +50,7 @@ describe("validateFlow", () => {
   it("accepts a valid csv input -> output pipeline", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1" }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [csvDs]);
     expect(v.errors).toEqual([]);
@@ -59,7 +62,7 @@ describe("validateFlow", () => {
   it("rejects an Excel input node pointed at a Parquet dataset", () => {
     const nodes = [
       node("in", "excelInput", { dataset_id: "pq1" }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [parquetDs]);
     expect(codes(v.errors)).toContain("DATASET_TYPE_MISMATCH");
@@ -70,7 +73,7 @@ describe("validateFlow", () => {
     const ds = dataset("csv1", "csv", 2); // latest = v2
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1", dataset_version: 5 }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [ds]);
     expect(codes(v.errors)).toContain("VERSION_MISSING");
@@ -81,7 +84,7 @@ describe("validateFlow", () => {
     const ds = dataset("csv1", "csv", 3); // latest = v3
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1", dataset_version: 1 }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [ds]);
     expect(v.warnings.map((w) => w.code)).toContain("VERSION_OUTDATED");
@@ -92,7 +95,7 @@ describe("validateFlow", () => {
     const ds = dataset("csv1", "csv", 2);
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1", dataset_version: 2 }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [ds]);
     expect(v.errors).toEqual([]);
@@ -102,7 +105,7 @@ describe("validateFlow", () => {
   it("flags a missing dataset reference", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "gone" }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [csvDs]);
     expect(codes(v.errors)).toContain("DATASET_MISSING");
@@ -123,7 +126,7 @@ describe("validateFlow", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1" }),
       node("drop", "dropColumns", { columns: ["a"] }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     // drop has no incoming edge.
     const v = validateFlow(nodes, [edge("drop", "out")], [csvDs]);
@@ -134,7 +137,7 @@ describe("validateFlow", () => {
     const nodes = [
       node("l", "csvInput", { dataset_id: "csv1" }),
       node("j", "join", { on: "a", how: "inner" }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("l", "j", "left"), edge("j", "out")], [csvDs]);
     const inputMissing = v.errors.filter((e) => e.code === "INPUT_MISSING");
@@ -145,7 +148,7 @@ describe("validateFlow", () => {
     const nodes = [
       node("a", "dropColumns", { columns: ["a"] }),
       node("b", "dropColumns", { columns: ["a"] }),
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const edges = [edge("a", "b"), edge("b", "a"), edge("b", "out")];
     const v = validateFlow(nodes, edges, [csvDs]);
@@ -155,7 +158,7 @@ describe("validateFlow", () => {
   it("flags invalid node config", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "" }), // empty -> zod error
-      node("out", "csvOutput", { path: "" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
     ];
     const v = validateFlow(nodes, [edge("in", "out")], [csvDs]);
     expect(codes(v.errors)).toContain("CONFIG_INVALID");

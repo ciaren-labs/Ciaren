@@ -2,15 +2,21 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import get_settings
 from app.core.database import Base
 
-# Import all models so Alembic can detect them
-import app.db.models.flow  # noqa: F401
-import app.db.models.dataset  # noqa: F401
-import app.db.models.run  # noqa: F401
+# Import all models so Alembic can detect them.
+from app.db.models import (  # noqa: F401
+    dataset,
+    dataset_version,
+    flow,
+    project,
+    run,
+    schedule,
+)
 
 config = context.config
 if config.config_file_name is not None:
@@ -26,13 +32,20 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        # SQLite cannot ALTER most columns in place; batch mode rebuilds the
+        # table so the same migrations run on SQLite, PostgreSQL, and MySQL.
+        render_as_batch=url.startswith("sqlite"),
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+def do_run_migrations(connection: Connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=connection.dialect.name == "sqlite",
+    )
     with context.begin_transaction():
         context.run_migrations()
 

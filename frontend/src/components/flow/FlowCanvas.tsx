@@ -5,24 +5,23 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  Panel,
   addEdge,
+  useReactFlow,
   type Connection,
   type Edge,
   type IsValidConnection,
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
+import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
-import { getNodeTypeDef, type NodeCategory } from "@/lib/nodeCatalog";
-import { wouldCreateCycle } from "@/lib/flowGraph";
-
-const MINIMAP_COLORS: Record<NodeCategory, string> = {
-  input: "#10b981",
-  clean: "#0ea5e9",
-  transform: "#8b5cf6",
-  output: "#f59e0b",
-};
+import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { hasReadyInput, isInputType, wouldCreateCycle } from "@/lib/flowGraph";
+import { createFlowNode } from "@/lib/createNode";
+import { autoLayout } from "@/lib/autoLayout";
 
 const defaultEdgeOptions = {
   type: "smoothstep" as const,
@@ -39,12 +38,13 @@ export function FlowCanvas() {
   const onNodesChange = useFlowEditorStore((s) => s.onNodesChange);
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const setEdges = useFlowEditorStore((s) => s.setEdges);
+  const setNodes = useFlowEditorStore((s) => s.setNodes);
+  const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
+  const { screenToFlowPosition, fitView } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      // Enforce handle topology: a single-input target can only have one
-      // incoming edge per handle; join uses left/right; concatRows allows many.
       const targetDef = getNodeTypeDef(
         nodes.find((n) => n.id === connection.target)?.type ?? "",
       );
@@ -69,9 +69,6 @@ export function FlowCanvas() {
     [edges, nodes, setEdges],
   );
 
-  // Guard which connections are allowed. Fan-out (one source → many targets)
-  // is intentionally permitted; self-loops, cycles, duplicates, and edges into
-  // input nodes / out of output nodes are rejected.
   const isValidConnection = useCallback<IsValidConnection>(
     (conn) => {
       if (!conn.source || !conn.target || conn.source === conn.target) return false;
@@ -95,10 +92,34 @@ export function FlowCanvas() {
     [nodes, edges],
   );
 
-  const minimapColor = (node: Node) => {
-    const cat = getNodeTypeDef(node.type ?? "")?.category;
-    return cat ? MINIMAP_COLORS[cat] : "#94a3b8";
-  };
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const type = event.dataTransfer.getData(NODE_DND_MIME);
+      const def = getNodeTypeDef(type);
+      if (!def) return;
+      if (!isInputType(def.type) && !hasReadyInput(nodes)) return;
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      addNode(createFlowNode(def, position));
+    },
+    [nodes, screenToFlowPosition, addNode],
+  );
+
+  const handleAutoLayout = useCallback(() => {
+    const laid = autoLayout(nodes, edges);
+    setNodes(laid);
+    setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
+  }, [nodes, edges, setNodes, fitView]);
+
+  const minimapColor = (_node: Node) => "#a78bfa";
 
   return (
     <div className="canvas-surface h-full w-full">
@@ -113,7 +134,10 @@ export function FlowCanvas() {
         isValidConnection={isValidConnection}
         onNodeClick={(_, node) => selectNode(node.id)}
         onPaneClick={() => selectNode(null)}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         fitView
+        fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#cbd5e1" />
@@ -124,6 +148,16 @@ export function FlowCanvas() {
           nodeColor={minimapColor}
           className="!rounded-lg !border !border-border"
         />
+        <Panel position="top-right">
+          <button
+            onClick={handleAutoLayout}
+            title="Auto-arrange nodes"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-accent transition-colors"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Auto-arrange
+          </button>
+        </Panel>
       </ReactFlow>
     </div>
   );

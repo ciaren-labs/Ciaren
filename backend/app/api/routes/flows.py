@@ -8,8 +8,10 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[FlowRead])
-async def list_flows(service: FlowServiceDep) -> list[FlowRead]:
-    return await service.list_all()
+async def list_flows(
+    service: FlowServiceDep, project_id: str | None = None
+) -> list[FlowRead]:
+    return await service.list_all(project_id)
 
 
 @router.post("", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
@@ -43,5 +45,5 @@ async def preview_flow(
 async def export_flow_python(
     flow_id: str, service: CodegenServiceDep
 ) -> CodeExportResponse:
-    code = await service.export_python(flow_id)
-    return CodeExportResponse(code=code)
+    code = await service.export(flow_id)
+    return CodeExportResponse(code=code["pandas"], polars=code["polars"])

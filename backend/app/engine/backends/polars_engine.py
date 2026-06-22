@@ -49,8 +49,9 @@ class PolarsEngine:
         if source_type == "parquet":
             return pl.read_parquet(path)
         if source_type == "excel":
-            # Route through pandas+openpyxl to avoid an extra optional dep.
-            return pl.from_pandas(pd.read_excel(path))
+            # Native polars read (via openpyxl, already a dependency) so Excel gets
+            # the same type inference as the CSV/Parquet paths — not pandas'.
+            return pl.read_excel(path, engine="openpyxl")
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pl.DataFrame, path: str, source_type: str) -> None:
@@ -59,7 +60,7 @@ class PolarsEngine:
         elif source_type == "parquet":
             df.write_parquet(path)
         elif source_type == "excel":
-            df.to_pandas().to_excel(path, index=False)
+            df.write_excel(path)
         else:
             raise ValueError(f"Unsupported source_type: {source_type!r}")
 
@@ -104,6 +105,11 @@ class PolarsEngine:
                 expr = col.cast(pl.Utf8).str.starts_with(str(value))
             case "endswith":
                 expr = col.cast(pl.Utf8).str.ends_with(str(value))
+            case "between":
+                low, high = value
+                expr = col.is_between(low, high)
+            case "in":
+                expr = col.is_in(list(value))
             case "isnull":
                 expr = col.is_null()
             case "notnull":
@@ -112,13 +118,49 @@ class PolarsEngine:
                 raise ValueError(f"Unknown filter operator: {operator!r}")
         return df.filter(expr)
 
+    # Strategies polars' fill_null accepts directly (rest are computed manually).
+    _FILL_STRATEGY = {
+        "mean": "mean",
+        "min": "min",
+        "max": "max",
+        "zero": "zero",
+        "ffill": "forward",
+        "bfill": "backward",
+    }
+
     def fill_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, value: Any
+        self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any
     ) -> pl.DataFrame:
         targets = columns or df.columns
-        return df.with_columns(pl.col(targets).fill_null(value))
+        exprs = []
+        for col_name in targets:
+            col = pl.col(col_name)
+            if strategy == "constant":
+                col_dtype = df[col_name].dtype
+                try:
+                    typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
+                    exprs.append(col.fill_null(typed_value))
+                except Exception:
+                    exprs.append(col)
+            elif strategy in self._FILL_STRATEGY:
+                exprs.append(
+                    col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy]))
+                )
+            elif strategy == "median":
+                exprs.append(col.fill_null(df[col_name].median()))
+            elif strategy == "mode":
+                modes = df[col_name].drop_nulls().mode()
+                exprs.append(col.fill_null(modes[0]) if len(modes) else col)
+            else:
+                raise ValueError(f"Unknown fill strategy: {strategy!r}")
+        return df.with_columns(exprs)
 
-    def drop_nulls(self, df: pl.DataFrame, columns: list[str] | None) -> pl.DataFrame:
+    def drop_nulls(
+        self, df: pl.DataFrame, columns: list[str] | None, how: str = "any"
+    ) -> pl.DataFrame:
+        if how == "all":
+            cols = columns or df.columns
+            return df.filter(~pl.all_horizontal([pl.col(c).is_null() for c in cols]))
         return df.drop_nulls(subset=columns or None)
 
     def drop_duplicates(
@@ -131,22 +173,34 @@ class PolarsEngine:
         )
         return df.unique(subset=subset or None, keep=polars_keep, maintain_order=True)
 
-    def cast_column(self, df: pl.DataFrame, column: str, dtype: str) -> pl.DataFrame:
+    def cast_column(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        dtype: str,
+        fmt: str | None = None,
+        errors: str = "raise",
+    ) -> pl.DataFrame:
+        strict = errors != "coerce"
         if dtype == "datetime":
             return df.with_columns(
-                pl.col(column).str.to_datetime(strict=False)
+                pl.col(column).str.to_datetime(format=fmt, strict=strict)
                 if df.schema[column] == pl.Utf8
-                else pl.col(column).cast(pl.Datetime)
+                else pl.col(column).cast(pl.Datetime, strict=strict)
             )
         if dtype not in _DTYPE_MAP:
             raise ValueError(f"Unknown dtype: {dtype!r}")
-        return df.with_columns(pl.col(column).cast(_DTYPE_MAP[dtype]))
+        return df.with_columns(pl.col(column).cast(_DTYPE_MAP[dtype], strict=strict))
 
     def sort_rows(
-        self, df: pl.DataFrame, columns: list[str], ascending: list[bool]
+        self,
+        df: pl.DataFrame,
+        columns: list[str],
+        ascending: list[bool],
+        na_position: str = "last",
     ) -> pl.DataFrame:
         descending = [not a for a in ascending]
-        return df.sort(by=columns, descending=descending)
+        return df.sort(by=columns, descending=descending, nulls_last=na_position == "last")
 
     def select_columns(self, df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return df.select(columns)
@@ -166,34 +220,192 @@ class PolarsEngine:
         return df.group_by(by, maintain_order=True).agg(exprs)
 
     def join(
-        self, left: pl.DataFrame, right: pl.DataFrame, on: list[str], how: str
+        self,
+        left: pl.DataFrame,
+        right: pl.DataFrame,
+        on: list[str] | None,
+        how: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        suffixes: tuple[str, str] = ("_x", "_y"),
     ) -> pl.DataFrame:
         if how not in _JOIN_HOW:
             raise ValueError(f"Unsupported join how: {how!r}")
-        return left.join(right, on=on, how=_JOIN_HOW[how])  # type: ignore[arg-type]
+        how_arg = cast(Any, _JOIN_HOW[how])
+        # polars takes a single suffix for overlapping right-side columns.
+        suffix = suffixes[1]
+        if left_on and right_on:
+            return left.join(
+                right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix
+            )
+        return left.join(right, on=on, how=how_arg, suffix=suffix)
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         return pl.concat(frames, how="vertical_relaxed")
 
-    def limit_rows(self, df: pl.DataFrame, n: int) -> pl.DataFrame:
-        return df.head(n)
+    def limit_rows(self, df: pl.DataFrame, n: int, offset: int = 0) -> pl.DataFrame:
+        return df.slice(offset, n)
 
     def replace_values(
-        self, df: pl.DataFrame, column: str, to_replace: Any, value: Any
+        self, df: pl.DataFrame, column: str, to_replace: Any, value: Any, regex: bool = False
     ) -> pl.DataFrame:
+        if regex:
+            return df.with_columns(
+                pl.col(column).cast(pl.Utf8).str.replace_all(str(to_replace), str(value))
+            )
         return df.with_columns(pl.col(column).replace(to_replace, value))
 
     def string_transform(
-        self, df: pl.DataFrame, column: str, operation: str
+        self,
+        df: pl.DataFrame,
+        column: str,
+        operation: str,
+        find: str | None = None,
+        replace_with: str | None = None,
+        width: int | None = None,
+        fill_char: str = " ",
+        side: str = "left",
     ) -> pl.DataFrame:
-        col = pl.col(column).cast(pl.Utf8).str
-        ops = {
-            "lower": col.to_lowercase,
-            "upper": col.to_uppercase,
-            "strip": col.strip_chars,
-            "title": col.to_titlecase,
-            "capitalize": col.to_titlecase,
-        }
-        if operation not in ops:
+        s = pl.col(column).cast(pl.Utf8).str
+        expr: pl.Expr
+        if operation == "lower":
+            expr = s.to_lowercase()
+        elif operation == "upper":
+            expr = s.to_uppercase()
+        elif operation == "strip":
+            expr = s.strip_chars()
+        elif operation in ("title", "capitalize"):
+            expr = s.to_titlecase()
+        elif operation == "len":
+            expr = s.len_chars()
+        elif operation == "replace":
+            expr = s.replace_all(str(find), str(replace_with), literal=True)
+        elif operation == "pad":
+            w = cast(int, width)
+            expr = s.pad_end(w, fill_char) if side == "right" else s.pad_start(w, fill_char)
+        else:
             raise ValueError(f"Unknown string operation: {operation!r}")
-        return df.with_columns(ops[operation]().alias(column))
+        return df.with_columns(expr.alias(column))
+
+    # -- New nodes (Phase 3) -------------------------------------------
+
+    def sample_rows(
+        self, df: pl.DataFrame, n: int | None, frac: float | None, seed: int | None
+    ) -> pl.DataFrame:
+        if frac is not None:
+            return df.sample(fraction=frac, seed=seed)
+        return df.sample(n=cast(int, n), seed=seed)
+
+    def remove_outliers(
+        self,
+        df: pl.DataFrame,
+        columns: list[str],
+        method: str,
+        action: str,
+        factor: float,
+        threshold: float,
+        lower: float,
+        upper: float,
+    ) -> pl.DataFrame:
+        clip_exprs: list[pl.Expr] = []
+        keep = pl.lit(True)
+        for col in columns:
+            series = df[col]
+            lo, hi = self._outlier_bounds(series, method, factor, threshold, lower, upper)
+            if action == "clip":
+                clip_exprs.append(pl.col(col).clip(lo, hi))
+            else:
+                keep = keep & (pl.col(col).is_between(lo, hi) | pl.col(col).is_null())
+        return df.with_columns(clip_exprs) if action == "clip" else df.filter(keep)
+
+    @staticmethod
+    def _outlier_bounds(
+        series: pl.Series,
+        method: str,
+        factor: float,
+        threshold: float,
+        lower: float,
+        upper: float,
+    ) -> tuple[float, float]:
+        if method == "iqr":
+            q1, q3 = series.quantile(0.25), series.quantile(0.75)
+            iqr = cast(float, q3) - cast(float, q1)
+            return cast(float, q1) - factor * iqr, cast(float, q3) + factor * iqr
+        if method == "zscore":
+            mean, std = cast(float, series.mean()), cast(float, series.std())
+            return mean - threshold * std, mean + threshold * std
+        if method == "percentile":
+            return cast(float, series.quantile(lower / 100)), cast(
+                float, series.quantile(upper / 100)
+            )
+        raise ValueError(f"Unknown outlier method: {method!r}")
+
+    def round_columns(
+        self, df: pl.DataFrame, columns: list[str], decimals: int
+    ) -> pl.DataFrame:
+        return df.with_columns([pl.col(c).round(decimals) for c in columns])
+
+    def bin_column(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        new_column: str,
+        method: str,
+        bins: int,
+        labels: list[str] | None,
+    ) -> pl.DataFrame:
+        if method == "quantile":
+            quantiles = [i / bins for i in range(1, bins)]
+            expr = pl.col(column).qcut(quantiles, labels=labels, allow_duplicates=True)
+        else:
+            lo = cast(float, df[column].min())
+            hi = cast(float, df[column].max())
+            step = (hi - lo) / bins
+            breaks = [lo + step * i for i in range(1, bins)]
+            expr = pl.col(column).cut(breaks, labels=labels)
+        return df.with_columns(expr.cast(pl.Utf8).alias(new_column))
+
+    def extract_date_parts(
+        self, df: pl.DataFrame, column: str, parts: list[str]
+    ) -> pl.DataFrame:
+        dt = (
+            pl.col(column).str.to_datetime(strict=False)
+            if df.schema[column] == pl.Utf8
+            else pl.col(column).cast(pl.Datetime, strict=False)
+        )
+        accessors = {
+            "year": dt.dt.year(),
+            "month": dt.dt.month(),
+            "day": dt.dt.day(),
+            "weekday": dt.dt.weekday(),
+            "hour": dt.dt.hour(),
+        }
+        return df.with_columns([accessors[p].alias(f"{column}_{p}") for p in parts])
+
+    def unpivot(
+        self,
+        df: pl.DataFrame,
+        id_vars: list[str],
+        value_vars: list[str] | None,
+        var_name: str,
+        value_name: str,
+    ) -> pl.DataFrame:
+        return df.unpivot(
+            index=id_vars or None,
+            on=value_vars or None,
+            variable_name=var_name,
+            value_name=value_name,
+        )
+
+    def pivot(
+        self,
+        df: pl.DataFrame,
+        index: list[str],
+        columns: str,
+        values: str,
+        aggfunc: str,
+    ) -> pl.DataFrame:
+        agg = "len" if aggfunc == "count" else aggfunc
+        return df.pivot(
+            on=columns, index=index, values=values, aggregate_function=cast(Any, agg)
+        )

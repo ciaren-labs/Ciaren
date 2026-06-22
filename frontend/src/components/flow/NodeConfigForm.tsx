@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { Dataset } from "@/lib/types";
 import { EXPRESSION_TEMPLATES } from "@/lib/nodeDocs";
 import {
   aggFunctions,
+  binMethods,
+  dateParts,
   dtypes,
+  fillStrategies,
   filterOperators,
   getConfigSchema,
   joinHows,
+  outlierActions,
+  outlierMethods,
   stringOperations,
 } from "@/lib/validators";
 import {
@@ -143,27 +149,60 @@ export function NodeConfigForm({
   switch (type) {
     case "dropNulls":
       return (
-        <Field
-          label="Subset (optional)"
-          hint="Leave empty to check all columns"
-          help="A row is dropped when any of these columns is null."
-          error={errors.subset}
-        >
-          <ColumnMultiSelect value={c.subset} columns={columns} onChange={(v) => set({ subset: v })} />
-        </Field>
+        <>
+          <Field
+            label="Subset (optional)"
+            hint="Leave empty to check all columns"
+            help="Which columns are checked for nulls."
+            error={errors.subset}
+          >
+            <ColumnMultiSelect value={c.subset} columns={columns} onChange={(v) => set({ subset: v })} />
+          </Field>
+          <Field label="Drop when" error={errors.how} help="Drop a row if ANY checked column is null, or only when ALL are null.">
+            <Select value={c.how ?? "any"} onChange={(e) => set({ how: e.target.value })}>
+              <option value="any">any value is null</option>
+              <option value="all">all values are null</option>
+            </Select>
+          </Field>
+        </>
       );
 
-    case "fillNulls":
+    case "fillNulls": {
+      const strategy = (c.strategy as string) ?? "constant";
       return (
         <>
-          <Field label="Fill value" error={errors.value} help="The value written into empty cells.">
-            <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+          <Field
+            label="Strategy"
+            error={errors.strategy}
+            help="How to fill empty cells: a constant value, or a computed statistic such as the column mean."
+          >
+            <Select value={strategy} onChange={(e) => set({ strategy: e.target.value })}>
+              {fillStrategies.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
           </Field>
-          <Field label="Columns (optional)" error={errors.columns} hint="Empty = all columns">
+          {strategy === "constant" && (
+            <Field label="Fill value" error={errors.value} help="The value written into empty cells.">
+              <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+            </Field>
+          )}
+          <Field
+            label="Columns (optional)"
+            error={errors.columns}
+            hint={
+              strategy === "mean" || strategy === "median"
+                ? "Empty = all numeric columns"
+                : "Empty = all columns"
+            }
+          >
             <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
           </Field>
         </>
       );
+    }
 
     case "dropColumns":
       return (
@@ -231,6 +270,8 @@ export function NodeConfigForm({
     case "filterRows": {
       const operator = c.operator ?? "==";
       const needsValue = !VALUELESS_OPERATORS.has(operator);
+      const isBetween = operator === "between";
+      const isIn = operator === "in";
       return (
         <>
           <Field label="Column" error={errors.column}>
@@ -246,8 +287,18 @@ export function NodeConfigForm({
             </Select>
           </Field>
           {needsValue && (
-            <Field label="Value" error={errors.value}>
+            <Field
+              label={isBetween ? "From (lower bound)" : "Value"}
+              error={errors.value}
+              hint={isIn ? "Comma-separated list, e.g. red, green, blue" : undefined}
+              help={isIn ? "Keeps rows whose value matches any item in the list." : undefined}
+            >
               <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+            </Field>
+          )}
+          {isBetween && (
+            <Field label="To (upper bound)" error={errors.value2} help="Rows are kept when the value is between the two bounds (inclusive).">
+              <Input value={c.value2 ?? ""} onChange={(e) => set({ value2: e.target.value })} />
             </Field>
           )}
         </>
@@ -269,43 +320,76 @@ export function NodeConfigForm({
               <option value="false">Descending</option>
             </Select>
           </Field>
+          <Field label="Nulls" error={errors.na_position} help="Whether missing values sort to the start or the end.">
+            <Select value={c.na_position ?? "last"} onChange={(e) => set({ na_position: e.target.value })}>
+              <option value="last">Nulls last</option>
+              <option value="first">Nulls first</option>
+            </Select>
+          </Field>
         </>
       );
 
-    case "castDtypes":
-      return (
-        <Field label="Casts" hint="column → type" error={errors.casts} help="Convert each column to the chosen data type.">
-          {columns.length ? (
-            <ColumnKeyedEditor
-              value={c.casts}
-              columns={columns}
-              onChange={(v) => set({ casts: v })}
-              defaultValue="string"
-              renderValue={(val, onValueChange) => (
-                <Select
-                  className="h-8 w-28"
-                  value={val || "string"}
-                  onChange={(e) => onValueChange(e.target.value)}
-                >
-                  {dtypes.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            />
-          ) : (
-            <DtypeEditor value={c.casts} columns={columns} onChange={(v) => set({ casts: v })} />
-          )}
-        </Field>
+    case "castDtypes": {
+      const hasDatetime = Object.values((c.casts ?? {}) as Record<string, string>).includes(
+        "datetime",
       );
+      return (
+        <>
+          <Field label="Casts" hint="column → type" error={errors.casts} help="Convert each column to the chosen data type.">
+            {columns.length ? (
+              <ColumnKeyedEditor
+                value={c.casts}
+                columns={columns}
+                onChange={(v) => set({ casts: v })}
+                defaultValue="string"
+                renderValue={(val, onValueChange) => (
+                  <Select
+                    className="h-8 w-28"
+                    value={val || "string"}
+                    onChange={(e) => onValueChange(e.target.value)}
+                  >
+                    {dtypes.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              />
+            ) : (
+              <DtypeEditor value={c.casts} columns={columns} onChange={(v) => set({ casts: v })} />
+            )}
+          </Field>
+          <Field label="On bad values" error={errors.errors} help="Raise an error, or coerce unparseable values to null.">
+            <Select value={c.errors ?? "raise"} onChange={(e) => set({ errors: e.target.value })}>
+              <option value="raise">Raise an error</option>
+              <option value="coerce">Set to null (coerce)</option>
+            </Select>
+          </Field>
+          {hasDatetime && (
+            <Field
+              label="Date format (optional)"
+              hint="e.g. %Y-%m-%d"
+              help="strptime format for datetime casts. Leave empty to auto-detect."
+              error={errors.format}
+            >
+              <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+            </Field>
+          )}
+        </>
+      );
+    }
 
     case "limitRows":
       return (
-        <Field label="Number of rows" error={errors.n} help="Keep only the first N rows.">
-          <Input type="number" value={c.n ?? 100} onChange={(e) => set({ n: Number(e.target.value) })} />
-        </Field>
+        <>
+          <Field label="Number of rows" error={errors.n} help="How many rows to keep.">
+            <Input type="number" value={c.n ?? 100} onChange={(e) => set({ n: Number(e.target.value) })} />
+          </Field>
+          <Field label="Offset (optional)" error={errors.offset} hint="Skip this many rows first" help="Rows to skip before keeping N — useful for paging.">
+            <Input type="number" value={c.offset ?? 0} onChange={(e) => set({ offset: Number(e.target.value) })} />
+          </Field>
+        </>
       );
 
     case "replaceValues":
@@ -314,32 +398,68 @@ export function NodeConfigForm({
           <Field label="Column" error={errors.column}>
             <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
-          <Field label="Replace" error={errors.to_replace} help="The exact value to look for.">
+          <Field label="Replace" error={errors.to_replace} help="The value (or regex pattern) to look for.">
             <Input value={c.to_replace ?? ""} onChange={(e) => set({ to_replace: e.target.value })} />
           </Field>
           <Field label="With" error={errors.value} help="The value to substitute in.">
             <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
           </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={!!c.regex}
+              onChange={(e) => set({ regex: e.target.checked })}
+            />
+            Treat “Replace” as a regular expression
+          </label>
         </>
       );
 
-    case "stringTransform":
+    case "stringTransform": {
+      const op = (c.operation as string) ?? "lower";
       return (
         <>
           <Field label="Column" error={errors.column}>
             <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
           <Field label="Operation" error={errors.operation} help="Text transformation applied to every value.">
-            <Select value={c.operation ?? "lower"} onChange={(e) => set({ operation: e.target.value })}>
-              {stringOperations.map((op) => (
-                <option key={op} value={op}>
-                  {op}
+            <Select value={op} onChange={(e) => set({ operation: e.target.value })}>
+              {stringOperations.map((o) => (
+                <option key={o} value={o}>
+                  {o}
                 </option>
               ))}
             </Select>
           </Field>
+          {op === "replace" && (
+            <>
+              <Field label="Find" error={errors.find} help="Substring to find (replaced literally).">
+                <Input value={c.find ?? ""} onChange={(e) => set({ find: e.target.value })} />
+              </Field>
+              <Field label="Replace with" error={errors.replace_with}>
+                <Input value={c.replace_with ?? ""} onChange={(e) => set({ replace_with: e.target.value })} />
+              </Field>
+            </>
+          )}
+          {op === "pad" && (
+            <>
+              <Field label="Target width" error={errors.width} help="Pad each value up to this many characters.">
+                <Input type="number" value={c.width ?? 1} onChange={(e) => set({ width: Number(e.target.value) })} />
+              </Field>
+              <Field label="Fill character" error={errors.fill_char}>
+                <Input value={c.fill_char ?? " "} maxLength={1} onChange={(e) => set({ fill_char: e.target.value })} />
+              </Field>
+              <Field label="Pad side" error={errors.side}>
+                <Select value={c.side ?? "left"} onChange={(e) => set({ side: e.target.value })}>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </Select>
+              </Field>
+            </>
+          )}
         </>
       );
+    }
 
     case "calculatedColumn":
       return (
@@ -418,16 +538,10 @@ export function NodeConfigForm({
         </>
       );
 
-    case "join":
+    case "join": {
+      const splitKeys = !!(c.left_on?.length || c.right_on?.length);
       return (
         <>
-          <Field label="Join on" error={errors.on} help="Column(s) that must match between the left and right inputs.">
-            <ColumnMultiSelect
-              value={Array.isArray(c.on) ? c.on : c.on ? [c.on] : []}
-              columns={columns}
-              onChange={(v) => set({ on: v })}
-            />
-          </Field>
           <Field label="How" error={errors.how} help="Which rows to keep when keys don't match on both sides.">
             <Select value={c.how ?? "inner"} onChange={(e) => set({ how: e.target.value })}>
               {joinHows.map((h) => (
@@ -437,8 +551,39 @@ export function NodeConfigForm({
               ))}
             </Select>
           </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={splitKeys}
+              onChange={(e) =>
+                e.target.checked
+                  ? set({ left_on: [], right_on: [], on: "" })
+                  : set({ left_on: [], right_on: [] })
+              }
+            />
+            Keys have different names on each side
+          </label>
+          {splitKeys ? (
+            <>
+              <Field label="Left key(s)" error={errors.left_on} help="Key column(s) from the left input.">
+                <ColumnMultiSelect value={c.left_on} columns={columns} onChange={(v) => set({ left_on: v })} />
+              </Field>
+              <Field label="Right key(s)" error={errors.right_on} help="Key column(s) from the right input, matched positionally to the left keys.">
+                <ColumnMultiSelect value={c.right_on} columns={columns} onChange={(v) => set({ right_on: v })} />
+              </Field>
+            </>
+          ) : (
+            <Field label="Join on" error={errors.on} help="Column(s) that must match between the left and right inputs.">
+              <ColumnMultiSelect
+                value={Array.isArray(c.on) ? c.on : c.on ? [c.on] : []}
+                columns={columns}
+                onChange={(v) => set({ on: v })}
+              />
+            </Field>
+          )}
         </>
       );
+    }
 
     case "concatRows":
       return (
@@ -448,17 +593,220 @@ export function NodeConfigForm({
         </p>
       );
 
+    case "sampleRows": {
+      const useFrac = c.frac != null && c.frac !== "";
+      return (
+        <>
+          <Field label="Sample by" help="Take a fixed number of rows, or a fraction of the table.">
+            <Select
+              value={useFrac ? "frac" : "n"}
+              onChange={(e) =>
+                e.target.value === "frac"
+                  ? set({ frac: 0.1, n: undefined })
+                  : set({ n: 100, frac: undefined })
+              }
+            >
+              <option value="n">Row count</option>
+              <option value="frac">Fraction</option>
+            </Select>
+          </Field>
+          {useFrac ? (
+            <Field label="Fraction" error={errors.frac} hint="0–1, e.g. 0.1 = 10%">
+              <Input type="number" step="0.01" value={c.frac ?? 0.1} onChange={(e) => set({ frac: Number(e.target.value) })} />
+            </Field>
+          ) : (
+            <Field label="Number of rows" error={errors.n}>
+              <Input type="number" value={c.n ?? 100} onChange={(e) => set({ n: Number(e.target.value) })} />
+            </Field>
+          )}
+          <Field label="Random seed (optional)" error={errors.seed} help="Set for reproducible samples across runs.">
+            <Input
+              type="number"
+              value={c.seed ?? ""}
+              onChange={(e) => set({ seed: e.target.value === "" ? null : Number(e.target.value) })}
+            />
+          </Field>
+        </>
+      );
+    }
+
+    case "removeOutliers": {
+      const method = (c.method as string) ?? "iqr";
+      return (
+        <>
+          <Field label="Columns" error={errors.columns} help="Numeric columns to check for outliers.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="Method" error={errors.method} help="IQR and z-score detect spread; percentile clips to a fixed range.">
+            <Select value={method} onChange={(e) => set({ method: e.target.value })}>
+              {outlierMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Action" error={errors.action} help="Drop offending rows, or clip values to the bounds.">
+            <Select value={c.action ?? "drop"} onChange={(e) => set({ action: e.target.value })}>
+              {outlierActions.map((a) => (
+                <option key={a} value={a}>
+                  {a === "drop" ? "Drop rows" : "Clip to bounds"}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {method === "iqr" && (
+            <Field label="IQR factor" error={errors.factor} hint="Bounds = Q1/Q3 ± factor × IQR (default 1.5)">
+              <Input type="number" step="0.1" value={c.factor ?? 1.5} onChange={(e) => set({ factor: Number(e.target.value) })} />
+            </Field>
+          )}
+          {method === "zscore" && (
+            <Field label="Z-score threshold" error={errors.threshold} hint="Standard deviations (default 3)">
+              <Input type="number" step="0.1" value={c.threshold ?? 3} onChange={(e) => set({ threshold: Number(e.target.value) })} />
+            </Field>
+          )}
+          {method === "percentile" && (
+            <>
+              <Field label="Lower percentile" error={errors.lower} hint="0–100">
+                <Input type="number" value={c.lower ?? 1} onChange={(e) => set({ lower: Number(e.target.value) })} />
+              </Field>
+              <Field label="Upper percentile" error={errors.upper} hint="0–100">
+                <Input type="number" value={c.upper ?? 99} onChange={(e) => set({ upper: Number(e.target.value) })} />
+              </Field>
+            </>
+          )}
+        </>
+      );
+    }
+
+    case "roundNumbers":
+      return (
+        <>
+          <Field label="Columns" error={errors.columns} help="Numeric columns to round.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="Decimals" error={errors.decimals} help="Number of decimal places (0 = whole numbers).">
+            <Input type="number" value={c.decimals ?? 0} onChange={(e) => set({ decimals: Number(e.target.value) })} />
+          </Field>
+        </>
+      );
+
+    case "binColumn":
+      return (
+        <>
+          <Field label="Column" error={errors.column} help="The numeric column to bucket.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field label="New column" error={errors.new_column} help="Name for the bucket label column that's added.">
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="bucket" />
+          </Field>
+          <Field label="Method" error={errors.method} help="Equal-width splits the value range; quantile makes equally-sized groups.">
+            <Select value={c.method ?? "equalwidth"} onChange={(e) => set({ method: e.target.value })}>
+              {binMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m === "equalwidth" ? "Equal width" : "Quantile"}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Number of bins" error={errors.bins}>
+            <Input type="number" value={c.bins ?? 4} onChange={(e) => set({ bins: Number(e.target.value) })} />
+          </Field>
+        </>
+      );
+
+    case "extractDateParts": {
+      const selected = (c.parts as string[]) ?? [];
+      const toggle = (p: string) =>
+        set({ parts: selected.includes(p) ? selected.filter((x) => x !== p) : [...selected, p] });
+      return (
+        <>
+          <Field label="Date column" error={errors.column} help="A datetime (or parseable date string) column.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field label="Parts to extract" error={errors.parts} help="Each chosen part becomes a new column (e.g. date_year).">
+            <div className="flex flex-wrap gap-1.5">
+              {dateParts.map((p) => {
+                const on = selected.includes(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => toggle(p)}
+                    className={cn(
+                      "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all",
+                      on
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted",
+                    )}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        </>
+      );
+    }
+
+    case "unpivot":
+      return (
+        <>
+          <Field label="Keep columns (id)" error={errors.id_vars} help="Identifier columns kept on every output row.">
+            <ColumnMultiSelect value={c.id_vars} columns={columns} onChange={(v) => set({ id_vars: v })} />
+          </Field>
+          <Field label="Unpivot columns (optional)" error={errors.value_vars} hint="Empty = all remaining columns" help="Columns folded into the key/value pair.">
+            <ColumnMultiSelect value={c.value_vars} columns={columns} onChange={(v) => set({ value_vars: v })} />
+          </Field>
+          <Field label="Variable column name" error={errors.var_name}>
+            <Input value={c.var_name ?? "variable"} onChange={(e) => set({ var_name: e.target.value })} />
+          </Field>
+          <Field label="Value column name" error={errors.value_name}>
+            <Input value={c.value_name ?? "value"} onChange={(e) => set({ value_name: e.target.value })} />
+          </Field>
+        </>
+      );
+
+    case "pivot":
+      return (
+        <>
+          <Field label="Index columns" error={errors.index} help="Row groups — these become the output's row identity.">
+            <ColumnMultiSelect value={c.index} columns={columns} onChange={(v) => set({ index: v })} />
+          </Field>
+          <Field label="Columns from" error={errors.columns} help="The column whose distinct values become new columns.">
+            <ColumnSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="Values from" error={errors.values} help="The column to aggregate into each cell.">
+            <ColumnSelect value={c.values} columns={columns} onChange={(v) => set({ values: v })} />
+          </Field>
+          <Field label="Aggregation" error={errors.aggfunc} help="How to combine values that fall in the same cell.">
+            <Select value={c.aggfunc ?? "sum"} onChange={(e) => set({ aggfunc: e.target.value })}>
+              {aggFunctions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </>
+      );
+
     case "csvOutput":
     case "excelOutput":
     case "parquetOutput":
       return (
         <Field
-          label="Output path (optional)"
-          hint="Leave empty to auto-generate"
-          help="Where the result file is written. Defaults to a generated path."
-          error={errors.path}
+          label="Dataset name"
+          hint="e.g. cleaned_sales"
+          help="The output is saved as a reusable dataset in your project under this name. Re-running adds a new version."
+          error={errors.dataset_name}
         >
-          <Input value={c.path ?? ""} onChange={(e) => set({ path: e.target.value })} />
+          <Input
+            value={c.dataset_name ?? ""}
+            onChange={(e) => set({ dataset_name: e.target.value })}
+            placeholder="my_output_dataset"
+          />
         </Field>
       );
 

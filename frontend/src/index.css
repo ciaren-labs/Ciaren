@@ -2,34 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * FlowFrame design tokens — a purple-based, minimalist system.
+ * See docs/guide/design-system.md for the documented palette and usage rules.
+ * All colours are HSL channels so they compose with Tailwind's `hsl(var(--x))`.
+ */
 @layer base {
   :root {
-    --background: 210 40% 99%;
-    --foreground: 222 47% 11%;
+    /* Surfaces */
+    --background: 270 40% 99%;
+    --foreground: 265 32% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 265 32% 12%;
 
-    --primary: 243 75% 59%; /* indigo-600 */
-    --primary-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 265 32% 12%;
 
-    --secondary: 214 32% 95%;
-    --secondary-foreground: 222 47% 18%;
+    /* Brand — purple */
+    --primary: 262 83% 58%; /* violet-600 */
+    --primary-foreground: 0 0% 100%;
 
-    --muted: 214 32% 95%;
-    --muted-foreground: 215 16% 47%;
+    --secondary: 270 30% 96%;
+    --secondary-foreground: 265 30% 22%;
 
-    --accent: 243 80% 96%;
-    --accent-foreground: 243 75% 40%;
+    --muted: 270 28% 96%;
+    --muted-foreground: 264 12% 46%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 266 85% 96%;
+    --accent-foreground: 262 72% 42%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 88%;
-    --ring: 243 75% 59%;
+    /* Status */
+    --success: 160 70% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 60% 16%;
+    --info: 215 85% 56%;
+    --info-foreground: 0 0% 100%;
+    --destructive: 351 75% 53%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.6rem;
+    /* Lines & focus */
+    --border: 270 24% 91%;
+    --input: 270 22% 88%;
+    --ring: 262 83% 58%;
+
+    /* Brand scale — for tints, gradients and node accents */
+    --brand-50: 270 70% 98%;
+    --brand-100: 269 70% 95%;
+    --brand-200: 268 72% 90%;
+    --brand-300: 266 74% 82%;
+    --brand-400: 264 78% 71%;
+    --brand-500: 262 83% 62%;
+    --brand-600: 262 83% 58%;
+    --brand-700: 263 70% 50%;
+    --brand-800: 263 67% 41%;
+    --brand-900: 264 60% 33%;
+
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 265 30% 8%;
+    --foreground: 270 30% 96%;
+
+    --card: 264 27% 11%;
+    --card-foreground: 270 30% 96%;
+
+    --popover: 264 27% 11%;
+    --popover-foreground: 270 30% 96%;
+
+    --primary: 263 84% 68%;
+    --primary-foreground: 264 40% 10%;
+
+    --secondary: 263 20% 18%;
+    --secondary-foreground: 270 30% 92%;
+
+    --muted: 263 18% 18%;
+    --muted-foreground: 264 14% 64%;
+
+    --accent: 263 30% 22%;
+    --accent-foreground: 266 80% 86%;
+
+    --success: 160 60% 46%;
+    --warning: 38 92% 56%;
+    --info: 215 85% 64%;
+    --destructive: 351 70% 60%;
+
+    --border: 263 20% 22%;
+    --input: 263 20% 24%;
+    --ring: 263 84% 68%;
   }
 
   * {
@@ -68,13 +130,38 @@
 @layer components {
   /* Soft tinted backdrop for the flow canvas (dots are drawn by React Flow). */
   .canvas-surface {
-    background-color: hsl(210 40% 98.5%);
+    background-color: hsl(266 40% 98%);
+    background-image: radial-gradient(
+      hsl(var(--brand-200) / 0.5) 1px,
+      transparent 0
+    );
+    background-size: 22px 22px;
+  }
+
+  /* Brand gradient used on hero surfaces and primary marketing chrome. */
+  .brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand-600)) 0%,
+      hsl(286 70% 55%) 100%
+    );
+  }
+
+  .brand-text-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand-600)) 0%,
+      hsl(286 70% 52%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }
 
 /* Smooth, branded edges in the React Flow canvas. */
 .react-flow__edge-path {
-  stroke: hsl(215 20% 65%);
+  stroke: hsl(264 22% 72%);
   stroke-width: 1.75;
 }
 .react-flow__edge.selected .react-flow__edge-path,

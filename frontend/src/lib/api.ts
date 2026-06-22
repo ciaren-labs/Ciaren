@@ -1,5 +1,5 @@
 // Centralized, typed API client for the FlowFrame backend.
-// All requests go through the Vite dev proxy: /api -> http://localhost:8000
+// All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
   Dataset,
@@ -10,10 +10,27 @@ import type {
   FlowCreate,
   FlowPreviewRequest,
   FlowRun,
+  FlowRunSummary,
   FlowUpdate,
   PreviewResponse,
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  RunListFilters,
+  Schedule,
+  ScheduleCreate,
+  ScheduleUpdate,
   TransformationPreviewRequest,
 } from "./types";
+
+/** Build a `?a=b&c=d` query string from defined values only. */
+function queryString(params: Record<string, string | number | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+  if (entries.length === 0) return "";
+  const usp = new URLSearchParams();
+  for (const [k, v] of entries) usp.set(k, String(v));
+  return `?${usp.toString()}`;
+}
 
 const BASE_URL = "/api";
 
@@ -72,7 +89,8 @@ async function request<T>(
 // ---- Flows -----------------------------------------------------------------
 
 export const flowsApi = {
-  list: () => request<Flow[]>("/flows"),
+  list: (projectId?: string) =>
+    request<Flow[]>(`/flows${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Flow>(`/flows/${id}`),
   create: (body: FlowCreate) =>
     request<Flow>("/flows", {
@@ -96,26 +114,73 @@ export const flowsApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
-  createRun: (id: string, inputDatasetId?: string) =>
+  createRun: (
+    id: string,
+    options: { inputDatasetId?: string; engine?: string } = {},
+  ) =>
     request<FlowRun>(`/flows/${id}/runs`, {
       method: "POST",
-      body: JSON.stringify({ input_dataset_id: inputDatasetId }),
+      body: JSON.stringify({
+        input_dataset_id: options.inputDatasetId,
+        engine: options.engine ?? "pandas",
+      }),
     }),
+};
+
+// ---- Projects --------------------------------------------------------------
+
+export const projectsApi = {
+  list: () => request<Project[]>("/projects"),
+  get: (id: string) => request<Project>(`/projects/${id}`),
+  create: (body: ProjectCreate) =>
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
+  update: (id: string, body: ProjectUpdate) =>
+    request<Project>(`/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  remove: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
 };
 
 // ---- Runs ------------------------------------------------------------------
 
 export const runsApi = {
   get: (id: string) => request<FlowRun>(`/runs/${id}`),
+  list: (filters: RunListFilters = {}) =>
+    request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
+};
+
+// ---- Schedules -------------------------------------------------------------
+
+export const schedulesApi = {
+  list: (flowId?: string) =>
+    request<Schedule[]>(`/schedules${queryString({ flow_id: flowId })}`),
+  get: (id: string) => request<Schedule>(`/schedules/${id}`),
+  create: (flowId: string, body: ScheduleCreate) =>
+    request<Schedule>(`/flows/${flowId}/schedules`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: ScheduleUpdate) =>
+    request<Schedule>(`/schedules/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) => request<void>(`/schedules/${id}`, { method: "DELETE" }),
+  runNow: (id: string) =>
+    request<FlowRun>(`/schedules/${id}/run-now`, { method: "POST" }),
+  runs: (id: string, limit = 100, offset = 0) =>
+    request<FlowRunSummary[]>(
+      `/schedules/${id}/runs${queryString({ limit, offset })}`,
+    ),
 };
 
 // ---- Datasets --------------------------------------------------------------
 
 export const datasetsApi = {
-  list: () => request<Dataset[]>("/datasets"),
+  list: (projectId?: string) =>
+    request<Dataset[]>(`/datasets${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Dataset>(`/datasets/${id}`),
   versions: (id: string) =>
     request<DatasetVersion[]>(`/datasets/${id}/versions`),
+  flows: (id: string) => request<Flow[]>(`/datasets/${id}/flows`),
   schema: (id: string, version?: number) =>
     request<DatasetSchemaField[]>(
       `/datasets/${id}/schema${version ? `?version=${version}` : ""}`,
@@ -124,13 +189,21 @@ export const datasetsApi = {
     request<Record<string, unknown>[]>(
       `/datasets/${id}/sample${version ? `?version=${version}` : ""}`,
     ),
-  upload: async (file: File): Promise<Dataset> => {
+  downloadVersionUrl: (id: string, version: number) =>
+    `${BASE_URL}/datasets/${id}/versions/${version}/download`,
+  patch: (id: string, body: { is_disabled?: boolean }) =>
+    request<Dataset>(`/datasets/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
+  upload: async (file: File, projectId?: string): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE_URL}/datasets/upload`, {
-      method: "POST",
-      body: form,
-    });
+    const res = await fetch(
+      `${BASE_URL}/datasets/upload${queryString({ project_id: projectId })}`,
+      { method: "POST", body: form },
+    );
     if (!res.ok) {
       throw await parseError(res);
     }

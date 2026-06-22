@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Visual ETL builder for pandas — Simple, local-first data pipelines
-search: flowframe etl visual pandas data pipeline
+description: Visual ETL builder — Simple, local-first data pipelines on polars or pandas
+search: flowframe etl visual polars pandas data pipeline
 
 hero:
   name: FlowFrame
-  text: Visual ETL for Everyone
-  tagline: Build data pipelines with drag-and-drop. No code knowledge required.
+  text: The simplest visual ETL builder
+  tagline: Upload data, build a visual cleaning pipeline, preview, run it, and export readable Python — local-first, on polars or pandas.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -23,36 +23,34 @@ hero:
       link: /transformations/overview
 
 features:
-  - icon: 👀
-    title: Live Preview
-    details: See your data transform in real-time before running the full pipeline.
-
   - icon: 📊
     title: Visual Builder
-    details: Drag-and-drop nodes for filtering, joining, aggregating, and more. No code required.
+    details: Drag-and-drop nodes for cleaning, filtering, joining, aggregating, and more. No code required.
+
+  - icon: 👀
+    title: Live Preview
+    details: See your data transform on real rows before running the full pipeline.
 
   - icon: 🐍
     title: Export Python
-    details: Generate readable, standalone Python code you can use anywhere.
+    details: Every flow exports to readable, standalone code — both polars and pandas.
+
+  - icon: ⚡
+    title: polars or pandas
+    details: Runs on polars by default for speed; switch to pandas per run any time.
 
   - icon: 🚀
     title: Local-First
     details: Runs entirely on your machine. No SaaS, no cloud lock-in, no subscriptions.
 
-  - icon: 📁
-    title: Many Formats
-    details: Work with CSV, Excel, Parquet, and other formats seamlessly.
-
-  - icon: ♾️
-    title: Extensible
-    details: Add custom transformation nodes to extend FlowFrame for your needs.
+  - icon: ⏰
+    title: Scheduling
+    details: A built-in cron scheduler runs flows automatically, with retries and catch-up.
 ---
 
-:::info Project status
-FlowFrame is in active development. The **backend** (FastAPI engine, transformations,
-and Python code export) is working today and can be driven through the REST API.
-The **visual drag-and-drop editor** is still in development — the screens and
-walkthroughs below describe the intended experience.
+:::warning Alpha software
+FlowFrame is in early development. APIs, the data model, and generated code may
+change between releases. Use it for experimentation — not production pipelines.
 :::
 
 ## Learn in 5 Minutes
@@ -73,11 +71,11 @@ walkthroughs below describe the intended experience.
 
 ## No Code, All Power
 
-FlowFrame supports 16 transformation nodes plus file input/output out of the box:
+FlowFrame supports 23 transformation nodes plus file input/output out of the box:
 
-- **Cleaning:** Drop nulls, fill values, remove duplicates, rename columns
-- **Transform:** Filter, aggregate, join, calculate columns
-- **Reshape:** Group by, union, select, sort
+- **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
+- **Transform:** Filter, aggregate, join, calculated columns, replace/round values
+- **Reshape:** Group by, union, pivot, unpivot, bin, extract date parts, sort, sample
 - **I/O:** CSV, Excel, Parquet input and output
 
 [See all transformations →](/transformations/overview)
@@ -92,19 +90,23 @@ FlowFrame supports 16 transformation nodes plus file input/output out of the box
 git clone https://github.com/rodrigo-arenas/FlowFrame
 cd FlowFrame/backend
 pip install -e .
-uvicorn app.main:app --reload
+flowframe serve
 ```
+
+The backend starts on `http://localhost:8055` and creates its database
+automatically. To use the visual editor, also run the frontend (`cd frontend
+&& npm install && npm run dev`).
 
 [Full installation guide →](/guide/installation)
 
-### Your First Flow (5 minutes)
+### Explore the API (5 minutes)
 
-1. Open <http://localhost:5173>
-2. Upload `sample.csv`
-3. Add 3 transformation nodes
-4. Export Python code
+1. Open the interactive docs at <http://localhost:8055/docs>
+2. Upload a CSV with `POST /api/datasets/upload`
+3. Create a flow with `POST /api/flows`
+4. Export Python with `POST /api/flows/{id}/export/python`
 
-[Quick start tutorial →](/guide/quick-start)
+[API reference →](/api/rest-api)
 
 </div>
 
@@ -117,16 +119,14 @@ uvicorn app.main:app --reload
 
 ## Why FlowFrame?
 
-| Feature | FlowFrame | Airflow | dbt | Spark |
-|---------|-----------|---------|-----|-------|
-| **Visual Editor** | ✓ | ✗ | ✗ | ✗ |
-| **Code Export** | ✓ | ✗ | ✓ | ✗ |
-| **Local-First** | ✓ | ✗ | ✓ | ✗ |
-| **No Setup** | ✓ | ✗ | ✗ | ✗ |
-| **Pandas** | ✓ | ✓ | ✗ | ✗ |
-| **100+ nodes** | ✗ | ✓ | ✗ | ✓ |
-
-FlowFrame doesn't compete with Airflow or Spark. It's designed for the 80% of ETL work: simple, repeatable pandas transformations on small-to-medium datasets.
+| Feature | Details |
+|---------|---------|
+| **Visual Editor** | Build pipelines by connecting nodes — no code required |
+| **Code Export** | Every flow generates a readable, standalone Python script |
+| **Local-First** | Runs entirely on your machine — no accounts, no cloud |
+| **Live Preview** | See data changes at each step before executing the full flow |
+| **polars or pandas** | Runs on polars by default; switch to pandas per run |
+| **Open Source** | Apache 2.0 licensed — inspect, modify, and self-host freely |
 
 ## Community
 
@@ -134,9 +134,11 @@ FlowFrame doesn't compete with Airflow or Spark. It's designed for the 80% of ET
 - **Found a bug?** [GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
 - **Want to contribute?** [Contributing Guide](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
 
+Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/) ([GitHub](https://github.com/rodrigo-arenas)).
+
 ## License
 
-MIT License — Free for personal and commercial use.
+Apache License 2.0 — Free for personal and commercial use.
 
 ---
 

@@ -2,11 +2,11 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'FlowFrame',
-  description: 'Visual ETL builder for pandas — Simple, local-first data pipelines',
+  description: 'Visual ETL builder — Simple, local-first data pipelines on polars or pandas',
   lang: 'en-US',
 
   head: [
-    ['meta', { name: 'theme-color', content: '#3c3c3d' }],
+    ['meta', { name: 'theme-color', content: '#7c3aed' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en' }],
   ],
@@ -59,8 +59,24 @@ export default defineConfig({
           items: [
             { text: 'Introduction', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Interface Tour', link: '/guide/interface' },
+          ],
+        },
+        {
+          text: 'Features',
+          items: [
+            { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
+            { text: 'Engines (polars / pandas)', link: '/guide/engines' },
+            { text: 'Scheduling', link: '/guide/scheduling' },
+            { text: 'CLI Reference', link: '/guide/cli' },
+          ],
+        },
+        {
+          text: 'Reference',
+          items: [
+            { text: 'Design System', link: '/guide/design-system' },
           ],
         },
         {
@@ -115,8 +131,12 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2026 Rodrigo Arenas',
+      message:
+        'Released under the Apache License 2.0. Created by ' +
+        '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
+        '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',
+      copyright:
+        'Copyright © 2026 <a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a>',
     },
   },
 })
