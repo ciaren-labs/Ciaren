@@ -28,6 +28,20 @@ export function isInputType(type: string | undefined): boolean {
   return type ? type in INPUT_SOURCE_TYPE : false;
 }
 
+/**
+ * A flow's first step must be an input node with a dataset chosen. Until that
+ * holds, the editor blocks adding any non-input node. Returns true once at least
+ * one input node has a non-empty `dataset_id`.
+ */
+export function hasReadyInput(nodes: GraphNodeLike[]): boolean {
+  return nodes.some(
+    (n) =>
+      isInputType(n.type) &&
+      typeof n.data.config.dataset_id === "string" &&
+      n.data.config.dataset_id.length > 0,
+  );
+}
+
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
@@ -174,6 +188,27 @@ function outputColumns(
       const aggs = Object.keys((config.aggregations ?? {}) as Record<string, unknown>);
       const cols = [...groupBy, ...aggs];
       return cols.length ? Array.from(new Set(cols)) : inputCols;
+    }
+    case "binColumn": {
+      const name = typeof config.new_column === "string" ? config.new_column : "";
+      return name && !inputCols.includes(name) ? [...inputCols, name] : inputCols;
+    }
+    case "extractDateParts": {
+      const col = typeof config.column === "string" ? config.column : "";
+      const added = col ? asStringArray(config.parts).map((p) => `${col}_${p}`) : [];
+      return Array.from(new Set([...inputCols, ...added]));
+    }
+    case "unpivot": {
+      const idVars = asStringArray(config.id_vars);
+      const varName = typeof config.var_name === "string" && config.var_name ? config.var_name : "variable";
+      const valueName =
+        typeof config.value_name === "string" && config.value_name ? config.value_name : "value";
+      return [...idVars, varName, valueName];
+    }
+    case "pivot": {
+      // The pivoted column names are data-dependent; expose the known index cols.
+      const index = asStringArray(config.index);
+      return index.length ? index : inputCols;
     }
     default:
       // Most cleaning transforms (filter, sort, fill, cast, dedupe, limit,

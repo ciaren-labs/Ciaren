@@ -4,6 +4,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class DatasetUpdate(BaseModel):
+    is_disabled: bool | None = None
+
+
 class DatasetVersionRead(BaseModel):
     """One immutable snapshot of a dataset."""
 
@@ -12,6 +16,7 @@ class DatasetVersionRead(BaseModel):
     row_count: int
     # Aliased from the ORM's schema_json; never exposes the filesystem location.
     column_schema: list[dict[str, Any]] | None = Field(None, validation_alias="schema_json")
+    source_run_id: str | None = None  # set when the version was created by a flow run
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
@@ -24,6 +29,9 @@ class DatasetRead(BaseModel):
     id: str
     name: str
     source_type: str
+    dataset_kind: str = "input"  # "input" (uploaded) or "output" (flow-generated)
+    is_disabled: bool = False
+    project_id: str | None = None
     latest_version: int
     version_count: int
     column_schema: list[dict[str, Any]] | None = None

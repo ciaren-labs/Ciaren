@@ -107,6 +107,59 @@ def test_concat_pipeline(tmp_path):
     assert len(result) == 4
 
 
+def test_run_with_results_captures_per_node_stats(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = FlowExecutor().run_with_results(
+        _pipeline_graph(), _paths(ds1=input_csv), out_dir
+    )
+    assert result.error is None
+    assert "out1" in result.output_paths
+    by_id = {r.node_id: r for r in result.node_results}
+    assert by_id["in1"].status == "success"
+    assert by_id["in1"].rows == 3  # raw input
+    assert by_id["drop"].rows == 2  # one null row dropped
+    assert by_id["ren"].columns == ["alpha", "b"]
+    assert by_id["in1"].sample  # a small preview is recorded
+
+
+def test_run_with_results_records_node_durations(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = FlowExecutor().run_with_results(
+        _pipeline_graph(), _paths(ds1=input_csv), out_dir
+    )
+    # Every executed node records a non-negative duration, surfaced in as_dict().
+    assert all(r.duration_ms is not None and r.duration_ms >= 0 for r in result.node_results)
+    assert "duration_ms" in result.node_results[0].as_dict()
+
+
+def test_run_with_results_marks_failed_and_skipped(tmp_path, input_csv):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    # dropColumns on a non-existent column fails mid-graph.
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "drop", "type": "dropColumns", "data": {"config": {"columns": ["nope"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "drop", "target": "out1"},
+        ],
+    }
+    result = FlowExecutor().run_with_results(graph, _paths(ds1=input_csv), out_dir)
+    assert result.error is not None
+    assert result.output_paths == {}  # nothing written on failure
+    by_id = {r.node_id: r for r in result.node_results}
+    assert by_id["in1"].status == "success"
+    assert by_id["drop"].status == "failed"
+    assert by_id["out1"].status == "skipped"
+    assert by_id["out1"].duration_ms is None  # skipped nodes aren't timed
+    assert by_id["drop"].duration_ms is not None  # the failing node still records time
+
+
 def test_unknown_engine_raises(tmp_path, input_csv):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
@@ -121,6 +174,41 @@ def test_graph_without_input_rejected(tmp_path):
     }
     with pytest.raises(GraphValidationError):
         FlowExecutor().execute(graph, {}, tmp_path)
+
+
+def test_codegen_fill_strategy_and_filter_ops_compile():
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {
+                "id": "fill",
+                "type": "fillNulls",
+                "data": {"config": {"strategy": "mean", "columns": ["a"]}},
+            },
+            {
+                "id": "flt",
+                "type": "filterRows",
+                "data": {"config": {"column": "a", "operator": "between", "value": 1, "value2": 9}},
+            },
+            {
+                "id": "flt2",
+                "type": "filterRows",
+                "data": {"config": {"column": "b", "operator": "in", "value": "x, y"}},
+            },
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "fill"},
+            {"id": "e2", "source": "fill", "target": "flt"},
+            {"id": "e3", "source": "flt", "target": "flt2"},
+            {"id": "e4", "source": "flt2", "target": "out1"},
+        ],
+    }
+    code = CodeGenerator().generate(graph, {"ds1": "/data/in.csv"})
+    assert ".mean()" in code
+    assert ".between(1, 9)" in code
+    assert ".isin(['x', 'y'])" in code
+    compile(code, "<generated>", "exec")
 
 
 def test_codegen_produces_runnable_script():

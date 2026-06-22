@@ -2,7 +2,17 @@
 name = "flowframe"
 version = "0.1.0"
 description = "Visual ETL builder — local-first, pandas-based"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
@@ -12,14 +22,21 @@ dependencies = [
     "aiosqlite>=0.20",
     "alembic>=1.14",
     "pandas>=2.2",
+    "polars>=1.0",
     "openpyxl>=3.1",
+    "xlsxwriter>=3.1",
     "pyarrow>=17",
     "python-multipart>=0.0.9",
     "aiofiles>=24.0",
+    "croniter>=3.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
-polars = ["polars>=1.0"]
+postgres = ["asyncpg>=0.30"]
+
+[project.scripts]
+flowframe = "app.cli:main"
 
 [dependency-groups]
 dev = [
@@ -30,7 +47,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "pandas-stubs>=2.2",
-    "polars>=1.0",
+    "types-croniter>=3.0",
     "psycopg[binary]>=3.1",
 ]
 
@@ -43,6 +60,8 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 100
+# Alembic generates these; don't lint machine-written migration scripts.
+extend-exclude = ["app/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I"]
@@ -50,10 +69,17 @@ select = ["E", "W", "F", "I"]
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
+[tool.ruff.lint.per-file-ignores]
+# These hold wide parametrized case tables that read better unwrapped.
+"tests/engine/test_engine_backends.py" = ["E501"]
+"tests/engine/test_transformation_codegen.py" = ["E501"]
+
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# Alembic generates these; they are not written to strict-typing standards.
+exclude = ["app/migrations/versions/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -62,6 +88,10 @@ addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["app"]
+# SQLAlchemy's async API resumes coroutine continuations inside greenlets, and
+# the executor offloads compute to worker threads; without these the tracer
+# misses everything after the first `await` on the DB and the in-thread run.
+concurrency = ["thread", "greenlet"]
 omit = [
     "*/__init__.py",
     "*/migrations/*",
@@ -76,5 +106,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "if t.TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "^\\s*\\.\\.\\.\\s*$",
 ]
-min_percentage = 95

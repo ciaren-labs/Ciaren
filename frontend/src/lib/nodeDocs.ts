@@ -139,6 +139,56 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       "Works best when the tables share the same columns.",
     ],
   },
+  sampleRows: {
+    summary: "Takes a random subset of rows.",
+    fields: [
+      { name: "Sample by", desc: "A fixed row count, or a fraction (0–1) of the table." },
+      { name: "Random seed", desc: "Optional. Set it for the same sample every run." },
+    ],
+  },
+  removeOutliers: {
+    summary: "Detects outliers per column and either drops those rows or clips them to the bounds.",
+    fields: [
+      { name: "Columns", desc: "Numeric columns to evaluate." },
+      { name: "Method", desc: "IQR (Q1/Q3 ± factor·IQR), z-score (± threshold·std), or percentile range." },
+      { name: "Action", desc: "Drop offending rows, or clip values into the allowed range." },
+    ],
+    tips: ["No machine learning — these are transparent statistical rules that export to readable code."],
+  },
+  roundNumbers: {
+    summary: "Rounds numeric columns to a fixed number of decimals.",
+    fields: [{ name: "Decimals", desc: "0 rounds to whole numbers; 2 keeps cents, etc." }],
+  },
+  binColumn: {
+    summary: "Buckets a numeric column into labeled bins, added as a new column.",
+    fields: [
+      { name: "Method", desc: "Equal-width splits the value range; quantile makes equally-sized groups." },
+      { name: "Number of bins", desc: "How many buckets to create." },
+    ],
+  },
+  extractDateParts: {
+    summary: "Pulls calendar parts out of a date column into new columns.",
+    fields: [
+      { name: "Date column", desc: "A datetime or parseable date-string column." },
+      { name: "Parts", desc: "Each selected part (year, month, …) becomes a column like date_year." },
+    ],
+  },
+  unpivot: {
+    summary: "Reshapes wide columns into long key/value rows (pandas melt).",
+    fields: [
+      { name: "Keep columns", desc: "Identifier columns repeated on every output row." },
+      { name: "Unpivot columns", desc: "Columns folded into a variable/value pair. Empty = all the rest." },
+    ],
+    example: "Keep [id], unpivot [jan, feb] → rows of (id, variable, value).",
+  },
+  pivot: {
+    summary: "Reshapes long rows into a wide aggregated table (pandas pivot_table).",
+    fields: [
+      { name: "Index", desc: "Columns that identify each output row." },
+      { name: "Columns from", desc: "Distinct values here become new columns." },
+      { name: "Values / Aggregation", desc: "The column to aggregate and how (sum, mean, …)." },
+    ],
+  },
 
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),

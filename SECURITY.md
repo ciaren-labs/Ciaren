@@ -21,49 +21,6 @@
 
 ---
 
-## Reporting Security Vulnerabilities
-
-If you discover a security vulnerability, **please report it responsibly**:
-
-### Do Not
-
-- ❌ Open a public GitHub issue
-- ❌ Discuss it in public channels
-- ❌ Demonstrate it publicly
-
-### Do
-
-✅ **Email us directly:** rodrigo.arenas456@gmail.com
-
-**Include:**
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if you have one)
-
-**Example:**
-```
-Subject: Security Report — SQLi in flow upload endpoint
-
-The /api/flows/upload endpoint does not properly sanitize flow_name,
-allowing SQL injection. An attacker can execute arbitrary SQL by:
-1. POST to /api/flows/upload
-2. Set flow_name to: '; DROP TABLE flows; --
-
-Steps to reproduce: [...]
-Expected: Input should be parameterized
-Actual: Raw SQL concatenation occurs
-```
-
-### Response Timeline
-
-- **Initial response:** Within 48 hours
-- **Fix development:** 1-2 weeks (depending on severity)
-- **Public disclosure:** After fix is released and deployed
-- **Credit:** We'll thank you in release notes (unless you prefer anonymity)
-
----
-
 ## Known Limitations
 
 ### MVP Phase
@@ -137,29 +94,5 @@ For non-security issues:
 - **Bugs:** [Open a GitHub Issue](https://github.com/rodrigo-arenas/FlowFrame/issues)
 - **Questions:** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
 - **Performance concerns:** Include dataset size, transformation complexity, timing info
-
----
-
-## Security Roadmap (Future)
-
-We plan to add (not yet implemented):
-
-- [ ] User authentication + authorization
-- [ ] Data encryption at rest
-- [ ] Audit logging
-- [ ] Rate limiting + CSRF protection
-- [ ] Security scanning in CI/CD
-- [ ] Regular dependency audits
-- [ ] Security-focused code review checklist
-
----
-
-## Contact
-
-**Security contact:** rodrigo.arenas456@gmail.com
-
-**Do not use GitHub issues for security reports.**
-
----
 
 **Thank you for helping keep FlowFrame safe and secure.**

@@ -10,14 +10,17 @@ It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
 
 ## Current Status (read first)
 
-- **Backend exists and is the working product**: FastAPI app, execution engine,
-  transformation registry, dataset/flow/run persistence, and Python code export.
-- **There is no frontend yet.** The `frontend/` directory does not exist.
-  Do not reference a running UI, `localhost:5173`, or screenshots as if they
-  exist. The React editor described below is the planned design, not shipped code.
-- **Guardrail:** never document, demo, or claim a feature that is not implemented
-  in `backend/`. When in doubt, check the code (`app/engine/registry.py` lists the
-  real transformations) before writing docs or examples.
+- **Backend is the source of truth**: FastAPI app, execution engine,
+  transformation registry, dataset/flow/run persistence, in-process scheduler,
+  and Python code export.
+- **The frontend exists** in `frontend/` (Vite + React 18 + TS strict). Shipped
+  pages: landing, projects, datasets, the React Flow editor, runs history + run
+  detail, and schedules (list + detail + cron builder). Dev runs locally — see
+  the frontend dev notes (default dev ports differ from the old `5173`).
+- **Guardrail:** never document, demo, or claim a feature that is not actually
+  implemented. Check the code before writing docs or examples — the backend
+  (`app/engine/registry.py` for transformations, `app/api/routes/` for the API)
+  and the frontend (`frontend/src/features/`) are authoritative.
 
 ## Product Vision
 
@@ -38,12 +41,12 @@ Core promise:
 
 ## Tech Stack
 
-**Backend:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
+**Backend:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
 Alembic, pandas. Optional dataframe engines behind a backend abstraction
 (`app/engine/backends/`): pandas (default), polars.
 
-**Frontend (planned):** React, TypeScript, Vite, @xyflow/react, TanStack Query,
-Zustand, shadcn/ui, Tailwind, React Hook Form + Zod.
+**Frontend:** React, TypeScript, Vite, @xyflow/react, TanStack Query,
+Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 
 **Database:** SQLAlchemy is the abstraction layer.
 - **Default is SQLite** (zero-setup, file or in-memory). Tests run against
@@ -88,6 +91,9 @@ REST only (no GraphQL for MVP).
 - Flows: `GET/POST /api/flows`, `GET/PUT/DELETE /api/flows/{id}`
 - Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
 - Runs: `POST /api/flows/{id}/runs`, `GET /api/runs/{id}`
+- Schedules: `GET/POST /api/flows/{id}/schedules`, `GET /api/schedules`,
+  `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`,
+  `GET /api/schedules/{id}/runs`
 - Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
   `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
 - Code export: `POST /api/flows/{id}/export/python`
@@ -112,6 +118,67 @@ class Transformation:
 Graph JSON is React Flow-compatible (`nodes` with `id/type/position/data.config`,
 `edges` with `id/source/target`).
 
+The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE`); a run
+may override it per request. The synchronous executor runs off the event loop so
+it never blocks: `EXECUTION_MODE` selects a worker thread (`thread`, default) or
+a `ProcessPoolExecutor` (`process`, true multi-core; see
+`app/engine/process_pool.py`). Only picklable args cross the process boundary —
+the DB session always stays in the parent. `RUN_TIMEOUT_SECONDS` (0 = off)
+abandons an over-running run; in `process` mode the pool is recycled to reclaim
+the CPU, in `thread` mode the run is abandoned but the thread finishes. Each
+node records a `duration_ms` (in the run DAG / `node_results`) for observability.
+
+## Running
+
+The `flowframe` console script (`app/cli.py`, stdlib argparse) is the setup
+surface. Commands:
+- `flowframe serve` — boots the API + background scheduler in a single process
+  (no broker). Flags map to env vars before the app imports:
+  `--host/--port/--reload/--log-level`, `--db-url`, `--data-dir`, `--engine`,
+  `--execution-mode`, `--no-scheduler`. Default port is **8055**.
+- `flowframe init` — write a commented starter `.env` (`--path`, `--force`).
+- `flowframe info` — print the resolved settings (DB password redacted).
+- `flowframe check` — validate the environment: data dir writable, async driver,
+  database reachable, engines available (exit 1 on failure).
+- `flowframe db upgrade|current|reset` — Alembic schema management (see DB note).
+- `flowframe transformations list` — list registered node types from the registry.
+
+Commands that resolve settings accept `--env-file PATH` (load a specific `.env`
+before settings resolve; existing env vars win, serve flags still override).
+`info`/`check`/`transformations list` accept `--output table|json`.
+
+**Database migrations:** the Alembic environment lives in `app/migrations/` (so
+it ships in the wheel, not a sibling dir). `flowframe db upgrade` applies
+migrations; because `serve` still bootstraps the schema via `create_all`,
+`upgrade` **adopts** an existing un-migrated DB by stamping the current head
+instead of re-creating tables — so adopting Alembic is non-destructive. SQLite
+runs migrations in batch mode (`render_as_batch`). `db reset` is destructive,
+requires `--yes`, and refuses when `ENVIRONMENT=production` unless `--force`.
+
+## Scheduling
+
+A `Schedule` (cron + timezone + optional engine) runs a flow automatically. The
+scheduler is a single in-process asyncio poller (`app/scheduler/runner.py`)
+started in the FastAPI lifespan; `Schedule.next_run_at` (naive UTC) is the single
+source of truth, so it survives restarts without a separate jobstore. It isolates
+per-schedule failures, caps concurrency, skips overlapping runs, and applies a
+per-schedule `catch_up` policy for slots missed while the server was down.
+
+Reliability behaviors:
+- **Orphan recovery:** on startup, runs left `running` (interrupted by a crash)
+  are marked `failed` — single-process means they can never resume.
+- **Retries:** a failed run retries up to `max_retries` with exponential backoff
+  (`retry_delay_seconds`, capped at 1h) before falling back to the next cron slot.
+- **Auto-disable:** after `SCHEDULER_MAX_CONSECUTIVE_FAILURES` consecutive failed
+  runs a schedule is disabled with a `disabled_reason`; re-enabling clears the
+  streak. Manual `run-now` stays out of the retry/auto-disable machinery.
+- **Run history:** runs carry `trigger`/`schedule_id`; filter via
+  `GET /api/runs?schedule_id=` or `GET /api/schedules/{id}/runs`.
+
+Configurable via `SCHEDULER_ENABLED` / `SCHEDULER_POLL_INTERVAL_SECONDS` /
+`SCHEDULER_MAX_CONCURRENT_RUNS` / `SCHEDULER_MAX_CONSECUTIVE_FAILURES` (the
+scheduler is disabled in tests).
+
 ## Coding Standards
 
 **Backend:** type hints everywhere; Pydantic schemas for API I/O; thin route
@@ -119,10 +186,11 @@ handlers; business logic in `services`; dataframe logic in `app/engine`.
 Do **not** import FastAPI inside the engine, mix ORM models with Pydantic
 schemas, or use pandas directly in route files. Add tests per transformation.
 
-**Frontend (when it exists):** TypeScript, feature folders, React Flow logic in
-`components/flow`/`features/flows`, TanStack Query for server state, Zustand for
-local UI state, shadcn/ui components, Zod-validated config forms, API calls
-centralized in `lib/api.ts`.
+**Frontend:** TypeScript, feature folders under `frontend/src/features/`, React
+Flow logic in `components/flow`/`features/flows`, TanStack Query for server state
+(hooks per feature) keyed via `lib/queryClient.ts`, Zustand for local UI state,
+shadcn/ui components, Zod-validated config forms, all API calls centralized in
+`lib/api.ts` with shared types in `lib/types.ts`.
 
 **Naming:** clear and specific (`DropNullsTransformation`, `FlowExecutionService`).
 Avoid `Processor`, `Manager`, `Handler`, `Thing`, and generic abstractions.

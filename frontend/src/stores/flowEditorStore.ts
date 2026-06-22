@@ -22,6 +22,8 @@ interface FlowEditorState {
   dirty: boolean;
   /** Ids of nodes that currently have validation errors (for canvas badges). */
   invalidNodeIds: string[];
+  /** Project the current flow belongs to — used to scope the dataset picker. */
+  flowProjectId: string | null;
 
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   setInvalidNodeIds: (ids: string[]) => void;
@@ -33,6 +35,8 @@ interface FlowEditorState {
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
   updateNodeLabel: (id: string, label: string) => void;
   selectNode: (id: string | null) => void;
+  setNodes: (nodes: FlowNodeType[]) => void;
+  setFlowProjectId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
   setPreviewOpen: (open: boolean) => void;
   markClean: () => void;
@@ -47,6 +51,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   previewOpen: false,
   dirty: false,
   invalidNodeIds: [],
+  flowProjectId: null,
 
   setGraph: (nodes, edges) =>
     set({ nodes, edges, dirty: false, selectedNodeId: null }),
@@ -114,6 +119,8 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   selectNode: (id) =>
     set({ selectedNodeId: id, sidebarOpen: id !== null ? true : undefined }),
 
+  setNodes: (nodes) => set({ nodes, dirty: true }),
+  setFlowProjectId: (id) => set({ flowProjectId: id }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPreviewOpen: (open) => set({ previewOpen: open }),
   markClean: () => set({ dirty: false }),
@@ -126,5 +133,6 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       previewOpen: false,
       dirty: false,
       invalidNodeIds: [],
+      flowProjectId: null,
     }),
 }));

@@ -10,32 +10,41 @@ search: faq help questions answers
 
 ### What is FlowFrame?
 
-FlowFrame is a **visual ETL builder** for pandas. It lets you build data transformation pipelines by dragging and dropping nodes instead of writing code.
+FlowFrame is a **local-first visual ETL builder**. It lets you build data
+transformation pipelines by dragging and dropping nodes instead of writing code,
+then run them on **polars** (default) or **pandas** and export the equivalent
+Python.
 
 ### Who created FlowFrame?
 
-FlowFrame is open-source and created by [Rodrigo Arenas](https://github.com/rodrigo-arenas). [Contributions welcome!](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+FlowFrame was created and is maintained by **Rodrigo Arenas** —
+[personal site](https://www.rodrigo-arenas.com/) ·
+[GitHub](https://github.com/rodrigo-arenas). It is open-source and
+[contributions are welcome](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
 
 ### How much does FlowFrame cost?
 
-FlowFrame is **free and open-source** under the MIT License. You can use it for personal and commercial projects.
+FlowFrame is **free and open-source** under the Apache License 2.0. You can use it for personal and commercial projects.
 
 ### Is FlowFrame production-ready?
 
-FlowFrame is in **active development**. It's suitable for learning, exploration, and personal use. For mission-critical pipelines, we recommend Airflow or dbt.
+FlowFrame is in **active development**. It's suitable for learning, exploration, and personal use. Always test flows thoroughly before running on production data.
 
 ### Can I use FlowFrame at work?
 
-Yes! The MIT license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
+Yes! The Apache 2.0 license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
 
 ## Installation & Setup
 
 ### What are the system requirements?
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL, MySQL, or SQLite (SQLite is default)
-- 500MB free disk space
+- Python 3.12+ (backend)
+- Node.js 18+ (frontend / visual editor)
+- SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
+- ~500MB free disk space
+
+You can run the backend on its own and drive it through the
+[REST API](/api/rest-api); Node.js is only needed for the visual editor.
 
 ### Can I run FlowFrame on Windows?
 
@@ -65,21 +74,28 @@ FlowFrame currently supports CSV, Excel, and Parquet files. Loading from a datab
 
 ### What's the maximum dataset size?
 
-FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact limits depend on your available RAM. For 100GB+ datasets, use Spark or DuckDB.
+FlowFrame is designed for **small-to-medium datasets** (up to a few GB). Exact limits depend on your available RAM.
 
 ### Can I schedule flows to run automatically?
 
-Not from within FlowFrame. For scheduled production workflows, export the Python code and run it with your own scheduler, or use [Airflow](https://airflow.apache.org/).
+Yes. FlowFrame has a built-in cron scheduler: attach a `Schedule` (cron
+expression + timezone, optional engine) to a flow and it runs automatically. The
+scheduler handles retries, catch-up for missed slots, overlap protection, and
+auto-disable on repeated failures. See [Scheduling](/guide/scheduling). (For
+heavier orchestration, you can still export the Python and run it with your own
+scheduler.)
 
 ### Can I run flows via command line?
 
-You can export flows as Python code and run them with Python:
+FlowFrame ships a `flowframe` CLI for running the server and managing config
+(`flowframe serve | init | info | check`) — see the [CLI reference](/guide/cli).
+There isn't a "run this flow id" subcommand; to run a flow headlessly, either
+call the REST API (`POST /api/flows/{id}/runs`) or export it as Python and run
+that script:
 
 ```bash
 python my_flow.py
 ```
-
-There is no dedicated FlowFrame CLI.
 
 ## Data & Privacy
 
@@ -97,16 +113,20 @@ Yes! FlowFrame works completely offline once installed.
 
 ### Where is my data stored?
 
-By default, in a local SQLite database (`flowframe.db`). You can configure PostgreSQL or MySQL if you prefer.
+By default, in a local SQLite database (`flowframe.db`). Uploaded files,
+outputs, and previews are written under the data directory (`.data` by default).
+You can configure PostgreSQL or MySQL via `FLOWFRAME_DATABASE_URL` (use an async
+driver).
 
 ## Features & Limitations
 
 ### What transformations are available?
 
-16 transformation nodes plus file input/output, including:
+23 transformation nodes plus file input/output, including:
 
-- Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, change types, replace values, string ops, sort, limit
-- Transform: calculated columns, group by + aggregate, join, union/concat
+- Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
+- Rows: sort, limit, sample
+- Reshape & combine: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, extract date parts, bin a column
 
 [See full list →](/transformations/overview)
 
@@ -120,7 +140,8 @@ A join node combines two datasets at a time. Chain multiple join nodes for more.
 
 ### Can I export as formats other than Python?
 
-FlowFrame exports Python (pandas) code.
+FlowFrame exports Python — and for each flow it generates **both** the pandas and
+the polars version, so you can use whichever library you prefer.
 
 ### Does FlowFrame support streaming data?
 
@@ -128,47 +149,51 @@ No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
 
 ## Troubleshooting
 
-### My changes aren't showing up
+:::info
+Run `flowframe check` for a quick environment diagnostic. For API-level
+debugging, the interactive docs at `http://localhost:8055/docs` let you inspect
+requests and responses directly.
+:::
+
+### My changes aren't taking effect
 
 Try:
 
-1. Hard refresh your browser: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (macOS)
-2. Restart the frontend dev server
-3. Restart the backend server
+1. Re-save the flow (`PUT /api/flows/{id}`) before running it
+2. Restart the backend server if you changed code (or use `--reload`)
 
 ### Database connection fails
 
 Check:
 
-1. `DATABASE_URL` in your `.env` file
-2. PostgreSQL is running (if using it)
-3. Migrations ran: `alembic upgrade head`
+1. `FLOWFRAME_DATABASE_URL` uses an **async** driver
+   (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`)
+2. The database server is running (if using PostgreSQL or MySQL)
+3. The matching async driver is installed (`asyncpg`, `aiomysql`)
+
+The schema is created automatically on startup — there is no migration step to run.
 
 See [Installation Guide](/guide/installation#troubleshooting) for more.
 
 ### "Port already in use" error
 
-FlowFrame uses ports 8000 (backend) and 5173 (frontend). If occupied:
+The backend uses port 8055. If it is occupied:
 
 ```bash
-# Backend on different port
-uvicorn app.main:app --reload --port 8001
-
-# Frontend on different port
-npm run dev -- --port 3000
+flowframe serve --port 8001
 ```
 
 ### Preview isn't working
 
-1. Ensure all nodes are connected
-2. Check each node's configuration (look for red icons)
-3. Verify your input data has headers
+1. Ensure every node is connected (each transform needs an input edge)
+2. Check each node's `config` is valid for its type
+3. Verify your input file has headers
 
 ### Export doesn't work
 
-1. Save the flow first
-2. Check that the flow completes without errors
-3. See generated Python code in browser console (`F12`)
+1. Save the flow first (`POST`/`PUT /api/flows`)
+2. Make sure the graph has a valid input node and connected edges
+3. Call `POST /api/flows/{id}/export/python` and read the returned code
 
 ## Contributing
 
@@ -197,29 +222,6 @@ Yes! See [Contributing Guide](../CONTRIBUTING.md) for:
 ### Is FlowFrame community-driven?
 
 Yes! We welcome contributions, feedback, and ideas from the community.
-
-## Comparison with Other Tools
-
-### FlowFrame vs Airflow
-
-- **FlowFrame:** Simple, local, visual, no code needed
-- **Airflow:** Complex, distributed, production-grade orchestration
-
-Use Airflow if you need enterprise scheduling. Use FlowFrame if you want simplicity.
-
-### FlowFrame vs dbt
-
-- **FlowFrame:** Visual, SQL-agnostic, local-first
-- **dbt:** SQL-focused, version control, data warehouse transformation
-
-Use dbt if you're transforming warehouse data. Use FlowFrame if you're cleaning files.
-
-### FlowFrame vs Zapier
-
-- **FlowFrame:** Data transformation, no cost, open-source, no integrations
-- **Zapier:** SaaS automation, 5000+ integrations, cloud-hosted
-
-Use Zapier for SaaS automation. Use FlowFrame for data cleaning.
 
 ## More Questions?
 

@@ -16,14 +16,14 @@ export function DataTable({ columns, rows }: DataTableProps) {
     );
   }
   return (
-    <div className="overflow-auto">
-      <table className="w-full border-collapse text-xs">
+    <div className="w-full overflow-x-auto">
+      <table className="min-w-max border-collapse text-xs">
         <thead className="sticky top-0 bg-muted">
           <tr>
             {columns.map((col) => (
               <th
                 key={col}
-                className="border-b border-border px-2 py-1 text-left font-semibold"
+                className="whitespace-nowrap border-b border-border px-2 py-1 text-left font-semibold"
               >
                 {col}
               </th>
@@ -36,7 +36,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
               {columns.map((col) => (
                 <td
                   key={col}
-                  className="max-w-[220px] truncate border-b border-border px-2 py-1"
+                  className="max-w-[240px] truncate border-b border-border px-2 py-1"
                   title={renderCell(row[col])}
                 >
                   {renderCell(row[col])}

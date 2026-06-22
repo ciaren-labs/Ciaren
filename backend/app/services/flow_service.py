@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,20 +7,45 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.db.models.flow import Flow
 from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
+from app.services.project_service import ProjectService
+
+_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
+
+
+def _references_dataset(graph: dict[str, Any], dataset_id: str) -> bool:
+    for node in graph.get("nodes", []):
+        if node.get("type") not in _INPUT_TYPES:
+            continue
+        if node.get("data", {}).get("config", {}).get("dataset_id") == dataset_id:
+            return True
+    return False
 
 
 class FlowService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def list_all(self) -> list[FlowRead]:
-        result = await self.db.execute(select(Flow).order_by(Flow.updated_at.desc()))
+    async def list_all(self, project_id: str | None = None) -> list[FlowRead]:
+        stmt = select(Flow).order_by(Flow.updated_at.desc())
+        if project_id is not None:
+            stmt = stmt.where(Flow.project_id == project_id)
+        result = await self.db.execute(stmt)
         return [FlowRead.model_validate(f) for f in result.scalars().all()]
 
+    async def list_using_dataset(self, dataset_id: str) -> list[FlowRead]:
+        """Flows whose graph has an input node bound to ``dataset_id`` (lineage)."""
+        result = await self.db.execute(select(Flow).order_by(Flow.updated_at.desc()))
+        matches = [
+            f for f in result.scalars().all() if _references_dataset(f.graph_json, dataset_id)
+        ]
+        return [FlowRead.model_validate(f) for f in matches]
+
     async def create(self, data: FlowCreate) -> FlowRead:
+        project_id = await ProjectService(self.db).resolve_id(data.project_id)
         flow = Flow(
             name=data.name,
             description=data.description,
+            project_id=project_id,
             graph_json=data.graph_json,
         )
         self.db.add(flow)
@@ -47,6 +73,17 @@ class FlowService:
         flow = await self._get_or_raise(flow_id)
         await self.db.delete(flow)
         await self.db.commit()
+
+    async def disable_flows_for_dataset(self, dataset_id: str) -> None:
+        """Disable all flows whose graph references the given dataset as an input."""
+        result = await self.db.execute(select(Flow))
+        changed = False
+        for flow in result.scalars().all():
+            if _references_dataset(flow.graph_json or {}, dataset_id):
+                flow.is_disabled = True
+                changed = True
+        if changed:
+            await self.db.commit()
 
     async def _get_or_raise(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))
