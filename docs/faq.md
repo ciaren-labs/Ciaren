@@ -33,9 +33,11 @@ Yes! The MIT license allows commercial use. However, note the [security disclaim
 ### What are the system requirements?
 
 - Python 3.11+
-- Node.js 18+
-- PostgreSQL, MySQL, or SQLite (SQLite is default)
+- SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
 - 500MB free disk space
+
+Node.js will be required for the visual editor once it ships; it is not needed
+to run the backend today.
 
 ### Can I run FlowFrame on Windows?
 
@@ -97,7 +99,10 @@ Yes! FlowFrame works completely offline once installed.
 
 ### Where is my data stored?
 
-By default, in a local SQLite database (`flowframe.db`). You can configure PostgreSQL or MySQL if you prefer.
+By default, in a local SQLite database (`flowframe.db`). Uploaded files,
+outputs, and previews are written under the data directory (`.data` by default).
+You can configure PostgreSQL or MySQL via `FLOWFRAME_DATABASE_URL` (use an async
+driver).
 
 ## Features & Limitations
 
@@ -128,47 +133,51 @@ No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
 
 ## Troubleshooting
 
-### My changes aren't showing up
+:::info
+FlowFrame currently runs as a backend service, so most issues today are
+API-related. Use the interactive docs at `http://localhost:8000/docs` to inspect
+requests and responses.
+:::
+
+### My changes aren't taking effect
 
 Try:
 
-1. Hard refresh your browser: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (macOS)
-2. Restart the frontend dev server
-3. Restart the backend server
+1. Re-save the flow (`PUT /api/flows/{id}`) before running it
+2. Restart the backend server if you changed code (or use `--reload`)
 
 ### Database connection fails
 
 Check:
 
-1. `DATABASE_URL` in your `.env` file
-2. PostgreSQL is running (if using it)
-3. Migrations ran: `alembic upgrade head`
+1. `FLOWFRAME_DATABASE_URL` uses an **async** driver
+   (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`)
+2. The database server is running (if using PostgreSQL or MySQL)
+3. The matching async driver is installed (`asyncpg`, `aiomysql`)
+
+The schema is created automatically on startup — there is no migration step to run.
 
 See [Installation Guide](/guide/installation#troubleshooting) for more.
 
 ### "Port already in use" error
 
-FlowFrame uses ports 8000 (backend) and 5173 (frontend). If occupied:
+The backend uses port 8000. If it is occupied:
 
 ```bash
-# Backend on different port
 uvicorn app.main:app --reload --port 8001
-
-# Frontend on different port
-npm run dev -- --port 3000
 ```
 
 ### Preview isn't working
 
-1. Ensure all nodes are connected
-2. Check each node's configuration (look for red icons)
-3. Verify your input data has headers
+1. Ensure every node is connected (each transform needs an input edge)
+2. Check each node's `config` is valid for its type
+3. Verify your input file has headers
 
 ### Export doesn't work
 
-1. Save the flow first
-2. Check that the flow completes without errors
-3. See generated Python code in browser console (`F12`)
+1. Save the flow first (`POST`/`PUT /api/flows`)
+2. Make sure the graph has a valid input node and connected edges
+3. Call `POST /api/flows/{id}/export/python` and read the returned code
 
 ## Contributing
 
