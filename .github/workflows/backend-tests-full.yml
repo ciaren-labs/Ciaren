@@ -57,6 +57,8 @@ jobs:
 
       - name: Run tests with coverage (SQLite)
         working-directory: backend
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
         run: |
           uv run pytest tests \
             --cov=app \
@@ -64,8 +66,6 @@ jobs:
             --cov-report=xml \
             --cov-fail-under=95 \
             -v
-        env:
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
