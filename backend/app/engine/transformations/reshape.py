@@ -33,6 +33,7 @@ class GroupByAggregateTransformation(BaseTransformation):
 
 class ConcatRowsTransformation(BaseTransformation):
     type = "concatRows"
+    multi_input = True
 
     def validate_config(self, config: dict[str, Any]) -> None:
         pass

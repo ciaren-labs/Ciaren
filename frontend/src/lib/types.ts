@@ -31,6 +31,7 @@ export interface ProjectUpdate {
   name?: string;
   description?: string;
   color?: string;
+  is_disabled?: boolean;
 }
 
 export interface Dataset {
@@ -77,10 +78,18 @@ export interface NodeResult {
   error: string | null;
 }
 
+/** One input dataset a run resolved, with the concrete version it read. */
+export interface InputDatasetRef {
+  dataset_id: string;
+  version_number: number | null;
+}
+
 export interface FlowRun {
   id: string;
   flow_id: string;
   input_dataset_id: string | null;
+  /** Every input the run resolved (join/concat flows have more than one). */
+  input_datasets: InputDatasetRef[] | null;
   status: RunStatus;
   output_location: string | null;
   started_at: string | null;
@@ -98,6 +107,7 @@ export interface FlowRunSummary {
   flow_name: string | null;
   project_id: string | null;
   input_dataset_id: string | null;
+  input_datasets: InputDatasetRef[] | null;
   status: RunStatus;
   output_location: string | null;
   started_at: string | null;
@@ -170,6 +180,7 @@ export interface FlowUpdate {
   description?: string;
   project_id?: string;
   graph_json?: GraphJson;
+  is_disabled?: boolean;
 }
 
 export interface PreviewResponse {

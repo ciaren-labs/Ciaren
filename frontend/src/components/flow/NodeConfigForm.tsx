@@ -6,6 +6,7 @@ import { EXPRESSION_TEMPLATES } from "@/lib/nodeDocs";
 import {
   aggFunctions,
   dtypes,
+  fillStrategies,
   filterOperators,
   getConfigSchema,
   joinHows,
@@ -153,17 +154,42 @@ export function NodeConfigForm({
         </Field>
       );
 
-    case "fillNulls":
+    case "fillNulls": {
+      const strategy = (c.strategy as string) ?? "constant";
       return (
         <>
-          <Field label="Fill value" error={errors.value} help="The value written into empty cells.">
-            <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+          <Field
+            label="Strategy"
+            error={errors.strategy}
+            help="How to fill empty cells: a constant value, or a computed statistic such as the column mean."
+          >
+            <Select value={strategy} onChange={(e) => set({ strategy: e.target.value })}>
+              {fillStrategies.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
           </Field>
-          <Field label="Columns (optional)" error={errors.columns} hint="Empty = all columns">
+          {strategy === "constant" && (
+            <Field label="Fill value" error={errors.value} help="The value written into empty cells.">
+              <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+            </Field>
+          )}
+          <Field
+            label="Columns (optional)"
+            error={errors.columns}
+            hint={
+              strategy === "mean" || strategy === "median"
+                ? "Empty = all numeric columns"
+                : "Empty = all columns"
+            }
+          >
             <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
           </Field>
         </>
       );
+    }
 
     case "dropColumns":
       return (
@@ -231,6 +257,8 @@ export function NodeConfigForm({
     case "filterRows": {
       const operator = c.operator ?? "==";
       const needsValue = !VALUELESS_OPERATORS.has(operator);
+      const isBetween = operator === "between";
+      const isIn = operator === "in";
       return (
         <>
           <Field label="Column" error={errors.column}>
@@ -246,8 +274,18 @@ export function NodeConfigForm({
             </Select>
           </Field>
           {needsValue && (
-            <Field label="Value" error={errors.value}>
+            <Field
+              label={isBetween ? "From (lower bound)" : "Value"}
+              error={errors.value}
+              hint={isIn ? "Comma-separated list, e.g. red, green, blue" : undefined}
+              help={isIn ? "Keeps rows whose value matches any item in the list." : undefined}
+            >
               <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+            </Field>
+          )}
+          {isBetween && (
+            <Field label="To (upper bound)" error={errors.value2} help="Rows are kept when the value is between the two bounds (inclusive).">
+              <Input value={c.value2 ?? ""} onChange={(e) => set({ value2: e.target.value })} />
             </Field>
           )}
         </>

@@ -9,6 +9,13 @@ class FlowRunCreate(BaseModel):
     engine: str = "pandas"
 
 
+class InputDatasetRef(BaseModel):
+    """One input dataset a run resolved, with the concrete version it read."""
+
+    dataset_id: str
+    version_number: int | None = None
+
+
 class NodeResultRead(BaseModel):
     """A single node's outcome within a run (for the read-only run DAG)."""
 
@@ -30,6 +37,7 @@ class FlowRunSummary(BaseModel):
     flow_name: str | None
     project_id: str | None
     input_dataset_id: str | None
+    input_datasets: list[InputDatasetRef] | None = None
     status: str
     engine: str
     output_location: str | None
@@ -42,6 +50,9 @@ class FlowRunRead(BaseModel):
     id: str
     flow_id: str
     input_dataset_id: str | None
+    input_datasets: list[InputDatasetRef] | None = Field(
+        None, validation_alias="input_datasets_json"
+    )
     status: str
     engine: str
     output_location: str | None

@@ -35,6 +35,80 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
     if _has_cycle(node_ids, edges):
         raise GraphValidationError("Graph contains a cycle")
 
+    _validate_connections(nodes, edges)
+
+
+def _validate_connections(
+    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> None:
+    """Check that every node's incoming edges respect its handle topology.
+
+    Catches the wiring mistakes the frontend prevents but the API could still
+    accept: two edges feeding a single-input handle (which would silently drop
+    one input), a join missing a side, an output with the wrong number of
+    inputs, or an input node fed by an upstream edge.
+    """
+    # Imported lazily so this pure module isn't loaded with the whole engine.
+    from app.engine.registry import get_transformation
+
+    incoming: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in edges:
+        incoming[edge["target"]].append(edge)
+
+    for node in nodes:
+        node_id = node["id"]
+        node_type = node["type"]
+        edges_in = incoming.get(node_id, [])
+        label = node.get("data", {}).get("label") or node_type
+
+        if node_type in _INPUT_TYPES:
+            if edges_in:
+                raise GraphValidationError(
+                    f"{label}: input nodes cannot have an incoming connection."
+                )
+            dataset_id = node.get("data", {}).get("config", {}).get("dataset_id")
+            if not isinstance(dataset_id, str) or not dataset_id:
+                raise GraphValidationError(f"{label}: no dataset selected.")
+            continue
+
+        if node_type in _OUTPUT_TYPES:
+            if len(edges_in) != 1:
+                raise GraphValidationError(
+                    f"{label}: output nodes need exactly one input "
+                    f"(got {len(edges_in)})."
+                )
+            continue
+
+        try:
+            transformation = get_transformation(node_type)
+        except KeyError as exc:
+            raise GraphValidationError(f"Unknown node type: {node_type!r}") from exc
+
+        if transformation.multi_input:
+            if not edges_in:
+                raise GraphValidationError(f"{label}: connect at least one input.")
+            continue
+
+        handles = transformation.input_handles
+        by_handle: dict[str, int] = defaultdict(int)
+        for edge in edges_in:
+            handle = edge.get("targetHandle") or "in"
+            if handle not in handles:
+                raise GraphValidationError(
+                    f"{label}: connection to unknown input {handle!r}."
+                )
+            by_handle[handle] += 1
+        for handle in handles:
+            count = by_handle[handle]
+            which = f" {handle!r}" if len(handles) > 1 else ""
+            if count == 0:
+                raise GraphValidationError(f"{label}: the{which} input is not connected.")
+            if count > 1:
+                raise GraphValidationError(
+                    f"{label}: the{which} input accepts only one connection "
+                    f"(got {count})."
+                )
+
 
 def topological_sort(graph: dict[str, Any]) -> list[str]:
     nodes: list[dict[str, Any]] = graph.get("nodes", [])

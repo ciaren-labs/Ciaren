@@ -75,6 +75,11 @@ class PandasEngine:
                 mask = col.astype(str).str.startswith(str(value), na=False)
             case "endswith":
                 mask = col.astype(str).str.endswith(str(value), na=False)
+            case "between":
+                low, high = value
+                mask = col.between(low, high)
+            case "in":
+                mask = col.isin(list(value))
             case "isnull":
                 mask = col.isna()
             case "notnull":
@@ -85,17 +90,45 @@ class PandasEngine:
         return filtered
 
     def fill_nulls(
-        self, df: pd.DataFrame, columns: list[str] | None, value: Any
+        self, df: pd.DataFrame, columns: list[str] | None, strategy: str, value: Any
     ) -> pd.DataFrame:
         targets = columns or df.columns.tolist()
         result = df.copy()
         for col in targets:
-            original_dtype = df[col].dtype
-            try:
-                typed_value = pd.array([value], dtype=original_dtype)[0]
-            except (ValueError, TypeError):
+            series = df[col]
+            if strategy == "constant":
+                try:
+                    fill: Any = pd.array([value], dtype=cast(Any, series.dtype))[0]
+                except (ValueError, TypeError):
+                    continue
+            elif strategy == "zero":
+                fill = 0
+            elif strategy == "mean":
+                if not pd.api.types.is_numeric_dtype(series):
+                    continue
+                fill = series.mean()
+            elif strategy == "median":
+                if not pd.api.types.is_numeric_dtype(series):
+                    continue
+                fill = series.median()
+            elif strategy == "min":
+                fill = series.min()
+            elif strategy == "max":
+                fill = series.max()
+            elif strategy == "mode":
+                modes = series.mode(dropna=True)
+                if modes.empty:
+                    continue
+                fill = modes.iloc[0]
+            elif strategy == "ffill":
+                result[col] = series.ffill()
                 continue
-            result[col] = df[col].fillna(typed_value)
+            elif strategy == "bfill":
+                result[col] = series.bfill()
+                continue
+            else:
+                raise ValueError(f"Unknown fill strategy: {strategy!r}")
+            result[col] = series.fillna(fill)
         return result
 
     def drop_nulls(

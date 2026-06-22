@@ -8,6 +8,7 @@ _VALID_HOW = {"inner", "left", "right", "outer"}
 
 class JoinTransformation(BaseTransformation):
     type = "join"
+    input_handles = ("left", "right")
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("on"):
