@@ -1,29 +1,31 @@
 ---
 title: Transformations Reference
-description: Complete reference of all available transformation nodes
+description: Reference of the available transformation nodes
 search: transformations nodes all reference
 ---
 
 # Transformations Reference
 
-FlowFrame includes 25+ transformation nodes for cleaning, reshaping, and transforming data.
+FlowFrame ships with input/output nodes plus 16 transformation nodes for
+cleaning, reshaping, and combining data. Each node maps to a clear pandas
+operation and contributes to the exported Python code.
 
 ## Quick Overview
 
 | Category | Nodes | Purpose |
 |----------|-------|---------|
 | **Input** | CSV, Excel, Parquet | Load data from files |
-| **Cleaning** | 8 nodes | Handle nulls, duplicates, types |
-| **Transform** | 5 nodes | Filter, aggregate, join, reshape |
-| **Output** | 3 nodes | Save results to files |
+| **Cleaning** | 12 nodes | Columns, nulls, types, rows |
+| **Transform** | 4 nodes | Calculate, aggregate, join, union |
+| **Output** | CSV, Excel, Parquet | Save results to files |
 
 ## Input Nodes
 
 Load data from files.
 
-- **[CSV Input](/transformations/io/csv-input)** — Read CSV files with custom delimiters
-- **[Excel Input](/transformations/io/excel-input)** — Read Excel sheets
-- **[Parquet Input](/transformations/io/parquet-input)** — Read Parquet files
+- **CSV Input** — Read CSV files with custom delimiters
+- **Excel Input** — Read Excel sheets
+- **Parquet Input** — Read Parquet files
 
 ## Cleaning Nodes
 
@@ -31,76 +33,68 @@ Clean and prepare data.
 
 ### Column Operations
 
-- **[Drop Columns](/transformations/cleaning/drop-columns)** — Remove unwanted columns
-- **[Rename Columns](/transformations/cleaning/rename-columns)** — Rename columns
-- **[Select Columns](/transformations/transform/select-columns)** — Keep specific columns
+- **Drop Columns** — Remove unwanted columns
+- **Rename Columns** — Rename columns
+- **Select Columns** — Keep only specific columns
 
 ### Null Handling
 
-- **[Drop Nulls](/transformations/cleaning/drop-nulls)** — Remove rows with missing values
-- **[Fill Nulls](/transformations/cleaning/fill-nulls)** — Replace nulls with values
+- **Drop Nulls** — Remove rows with missing values
+- **Fill Nulls** — Replace nulls with values
 
-### Value Operations
+### Value & Row Operations
 
-- **[Remove Duplicates](/transformations/cleaning/remove-duplicates)** — Drop duplicate rows
-- **[Change Data Types](/transformations/cleaning/change-types)** — Convert column types
-- **[Filter Rows](/transformations/cleaning/filter-rows)** — Keep rows matching conditions
-
-### Sorting & Structure
-
-- **[Sort](/transformations/cleaning/sort)** — Sort by one or more columns
-- **[Calculated Column](/transformations/transform/calculated-column)** — Create new computed columns
+- **Remove Duplicates** — Drop duplicate rows
+- **Change Data Types** — Convert column types
+- **Filter Rows** — Keep rows matching conditions
+- **Replace Values** — Substitute values in a column
+- **String Transform** — Apply string operations (trim, case, etc.)
+- **Sort** — Sort by one or more columns
+- **Limit Rows** — Keep the first N rows
 
 ## Transform Nodes
 
-Transform data structure.
+Reshape and combine data.
 
-- **[Group by & Aggregate](/transformations/transform/group-aggregate)** — Group rows and compute statistics
-- **[Join](/transformations/transform/join)** — Combine two datasets
-- **[Union](/transformations/transform/union)** — Stack multiple datasets
+- **Calculated Column** — Create a new computed column
+- **Group by & Aggregate** — Group rows and compute statistics
+- **Join** — Combine two datasets on a key
+- **Union / Concat** — Stack datasets row-wise
 
 ## Output Nodes
 
 Save results.
 
-- **[CSV Output](/transformations/io/csv-output)** — Save as CSV
-- **[Excel Output](/transformations/io/excel-output)** — Save as Excel
-- **[Parquet Output](/transformations/io/parquet-output)** — Save as Parquet
+- **CSV Output** — Save as CSV
+- **Excel Output** — Save as Excel
+- **Parquet Output** — Save as Parquet
 
 ## Finding the Right Transformation
 
-### I want to...
+| I want to... | Use |
+|--------------|-----|
+| Remove columns | Drop Columns |
+| Fix column names | Rename Columns |
+| Remove missing values | Drop Nulls |
+| Fill missing values | Fill Nulls |
+| Remove duplicates | Remove Duplicates |
+| Keep only matching rows | Filter Rows |
+| Change column types | Change Data Types |
+| Create a new column | Calculated Column |
+| Sum, count, or average | Group by & Aggregate |
+| Combine two datasets | Join |
+| Stack two datasets | Union / Concat |
 
-- **Remove columns** → [Drop Columns](/transformations/cleaning/drop-columns)
-- **Fix column names** → [Rename Columns](/transformations/cleaning/rename-columns)
-- **Remove missing values** → [Drop Nulls](/transformations/cleaning/drop-nulls)
-- **Fill missing values** → [Fill Nulls](/transformations/cleaning/fill-nulls)
-- **Remove duplicates** → [Remove Duplicates](/transformations/cleaning/remove-duplicates)
-- **Keep only rows where...** → [Filter Rows](/transformations/cleaning/filter-rows)
-- **Change column types** → [Change Data Types](/transformations/cleaning/change-types)
-- **Create a new column** → [Calculated Column](/transformations/transform/calculated-column)
-- **Sum, count, or average** → [Group by & Aggregate](/transformations/transform/group-aggregate)
-- **Combine two datasets** → [Join](/transformations/transform/join)
-- **Stack two datasets** → [Union](/transformations/transform/union)
+## Node Configuration
 
-## Node Configuration Tips
-
-Every node has:
-
-1. **Title** — Label shown in the flow editor
-2. **Configuration panel** — Settings specific to that node
-3. **Handles** — Inputs/outputs to connect to other nodes
-
-### Common Settings
-
-- **Column selection** — Click to choose from your data
-- **Operators** — =, !=, >, <, contains, etc.
-- **Data types** — string, integer, float, date, boolean
-- **Aggregations** — sum, mean, count, min, max, etc.
+Every node has a title, a configuration panel with settings specific to that
+node, and input/output handles to connect to other nodes. Common settings
+include column selection, comparison operators, target data types, and
+aggregation functions.
 
 ## Generated Python Code
 
-Every flow generates clean Python code you can use outside FlowFrame:
+Every flow generates clean Python code you can run outside FlowFrame:
 
 ```python
 import pandas as pd
@@ -124,25 +118,22 @@ df = df.rename(columns={'amount': 'total_sales'})
 df.to_csv('output.csv', index=False)
 ```
 
-## Limitations & Workarounds
+## Current Limitations
 
 | Limitation | Workaround |
 |-----------|-----------|
-| **No window functions** | Use group by + join |
-| **No regex in filter** | Use Python export + regex |
-| **No multi-table union** | Chain multiple union nodes |
-| **No if/else logic** | Use multiple filter paths |
+| No window functions | Use group by + join |
+| No regex in filter | Edit the exported Python and add regex |
+| Union takes two inputs at a time | Chain multiple union nodes |
+| No if/else branching | Use multiple filter paths |
 
 ## Custom Transformations
 
-Want a transformation that's not built-in? [Open an issue →](https://github.com/rodrigo-arenas/FlowFrame/issues) or [contribute one!](/CONTRIBUTING.md)
+Need a transformation that isn't built in?
+[Open an issue](https://github.com/rodrigo-arenas/FlowFrame/issues) or
+[contribute one](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
 
 ## Next Steps
 
-- **[Transformation Examples](/examples/sales-analysis)** — Real workflows
-- **[Python Reference](https://pandas.pydata.org/docs/)** — Pandas docs
-- **[API Reference](/api/rest-api)** — FlowFrame API
-
----
-
-Ready to transform some data? [Quick Start →](/guide/quick-start)
+- [Examples](/examples/sales-analysis) — sample workflows
+- [pandas documentation](https://pandas.pydata.org/docs/) — the library underneath
