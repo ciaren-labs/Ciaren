@@ -8,6 +8,13 @@ search: getting started introduction what is flowframe
 
 Welcome to FlowFrame! This guide will help you understand what FlowFrame is and get you up and running in minutes.
 
+:::info Project status
+The **backend** (FastAPI engine, transformations, and Python code export) works
+today and is driven through the [REST API](/api/rest-api). The **visual
+drag-and-drop editor** is still in development — the visual walkthroughs below
+describe the intended experience, not a shipped UI.
+:::
+
 ## What is FlowFrame?
 
 FlowFrame is a **visual ETL builder** for pandas. It lets you:
