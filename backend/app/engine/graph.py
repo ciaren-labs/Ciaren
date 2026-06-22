@@ -10,8 +10,8 @@ class GraphValidationError(Exception):
 
 
 def validate_graph(graph: dict[str, Any]) -> None:
-    nodes: list[dict] = graph.get("nodes", [])
-    edges: list[dict] = graph.get("edges", [])
+    nodes: list[dict[str, Any]] = graph.get("nodes", [])
+    edges: list[dict[str, Any]] = graph.get("edges", [])
 
     if not nodes:
         raise GraphValidationError("Graph has no nodes")
@@ -37,8 +37,8 @@ def validate_graph(graph: dict[str, Any]) -> None:
 
 
 def topological_sort(graph: dict[str, Any]) -> list[str]:
-    nodes: list[dict] = graph.get("nodes", [])
-    edges: list[dict] = graph.get("edges", [])
+    nodes: list[dict[str, Any]] = graph.get("nodes", [])
+    edges: list[dict[str, Any]] = graph.get("edges", [])
 
     in_degree: dict[str, int] = defaultdict(int)
     adj: dict[str, list[str]] = defaultdict(list)
@@ -67,7 +67,7 @@ def topological_sort(graph: dict[str, Any]) -> list[str]:
     return order
 
 
-def _has_cycle(node_ids: set[str], edges: list[dict]) -> bool:
+def _has_cycle(node_ids: set[str], edges: list[dict[str, Any]]) -> bool:
     adj: dict[str, list[str]] = defaultdict(list)
     for edge in edges:
         adj[edge["source"]].append(edge["target"])

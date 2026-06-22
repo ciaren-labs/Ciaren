@@ -25,7 +25,7 @@ class CodeGenerator:
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         edges = graph.get("edges", [])
-        incoming: dict[str, list[dict]] = {nid: [] for nid in nodes_by_id}
+        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
         for edge in edges:
             incoming[edge["target"]].append(edge)
 
@@ -41,7 +41,7 @@ class CodeGenerator:
         for node_id in order:
             node = nodes_by_id[node_id]
             node_type = node["type"]
-            config: dict = node.get("data", {}).get("config", {})
+            config: dict[str, Any] = node.get("data", {}).get("config", {})
 
             if node_type in _INPUT_TYPES:
                 var = next_var()
@@ -59,12 +59,14 @@ class CodeGenerator:
 
             else:
                 transformation = get_transformation(node_type)
-                input_vars = {
-                    e.get("targetHandle", "default"): node_var[e["source"]]
-                    for e in incoming[node_id]
-                }
+                input_vars: dict[str, str] = {}
+                for i, e in enumerate(incoming[node_id]):
+                    handle = e.get("targetHandle") or "in"
+                    if handle in input_vars:
+                        handle = f"{handle}_{i}"
+                    input_vars[handle] = node_var[e["source"]]
                 out_var = next_var()
-                output_vars = {"default": out_var}
+                output_vars = {"out": out_var}
                 code = transformation.to_python_code(input_vars, output_vars, config)
                 node_var[node_id] = out_var
                 lines.append(code)
