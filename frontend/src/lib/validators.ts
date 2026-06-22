@@ -25,6 +25,8 @@ export const stringOperations = [
   "capitalize",
 ] as const;
 
+export const aggFunctions = ["sum", "mean", "count", "min", "max", "median", "nunique"] as const;
+
 export const joinHows = ["inner", "left", "right", "outer"] as const;
 export const dtypes = [
   "integer",
@@ -36,6 +38,8 @@ export const dtypes = [
 
 const inputConfig = z.object({
   dataset_id: z.string().min(1, "Select a dataset"),
+  // Pinned version number; null/absent means "use latest".
+  dataset_version: z.number().int().positive().nullable().optional(),
 });
 
 export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {

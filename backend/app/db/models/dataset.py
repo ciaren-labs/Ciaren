@@ -1,23 +1,33 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
+if TYPE_CHECKING:
+    from app.db.models.dataset_version import DatasetVersion
+
 
 class Dataset(Base):
+    """A named, logical dataset. The actual data lives in immutable
+    ``DatasetVersion`` rows — re-uploading a file under the same name adds a new
+    version rather than overwriting, so flows that pin a version stay stable."""
+
     __tablename__ = "datasets"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv | excel | parquet
-    location: Mapped[str] = mapped_column(Text, nullable=False)
-    schema_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
-    sample_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    versions: Mapped[list["DatasetVersion"]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+        order_by="DatasetVersion.version_number",
     )

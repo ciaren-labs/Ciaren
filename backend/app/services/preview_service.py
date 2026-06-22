@@ -1,11 +1,9 @@
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.db.models.dataset import Dataset
 from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
 from app.engine.executor import FlowExecutor
@@ -17,8 +15,7 @@ from app.schemas.preview import (
     PreviewResponse,
     TransformationPreviewRequest,
 )
-
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
+from app.services.dataset_resolver import build_dataset_paths, resolve_version
 
 
 class PreviewService:
@@ -35,8 +32,9 @@ class PreviewService:
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
-        dataset = await self._get_dataset(req.dataset_id)
-        df = self.engine.read(dataset.location, dataset.source_type)
+        # Transformation preview always reads the dataset's latest version.
+        version = await resolve_version(self.db, req.dataset_id, None)
+        df = self.engine.read(version.location, version.dataset.source_type)
         result = transformation.execute(self.engine, {"in": df}, req.config)
         out = result.get("out", next(iter(result.values())))
         return self._to_response(out, req.limit)
@@ -46,7 +44,7 @@ class PreviewService:
     ) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
-        dataset_paths = await self._dataset_paths(graph)
+        dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
         frames = FlowExecutor().compute_frames(
             graph, dataset_paths, self.engine, require_output=False
@@ -77,32 +75,6 @@ class PreviewService:
         # The deepest node in topological order is the natural preview target.
         order = topological_sort(graph)
         return order[-1]
-
-    async def _dataset_paths(self, graph: dict[str, Any]) -> dict[str, Path]:
-        dataset_ids = {
-            n["data"]["config"]["dataset_id"]
-            for n in graph.get("nodes", [])
-            if n["type"] in _INPUT_TYPES
-        }
-        if not dataset_ids:
-            return {}
-        result = await self.db.execute(
-            select(Dataset).where(Dataset.id.in_(dataset_ids))
-        )
-        datasets = {d.id: d for d in result.scalars().all()}
-        missing = dataset_ids - datasets.keys()
-        if missing:
-            raise NotFoundError("Dataset", ", ".join(sorted(missing)))
-        return {ds_id: Path(ds.location) for ds_id, ds in datasets.items()}
-
-    async def _get_dataset(self, dataset_id: str) -> Dataset:
-        result = await self.db.execute(
-            select(Dataset).where(Dataset.id == dataset_id)
-        )
-        dataset = result.scalar_one_or_none()
-        if dataset is None:
-            raise NotFoundError("Dataset", dataset_id)
-        return dataset
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

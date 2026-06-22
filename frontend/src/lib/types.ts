@@ -5,15 +5,30 @@ export interface DatasetSchemaField {
   type: string;
 }
 
+export type DatasetSourceType = "csv" | "excel" | "parquet";
+
 export interface Dataset {
   id: string;
   name: string;
-  source_type: string;
-  location: string;
-  schema_json: DatasetSchemaField[] | null;
-  sample_json: Record<string, unknown>[] | null;
+  source_type: DatasetSourceType;
+  /** Highest version number available (latest snapshot). */
+  latest_version: number;
+  /** Total number of versions uploaded under this name. */
+  version_count: number;
+  // The backend exposes these under aliased names (column_schema / data_sample);
+  // `location` is intentionally never sent to the client. They reflect the latest version.
+  column_schema: DatasetSchemaField[] | null;
+  data_sample: Record<string, unknown>[] | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DatasetVersion {
+  id: string;
+  version_number: number;
+  row_count: number;
+  column_schema: DatasetSchemaField[] | null;
+  created_at: string;
 }
 
 export type RunStatus = "pending" | "running" | "success" | "failed";
