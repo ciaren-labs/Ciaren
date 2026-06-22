@@ -17,4 +17,4 @@ async def create_run(
 
 @router.get("/runs/{run_id}", response_model=FlowRunRead)
 async def get_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
-    raise NotImplementedError
+    return await service.get(run_id)
