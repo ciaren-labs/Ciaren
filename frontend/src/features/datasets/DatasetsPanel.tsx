@@ -12,7 +12,7 @@ import {
 import { useDatasets, useUploadDataset } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
-import { SearchInput } from "@/components/filters/FilterBar";
+import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import {
   Card,
@@ -122,49 +122,77 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Upload destination selector (global view only) */}
-      {!scoped && (
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Upload to project</Label>
+      {/* Upload section — 2-step when not scoped to a project */}
+      {scoped ? (
+        <UploadDropzone
+          dragging={dragging}
+          upload={upload}
+          inputRef={inputRef}
+          onFile={onFile}
+          onDrop={onDrop}
+          setDragging={setDragging}
+        />
+      ) : uploadProjectId ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <span className="h-2 w-2 rounded-full bg-brand-500" />
+              {(projects ?? []).find((p) => p.id === uploadProjectId)?.name ?? "Project"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setUploadProjectId("")}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Change
+            </button>
+          </div>
+          <UploadDropzone
+            dragging={dragging}
+            upload={upload}
+            inputRef={inputRef}
+            onFile={onFile}
+            onDrop={onDrop}
+            setDragging={setDragging}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Step 1 — Choose a project</p>
+          <p className="text-xs text-muted-foreground">Select the project this dataset belongs to before uploading.</p>
           <SearchableSelect
             value={uploadProjectId}
             onChange={setUploadProjectId}
-            allLabel="No project"
+            allLabel="Select a project…"
             placeholder="Search projects…"
-            className="sm:max-w-xs"
+            className="mx-auto w-full max-w-xs"
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
           />
         </div>
       )}
 
-      <UploadDropzone
-        dragging={dragging}
-        upload={upload}
-        inputRef={inputRef}
-        onFile={onFile}
-        onDrop={onDrop}
-        setDragging={setDragging}
-      />
-
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search datasets…"
-          className="flex-1 sm:max-w-xs"
-        />
-        {!scoped && (
-          <SearchableSelect
-            value={projectFilter}
-            onChange={setProjectFilter}
-            allLabel="All projects"
-            placeholder="Search projects…"
-            className="sm:w-52"
-            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+      <FilterBar>
+        <FilterField label="Search" className="flex-1 min-w-[10rem]">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search datasets…"
           />
+        </FilterField>
+        {!scoped && (
+          <FilterField label="Project">
+            <SearchableSelect
+              value={projectFilter}
+              onChange={setProjectFilter}
+              allLabel="All projects"
+              placeholder="Search projects…"
+              className="sm:w-52"
+              options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </FilterField>
         )}
-      </div>
+      </FilterBar>
 
       {isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">

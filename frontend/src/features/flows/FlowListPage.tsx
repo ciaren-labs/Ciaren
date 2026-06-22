@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { SearchInput } from "@/components/filters/FilterBar";
+import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { projectColor } from "@/lib/projectColors";
 import type { Flow } from "@/lib/types";
@@ -134,22 +134,25 @@ export function FlowListPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search flows…"
-          className="flex-1 sm:max-w-xs"
-        />
-        <SearchableSelect
-          value={projectFilter}
-          onChange={setProjectFilter}
-          allLabel="All projects"
-          placeholder="Search projects…"
-          className="sm:w-52"
-          options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
-        />
-      </div>
+      <FilterBar className="mb-4">
+        <FilterField label="Search" className="flex-1 min-w-[10rem]">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search flows…"
+          />
+        </FilterField>
+        <FilterField label="Project">
+          <SearchableSelect
+            value={projectFilter}
+            onChange={setProjectFilter}
+            allLabel="All projects"
+            placeholder="Search projects…"
+            className="sm:w-52"
+            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+          />
+        </FilterField>
+      </FilterBar>
 
       {isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
