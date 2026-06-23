@@ -1,8 +1,42 @@
 # FlowFrame ML Extension — Architecture & Implementation Guide
 
-**Status:** Design phase — under development
+**Status:** Approved — implementation starting on `feature/ml-extension`
 **Scope:** Supervised and unsupervised tabular ML (scikit-learn, XGBoost, LightGBM)  
 **Depends on:** MLflow 3 (artifact store + registry), existing ETL node/executor/scheduler architecture
+
+---
+
+## 0. Locked Decisions (2026-06-23)
+
+These were settled after auditing the plan against the current code. They override
+any conflicting statement elsewhere in this document.
+
+1. **MLflow from the start.** v1 ships full MLflow 3 integration (artifact logging,
+   experiments, registry promotion) — not a deferred/lightweight store. Local
+   `./mlruns` is the zero-setup default; a tracking server is opt-in via
+   `MLFLOW_TRACKING_URI`.
+2. **ML nodes run on both engines via an Arrow hop.** Add `from_pandas()` to the
+   `EngineBackend` protocol. ML nodes do `to_pandas()` → sklearn → `from_pandas()`,
+   so an ML node can sit inside a polars flow. The ETL prefix keeps polars speed;
+   only the ML boundary converts (Arrow-backed, ~zero-copy for numeric). See §4.5.
+3. **Branch:** all ML work lands on `feature/ml-extension`, import-isolated from the
+   ETL engine (see §13 "Branch strategy").
+
+### Audit corrections to the original plan
+
+The plan was written before the executor reached its current shape. Four
+assumptions were wrong or understated and are corrected in the sections noted:
+
+- **`execute()` already returns `dict[str, AnyFrame]` with named inputs.** No
+  signature change is needed (the original §14 "invariant" is already satisfied).
+- **Multi-output is *not* a one-line change.** The executor stores exactly one
+  frame per node and ignores `sourceHandle` on edges. Real rework is required —
+  see the rewritten §4.1.
+- **Nodes have no channel to emit non-frame metadata** (metrics, model URI).
+  `execute()` returns only frames. A metadata side-channel is needed — see §4.2.
+- **`validate_config` is data-blind and never runs during an actual run** (only in
+  preview). Data-aware ML guardrails need a separate hook invoked at run start —
+  see §4.6.
 
 ---
 
@@ -278,40 +312,77 @@ Does NOT support: SVM, KNN — raises `ValidationError` with explanation.
 
 ## 4. Executor Changes
 
-### 4.1 Multi-output handle support
+### 4.1 Multi-output handle support (executor rework — corrected)
 
-Current contract: `execute()` returns `{"out": df}`.
-
-New contract (backward-compatible): `execute()` may return any dict of named dataframes.
-The executor resolves outgoing edges by matching `edge.sourceHandle` to the key:
+**Reality of the current executor (`app/engine/executor.py`):** despite `execute()`
+already returning `dict[str, AnyFrame]`, the executor immediately collapses it to a
+single frame per node:
 
 ```python
-# graph.py — node_kinds additions
+result = transformation.execute(engine, inputs, config)
+return result.get("out", next(iter(result.values())))   # _node_frame()
+...
+frames[node_id] = frame                                  # one frame per node id
+```
+
+Downstream nodes then resolve their inputs purely by **source node id**, ignoring
+the handle entirely:
+
+```python
+def _build_inputs(incoming, frames):
+    inputs = {}
+    for i, edge in enumerate(incoming):
+        handle = edge.get("targetHandle") or "in"   # reads targetHandle, never sourceHandle
+        inputs[handle] = frames[edge["source"]]      # keyed by source id only
+    return inputs
+```
+
+So `trainTestSplit` returning `{"train": ..., "test": ...}` would silently pick one
+output for *both* downstream edges. Multi-output is a genuine rework, not a flag.
+
+**Required changes (kept backward-compatible for all existing single-output nodes):**
+
+1. **Per-handle frame storage.** Change `frames` from `dict[node_id, AnyFrame]` to
+   `dict[node_id, dict[handle, AnyFrame]]`. A node's `execute()` result *is* that
+   inner dict; single-output nodes produce `{"out": df}` as they already do.
+2. **`_build_inputs` reads `sourceHandle`.** Resolve each incoming edge as
+   `frames[edge["source"]][edge.get("sourceHandle") or _default_handle(source_node)]`.
+   `_default_handle` returns the sole key when a node has one output (backward
+   compatible), else requires an explicit `sourceHandle`.
+3. **`_node_frame` returns the dict**, and both `compute_frames` and
+   `run_with_results` are updated to store/consume the per-handle dict. Output-node
+   passthrough and input-node reads wrap their single frame as `{"out": frame}`.
+4. **`node_kinds.py` gains the declared output handles:**
+
+```python
 MULTI_OUTPUT_NODES = {
     "trainTestSplit": ["train", "test"],
     "mlTrain": ["out", "model"],     # "out" = training data passthrough; "model" = ref df
 }
 ```
 
-Backward compatibility: if `sourceHandle` is absent on an edge and the node has only
-one output key, use it. If there are multiple keys and no handle specified, raise
-`GraphValidationError`.
+5. **Graph validation (`graph.py`)** allows multiple outgoing edges from a
+   multi-output node and rejects an edge whose `sourceHandle` is not in that node's
+   declared handles. Single-output nodes keep today's behavior (absent
+   `sourceHandle` ⇒ the sole output).
 
-### 4.2 ML-aware NodeResult
+**NodeResult sampling for multi-output nodes:** `NodeResult` carries one
+`rows`/`columns`/`sample`. For a multi-output node the executor samples its
+**primary handle** — the first entry in its `MULTI_OUTPUT_NODES` list
+(`train` for `trainTestSplit`, `out` for `mlTrain`). Other handles still flow to
+downstream nodes; they're just not the one previewed in the run DAG.
 
-Extend `NodeResultRead` (in `app/schemas/run.py`) with optional ML fields:
+### 4.2 ML-aware NodeResult + metadata side-channel
+
+**Two objects, not one.** There is the read schema `NodeResultRead`
+(`app/schemas/run.py`) *and* the in-executor dataclass `NodeResult`
+(`app/engine/executor.py`) with its own `as_dict()`. **Both** must gain the ML
+fields, and `as_dict()` must emit them, or the values never reach the
+`node_results_json` blob the schema reads back. The original plan only mentioned the
+schema.
 
 ```python
-class NodeResultRead(BaseModel):
-    node_id: str
-    type: str
-    label: str | None
-    status: str
-    rows: int | None
-    columns: list[str]
-    sample: list[dict[str, Any]]
-    error: str | None
-    duration_ms: float | None
+# app/schemas/run.py — NodeResultRead, and app/engine/executor.py — NodeResult
     # ML-specific — None for non-ML nodes
     ml_metrics: dict[str, float] | None = None
     mlflow_run_id: str | None = None
@@ -322,6 +393,30 @@ class NodeResultRead(BaseModel):
 
 These fields are stored in the existing `node_results_json` blob on `FlowRun` — no new
 DB table needed for v1. A `MLFlowRun` table can be added in v2 if query patterns demand it.
+
+**How a node emits this metadata — the missing channel.** `execute()` returns only
+`dict[str, AnyFrame]`; there is no way today for a node to hand back metrics or a
+model URI. We add an **optional, opt-in** mechanism that does not disturb the 28
+existing transformations:
+
+- ML nodes mix in `EmitsNodeMetadata` and implement
+  `collect_metadata(config) -> NodeMetadata | None`, returning the
+  metrics/`mlflow_run_id`/`model_uri`/`task_type`/`cv_scores` produced during the
+  *most recent* `execute()`.
+- Because transformations are shared singletons (registered once, reused across
+  runs and possibly across processes), the metadata must **not** be stashed on
+  `self`. Instead `execute()` writes it into a per-call sink: the executor passes an
+  optional `meta_sink: dict[str, Any] | None` that ML nodes populate, keyed by
+  nothing more than the call. Concretely, the executor calls
+  `transformation.execute(engine, inputs, config, meta_sink=sink)` only for nodes
+  whose class declares `emits_metadata = True`; the base `execute()` signature gains
+  a keyword-only `meta_sink: dict | None = None` with a default, so existing nodes
+  ignore it and remain unchanged. The executor copies `sink` onto that node's
+  `NodeResult`.
+
+This keeps the hot path untouched for ETL nodes, is process-mode safe (the sink is a
+plain dict returned across the boundary inside the result, never global state), and
+gives ML nodes a clean way to surface metrics alongside their output frames.
 
 ### 4.3 Timeout handling for long-running training
 
@@ -348,6 +443,60 @@ prominently in the ML setup guide.
 **Caveat:** sklearn models are picklable (required for process mode). XGBoost Booster objects
 are also picklable. All ML node results must be serializable across the process boundary.
 The `model_ref_df` (a pandas DataFrame with string columns) is trivially picklable.
+
+### 4.5 Engine strategy for ML nodes (`from_pandas`)
+
+ETL transformations are engine-agnostic: they call `EngineBackend` methods and never
+touch pandas/polars directly, so each runs unchanged on either engine. sklearn,
+XGBoost, and LightGBM are **numpy/pandas-only**, so ML nodes cannot follow that
+pattern — but we still want a polars-driven flow to keep its speed for the ETL prefix.
+
+**Decision (locked, §0):** ML nodes run on both engines via an Arrow hop.
+
+- Add one method to the `EngineBackend` protocol: `from_pandas(df: pd.DataFrame) -> AnyFrame`.
+  - polars backend: `pl.from_pandas(df)` (Arrow-backed, ~zero-copy for numeric).
+  - pandas backend: identity (returns the frame as-is).
+  - `to_pandas()` already exists on the protocol.
+- An ML node's `execute()` is therefore:
+
+```python
+def execute(self, engine, inputs, config, meta_sink=None):
+    pdf = engine.to_pandas(inputs["in"])      # convert at the boundary
+    ...                                        # sklearn / xgboost / lgbm work in pandas
+    return {"out": engine.from_pandas(result_pdf)}   # convert back to active engine
+```
+
+**Why this is both the most flexible and the fastest option:** the ML step consumes
+numpy regardless of engine, so its cost is identical either way; the only difference
+is the ETL prefix, which stays on polars instead of being dragged onto pandas. The
+boundary conversion is a single near-free Arrow hop. The alternative (pandas-only ML
+flows) would force the entire pipeline onto the slower engine the moment one ML node
+appears.
+
+**Codegen unaffected:** ML nodes still emit pandas code regardless of engine (§10);
+`to_polars_code` for ML nodes emits the same pandas body wrapped with a clarifying
+comment (sklearn has no polars-native equivalent).
+
+### 4.6 Data-aware validation for ML nodes
+
+`BaseTransformation.validate_config(config)` takes **only config** and is invoked
+**only by the preview endpoint** (`preview_service.py`) — actual runs rely on
+`validate_graph` plus execute-time failures. ML guardrails, however, need to see the
+data shape: row count (`cv_folds` vs. rows, `ML_MAX_TRAINING_ROWS`), real column
+names (leakage, missing/extra features), and class counts (stratification).
+
+We do **not** change the shared `validate_config` signature (that would touch all 28
+ETL nodes for no benefit). Instead:
+
+- ML nodes additionally implement an optional `validate_with_schema(config, schema)`
+  where `schema` carries column names/dtypes and `row_count` derived from the
+  upstream `DatasetVersion` / propagated node schema.
+- This runs at **run start** (and on save/validation in the API) for ML nodes only,
+  before any CPU is spent — so oversized or misconfigured jobs are rejected at the
+  API layer per §6.4, not mid-fit.
+- The cheap, data-free checks (seed present, known `model_type`, no target/feature
+  overlap by name) stay in `validate_config` so preview and the frontend can surface
+  them instantly.
 
 ---
 
@@ -744,11 +893,21 @@ Track progress here as features are built and tested.
       to `NodeResultRead` schema (backward-compatible: all `None` for non-ML nodes)
 - [ ] Add `ML_ENABLED` feature flag check to any ML route/node; return `501 Not Implemented` if disabled
 
-#### Executor changes
+#### Executor changes (see corrected §4.1 / §4.2 / §4.5)
 
-- [ ] Extend executor to support multi-key execute returns (`{"train": df, "test": df}`)
-- [ ] Add `MULTI_OUTPUT_NODES` to `node_kinds.py`
-- [ ] Update graph validation to allow `sourceHandle` on edges from multi-output nodes
+- [ ] Per-handle frame storage: `frames[node_id]` becomes `dict[handle, AnyFrame]`;
+      update `_node_frame`, `compute_frames`, `run_with_results`, and input/output
+      passthrough wrapping (`{"out": frame}`)
+- [ ] `_build_inputs` resolves edges via `sourceHandle` (default = sole output)
+- [ ] Add `MULTI_OUTPUT_NODES` to `node_kinds.py` + `_default_handle` helper
+- [ ] Update graph validation to allow multiple outgoing edges from multi-output
+      nodes and reject unknown `sourceHandle`
+- [ ] NodeResult samples the node's **primary handle** for multi-output nodes
+- [ ] Add `from_pandas()` to `EngineBackend` protocol + pandas/polars impls (§4.5)
+- [ ] Add opt-in `meta_sink` kwarg to `execute()` + `EmitsNodeMetadata` mixin;
+      executor copies sink onto `NodeResult` (§4.2)
+- [ ] Add ML fields to the `NodeResult` **dataclass** + `as_dict()` (not just the schema)
+- [ ] Add `validate_with_schema(config, schema)` hook; run it at run start for ML nodes (§4.6)
 - [ ] Implement `run_timeout_seconds` per-run override (Schedule → FlowRunCreate → executor)
 
 #### Feature engineering nodes
@@ -854,11 +1013,18 @@ Track progress here as features are built and tested.
 
 ### Key invariants to preserve
 
-- `BaseTransformation.execute()` return type changes from `{"out": df}` to `dict[str, AnyFrame]`.
-  All existing transformations return `{"out": df}` — this is backward-compatible.
-- `validate_config()` must be callable before execution, with only config (no data). Row count
-  checks require the `DatasetVersion` metadata, not the actual data — pass it as an optional
-  argument from the route handler.
+- `BaseTransformation.execute()` **already** returns `dict[str, AnyFrame]` and
+  already receives named `inputs` — no signature change. What changes is the
+  *executor*, which today collapses that dict to one frame per node and ignores
+  `sourceHandle` (see §4.1). Preserve single-output behavior exactly while adding
+  per-handle storage.
+- `validate_config(config)` stays config-only and is the *cheap* path (preview +
+  frontend). Data-aware ML checks live in a separate `validate_with_schema(config,
+  schema)` invoked at run start (§4.6). Do not widen the shared signature.
+- Non-frame outputs (metrics, model URI) travel via the opt-in `meta_sink` channel
+  (§4.2), never via mutable state on the singleton transformation instance.
+- ML nodes convert at the engine boundary with `to_pandas()`/`from_pandas()` (§4.5);
+  they must return a frame of the **active** engine's type so downstream nodes work.
 - The graph JSON format (`nodes[].data.config`) is the source of truth. ML node configs
   must be JSON-serializable and round-trip through `graph_json` on `Flow`.
 
