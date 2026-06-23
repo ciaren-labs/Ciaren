@@ -10,6 +10,7 @@ from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
 from app.engine.executor import FlowExecutor
 from app.engine.graph import topological_sort
+from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
 from app.engine.registry import get_transformation
 from app.engine.transformations.base import BaseTransformation
@@ -42,7 +43,9 @@ class PreviewService:
         # Transformation preview always reads the dataset's latest version.
         version = await resolve_version(self.db, req.dataset_id, None)
         df = self.engine.read(version.location, version.dataset.source_type)
-        result = transformation.execute(self.engine, {"in": df}, req.config)
+        # preview_mode keeps ML nodes from fitting/logging during a preview.
+        with preview_mode():
+            result = transformation.execute(self.engine, {"in": df}, req.config)
         out = result.get("out", next(iter(result.values())))
         return self._to_response(out, req.limit, req.profile)
 
@@ -64,14 +67,16 @@ class PreviewService:
                 if has_storage_inputs(graph)
                 else {}
             )
-            frames = FlowExecutor().compute_frames(
-                graph,
-                dataset_paths,
-                self.engine,
-                require_output=False,
-                sql_input_paths=sql_input_paths,
-                storage_input_paths=storage_input_paths,
-            )
+            # preview_mode keeps ML nodes from fitting/logging during a preview.
+            with preview_mode():
+                frames = FlowExecutor().compute_frames(
+                    graph,
+                    dataset_paths,
+                    self.engine,
+                    require_output=False,
+                    sql_input_paths=sql_input_paths,
+                    storage_input_paths=storage_input_paths,
+                )
             node_id = req.node_id or self._default_node(graph)
             if node_id not in frames:
                 raise NotFoundError("Node", node_id)

@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation, MLSchema
 from app.ml.models import CLASSIFICATION, build_estimator, get_model_spec
@@ -89,8 +90,17 @@ class MLTrainTransformation(MetadataMLTransformation):
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
 
-        settings = get_settings()
         spec = get_model_spec(config["model_type"])
+        # During preview we must not fit a model or create an MLflow run: pass the
+        # training frame through and hand downstream a placeholder model reference.
+        if in_preview():
+            placeholder = pd.DataFrame([{"mlflow_run_id": None, "model_uri": None, "task_type": spec.task}])
+            return (
+                {"out": inputs["in"], "model": engine.from_pandas(placeholder)},
+                NodeMetadata(task_type=spec.task),
+            )
+
+        settings = get_settings()
         seed = config["seed"]
         pdf = engine.to_pandas(inputs["in"])
 
