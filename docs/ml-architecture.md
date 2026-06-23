@@ -936,8 +936,17 @@ tests passing (154 ML-specific), mypy + ruff clean. Delivered:
 - Dataset-delete guard (§8): 409 when a `production`-aliased registered model was
   trained on the dataset; `?force=true` overrides.
 
-**Backend is feature-complete for v1.** Still TODO: Phase 3 (frontend) and
-Phase 5 (user docs).
+**Phase 3 (frontend) complete:** "Machine Learning" palette section (gated on the
+server reporting the extension ready), multi-output handles + purple model-ref
+edges, config forms for every ML node (dropdown/checkbox-first), mlTrain with an
+Advanced-options modal (full hyperparameters, cross-validation, preprocessing),
+and a run-detail ML panel (metrics, confusion-matrix heatmap, feature-importance
+chart, registry promotion). 361 frontend tests; tsc + production build clean.
+
+**Phase 5 (docs) complete:** `docs/guide/ml-quickstart.md` + a combined
+`docs/transformations/machine-learning.md` reference, wired into the sidebar.
+
+**v1 is feature-complete (backend + frontend + docs).**
 
 Track progress here as features are built and tested.
 
