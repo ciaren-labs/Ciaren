@@ -130,6 +130,8 @@ async def test_every_flow_executes_end_to_end(demo_db: AsyncSession, tmp_path, e
     out_dir = tmp_path / f"out_{engine_name}"
     out_dir.mkdir()
 
+    import json
+
     for flow in flows:
         dataset_paths, _ = await build_dataset_paths(demo_db, flow.graph_json)
         run = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, out_dir, engine_name=engine_name)
@@ -137,6 +139,9 @@ async def test_every_flow_executes_end_to_end(demo_db: AsyncSession, tmp_path, e
         assert run.output_paths, f"{flow.name} produced no output"
         for path in run.output_paths.values():
             assert path.is_file()
+        # Node results are persisted to a JSON column — they must serialize
+        # (e.g. date-parsing flows produce datetime samples).
+        json.dumps([r.as_dict() for r in run.node_results])
 
 
 async def test_dataset_paths_resolve_to_pinned_version(demo_db: AsyncSession) -> None:
