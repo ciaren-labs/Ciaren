@@ -263,7 +263,8 @@ class MLTrainTransformation(MetadataMLTransformation):
                 metrics["inertia"] = float(model.inertia_)
             xt = pipeline[:-1].transform(x) if len(pipeline) > 1 else x
             unique = set(labels) - {-1} if labels is not None else set()
-            if labels is not None and len(unique) > 1:
+            # silhouette needs 2..n-1 distinct clusters (excluding DBSCAN's -1 noise).
+            if labels is not None and 1 < len(unique) < len(labels):
                 metrics["silhouette"] = float(silhouette_score(xt, labels))
             elif labels is not None and set(labels) == {-1}:
                 logger.warning("mlTrain: DBSCAN assigned all points to noise — adjust eps/min_samples.")
@@ -306,9 +307,14 @@ class MLTrainTransformation(MetadataMLTransformation):
                 **{f"hp_{k}": v for k, v in (config.get("hyperparameters") or {}).items()},
             }
             with mlflow.start_run() as run:
-                mlflow.log_params(params)
-                if metrics:
-                    mlflow.log_metrics(metrics)
+                # Params/metrics are secondary: a bad value (e.g. an over-long
+                # hyperparameter) must never stop the model itself from being saved.
+                try:
+                    mlflow.log_params(params)
+                    if metrics:
+                        mlflow.log_metrics(metrics)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("mlTrain: could not log params/metrics (%s).", exc)
                 # cloudpickle is MLflow's standard sklearn format; the newer skops
                 # default rejects common numpy types. User-supplied model paths are
                 # still validated separately in mlPredict (see app/ml/security.py).
