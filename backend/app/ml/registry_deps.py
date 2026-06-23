@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 _PRODUCTION_ALIAS = "production"
 
 
-def production_models_for_dataset(dataset_id: str) -> list[str]:
+def production_models_for_dataset(dataset_id: str, tracking_uri: str | None = None) -> list[str]:
     """Return ``"name/version"`` for each Production-aliased model trained on
     ``dataset_id``. Empty when none, or when MLflow is unavailable."""
     try:
         from app.ml.tracking import configure_mlflow
 
-        mlflow = configure_mlflow()
+        mlflow = configure_mlflow(tracking_uri=tracking_uri)
         client = mlflow.tracking.MlflowClient()
     except Exception as exc:  # noqa: BLE001 - never block a delete on registry issues
         logger.warning("Production-dependency check skipped (MLflow unavailable: %s).", exc)

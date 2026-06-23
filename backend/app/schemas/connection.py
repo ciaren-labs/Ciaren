@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # Provider names mapped to their kind — kept in sync with providers.py.
 _STORAGE_PROVIDERS = frozenset({"local", "s3", "azure_blob", "gcs"})
 _MONGO_PROVIDERS = frozenset({"mongodb"})
+_MLFLOW_PROVIDERS = frozenset({"mlflow"})
 
 # Valid POSIX env var names: start with letter or underscore, then letters/digits/underscores.
 _ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -101,7 +102,7 @@ class ConnectionRead(BaseModel):
 
     Contains no secret — only the *name* of the password env var — so it is
     safe to serialize. ``connection_type`` is derived from the provider name and
-    tells the frontend which form to show (sql | mongo | storage).
+    tells the frontend which form to show (sql | mongo | storage | mlflow).
     """
 
     id: str
@@ -125,6 +126,8 @@ class ConnectionRead(BaseModel):
             self.connection_type = "storage"
         elif self.provider in _MONGO_PROVIDERS:
             self.connection_type = "mongo"
+        elif self.provider in _MLFLOW_PROVIDERS:
+            self.connection_type = "mlflow"
         else:
             self.connection_type = "sql"
         return self

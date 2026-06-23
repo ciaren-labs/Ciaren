@@ -14,6 +14,7 @@ from app.connectors.providers import (
     driver_available,
     get_connector,
     get_provider,
+    is_mlflow_provider,
     is_storage_provider,
     list_providers,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "driver_available",
     "get_connector",
     "get_provider",
+    "is_mlflow_provider",
     "is_storage_provider",
     "list_providers",
     "validate_identifier",
