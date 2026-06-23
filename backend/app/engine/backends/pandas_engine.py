@@ -6,7 +6,7 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 
-from .base import register_engine
+from .base import register_engine, rule_combine_all, rule_conditions
 
 
 @register_engine
@@ -485,14 +485,24 @@ class PandasEngine:
         default: Any,
         new_column: str,
     ) -> pd.DataFrame:
-        conditions = [
-            _pandas_condition_mask(df, r["column"], r.get("operator", "=="), r.get("value"))
-            for r in rules
-        ]
+        conditions = [_pandas_rule_mask(df, r) for r in rules]
         choices = [r.get("result") for r in rules]
         # np.select picks the first matching condition (CASE-WHEN priority order).
         result = np.select(conditions, choices, default=default)  # type: ignore[type-var]
         return df.assign(**{new_column: result})
+
+
+def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
+    """Combine a rule's conditions with AND (match all) or OR (match any)."""
+    masks = [
+        _pandas_condition_mask(df, c["column"], c.get("operator", "=="), c.get("value"))
+        for c in rule_conditions(rule)
+    ]
+    combined = masks[0]
+    combine_all = rule_combine_all(rule)
+    for mask in masks[1:]:
+        combined = combined & mask if combine_all else combined | mask
+    return combined
 
 
 def _pandas_condition_mask(

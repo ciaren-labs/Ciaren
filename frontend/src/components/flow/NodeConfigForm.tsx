@@ -959,12 +959,41 @@ export function NodeConfigForm({
 
     case "conditionalColumn": {
       const rules = (c.rules as Record<string, any>[]) ?? [];
+      // A rule is either the new shape ({ match, conditions[], result }) or a
+      // legacy flat rule ({ column, operator, value, result }); normalize the
+      // conditions for display and migrate to the new shape on any edit.
+      const condsOf = (r: Record<string, any>): Record<string, any>[] =>
+        Array.isArray(r.conditions) && r.conditions.length
+          ? r.conditions
+          : [{ column: r.column ?? "", operator: r.operator ?? "==", value: r.value ?? "" }];
+      const matchOf = (r: Record<string, any>): "all" | "any" =>
+        r.match === "any" ? "any" : "all";
       const updateRule = (i: number, patch: Record<string, unknown>) =>
-        set({ rules: rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) });
+        set({
+          rules: rules.map((r, idx) =>
+            idx === i
+              ? { match: matchOf(r), conditions: condsOf(r), result: r.result ?? "", ...patch }
+              : r,
+          ),
+        });
+      const updateCondition = (i: number, j: number, patch: Record<string, unknown>) =>
+        updateRule(i, {
+          conditions: condsOf(rules[i]).map((cn, k) => (k === j ? { ...cn, ...patch } : cn)),
+        });
+      const addCondition = (i: number) =>
+        updateRule(i, {
+          conditions: [...condsOf(rules[i]), { column: "", operator: "==", value: "" }],
+        });
+      const removeCondition = (i: number, j: number) =>
+        updateRule(i, { conditions: condsOf(rules[i]).filter((_, k) => k !== j) });
       const addRule = () =>
-        set({ rules: [...rules, { column: "", operator: "==", value: "", result: "" }] });
-      const removeRule = (i: number) =>
-        set({ rules: rules.filter((_, idx) => idx !== i) });
+        set({
+          rules: [
+            ...rules,
+            { match: "all", conditions: [{ column: "", operator: "==", value: "" }], result: "" },
+          ],
+        });
+      const removeRule = (i: number) => set({ rules: rules.filter((_, idx) => idx !== i) });
       return (
         <>
           <Field label="New column" error={errors.new_column} help="Name for the column built from the rules below.">
@@ -973,47 +1002,90 @@ export function NodeConfigForm({
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-slate-600">Rules (first match wins)</span>
             {rules.map((r, i) => {
-              const valueless = conditionValueless.has(r.operator);
+              const conditions = condsOf(r);
               return (
                 <div key={i} className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                       if
                     </span>
+                    {conditions.length > 1 && (
+                      <Select
+                        className="h-7 w-36 text-[11px]"
+                        value={matchOf(r)}
+                        onChange={(e) => updateRule(i, { match: e.target.value })}
+                      >
+                        <option value="all">match ALL (AND)</option>
+                        <option value="any">match ANY (OR)</option>
+                      </Select>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeRule(i)}
-                      className="text-[11px] text-muted-foreground hover:text-destructive"
+                      className="ml-auto text-[11px] text-muted-foreground hover:text-destructive"
                     >
                       remove
                     </button>
                   </div>
-                  <ColumnSelect
-                    value={r.column}
-                    columns={columns}
-                    onChange={(v) => updateRule(i, { column: v })}
-                  />
-                  <div className="flex gap-1">
-                    <Select
-                      className="h-8 w-28"
-                      value={r.operator ?? "=="}
-                      onChange={(e) => updateRule(i, { operator: e.target.value })}
-                    >
-                      {conditionOperators.map((op) => (
-                        <option key={op} value={op}>
-                          {op}
-                        </option>
-                      ))}
-                    </Select>
-                    {!valueless && (
-                      <Input
-                        className="h-8"
-                        placeholder="value"
-                        value={r.value ?? ""}
-                        onChange={(e) => updateRule(i, { value: e.target.value })}
-                      />
-                    )}
-                  </div>
+                  {conditions.map((cn, j) => {
+                    const valueless = conditionValueless.has(cn.operator);
+                    return (
+                      <div key={j} className="flex flex-col gap-1">
+                        {j > 0 && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {matchOf(r) === "any" ? "or" : "and"}
+                          </span>
+                        )}
+                        <div className="flex items-start gap-1">
+                          <div className="flex flex-1 flex-col gap-1">
+                            <ColumnSelect
+                              value={cn.column}
+                              columns={columns}
+                              onChange={(v) => updateCondition(i, j, { column: v })}
+                            />
+                            <div className="flex gap-1">
+                              <Select
+                                className="h-8 w-28"
+                                value={cn.operator ?? "=="}
+                                onChange={(e) => updateCondition(i, j, { operator: e.target.value })}
+                              >
+                                {conditionOperators.map((op) => (
+                                  <option key={op} value={op}>
+                                    {op}
+                                  </option>
+                                ))}
+                              </Select>
+                              {!valueless && (
+                                <Input
+                                  className="h-8"
+                                  placeholder="value"
+                                  value={cn.value ?? ""}
+                                  onChange={(e) => updateCondition(i, j, { value: e.target.value })}
+                                />
+                              )}
+                            </div>
+                          </div>
+                          {conditions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeCondition(i, j)}
+                              title="Remove condition"
+                              className="mt-1 px-1 text-[11px] text-muted-foreground hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => addCondition(i)}
+                    className="self-start text-[11px] font-medium text-primary hover:underline"
+                  >
+                    + add condition
+                  </button>
                   <Input
                     placeholder="then result →"
                     value={r.result ?? ""}

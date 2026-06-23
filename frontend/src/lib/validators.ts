@@ -105,6 +105,15 @@ export const conditionOperators = [
   "notnull",
 ] as const;
 export const conditionValueless = new Set(["isnull", "notnull"]);
+
+// One condition inside a conditionalColumn rule. The value compares against a
+// numeric column with a number (e.g. amount >= 5000) or a text column with a
+// string, so accept either.
+const conditionSchema = z.object({
+  column: z.string().min(1, "Column is required"),
+  operator: z.enum(conditionOperators),
+  value: z.union([z.string(), z.number()]).optional(),
+});
 export const dtypes = [
   "integer",
   "float",
@@ -369,14 +378,29 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     default: z.string().optional(),
     rules: z
       .array(
-        z.object({
-          column: z.string().min(1, "Column is required"),
-          operator: z.enum(conditionOperators),
-          // A rule compares against a numeric column with a number (e.g. amount
-          // >= 5000) or a text column with a string, so accept either.
-          value: z.union([z.string(), z.number()]).optional(),
-          result: z.string().optional(),
-        }),
+        z
+          .object({
+            // New shape: conditions combined by `match` (all = AND, any = OR).
+            match: z.enum(["all", "any"]).optional(),
+            conditions: z.array(conditionSchema).optional(),
+            // Legacy flat shape (one condition stored on the rule itself).
+            column: z.string().optional(),
+            operator: z.enum(conditionOperators).optional(),
+            value: z.union([z.string(), z.number()]).optional(),
+            result: z.string().optional(),
+          })
+          .superRefine((rule, ctx) => {
+            const hasConditions =
+              Array.isArray(rule.conditions) && rule.conditions.length > 0;
+            const hasLegacy = typeof rule.column === "string" && rule.column.length > 0;
+            if (!hasConditions && !hasLegacy) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["conditions"],
+                message: "Add at least one condition",
+              });
+            }
+          }),
       )
       .min(1, "Add at least one rule"),
   }),
