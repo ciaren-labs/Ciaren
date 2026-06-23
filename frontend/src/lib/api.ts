@@ -17,6 +17,9 @@ import type {
   FlowRun,
   FlowRunSummary,
   FlowUpdate,
+  MlExperiment,
+  MlNodeMetrics,
+  MlRegisterResult,
   PreviewResponse,
   Project,
   ProjectCreate,
@@ -157,6 +160,18 @@ export const runsApi = {
   get: (id: string) => request<FlowRun>(`/runs/${id}`),
   list: (filters: RunListFilters = {}) =>
     request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
+};
+
+// ---- Machine learning ------------------------------------------------------
+
+export const mlApi = {
+  metrics: (runId: string) => request<MlNodeMetrics[]>(`/runs/${runId}/ml/metrics`),
+  register: (runId: string, body: { model_name: string; stage?: string | null }) =>
+    request<MlRegisterResult>(`/runs/${runId}/ml/register`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  experiments: (flowId: string) => request<MlExperiment[]>(`/flows/${flowId}/ml/experiments`),
 };
 
 // ---- Schedules -------------------------------------------------------------
