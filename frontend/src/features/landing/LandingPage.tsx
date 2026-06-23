@@ -67,7 +67,7 @@ export function LandingPage() {
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Upload data, build a visual cleaning pipeline, preview the results, run it, and
           export readable Python. Built for analysts, learners, and anyone who wants quick,
-          repeatable pandas pipelines.
+          repeatable pipelines.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">
