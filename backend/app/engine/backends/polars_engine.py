@@ -23,17 +23,21 @@ _DTYPE_MAP = {
 }
 
 # Aggregation function name -> method invoked on a pl.col(...) expression.
+# User-facing aggregation name -> polars Expr method. pandas-style names
+# (e.g. "nunique") are accepted and translated so both engines take the same
+# config. Names that map to themselves are still listed for validation.
 _AGG_FUNCS = {
-    "sum",
-    "mean",
-    "min",
-    "max",
-    "count",
-    "median",
-    "std",
-    "first",
-    "last",
-    "n_unique",
+    "sum": "sum",
+    "mean": "mean",
+    "min": "min",
+    "max": "max",
+    "count": "count",
+    "median": "median",
+    "std": "std",
+    "first": "first",
+    "last": "last",
+    "nunique": "n_unique",
+    "n_unique": "n_unique",
 }
 
 
@@ -216,7 +220,8 @@ class PolarsEngine:
         for column, func in aggregations.items():
             if func not in _AGG_FUNCS:
                 raise ValueError(f"Unsupported aggregation function: {func!r}")
-            exprs.append(getattr(pl.col(column), func)().alias(column))
+            method = _AGG_FUNCS[func]
+            exprs.append(getattr(pl.col(column), method)().alias(column))
         return df.group_by(by, maintain_order=True).agg(exprs)
 
     def join(
@@ -238,7 +243,9 @@ class PolarsEngine:
             return left.join(
                 right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix
             )
-        return left.join(right, on=on, how=how_arg, suffix=suffix)
+        # coalesce shared keys so a 'full'/'outer' join keeps a single key column,
+        # matching pandas.merge(on=...). (Without it polars emits a duplicate 'key_y'.)
+        return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         return pl.concat(frames, how="vertical_relaxed")
@@ -274,8 +281,11 @@ class PolarsEngine:
             expr = s.to_uppercase()
         elif operation == "strip":
             expr = s.strip_chars()
-        elif operation in ("title", "capitalize"):
+        elif operation == "title":
             expr = s.to_titlecase()
+        elif operation == "capitalize":
+            # pandas capitalize: first char upper, the rest lower (whole string).
+            expr = s.slice(0, 1).str.to_uppercase() + s.slice(1).str.to_lowercase()
         elif operation == "len":
             expr = s.len_chars()
         elif operation == "replace":
@@ -377,7 +387,8 @@ class PolarsEngine:
             "year": dt.dt.year(),
             "month": dt.dt.month(),
             "day": dt.dt.day(),
-            "weekday": dt.dt.weekday(),
+            # polars weekday is Monday=1..Sunday=7; pandas is Monday=0..Sunday=6.
+            "weekday": dt.dt.weekday() - 1,
             "hour": dt.dt.hour(),
         }
         return df.with_columns([accessors[p].alias(f"{column}_{p}") for p in parts])
