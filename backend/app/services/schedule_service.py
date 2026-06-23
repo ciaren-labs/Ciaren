@@ -31,6 +31,7 @@ class ScheduleService:
         await self._get_flow(flow_id)
         self._validate(data.cron, data.timezone, data.engine)
 
+        now = datetime.now(UTC).replace(tzinfo=None)
         schedule = Schedule(
             flow_id=flow_id,
             name=data.name,
@@ -40,7 +41,10 @@ class ScheduleService:
             engine=data.engine,
             enabled=data.enabled,
             catch_up=data.catch_up,
-            next_run_at=(compute_next_run(data.cron, datetime.now(UTC).replace(tzinfo=None), data.timezone) if data.enabled else None),
+            max_retries=data.max_retries,
+            retry_delay_seconds=data.retry_delay_seconds,
+            run_timeout_seconds=data.run_timeout_seconds,
+            next_run_at=(compute_next_run(data.cron, now, data.timezone) if data.enabled else None),
         )
         self.db.add(schedule)
         await self.db.commit()
@@ -83,7 +87,8 @@ class ScheduleService:
         elif (
             "cron" in updates or "timezone" in updates or updates.get("enabled") is True or schedule.next_run_at is None
         ):
-            schedule.next_run_at = compute_next_run(schedule.cron, datetime.now(UTC).replace(tzinfo=None), schedule.timezone)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
         schedule.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(schedule)
