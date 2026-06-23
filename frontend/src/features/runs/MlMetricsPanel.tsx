@@ -118,19 +118,33 @@ function RegisterModelDialog({ runId }: { runId: string }) {
             <Input value={name} placeholder="churn-predictor" onChange={(e) => setName(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-            Stage (optional)
+            Alias (optional)
             <Select value={stage} onChange={(e) => setStage(e.target.value)}>
               <option value="">None</option>
               <option value="Staging">Staging</option>
               <option value="Production">Production</option>
-              <option value="Archived">Archived</option>
+              <option value="Champion">Champion</option>
             </Select>
+            <span className="text-[10px] font-normal text-muted-foreground">
+              Applied as an MLflow alias. Reference it in Predict as{" "}
+              <code>models:/{name || "name"}@{(stage || "alias").toLowerCase()}</code>.
+            </span>
           </label>
           {result && (
-            <p className="rounded-md bg-success/10 px-2 py-1.5 text-xs text-success">
-              Registered <strong>{result.model_name}</strong> v{result.version}
-              {result.alias ? ` (alias: ${result.alias})` : ""}.
-            </p>
+            <div className="rounded-md bg-success/10 px-2 py-1.5 text-xs text-success">
+              <p>
+                Registered <strong>{result.model_name}</strong> v{result.version}
+                {result.alias ? ` (alias: ${result.alias})` : ""}.
+              </p>
+              <p className="mt-1 break-all">
+                Use in Predict:{" "}
+                <code>
+                  {result.alias
+                    ? `models:/${result.model_name}@${result.alias}`
+                    : `models:/${result.model_name}/${result.version}`}
+                </code>
+              </p>
+            </div>
           )}
           {mutation.isError && (
             <p className="rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">

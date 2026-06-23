@@ -89,9 +89,11 @@ Importance** (wire it to the model output) for an importance bar chart.
 ## Use a registered model in production
 
 Once a model is registered, a **Predict** node can reference it directly instead
-of a wired model — set its **Model URI** to e.g. `models:/churn/Production`.
-Re-promoting a new version in MLflow means scheduled prediction flows pick it up
-automatically, no flow edits needed.
+of a wired model — set its **Model URI** to the alias shown in the Register dialog,
+e.g. `models:/churn@production` (MLflow 3 uses `@alias`, not the old `/Stage`
+syntax), or a specific version like `models:/churn/1`. Re-pointing the alias to a
+new version in MLflow means scheduled prediction flows pick it up automatically,
+no flow edits needed.
 
 ## Reproducibility & safety
 
