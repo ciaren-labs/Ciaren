@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { AlertCircle, ArrowLeft, Download, Loader2 } from "lucide-react";
@@ -27,6 +27,14 @@ export function RunDetailPage() {
   const fmt = useFormatDateTime();
   const results = useMemo(() => run?.node_results ?? [], [run]);
   const selected = results.find((r) => r.node_id === selectedNodeId) ?? null;
+
+  // On a failed run, auto-select the node that failed so its error is shown in
+  // the inspector immediately — no hunting for the red node on the canvas.
+  useEffect(() => {
+    if (selectedNodeId !== null) return;
+    const failed = results.find((r) => r.status === "failed");
+    if (failed) setSelectedNodeId(failed.node_id);
+  }, [results, selectedNodeId]);
 
   const datasetName = useMemo(
     () => new Map((datasets ?? []).map((d) => [d.id, d.name])),
