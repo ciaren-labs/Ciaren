@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 
 # Import all models so Alembic can detect them.
+from app.db.models import connection as _connection  # noqa: F401
 from app.db.models import (  # noqa: F401
     dataset,
     dataset_version,

@@ -72,7 +72,39 @@ export const joinHows = ["inner", "left", "right", "outer"] as const;
 export const outlierMethods = ["iqr", "zscore", "percentile"] as const;
 export const outlierActions = ["drop", "clip"] as const;
 export const binMethods = ["equalwidth", "quantile"] as const;
+export const splitModes = ["delimiter", "regex"] as const;
 export const dateParts = ["year", "month", "day", "weekday", "hour"] as const;
+
+export const windowFunctions = [
+  "row_number",
+  "rank",
+  "dense_rank",
+  "cumcount",
+  "cumsum",
+  "cummax",
+  "cummin",
+  "lag",
+  "lead",
+] as const;
+// Functions that operate on a value column, and those that need an order key.
+export const windowTargetFuncs = new Set(["cumsum", "cummax", "cummin", "lag", "lead"]);
+export const windowRankFuncs = new Set(["rank", "dense_rank"]);
+
+// Operators usable in a conditionalColumn rule.
+export const conditionOperators = [
+  "==",
+  "!=",
+  ">",
+  ">=",
+  "<",
+  "<=",
+  "contains",
+  "startswith",
+  "endswith",
+  "isnull",
+  "notnull",
+] as const;
+export const conditionValueless = new Set(["isnull", "notnull"]);
 export const dtypes = [
   "integer",
   "float",
@@ -257,6 +289,117 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     columns: z.string().min(1, "Column is required"),
     values: z.string().min(1, "Values column is required"),
     aggfunc: z.enum(aggFunctions),
+  }),
+  splitColumn: z
+    .object({
+      column: z.string().min(1, "Column is required"),
+      mode: z.enum(splitModes),
+      delimiter: z.string().optional(),
+      pattern: z.string().optional(),
+      into: stringArray.min(1, "Name at least one output column"),
+      keep_original: z.boolean().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.mode === "delimiter" && !cfg.delimiter) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["delimiter"],
+          message: "A delimiter is required",
+        });
+      }
+      if (cfg.mode === "regex" && !cfg.pattern) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["pattern"],
+          message: "A regex pattern is required",
+        });
+      }
+    }),
+  parseDates: z.object({
+    columns: stringArray.min(1, "Add at least one column"),
+    format: z.string().optional(),
+    errors: z.enum(["raise", "coerce"]).optional(),
+  }),
+  mapValues: z
+    .object({
+      column: z.string().min(1, "Column is required"),
+      new_column: z.string().optional(),
+      mapping: z.record(z.string(), z.string()),
+      default: z.string().optional(),
+      use_default: z.boolean().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (!cfg.mapping || Object.keys(cfg.mapping).length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["mapping"],
+          message: "Add at least one value mapping",
+        });
+      }
+    }),
+  windowFunction: z
+    .object({
+      function: z.enum(windowFunctions),
+      partition_by: stringArray.optional(),
+      order_by: stringArray.optional(),
+      target: z.string().optional(),
+      offset: z.coerce.number().int().min(1).optional(),
+      descending: z.boolean().optional(),
+      new_column: z.string().min(1, "New column name is required"),
+    })
+    .superRefine((cfg, ctx) => {
+      if (windowTargetFuncs.has(cfg.function) && !cfg.target) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["target"],
+          message: "This function needs a target column",
+        });
+      }
+      if (windowRankFuncs.has(cfg.function) && !cfg.order_by?.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["order_by"],
+          message: "Ranking needs an order-by column",
+        });
+      }
+    }),
+  conditionalColumn: z.object({
+    new_column: z.string().min(1, "New column name is required"),
+    default: z.string().optional(),
+    rules: z
+      .array(
+        z.object({
+          column: z.string().min(1, "Column is required"),
+          operator: z.enum(conditionOperators),
+          value: z.string().optional(),
+          result: z.string().optional(),
+        }),
+      )
+      .min(1, "Add at least one rule"),
+  }),
+
+  sqlInput: z
+    .object({
+      connection_id: z.string().min(1, "Select a connection"),
+      mode: z.enum(["table", "query"]).optional(),
+      table: z.string().optional(),
+      schema: z.string().nullable().optional(),
+      query: z.string().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if ((cfg.mode ?? "table") === "query") {
+        if (!cfg.query?.trim()) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["query"], message: "Enter a SQL query" });
+        }
+      } else if (!cfg.table) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["table"], message: "Select a table" });
+      }
+    }),
+  sqlOutput: z.object({
+    connection_id: z.string().min(1, "Select a connection"),
+    table: z.string().min(1, "Target table is required"),
+    schema: z.string().nullable().optional(),
+    if_exists: z.enum(["replace", "append", "fail"]).optional(),
   }),
 
   csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),

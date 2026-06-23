@@ -1,8 +1,12 @@
 from collections import defaultdict, deque
 from typing import Any
 
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
-_OUTPUT_TYPES = {"csvOutput", "excelOutput", "parquetOutput"}
+from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
+from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
+from app.engine.node_kinds import (
+    SQL_INPUT_TYPE,
+    SQL_OUTPUT_TYPE,
+)
 
 
 class GraphValidationError(Exception):
@@ -66,8 +70,10 @@ def _validate_connections(
                 raise GraphValidationError(
                     f"{label}: input nodes cannot have an incoming connection."
                 )
-            dataset_id = node.get("data", {}).get("config", {}).get("dataset_id")
-            if not isinstance(dataset_id, str) or not dataset_id:
+            config = node.get("data", {}).get("config", {})
+            if node_type == SQL_INPUT_TYPE:
+                _validate_sql_input(label, config)
+            elif not isinstance(config.get("dataset_id"), str) or not config.get("dataset_id"):
                 raise GraphValidationError(f"{label}: no dataset selected.")
             continue
 
@@ -77,6 +83,8 @@ def _validate_connections(
                     f"{label}: output nodes need exactly one input "
                     f"(got {len(edges_in)})."
                 )
+            if node_type == SQL_OUTPUT_TYPE:
+                _validate_sql_output(label, node.get("data", {}).get("config", {}))
             continue
 
         try:
@@ -108,6 +116,24 @@ def _validate_connections(
                     f"{label}: the{which} input accepts only one connection "
                     f"(got {count})."
                 )
+
+
+def _validate_sql_input(label: str, config: dict[str, Any]) -> None:
+    if not config.get("connection_id"):
+        raise GraphValidationError(f"{label}: no connection selected.")
+    mode = config.get("mode", "table")
+    if mode == "query":
+        if not (config.get("query") or "").strip():
+            raise GraphValidationError(f"{label}: the SQL query is empty.")
+    elif not config.get("table"):
+        raise GraphValidationError(f"{label}: no table selected.")
+
+
+def _validate_sql_output(label: str, config: dict[str, Any]) -> None:
+    if not config.get("connection_id"):
+        raise GraphValidationError(f"{label}: no connection selected.")
+    if not config.get("table"):
+        raise GraphValidationError(f"{label}: no target table specified.")
 
 
 def topological_sort(graph: dict[str, Any]) -> list[str]:

@@ -24,6 +24,8 @@ from app.core.exceptions import (
 )
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
+from app.engine.backends import get_engine
+from app.engine.profile import profile_frame
 from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.services.project_service import ProjectService
 
@@ -68,6 +70,7 @@ class DatasetService:
         df = _parse_dataframe(content, source_type, filename)
         schema = _extract_schema(df)
         sample = _df_to_records(df, _SAMPLE_ROWS)
+        profile = _profile_dataframe(df)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -97,6 +100,7 @@ class DatasetService:
             location="",  # filled in after we know the version id
             schema_json=schema,
             sample_json=sample,
+            profile_json=profile,
             row_count=int(len(df)),
         )
         self.db.add(version)
@@ -132,6 +136,26 @@ class DatasetService:
         self, dataset_id: str, version: int | None = None
     ) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).sample_json or []
+
+    async def get_profile(
+        self, dataset_id: str, version: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Per-column statistics for a version. Computed at upload time; for
+        versions created before profiling existed, it's computed on demand from
+        the stored file and backfilled so later reads are instant."""
+        ver = await self._version(dataset_id, version)
+        if ver.profile_json:
+            return ver.profile_json
+        dataset = await self._get_or_raise(dataset_id)
+        try:
+            content = Path(ver.location).read_bytes()
+            df = _parse_dataframe(content, dataset.source_type, ver.location)
+        except Exception:  # noqa: BLE001 - missing/unreadable file → no profile
+            return []
+        profile = _profile_dataframe(df)
+        ver.profile_json = profile
+        await self.db.commit()
+        return profile
 
     async def update(self, dataset_id: str, data: DatasetUpdate) -> DatasetRead:
         dataset = await self._get_or_raise(dataset_id)
@@ -185,6 +209,7 @@ class DatasetService:
         df = _parse_dataframe(content, source_type, str(file_path))
         schema = _extract_schema(df)
         sample = _df_to_records(df, _SAMPLE_ROWS)
+        profile = _profile_dataframe(df)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -213,6 +238,7 @@ class DatasetService:
             location=str(file_path),
             schema_json=schema,
             sample_json=sample,
+            profile_json=profile,
             row_count=int(len(df)),
             source_run_id=run_id,
         )
@@ -235,6 +261,7 @@ class DatasetService:
             version_count=len(versions),
             column_schema=latest.schema_json if latest else None,
             data_sample=latest.sample_json if latest else None,
+            column_profile=latest.profile_json if latest else None,
             created_at=dataset.created_at,
             updated_at=dataset.updated_at,
         )
@@ -336,6 +363,11 @@ def _df_to_records(df: pd.DataFrame, n: int) -> list[dict[str, Any]]:
     """Serialize top-n rows to JSON-safe dicts (NaN → None, timestamps → ISO strings)."""
     records = json.loads(df.head(n).to_json(orient="records", date_format="iso"))
     return cast(list[dict[str, Any]], records)
+
+
+def _profile_dataframe(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Per-column statistics for a freshly parsed dataset version."""
+    return profile_frame(get_engine("pandas"), df)
 
 
 def _storage_filename(dataset_id: str, original_filename: str) -> str:

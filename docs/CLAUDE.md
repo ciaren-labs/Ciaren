@@ -55,7 +55,7 @@ docs/
 │   ├── design-system.md         # Visual language / tokens
 │   └── troubleshooting.md       # Common issues
 ├── transformations/
-│   └── overview.md              # All 23 nodes + config + generated code
+│   └── overview.md              # All 28 nodes + config + generated code
 ├── examples/                    # Real-world, end-to-end walkthroughs
 │   ├── sales-analysis.md
 │   ├── customer-segmentation.md

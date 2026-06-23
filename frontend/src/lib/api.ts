@@ -2,6 +2,11 @@
 // All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
+  ColumnProfile,
+  Connection,
+  ConnectionCreate,
+  ConnectionTestResult,
+  ConnectionUpdate,
   Dataset,
   DatasetSchemaField,
   DatasetVersion,
@@ -16,10 +21,12 @@ import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
+  ProviderInfo,
   RunListFilters,
   Schedule,
   ScheduleCreate,
   ScheduleUpdate,
+  TableInfo,
   TransformationPreviewRequest,
 } from "./types";
 
@@ -172,6 +179,30 @@ export const schedulesApi = {
     ),
 };
 
+// ---- Connections -----------------------------------------------------------
+
+export const connectionsApi = {
+  list: () => request<Connection[]>("/connections"),
+  get: (id: string) => request<Connection>(`/connections/${id}`),
+  providers: () => request<ProviderInfo[]>("/connections/providers"),
+  create: (body: ConnectionCreate) =>
+    request<Connection>("/connections", { method: "POST", body: JSON.stringify(body) }),
+  update: (id: string, body: ConnectionUpdate) =>
+    request<Connection>(`/connections/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) => request<void>(`/connections/${id}`, { method: "DELETE" }),
+  test: (id: string) =>
+    request<ConnectionTestResult>(`/connections/${id}/test`, { method: "POST" }),
+  testConfig: (body: ConnectionCreate) =>
+    request<ConnectionTestResult>("/connections/test-config", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  tables: (id: string) => request<TableInfo[]>(`/connections/${id}/tables`),
+};
+
 // ---- Datasets --------------------------------------------------------------
 
 export const datasetsApi = {
@@ -188,6 +219,10 @@ export const datasetsApi = {
   sample: (id: string, version?: number) =>
     request<Record<string, unknown>[]>(
       `/datasets/${id}/sample${version ? `?version=${version}` : ""}`,
+    ),
+  profile: (id: string, version?: number) =>
+    request<ColumnProfile[]>(
+      `/datasets/${id}/profile${version ? `?version=${version}` : ""}`,
     ),
   downloadVersionUrl: (id: string, version: number) =>
     `${BASE_URL}/datasets/${id}/versions/${version}/download`,

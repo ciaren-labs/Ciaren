@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
 import type { Dataset } from "@/lib/types";
@@ -16,14 +17,26 @@ function dataset(id: string, source: Dataset["source_type"]): Dataset {
     version_count: 1,
     column_schema: [{ name: "a", type: "string" }],
     data_sample: [],
+    column_profile: null,
     created_at: "",
     updated_at: "",
   };
 }
 
+// The form reads connections via TanStack Query, so every render needs a client.
+const testQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+function Wrap({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={testQueryClient}>
+      <TooltipProvider>{children}</TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
 function renderForm(props: Partial<React.ComponentProps<typeof NodeConfigForm>>) {
   return render(
-    <TooltipProvider>
+    <Wrap>
       <NodeConfigForm
         type="dropColumns"
         config={{}}
@@ -33,7 +46,7 @@ function renderForm(props: Partial<React.ComponentProps<typeof NodeConfigForm>>)
         onErrors={() => {}}
         {...props}
       />
-    </TooltipProvider>,
+    </Wrap>,
   );
 }
 
@@ -111,7 +124,7 @@ describe("NodeConfigForm", () => {
   it("hides the fill value input unless the constant strategy is selected", () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <TooltipProvider>
+      <Wrap>
         <NodeConfigForm
           type="fillNulls"
           config={{ strategy: "constant", value: "", columns: [] }}
@@ -120,13 +133,13 @@ describe("NodeConfigForm", () => {
           onChange={onChange}
           onErrors={() => {}}
         />
-      </TooltipProvider>,
+      </Wrap>,
     );
     expect(screen.getByText("Fill value")).toBeInTheDocument();
 
     // Switch to mean → the constant value input disappears.
     rerender(
-      <TooltipProvider>
+      <Wrap>
         <NodeConfigForm
           type="fillNulls"
           config={{ strategy: "mean", value: "", columns: [] }}
@@ -135,7 +148,7 @@ describe("NodeConfigForm", () => {
           onChange={onChange}
           onErrors={() => {}}
         />
-      </TooltipProvider>,
+      </Wrap>,
     );
     expect(screen.queryByText("Fill value")).not.toBeInTheDocument();
   });
@@ -152,7 +165,7 @@ describe("NodeConfigForm", () => {
 
   it("shows method-specific fields for Remove Outliers", () => {
     const { rerender } = render(
-      <TooltipProvider>
+      <Wrap>
         <NodeConfigForm
           type="removeOutliers"
           config={{ columns: ["a"], method: "iqr", action: "drop" }}
@@ -161,13 +174,13 @@ describe("NodeConfigForm", () => {
           onChange={() => {}}
           onErrors={() => {}}
         />
-      </TooltipProvider>,
+      </Wrap>,
     );
     expect(screen.getByText("IQR factor")).toBeInTheDocument();
     expect(screen.queryByText("Lower percentile")).not.toBeInTheDocument();
 
     rerender(
-      <TooltipProvider>
+      <Wrap>
         <NodeConfigForm
           type="removeOutliers"
           config={{ columns: ["a"], method: "percentile", action: "clip" }}
@@ -176,7 +189,7 @@ describe("NodeConfigForm", () => {
           onChange={() => {}}
           onErrors={() => {}}
         />
-      </TooltipProvider>,
+      </Wrap>,
     );
     expect(screen.getByText("Lower percentile")).toBeInTheDocument();
     expect(screen.queryByText("IQR factor")).not.toBeInTheDocument();

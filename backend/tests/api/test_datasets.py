@@ -103,6 +103,27 @@ async def test_upload_infers_correct_types(client: AsyncClient) -> None:
     assert schema["active"] == "boolean"
 
 
+async def test_upload_returns_column_profile(client: AsyncClient) -> None:
+    body = await _upload(client, _csv())
+    profile = body["column_profile"]
+    assert isinstance(profile, list)
+    by_name = {p["name"]: p for p in profile}
+    assert set(by_name) == {"name", "age", "score", "active"}
+    assert by_name["age"]["dtype"] == "integer"
+    assert by_name["age"]["null_count"] == 0
+    assert by_name["age"]["min"] == 25
+    assert by_name["age"]["max"] == 35
+
+
+async def test_profile_endpoint_returns_stats(client: AsyncClient) -> None:
+    ds = await _upload(client, _csv())
+    r = await client.get(f"/api/datasets/{ds['id']}/profile")
+    assert r.status_code == 200
+    by_name = {p["name"]: p for p in r.json()}
+    assert set(by_name) == {"name", "age", "score", "active"}
+    assert by_name["age"]["dtype"] == "integer"
+
+
 async def test_upload_returns_data_sample(client: AsyncClient) -> None:
     body = await _upload(client, _csv())
     sample = body["data_sample"]
