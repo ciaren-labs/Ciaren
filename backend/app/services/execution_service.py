@@ -61,9 +61,14 @@ class ExecutionService:
             schedule_id=schedule_id,
             status="running",
             started_at=datetime.now(UTC).replace(tzinfo=None),
+            # Snapshot the graph at trigger time: the flow can be edited later, but a
+            # run (especially an ML training run) must stay reproducible.
+            graph_snapshot_json=flow.graph_json,
         )
         self.db.add(run)
         await self.db.flush()  # assign run.id without committing
+
+        timeout = await self._effective_timeout(data, schedule_id)
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
@@ -111,7 +116,6 @@ class ExecutionService:
                     storage_input_paths=storage_input_paths,
                 )
 
-            timeout = self.settings.RUN_TIMEOUT_SECONDS
             if timeout > 0:
                 result = await asyncio.wait_for(compute, timeout=timeout)
             else:
@@ -129,9 +133,10 @@ class ExecutionService:
                 run.output_location = (
                     f"{run.id}/{next(iter(result.output_paths.values())).name}" if result.output_paths else None
                 )
-                elapsed_ms = (
-                    round((datetime.now(UTC).replace(tzinfo=None) - run.started_at).total_seconds() * 1000, 2) if run.started_at else None
-                )
+                elapsed_ms = None
+                if run.started_at:
+                    elapsed = datetime.now(UTC).replace(tzinfo=None) - run.started_at
+                    elapsed_ms = round(elapsed.total_seconds() * 1000, 2)
                 run.logs_json = [
                     {
                         "level": "info",
@@ -261,6 +266,22 @@ class ExecutionService:
         ]
 
     # -- Internals ------------------------------------------------------
+
+    async def _effective_timeout(self, data: FlowRunCreate, schedule_id: str | None) -> int:
+        """Resolve the run timeout (seconds, 0 = no limit) by precedence:
+        explicit per-run override > the schedule's override > the global setting."""
+        if data.timeout_seconds is not None:
+            return data.timeout_seconds
+        if schedule_id is not None:
+            from app.db.models.schedule import Schedule
+
+            result = await self.db.execute(
+                select(Schedule.run_timeout_seconds).where(Schedule.id == schedule_id)
+            )
+            schedule_timeout = result.scalar_one_or_none()
+            if schedule_timeout is not None:
+                return schedule_timeout
+        return self.settings.RUN_TIMEOUT_SECONDS
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

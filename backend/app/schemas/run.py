@@ -8,6 +8,10 @@ class FlowRunCreate(BaseModel):
     input_dataset_id: str | None = None
     # None falls back to the server's DEFAULT_ENGINE in ExecutionService.
     engine: str | None = None
+    # Per-run timeout override in seconds (0 = no limit). None falls back to the
+    # schedule's run_timeout_seconds (for scheduled runs) then RUN_TIMEOUT_SECONDS.
+    # ML training can far outlast typical ETL, so a caller can grant more time.
+    timeout_seconds: int | None = Field(default=None, ge=0)
 
 
 class InputDatasetRef(BaseModel):
@@ -71,6 +75,8 @@ class FlowRunRead(BaseModel):
     error_message: str | None
     logs_json: list[dict[str, Any]] | None
     node_results: list[NodeResultRead] | None = Field(None, validation_alias="node_results_json")
+    # The graph captured at trigger time (reproducibility); None for older runs.
+    graph_snapshot: dict[str, Any] | None = Field(None, validation_alias="graph_snapshot_json")
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
