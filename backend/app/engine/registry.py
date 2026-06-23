@@ -102,6 +102,7 @@ def _register_ml_nodes() -> None:
         SelectFeaturesTransformation,
     )
     from app.engine.transformations.ml.split import TrainTestSplitTransformation
+    from app.engine.transformations.ml.train import MLTrainTransformation
 
     _register(
         TrainTestSplitTransformation(),
@@ -110,6 +111,7 @@ def _register_ml_nodes() -> None:
         ImputeMissingTransformation(),
         SelectFeaturesTransformation(),
         ReduceDimensionsTransformation(),
+        MLTrainTransformation(),
     )
 
 
