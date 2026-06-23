@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, Database, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Copy, Database, Loader2, Plus, Trash2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -239,12 +239,10 @@ function ConnectionDialog({
               ))}
             </Select>
             {provider && !provider.available && (
-              <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                The {provider.label} driver isn't installed. Run{" "}
-                <code className="rounded bg-muted px-1">pip install flowframe[{provider.extra}]</code>{" "}
-                to enable it.
-              </p>
+              <DriverHint
+                label={provider.label}
+                command={`pip install flowframe[${provider.extra}]`}
+              />
             )}
           </Field>
 
@@ -324,6 +322,32 @@ function ConnectionDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DriverHint({ label, command }: { label: string; command: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="mt-1 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      <span className="shrink-0">The {label} driver isn't installed:</span>
+      <code className="min-w-0 flex-1 truncate font-mono text-amber-900" title={command}>
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        title="Copy install command"
+        className="shrink-0 rounded p-1 text-amber-700 transition-colors hover:bg-amber-100"
+      >
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+    </div>
   );
 }
 
