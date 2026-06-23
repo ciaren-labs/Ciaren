@@ -12,6 +12,19 @@ _MONGO_PROVIDERS = frozenset({"mongodb"})
 _ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def _empty_to_none(v: str | None) -> str | None:
+    """Normalize empty strings from HTML forms to None."""
+    return v or None
+
+
+def _normalize_path(v: str | None) -> str | None:
+    """Accept Windows or POSIX paths; store with forward slashes for consistency."""
+    if not v:
+        return None
+    # Replace backslashes so pathlib parses Windows paths on any OS.
+    return v.replace("\\", "/")
+
+
 class ConnectionBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     provider: str
@@ -23,9 +36,22 @@ class ConnectionBase(BaseModel):
     password_env: str | None = None
     options: dict[str, Any] | None = None
 
-    @field_validator("password_env")
+    # Normalize blank form fields → None so the DB never stores empty strings.
+    @field_validator("host", "username", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v: str | None) -> str | None:
+        return _empty_to_none(v)
+
+    # Accept Windows (C:\…) or POSIX paths; store with forward slashes.
+    @field_validator("database", mode="before")
+    @classmethod
+    def _normalise_path(cls, v: str | None) -> str | None:
+        return _normalize_path(v)
+
+    @field_validator("password_env", mode="before")
     @classmethod
     def validate_password_env(cls, v: str | None) -> str | None:
+        v = _empty_to_none(v)
         if v is not None and not _ENV_VAR_RE.match(v):
             raise ValueError(
                 f"password_env must be a valid environment variable name "
@@ -48,9 +74,20 @@ class ConnectionUpdate(BaseModel):
     password_env: str | None = None
     options: dict[str, Any] | None = None
 
-    @field_validator("password_env")
+    @field_validator("host", "username", mode="before")
+    @classmethod
+    def _blank_to_none(cls, v: str | None) -> str | None:
+        return _empty_to_none(v)
+
+    @field_validator("database", mode="before")
+    @classmethod
+    def _normalise_path(cls, v: str | None) -> str | None:
+        return _normalize_path(v)
+
+    @field_validator("password_env", mode="before")
     @classmethod
     def validate_password_env(cls, v: str | None) -> str | None:
+        v = _empty_to_none(v)
         if v is not None and not _ENV_VAR_RE.match(v):
             raise ValueError(
                 f"password_env must be a valid environment variable name "
