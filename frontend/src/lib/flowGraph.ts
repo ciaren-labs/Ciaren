@@ -22,6 +22,8 @@ export const INPUT_SOURCE_TYPE: Record<string, DatasetSourceType> = {
   csvInput: "csv",
   excelInput: "excel",
   parquetInput: "parquet",
+  jsonInput: "json",
+  textInput: "text",
 };
 
 export function isInputType(type: string | undefined): boolean {

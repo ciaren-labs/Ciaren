@@ -30,6 +30,7 @@ _INPUT_READ = {
     "csvInput": "pl.read_csv",
     "excelInput": "pl.read_excel",
     "parquetInput": "pl.read_parquet",
+    "jsonInput": "pl.read_json",
 }
 # Lazy scan equivalents. Excel has no scanner, so it is read eagerly and
 # converted with ``.lazy()`` (handled below).
@@ -159,6 +160,13 @@ class PolarsCodeGenerator:
                     f"{frame}.write_database({config.get('table', '')!r}, "
                     f"connection={eng}, if_table_exists={if_exists!r})"
                 )
+            elif node_type == "textInput":
+                var = next_var()
+                node_var[node_id] = var
+                path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
+                suffix = ".lazy()" if lazy else ""
+                lines.append(f'with open("{path}") as _f:')
+                lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
             elif node_type in _INPUT_READ:
                 var = next_var()
                 node_var[node_id] = var

@@ -34,6 +34,8 @@ _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".xlsx": "excel",
     ".xls": "excel",
     ".parquet": "parquet",
+    ".json": "json",
+    ".txt": "text",
 }
 
 _SAMPLE_ROWS = 100
@@ -316,6 +318,10 @@ def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.Data
             return pd.read_excel(buf)
         if source_type == "parquet":
             return pd.read_parquet(buf)
+        if source_type == "json":
+            return pd.read_json(buf)
+        if source_type == "text":
+            return pd.read_csv(buf, sep="\n", header=None, names=["text"], engine="python", dtype=str)
     except Exception as exc:
         raise DatasetParseError(filename, str(exc)) from exc
     raise DatasetParseError(filename, f"unknown source_type '{source_type}'")

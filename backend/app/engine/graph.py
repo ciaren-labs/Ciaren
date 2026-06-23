@@ -6,6 +6,7 @@ from app.engine.node_kinds import (
     MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
+    STORAGE_INPUT_TYPE,
 )
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 
@@ -98,6 +99,8 @@ def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any
             config = node.get("data", {}).get("config", {})
             if node_type == SQL_INPUT_TYPE:
                 _validate_sql_input(label, config)
+            elif node_type == STORAGE_INPUT_TYPE:
+                _validate_storage_input(label, config)
             elif not isinstance(config.get("dataset_id"), str) or not config.get("dataset_id"):
                 raise GraphValidationError(f"{label}: no dataset selected.")
             continue
@@ -133,6 +136,13 @@ def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any
                 raise GraphValidationError(f"{label}: the{which} input is not connected.")
             if count > 1:
                 raise GraphValidationError(f"{label}: the{which} input accepts only one connection (got {count}).")
+
+
+def _validate_storage_input(label: str, config: dict[str, Any]) -> None:
+    if not config.get("connection_id"):
+        raise GraphValidationError(f"{label}: no storage connection selected.")
+    if not config.get("path"):
+        raise GraphValidationError(f"{label}: no file path specified.")
 
 
 def _validate_sql_input(label: str, config: dict[str, Any]) -> None:
