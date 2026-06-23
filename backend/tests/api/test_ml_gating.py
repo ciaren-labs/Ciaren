@@ -1,5 +1,8 @@
 """ML feature gating at the API layer: the transformations list hides ML nodes
 unless ML is enabled; ?category filters; previewing an ML node while disabled 501s."""
+import io
+
+import pandas as pd
 from httpx import AsyncClient
 
 from app.core.config import get_settings
@@ -67,3 +70,22 @@ async def test_category_ml_lists_ml_nodes_when_enabled(client: AsyncClient, monk
         assert "dropNulls" not in ml
     finally:
         get_settings.cache_clear()
+
+
+async def test_running_an_ml_flow_is_blocked_when_disabled(client: AsyncClient) -> None:
+    # ML disabled (default in tests). A crafted graph with an ML node must not run.
+    buf = io.BytesIO()
+    pd.DataFrame({"x": [1, 2, 3], "y": [0, 1, 0]}).to_csv(buf, index=False)
+    ds = (await client.post("/api/datasets/upload", files={"file": ("d.csv", buf.getvalue(), "text/csv")})).json()
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "tr", "type": "mlTrain", "data": {"config": {
+                "model_type": "logistic_regression", "target_column": "y", "seed": 1}}},
+        ],
+        "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
+    }
+    flow = (await client.post("/api/flows", json={"name": "f", "graph_json": graph})).json()
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 501
+    assert "ML support is not enabled" in r.json()["detail"]
