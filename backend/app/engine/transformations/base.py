@@ -68,10 +68,12 @@ class BaseTransformation(ABC):
         """Readable **pandas** code for this node (``df`` variables)."""
         ...
 
-    def imports(self) -> list[str]:
+    def imports(self, config: dict[str, Any]) -> list[str]:
         """Extra top-level import lines the generated pandas script needs for this
         node (e.g. ``from sklearn... import ...``). Most nodes need none; the code
-        generator collects and de-duplicates these into the script header."""
+        generator collects and de-duplicates these into the script header. ``config``
+        is provided because some nodes import different classes per option (e.g. the
+        chosen scaler/imputer)."""
         return []
 
     @abstractmethod

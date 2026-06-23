@@ -125,5 +125,5 @@ class TrainTestSplitTransformation(MLTransformation):
             f"{src}, test_size={test_size!r}, random_state={seed!r}{stratify})"
         )
 
-    def imports(self) -> list[str]:
+    def imports(self, config: dict[str, Any]) -> list[str]:
         return ["from sklearn.model_selection import train_test_split"]
