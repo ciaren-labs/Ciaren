@@ -38,6 +38,10 @@ async def client(db_session, tmp_path, monkeypatch):
     from app.core.config import get_settings
 
     monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    # Pin ML off by default for API tests so gating behavior is deterministic
+    # regardless of the product default (which is now true). ML tests opt in by
+    # setting FLOWFRAME_ML_ENABLED=true + clearing the settings cache.
+    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
     get_settings.cache_clear()
 
     # ASGITransport does not send lifespan events, so create the data dirs manually.
