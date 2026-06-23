@@ -54,15 +54,18 @@ docs/
 │   ├── cli.md                   # flowframe serve/init/info/check
 │   ├── design-system.md         # Visual language / tokens
 │   └── troubleshooting.md       # Common issues
-├── transformations/
-│   └── overview.md              # All 28 nodes + config + generated code
+├── transformations/             # One page per node + the hub index
+│   ├── overview.md              # Hub: category map + "choose the right node"
+│   ├── file-input.md / file-output.md / sql-input.md / sql-output.md
+│   └── <node>.md                # One page per transformation (28 nodes)
 ├── examples/                    # Real-world, end-to-end walkthroughs
 │   ├── sales-analysis.md
 │   ├── customer-segmentation.md
 │   ├── time-series.md
 │   └── data-quality.md
-├── api/
-│   └── rest-api.md              # REST endpoints
+├── api/                         # Overview + one page per resource
+│   ├── rest-api.md              # Overview & conventions
+│   └── projects|datasets|flows|runs|transformations|schedules|connections.md
 └── .vitepress/
     ├── config.ts
     └── (theme/, public/ as needed)
@@ -409,4 +412,5 @@ Before publishing:
 
 ---
 
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-06-22 — split transformations and REST API into
+per-node / per-resource pages; added the Connections API page.
