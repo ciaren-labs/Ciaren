@@ -307,14 +307,17 @@ class MLTrainTransformation(MetadataMLTransformation):
                 **{f"hp_{k}": v for k, v in (config.get("hyperparameters") or {}).items()},
             }
             with mlflow.start_run() as run:
-                # Params/metrics are secondary: a bad value (e.g. an over-long
+                # Params/metrics/tags are secondary: a bad value (e.g. an over-long
                 # hyperparameter) must never stop the model itself from being saved.
                 try:
                     mlflow.log_params(params)
                     if metrics:
                         mlflow.log_metrics(metrics)
+                    tags = self._reproducibility_tags()
+                    if tags:
+                        mlflow.set_tags(tags)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("mlTrain: could not log params/metrics (%s).", exc)
+                    logger.warning("mlTrain: could not log params/metrics/tags (%s).", exc)
                 # cloudpickle is MLflow's standard sklearn format; the newer skops
                 # default rejects common numpy types. User-supplied model paths are
                 # still validated separately in mlPredict (see app/ml/security.py).
@@ -325,6 +328,23 @@ class MLTrainTransformation(MetadataMLTransformation):
         except Exception as exc:  # noqa: BLE001 - MLflow problems must not fail a good model
             logger.warning("mlTrain: MLflow logging failed (%s) — model trained but not tracked.", exc)
             return None, None
+
+    def _reproducibility_tags(self) -> dict[str, str]:
+        """Back-pointer tags linking the MLflow run to the FlowFrame run/flow and the
+        input datasets — used by the dataset-deletion guard and for traceability."""
+        from app.engine.run_context import current_run_context
+
+        ctx = current_run_context()
+        if not ctx:
+            return {}
+        tags: dict[str, str] = {}
+        if ctx.get("flow_id"):
+            tags["flowframe_flow_id"] = str(ctx["flow_id"])
+        if ctx.get("run_id"):
+            tags["flowframe_run_id"] = str(ctx["run_id"])
+        if ctx.get("dataset_ids"):
+            tags["flowframe_dataset_ids"] = json.dumps(ctx["dataset_ids"])
+        return tags
 
     # -- code export ---------------------------------------------------------
 
