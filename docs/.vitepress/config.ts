@@ -70,6 +70,7 @@ export default defineConfig({
           items: [
             { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
             { text: 'Database Connections', link: '/guide/connections' },
+            { text: 'Machine Learning', link: '/guide/ml-quickstart' },
             { text: 'Visualizations', link: '/guide/visualizations' },
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
             { text: 'Scheduling', link: '/guide/scheduling' },
@@ -166,6 +167,12 @@ export default defineConfig({
           items: [
             { text: 'Window function', link: '/transformations/window-function' },
             { text: 'Conditional column', link: '/transformations/conditional-column' },
+          ],
+        },
+        {
+          text: 'Machine Learning',
+          items: [
+            { text: 'ML nodes', link: '/transformations/machine-learning' },
           ],
         },
       ],
