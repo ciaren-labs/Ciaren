@@ -170,3 +170,69 @@ describe("ML node config forms", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ top_n: null }));
   });
 });
+
+describe("mlTrain config form", () => {
+  const baseConfig = {
+    model_type: "random_forest_classifier",
+    target_column: "",
+    feature_columns: [],
+    hyperparameters: {},
+    seed: 42,
+  };
+
+  it("shows the target picker for supervised models", () => {
+    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a", "target"] });
+    expect(screen.getByText("Target column")).toBeInTheDocument();
+  });
+
+  it("hides the target picker for unsupervised models", () => {
+    renderForm({
+      type: "mlTrain",
+      config: { ...baseConfig, model_type: "kmeans" },
+      columns: ["a", "b"],
+    });
+    expect(screen.queryByText("Target column")).not.toBeInTheDocument();
+  });
+
+  it("resets hyperparameters when the model changes", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "mlTrain",
+      config: { ...baseConfig, hyperparameters: { n_estimators: 500 } },
+      columns: ["a"],
+      onChange,
+    });
+    const modelSelect = screen.getByDisplayValue("Random Forest");
+    fireEvent.change(modelSelect, { target: { value: "ridge" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ model_type: "ridge", hyperparameters: {} }),
+    );
+  });
+
+  it("writes a hyperparameter change", () => {
+    const onChange = vi.fn();
+    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a"], onChange });
+    // Random Forest's basic param: "Number of trees" (n_estimators, default 100)
+    const trees = screen.getByDisplayValue("100");
+    fireEvent.change(trees, { target: { value: "250" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ hyperparameters: { n_estimators: 250 } }),
+    );
+  });
+
+  it("warns when a model needs an extra library", () => {
+    renderForm({
+      type: "mlTrain",
+      config: { ...baseConfig, model_type: "xgboost_classifier" },
+      columns: ["a"],
+    });
+    expect(screen.getByText(/Needs the/i)).toBeInTheDocument();
+  });
+
+  it("opens the Advanced options modal with cross-validation", () => {
+    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a"] });
+    fireEvent.click(screen.getByRole("button", { name: /Advanced options/i }));
+    expect(screen.getByText("Cross-validation")).toBeInTheDocument();
+    expect(screen.getByText("Preprocessing")).toBeInTheDocument();
+  });
+});

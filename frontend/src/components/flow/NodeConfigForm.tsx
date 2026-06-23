@@ -37,6 +37,7 @@ import {
   TagInput,
 } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
+import { MlTrainConfig } from "./MlTrainConfig";
 
 interface NodeConfigFormProps {
   type: string;
@@ -1445,6 +1446,9 @@ export function NodeConfigForm({
       );
 
     // ----- Machine learning -----
+    case "mlTrain":
+      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} />;
+
     case "trainTestSplit":
       return (
         <>
