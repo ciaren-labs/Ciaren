@@ -926,10 +926,12 @@ tests passing (154 ML-specific), mypy + ruff clean. Delivered:
   run timeout precedence per-run > schedule (`run_timeout_seconds`) > global.
 - `GET /api/runs/{id}/ml/metrics` and `POST /api/runs/{id}/ml/register` (registry
   promotion with MLflow-3 aliases).
+- Dataset soft-delete (§8): `deleted_at` + `DATASET_RETENTION_DAYS`; soft delete
+  retains files (restore / revive-on-reupload), `?purge=true` + `purge-expired`
+  hard-delete and remove files; runs referencing a purged file get a clear error.
 
-**Still TODO:** dataset soft-delete (`is_disabled`/`deleted_at` + retention, and
-the 409-on-delete-when-Production-model-depends check), `GET
-/api/flows/{id}/ml/experiments`, Phase 3 (frontend), Phase 5 (user docs).
+**Still TODO:** the 409-on-delete-when-a-Production-model-depends check (§8, v2),
+`GET /api/flows/{id}/ml/experiments`, Phase 3 (frontend), Phase 5 (user docs).
 
 Track progress here as features are built and tested.
 
