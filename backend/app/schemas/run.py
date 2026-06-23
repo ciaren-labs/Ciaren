@@ -14,6 +14,23 @@ class FlowRunCreate(BaseModel):
     timeout_seconds: int | None = Field(default=None, ge=0)
 
 
+class MLRegisterRequest(BaseModel):
+    model_name: str = Field(..., min_length=1, max_length=255)
+    # Optional alias to tag the new version with (MLflow 3 uses aliases, not stages).
+    stage: str | None = Field(None, max_length=64)
+
+
+class MLNodeMetrics(BaseModel):
+    node_id: str
+    type: str
+    label: str | None = None
+    ml_metrics: dict[str, float] | None = None
+    model_uri: str | None = None
+    task_type: str | None = None
+    cv_scores: list[float] | None = None
+    mlflow_run_id: str | None = None
+
+
 class InputDatasetRef(BaseModel):
     """One input dataset a run resolved, with the concrete version it read."""
 
