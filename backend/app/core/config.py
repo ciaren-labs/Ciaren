@@ -56,10 +56,10 @@ class Settings(BaseSettings):
     RUN_TIMEOUT_SECONDS: int = 0
 
     # -- Machine learning (optional extension; see docs/ml-architecture.md) ----
-    # Feature flag. ML nodes are only registered and ML routes only respond when
-    # this is true AND the ``[ml]`` extra is installed. False keeps the base
-    # install lean and the ETL test suite untouched.
-    ML_ENABLED: bool = False
+    # Feature flag. ML nodes/routes only activate when this is true AND the ``[ml]``
+    # extra is installed — so this default is safe for the lean base install (no
+    # [ml] = ML stays off regardless). Set false to force ML off even with [ml].
+    ML_ENABLED: bool = True
     # MLflow tracking + registry. Local ``./mlruns`` needs no server; accepts any
     # URI MLflow understands (sqlite:///, http://host:5000, databricks, ...).
     MLFLOW_TRACKING_URI: str = "./mlruns"
