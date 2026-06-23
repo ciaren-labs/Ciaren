@@ -1,6 +1,8 @@
 # FlowFrame
 
-> **Visual ETL builder for analysts and developers** — Upload data, build a transformation pipeline visually, preview results, run it, and export readable Python.
+> **Build data pipelines by dragging boxes — walk away with real Python.**
+> Upload a file, clean and reshape it on a visual canvas, preview every step,
+> run it, and export the exact pandas **or** polars code it produced.
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -20,20 +22,38 @@
 FlowFrame is an open-source, **local-first** visual ETL (Extract, Transform, Load)
 builder for **small and medium datasets**. It lets you:
 
-- **Upload** CSV, Excel, or Parquet files
+- **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
 - **Build** transformation pipelines on a drag-and-drop canvas
 - **Preview** intermediate results before running the full flow
 - **Execute** flows with a single click — on **polars** (default) or **pandas**
-- **Export** the equivalent, readable Python code (both polars and pandas)
+- **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
 - **Schedule** flows to run automatically with a built-in cron scheduler
 
-It maps each visual node to one clear dataframe operation, so the generated code
-stays educational and easy to read. FlowFrame is intentionally lightweight — it is
-**not** an Airflow/dbt/Spark replacement, and does not do distributed or streaming
-execution.
+It maps each visual node to **one clear dataframe operation**, so the generated
+code stays educational and easy to read. FlowFrame is intentionally lightweight —
+it is **not** an Airflow/dbt/Spark replacement, and does not do distributed or
+streaming execution.
 
 Built for analysts, data-curious business users, Python learners, developers who
 want quick repeatable pipelines, and educators.
+
+### See it: boxes in, real code out
+
+A three-step visual flow (read → drop nulls → group & sum) is exactly what you'd
+hand-write — FlowFrame just writes it for you:
+
+```python
+import polars as pl
+
+df_1 = pl.read_csv("sales.csv")
+df_2 = df_1.drop_nulls(subset=["amount"])
+df_3 = df_2.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
+df_3.write_csv("summary.csv")
+```
+
+No black box, no proprietary runtime — copy the script and run it anywhere Python
+runs. Need it to scale? Export the **lazy polars** variant (`scan_*` → `collect()`)
+for pushdown and join optimization on large files.
 
 ---
 
@@ -42,9 +62,11 @@ want quick repeatable pipelines, and educators.
 | Feature | Details |
 |---------|---------|
 | **Visual Builder** | Drag-and-drop nodes for cleaning, reshaping, joining, and aggregating data |
+| **28 Transformation Nodes** | From drop-nulls to window functions, joins, pivots, and conditional columns |
 | **Live Preview** | See data changes at each step before running the full pipeline |
-| **Code Export** | Download readable, standalone Python — both polars and pandas |
+| **Code Export** | Download readable, standalone Python — pandas, polars, or optimized **lazy** polars |
 | **polars or pandas** | Runs on polars by default; switch engines per run |
+| **SQL Databases** | Read from and write to SQL databases via saved connections, alongside files |
 | **Local-First** | Runs entirely on your machine — no SaaS, no cloud lock-in |
 | **Versioned Datasets** | Re-uploading a file keeps every version, so flows stay reproducible |
 | **Scheduling** | Built-in cron scheduler with retries, catch-up, and auto-disable |
@@ -125,12 +147,13 @@ Full docs (guides, transformation reference, examples, API) are published at
 
 ## 🛠️ Transformation Nodes
 
-FlowFrame ships with file input/output plus **23 transformation nodes**. The
+FlowFrame ships with file & SQL input/output plus **28 transformation nodes**. The
 authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engine/registry.py).
 
 ### Input / Output
 
 - CSV, Excel, Parquet (read and write)
+- SQL databases (read and write) via saved connections
 
 ### Cleaning & columns
 
@@ -138,7 +161,7 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 - Change data types (cast)
 - Drop nulls / fill nulls
 - Remove duplicates
-- Replace values, string operations
+- Replace values, string operations, split a column, map values
 - Round numbers, remove outliers
 
 ### Rows
@@ -147,9 +170,10 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 
 ### Reshape & combine
 
-- Calculated column, group by + aggregate
+- Calculated column, conditional column, group by + aggregate
 - Join / merge, union / concat
-- Pivot, unpivot, extract date parts, bin a column
+- Pivot, unpivot, window functions
+- Parse dates, extract date parts, bin a column
 
 ---
 
