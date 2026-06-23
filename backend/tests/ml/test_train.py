@@ -68,6 +68,38 @@ def test_classification_trains_and_logs(ml_env, engine_name):
     assert engine.row_count(out["out"]) == 120
 
 
+def test_pinned_requirements_match_installed(ml_env):
+    # Requirements are pinned to the actually-imported versions so MLflow's
+    # load-time check (which reads the same metadata) never reports a spurious
+    # mismatch. Core libs must always be present and exactly pinned.
+    import importlib.metadata as md
+
+    reqs = NODE._pinned_requirements({"model_type": "random_forest_classifier", "seed": 1})
+    by_name = {r.split("==")[0]: r.split("==")[1] for r in reqs}
+    for pkg in ("scikit-learn", "numpy", "pandas", "cloudpickle"):
+        assert pkg in by_name
+        assert by_name[pkg] == md.version(pkg)
+
+
+def test_pinned_requirements_include_model_library(ml_env):
+    reqs = NODE._pinned_requirements({"model_type": "xgboost_classifier", "seed": 1})
+    assert any(r.startswith("xgboost==") for r in reqs)
+
+
+def test_logged_model_has_signature(ml_env):
+    # A signature is attached so the MLflow UI shows schema and load-time
+    # validation works; it must not raise even for the happy path.
+    _, _, meta = _train(
+        _classification_df(),
+        {"model_type": "logistic_regression", "target_column": "target", "seed": 7},
+    )
+    from app.ml.tracking import configure_mlflow
+
+    mlflow = configure_mlflow()
+    info = mlflow.models.get_model_info(meta.model_uri)
+    assert info.signature is not None
+
+
 def test_regression_trains(ml_env):
     _, _, meta = _train(
         _regression_df(),
