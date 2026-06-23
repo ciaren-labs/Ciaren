@@ -156,11 +156,13 @@ function ChartView({
   });
   const [y, setY] = useState(() => {
     const nums = numericColumns(rows, columns);
-    return nums[0] ?? columns[1] ?? "";
+    const xInit = categoricalColumns(rows, columns)[0] ?? columns[0] ?? "";
+    return nums.find((c) => c !== xInit) ?? nums[0] ?? columns.find((c) => c !== xInit) ?? columns[1] ?? "";
   });
   const [group, setGroup] = useState(() => {
     const cats = categoricalColumns(rows, columns);
-    return cats[1] ?? cats[0] ?? columns[2] ?? "";
+    const xInit = cats[0] ?? columns[0] ?? "";
+    return cats.find((c) => c !== xInit) ?? cats[0] ?? columns.find((c) => c !== xInit) ?? columns[2] ?? "";
   });
   const [aggregate, setAggregate] = useState<Aggregate>("sum");
 
@@ -174,25 +176,33 @@ function ChartView({
       case "valueCounts":
         setColumn(catCols[0] ?? columns[0] ?? "");
         break;
-      case "scatterChart":
-        setX(numCols[0] ?? columns[0] ?? "");
-        setY(numCols[1] ?? columns[1] ?? "");
+      case "scatterChart": {
+        const sx = numCols[0] ?? columns[0] ?? "";
+        setX(sx);
+        setY(numCols.find((c) => c !== sx) ?? columns.find((c) => c !== sx) ?? columns[1] ?? "");
         break;
+      }
       case "lineChart":
-      case "areaChart":
-        setX(columns[0] ?? "");
-        setY(numCols[0] ?? columns[1] ?? "");
+      case "areaChart": {
+        const lx = columns[0] ?? "";
+        setX(lx);
+        setY(numCols.find((c) => c !== lx) ?? numCols[0] ?? columns.find((c) => c !== lx) ?? columns[1] ?? "");
         break;
+      }
       case "barChart":
-      case "pieChart":
-        setX(catCols[0] ?? columns[0] ?? "");
-        setY(numCols[0] ?? columns[1] ?? "");
+      case "pieChart": {
+        const bx = catCols[0] ?? columns[0] ?? "";
+        setX(bx);
+        setY(numCols.find((c) => c !== bx) ?? numCols[0] ?? columns.find((c) => c !== bx) ?? columns[1] ?? "");
         break;
-      case "stackedBarChart":
-        setX(catCols[0] ?? columns[0] ?? "");
-        setY(numCols[0] ?? columns[1] ?? "");
-        setGroup(catCols[1] ?? catCols[0] ?? columns[2] ?? "");
+      }
+      case "stackedBarChart": {
+        const sbx = catCols[0] ?? columns[0] ?? "";
+        setX(sbx);
+        setY(numCols.find((c) => c !== sbx) ?? numCols[0] ?? columns.find((c) => c !== sbx) ?? columns[1] ?? "");
+        setGroup(catCols.find((c) => c !== sbx) ?? catCols[0] ?? columns.find((c) => c !== sbx) ?? columns[2] ?? "");
         break;
+      }
     }
   };
 
