@@ -164,3 +164,46 @@ async def test_invalid_password_env_names_are_rejected(client: AsyncClient):
             json={"name": "bad_conn", "provider": "sqlite", "database": "/tmp/x.db", "password_env": bad},
         )
         assert r.status_code == 422, f"Expected 422 for password_env={bad!r}, got {r.status_code}"
+
+
+# -- MLflow tracking connection ---------------------------------------------
+
+
+async def test_mlflow_provider_listed(client: AsyncClient):
+    r = await client.get("/api/connections/providers")
+    providers = {p["name"]: p for p in r.json()}
+    assert "mlflow" in providers
+    assert providers["mlflow"]["kind"] == "mlflow"
+
+
+async def test_mlflow_connection_requires_uri(client: AsyncClient):
+    r = await client.post("/api/connections", json={"name": "ml-bad", "provider": "mlflow"})
+    assert r.status_code == 400
+    assert "tracking uri" in r.json()["detail"].lower()
+
+
+async def test_mlflow_connection_type_is_mlflow(client: AsyncClient, tmp_path):
+    created = await _create(
+        client, name="ml-conn", provider="mlflow", database=str(tmp_path / "mlruns")
+    )
+    assert created["connection_type"] == "mlflow"
+
+
+async def test_mlflow_connection_test_succeeds_for_local_store(client: AsyncClient, tmp_path):
+    created = await _create(
+        client, name="ml-local", provider="mlflow", database=str(tmp_path / "mlruns")
+    )
+    r = await client.post(f"/api/connections/{created['id']}/test")
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+async def test_mlflow_connection_is_source_of_truth(client: AsyncClient, db_session, tmp_path):
+    """resolve_tracking_uri returns the connection's URI over the setting default."""
+    from app.ml.tracking import resolve_tracking_uri
+
+    uri = str(tmp_path / "custom_mlruns")
+    await _create(client, name="ml-truth", provider="mlflow", database=uri)
+    # db_session shares the test engine with the API client, so the row is visible.
+    resolved = await resolve_tracking_uri(db_session)
+    assert resolved.endswith("custom_mlruns")

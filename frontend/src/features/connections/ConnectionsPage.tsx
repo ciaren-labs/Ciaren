@@ -7,6 +7,7 @@ import {
   Cloud,
   Copy,
   Database,
+  FlaskConical,
   FolderOpen,
   HardDrive,
   Loader2,
@@ -133,6 +134,12 @@ const PROVIDER_META: Record<string, ProviderMeta> = {
     lucideIcon: FolderOpen,
     description: "Local folder on the server",
   },
+  mlflow: {
+    brandIcon: null,
+    color: "0194E2",
+    lucideIcon: FlaskConical,
+    description: "MLflow experiment & model tracking",
+  },
 };
 
 function getProviderMeta(name: string): ProviderMeta {
@@ -207,12 +214,13 @@ const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("s3", "AWS S3", "storage", "boto3", "s3", null, false, false, false, true, true, true),
   mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, false),
   mkProvider("gcs", "Google Cloud Storage", "storage", "google-cloud-storage", "gcs", null, false, false, false, true, false, false),
+  mkProvider("mlflow", "MLflow Tracking", "mlflow", "mlflow", "ml", null, false, false, false),
 ];
 
 function mkProvider(
   name: string,
   label: string,
-  kind: "sql" | "mongo" | "storage",
+  kind: "sql" | "mongo" | "storage" | "mlflow",
   driver_module: string | null,
   extra: string | null,
   default_port: number | null,
@@ -297,6 +305,9 @@ export function ConnectionsPage() {
 // ─── Connection list card ─────────────────────────────────────────────────────
 
 function connectionTarget(connection: Connection): string {
+  if (connection.connection_type === "mlflow") {
+    return connection.database ?? "mlflow";
+  }
   if (connection.connection_type === "storage") {
     return connection.database ? `bucket: ${connection.database}` : connection.provider;
   }
@@ -400,8 +411,10 @@ function ConnectionCard({
   const del = useDeleteConnection();
   const provider = providers.find((p) => p.name === connection.provider);
   const target = connectionTarget(connection);
-  // Only the auto-seeded default is built-in; user-created local connections are deletable.
-  const isBuiltIn = connection.provider === "local" && connection.name === "Local Storage";
+  // Only the auto-seeded defaults are built-in; user-created connections are deletable.
+  const isBuiltIn =
+    (connection.provider === "local" && connection.name === "Local Storage") ||
+    (connection.provider === "mlflow" && connection.name === "Local MLflow");
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
@@ -591,11 +604,13 @@ function ConnectionDialog({
     [providers, form.provider],
   );
   const isStorage = provider?.kind === "storage";
+  const isMlflow = provider?.kind === "mlflow";
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
   const selectableProviders = providers;
   const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
   const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
+  const trackingProviders = selectableProviders.filter((p) => p.kind === "mlflow");
 
   const selectProvider = (p: ProviderInfo) => {
     testConfig.reset();
@@ -688,6 +703,11 @@ function ConnectionDialog({
                   providers={storageProviders}
                   onSelect={selectProvider}
                 />
+                <ProviderSection
+                  label="Experiment tracking"
+                  providers={trackingProviders}
+                  onSelect={selectProvider}
+                />
               </div>
             </div>
           </>
@@ -708,9 +728,11 @@ function ConnectionDialog({
                 <div>
                   <DialogTitle>{isEdit ? "Edit connection" : "Configure connection"}</DialogTitle>
                   <DialogDescription>
-                    {isStorage
-                      ? "Secret keys are read at runtime from env vars and never stored."
-                      : "Passwords are read at runtime from env vars and never stored."}
+                    {isMlflow
+                      ? "Where FlowFrame logs experiments and models. Used by all ML flows."
+                      : isStorage
+                        ? "Secret keys are read at runtime from env vars and never stored."
+                        : "Passwords are read at runtime from env vars and never stored."}
                   </DialogDescription>
                 </div>
               </div>
@@ -749,12 +771,23 @@ function ConnectionDialog({
                 <Input
                   value={form.name}
                   onChange={(e) => set({ name: e.target.value })}
-                  placeholder={isStorage ? "my-s3-bucket" : "warehouse"}
+                  placeholder={isStorage ? "my-s3-bucket" : isMlflow ? "Local MLflow" : "warehouse"}
                   autoFocus
                 />
               </Field>
 
-              {isStorage ? (
+              {isMlflow ? (
+                <Field
+                  label="Tracking URI"
+                  hint="A local folder (./mlruns), sqlite:///path/mlflow.db, or a tracking server (http://host:5000)."
+                >
+                  <Input
+                    value={form.database ?? ""}
+                    onChange={(e) => set({ database: e.target.value })}
+                    placeholder="./mlruns"
+                  />
+                </Field>
+              ) : isStorage ? (
                 <StorageFields form={form} provider={provider!} set={set} setOption={setOption} />
               ) : isSqlite ? (
                 <Field label="Database file path">

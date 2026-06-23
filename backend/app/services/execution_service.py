@@ -100,7 +100,15 @@ class ExecutionService:
             # running it off-loop (in a thread or a separate process) is safe.
             # Context ML nodes read to tag MLflow runs (back-pointers + dataset link).
             dataset_ids: list[str] = [v["dataset_id"] for v in resolved_versions]
-            ctx_data: dict[str, Any] = {"flow_id": flow_id, "run_id": run.id, "dataset_ids": dataset_ids}
+            # The MLflow connection is the source of truth for the tracking URI;
+            # resolve it here (DB available) and carry it into the off-loop worker.
+            tracking_uri = await self._resolve_tracking_uri()
+            ctx_data: dict[str, Any] = {
+                "flow_id": flow_id,
+                "run_id": run.id,
+                "dataset_ids": dataset_ids,
+                "tracking_uri": tracking_uri,
+            }
             compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
@@ -131,7 +139,9 @@ class ExecutionService:
 
             # to_thread copies this context into the worker thread (thread mode);
             # process mode re-establishes it from ctx_data inside the worker.
-            with run_context(flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids):
+            with run_context(
+                flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri
+            ):
                 if timeout > 0:
                     result = await asyncio.wait_for(compute, timeout=timeout)
                 else:
@@ -303,6 +313,20 @@ class ExecutionService:
                 "This flow uses machine-learning nodes, but ML support is not enabled "
                 "on this server (set ML_ENABLED and install the [ml] extra)."
             )
+
+    async def _resolve_tracking_uri(self) -> str | None:
+        """The MLflow tracking URI to use for this run (connection > setting).
+
+        Returns None when ML isn't installed so the run never depends on MLflow.
+        """
+        try:
+            from app.ml.tracking import resolve_tracking_uri
+        except Exception:  # noqa: BLE001 - [ml] not installed
+            return None
+        try:
+            return await resolve_tracking_uri(self.db)
+        except Exception:  # noqa: BLE001 - never let MLflow config block a run
+            return None
 
     async def _effective_timeout(self, data: FlowRunCreate, schedule_id: str | None) -> int:
         """Resolve the run timeout (seconds, 0 = no limit) by precedence:

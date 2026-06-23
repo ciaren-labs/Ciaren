@@ -62,9 +62,9 @@ class MLService:
         if model_uri is None:
             raise ValidationError("This run has no trained model to register (no mlTrain node produced a model_uri).")
 
-        from app.ml.tracking import configure_mlflow
+        from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
-        mlflow = configure_mlflow()
+        mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
         version = mlflow.register_model(model_uri, model_name.strip())
 
         alias = None
@@ -94,9 +94,9 @@ class MLService:
         if not names:
             return []
 
-        from app.ml.tracking import configure_mlflow
+        from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
-        mlflow = configure_mlflow()
+        mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
         client = mlflow.tracking.MlflowClient()
         experiments: list[dict[str, Any]] = []
         for name in sorted(names):

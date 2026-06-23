@@ -43,6 +43,7 @@ def run_graph_in_process(
             flow_id=run_context_data.get("flow_id"),
             run_id=run_context_data.get("run_id"),
             dataset_ids=run_context_data.get("dataset_ids", []),
+            tracking_uri=run_context_data.get("tracking_uri"),
         )
         if run_context_data
         else nullcontext()

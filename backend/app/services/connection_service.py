@@ -14,6 +14,7 @@ from app.connectors import (
     driver_available,
     get_connector,
     get_provider,
+    is_mlflow_provider,
     is_storage_provider,
     list_providers,
 )
@@ -139,6 +140,8 @@ class ConnectionService:
                 ok=False,
                 message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
             )
+        if is_mlflow_provider(provider):
+            return await self._test_mlflow(data.database)
         connector = get_connector(provider)
         try:
             if is_storage_provider(provider):
@@ -176,6 +179,8 @@ class ConnectionService:
                 ok=False,
                 message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
             )
+        if is_mlflow_provider(provider):
+            return await self._test_mlflow(conn.database)
         connector = get_connector(provider)
         try:
             spec: StorageSpec | ConnectionSpec
@@ -228,8 +233,24 @@ class ConnectionService:
 
     # -- Internals ------------------------------------------------------
 
+    async def _test_mlflow(self, uri: str | None) -> ConnectionTestResult:
+        """Verify an MLflow tracking URI by listing one experiment (off the loop)."""
+        from app.ml.tracking import test_tracking_uri
+
+        try:
+            await asyncio.to_thread(test_tracking_uri, uri or "")
+        except (ValueError, ConnectorError) as exc:
+            return ConnectionTestResult(ok=False, message=str(exc))
+        return ConnectionTestResult(ok=True, message="MLflow tracking store reachable.")
+
     def _validate(self, provider: str, host: str | None, database: str | None) -> None:
         p = get_provider(provider)
+        if is_mlflow_provider(p):
+            if not database:
+                raise ValidationError(
+                    "MLflow needs a tracking URI (a folder path, sqlite:///…, or http://host:5000)."
+                )
+            return
         if is_storage_provider(p):
             if p.name == "local":
                 if not database:
