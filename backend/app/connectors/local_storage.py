@@ -16,10 +16,21 @@ import pandas as pd
 from app.connectors.base import ConnectorError
 from app.connectors.storage_base import StorageSpec
 
+def _read_text(path: Path) -> pd.DataFrame:
+    """Read a plain-text file as a single-column DataFrame (one row per line)."""
+    return pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
+
+
+def _read_json(path: Path) -> pd.DataFrame:
+    return pd.read_json(path)
+
+
 _READERS = {
     "csv": pd.read_csv,
     "excel": pd.read_excel,
     "parquet": pd.read_parquet,
+    "json": _read_json,
+    "text": _read_text,
 }
 
 
@@ -70,7 +81,7 @@ class LocalStorageConnector:
     def read_file(self, spec: StorageSpec, path: str, fmt: str) -> pd.DataFrame:
         reader = _READERS.get(fmt)
         if reader is None:
-            raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet.")
+            raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet, json, text.")
         full = self._safe_path(spec, path)
         if not full.exists():
             raise ConnectorError(f"File not found: {full}")
