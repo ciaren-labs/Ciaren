@@ -29,6 +29,12 @@ class NodeResultRead(BaseModel):
     sample: list[dict[str, Any]] = Field(default_factory=list)
     error: str | None = None
     duration_ms: float | None = None
+    # ML-specific — None for non-ML nodes (populated from NodeMetadata at run time).
+    ml_metrics: dict[str, float] | None = None
+    mlflow_run_id: str | None = None
+    model_uri: str | None = None
+    task_type: str | None = None
+    cv_scores: list[float] | None = None
 
 
 class FlowRunSummary(BaseModel):

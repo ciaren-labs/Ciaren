@@ -46,3 +46,20 @@ PRE_MATERIALIZED_INPUT_TYPES: frozenset[str] = frozenset({SQL_INPUT_TYPE, STORAG
 #: Membership sets — use these for ``in`` checks.
 INPUT_TYPES: frozenset[str] = frozenset(INPUT_SOURCE_TYPES) | PRE_MATERIALIZED_INPUT_TYPES
 OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES)
+
+# Nodes that emit more than one named output frame. The executor stores a frame
+# per (node, handle); downstream edges select which one via ``sourceHandle``. The
+# first handle listed is the node's *primary* output — the one sampled for the
+# read-only run DAG (NodeResult) and returned by single-frame helpers like
+# ``compute_frames``. Single-output nodes are absent here and default to "out".
+MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {}
+
+
+def output_handles(node_type: str) -> tuple[str, ...]:
+    """Declared output handles for a node type (``("out",)`` for single-output)."""
+    return MULTI_OUTPUT_NODES.get(node_type, ("out",))
+
+
+def primary_output_handle(node_type: str) -> str:
+    """The handle whose frame represents the node in the run DAG / single-frame views."""
+    return output_handles(node_type)[0]
