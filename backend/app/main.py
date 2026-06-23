@@ -68,7 +68,7 @@ async def _seed_demo_safe() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
-    setup_logging(settings.ENVIRONMENT)
+    setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG)
 
     for subdir in ("uploads", "outputs", "previews"):
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.APP_NAME,
-        description="Visual ETL builder — local-first, pandas-based",
+        description="Visual ETL builder — local-first, dataframe-based",
         version="0.1.0",
         lifespan=lifespan,
     )
