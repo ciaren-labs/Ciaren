@@ -138,6 +138,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Start the API without the background scheduler.",
     )
+    serve.add_argument(
+        "--no-demo",
+        action="store_true",
+        help="Skip seeding the built-in demo project on first boot.",
+    )
 
     init = sub.add_parser("init", help="Write a starter .env config file.")
     init.add_argument("--path", default=".env", help="Where to write the file (default: .env).")
@@ -228,6 +233,8 @@ def _apply_serve_env(args: argparse.Namespace) -> None:
             os.environ[key] = value
     if args.no_scheduler:
         os.environ["FLOWFRAME_SCHEDULER_ENABLED"] = "false"
+    if getattr(args, "no_demo", False):
+        os.environ["FLOWFRAME_SEED_DEMO"] = "false"
 
 
 def _serve(args: argparse.Namespace) -> None:

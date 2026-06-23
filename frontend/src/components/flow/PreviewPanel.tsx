@@ -2,25 +2,45 @@ import { useState } from "react";
 import { useFlowPreview } from "@/features/flows/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api";
 import { ColumnProfileList } from "@/components/data/ColumnProfileList";
+import type { Aggregate } from "@/lib/chartData";
 import { DataTable } from "./DataTable";
+import { ChartPreview } from "./ChartPreview";
 
 interface PreviewPanelProps {
   flowId: string;
   onClose: () => void;
 }
 
+type View = "table" | "profile" | "chart";
+
+// More rows make the client-side charts meaningful, but it is still a sample.
+const CHART_SAMPLE_LIMIT = 500;
+
+const CHART_TYPES: { value: string; label: string }[] = [
+  { value: "histogramChart", label: "Histogram" },
+  { value: "correlationHeatmap", label: "Correlation heatmap" },
+  { value: "lineChart", label: "Line / time series" },
+  { value: "scatterChart", label: "Scatter" },
+  { value: "barChart", label: "Bar" },
+];
+
+const AGGREGATES: Aggregate[] = ["sum", "mean", "count", "min", "max"];
+
 export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
   const selectedNodeId = useFlowEditorStore((s) => s.selectedNodeId);
   const preview = useFlowPreview(flowId);
-  const [view, setView] = useState<"table" | "profile">("table");
+  const [view, setView] = useState<View>("table");
 
-  const runPreview = (mode: "table" | "profile" = view) => {
+  const runPreview = (mode: View = view) => {
     setView(mode);
     preview.mutate({
       node_id: selectedNodeId ?? undefined,
-      limit: 50,
+      limit: mode === "chart" ? CHART_SAMPLE_LIMIT : 50,
       profile: mode === "profile",
     });
   };
@@ -52,6 +72,14 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
           >
             {preview.isPending && view === "profile" ? "Profiling…" : "Profile"}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runPreview("chart")}
+            disabled={preview.isPending}
+          >
+            {preview.isPending && view === "chart" ? "Charting…" : "Chart"}
+          </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
             Close
           </Button>
@@ -72,6 +100,8 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
             </div>
             {view === "profile" && preview.data.profile ? (
               <ColumnProfileList profile={preview.data.profile} />
+            ) : view === "chart" ? (
+              <ChartView columns={preview.data.columns} rows={preview.data.rows} />
             ) : (
               <DataTable columns={preview.data.columns} rows={preview.data.rows} />
             )}
@@ -86,5 +116,152 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Renders a chart for the selected node from its preview sample. Picking the
+ * chart type and columns is purely client-side over the already-fetched rows —
+ * no re-fetch — so it stays snappy. The rows are a sample (see the caption).
+ */
+function ChartView({
+  columns,
+  rows,
+}: {
+  columns: string[];
+  rows: Record<string, unknown>[];
+}) {
+  const [type, setType] = useState("histogramChart");
+  const [column, setColumn] = useState("");
+  const [bins, setBins] = useState(20);
+  const [x, setX] = useState("");
+  const [y, setY] = useState("");
+  const [aggregate, setAggregate] = useState<Aggregate>("sum");
+
+  // Fall back to sensible defaults so a chart appears without forcing a pick.
+  const pick = (value: string, fallbackIndex = 0) =>
+    value && columns.includes(value) ? value : columns[fallbackIndex] ?? "";
+  const col = pick(column);
+  const xCol = pick(x);
+  const yCol = pick(y, 1);
+
+  const config: Record<string, unknown> = (() => {
+    switch (type) {
+      case "histogramChart":
+        return { column: col, bins };
+      case "correlationHeatmap":
+        return { columns: [] };
+      case "lineChart":
+        return { x: xCol, y: yCol ? [yCol] : [] };
+      case "scatterChart":
+        return { x: xCol, y: yCol };
+      case "barChart":
+        return { x: xCol, y: yCol, aggregate };
+      default:
+        return {};
+    }
+  })();
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Chart">
+          <Select value={type} onChange={(e) => setType(e.target.value)}>
+            {CHART_TYPES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {type === "histogramChart" && (
+          <>
+            <Field label="Column">
+              <ColumnSelect value={col} columns={columns} onChange={setColumn} />
+            </Field>
+            <Field label="Bins">
+              <Input
+                type="number"
+                min={1}
+                value={bins}
+                onChange={(e) => setBins(Math.max(1, Number(e.target.value) || 1))}
+                className="h-8 w-20"
+              />
+            </Field>
+          </>
+        )}
+
+        {(type === "lineChart" || type === "scatterChart" || type === "barChart") && (
+          <>
+            <Field label={type === "barChart" ? "Category (x)" : "X axis"}>
+              <ColumnSelect value={xCol} columns={columns} onChange={setX} />
+            </Field>
+            <Field label={type === "barChart" ? "Value (y)" : "Y axis"}>
+              <ColumnSelect value={yCol} columns={columns} onChange={setY} />
+            </Field>
+          </>
+        )}
+
+        {type === "barChart" && (
+          <Field label="Aggregate">
+            <Select
+              value={aggregate}
+              onChange={(e) => setAggregate(e.target.value as Aggregate)}
+            >
+              {AGGREGATES.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        {type === "correlationHeatmap" && (
+          <p className="self-center text-[11px] text-muted-foreground">
+            Uses all numeric columns in the sample.
+          </p>
+        )}
+      </div>
+
+      <ChartPreview type={type} config={config} rows={rows} />
+
+      <p className="text-[11px] text-muted-foreground">
+        Based on a sample of {rows.length} row{rows.length === 1 ? "" : "s"} — not
+        the full dataset.
+      </p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function ColumnSelect({
+  value,
+  columns,
+  onChange,
+}: {
+  value: string;
+  columns: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-8">
+      {columns.map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </Select>
   );
 }

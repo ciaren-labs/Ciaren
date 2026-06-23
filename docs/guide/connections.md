@@ -45,6 +45,12 @@ scrubbed from driver error messages.
 | SQL Server | `pyodbc` | `pip install flowframe[mssql]` |
 | MongoDB | `pymongo` | `pip install flowframe[mongo]` |
 
+To pull in **every** database driver at once:
+
+```bash
+pip install flowframe[all]
+```
+
 Drivers are **optional**. If one isn't installed, that provider appears disabled
 on the Connections page with an "install …" hint, so the core stays lightweight.
 SQLite needs no driver and is great for trying things out.

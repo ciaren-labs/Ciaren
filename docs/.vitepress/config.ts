@@ -69,6 +69,7 @@ export default defineConfig({
           items: [
             { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
             { text: 'Database Connections', link: '/guide/connections' },
+            { text: 'Visualizations', link: '/guide/visualizations' },
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
             { text: 'Scheduling', link: '/guide/scheduling' },
             { text: 'CLI Reference', link: '/guide/cli' },
