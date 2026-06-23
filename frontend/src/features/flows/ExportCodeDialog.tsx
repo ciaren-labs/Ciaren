@@ -31,7 +31,7 @@ export function ExportCodeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl w-[92vw] max-h-[88vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Generated code</DialogTitle>
         </DialogHeader>
@@ -45,15 +45,15 @@ export function ExportCodeDialog({
           </p>
         )}
         {exportPython.data && (
-          <Tabs defaultValue="pandas">
+          <Tabs defaultValue="pandas" className="min-w-0">
             <TabsList>
               <TabsTrigger value="pandas">pandas</TabsTrigger>
               <TabsTrigger value="polars">polars</TabsTrigger>
             </TabsList>
-            <TabsContent value="pandas">
+            <TabsContent value="pandas" className="min-w-0">
               <CodeBlock code={exportPython.data.code} />
             </TabsContent>
-            <TabsContent value="polars">
+            <TabsContent value="polars" className="min-w-0">
               <CodeBlock code={exportPython.data.polars} />
             </TabsContent>
           </Tabs>
@@ -71,7 +71,7 @@ function CodeBlock({ code }: { code: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <Button
         variant="outline"
         size="sm"
@@ -81,7 +81,7 @@ function CodeBlock({ code }: { code: string }) {
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         {copied ? "Copied" : "Copy"}
       </Button>
-      <pre className="max-h-96 overflow-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
+      <pre className="max-h-[70vh] overflow-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
         <code>{code}</code>
       </pre>
     </div>
