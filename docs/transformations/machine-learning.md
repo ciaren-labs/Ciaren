@@ -73,7 +73,7 @@ Scores rows with a trained model, adding a prediction column.
 
 | Field | Notes |
 |---|---|
-| Model URI | Optional. e.g. `models:/churn/Production`. Leave empty to use the wired model. |
+| Model URI | Optional. By alias `models:/churn@production` or version `models:/churn/1` (MLflow 3 uses `@alias`, not `/Stage`). Leave empty to use the wired model. |
 | Prediction column | Name of the new output column (default `prediction`). |
 | Probability columns | Optional, classifiers — one name per class. |
 
