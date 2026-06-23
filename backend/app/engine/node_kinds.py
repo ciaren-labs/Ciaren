@@ -52,7 +52,10 @@ OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES)
 # first handle listed is the node's *primary* output — the one sampled for the
 # read-only run DAG (NodeResult) and returned by single-frame helpers like
 # ``compute_frames``. Single-output nodes are absent here and default to "out".
-MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {}
+MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {
+    # ML: trainTestSplit emits two frames; "train" is the primary (sampled) output.
+    "trainTestSplit": ("train", "test"),
+}
 
 
 def output_handles(node_type: str) -> tuple[str, ...]:
