@@ -10,6 +10,7 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
+  Pencil,
   Plus,
   RefreshCw,
   Snowflake,
@@ -47,6 +48,7 @@ import {
   useDeleteConnection,
   useTestConnection,
   useTestConnectionConfig,
+  useUpdateConnection,
 } from "./hooks";
 
 // ─── Brand icon metadata ──────────────────────────────────────────────────────
@@ -245,6 +247,7 @@ export function ConnectionsPage() {
   const { data: fetchedProviders = [] } = useConnectionProviders();
   const providers = fetchedProviders.length ? fetchedProviders : FALLBACK_PROVIDERS;
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -275,12 +278,18 @@ export function ConnectionsPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {connections.map((c) => (
-            <ConnectionCard key={c.id} connection={c} providers={providers} />
+            <ConnectionCard key={c.id} connection={c} providers={providers} onEdit={setEditingConnection} />
           ))}
         </div>
       )}
 
       <ConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} providers={providers} />
+      <ConnectionDialog
+        open={editingConnection !== null}
+        onOpenChange={(o) => { if (!o) setEditingConnection(null); }}
+        providers={providers}
+        connection={editingConnection ?? undefined}
+      />
     </div>
   );
 }
@@ -373,9 +382,11 @@ function TestButton({
 function ConnectionCard({
   connection,
   providers,
+  onEdit,
 }: {
   connection: Connection;
   providers: ProviderInfo[];
+  onEdit: (c: Connection) => void;
 }) {
   const test = useTestConnection();
   const del = useDeleteConnection();
@@ -406,6 +417,9 @@ function ConnectionCard({
         isPending={test.isPending}
         result={test.data}
       />
+      <Button size="sm" variant="ghost" onClick={() => onEdit(connection)} title="Edit connection">
+        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+      </Button>
       {!isBuiltIn && (
         <Button
           size="sm"
@@ -516,7 +530,20 @@ function ProviderSection({
   );
 }
 
-// ─── Add-connection dialog ────────────────────────────────────────────────────
+// ─── Add / edit connection dialog ─────────────────────────────────────────────
+
+function connectionToForm(c: Connection): ConnectionCreate {
+  return {
+    name: c.name,
+    provider: c.provider,
+    host: c.host,
+    port: c.port,
+    database: c.database,
+    username: c.username,
+    password_env: c.password_env,
+    options: c.options as Record<string, unknown> | null | undefined,
+  };
+}
 
 type DialogStep = "pick" | "configure";
 
@@ -524,18 +551,22 @@ function ConnectionDialog({
   open,
   onOpenChange,
   providers,
+  connection,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   providers: ProviderInfo[];
+  connection?: Connection;
 }) {
+  const isEdit = !!connection;
   const create = useCreateConnection();
+  const update = useUpdateConnection();
   const testConfig = useTestConnectionConfig();
   // Same query key as ConnectionsPage — TanStack deduplicates, no extra request.
   // Having refetch here lets the picker recheck driver availability after install.
   const { refetch: recheckProviders, isFetching: isRechecking } = useConnectionProviders();
-  const [step, setStep] = useState<DialogStep>("pick");
-  const [form, setForm] = useState<ConnectionCreate>(EMPTY);
+  const [step, setStep] = useState<DialogStep>(isEdit ? "configure" : "pick");
+  const [form, setForm] = useState<ConnectionCreate>(isEdit ? connectionToForm(connection!) : EMPTY);
 
   const set = (patch: Partial<ConnectionCreate>) => {
     testConfig.reset();
@@ -577,7 +608,11 @@ function ConnectionDialog({
 
   const submit = async () => {
     try {
-      await create.mutateAsync(payload());
+      if (isEdit) {
+        await update.mutateAsync({ id: connection!.id, body: payload() });
+      } else {
+        await create.mutateAsync(payload());
+      }
       onOpenChange(false);
     } catch {
       /* error shown in UI */
@@ -588,8 +623,8 @@ function ConnectionDialog({
   useEffect(() => {
     if (!open) {
       const t = setTimeout(() => {
-        setStep("pick");
-        setForm(EMPTY);
+        setStep(isEdit ? "configure" : "pick");
+        setForm(isEdit ? connectionToForm(connection!) : EMPTY);
         testConfig.reset();
       }, 200);
       return () => clearTimeout(t);
@@ -646,16 +681,18 @@ function ConnectionDialog({
           <>
             <DialogHeader>
               <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="mt-0.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Choose a different connector"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
+                {!isEdit && (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="mt-0.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    title="Choose a different connector"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
                 <div>
-                  <DialogTitle>Configure connection</DialogTitle>
+                  <DialogTitle>{isEdit ? "Edit connection" : "Configure connection"}</DialogTitle>
                   <DialogDescription>
                     {isStorage
                       ? "Secret keys are read at runtime from env vars and never stored."
@@ -672,13 +709,15 @@ function ConnectionDialog({
                 <p className="text-xs font-semibold">{provider?.label}</p>
                 <p className="text-[10px] text-muted-foreground">{meta.description}</p>
               </div>
-              <button
-                type="button"
-                onClick={goBack}
-                className="text-[11px] font-medium text-primary hover:underline"
-              >
-                Change
-              </button>
+              {!isEdit && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="text-[11px] font-medium text-primary hover:underline"
+                >
+                  Change
+                </button>
+              )}
             </div>
 
             {provider && !provider.available && provider.extra && (
@@ -755,9 +794,10 @@ function ConnectionDialog({
                 </>
               )}
 
-              {create.isError && (
+              {(isEdit ? update.isError : create.isError) && (
                 <p className="text-xs text-destructive">
-                  {(create.error as ApiError)?.message ?? "Could not create connection."}
+                  {((isEdit ? update.error : create.error) as ApiError)?.message ??
+                    (isEdit ? "Could not update connection." : "Could not create connection.")}
                 </p>
               )}
 
@@ -772,8 +812,16 @@ function ConnectionDialog({
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
-                <Button onClick={submit} disabled={create.isPending || !form.name}>
-                  {create.isPending ? "Saving…" : "Save connection"}
+                <Button
+                  onClick={submit}
+                  disabled={
+                    (isEdit ? update.isPending : create.isPending) ||
+                    !form.name ||
+                    (isEdit && !testConfig.data?.ok)
+                  }
+                  title={isEdit && !testConfig.data?.ok ? "Test the connection first" : undefined}
+                >
+                  {(isEdit ? update.isPending : create.isPending) ? "Saving…" : "Save connection"}
                 </Button>
               </div>
             </div>
