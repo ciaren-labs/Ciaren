@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Awaitable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import asc, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.engine.process_pool import (
     recycle_process_pool,
     run_graph_in_process,
 )
+from app.engine.run_context import run_context
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
@@ -90,10 +92,14 @@ class ExecutionService:
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
             # running it off-loop (in a thread or a separate process) is safe.
+            # Context ML nodes read to tag MLflow runs (back-pointers + dataset link).
+            dataset_ids: list[str] = [v["dataset_id"] for v in resolved_versions]
+            ctx_data: dict[str, Any] = {"flow_id": flow_id, "run_id": run.id, "dataset_ids": dataset_ids}
             compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
                 # processes. Only the picklable compute crosses the boundary.
+                # ContextVars don't cross processes, so pass the context explicitly.
                 loop = asyncio.get_running_loop()
                 compute = loop.run_in_executor(
                     get_process_pool(),
@@ -104,6 +110,7 @@ class ExecutionService:
                     engine,
                     sql_input_paths,
                     storage_input_paths,
+                    ctx_data,
                 )
             else:
                 compute = asyncio.to_thread(
@@ -116,10 +123,13 @@ class ExecutionService:
                     storage_input_paths=storage_input_paths,
                 )
 
-            if timeout > 0:
-                result = await asyncio.wait_for(compute, timeout=timeout)
-            else:
-                result = await compute
+            # to_thread copies this context into the worker thread (thread mode);
+            # process mode re-establishes it from ctx_data inside the worker.
+            with run_context(flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids):
+                if timeout > 0:
+                    result = await asyncio.wait_for(compute, timeout=timeout)
+                else:
+                    result = await compute
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:

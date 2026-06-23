@@ -44,10 +44,13 @@ async def patch_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, service: DatasetServiceDep, purge: bool = False) -> None:
+async def delete_dataset(
+    dataset_id: str, service: DatasetServiceDep, purge: bool = False, force: bool = False
+) -> None:
     """Soft-delete a dataset (retained for restore); ``?purge=true`` deletes it and
-    its files immediately."""
-    await service.delete(dataset_id, purge=purge)
+    its files immediately. Refuses with 409 if a Production model was trained on it,
+    unless ``?force=true``."""
+    await service.delete(dataset_id, purge=purge, force=force)
 
 
 @router.post("/{dataset_id}/restore", response_model=DatasetRead)

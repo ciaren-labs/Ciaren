@@ -23,6 +23,7 @@ def run_graph_in_process(
     engine_name: str,
     sql_input_paths: dict[str, Path] | None = None,
     storage_input_paths: dict[str, Path] | None = None,
+    run_context_data: dict[str, Any] | None = None,
 ) -> RunResult:
     """Run a flow graph and return its :class:`RunResult`.
 
@@ -30,15 +31,31 @@ def run_graph_in_process(
     worker processes. It builds a fresh :class:`FlowExecutor` in the worker and
     takes no DB session, so it is safe to run in another process. SQL and storage
     inputs are pre-materialized to parquet in the parent (picklable paths cross here).
+    ``run_context_data`` re-establishes the run context (ContextVars don't cross
+    process boundaries) so ML nodes can tag their MLflow runs.
     """
-    return FlowExecutor().run_with_results(
-        graph,
-        dataset_paths,
-        output_dir,
-        engine_name=engine_name,
-        sql_input_paths=sql_input_paths,
-        storage_input_paths=storage_input_paths,
+    from contextlib import nullcontext
+
+    from app.engine.run_context import run_context
+
+    ctx = (
+        run_context(
+            flow_id=run_context_data.get("flow_id"),
+            run_id=run_context_data.get("run_id"),
+            dataset_ids=run_context_data.get("dataset_ids", []),
+        )
+        if run_context_data
+        else nullcontext()
     )
+    with ctx:
+        return FlowExecutor().run_with_results(
+            graph,
+            dataset_paths,
+            output_dir,
+            engine_name=engine_name,
+            sql_input_paths=sql_input_paths,
+            storage_input_paths=storage_input_paths,
+        )
 
 
 _pool: ProcessPoolExecutor | None = None
