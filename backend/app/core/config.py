@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Idempotent and skippable via `flowframe serve --no-demo`.
     SEED_DEMO: bool = True
 
+    # After the demo project is first seeded, run every demo flow once so run
+    # history (and MLflow models for the ML flows) aren't empty out of the box.
+    # Off by default: it adds startup time and the ML flows need the [ml] extra.
+    # Enable with `flowframe serve --run-seed-flows` or this env var.
+    SEED_RUN_FLOWS: bool = False
+
     # Background cron scheduler. Disabled in tests (ASGITransport skips lifespan).
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_POLL_INTERVAL_SECONDS: int = 30

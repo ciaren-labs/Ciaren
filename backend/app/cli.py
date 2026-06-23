@@ -151,6 +151,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip seeding the built-in demo project on first boot.",
     )
+    serve.add_argument(
+        "--run-seed-flows",
+        action="store_true",
+        help="Run every demo flow once right after first-boot seeding "
+        "(populates run history and MLflow). Off by default.",
+    )
 
     init = sub.add_parser("init", help="Write a starter .env config file.")
     init.add_argument("--path", default=".env", help="Where to write the file (default: .env).")
@@ -238,6 +244,8 @@ def _apply_serve_env(args: argparse.Namespace) -> None:
         os.environ["FLOWFRAME_SCHEDULER_ENABLED"] = "false"
     if getattr(args, "no_demo", False):
         os.environ["FLOWFRAME_SEED_DEMO"] = "false"
+    if getattr(args, "run_seed_flows", False):
+        os.environ["FLOWFRAME_SEED_RUN_FLOWS"] = "true"
 
 
 def _serve(args: argparse.Namespace) -> None:
