@@ -22,6 +22,7 @@ from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
     FileTooLargeError,
+    MLNotEnabledError,
     NotFoundError,
     UnsupportedFileTypeError,
     ValidationError,
@@ -148,6 +149,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(ConflictError)
     async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(MLNotEnabledError)
+    async def ml_not_enabled_handler(request: Request, exc: MLNotEnabledError) -> JSONResponse:
+        return JSONResponse(status_code=501, content={"detail": str(exc)})
 
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])

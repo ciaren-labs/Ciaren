@@ -94,6 +94,7 @@ def _register_ml_nodes() -> None:
 
     if not ml_core_available():
         return
+    before = set(_REGISTRY)
     from app.engine.transformations.ml.evaluate import MLEvaluateTransformation
     from app.engine.transformations.ml.feature_engineering import (
         EncodeCategoriesTransformation,
@@ -119,7 +120,12 @@ def _register_ml_nodes() -> None:
         MLEvaluateTransformation(),
         FeatureImportanceTransformation(),
     )
+    _ML_TYPES.update(set(_REGISTRY) - before)
 
+
+# Type names registered as ML nodes (empty when the [ml] extra is absent). Lets the
+# API filter/hide ML nodes by category without hard-coding the list in two places.
+_ML_TYPES: set[str] = set()
 
 _register_ml_nodes()
 
@@ -132,3 +138,12 @@ def get_transformation(node_type: str) -> BaseTransformation:
 
 def list_transformation_types() -> list[str]:
     return sorted(_REGISTRY.keys())
+
+
+def ml_node_types() -> set[str]:
+    """The set of registered ML node type names (empty without the [ml] extra)."""
+    return set(_ML_TYPES)
+
+
+def is_ml_node(node_type: str) -> bool:
+    return node_type in _ML_TYPES
