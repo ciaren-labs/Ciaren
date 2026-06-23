@@ -87,9 +87,7 @@ class WindowFunctionTransformation(BaseTransformation):
         base = f"{grp}[{target!r}]" if grp else f"_w[{target!r}]"
         return f"{base}.shift({periods})"
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         _, _, order, _, _, desc, new = self._args(config)
         lines = [f"_w = {src}.reset_index(drop=True)"]
@@ -115,16 +113,13 @@ class WindowFunctionTransformation(BaseTransformation):
             expr = f"pl.col({target!r}).shift({offset if function == 'lag' else -offset})"
         return f"{expr}.over({part!r})" if part else expr
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         _, _, order, _, _, desc, new = self._args(config)
         lines = [f"_w = {src}.with_row_index('__rn__')"]
         if order:
             lines.append(f"_w = _w.sort(by={order!r}, descending={desc!r})")
         lines.append(
-            f"{dst} = _w.with_columns({self._polars_value(config)}.alias({new!r}))"
-            ".sort('__rn__').drop('__rn__')"
+            f"{dst} = _w.with_columns({self._polars_value(config)}.alias({new!r})).sort('__rn__').drop('__rn__')"
         )
         return "\n".join(lines)

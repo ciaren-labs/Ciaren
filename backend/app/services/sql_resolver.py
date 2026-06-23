@@ -61,9 +61,7 @@ async def materialize_sql_inputs(
         def _read(connector=connector, spec=spec, config=config, mode=mode):  # type: ignore[no-untyped-def]
             if mode == "query":
                 return connector.read_query(spec, config.get("query", ""))
-            return connector.read_table(
-                spec, config.get("table", ""), config.get("schema"), limit
-            )
+            return connector.read_table(spec, config.get("table", ""), config.get("schema"), limit)
 
         df = await asyncio.to_thread(_read)
         path = Path(work_dir) / f"{node['id']}__sqlinput.parquet"
@@ -72,9 +70,7 @@ async def materialize_sql_inputs(
     return paths
 
 
-async def push_sql_outputs(
-    db: AsyncSession, graph: dict[str, Any], output_paths: dict[str, Path]
-) -> int:
+async def push_sql_outputs(db: AsyncSession, graph: dict[str, Any], output_paths: dict[str, Path]) -> int:
     """Write each ``sqlOutput`` node's materialized parquet to its target table.
 
     Returns the number of tables written. A connector failure propagates so the

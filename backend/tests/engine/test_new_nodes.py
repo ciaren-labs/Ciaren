@@ -22,11 +22,7 @@ def _native(engine, pdf: pd.DataFrame):
 def run(engine, node_type, pdf, config, inputs=None):
     t = get_transformation(node_type)
     t.validate_config(config)
-    ins = (
-        {"in": _native(engine, pdf)}
-        if inputs is None
-        else {k: _native(engine, v) for k, v in inputs.items()}
-    )
+    ins = {"in": _native(engine, pdf)} if inputs is None else {k: _native(engine, v) for k, v in inputs.items()}
     return engine.to_pandas(t.execute(engine, ins, config)["out"])
 
 
@@ -300,9 +296,7 @@ def test_map_values_with_default(engine):
 
 
 def test_window_row_number_partitioned(engine):
-    pdf = pd.DataFrame(
-        {"region": ["E", "E", "W", "E"], "amount": [10, 30, 5, 20]}
-    )
+    pdf = pd.DataFrame({"region": ["E", "E", "W", "E"], "amount": [10, 30, 5, 20]})
     out = run(
         engine,
         "windowFunction",
@@ -493,9 +487,7 @@ def test_remove_duplicates_keep_false_drops_all_dupes(engine):
 def test_join_how_variants(engine, how, expected_rows):
     left = pd.DataFrame({"id": [1, 2, 3], "x": ["a", "b", "c"]})
     right = pd.DataFrame({"id": [1, 2, 4], "y": ["p", "q", "r"]})
-    out = run(
-        engine, "join", None, {"on": ["id"], "how": how}, inputs={"left": left, "right": right}
-    )
+    out = run(engine, "join", None, {"on": ["id"], "how": how}, inputs={"left": left, "right": right})
     assert len(out) == expected_rows
     # an 'on' join keeps a single key column on every engine (no duplicate 'id_y').
     assert sorted(out.columns) == ["id", "x", "y"]
@@ -644,8 +636,7 @@ def test_bin_column_with_labels(engine):
         engine,
         "binColumn",
         pdf,
-        {"column": "x", "new_column": "bucket", "method": "equalwidth", "bins": 2,
-         "labels": ["low", "high"]},
+        {"column": "x", "new_column": "bucket", "method": "equalwidth", "bins": 2, "labels": ["low", "high"]},
     )
     assert set(out["bucket"].dropna().tolist()) <= {"low", "high"}
 
@@ -686,11 +677,14 @@ def test_cast_boolean(engine):
     assert out["flag"].tolist() == [True, False, True]
 
 
-@pytest.mark.parametrize("op,value,expected", [
-    ("contains", "a", ["cat", "bat"]),
-    ("startswith", "c", ["cat"]),
-    ("endswith", "g", ["dog"]),
-])
+@pytest.mark.parametrize(
+    "op,value,expected",
+    [
+        ("contains", "a", ["cat", "bat"]),
+        ("startswith", "c", ["cat"]),
+        ("endswith", "g", ["dog"]),
+    ],
+)
 def test_filter_string_operators(engine, op, value, expected):
     pdf = pd.DataFrame({"s": ["cat", "dog", "bat"]})
     out = run(engine, "filterRows", pdf, {"column": "s", "operator": op, "value": value})
@@ -884,10 +878,15 @@ _CODEGEN_CASES = [
         {"function": "lead", "order_by": ["o"], "target": "v", "offset": 1, "new_column": "r"},
         {"in": "df_1"},
     ),
-    ("conditionalColumn", {
-        "new_column": "f", "default": "x",
-        "rules": [{"column": "a", "operator": "isnull", "result": "missing"}],
-    }, {"in": "df_1"}),
+    (
+        "conditionalColumn",
+        {
+            "new_column": "f",
+            "default": "x",
+            "rules": [{"column": "a", "operator": "isnull", "result": "missing"}],
+        },
+        {"in": "df_1"},
+    ),
     ("fillNulls", {"strategy": "zero", "columns": ["a"]}, {"in": "df_1"}),
     ("fillNulls", {"strategy": "bfill"}, {"in": "df_1"}),
     ("fillNulls", {"strategy": "min", "columns": ["a"]}, {"in": "df_1"}),
@@ -935,16 +934,24 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("conditionalColumn", {"new_column": "x", "rules": []}),  # empty rules
         ("conditionalColumn", {"new_column": "x", "rules": [{"operator": "=="}]}),  # no column
         ("conditionalColumn", {"new_column": "x", "rules": [{"column": "a", "operator": ">"}]}),
-        ("conditionalColumn", {  # bad match keyword
-            "new_column": "x",
-            "rules": [{"match": "some", "conditions": [{"column": "a", "operator": ">", "value": 1}]}],
-        }),
-        ("conditionalColumn", {  # unknown operator
-            "new_column": "x",
-            "rules": [{"column": "a", "operator": "~=", "value": 1, "result": "y"}],
-        }),
-        ("windowFunction", {"function": "lag", "order_by": ["o"], "target": "v",
-                            "offset": 0, "new_column": "x"}),  # offset < 1
+        (
+            "conditionalColumn",
+            {  # bad match keyword
+                "new_column": "x",
+                "rules": [{"match": "some", "conditions": [{"column": "a", "operator": ">", "value": 1}]}],
+            },
+        ),
+        (
+            "conditionalColumn",
+            {  # unknown operator
+                "new_column": "x",
+                "rules": [{"column": "a", "operator": "~=", "value": 1, "result": "y"}],
+            },
+        ),
+        (
+            "windowFunction",
+            {"function": "lag", "order_by": ["o"], "target": "v", "offset": 0, "new_column": "x"},
+        ),  # offset < 1
         ("windowFunction", {"function": "dense_rank", "new_column": "x"}),  # rank needs order_by
         ("removeDuplicates", {"keep": "middle"}),  # bad keep
         ("sortRows", {"columns": ["a"], "na_position": "center"}),  # bad na_position

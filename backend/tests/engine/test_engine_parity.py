@@ -144,9 +144,7 @@ def test_parity_excel_roundtrip(tmp_path) -> None:
     """Excel in -> transform -> Excel out, on both engines (validates the native
     polars Excel read/write path matches pandas)."""
     src = tmp_path / "in.xlsx"
-    pd.DataFrame(
-        {"city": ["NYC", "LA", "SF"], "pop": [8, 4, 1], "area": [300, 500, 230]}
-    ).to_excel(src, index=False)
+    pd.DataFrame({"city": ["NYC", "LA", "SF"], "pop": [8, 4, 1], "area": [300, 500, 230]}).to_excel(src, index=False)
 
     graph = {
         "nodes": [
@@ -169,12 +167,6 @@ def test_parity_excel_roundtrip(tmp_path) -> None:
     pandas_dir.mkdir()
     polars_dir.mkdir()
     paths = _paths(ds1=src)
-    pandas_out = pd.read_excel(
-        next(iter(FlowExecutor().execute(graph, paths, pandas_dir, "pandas").values()))
-    )
-    polars_out = pd.read_excel(
-        next(iter(FlowExecutor().execute(graph, paths, polars_dir, "polars").values()))
-    )
-    pd.testing.assert_frame_equal(
-        _normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False
-    )
+    pandas_out = pd.read_excel(next(iter(FlowExecutor().execute(graph, paths, pandas_dir, "pandas").values())))
+    polars_out = pd.read_excel(next(iter(FlowExecutor().execute(graph, paths, polars_dir, "polars").values())))
+    pd.testing.assert_frame_equal(_normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False)

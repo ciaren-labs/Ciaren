@@ -40,11 +40,7 @@ class ScheduleService:
             engine=data.engine,
             enabled=data.enabled,
             catch_up=data.catch_up,
-            next_run_at=(
-                compute_next_run(data.cron, datetime.utcnow(), data.timezone)
-                if data.enabled
-                else None
-            ),
+            next_run_at=(compute_next_run(data.cron, datetime.utcnow(), data.timezone) if data.enabled else None),
         )
         self.db.add(schedule)
         await self.db.commit()
@@ -85,14 +81,9 @@ class ScheduleService:
         if not schedule.enabled:
             schedule.next_run_at = None
         elif (
-            "cron" in updates
-            or "timezone" in updates
-            or updates.get("enabled") is True
-            or schedule.next_run_at is None
+            "cron" in updates or "timezone" in updates or updates.get("enabled") is True or schedule.next_run_at is None
         ):
-            schedule.next_run_at = compute_next_run(
-                schedule.cron, datetime.utcnow(), schedule.timezone
-            )
+            schedule.next_run_at = compute_next_run(schedule.cron, datetime.utcnow(), schedule.timezone)
         schedule.updated_at = datetime.utcnow()
         await self.db.commit()
         await self.db.refresh(schedule)
@@ -134,9 +125,7 @@ class ScheduleService:
         if not is_valid_timezone(timezone):
             raise ValidationError(f"Unknown timezone: '{timezone}'.")
         if engine is not None and engine not in available_engines():
-            raise ValidationError(
-                f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}."
-            )
+            raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

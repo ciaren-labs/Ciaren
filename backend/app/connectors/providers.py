@@ -29,21 +29,11 @@ class Provider:
 
 
 PROVIDERS: dict[str, Provider] = {
-    "postgresql": Provider(
-        "postgresql", "PostgreSQL", "sql", "psycopg", "postgres", 5432, True, True, True
-    ),
-    "mysql": Provider(
-        "mysql", "MySQL / MariaDB", "sql", "pymysql", "mysql", 3306, True, True, True
-    ),
-    "sqlite": Provider(
-        "sqlite", "SQLite", "sql", None, None, None, False, False, True
-    ),
-    "mssql": Provider(
-        "mssql", "SQL Server", "sql", "pyodbc", "mssql", 1433, True, True, True
-    ),
-    "mongodb": Provider(
-        "mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, True, True, False
-    ),
+    "postgresql": Provider("postgresql", "PostgreSQL", "sql", "psycopg", "postgres", 5432, True, True, True),
+    "mysql": Provider("mysql", "MySQL / MariaDB", "sql", "pymysql", "mysql", 3306, True, True, True),
+    "sqlite": Provider("sqlite", "SQLite", "sql", None, None, None, False, False, True),
+    "mssql": Provider("mssql", "SQL Server", "sql", "pyodbc", "mssql", 1433, True, True, True),
+    "mongodb": Provider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, True, True, False),
 }
 
 _CONNECTORS: dict[str, DataConnector] = {"sql": SqlConnector(), "mongo": MongoConnector()}

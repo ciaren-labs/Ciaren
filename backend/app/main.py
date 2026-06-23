@@ -101,9 +101,7 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
 
     @app.exception_handler(UnsupportedFileTypeError)
-    async def unsupported_type_handler(
-        request: Request, exc: UnsupportedFileTypeError
-    ) -> JSONResponse:
+    async def unsupported_type_handler(request: Request, exc: UnsupportedFileTypeError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     @app.exception_handler(FileTooLargeError)
@@ -128,9 +126,7 @@ def create_app() -> FastAPI:
     app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
     app.include_router(runs.router, prefix="/api", tags=["runs"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
-    app.include_router(
-        transformations.router, prefix="/api/transformations", tags=["transformations"]
-    )
+    app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

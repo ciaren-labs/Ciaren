@@ -304,7 +304,5 @@ async def test_flow_id_is_uuid_format(client: AsyncClient) -> None:
     import re
 
     r = await client.post("/api/flows", json={"name": "UUID check"})
-    uuid_pattern = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    )
+    uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     assert uuid_pattern.match(r.json()["id"])

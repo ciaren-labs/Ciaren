@@ -47,8 +47,7 @@ async def seed_demo(db: AsyncSession) -> Project | None:
 
     project = Project(
         name=DEMO_PROJECT_NAME,
-        description="A built-in tour of FlowFrame: sample data and example "
-        "cleaning, aggregation, and join pipelines.",
+        description="A built-in tour of FlowFrame: sample data and example cleaning, aggregation, and join pipelines.",
         color="emerald",
         is_default=False,
     )
@@ -63,9 +62,7 @@ async def seed_demo(db: AsyncSession) -> Project | None:
 
 
 async def _demo_exists(db: AsyncSession) -> bool:
-    result = await db.execute(
-        select(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower())
-    )
+    result = await db.execute(select(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower()))
     return result.scalar_one_or_none() is not None
 
 

@@ -114,11 +114,7 @@ class DatasetService:
         return await self._read(dataset.id)
 
     async def list_all(self, project_id: str | None = None) -> list[DatasetRead]:
-        stmt = (
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .order_by(Dataset.created_at.desc())
-        )
+        stmt = select(Dataset).options(selectinload(Dataset.versions)).order_by(Dataset.created_at.desc())
         if project_id is not None:
             stmt = stmt.where(Dataset.project_id == project_id)
         result = await self.db.execute(stmt)
@@ -127,19 +123,13 @@ class DatasetService:
     async def get(self, dataset_id: str) -> DatasetRead:
         return await self._read(dataset_id)
 
-    async def get_schema(
-        self, dataset_id: str, version: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_schema(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).schema_json or []
 
-    async def get_sample(
-        self, dataset_id: str, version: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_sample(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).sample_json or []
 
-    async def get_profile(
-        self, dataset_id: str, version: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_profile(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
         """Per-column statistics for a version. Computed at upload time; for
         versions created before profiling existed, it's computed on demand from
         the stored file and backfilled so later reads are instant."""
@@ -168,9 +158,7 @@ class DatasetService:
 
     async def delete(self, dataset_id: str) -> None:
         result = await self.db.execute(
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .where(Dataset.id == dataset_id)
+            select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
@@ -268,9 +256,7 @@ class DatasetService:
 
     async def _read(self, dataset_id: str) -> DatasetRead:
         result = await self.db.execute(
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .where(Dataset.id == dataset_id)
+            select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
@@ -278,16 +264,12 @@ class DatasetService:
         return self._to_read(dataset)
 
     async def _get_by_name(self, name: str) -> Dataset | None:
-        result = await self.db.execute(
-            select(Dataset).where(func.lower(Dataset.name) == name.lower())
-        )
+        result = await self.db.execute(select(Dataset).where(func.lower(Dataset.name) == name.lower()))
         return result.scalar_one_or_none()
 
     async def _next_version_number(self, dataset_id: str) -> int:
         result = await self.db.execute(
-            select(func.max(DatasetVersion.version_number)).where(
-                DatasetVersion.dataset_id == dataset_id
-            )
+            select(func.max(DatasetVersion.version_number)).where(DatasetVersion.dataset_id == dataset_id)
         )
         return (result.scalar_one_or_none() or 0) + 1
 
@@ -301,9 +283,7 @@ class DatasetService:
         result = await self.db.execute(stmt.limit(1))
         found = result.scalar_one_or_none()
         if found is None:
-            raise NotFoundError(
-                "Dataset version", f"{dataset_id}:{version if version is not None else 'latest'}"
-            )
+            raise NotFoundError("Dataset version", f"{dataset_id}:{version if version is not None else 'latest'}")
         return found
 
     async def _get_or_raise(self, dataset_id: str) -> Dataset:

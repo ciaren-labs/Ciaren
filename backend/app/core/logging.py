@@ -12,7 +12,5 @@ def setup_logging(environment: str = "development") -> None:
         stream=sys.stdout,
     )
     # Quiet down noisy third-party loggers
-    logging.getLogger("sqlalchemy.engine").setLevel(
-        logging.INFO if environment == "development" else logging.WARNING
-    )
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO if environment == "development" else logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

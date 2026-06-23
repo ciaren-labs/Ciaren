@@ -14,12 +14,8 @@ _OUTPUT_SUFFIXES = [".csv", ".xlsx", ".parquet"]
 router = APIRouter()
 
 
-@router.post(
-    "/flows/{flow_id}/runs", response_model=FlowRunRead, status_code=status.HTTP_201_CREATED
-)
-async def create_run(
-    flow_id: str, body: FlowRunCreate, service: ExecutionServiceDep
-) -> FlowRunRead:
+@router.post("/flows/{flow_id}/runs", response_model=FlowRunRead, status_code=status.HTTP_201_CREATED)
+async def create_run(flow_id: str, body: FlowRunCreate, service: ExecutionServiceDep) -> FlowRunRead:
     return await service.run(flow_id, body)
 
 
@@ -59,9 +55,7 @@ async def get_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
 
 
 @router.get("/runs/{run_id}/output")
-async def download_run_output(
-    run_id: str, node_id: str, service: ExecutionServiceDep
-) -> FileResponse:
+async def download_run_output(run_id: str, node_id: str, service: ExecutionServiceDep) -> FileResponse:
     """Stream a specific output node's result file as a download."""
     await service.get(run_id)  # raises 404 if not found
     settings = get_settings()

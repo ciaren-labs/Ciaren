@@ -55,9 +55,7 @@ class DataConnector(Protocol):
 
     def test_connection(self, spec: ConnectionSpec) -> None: ...
     def list_tables(self, spec: ConnectionSpec) -> list[TableRef]: ...
-    def read_table(
-        self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None
-    ) -> pd.DataFrame: ...
+    def read_table(self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None) -> pd.DataFrame: ...
     def read_query(self, spec: ConnectionSpec, query: str) -> pd.DataFrame: ...
     def write_table(
         self, spec: ConnectionSpec, df: pd.DataFrame, table: str, schema: str | None, if_exists: str
@@ -67,7 +65,5 @@ class DataConnector(Protocol):
 def validate_identifier(name: str, kind: str = "table") -> str:
     """Reject identifiers that aren't simple names (injection defense-in-depth)."""
     if not name or not _IDENTIFIER_RE.match(name):
-        raise ConnectorError(
-            f"Invalid {kind} name {name!r}: use letters, digits and underscores only."
-        )
+        raise ConnectorError(f"Invalid {kind} name {name!r}: use letters, digits and underscores only.")
     return name

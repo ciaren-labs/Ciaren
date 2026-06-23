@@ -56,9 +56,7 @@ def dataset_ref_key(dataset_id: str, version: int | None) -> str:
     return f"{dataset_id}:{version if version is not None else 'latest'}"
 
 
-def _build_inputs(
-    incoming: list[dict[str, Any]], frames: dict[str, AnyFrame]
-) -> dict[str, AnyFrame]:
+def _build_inputs(incoming: list[dict[str, Any]], frames: dict[str, AnyFrame]) -> dict[str, AnyFrame]:
     """Map incoming edges to a handle->frame dict.
 
     Missing target handles default to ``"in"``. If multiple edges share a
@@ -126,9 +124,7 @@ class FlowExecutor:
         frames: dict[str, AnyFrame] = {}
         for node_id in order:
             node = nodes_by_id[node_id]
-            frames[node_id] = self._node_frame(
-                engine, node, incoming, frames, dataset_paths, sql_paths
-            )
+            frames[node_id] = self._node_frame(engine, node, incoming, frames, dataset_paths, sql_paths)
 
         return frames
 
@@ -141,9 +137,7 @@ class FlowExecutor:
         sql_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, Path]:
         engine = get_engine(engine_name)
-        frames = self.compute_frames(
-            graph, dataset_paths, engine, sql_input_paths=sql_input_paths
-        )
+        frames = self.compute_frames(graph, dataset_paths, engine, sql_input_paths=sql_input_paths)
 
         output_paths: dict[str, Path] = {}
         for node in graph["nodes"]:

@@ -113,8 +113,7 @@ class CodeGenerator:
                 eng = engine_for(config.get("connection_id", ""))
                 if_exists = config.get("if_exists", "replace")
                 lines.append(
-                    f"{src_var}.to_sql({config.get('table', '')!r}, {eng}, "
-                    f"if_exists={if_exists!r}, index=False)"
+                    f"{src_var}.to_sql({config.get('table', '')!r}, {eng}, if_exists={if_exists!r}, index=False)"
                 )
 
             elif node_type in _INPUT_TYPES:

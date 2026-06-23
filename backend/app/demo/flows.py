@@ -107,8 +107,7 @@ def _clean_customers(ds: dict[str, str]) -> DemoFlow:
     }
     return (
         "Clean Customers",
-        "Fill missing ages, normalize country casing, and parse the signup date "
-        "from text into a real date.",
+        "Fill missing ages, normalize country casing, and parse the signup date from text into a real date.",
         graph,
     )
 
@@ -243,8 +242,7 @@ def _customer_orders_join(ds: dict[str, str]) -> DemoFlow:
     }
     return (
         "Customer Orders Join",
-        "Clean customers and orders independently, join them on the customer id, "
-        "then compute a discounted net amount.",
+        "Clean customers and orders independently, join them on the customer id, then compute a discounted net amount.",
         graph,
     )
 

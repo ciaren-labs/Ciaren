@@ -40,12 +40,36 @@ _N_ORDERS = 120
 # Countries written with inconsistent casing on purpose (a cleaning target).
 _COUNTRIES = ["usa", "USA", "Usa", "canada", "CANADA", "Canada", "uk", "UK", "mexico"]
 _FIRST_NAMES = [
-    "Ana", "Liam", "Noah", "Mia", "Ethan", "Olivia", "Lucas", "Emma",
-    "Mateo", "Sofia", "Leo", "Aria", "Hugo", "Ivy", "Owen", "Zoe",
+    "Ana",
+    "Liam",
+    "Noah",
+    "Mia",
+    "Ethan",
+    "Olivia",
+    "Lucas",
+    "Emma",
+    "Mateo",
+    "Sofia",
+    "Leo",
+    "Aria",
+    "Hugo",
+    "Ivy",
+    "Owen",
+    "Zoe",
 ]
 _LAST_NAMES = [
-    "Smith", "Garcia", "Brown", "Lee", "Patel", "Khan", "Nguyen", "Lopez",
-    "Davis", "Martin", "Clark", "Reed",
+    "Smith",
+    "Garcia",
+    "Brown",
+    "Lee",
+    "Patel",
+    "Khan",
+    "Nguyen",
+    "Lopez",
+    "Davis",
+    "Martin",
+    "Clark",
+    "Reed",
 ]
 _STATUSES = ["completed", "completed", "completed", "pending", "cancelled", "refunded"]
 _CATEGORIES = ["Electronics", "Home", "Toys", "Books", "Sports"]
@@ -54,9 +78,7 @@ _CATEGORIES = ["Electronics", "Home", "Toys", "Books", "Sports"]
 def _build_customers(rng: np.random.Generator) -> pd.DataFrame:
     ids = list(range(1, _N_CUSTOMERS + 1))
     names = [
-        f"{_FIRST_NAMES[rng.integers(len(_FIRST_NAMES))]} "
-        f"{_LAST_NAMES[rng.integers(len(_LAST_NAMES))]}"
-        for _ in ids
+        f"{_FIRST_NAMES[rng.integers(len(_FIRST_NAMES))]} {_LAST_NAMES[rng.integers(len(_LAST_NAMES))]}" for _ in ids
     ]
     emails = [f"{name.lower().replace(' ', '.')}@example.com" for name in names]
 
@@ -121,9 +143,7 @@ def _build_products(rng: np.random.Generator) -> pd.DataFrame:
     categories = [_CATEGORIES[rng.integers(len(_CATEGORIES))] for _ in product_ids]
 
     # price: a couple of nulls to exercise fill/drop-nulls.
-    prices: list[float | None] = np.round(
-        rng.uniform(5, 250, size=_N_PRODUCTS), 2
-    ).tolist()
+    prices: list[float | None] = np.round(rng.uniform(5, 250, size=_N_PRODUCTS), 2).tolist()
     prices[4] = None
     prices[9] = None
 

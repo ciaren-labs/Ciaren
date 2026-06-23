@@ -25,9 +25,7 @@ class ReplaceValuesTransformation(BaseTransformation):
         )
         return {"out": result}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         extra = ", regex=True" if config.get("regex") else ""
@@ -36,9 +34,7 @@ class ReplaceValuesTransformation(BaseTransformation):
             f".replace({config['to_replace']!r}, {config['value']!r}{extra})}})"
         )
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         if config.get("regex"):
@@ -46,10 +42,7 @@ class ReplaceValuesTransformation(BaseTransformation):
                 f"{dst} = {src}.with_columns(pl.col({col!r}).cast(pl.Utf8)"
                 f".str.replace_all({config['to_replace']!r}, {config['value']!r}))"
             )
-        return (
-            f"{dst} = {src}.with_columns("
-            f"pl.col({col!r}).replace({config['to_replace']!r}, {config['value']!r}))"
-        )
+        return f"{dst} = {src}.with_columns(pl.col({col!r}).replace({config['to_replace']!r}, {config['value']!r}))"
 
 
 class StringTransformTransformation(BaseTransformation):
@@ -72,9 +65,7 @@ class StringTransformTransformation(BaseTransformation):
             raise ValueError("stringTransform requires a 'column'")
         op = config.get("operation")
         if op not in self._VALID_OPS:
-            raise ValueError(
-                f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}"
-            )
+            raise ValueError(f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}")
         if op == "replace" and "find" not in config:
             raise ValueError("stringTransform 'replace' requires a 'find' value")
         if op == "pad" and not isinstance(config.get("width"), int):
@@ -95,9 +86,7 @@ class StringTransformTransformation(BaseTransformation):
         )
         return {"out": result}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         op = config["operation"]
@@ -116,9 +105,7 @@ class StringTransformTransformation(BaseTransformation):
             )
         return f"{dst} = {src}.assign(**{{{col!r}: {call}}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         op = config["operation"]
@@ -129,10 +116,7 @@ class StringTransformTransformation(BaseTransformation):
         elif op in self._SIMPLE_OPS:
             expr = f"{base}.{self._SIMPLE_OPS[op][1]}"
         elif op == "replace":
-            expr = (
-                f"{base}.replace_all({config['find']!r}, "
-                f"{config.get('replace_with', '')!r}, literal=True)"
-            )
+            expr = f"{base}.replace_all({config['find']!r}, {config.get('replace_with', '')!r}, literal=True)"
         else:  # pad
             method = "pad_end" if config.get("side") == "right" else "pad_start"
             expr = f"{base}.{method}({config['width']!r}, {config.get('fill_char', ' ')!r})"
@@ -181,9 +165,7 @@ class SplitColumnTransformation(BaseTransformation):
             return f"{accessor}.extract({config['pattern']!r})"
         return f"{accessor}.split({config['delimiter']!r}, expand=True, regex=False)"
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, into = config["column"], config["into"]
         assigns = ", ".join(f"{name!r}: _parts[{i}]" for i, name in enumerate(into))
@@ -195,21 +177,17 @@ class SplitColumnTransformation(BaseTransformation):
             lines.append(f"{dst} = {dst}.drop(columns=[{col!r}])")
         return "\n".join(lines)
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, into = config["column"], config["into"]
         base = f"pl.col({col!r}).cast(pl.Utf8).str"
         if config.get("mode", "delimiter") == "regex":
             exprs = ", ".join(
-                f"{base}.extract({config['pattern']!r}, {i + 1}).alias({name!r})"
-                for i, name in enumerate(into)
+                f"{base}.extract({config['pattern']!r}, {i + 1}).alias({name!r})" for i, name in enumerate(into)
             )
         else:
             exprs = ", ".join(
-                f"{base}.split({config['delimiter']!r}).list.get({i}, null_on_oob=True)"
-                f".alias({name!r})"
+                f"{base}.split({config['delimiter']!r}).list.get({i}, null_on_oob=True).alias({name!r})"
                 for i, name in enumerate(into)
             )
         code = f"{dst} = {src}.with_columns([{exprs}])"
@@ -247,9 +225,7 @@ class MapValuesTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         target = config.get("new_column") or col
@@ -263,9 +239,7 @@ class MapValuesTransformation(BaseTransformation):
             mapped = f"{src}[{col!r}].replace({mapping!r})"
         return f"{dst} = {src}.assign(**{{{target!r}: {mapped}}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         target = config.get("new_column") or col

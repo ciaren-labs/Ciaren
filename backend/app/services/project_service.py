@@ -44,12 +44,8 @@ class ProjectService:
         self.db.add(project)
         await self.db.flush()  # assign project.id
         # Adopt any pre-existing rows that have no project yet.
-        await self.db.execute(
-            update(Dataset).where(Dataset.project_id.is_(None)).values(project_id=project.id)
-        )
-        await self.db.execute(
-            update(Flow).where(Flow.project_id.is_(None)).values(project_id=project.id)
-        )
+        await self.db.execute(update(Dataset).where(Dataset.project_id.is_(None)).values(project_id=project.id))
+        await self.db.execute(update(Flow).where(Flow.project_id.is_(None)).values(project_id=project.id))
         await self.db.commit()
         return project
 
@@ -59,18 +55,13 @@ class ProjectService:
         projects = list(result.scalars().all())
         dataset_counts = await self._counts(Dataset)
         flow_counts = await self._counts(Flow)
-        return [
-            self._to_read(p, dataset_counts.get(p.id, 0), flow_counts.get(p.id, 0))
-            for p in projects
-        ]
+        return [self._to_read(p, dataset_counts.get(p.id, 0), flow_counts.get(p.id, 0)) for p in projects]
 
     async def get(self, project_id: str) -> ProjectRead:
         project = await self._get_or_raise(project_id)
         dataset_counts = await self._counts(Dataset)
         flow_counts = await self._counts(Flow)
-        return self._to_read(
-            project, dataset_counts.get(project.id, 0), flow_counts.get(project.id, 0)
-        )
+        return self._to_read(project, dataset_counts.get(project.id, 0), flow_counts.get(project.id, 0))
 
     async def create(self, data: ProjectCreate) -> ProjectRead:
         await self._ensure_name_free(data.name)
@@ -91,12 +82,8 @@ class ProjectService:
         # Cascade is_disabled to all datasets and flows in this project.
         if "is_disabled" in updates:
             disabled = updates["is_disabled"]
-            await self.db.execute(
-                update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled)
-            )
-            await self.db.execute(
-                update(Flow).where(Flow.project_id == project_id).values(is_disabled=disabled)
-            )
+            await self.db.execute(update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled))
+            await self.db.execute(update(Flow).where(Flow.project_id == project_id).values(is_disabled=disabled))
         await self.db.commit()
         await self.db.refresh(project)
         return await self.get(project.id)
@@ -107,12 +94,8 @@ class ProjectService:
         if project.is_default:
             raise ValidationError("The default project cannot be deleted.")
         default = await self.ensure_default()
-        await self.db.execute(
-            update(Dataset).where(Dataset.project_id == project_id).values(project_id=default.id)
-        )
-        await self.db.execute(
-            update(Flow).where(Flow.project_id == project_id).values(project_id=default.id)
-        )
+        await self.db.execute(update(Dataset).where(Dataset.project_id == project_id).values(project_id=default.id))
+        await self.db.execute(update(Flow).where(Flow.project_id == project_id).values(project_id=default.id))
         await self.db.delete(project)
         await self.db.commit()
 
@@ -142,15 +125,11 @@ class ProjectService:
         )
 
     async def _counts(self, model: type[Dataset] | type[Flow]) -> dict[str, int]:
-        result = await self.db.execute(
-            select(model.project_id, func.count()).group_by(model.project_id)
-        )
+        result = await self.db.execute(select(model.project_id, func.count()).group_by(model.project_id))
         return {pid: count for pid, count in result.all() if pid is not None}
 
     async def _ensure_name_free(self, name: str) -> None:
-        result = await self.db.execute(
-            select(Project).where(func.lower(Project.name) == name.lower())
-        )
+        result = await self.db.execute(select(Project).where(func.lower(Project.name) == name.lower()))
         if result.scalar_one_or_none() is not None:
             raise ConflictError(f"A project named '{name}' already exists.")
 

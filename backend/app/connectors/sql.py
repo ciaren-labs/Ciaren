@@ -101,9 +101,7 @@ class SqlConnector:
         finally:
             engine.dispose()
 
-    def read_table(
-        self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None
-    ) -> pd.DataFrame:
+    def read_table(self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None) -> pd.DataFrame:
         validate_identifier(table)
         if schema:
             validate_identifier(schema, "schema")
