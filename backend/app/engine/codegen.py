@@ -26,6 +26,7 @@ _READ_FUNCS = {
     "csvInput": "pd.read_csv",
     "excelInput": "pd.read_excel",
     "parquetInput": "pd.read_parquet",
+    "jsonInput": "pd.read_json",
 }
 _WRITE_FUNCS = {
     "csvOutput": ("to_csv", "index=False"),
@@ -120,8 +121,15 @@ class CodeGenerator:
                 var = next_var()
                 node_var[node_id] = var
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
-                func = _READ_FUNCS[node_type]
-                lines.append(f'{var} = {func}("{path}")')
+                func = _READ_FUNCS.get(node_type)
+                if func is not None:
+                    lines.append(f'{var} = {func}("{path}")')
+                elif node_type == "textInput":
+                    lines.append(
+                        f'{var} = pd.read_csv("{path}", sep="\\n", header=None, names=["text"], engine="python", dtype=str)'
+                    )
+                else:
+                    lines.append(f'{var} = pd.read_csv("{path}")  # unsupported input type: {node_type}')
 
             elif node_type in _OUTPUT_TYPES:
                 src_id = incoming[node_id][0]["source"]

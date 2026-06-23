@@ -11,6 +11,8 @@ INPUT_SOURCE_TYPES: dict[str, str] = {
     "csvInput": "csv",
     "excelInput": "excel",
     "parquetInput": "parquet",
+    "jsonInput": "json",
+    "textInput": "text",
 }
 
 # Output node type -> source_type understood by ``EngineBackend.write``.

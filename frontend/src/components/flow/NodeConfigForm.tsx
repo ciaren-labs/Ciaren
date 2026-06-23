@@ -94,9 +94,15 @@ export function NodeConfigForm({
   const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
-  if (type === "csvInput" || type === "excelInput" || type === "parquetInput") {
-    const accepted =
-      type === "csvInput" ? "csv" : type === "excelInput" ? "excel" : "parquet";
+  const FILE_INPUT_SOURCE: Record<string, string> = {
+    csvInput: "csv",
+    excelInput: "excel",
+    parquetInput: "parquet",
+    jsonInput: "json",
+    textInput: "text",
+  };
+  if (type in FILE_INPUT_SOURCE) {
+    const accepted = FILE_INPUT_SOURCE[type];
     const compatible = datasets.filter((d) => d.source_type === accepted);
     const selected = datasets.find((d) => d.id === c.dataset_id);
     const pinned = (c.dataset_version as number | null | undefined) ?? selected?.latest_version;

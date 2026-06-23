@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
+  AlignLeft,
+  Braces,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -45,6 +47,8 @@ const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: stri
   csv: { icon: FileText, tint: "bg-emerald-500" },
   excel: { icon: FileSpreadsheet, tint: "bg-green-600" },
   parquet: { icon: Database, tint: "bg-indigo-500" },
+  json: { icon: Braces, tint: "bg-amber-500" },
+  text: { icon: AlignLeft, tint: "bg-slate-500" },
 };
 
 interface DatasetsPanelProps {
@@ -603,7 +607,7 @@ function UploadDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,.xlsx,.xls,.parquet"
+        accept=".csv,.xlsx,.xls,.parquet,.json,.txt"
         className="hidden"
         onChange={onFile}
       />

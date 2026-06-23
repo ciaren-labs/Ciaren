@@ -172,6 +172,8 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   csvInput: inputConfig,
   excelInput: inputConfig,
   parquetInput: inputConfig,
+  jsonInput: inputConfig,
+  textInput: inputConfig,
 
   dropNulls: z.object({
     subset: stringArray.optional(),

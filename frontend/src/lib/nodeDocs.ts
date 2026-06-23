@@ -28,6 +28,8 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   csvInput: INPUT_DOC("CSV"),
   excelInput: INPUT_DOC("Excel"),
   parquetInput: INPUT_DOC("Parquet"),
+  jsonInput: INPUT_DOC("JSON"),
+  textInput: INPUT_DOC("Text"),
 
   dropNulls: {
     summary: "Removes rows that contain missing (null) values.",
