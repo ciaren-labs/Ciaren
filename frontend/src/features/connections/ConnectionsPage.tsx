@@ -530,7 +530,7 @@ function ProviderSection({
       <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {providers.map((p) => (
           <ProviderCard key={p.name} provider={p} onSelect={() => onSelect(p)} />
         ))}
@@ -645,7 +645,7 @@ function ConnectionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("transition-none", step === "pick" ? "sm:max-w-2xl" : "sm:max-w-lg")}
+        className={cn("transition-none", step === "pick" ? "sm:max-w-3xl" : "sm:max-w-lg")}
       >
         {step === "pick" ? (
           <>
@@ -827,9 +827,9 @@ function ConnectionDialog({
                   disabled={
                     (isEdit ? update.isPending : create.isPending) ||
                     !form.name ||
-                    (isEdit && !testConfig.data?.ok)
+                    !testConfig.data?.ok
                   }
-                  title={isEdit && !testConfig.data?.ok ? "Test the connection first" : undefined}
+                  title={!testConfig.data?.ok ? "Test the connection first" : undefined}
                 >
                   {(isEdit ? update.isPending : create.isPending) ? "Saving…" : "Save connection"}
                 </Button>
