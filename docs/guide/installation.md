@@ -52,6 +52,13 @@ The backend runs on `http://localhost:8055`. The database schema is **created
 automatically** on first start — there is no migration step. Open the interactive
 API docs at `http://localhost:8055/docs`.
 
+:::tip Database connectors are optional
+The core install stays lightweight. To connect to external databases, install the
+matching driver as an extra — e.g. `pip install -e ".[mysql]"`, or grab them all
+with `pip install -e ".[all]"`. See [Connections](/guide/connections) for the
+full list.
+:::
+
 :::tip flowframe serve vs. uvicorn
 `flowframe serve` is the recommended entry point — it boots the API and the
 background scheduler together. It accepts flags like `--port`, `--reload`,

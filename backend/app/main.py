@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -27,6 +28,23 @@ from app.core.exceptions import (
 )
 from app.core.logging import setup_logging
 
+logger = logging.getLogger("app.main")
+
+
+async def _seed_demo_safe() -> None:
+    """Seed the demo project, never letting a failure block startup.
+
+    Seeding is idempotent (a no-op once the Demo project exists), so this is
+    safe to run on every boot. Any error is logged as a warning and swallowed.
+    """
+    try:
+        from app.demo import seed_demo
+
+        async with AsyncSessionLocal() as session:
+            await seed_demo(session)
+    except Exception:  # noqa: BLE001 - seeding must never crash the server
+        logger.warning("Demo project seeding failed; continuing without it.", exc_info=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -37,6 +55,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
 
     await init_db()
+
+    if settings.SEED_DEMO:
+        await _seed_demo_safe()
 
     runner = None
     if settings.SCHEDULER_ENABLED:
