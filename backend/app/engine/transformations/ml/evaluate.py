@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation
 
@@ -44,6 +45,10 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
+
+        # During preview we skip metric computation; pass the input through.
+        if in_preview():
+            return {"out": inputs["in"]}, None
 
         pdf = engine.to_pandas(inputs["in"])
         task = config["task_type"]

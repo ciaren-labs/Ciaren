@@ -49,6 +49,12 @@ PRE_MATERIALIZED_INPUT_TYPES: frozenset[str] = frozenset({SQL_INPUT_TYPE, STORAG
 INPUT_TYPES: frozenset[str] = frozenset(INPUT_SOURCE_TYPES) | PRE_MATERIALIZED_INPUT_TYPES
 OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES)
 
+# Nodes that are a valid terminal *result* of a flow even without a file-output
+# node: mlTrain persists a model to MLflow, so a "train only" graph
+# (csvInput -> ... -> mlTrain) is complete. Graph validation accepts these in lieu
+# of an OUTPUT_TYPES node.
+ML_OUTPUT_NODES: frozenset[str] = frozenset({"mlTrain"})
+
 # Nodes that emit more than one named output frame. The executor stores a frame
 # per (node, handle); downstream edges select which one via ``sourceHandle``. The
 # first handle listed is the node's *primary* output — the one sampled for the

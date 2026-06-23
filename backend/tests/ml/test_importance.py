@@ -21,7 +21,7 @@ def test_tree_importance(ml_env):
     engine = get_engine("pandas")
     df = classification_df()
     model_ref = _train("random_forest_classifier", engine, df)
-    out, meta = NODE.execute_with_metadata(engine, {"model": model_ref}, {})
+    out, meta = NODE.execute_with_metadata(engine, {"in": model_ref}, {})
     result = engine.to_pandas(out["out"])
     assert list(result.columns) == ["feature_name", "importance", "rank"]
     assert set(result["feature_name"]) == {"x1", "x2"}
@@ -33,7 +33,7 @@ def test_linear_importance(ml_env):
     engine = get_engine("pandas")
     df = classification_df()
     model_ref = _train("logistic_regression", engine, df)
-    out, _ = NODE.execute_with_metadata(engine, {"model": model_ref}, {})
+    out, _ = NODE.execute_with_metadata(engine, {"in": model_ref}, {})
     result = engine.to_pandas(out["out"])
     assert set(result["feature_name"]) == {"x1", "x2"}
     assert (result["importance"] >= 0).all()  # abs(coef_)
@@ -44,7 +44,7 @@ def test_top_n(ml_env):
     df = classification_df()
     df["x3"] = df["x1"] * 0.5
     model_ref = _train("random_forest_classifier", engine, df, feature_columns=["x1", "x2", "x3"])
-    out, _ = NODE.execute_with_metadata(engine, {"model": model_ref}, {"top_n": 2})
+    out, _ = NODE.execute_with_metadata(engine, {"in": model_ref}, {"top_n": 2})
     assert len(engine.to_pandas(out["out"])) == 2
 
 
@@ -53,7 +53,7 @@ def test_knn_unsupported(ml_env):
     df = classification_df()
     model_ref = _train("knn_classifier", engine, df)
     with pytest.raises(ValueError, match="does not support"):
-        NODE.execute_with_metadata(engine, {"model": model_ref}, {})
+        NODE.execute_with_metadata(engine, {"in": model_ref}, {})
 
 
 def test_svm_rbf_unsupported(ml_env):
@@ -62,7 +62,7 @@ def test_svm_rbf_unsupported(ml_env):
     # default SVC kernel is rbf -> no coef_
     model_ref = _train("svm_classifier", engine, df)
     with pytest.raises(ValueError, match="does not support"):
-        NODE.execute_with_metadata(engine, {"model": model_ref}, {})
+        NODE.execute_with_metadata(engine, {"in": model_ref}, {})
 
 
 def test_validate_top_n():

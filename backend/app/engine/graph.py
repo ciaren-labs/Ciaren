@@ -3,6 +3,7 @@ from typing import Any
 
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import (
+    ML_OUTPUT_NODES,
     MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
@@ -35,7 +36,10 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
 
     if not input_nodes:
         raise GraphValidationError("Graph must have at least one input node")
-    if require_output and not output_nodes:
+    # An mlTrain node is a valid terminal (it persists a model to MLflow), so a
+    # train-only flow needs no file-output node.
+    has_ml_output = any(n["type"] in ML_OUTPUT_NODES for n in nodes)
+    if require_output and not output_nodes and not has_ml_output:
         raise GraphValidationError("Graph must have at least one output node")
 
     if _has_cycle(node_ids, edges):
