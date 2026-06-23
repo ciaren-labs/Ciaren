@@ -5,7 +5,7 @@ from typing import Any, Literal, cast
 import pandas as pd
 import polars as pl
 
-from app.engine.backends.base import register_engine
+from app.engine.backends.base import register_engine, rule_combine_all, rule_conditions
 
 # How values accepted by the public API mapped to polars' own vocabulary.
 _JOIN_HOW = {
@@ -23,17 +23,21 @@ _DTYPE_MAP = {
 }
 
 # Aggregation function name -> method invoked on a pl.col(...) expression.
+# User-facing aggregation name -> polars Expr method. pandas-style names
+# (e.g. "nunique") are accepted and translated so both engines take the same
+# config. Names that map to themselves are still listed for validation.
 _AGG_FUNCS = {
-    "sum",
-    "mean",
-    "min",
-    "max",
-    "count",
-    "median",
-    "std",
-    "first",
-    "last",
-    "n_unique",
+    "sum": "sum",
+    "mean": "mean",
+    "min": "min",
+    "max": "max",
+    "count": "count",
+    "median": "median",
+    "std": "std",
+    "first": "first",
+    "last": "last",
+    "nunique": "n_unique",
+    "n_unique": "n_unique",
 }
 
 
@@ -82,9 +86,7 @@ class PolarsEngine:
     def drop_columns(self, df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return df.drop(columns)
 
-    def filter_rows(
-        self, df: pl.DataFrame, column: str, operator: str, value: Any
-    ) -> pl.DataFrame:
+    def filter_rows(self, df: pl.DataFrame, column: str, operator: str, value: Any) -> pl.DataFrame:
         col = pl.col(column)
         match operator:
             case "==" | "eq":
@@ -128,9 +130,7 @@ class PolarsEngine:
         "bfill": "backward",
     }
 
-    def fill_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any
-    ) -> pl.DataFrame:
+    def fill_nulls(self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any) -> pl.DataFrame:
         targets = columns or df.columns
         exprs = []
         for col_name in targets:
@@ -143,9 +143,7 @@ class PolarsEngine:
                 except Exception:
                     exprs.append(col)
             elif strategy in self._FILL_STRATEGY:
-                exprs.append(
-                    col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy]))
-                )
+                exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":
                 exprs.append(col.fill_null(df[col_name].median()))
             elif strategy == "mode":
@@ -155,17 +153,13 @@ class PolarsEngine:
                 raise ValueError(f"Unknown fill strategy: {strategy!r}")
         return df.with_columns(exprs)
 
-    def drop_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, how: str = "any"
-    ) -> pl.DataFrame:
+    def drop_nulls(self, df: pl.DataFrame, columns: list[str] | None, how: str = "any") -> pl.DataFrame:
         if how == "all":
             cols = columns or df.columns
             return df.filter(~pl.all_horizontal([pl.col(c).is_null() for c in cols]))
         return df.drop_nulls(subset=columns or None)
 
-    def drop_duplicates(
-        self, df: pl.DataFrame, subset: list[str] | None, keep: str | bool = "first"
-    ) -> pl.DataFrame:
+    def drop_duplicates(self, df: pl.DataFrame, subset: list[str] | None, keep: str | bool = "first") -> pl.DataFrame:
         # pandas allows keep=False (drop all dups); polars uses keep="none".
         polars_keep = cast(
             Literal["first", "last", "any", "none"],
@@ -209,14 +203,13 @@ class PolarsEngine:
         # SQL expression parsing handles arithmetic like "price * quantity".
         return df.with_columns(pl.sql_expr(expression).alias(name))
 
-    def groupby_agg(
-        self, df: pl.DataFrame, by: list[str], aggregations: dict[str, str]
-    ) -> pl.DataFrame:
+    def groupby_agg(self, df: pl.DataFrame, by: list[str], aggregations: dict[str, str]) -> pl.DataFrame:
         exprs = []
         for column, func in aggregations.items():
             if func not in _AGG_FUNCS:
                 raise ValueError(f"Unsupported aggregation function: {func!r}")
-            exprs.append(getattr(pl.col(column), func)().alias(column))
+            method = _AGG_FUNCS[func]
+            exprs.append(getattr(pl.col(column), method)().alias(column))
         return df.group_by(by, maintain_order=True).agg(exprs)
 
     def join(
@@ -235,10 +228,10 @@ class PolarsEngine:
         # polars takes a single suffix for overlapping right-side columns.
         suffix = suffixes[1]
         if left_on and right_on:
-            return left.join(
-                right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix
-            )
-        return left.join(right, on=on, how=how_arg, suffix=suffix)
+            return left.join(right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix)
+        # coalesce shared keys so a 'full'/'outer' join keeps a single key column,
+        # matching pandas.merge(on=...). (Without it polars emits a duplicate 'key_y'.)
+        return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         return pl.concat(frames, how="vertical_relaxed")
@@ -250,9 +243,7 @@ class PolarsEngine:
         self, df: pl.DataFrame, column: str, to_replace: Any, value: Any, regex: bool = False
     ) -> pl.DataFrame:
         if regex:
-            return df.with_columns(
-                pl.col(column).cast(pl.Utf8).str.replace_all(str(to_replace), str(value))
-            )
+            return df.with_columns(pl.col(column).cast(pl.Utf8).str.replace_all(str(to_replace), str(value)))
         return df.with_columns(pl.col(column).replace(to_replace, value))
 
     def string_transform(
@@ -274,8 +265,11 @@ class PolarsEngine:
             expr = s.to_uppercase()
         elif operation == "strip":
             expr = s.strip_chars()
-        elif operation in ("title", "capitalize"):
+        elif operation == "title":
             expr = s.to_titlecase()
+        elif operation == "capitalize":
+            # pandas capitalize: first char upper, the rest lower (whole string).
+            expr = s.slice(0, 1).str.to_uppercase() + s.slice(1).str.to_lowercase()
         elif operation == "len":
             expr = s.len_chars()
         elif operation == "replace":
@@ -289,9 +283,7 @@ class PolarsEngine:
 
     # -- New nodes (Phase 3) -------------------------------------------
 
-    def sample_rows(
-        self, df: pl.DataFrame, n: int | None, frac: float | None, seed: int | None
-    ) -> pl.DataFrame:
+    def sample_rows(self, df: pl.DataFrame, n: int | None, frac: float | None, seed: int | None) -> pl.DataFrame:
         if frac is not None:
             return df.sample(fraction=frac, seed=seed)
         return df.sample(n=cast(int, n), seed=seed)
@@ -335,14 +327,10 @@ class PolarsEngine:
             mean, std = cast(float, series.mean()), cast(float, series.std())
             return mean - threshold * std, mean + threshold * std
         if method == "percentile":
-            return cast(float, series.quantile(lower / 100)), cast(
-                float, series.quantile(upper / 100)
-            )
+            return cast(float, series.quantile(lower / 100)), cast(float, series.quantile(upper / 100))
         raise ValueError(f"Unknown outlier method: {method!r}")
 
-    def round_columns(
-        self, df: pl.DataFrame, columns: list[str], decimals: int
-    ) -> pl.DataFrame:
+    def round_columns(self, df: pl.DataFrame, columns: list[str], decimals: int) -> pl.DataFrame:
         return df.with_columns([pl.col(c).round(decimals) for c in columns])
 
     def bin_column(
@@ -365,9 +353,7 @@ class PolarsEngine:
             expr = pl.col(column).cut(breaks, labels=labels)
         return df.with_columns(expr.cast(pl.Utf8).alias(new_column))
 
-    def extract_date_parts(
-        self, df: pl.DataFrame, column: str, parts: list[str]
-    ) -> pl.DataFrame:
+    def extract_date_parts(self, df: pl.DataFrame, column: str, parts: list[str]) -> pl.DataFrame:
         dt = (
             pl.col(column).str.to_datetime(strict=False)
             if df.schema[column] == pl.Utf8
@@ -377,7 +363,8 @@ class PolarsEngine:
             "year": dt.dt.year(),
             "month": dt.dt.month(),
             "day": dt.dt.day(),
-            "weekday": dt.dt.weekday(),
+            # polars weekday is Monday=1..Sunday=7; pandas is Monday=0..Sunday=6.
+            "weekday": dt.dt.weekday() - 1,
             "hour": dt.dt.hour(),
         }
         return df.with_columns([accessors[p].alias(f"{column}_{p}") for p in parts])
@@ -406,6 +393,160 @@ class PolarsEngine:
         aggfunc: str,
     ) -> pl.DataFrame:
         agg = "len" if aggfunc == "count" else aggfunc
-        return df.pivot(
-            on=columns, index=index, values=values, aggregate_function=cast(Any, agg)
-        )
+        return df.pivot(on=columns, index=index, values=values, aggregate_function=cast(Any, agg))
+
+    # -- New nodes (text/date/value mapping) ---------------------------
+
+    def split_column(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        into: list[str],
+        mode: str,
+        delimiter: str,
+        pattern: str,
+        keep_original: bool,
+    ) -> pl.DataFrame:
+        src = pl.col(column).cast(pl.Utf8)
+        if mode == "regex":
+            exprs = [src.str.extract(pattern, i + 1).alias(name) for i, name in enumerate(into)]
+        else:
+            split = src.str.split(delimiter)
+            exprs = [split.list.get(i, null_on_oob=True).alias(name) for i, name in enumerate(into)]
+        result = df.with_columns(exprs)
+        if not keep_original and column not in into:
+            result = result.drop(column)
+        return result
+
+    def parse_dates(self, df: pl.DataFrame, columns: list[str], fmt: str | None, errors: str) -> pl.DataFrame:
+        strict = errors != "coerce"
+        exprs = []
+        for c in columns:
+            col = pl.col(c)
+            expr = (
+                col.str.to_datetime(format=fmt, strict=strict)
+                if df.schema[c] == pl.Utf8
+                else col.cast(pl.Datetime, strict=strict)
+            )
+            exprs.append(expr.alias(c))
+        return df.with_columns(exprs)
+
+    def map_values(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        new_column: str | None,
+        mapping: dict[Any, Any],
+        default: Any,
+        use_default: bool,
+    ) -> pl.DataFrame:
+        target = new_column or column
+        col = pl.col(column)
+        # replace_strict + default maps unmapped values to the default; plain
+        # replace (no default) keeps unmapped values unchanged.
+        expr = col.replace_strict(mapping, default=default) if use_default else col.replace(mapping)
+        return df.with_columns(expr.alias(target))
+
+    def window_function(
+        self,
+        df: pl.DataFrame,
+        function: str,
+        partition_by: list[str],
+        order_by: list[str],
+        target: str | None,
+        offset: int,
+        descending: bool,
+        new_column: str,
+    ) -> pl.DataFrame:
+        # Tag original order, sort by the window order, compute, then restore.
+        work = df.with_row_index("__rn__")
+        if order_by:
+            work = work.sort(by=order_by, descending=descending)
+        expr = _polars_window_expr(function, partition_by or None, order_by, target, offset, descending)
+        work = work.with_columns(expr.alias(new_column))
+        return work.sort("__rn__").drop("__rn__")
+
+    def conditional_column(
+        self,
+        df: pl.DataFrame,
+        rules: list[dict[str, Any]],
+        default: Any,
+        new_column: str,
+    ) -> pl.DataFrame:
+        chain: Any = None
+        for rule in rules:
+            cond = _polars_rule_expr(rule)
+            result = pl.lit(rule.get("result"))
+            chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
+        expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
+        return df.with_columns(expr.alias(new_column))
+
+
+def _polars_window_expr(
+    function: str,
+    part: list[str] | None,
+    order_by: list[str],
+    target: str | None,
+    offset: int,
+    descending: bool,
+) -> pl.Expr:
+    """Build the windowed expression (caller has already sorted by ``order_by``)."""
+    if function == "row_number":
+        expr = pl.int_range(1, pl.len() + 1)
+    elif function == "cumcount":
+        expr = pl.int_range(0, pl.len())
+    elif function in ("rank", "dense_rank"):
+        method = "dense" if function == "dense_rank" else "min"
+        expr = pl.col(order_by[0]).rank(method=cast(Any, method), descending=descending)
+    elif function in ("cumsum", "cummax", "cummin"):
+        method = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min"}[function]
+        expr = getattr(pl.col(cast(str, target)), method)()
+    elif function in ("lag", "lead"):
+        expr = pl.col(cast(str, target)).shift(offset if function == "lag" else -offset)
+    else:
+        raise ValueError(f"Unknown window function: {function!r}")
+    return expr.over(part) if part else expr
+
+
+def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
+    """Combine a rule's conditions with AND (match all) or OR (match any)."""
+    exprs = [
+        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value")) for c in rule_conditions(rule)
+    ]
+    combined = exprs[0]
+    combine_all = rule_combine_all(rule)
+    for expr in exprs[1:]:
+        combined = combined & expr if combine_all else combined | expr
+    return combined
+
+
+def _polars_condition_expr(column: str, operator: str, value: Any) -> pl.Expr:
+    """Boolean expression for one conditionalColumn condition (mirrors filter operators)."""
+    col = pl.col(column)
+    expr: Any
+    match operator:
+        case "==" | "eq":
+            expr = col == value
+        case "!=" | "ne":
+            expr = col != value
+        case ">" | "gt":
+            expr = col > value
+        case ">=" | "gte":
+            expr = col >= value
+        case "<" | "lt":
+            expr = col < value
+        case "<=" | "lte":
+            expr = col <= value
+        case "contains":
+            expr = col.cast(pl.Utf8).str.contains(str(value), literal=True)
+        case "startswith":
+            expr = col.cast(pl.Utf8).str.starts_with(str(value))
+        case "endswith":
+            expr = col.cast(pl.Utf8).str.ends_with(str(value))
+        case "isnull":
+            expr = col.is_null()
+        case "notnull":
+            expr = col.is_not_null()
+        case _:
+            raise ValueError(f"Unknown condition operator: {operator!r}")
+    return cast(pl.Expr, expr)

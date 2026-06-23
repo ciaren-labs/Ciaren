@@ -3,15 +3,20 @@
 // catalog has no React/icon dependency.
 
 import {
+  Archive,
+  ArrowRightLeft,
   ArrowUpDown,
   BarChart3,
   Binary,
+  Boxes,
   CalendarClock,
+  CalendarDays,
   Calculator,
   CaseSensitive,
   Columns3,
   CopyMinus,
   Database,
+  DatabaseZap,
   Dices,
   Droplets,
   Eraser,
@@ -19,6 +24,7 @@ import {
   FileSpreadsheet,
   FileText,
   Filter,
+  GitBranch,
   GitMerge,
   Grid3x3,
   Layers,
@@ -28,6 +34,8 @@ import {
   ScatterChart,
   Shuffle,
   Sheet,
+  Sigma,
+  Split,
   Tag,
   Trash2,
   Ungroup,
@@ -38,7 +46,8 @@ import type { NodeCategory } from "./nodeCatalog";
 export const NODE_ICONS: Record<string, LucideIcon> = {
   csvInput: FileText,
   excelInput: FileSpreadsheet,
-  parquetInput: Database,
+  parquetInput: Boxes,
+  sqlInput: Database,
   dropNulls: Eraser,
   fillNulls: Droplets,
   dropColumns: Trash2,
@@ -62,9 +71,15 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   extractDateParts: CalendarClock,
   unpivot: Ungroup,
   pivot: Grid3x3,
+  splitColumn: Split,
+  parseDates: CalendarDays,
+  mapValues: ArrowRightLeft,
+  windowFunction: Sigma,
+  conditionalColumn: GitBranch,
   csvOutput: FileDown,
   excelOutput: Sheet,
-  parquetOutput: Database,
+  parquetOutput: Archive,
+  sqlOutput: DatabaseZap,
 };
 
 export function getNodeIcon(type: string | undefined): LucideIcon {
@@ -99,12 +114,26 @@ export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
     text: "text-sky-700",
     dot: "bg-sky-500",
   },
-  transform: {
+  columns: {
+    badge: "bg-indigo-500 text-white",
+    card: "border-indigo-200 bg-indigo-50/60",
+    ring: "ring-indigo-400",
+    text: "text-indigo-700",
+    dot: "bg-indigo-500",
+  },
+  reshape: {
     badge: "bg-violet-500 text-white",
     card: "border-violet-200 bg-violet-50/60",
     ring: "ring-violet-400",
     text: "text-violet-700",
     dot: "bg-violet-500",
+  },
+  analytics: {
+    badge: "bg-fuchsia-500 text-white",
+    card: "border-fuchsia-200 bg-fuchsia-50/60",
+    ring: "ring-fuchsia-400",
+    text: "text-fuchsia-700",
+    dot: "bg-fuchsia-500",
   },
   output: {
     badge: "bg-amber-500 text-white",

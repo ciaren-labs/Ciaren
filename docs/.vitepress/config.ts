@@ -61,6 +61,7 @@ export default defineConfig({
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Advanced Setup', link: '/guide/advanced-setup' },
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
+            { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
             { text: 'Interface Tour', link: '/guide/interface' },
           ],
         },
@@ -68,6 +69,8 @@ export default defineConfig({
           text: 'Features',
           items: [
             { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
+            { text: 'Database Connections', link: '/guide/connections' },
+            { text: 'Visualizations', link: '/guide/visualizations' },
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
             { text: 'Scheduling', link: '/guide/scheduling' },
             { text: 'CLI Reference', link: '/guide/cli' },
@@ -93,6 +96,78 @@ export default defineConfig({
           text: 'Reference',
           items: [{ text: 'All Transformations', link: '/transformations/overview' }],
         },
+        {
+          text: 'Input & Output',
+          items: [
+            { text: 'File input (CSV/Excel/Parquet)', link: '/transformations/file-input' },
+            { text: 'File output (CSV/Excel/Parquet)', link: '/transformations/file-output' },
+            { text: 'SQL input', link: '/transformations/sql-input' },
+            { text: 'SQL output', link: '/transformations/sql-output' },
+          ],
+        },
+        {
+          text: 'Columns',
+          items: [
+            { text: 'Drop columns', link: '/transformations/drop-columns' },
+            { text: 'Rename columns', link: '/transformations/rename-columns' },
+            { text: 'Select columns', link: '/transformations/select-columns' },
+            { text: 'Cast types', link: '/transformations/cast-types' },
+          ],
+        },
+        {
+          text: 'Nulls',
+          items: [
+            { text: 'Drop nulls', link: '/transformations/drop-nulls' },
+            { text: 'Fill nulls', link: '/transformations/fill-nulls' },
+          ],
+        },
+        {
+          text: 'Rows',
+          items: [
+            { text: 'Filter rows', link: '/transformations/filter-rows' },
+            { text: 'Sort rows', link: '/transformations/sort-rows' },
+            { text: 'Limit rows', link: '/transformations/limit-rows' },
+            { text: 'Sample rows', link: '/transformations/sample-rows' },
+            { text: 'Remove duplicates', link: '/transformations/remove-duplicates' },
+          ],
+        },
+        {
+          text: 'Text',
+          items: [
+            { text: 'Replace values', link: '/transformations/replace-values' },
+            { text: 'String transform', link: '/transformations/string-transform' },
+            { text: 'Split column', link: '/transformations/split-column' },
+            { text: 'Map values', link: '/transformations/map-values' },
+          ],
+        },
+        {
+          text: 'Numeric',
+          items: [
+            { text: 'Round numbers', link: '/transformations/round-numbers' },
+            { text: 'Remove outliers', link: '/transformations/remove-outliers' },
+            { text: 'Bin column', link: '/transformations/bin-column' },
+          ],
+        },
+        {
+          text: 'Reshape & combine',
+          items: [
+            { text: 'Calculated column', link: '/transformations/calculated-column' },
+            { text: 'Group by + aggregate', link: '/transformations/group-by-aggregate' },
+            { text: 'Join', link: '/transformations/join' },
+            { text: 'Union / Concat', link: '/transformations/union-concat' },
+            { text: 'Pivot', link: '/transformations/pivot' },
+            { text: 'Unpivot', link: '/transformations/unpivot' },
+            { text: 'Extract date parts', link: '/transformations/extract-date-parts' },
+            { text: 'Parse dates', link: '/transformations/parse-dates' },
+          ],
+        },
+        {
+          text: 'Analytics',
+          items: [
+            { text: 'Window function', link: '/transformations/window-function' },
+            { text: 'Conditional column', link: '/transformations/conditional-column' },
+          ],
+        },
       ],
 
       '/examples/': [
@@ -111,7 +186,19 @@ export default defineConfig({
         {
           text: 'API Reference',
           items: [
-            { text: 'REST API', link: '/api/rest-api' },
+            { text: 'Overview', link: '/api/rest-api' },
+          ],
+        },
+        {
+          text: 'Resources',
+          items: [
+            { text: 'Projects', link: '/api/projects' },
+            { text: 'Datasets', link: '/api/datasets' },
+            { text: 'Flows', link: '/api/flows' },
+            { text: 'Runs', link: '/api/runs' },
+            { text: 'Transformations', link: '/api/transformations' },
+            { text: 'Schedules', link: '/api/schedules' },
+            { text: 'Connections', link: '/api/connections' },
           ],
         },
       ],

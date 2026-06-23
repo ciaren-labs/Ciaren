@@ -12,9 +12,7 @@ router = APIRouter()
     response_model=ScheduleRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_schedule(
-    flow_id: str, body: ScheduleCreate, service: ScheduleServiceDep
-) -> ScheduleRead:
+async def create_schedule(flow_id: str, body: ScheduleCreate, service: ScheduleServiceDep) -> ScheduleRead:
     return await service.create(flow_id, body)
 
 
@@ -24,9 +22,7 @@ async def list_flow_schedules(flow_id: str, service: ScheduleServiceDep) -> list
 
 
 @router.get("/schedules", response_model=list[ScheduleRead])
-async def list_schedules(
-    service: ScheduleServiceDep, flow_id: str | None = None
-) -> list[ScheduleRead]:
+async def list_schedules(service: ScheduleServiceDep, flow_id: str | None = None) -> list[ScheduleRead]:
     return await service.list_schedules(flow_id=flow_id)
 
 
@@ -36,9 +32,7 @@ async def get_schedule(schedule_id: str, service: ScheduleServiceDep) -> Schedul
 
 
 @router.patch("/schedules/{schedule_id}", response_model=ScheduleRead)
-async def update_schedule(
-    schedule_id: str, body: ScheduleUpdate, service: ScheduleServiceDep
-) -> ScheduleRead:
+async def update_schedule(schedule_id: str, body: ScheduleUpdate, service: ScheduleServiceDep) -> ScheduleRead:
     return await service.update(schedule_id, body)
 
 

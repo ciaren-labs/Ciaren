@@ -67,7 +67,7 @@ export function LandingPage() {
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
           Upload data, build a visual cleaning pipeline, preview the results, run it, and
           export readable Python. Built for analysts, learners, and anyone who wants quick,
-          repeatable pandas pipelines.
+          repeatable pipelines.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">
@@ -103,7 +103,7 @@ export function LandingPage() {
 
       {/* Features */}
       <section className="mt-12">
-        <h2 className="text-center text-xl font-semibold">Everything you need, nothing you don't</h2>
+        <h2 className="text-center text-xl font-semibold">What FlowFrame gives you</h2>
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div

@@ -47,9 +47,7 @@ def test_run_graph_in_process_runs_full_pipeline(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
-    result = run_graph_in_process(
-        _pipeline_graph(), _paths(ds1=input_csv), out_dir, "pandas"
-    )
+    result = run_graph_in_process(_pipeline_graph(), _paths(ds1=input_csv), out_dir, "pandas")
 
     assert result.error is None
     assert "out1" in result.output_paths
@@ -84,9 +82,7 @@ def test_recycle_process_pool_replaces_instance() -> None:
         shutdown_process_pool()
 
 
-async def test_run_with_unknown_execution_mode_is_400(
-    client, monkeypatch
-) -> None:
+async def test_run_with_unknown_execution_mode_is_400(client, monkeypatch) -> None:
     import io
 
     from app.core.config import get_settings
@@ -109,9 +105,7 @@ async def test_run_with_unknown_execution_mode_is_400(
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "out1"}],
     }
-    flow = (
-        await client.post("/api/flows", json={"name": "f", "graph_json": graph})
-    ).json()
+    flow = (await client.post("/api/flows", json={"name": "f", "graph_json": graph})).json()
 
     r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
     assert r.status_code == 400, r.text

@@ -22,9 +22,7 @@ async def get_project(project_id: str, service: ProjectServiceDep) -> ProjectRea
 
 
 @router.put("/{project_id}", response_model=ProjectRead)
-async def update_project(
-    project_id: str, body: ProjectUpdate, service: ProjectServiceDep
-) -> ProjectRead:
+async def update_project(project_id: str, body: ProjectUpdate, service: ProjectServiceDep) -> ProjectRead:
     return await service.update(project_id, body)
 
 

@@ -18,7 +18,13 @@ FlowFrame is organized around a few pages, reachable from the navigation:
   and flows. A `Default` project always exists. See
   [Projects & Runs](/guide/projects-and-runs).
 - **Datasets** (`/datasets`) — upload and inspect source files (CSV, Excel,
-  Parquet), with versioning.
+  Parquet), with versioning. Each dataset has a **Profile** tab with per-column
+  statistics (nulls, distinct counts, ranges, top values), computed at upload
+  time.
+- **Connections** (`/connections`) — reusable database connections for the SQL
+  Input/Output nodes (PostgreSQL, MySQL, SQLite, SQL Server, MongoDB). Passwords
+  are read from environment variables, never stored. See
+  [Database Connections](/guide/connections).
 - **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
 - **Runs** (`/runs`) — execution history; open a run for status, logs, and
   per-node results.
@@ -41,6 +47,12 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 - **Live preview** — a sample of the selected node's output, updated as you edit,
   backed by `POST /api/flows/{id}/preview` and
   `POST /api/transformations/preview`.
+- **Profile** — alongside the preview, a one-click **Profile** view shows
+  per-column statistics for the selected node's output: null count and
+  percentage, distinct count, numeric min/mean/max, datetime range, and the top
+  values for text columns. Request it by passing `profile: true` to the preview
+  endpoints. Stats are computed on a bounded sample so they stay fast on large
+  frames.
 - **Run** — executes the whole flow and records a run.
 - **Export** — generates standalone Python (polars and pandas) for the flow.
 

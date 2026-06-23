@@ -24,9 +24,7 @@ class DatasetVersion(Base):
     mutated afterwards so a flow pinned to a version always reads the same data."""
 
     __tablename__ = "dataset_versions"
-    __table_args__ = (
-        UniqueConstraint("dataset_id", "version_number", name="uq_dataset_version"),
-    )
+    __table_args__ = (UniqueConstraint("dataset_id", "version_number", name="uq_dataset_version"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     dataset_id: Mapped[str] = mapped_column(
@@ -36,6 +34,8 @@ class DatasetVersion(Base):
     location: Mapped[str] = mapped_column(Text, nullable=False)
     schema_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     sample_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    # Per-column statistics computed at creation time (see app/engine/profile.py).
+    profile_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # set for flow-generated versions
     source_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

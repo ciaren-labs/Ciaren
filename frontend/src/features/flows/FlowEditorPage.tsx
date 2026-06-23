@@ -62,6 +62,33 @@ export function FlowEditorPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  // Height of the bottom preview pane, drag-resizable and remembered locally.
+  const [previewHeight, setPreviewHeight] = useState(() => {
+    const saved = Number(localStorage.getItem("ff_preview_height"));
+    return saved >= 180 ? saved : 420;
+  });
+  useEffect(() => {
+    localStorage.setItem("ff_preview_height", String(previewHeight));
+  }, [previewHeight]);
+
+  const startPreviewResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = previewHeight;
+    const onMove = (ev: MouseEvent) => {
+      // Drag up grows the pane; clamp so the canvas keeps usable space.
+      const next = startHeight + (startY - ev.clientY);
+      setPreviewHeight(Math.min(Math.max(next, 180), window.innerHeight - 200));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
   const createRun = useCreateRun(flowId ?? "");
@@ -280,7 +307,18 @@ export function FlowEditorPage() {
               <FlowCanvas />
             </div>
             {previewOpen && (
-              <PreviewPanel flowId={flow.id} onClose={() => setPreviewOpen(false)} />
+              <>
+                <div
+                  onMouseDown={startPreviewResize}
+                  className="group flex h-2 shrink-0 cursor-row-resize items-center justify-center border-t border-border bg-muted/40 hover:bg-primary/10"
+                  title="Drag to resize the preview"
+                >
+                  <div className="h-1 w-10 rounded-full bg-border transition-colors group-hover:bg-primary/50" />
+                </div>
+                <div className="shrink-0" style={{ height: previewHeight }}>
+                  <PreviewPanel flowId={flow.id} onClose={() => setPreviewOpen(false)} />
+                </div>
+              </>
             )}
           </div>
           <NodeSidebar />
