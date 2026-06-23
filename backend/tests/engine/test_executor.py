@@ -110,9 +110,7 @@ def test_concat_pipeline(tmp_path):
 def test_run_with_results_captures_per_node_stats(tmp_path, input_csv):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
-    result = FlowExecutor().run_with_results(
-        _pipeline_graph(), _paths(ds1=input_csv), out_dir
-    )
+    result = FlowExecutor().run_with_results(_pipeline_graph(), _paths(ds1=input_csv), out_dir)
     assert result.error is None
     assert "out1" in result.output_paths
     by_id = {r.node_id: r for r in result.node_results}
@@ -126,9 +124,7 @@ def test_run_with_results_captures_per_node_stats(tmp_path, input_csv):
 def test_run_with_results_records_node_durations(tmp_path, input_csv):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
-    result = FlowExecutor().run_with_results(
-        _pipeline_graph(), _paths(ds1=input_csv), out_dir
-    )
+    result = FlowExecutor().run_with_results(_pipeline_graph(), _paths(ds1=input_csv), out_dir)
     # Every executed node records a non-negative duration, surfaced in as_dict().
     assert all(r.duration_ms is not None and r.duration_ms >= 0 for r in result.node_results)
     assert "duration_ms" in result.node_results[0].as_dict()

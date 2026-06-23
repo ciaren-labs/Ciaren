@@ -30,9 +30,7 @@ class PreviewService:
         self.db = db
         self.engine = get_engine("pandas")
 
-    async def preview_transformation(
-        self, req: TransformationPreviewRequest
-    ) -> PreviewResponse:
+    async def preview_transformation(self, req: TransformationPreviewRequest) -> PreviewResponse:
         transformation = self._get_transformation(req.type)
         try:
             transformation.validate_config(req.config)
@@ -46,9 +44,7 @@ class PreviewService:
         out = result.get("out", next(iter(result.values())))
         return self._to_response(out, req.limit, req.profile)
 
-    async def preview_flow(
-        self, flow_id: str, req: FlowPreviewRequest
-    ) -> PreviewResponse:
+    async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
@@ -57,9 +53,7 @@ class PreviewService:
         # that lives only for the duration of the in-memory compute.
         with tempfile.TemporaryDirectory() as tmp:
             sql_input_paths = (
-                await materialize_sql_inputs(
-                    self.db, graph, Path(tmp), limit=_PREVIEW_SQL_ROWS
-                )
+                await materialize_sql_inputs(self.db, graph, Path(tmp), limit=_PREVIEW_SQL_ROWS)
                 if has_sql_inputs(graph)
                 else {}
             )
@@ -83,9 +77,7 @@ class PreviewService:
         except KeyError as exc:
             raise NotFoundError("Transformation", node_type) from exc
 
-    def _to_response(
-        self, df: AnyFrame, limit: int, profile: bool = False
-    ) -> PreviewResponse:
+    def _to_response(self, df: AnyFrame, limit: int, profile: bool = False) -> PreviewResponse:
         total = self.engine.row_count(df)
         return PreviewResponse(
             columns=list(df.columns),

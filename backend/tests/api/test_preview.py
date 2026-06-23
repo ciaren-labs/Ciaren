@@ -165,9 +165,7 @@ async def test_preview_flow_default_node(client: AsyncClient) -> None:
 async def test_preview_flow_specific_node(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, ds["id"])
-    r = await client.post(
-        f"/api/flows/{flow['id']}/preview", json={"node_id": "in1"}
-    )
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={"node_id": "in1"})
     assert r.status_code == 200, r.text
     assert r.json()["row_count"] == 3  # input node, nothing dropped yet
 
@@ -175,9 +173,7 @@ async def test_preview_flow_specific_node(client: AsyncClient) -> None:
 async def test_preview_flow_unknown_node(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, ds["id"])
-    r = await client.post(
-        f"/api/flows/{flow['id']}/preview", json={"node_id": "ghost"}
-    )
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={"node_id": "ghost"})
     assert r.status_code == 404
 
 

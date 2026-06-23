@@ -21,9 +21,7 @@ from app.engine.executor import dataset_ref_key
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
 
 
-async def resolve_version(
-    db: AsyncSession, dataset_id: str, version: int | None
-) -> DatasetVersion:
+async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None) -> DatasetVersion:
     """Return the requested DatasetVersion, or the latest when ``version`` is None.
 
     The parent dataset is eager-loaded so callers can read ``source_type``
@@ -56,9 +54,7 @@ def _input_refs(graph: dict[str, Any]) -> set[tuple[str, int | None]]:
     return refs
 
 
-async def build_dataset_paths(
-    db: AsyncSession, graph: dict[str, Any]
-) -> tuple[dict[str, Path], list[dict[str, Any]]]:
+async def build_dataset_paths(db: AsyncSession, graph: dict[str, Any]) -> tuple[dict[str, Path], list[dict[str, Any]]]:
     """Resolve every input node to a file path.
 
     Returns the ``dataset_paths`` map keyed by :func:`dataset_ref_key`, plus a
@@ -69,7 +65,5 @@ async def build_dataset_paths(
     for dataset_id, version in _input_refs(graph):
         ver = await resolve_version(db, dataset_id, version)
         paths[dataset_ref_key(dataset_id, version)] = Path(ver.location)
-        resolved.append(
-            {"dataset_id": dataset_id, "version_number": ver.version_number}
-        )
+        resolved.append({"dataset_id": dataset_id, "version_number": ver.version_number})
     return paths, resolved

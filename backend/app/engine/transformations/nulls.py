@@ -19,9 +19,7 @@ class DropNullsTransformation(BaseTransformation):
         how = config.get("how", "any")
         return {"out": engine.drop_nulls(inputs["in"], subset, how)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src = input_vars["in"]
         dst = output_vars["out"]
         subset = config.get("subset")
@@ -33,9 +31,7 @@ class DropNullsTransformation(BaseTransformation):
             args.append(f"how={how!r}")
         return f"{dst} = {src}.dropna({', '.join(args)})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         subset = config.get("subset")
         how = config.get("how", "any")
@@ -87,9 +83,7 @@ class FillNullsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         strategy = config.get("strategy", "constant")
         if strategy not in self._VALID_STRATEGIES:
-            raise ValueError(
-                f"fillNulls 'strategy' must be one of {sorted(self._VALID_STRATEGIES)}"
-            )
+            raise ValueError(f"fillNulls 'strategy' must be one of {sorted(self._VALID_STRATEGIES)}")
         if strategy == "constant" and "value" not in config:
             raise ValueError("fillNulls with the 'constant' strategy requires a 'value'")
 
@@ -98,13 +92,9 @@ class FillNullsTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         columns = config.get("columns") or None
         strategy = config.get("strategy", "constant")
-        return {
-            "out": engine.fill_nulls(inputs["in"], columns, strategy, config.get("value"))
-        }
+        return {"out": engine.fill_nulls(inputs["in"], columns, strategy, config.get("value"))}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns = config.get("columns")
         strategy = config.get("strategy", "constant")
@@ -112,29 +102,20 @@ class FillNullsTransformation(BaseTransformation):
         if strategy == "constant":
             value = config.get("value")
             if columns:
-                return (
-                    f"{dst} = {src}.assign(**{{c: {src}[c].fillna({value!r}) "
-                    f"for c in {columns!r}}})"
-                )
+                return f"{dst} = {src}.assign(**{{c: {src}[c].fillna({value!r}) for c in {columns!r}}})"
             return f"{dst} = {src}.fillna({value!r})"
 
         cols = columns or "all columns"
         target = f"{columns!r}" if columns else f"{src}.columns"
         if strategy in ("ffill", "bfill"):
             method = strategy
-            return (
-                f"{dst} = {src}.assign(**{{c: {src}[c].{method}() "
-                f"for c in {target}}})  # fill nulls ({cols})"
-            )
+            return f"{dst} = {src}.assign(**{{c: {src}[c].{method}() for c in {target}}})  # fill nulls ({cols})"
         fill_expr = self._STRATEGY_FILL[strategy].format(s=src)
         return (
-            f"{dst} = {src}.assign(**{{c: {src}[c].fillna({fill_expr}) "
-            f"for c in {target}}})  # {strategy} fill ({cols})"
+            f"{dst} = {src}.assign(**{{c: {src}[c].fillna({fill_expr}) for c in {target}}})  # {strategy} fill ({cols})"
         )
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns = config.get("columns")
         strategy = config.get("strategy", "constant")
@@ -143,20 +124,11 @@ class FillNullsTransformation(BaseTransformation):
         if strategy == "constant":
             value = config.get("value")
             if columns:
-                return (
-                    f"{dst} = {src}.with_columns("
-                    f"[pl.col(c).fill_null({value!r}) for c in {columns!r}])"
-                )
+                return f"{dst} = {src}.with_columns([pl.col(c).fill_null({value!r}) for c in {columns!r}])"
             return f"{dst} = {src}.fill_null({value!r})"
         if strategy in self._POLARS_STRATEGY:
             strat = self._POLARS_STRATEGY[strategy]
-            return (
-                f"{dst} = {src}.with_columns("
-                f"[pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
-            )
+            return f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
         # median / mode: compute the value per column, then fill.
         agg = "median" if strategy == "median" else "mode().first"
-        return (
-            f"{dst} = {src}.with_columns("
-            f"[pl.col(c).fill_null({src}[c].{agg}()) for c in {cols_iter}])"
-        )
+        return f"{dst} = {src}.with_columns([pl.col(c).fill_null({src}[c].{agg}()) for c in {cols_iter}])"

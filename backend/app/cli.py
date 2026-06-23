@@ -70,9 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="flowframe",
         description="FlowFrame — local-first visual ETL builder.",
     )
-    parser.add_argument(
-        "--version", action="version", version=f"flowframe {_package_version()}"
-    )
+    parser.add_argument("--version", action="version", version=f"flowframe {_package_version()}")
 
     sub = parser.add_subparsers(dest="command")
 
@@ -102,9 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1).")
     serve.add_argument("--port", type=int, default=8055, help="Bind port (default: 8055).")
-    serve.add_argument(
-        "--reload", action="store_true", help="Auto-reload on code changes (development only)."
-    )
+    serve.add_argument("--reload", action="store_true", help="Auto-reload on code changes (development only).")
     serve.add_argument(
         "--db-url",
         default=None,
@@ -146,9 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init", help="Write a starter .env config file.")
     init.add_argument("--path", default=".env", help="Where to write the file (default: .env).")
-    init.add_argument(
-        "--force", action="store_true", help="Overwrite the file if it already exists."
-    )
+    init.add_argument("--force", action="store_true", help="Overwrite the file if it already exists.")
 
     sub.add_parser(
         "info",
@@ -168,9 +162,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Apply migrations up to the latest revision (safe to re-run).",
         parents=[env_file_parent],
     )
-    db_upgrade.add_argument(
-        "--revision", default="head", help="Target revision (default: head)."
-    )
+    db_upgrade.add_argument("--revision", default="head", help="Target revision (default: head).")
     db_sub.add_parser(
         "current",
         help="Show the revision the database is currently stamped at.",
@@ -181,18 +173,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="DROP all tables and rebuild them from migrations (destructive).",
         parents=[env_file_parent],
     )
-    db_reset.add_argument(
-        "--yes", action="store_true", help="Confirm the destructive reset (required)."
-    )
+    db_reset.add_argument("--yes", action="store_true", help="Confirm the destructive reset (required).")
     db_reset.add_argument(
         "--force",
         action="store_true",
         help="Allow reset even when ENVIRONMENT=production.",
     )
 
-    transformations = sub.add_parser(
-        "transformations", help="Inspect the available transformation node types."
-    )
+    transformations = sub.add_parser("transformations", help="Inspect the available transformation node types.")
     tf_sub = transformations.add_subparsers(dest="transformations_command")
     tf_sub.add_parser(
         "list",
@@ -295,24 +283,19 @@ def _check(args: argparse.Namespace) -> None:
         probe = data_dir / ".flowframe-write-test"
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
-        checks.append(
-            {"name": "data_dir", "status": "ok", "detail": str(data_dir.resolve())}
-        )
+        checks.append({"name": "data_dir", "status": "ok", "detail": str(data_dir.resolve())})
     except OSError as exc:
         checks.append({"name": "data_dir", "status": "fail", "detail": str(exc)})
 
     # Async driver?
     if any(s.DATABASE_URL.startswith(scheme) for scheme in _ASYNC_SCHEMES):
-        checks.append(
-            {"name": "async_driver", "status": "ok", "detail": _redact_url(s.DATABASE_URL)}
-        )
+        checks.append({"name": "async_driver", "status": "ok", "detail": _redact_url(s.DATABASE_URL)})
     else:
         checks.append(
             {
                 "name": "async_driver",
                 "status": "warn",
-                "detail": f"{_redact_url(s.DATABASE_URL)} (expected one of "
-                f"{', '.join(_ASYNC_SCHEMES)})",
+                "detail": f"{_redact_url(s.DATABASE_URL)} (expected one of {', '.join(_ASYNC_SCHEMES)})",
             }
         )
 
@@ -323,9 +306,7 @@ def _check(args: argparse.Namespace) -> None:
     except Exception as exc:  # noqa: BLE001 - report any connection failure
         checks.append({"name": "database", "status": "fail", "detail": str(exc)})
 
-    checks.append(
-        {"name": "engines", "status": "ok", "detail": ", ".join(available_engines())}
-    )
+    checks.append({"name": "engines", "status": "ok", "detail": ", ".join(available_engines())})
 
     ok = all(c["status"] != "fail" for c in checks)
 
@@ -381,23 +362,17 @@ def _db(args: argparse.Namespace) -> None:
     if command == "upgrade":
         adopted = migrations.upgrade(args.revision)
         if adopted:
-            print(
-                "Existing schema detected without migration history — adopted it "
-                "(stamped current revision)."
-            )
+            print("Existing schema detected without migration history — adopted it (stamped current revision).")
         print(f"Database is up to date ({args.revision}).")
     elif command == "current":
         migrations.current()
     elif command == "reset":
         if get_settings().ENVIRONMENT == "production" and not args.force:
             raise SystemExit(
-                "Refusing to reset the database while ENVIRONMENT=production. "
-                "Pass --force if you really mean it."
+                "Refusing to reset the database while ENVIRONMENT=production. Pass --force if you really mean it."
             )
         if not args.yes:
-            raise SystemExit(
-                "`db reset` drops every table. Re-run with --yes to confirm."
-            )
+            raise SystemExit("`db reset` drops every table. Re-run with --yes to confirm.")
         migrations.reset()
         print("Database reset: all tables dropped and rebuilt from migrations.")
     else:

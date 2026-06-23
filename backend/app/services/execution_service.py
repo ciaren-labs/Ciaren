@@ -46,16 +46,11 @@ class ExecutionService:
 
         engine = data.engine or self.settings.DEFAULT_ENGINE
         if engine not in available_engines():
-            raise ValidationError(
-                f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}."
-            )
+            raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
 
         execution_mode = self.settings.EXECUTION_MODE
         if execution_mode not in _EXECUTION_MODES:
-            raise ValidationError(
-                f"Unknown execution mode '{execution_mode}'. "
-                f"Allowed: {', '.join(_EXECUTION_MODES)}."
-            )
+            raise ValidationError(f"Unknown execution mode '{execution_mode}'. Allowed: {', '.join(_EXECUTION_MODES)}.")
 
         run = FlowRun(
             flow_id=flow_id,
@@ -83,9 +78,7 @@ class ExecutionService:
             # Read any SQL inputs live (in this async parent, which holds the DB
             # session + secrets) and snapshot them to parquet, so the off-loop
             # executor only ever touches plain files.
-            sql_input_paths = await materialize_sql_inputs(
-                self.db, flow.graph_json, output_dir
-            )
+            sql_input_paths = await materialize_sql_inputs(self.db, flow.graph_json, output_dir)
             # The executor is synchronous (pandas/polars compute); offload it off
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
@@ -129,22 +122,15 @@ class ExecutionService:
                 # Store a path relative to the outputs dir so we never leak the
                 # absolute server filesystem layout in API responses.
                 run.output_location = (
-                    f"{run.id}/{next(iter(result.output_paths.values())).name}"
-                    if result.output_paths
-                    else None
+                    f"{run.id}/{next(iter(result.output_paths.values())).name}" if result.output_paths else None
                 )
                 elapsed_ms = (
-                    round((datetime.utcnow() - run.started_at).total_seconds() * 1000, 2)
-                    if run.started_at
-                    else None
+                    round((datetime.utcnow() - run.started_at).total_seconds() * 1000, 2) if run.started_at else None
                 )
                 run.logs_json = [
                     {
                         "level": "info",
-                        "message": (
-                            f"Flow executed in {elapsed_ms} ms, "
-                            f"wrote {len(result.output_paths)} output(s)"
-                        ),
+                        "message": (f"Flow executed in {elapsed_ms} ms, wrote {len(result.output_paths)} output(s)"),
                         "duration_ms": elapsed_ms,
                     },
                     {

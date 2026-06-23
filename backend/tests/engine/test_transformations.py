@@ -115,9 +115,7 @@ def test_filter_rows_between(engine, df):
 
 def test_filter_rows_between_needs_value2():
     with pytest.raises(ValueError):
-        get_transformation("filterRows").validate_config(
-            {"column": "c", "operator": "between", "value": 1}
-        )
+        get_transformation("filterRows").validate_config({"column": "c", "operator": "between", "value": 1})
 
 
 def test_filter_rows_in(engine, df):

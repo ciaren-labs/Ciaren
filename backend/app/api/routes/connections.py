@@ -18,9 +18,7 @@ async def list_connections(service: ConnectionServiceDep) -> list[ConnectionRead
 
 
 @router.post("", response_model=ConnectionRead, status_code=status.HTTP_201_CREATED)
-async def create_connection(
-    body: ConnectionCreate, service: ConnectionServiceDep
-) -> ConnectionRead:
+async def create_connection(body: ConnectionCreate, service: ConnectionServiceDep) -> ConnectionRead:
     return await service.create(body)
 
 
@@ -31,9 +29,7 @@ async def list_providers(service: ConnectionServiceDep) -> list[dict[str, object
 
 
 @router.post("/test-config", response_model=ConnectionTestResult)
-async def test_connection_config(
-    body: ConnectionCreate, service: ConnectionServiceDep
-) -> ConnectionTestResult:
+async def test_connection_config(body: ConnectionCreate, service: ConnectionServiceDep) -> ConnectionTestResult:
     """Test an unsaved connection payload before saving it."""
     return await service.test_config(body)
 
@@ -56,14 +52,10 @@ async def delete_connection(connection_id: str, service: ConnectionServiceDep) -
 
 
 @router.post("/{connection_id}/test", response_model=ConnectionTestResult)
-async def test_connection(
-    connection_id: str, service: ConnectionServiceDep
-) -> ConnectionTestResult:
+async def test_connection(connection_id: str, service: ConnectionServiceDep) -> ConnectionTestResult:
     return await service.test(connection_id)
 
 
 @router.get("/{connection_id}/tables", response_model=list[TableInfo])
-async def list_connection_tables(
-    connection_id: str, service: ConnectionServiceDep
-) -> list[TableInfo]:
+async def list_connection_tables(connection_id: str, service: ConnectionServiceDep) -> list[TableInfo]:
     return await service.list_tables(connection_id)

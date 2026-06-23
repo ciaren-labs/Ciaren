@@ -106,9 +106,7 @@ def test_apply_serve_env_sets_all_overrides(monkeypatch: pytest.MonkeyPatch) -> 
 def test_apply_serve_env_noop_without_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FLOWFRAME_DATABASE_URL", raising=False)
     monkeypatch.delenv("FLOWFRAME_SCHEDULER_ENABLED", raising=False)
-    args = argparse.Namespace(
-        db_url=None, data_dir=None, engine=None, execution_mode=None, no_scheduler=False
-    )
+    args = argparse.Namespace(db_url=None, data_dir=None, engine=None, execution_mode=None, no_scheduler=False)
 
     cli._apply_serve_env(args)
 
@@ -155,9 +153,7 @@ def test_load_env_file_noop_without_flag(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "FLOWFRAME_DEFAULT_ENGINE" not in os.environ
 
 
-def test_load_env_file_loads_values(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_env_file_loads_values(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("FLOWFRAME_DEFAULT_ENGINE", raising=False)
     env = tmp_path / "custom.env"
     env.write_text("FLOWFRAME_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
@@ -167,9 +163,7 @@ def test_load_env_file_loads_values(
     assert os.environ["FLOWFRAME_DEFAULT_ENGINE"] == "pandas"
 
 
-def test_load_env_file_does_not_override_existing_env(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_env_file_does_not_override_existing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("FLOWFRAME_DEFAULT_ENGINE", "polars")
     env = tmp_path / "custom.env"
     env.write_text("FLOWFRAME_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
@@ -187,9 +181,7 @@ def test_load_env_file_missing_path_exits() -> None:
 # -- info ---------------------------------------------------------------
 
 
-def test_info_prints_and_redacts_password(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_info_prints_and_redacts_password(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "postgresql+asyncpg://user:s3cret@host/db")
     _clear_settings_cache()
     try:
@@ -203,9 +195,7 @@ def test_info_prints_and_redacts_password(
     assert "s3cret" not in out
 
 
-def test_info_json_output(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_info_json_output(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     _clear_settings_cache()
     try:
@@ -235,9 +225,7 @@ def test_check_passes_with_reachable_db(
     assert "[FAIL]" not in out
 
 
-def test_check_json_output(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_check_json_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
     _clear_settings_cache()
@@ -281,17 +269,12 @@ def _sqlite_url(path: Path) -> str:
 def _table_names(db: Path) -> set[str]:
     con = sqlite3.connect(db)
     try:
-        return {
-            r[0]
-            for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        }
+        return {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     finally:
         con.close()
 
 
-def test_db_upgrade_creates_schema_from_migrations(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_db_upgrade_creates_schema_from_migrations(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     db = tmp_path / "ff.db"
     monkeypatch.setenv("FLOWFRAME_DATABASE_URL", _sqlite_url(db))
     _clear_settings_cache()

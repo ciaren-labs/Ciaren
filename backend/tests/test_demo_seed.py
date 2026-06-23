@@ -45,9 +45,7 @@ async def demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
 
 
 async def _project(db: AsyncSession) -> Project:
-    result = await db.execute(
-        select(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower())
-    )
+    result = await db.execute(select(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower()))
     return result.scalar_one()
 
 
@@ -60,17 +58,13 @@ async def test_demo_project_created(demo_db: AsyncSession) -> None:
 
 async def test_four_datasets_created(demo_db: AsyncSession) -> None:
     project = await _project(demo_db)
-    result = await demo_db.execute(
-        select(Dataset).where(Dataset.project_id == project.id)
-    )
+    result = await demo_db.execute(select(Dataset).where(Dataset.project_id == project.id))
     datasets = result.scalars().all()
     assert {d.name for d in datasets} == _EXPECTED_DATASETS
 
     # Each dataset has exactly one version with a real, readable file + profile.
     for dataset in datasets:
-        vresult = await demo_db.execute(
-            select(DatasetVersion).where(DatasetVersion.dataset_id == dataset.id)
-        )
+        vresult = await demo_db.execute(select(DatasetVersion).where(DatasetVersion.dataset_id == dataset.id))
         versions = vresult.scalars().all()
         assert len(versions) == 1
         version = versions[0]
@@ -94,9 +88,7 @@ async def test_flows_created_and_valid(demo_db: AsyncSession) -> None:
 
 
 @pytest.mark.parametrize("engine_name", ["pandas", "polars"])
-async def test_every_flow_executes_end_to_end(
-    demo_db: AsyncSession, tmp_path, engine_name: str
-) -> None:
+async def test_every_flow_executes_end_to_end(demo_db: AsyncSession, tmp_path, engine_name: str) -> None:
     project = await _project(demo_db)
     result = await demo_db.execute(select(Flow).where(Flow.project_id == project.id))
     flows = result.scalars().all()
@@ -107,9 +99,7 @@ async def test_every_flow_executes_end_to_end(
 
     for flow in flows:
         dataset_paths, _ = await build_dataset_paths(demo_db, flow.graph_json)
-        run = FlowExecutor().run_with_results(
-            flow.graph_json, dataset_paths, out_dir, engine_name=engine_name
-        )
+        run = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, out_dir, engine_name=engine_name)
         assert run.error is None, f"{flow.name} ({engine_name}) failed: {run.error}"
         assert run.output_paths, f"{flow.name} produced no output"
         for path in run.output_paths.values():
@@ -137,9 +127,7 @@ async def test_seeder_is_idempotent(demo_db: AsyncSession) -> None:
     assert second is None
 
     project_count = await demo_db.scalar(
-        select(func.count()).select_from(Project).where(
-            func.lower(Project.name) == DEMO_PROJECT_NAME.lower()
-        )
+        select(func.count()).select_from(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower())
     )
     assert project_count == 1
 
@@ -147,8 +135,6 @@ async def test_seeder_is_idempotent(demo_db: AsyncSession) -> None:
     dataset_count = await demo_db.scalar(
         select(func.count()).select_from(Dataset).where(Dataset.project_id == project.id)
     )
-    flow_count = await demo_db.scalar(
-        select(func.count()).select_from(Flow).where(Flow.project_id == project.id)
-    )
+    flow_count = await demo_db.scalar(select(func.count()).select_from(Flow).where(Flow.project_id == project.id))
     assert dataset_count == len(_EXPECTED_DATASETS)
     assert flow_count == len(_EXPECTED_FLOWS)

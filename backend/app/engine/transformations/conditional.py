@@ -13,12 +13,18 @@ from app.engine.transformations.base import BaseTransformation
 
 # Comparison operators (and aliases) that map straight to a Python/expr operator.
 _COMPARISON = {
-    "==": "==", "eq": "==",
-    "!=": "!=", "ne": "!=",
-    ">": ">", "gt": ">",
-    ">=": ">=", "gte": ">=",
-    "<": "<", "lt": "<",
-    "<=": "<=", "lte": "<=",
+    "==": "==",
+    "eq": "==",
+    "!=": "!=",
+    "ne": "!=",
+    ">": ">",
+    "gt": ">",
+    ">=": ">=",
+    "gte": ">=",
+    "<": "<",
+    "lt": "<",
+    "<=": "<=",
+    "lte": "<=",
 }
 _VALUELESS = {"isnull", "notnull"}
 _OPERATORS = set(_COMPARISON) | _VALUELESS | {"contains", "startswith", "endswith"}
@@ -48,9 +54,7 @@ class ConditionalColumnTransformation(BaseTransformation):
                     raise ValueError("each conditionalColumn condition needs a 'column'")
                 operator = condition.get("operator", "==")
                 if operator not in _OPERATORS:
-                    raise ValueError(
-                        f"conditionalColumn condition operator must be in {sorted(_OPERATORS)}"
-                    )
+                    raise ValueError(f"conditionalColumn condition operator must be in {sorted(_OPERATORS)}")
                 if operator not in _VALUELESS and "value" not in condition:
                     raise ValueError(f"conditionalColumn condition '{operator}' needs a 'value'")
 
@@ -70,10 +74,7 @@ class ConditionalColumnTransformation(BaseTransformation):
 
     @staticmethod
     def _pandas_mask(dst: str, rule: dict[str, Any]) -> str:
-        masks = [
-            ConditionalColumnTransformation._pandas_condition(dst, c)
-            for c in rule_conditions(rule)
-        ]
+        masks = [ConditionalColumnTransformation._pandas_condition(dst, c) for c in rule_conditions(rule)]
         if len(masks) == 1:
             return masks[0]
         joiner = " & " if rule_combine_all(rule) else " | "
@@ -94,9 +95,7 @@ class ConditionalColumnTransformation(BaseTransformation):
             return f"{col}.astype(str).str.endswith({str(val)!r}, na=False)"
         return f"{col}.isna()" if op == "isnull" else f"{col}.notna()"
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         new = config["new_column"]
         lines = [f"{dst} = {src}.copy()", f"{dst}[{new!r}] = {config.get('default')!r}"]
@@ -108,10 +107,7 @@ class ConditionalColumnTransformation(BaseTransformation):
 
     @staticmethod
     def _polars_cond(rule: dict[str, Any]) -> str:
-        exprs = [
-            ConditionalColumnTransformation._polars_condition(c)
-            for c in rule_conditions(rule)
-        ]
+        exprs = [ConditionalColumnTransformation._polars_condition(c) for c in rule_conditions(rule)]
         if len(exprs) == 1:
             return exprs[0]
         joiner = " & " if rule_combine_all(rule) else " | "
@@ -132,9 +128,7 @@ class ConditionalColumnTransformation(BaseTransformation):
             return f"{col}.cast(pl.Utf8).str.ends_with({str(val)!r})"
         return f"{col}.is_null()" if op == "isnull" else f"{col}.is_not_null()"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         new = config["new_column"]
         chain = ""

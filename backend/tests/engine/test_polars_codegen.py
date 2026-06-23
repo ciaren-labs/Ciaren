@@ -118,9 +118,7 @@ def test_polars_join_and_concat() -> None:
 def _run(code: str, tmp_path: Path) -> pd.DataFrame:
     script = tmp_path / "script.py"
     script.write_text(code, encoding="utf-8")
-    result = subprocess.run(
-        [sys.executable, str(script)], cwd=tmp_path, capture_output=True, text=True
-    )
+    result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, f"generated script failed:\n{result.stderr}"
     return pd.read_csv(tmp_path / "out.csv")
 
@@ -142,8 +140,7 @@ def _pivot_graph() -> dict:
             {
                 "id": "pv",
                 "type": "pivot",
-                "data": {"config": {"index": "region", "columns": "product",
-                                    "values": "amount", "aggfunc": "sum"}},
+                "data": {"config": {"index": "region", "columns": "product", "values": "amount", "aggfunc": "sum"}},
             },
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
         ],
@@ -188,10 +185,12 @@ def test_polars_lazy_runs_end_to_end(tmp_path: Path) -> None:
     graph = {
         "nodes": [
             {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "flt", "type": "filterRows",
-             "data": {"config": {"column": "amount", "operator": ">", "value": 2}}},
-            {"id": "grp", "type": "groupByAggregate",
-             "data": {"config": {"group_by": ["region"], "aggregations": {"amount": "sum"}}}},
+            {"id": "flt", "type": "filterRows", "data": {"config": {"column": "amount", "operator": ">", "value": 2}}},
+            {
+                "id": "grp",
+                "type": "groupByAggregate",
+                "data": {"config": {"group_by": ["region"], "aggregations": {"amount": "sum"}}},
+            },
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
         ],
         "edges": [

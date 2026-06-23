@@ -53,9 +53,7 @@ class JoinTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         left, right = input_vars["left"], input_vars["right"]
         dst = output_vars["out"]
         how = config.get("how", "inner")
@@ -65,14 +63,9 @@ class JoinTransformation(BaseTransformation):
             keys = f"left_on={left_on!r}, right_on={right_on!r}"
         else:
             keys = f"on={_as_list(config.get('on'))!r}"
-        return (
-            f"{dst} = pd.merge({left}, {right}, {keys}, how={how!r}, "
-            f"suffixes={suffixes!r})"
-        )
+        return f"{dst} = pd.merge({left}, {right}, {keys}, how={how!r}, suffixes={suffixes!r})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         left, right = input_vars["left"], input_vars["right"]
         dst = output_vars["out"]
         how = self._POLARS_HOW.get(config.get("how", "inner"), "inner")
@@ -85,7 +78,4 @@ class JoinTransformation(BaseTransformation):
             keys = f"on={_as_list(config.get('on'))!r}"
             # coalesce shared keys so 'full' joins keep a single key column (like pandas).
             coalesce = ", coalesce=True"
-        return (
-            f"{dst} = {left}.join({right}, {keys}, how={how!r}, "
-            f"suffix={suffix!r}{coalesce})"
-        )
+        return f"{dst} = {left}.join({right}, {keys}, how={how!r}, suffix={suffix!r}{coalesce})"

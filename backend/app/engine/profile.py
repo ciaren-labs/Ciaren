@@ -20,9 +20,7 @@ PROFILE_SAMPLE_CAP = 10_000
 TOP_VALUES = 5
 
 
-def profile_frame(
-    engine: EngineBackend, df: AnyFrame, sample_cap: int = PROFILE_SAMPLE_CAP
-) -> list[dict[str, Any]]:
+def profile_frame(engine: EngineBackend, df: AnyFrame, sample_cap: int = PROFILE_SAMPLE_CAP) -> list[dict[str, Any]]:
     """Return one profile dict per column.
 
     Stats are computed over at most ``sample_cap`` rows; each profile records the
@@ -36,9 +34,7 @@ def profile_frame(
     return [_profile_column(pdf[col], str(col), scanned, total) for col in pdf.columns]
 
 
-def _profile_column(
-    series: pd.Series, name: str, scanned: int, total: int
-) -> dict[str, Any]:
+def _profile_column(series: pd.Series, name: str, scanned: int, total: int) -> dict[str, Any]:
     null_count = int(series.isna().sum())
     non_null = series.dropna()
     profile: dict[str, Any] = {
@@ -69,9 +65,7 @@ def _profile_column(
         profile["min_len"] = int(lengths.min())
         profile["max_len"] = int(lengths.max())
         top = text.value_counts().head(TOP_VALUES)
-        profile["top_values"] = [
-            {"value": str(value), "count": int(count)} for value, count in top.items()
-        ]
+        profile["top_values"] = [{"value": str(value), "count": int(count)} for value, count in top.items()]
     return profile
 
 
