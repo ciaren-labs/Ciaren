@@ -50,6 +50,18 @@ _ENV_TEMPLATE = """\
 
 # Abandon a run after this many seconds (0 = no limit):
 # FLOWFRAME_RUN_TIMEOUT_SECONDS=0
+
+# --- Machine learning (optional; requires `pip install flowframe[ml]`) --------
+# `flowframe init` provisions a default LOCAL MLflow instance below. To use an
+# existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
+#   FLOWFRAME_MLFLOW_TRACKING_URI=http://mlflow.internal:5000
+# or a database-backed store: sqlite:///./mlflow.db
+FLOWFRAME_ML_ENABLED=true
+FLOWFRAME_MLFLOW_TRACKING_URI=./mlruns
+# Model registry; leave unset to reuse the tracking store:
+# FLOWFRAME_MLFLOW_REGISTRY_URI=
+# Where trained model artifacts are stored (under DATA_DIR when relative):
+# FLOWFRAME_ML_ARTIFACT_DIR=ml_artifacts
 """
 
 
@@ -143,6 +155,9 @@ def build_parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init", help="Write a starter .env config file.")
     init.add_argument("--path", default=".env", help="Where to write the file (default: .env).")
     init.add_argument("--force", action="store_true", help="Overwrite the file if it already exists.")
+    init.add_argument(
+        "--no-ml", action="store_true", help="Skip provisioning the default local MLflow store."
+    )
 
     sub.add_parser(
         "info",
@@ -258,6 +273,9 @@ def _info(args: argparse.Namespace) -> None:
         "scheduler_max_consecutive_failures": s.SCHEDULER_MAX_CONSECUTIVE_FAILURES,
         "run_timeout_seconds": s.RUN_TIMEOUT_SECONDS,
         "max_upload_size_mb": s.MAX_UPLOAD_SIZE_MB,
+        "ml_enabled": s.ML_ENABLED,
+        "mlflow_tracking_uri": s.MLFLOW_TRACKING_URI,
+        "ml_artifact_dir": s.ml_artifact_path,
     }
     if getattr(args, "output", "table") == "json":
         print(json.dumps(rows, indent=2))
@@ -308,6 +326,23 @@ def _check(args: argparse.Namespace) -> None:
 
     checks.append({"name": "engines", "status": "ok", "detail": ", ".join(available_engines())})
 
+    # ML extension: report whether the feature is enabled and its libraries present.
+    if s.ML_ENABLED:
+        from app.ml.availability import ml_core_available
+
+        if ml_core_available():
+            checks.append({"name": "ml", "status": "ok", "detail": f"enabled, tracking={s.MLFLOW_TRACKING_URI}"})
+        else:
+            checks.append(
+                {
+                    "name": "ml",
+                    "status": "warn",
+                    "detail": "ML_ENABLED but [ml] extra not installed — pip install flowframe[ml]",
+                }
+            )
+    else:
+        checks.append({"name": "ml", "status": "ok", "detail": "disabled"})
+
     ok = all(c["status"] != "fail" for c in checks)
 
     if getattr(args, "output", "table") == "json":
@@ -344,6 +379,9 @@ def _probe_database(url: str) -> None:
     asyncio.run(_run())
 
 
+_DEFAULT_MLFLOW_DIR = "mlruns"
+
+
 def _init(args: argparse.Namespace) -> None:
     path = Path(args.path)
     if path.exists() and not args.force:
@@ -351,6 +389,20 @@ def _init(args: argparse.Namespace) -> None:
         return
     path.write_text(_ENV_TEMPLATE, encoding="utf-8")
     print(f"Wrote {path}. Edit it, then run `flowframe serve`.")
+
+    # Provision a default local MLflow instance so ML flows work out of the box.
+    # This is just a directory the local MLflow file store writes into; pointing
+    # FLOWFRAME_MLFLOW_TRACKING_URI at an existing server overrides it entirely.
+    if not getattr(args, "no_ml", False):
+        mlruns = Path(_DEFAULT_MLFLOW_DIR)
+        try:
+            mlruns.mkdir(parents=True, exist_ok=True)
+            print(
+                f"Provisioned a local MLflow store at {mlruns.resolve()} "
+                f"(override with FLOWFRAME_MLFLOW_TRACKING_URI to use an existing MLflow)."
+            )
+        except OSError as exc:  # pragma: no cover - unusual fs error
+            print(f"Could not create {mlruns}: {exc}")
 
 
 def _db(args: argparse.Namespace) -> None:
