@@ -54,8 +54,9 @@ def _random_forest_classifier(p: dict[str, Any], seed: int | None) -> Any:
 def _svm_classifier(p: dict[str, Any], seed: int | None) -> Any:
     from sklearn.svm import SVC
 
-    # probability=True so downstream mlPredict can emit class probabilities.
-    return SVC(**_with_seed({"probability": True, **p}, seed))
+    # probability is left at sklearn's default (off); set it via hyperparameters if
+    # class probabilities are needed. mlPredict degrades gracefully without it.
+    return SVC(**_with_seed(p, seed))
 
 
 def _knn_classifier(p: dict[str, Any], seed: int | None) -> Any:

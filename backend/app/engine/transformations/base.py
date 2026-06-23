@@ -37,6 +37,11 @@ class BaseTransformation(ABC):
     #: default ``("in",)``; join overrides it with ``("left", "right")``.
     input_handles: tuple[str, ...] = ("in",)
 
+    #: Input handles that may be connected but are not required (e.g. mlPredict's
+    #: ``"model"`` handle, which is optional when a ``model_uri`` is in the config).
+    #: Each accepts at most one edge; graph validation does not require them.
+    optional_input_handles: tuple[str, ...] = ()
+
     #: When true the node accepts an arbitrary number of incoming edges on its
     #: ``"in"`` handle (concat). ``input_handles`` is then advisory.
     multi_input: bool = False
