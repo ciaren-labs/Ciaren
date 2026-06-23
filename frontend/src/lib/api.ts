@@ -206,6 +206,8 @@ export const connectionsApi = {
       body: JSON.stringify(body),
     }),
   tables: (id: string) => request<TableInfo[]>(`/connections/${id}/tables`),
+  objects: (id: string, prefix?: string) =>
+    request<string[]>(`/connections/${id}/objects${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ""}`),
 };
 
 // ---- Datasets --------------------------------------------------------------

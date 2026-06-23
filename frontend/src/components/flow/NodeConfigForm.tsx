@@ -34,7 +34,7 @@ import {
   Field,
   KeyValueEditor,
 } from "./configFields";
-import { useConnections, useConnectionTables } from "@/features/connections/hooks";
+import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
 
 interface NodeConfigFormProps {
   type: string;
@@ -87,7 +87,9 @@ export function NodeConfigForm({
   // table query is disabled unless this is a SQL node with a chosen connection).
   const { data: connections = [] } = useConnections();
   const isSqlNode = type === "sqlInput" || type === "sqlOutput";
+  const isStorageInput = type === "storageInput";
   const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
+  const objectsQuery = useConnectionObjects(isStorageInput ? c.connection_id || null : null);
 
   const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
@@ -1231,13 +1233,21 @@ export function NodeConfigForm({
         </>
       );
 
-    case "storageInput":
+    case "storageInput": {
+      const objects = objectsQuery.data ?? [];
+      const selectedPath = (c.path as string) ?? "";
+      const formatFromPath = (p: string): string => {
+        const ext = p.split(".").pop()?.toLowerCase();
+        if (ext === "parquet") return "parquet";
+        if (ext === "xlsx" || ext === "xls") return "excel";
+        return "csv";
+      };
       return (
         <>
           <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
             <Select
               value={c.connection_id ?? ""}
-              onChange={(e) => set({ connection_id: e.target.value })}
+              onChange={(e) => set({ connection_id: e.target.value, path: "", format: "csv" })}
             >
               <option value="">Select a storage connection…</option>
               {storageConnections.map((cn) => (
@@ -1252,18 +1262,50 @@ export function NodeConfigForm({
               </p>
             )}
           </Field>
-          <Field
-            label="File path"
-            error={errors.path}
-            hint="e.g. folder/data.csv or s3://bucket/key.parquet"
-            help="Path to the file within the bucket or folder."
-          >
-            <Input
-              value={c.path ?? ""}
-              onChange={(e) => set({ path: e.target.value })}
-              placeholder="data/input.csv"
-            />
-          </Field>
+          {c.connection_id && (
+            <Field
+              label="File"
+              error={errors.path}
+              help="Select a file from the storage connection, or type a path manually."
+            >
+              {objectsQuery.isFetching ? (
+                <p className="text-[11px] text-muted-foreground">Loading files…</p>
+              ) : objects.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background">
+                    {objects.map((obj) => (
+                      <button
+                        key={obj}
+                        type="button"
+                        onClick={() => set({ path: obj, format: formatFromPath(obj) })}
+                        className={cn(
+                          "w-full px-2 py-1 text-left text-[11px] font-mono hover:bg-muted",
+                          selectedPath === obj && "bg-primary/10 font-semibold text-primary",
+                        )}
+                      >
+                        {obj}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPath && !objects.includes(selectedPath) && (
+                    <p className="text-[11px] text-amber-600">
+                      Current path not found in connection — update or retype below.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  No files found in this connection.
+                </p>
+              )}
+              <Input
+                className="mt-1"
+                value={selectedPath}
+                onChange={(e) => set({ path: e.target.value, format: formatFromPath(e.target.value) })}
+                placeholder="data/input.csv"
+              />
+            </Field>
+          )}
           <Field label="Format" error={errors.format} help="File format to read.">
             <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
@@ -1273,6 +1315,7 @@ export function NodeConfigForm({
           </Field>
         </>
       );
+    }
 
     case "storageOutput":
       return (
