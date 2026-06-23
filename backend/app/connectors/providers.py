@@ -5,7 +5,8 @@ installed (with a clear install hint).
 from __future__ import annotations
 
 import importlib.util
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from app.connectors.base import DataConnector
 from app.connectors.local_storage import LocalStorageConnector
@@ -85,7 +86,7 @@ def _get_gcs_connector() -> StorageConnector:
     from app.connectors.gcs import GCSConnector
     return GCSConnector()
 
-_STORAGE_CONNECTOR_FACTORIES: dict[str, object] = {
+_STORAGE_CONNECTOR_FACTORIES: dict[str, Callable[[], StorageConnector]] = {
     "local": lambda: _LOCAL_CONNECTOR,
     "s3": _get_s3_connector,
     "azure_blob": _get_azure_connector,
@@ -113,7 +114,7 @@ def driver_available(provider: Provider) -> bool:
 def get_connector(provider: Provider) -> DataConnector | StorageConnector:
     """Return the connector for a provider. Storage providers return a StorageConnector."""
     if provider.kind == "storage":
-        return _STORAGE_CONNECTOR_FACTORIES[provider.name]()  # type: ignore[operator]
+        return _STORAGE_CONNECTOR_FACTORIES[provider.name]()
     if provider.kind == "mongo":
         return _MONGO_CONNECTOR
     return _SQL_CONNECTOR

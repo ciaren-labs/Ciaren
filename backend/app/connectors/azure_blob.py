@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -23,7 +24,7 @@ from app.core.secrets import scrub
 logging.getLogger("azure").setLevel(logging.CRITICAL)
 
 
-def _service_client(spec: StorageSpec):
+def _service_client(spec: StorageSpec) -> Any:
     try:
         from azure.storage.blob import BlobServiceClient
     except ImportError as exc:

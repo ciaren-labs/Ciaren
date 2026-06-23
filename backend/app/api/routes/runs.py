@@ -64,7 +64,9 @@ async def get_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
 async def download_run_output(run_id: str, node_id: str, service: ExecutionServiceDep) -> FileResponse:
     """Stream a specific output node's result file as a download."""
     if not _SAFE_ID_RE.match(node_id):
-        raise ValidationError(f"Invalid node_id {node_id!r}: only letters, digits, hyphens and underscores are allowed.")
+        raise ValidationError(
+            f"Invalid node_id {node_id!r}: only letters, digits, hyphens and underscores are allowed."
+        )
     await service.get(run_id)  # raises 404 if not found
     settings = get_settings()
     output_dir = (Path(settings.DATA_DIR) / "outputs" / run_id).resolve()
