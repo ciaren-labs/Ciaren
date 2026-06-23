@@ -371,7 +371,9 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
         z.object({
           column: z.string().min(1, "Column is required"),
           operator: z.enum(conditionOperators),
-          value: z.string().optional(),
+          // A rule compares against a numeric column with a number (e.g. amount
+          // >= 5000) or a text column with a string, so accept either.
+          value: z.union([z.string(), z.number()]).optional(),
           result: z.string().optional(),
         }),
       )
