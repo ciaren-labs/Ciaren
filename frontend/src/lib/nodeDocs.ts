@@ -315,6 +315,91 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),
   parquetOutput: OUTPUT_DOC("Parquet"),
+
+  // ----- Machine learning -----
+  trainTestSplit: {
+    summary:
+      "Splits rows into a training set and a test set. Train your model on one, measure it honestly on the other. Has two outputs: train and test.",
+    fields: [
+      { name: "Test size", desc: "Fraction held out for testing, e.g. 0.2 = 20% test." },
+      { name: "Stratify by", desc: "Optional. Keep the same class balance in both splits (classification targets)." },
+      { name: "Random seed", desc: "Required — the same seed always produces the same split." },
+    ],
+    tips: [
+      "Wire the train output into Train Model, and the test output into Predict → Evaluate.",
+      "Stratify on your target column for imbalanced classification data.",
+    ],
+  },
+  scaleFeatures: {
+    summary: "Puts numeric columns on a comparable scale so no single feature dominates by magnitude.",
+    fields: [{ name: "Method", desc: "Standard (z-score), Min-max (0–1), or Robust (median/IQR, resists outliers)." }],
+    tips: ["Helpful for distance- and gradient-based models (KNN, SVM, logistic regression)."],
+  },
+  encodeCategories: {
+    summary: "Turns text categories into numbers a model can use.",
+    fields: [
+      { name: "Method", desc: "One-hot makes a 0/1 column per category; ordinal maps each to an integer." },
+      { name: "Drop first", desc: "One-hot only: drop one category to avoid collinearity." },
+    ],
+  },
+  imputeMissing: {
+    summary: "Fills missing values so rows aren't dropped during training.",
+    fields: [
+      { name: "Strategy", desc: "Mean/median/most-frequent/constant, or KNN (average of nearest rows)." },
+      { name: "Fill value", desc: "Constant strategy only." },
+      { name: "Neighbours", desc: "KNN strategy only." },
+    ],
+  },
+  selectFeatures: {
+    summary: "Keeps the most useful columns and drops noise to simplify and speed up training.",
+    fields: [
+      { name: "Method", desc: "Variance threshold, correlation filter, or top-K by relevance to a target." },
+      { name: "Threshold / K / Target", desc: "Shown depending on the chosen method." },
+    ],
+  },
+  reduceDimensions: {
+    summary: "Compresses many numeric columns into a few principal components (PCA) — handy for visualization or de-noising.",
+    fields: [
+      { name: "Components", desc: "A whole number of components, or a fraction (0–1) of variance to keep." },
+      { name: "Columns", desc: "Optional. Empty means all numeric columns." },
+    ],
+  },
+  mlTrain: {
+    summary:
+      "Fits a model and logs it to MLflow. Preprocessing is bundled into the model so the exact same steps run at prediction time. Outputs the data (out) and a model reference (model).",
+    fields: [
+      { name: "Model", desc: "Pick an algorithm grouped by task (classification, regression, clustering)." },
+      { name: "Target", desc: "The column to predict (supervised models only)." },
+      { name: "Features", desc: "Optional. Empty = every column except the target." },
+      { name: "Advanced options", desc: "Cross-validation, preprocessing, and the full hyperparameter set." },
+    ],
+    tips: [
+      "Feed it the train output of Train / Test Split.",
+      "The seed is required so a run reproduces the same model.",
+      "Wire the model output into Predict or Feature Importance.",
+    ],
+  },
+  mlPredict: {
+    summary: "Scores rows with a trained model, adding a prediction column.",
+    fields: [
+      { name: "Model URI", desc: "Optional. Use a registry URI, or leave empty and connect the model wire." },
+      { name: "Prediction column", desc: "Name for the output column." },
+      { name: "Probability columns", desc: "Optional class probabilities (classifiers)." },
+    ],
+  },
+  mlEvaluate: {
+    summary: "Computes evaluation metrics from predictions and returns them as a metric/value table.",
+    fields: [
+      { name: "Task type", desc: "Classification, regression, or clustering." },
+      { name: "True value / Prediction", desc: "The columns to compare." },
+      { name: "Metrics", desc: "Optional. Empty uses a sensible default set for the task." },
+    ],
+  },
+  featureImportance: {
+    summary: "Ranks which features a trained model relied on most.",
+    fields: [{ name: "Top N", desc: "Optional limit to the N most important features." }],
+    tips: ["Connect the model output of Train Model. Works for tree and linear models (not SVM-rbf or KNN)."],
+  },
 };
 
 export function getNodeDoc(type: string | undefined): NodeDoc | undefined {
