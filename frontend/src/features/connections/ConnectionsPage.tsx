@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   Cloud,
@@ -9,10 +10,10 @@ import {
   HardDrive,
   Loader2,
   Plus,
+  RefreshCw,
   Snowflake,
   Trash2,
   X,
-  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -409,22 +410,27 @@ function InstallHint({ command }: { command: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="flex items-center gap-1 border-t border-border/50 bg-muted/30 px-3 py-1.5">
-      <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
-        {command}
-      </code>
-      <button
-        type="button"
-        onClick={copy}
-        title="Copy install command"
-        className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
-      >
-        {copied ? (
-          <Check className="h-3 w-3 text-success" />
-        ) : (
-          <Copy className="h-3 w-3 text-muted-foreground" />
-        )}
-      </button>
+    <div className="border-t border-border/50 bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-1">
+        <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+          {command}
+        </code>
+        <button
+          type="button"
+          onClick={copy}
+          title="Copy install command"
+          className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
+        >
+          {copied ? (
+            <Check className="h-3 w-3 text-success" />
+          ) : (
+            <Copy className="h-3 w-3 text-muted-foreground" />
+          )}
+        </button>
+      </div>
+      <p className="mt-0.5 text-[9px] text-muted-foreground/70">
+        No server restart needed — run, then click Recheck
+      </p>
     </div>
   );
 }
@@ -468,6 +474,9 @@ function ConnectionDialog({
 }) {
   const create = useCreateConnection();
   const testConfig = useTestConnectionConfig();
+  // Same query key as ConnectionsPage — TanStack deduplicates, no extra request.
+  // Having refetch here lets the picker recheck driver availability after install.
+  const { refetch: recheckProviders, isFetching: isRechecking } = useConnectionProviders();
   const [step, setStep] = useState<DialogStep>("pick");
   const [form, setForm] = useState<ConnectionCreate>(EMPTY);
 
@@ -540,10 +549,24 @@ function ConnectionDialog({
         {step === "pick" ? (
           <>
             <DialogHeader>
-              <DialogTitle>Add connection</DialogTitle>
-              <DialogDescription>
-                Choose the type of database or storage you want to connect to.
-              </DialogDescription>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <DialogTitle>Add connection</DialogTitle>
+                  <DialogDescription>
+                    Choose the type of database or storage you want to connect to.
+                  </DialogDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => recheckProviders()}
+                  disabled={isRechecking}
+                  title="Recheck which drivers are installed"
+                  className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("h-3 w-3", isRechecking && "animate-spin")} />
+                  Recheck
+                </button>
+              </div>
             </DialogHeader>
 
             {/* Scrollable provider grid */}

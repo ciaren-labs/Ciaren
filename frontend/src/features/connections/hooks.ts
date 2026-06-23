@@ -14,7 +14,10 @@ export function useConnectionProviders() {
   return useQuery({
     queryKey: queryKeys.connectionProviders,
     queryFn: () => connectionsApi.providers(),
-    staleTime: 5 * 60_000, // driver availability rarely changes at runtime
+    // Short stale time so that installing a driver (no restart needed —
+    // find_spec is non-caching and connectors use lazy imports) is picked up
+    // quickly, especially after the user clicks "Recheck drivers".
+    staleTime: 30_000,
   });
 }
 
