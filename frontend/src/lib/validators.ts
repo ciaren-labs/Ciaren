@@ -151,9 +151,10 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     .object({
       column: z.string().min(1, "Column is required"),
       operator: z.enum(filterOperators),
-      value: z.string().optional(),
+      // A comparison against a numeric column uses a number; text uses a string.
+      value: z.union([z.string(), z.number()]).optional(),
       // Upper bound, only used by the "between" operator.
-      value2: z.string().optional(),
+      value2: z.union([z.string(), z.number()]).optional(),
     })
     .superRefine((cfg, ctx) => {
       if (cfg.operator === "between" && (cfg.value2 == null || cfg.value2 === "")) {
