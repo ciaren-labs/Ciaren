@@ -629,17 +629,22 @@ function ConnectionDialog({
     }
   };
 
-  // Reset when dialog closes.
+  // Sync state whenever the dialog opens (or the connection being edited changes).
+  // On close: do a delayed reset to defaults so the animation finishes cleanly;
+  // the cleanup cancels it if the dialog reopens before the timeout fires.
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setStep(isEdit ? "configure" : "pick");
+      setForm(isEdit ? connectionToForm(connection!) : EMPTY);
+      testConfig.reset();
+    } else {
       const t = setTimeout(() => {
-        setStep(isEdit ? "configure" : "pick");
-        setForm(isEdit ? connectionToForm(connection!) : EMPTY);
-        testConfig.reset();
+        setStep("pick");
+        setForm(EMPTY);
       }, 200);
       return () => clearTimeout(t);
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, connection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meta = getProviderMeta(form.provider);
 
