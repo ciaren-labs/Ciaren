@@ -226,6 +226,179 @@ def test_pivot(engine):
     assert "m" in out.columns
 
 
+def test_split_column_delimiter(engine):
+    pdf = pd.DataFrame({"name": ["Ada Lovelace", "Alan Turing"]})
+    out = run(
+        engine,
+        "splitColumn",
+        pdf,
+        {"column": "name", "mode": "delimiter", "delimiter": " ", "into": ["first", "last"]},
+    )
+    assert out["first"].tolist() == ["Ada", "Alan"]
+    assert out["last"].tolist() == ["Lovelace", "Turing"]
+    assert "name" in out.columns  # keep_original defaults to True
+
+
+def test_split_column_regex_and_drop_original(engine):
+    pdf = pd.DataFrame({"code": ["A-100", "B-200"]})
+    out = run(
+        engine,
+        "splitColumn",
+        pdf,
+        {
+            "column": "code",
+            "mode": "regex",
+            "pattern": r"([A-Z])-(\d+)",
+            "into": ["letter", "number"],
+            "keep_original": False,
+        },
+    )
+    assert out["letter"].tolist() == ["A", "B"]
+    assert out["number"].tolist() == ["100", "200"]
+    assert "code" not in out.columns
+
+
+def test_parse_dates_coerce(engine):
+    pdf = pd.DataFrame({"d": ["2021-01-02", "not-a-date"]})
+    out = run(engine, "parseDates", pdf, {"columns": ["d"], "errors": "coerce"})
+    assert pd.api.types.is_datetime64_any_dtype(out["d"])
+    assert pd.isna(out["d"].tolist()[1])
+
+
+def test_parse_dates_with_format(engine):
+    pdf = pd.DataFrame({"d": ["02-01-2021", "15-06-2021"]})
+    out = run(engine, "parseDates", pdf, {"columns": ["d"], "format": "%d-%m-%Y"})
+    assert out["d"].dt.year.tolist() == [2021, 2021]
+    assert out["d"].dt.month.tolist() == [1, 6]
+
+
+def test_map_values_keeps_unmapped(engine):
+    pdf = pd.DataFrame({"grade": ["A", "B", "C"]})
+    out = run(
+        engine,
+        "mapValues",
+        pdf,
+        {"column": "grade", "new_column": "label", "mapping": {"A": "Pass", "B": "Pass"}},
+    )
+    assert out["label"].tolist() == ["Pass", "Pass", "C"]
+
+
+def test_map_values_with_default(engine):
+    pdf = pd.DataFrame({"grade": ["A", "B", "C"]})
+    out = run(
+        engine,
+        "mapValues",
+        pdf,
+        {
+            "column": "grade",
+            "mapping": {"A": "Pass", "B": "Pass"},
+            "default": "Fail",
+            "use_default": True,
+        },
+    )
+    assert out["grade"].tolist() == ["Pass", "Pass", "Fail"]
+
+
+def test_window_row_number_partitioned(engine):
+    pdf = pd.DataFrame(
+        {"region": ["E", "E", "W", "E"], "amount": [10, 30, 5, 20]}
+    )
+    out = run(
+        engine,
+        "windowFunction",
+        pdf,
+        {
+            "function": "row_number",
+            "partition_by": ["region"],
+            "order_by": ["amount"],
+            "new_column": "rn",
+        },
+    )
+    # Row order is preserved; rn is the per-region rank by ascending amount.
+    assert out["region"].tolist() == ["E", "E", "W", "E"]
+    assert out["rn"].tolist() == [1, 3, 1, 2]
+
+
+def test_window_running_total(engine):
+    pdf = pd.DataFrame({"g": ["a", "a", "a"], "o": [1, 2, 3], "v": [10, 20, 30]})
+    out = run(
+        engine,
+        "windowFunction",
+        pdf,
+        {
+            "function": "cumsum",
+            "partition_by": ["g"],
+            "order_by": ["o"],
+            "target": "v",
+            "new_column": "running",
+        },
+    )
+    assert out["running"].tolist() == [10, 30, 60]
+
+
+def test_window_rank_descending(engine):
+    pdf = pd.DataFrame({"score": [50, 90, 70]})
+    out = run(
+        engine,
+        "windowFunction",
+        pdf,
+        {"function": "rank", "order_by": ["score"], "descending": True, "new_column": "r"},
+    )
+    assert out["r"].tolist() == [3, 1, 2]
+
+
+def test_window_lag(engine):
+    pdf = pd.DataFrame({"o": [1, 2, 3], "v": [10, 20, 30]})
+    out = run(
+        engine,
+        "windowFunction",
+        pdf,
+        {"function": "lag", "order_by": ["o"], "target": "v", "offset": 1, "new_column": "prev"},
+    )
+    assert out["prev"].tolist()[0] is None or pd.isna(out["prev"].tolist()[0])
+    assert out["prev"].tolist()[1:] == [10, 20]
+
+
+def test_conditional_column_priority(engine):
+    pdf = pd.DataFrame({"score": [95, 75, 40]})
+    out = run(
+        engine,
+        "conditionalColumn",
+        pdf,
+        {
+            "new_column": "grade",
+            "default": "F",
+            "rules": [
+                {"column": "score", "operator": ">=", "value": 90, "result": "A"},
+                {"column": "score", "operator": ">=", "value": 70, "result": "B"},
+            ],
+        },
+    )
+    assert out["grade"].tolist() == ["A", "B", "F"]
+
+
+def test_conditional_column_string_operator(engine):
+    pdf = pd.DataFrame({"email": ["a@gmail.com", "b@work.org"]})
+    out = run(
+        engine,
+        "conditionalColumn",
+        pdf,
+        {
+            "new_column": "kind",
+            "default": "other",
+            "rules": [
+                {
+                    "column": "email",
+                    "operator": "endswith",
+                    "value": "gmail.com",
+                    "result": "personal",
+                },
+            ],
+        },
+    )
+    assert out["kind"].tolist() == ["personal", "other"]
+
+
 # -- generated code is valid Python for both engines ---------------------
 
 _CODEGEN_CASES = [
@@ -283,6 +456,74 @@ _CODEGEN_CASES = [
         {"index": ["r"], "columns": "c", "values": "v", "aggfunc": "sum"},
         {"in": "df_1"},
     ),
+    (
+        "splitColumn",
+        {"column": "a", "mode": "delimiter", "delimiter": "-", "into": ["x", "y"]},
+        {"in": "df_1"},
+    ),
+    (
+        "splitColumn",
+        {
+            "column": "a",
+            "mode": "regex",
+            "pattern": r"(\d+)",
+            "into": ["x"],
+            "keep_original": False,
+        },
+        {"in": "df_1"},
+    ),
+    ("parseDates", {"columns": ["d"], "format": "%Y-%m-%d", "errors": "coerce"}, {"in": "df_1"}),
+    ("mapValues", {"column": "a", "mapping": {"x": "y"}}, {"in": "df_1"}),
+    (
+        "windowFunction",
+        {"function": "row_number", "partition_by": ["g"], "order_by": ["o"], "new_column": "rn"},
+        {"in": "df_1"},
+    ),
+    (
+        "windowFunction",
+        {"function": "rank", "order_by": ["o"], "descending": True, "new_column": "r"},
+        {"in": "df_1"},
+    ),
+    (
+        "windowFunction",
+        {
+            "function": "cumsum",
+            "partition_by": ["g"],
+            "order_by": ["o"],
+            "target": "v",
+            "new_column": "c",
+        },
+        {"in": "df_1"},
+    ),
+    (
+        "windowFunction",
+        {"function": "lag", "order_by": ["o"], "target": "v", "offset": 2, "new_column": "p"},
+        {"in": "df_1"},
+    ),
+    ("windowFunction", {"function": "cumcount", "new_column": "n"}, {"in": "df_1"}),
+    (
+        "conditionalColumn",
+        {
+            "new_column": "tier",
+            "default": "low",
+            "rules": [
+                {"column": "a", "operator": ">=", "value": 90, "result": "high"},
+                {"column": "a", "operator": "contains", "value": "x", "result": "mid"},
+            ],
+        },
+        {"in": "df_1"},
+    ),
+    (
+        "mapValues",
+        {
+            "column": "a",
+            "new_column": "b",
+            "mapping": {"x": "y"},
+            "default": "z",
+            "use_default": True,
+        },
+        {"in": "df_1"},
+    ),
 ]
 
 
@@ -311,6 +552,21 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("pivot", {"index": ["r"], "columns": "c"}),
         ("stringTransform", {"column": "s", "operation": "pad"}),
         ("join", {}),
+        ("splitColumn", {"column": "a", "into": []}),  # empty into
+        ("splitColumn", {"column": "a", "into": ["x"], "mode": "delimiter"}),  # no delimiter
+        ("splitColumn", {"column": "a", "into": ["x"], "mode": "regex"}),  # no pattern
+        ("parseDates", {"columns": []}),  # empty columns
+        ("parseDates", {"columns": ["d"], "errors": "bogus"}),  # bad errors
+        ("mapValues", {"column": "a"}),  # missing mapping
+        ("mapValues", {"column": "a", "mapping": {}}),  # empty mapping
+        ("windowFunction", {"function": "bogus", "new_column": "x"}),  # bad function
+        ("windowFunction", {"function": "cumsum", "new_column": "x"}),  # cumsum needs target
+        ("windowFunction", {"function": "rank", "new_column": "x"}),  # rank needs order_by
+        ("windowFunction", {"function": "row_number"}),  # missing new_column
+        ("conditionalColumn", {"rules": [{"column": "a", "value": 1}]}),  # missing new_column
+        ("conditionalColumn", {"new_column": "x", "rules": []}),  # empty rules
+        ("conditionalColumn", {"new_column": "x", "rules": [{"operator": "=="}]}),  # no column
+        ("conditionalColumn", {"new_column": "x", "rules": [{"column": "a", "operator": ">"}]}),
     ],
 )
 def test_validate_rejects_bad_config(node_type, config):

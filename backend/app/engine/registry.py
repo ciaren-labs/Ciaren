@@ -5,6 +5,7 @@ from app.engine.transformations.columns import (
     RenameColumnsTransformation,
     SelectColumnsTransformation,
 )
+from app.engine.transformations.conditional import ConditionalColumnTransformation
 from app.engine.transformations.join import JoinTransformation
 from app.engine.transformations.nulls import (
     DropNullsTransformation,
@@ -20,6 +21,7 @@ from app.engine.transformations.reshape import (
     CreateCalculatedColumnTransformation,
     ExtractDatePartsTransformation,
     GroupByAggregateTransformation,
+    ParseDatesTransformation,
     PivotTransformation,
     UnpivotTransformation,
 )
@@ -31,9 +33,12 @@ from app.engine.transformations.rows import (
     SortRowsTransformation,
 )
 from app.engine.transformations.text import (
+    MapValuesTransformation,
     ReplaceValuesTransformation,
+    SplitColumnTransformation,
     StringTransformTransformation,
 )
+from app.engine.transformations.window import WindowFunctionTransformation
 
 _REGISTRY: dict[str, BaseTransformation] = {}
 
@@ -67,6 +72,11 @@ _register(
     ExtractDatePartsTransformation(),
     UnpivotTransformation(),
     PivotTransformation(),
+    SplitColumnTransformation(),
+    ParseDatesTransformation(),
+    MapValuesTransformation(),
+    WindowFunctionTransformation(),
+    ConditionalColumnTransformation(),
 )
 
 

@@ -25,6 +25,8 @@ export const queryKeys = {
     ["datasets", id, "sample", version ?? "latest"] as const,
   datasetVersions: (id: string) => ["datasets", id, "versions"] as const,
   datasetFlows: (id: string) => ["datasets", id, "flows"] as const,
+  datasetProfile: (id: string, version?: number) =>
+    ["datasets", id, "profile", version ?? "latest"] as const,
   run: (id: string) => ["runs", id] as const,
   runs: (filters: RunListFilters) => ["runs", "list", filters] as const,
   schedules: ["schedules"] as const,
@@ -32,4 +34,7 @@ export const queryKeys = {
   schedule: (id: string) => ["schedules", id] as const,
   scheduleRuns: (id: string) => ["schedules", id, "runs"] as const,
   transformations: ["transformations"] as const,
+  connections: ["connections"] as const,
+  connectionProviders: ["connections", "providers"] as const,
+  connectionTables: (id: string) => ["connections", id, "tables"] as const,
 };

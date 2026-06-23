@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useFlowPreview } from "@/features/flows/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
+import { ColumnProfileList } from "@/components/data/ColumnProfileList";
 import { DataTable } from "./DataTable";
 
 interface PreviewPanelProps {
@@ -12,11 +14,14 @@ interface PreviewPanelProps {
 export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
   const selectedNodeId = useFlowEditorStore((s) => s.selectedNodeId);
   const preview = useFlowPreview(flowId);
+  const [view, setView] = useState<"table" | "profile">("table");
 
-  const runPreview = () => {
+  const runPreview = (mode: "table" | "profile" = view) => {
+    setView(mode);
     preview.mutate({
       node_id: selectedNodeId ?? undefined,
       limit: 50,
+      profile: mode === "profile",
     });
   };
 
@@ -32,8 +37,20 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={runPreview} disabled={preview.isPending}>
-            {preview.isPending ? "Previewing…" : "Run preview"}
+          <Button
+            size="sm"
+            onClick={() => runPreview("table")}
+            disabled={preview.isPending}
+          >
+            {preview.isPending && view === "table" ? "Previewing…" : "Run preview"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runPreview("profile")}
+            disabled={preview.isPending}
+          >
+            {preview.isPending && view === "profile" ? "Profiling…" : "Profile"}
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
             Close
@@ -53,10 +70,11 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
               {preview.data.row_count} rows
               {preview.data.truncated && " (truncated)"}
             </div>
-            <DataTable
-              columns={preview.data.columns}
-              rows={preview.data.rows}
-            />
+            {view === "profile" && preview.data.profile ? (
+              <ColumnProfileList profile={preview.data.profile} />
+            ) : (
+              <DataTable columns={preview.data.columns} rows={preview.data.rows} />
+            )}
           </>
         ) : (
           !preview.isError && (

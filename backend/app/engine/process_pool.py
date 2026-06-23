@@ -21,15 +21,18 @@ def run_graph_in_process(
     dataset_paths: dict[str, Path],
     output_dir: Path,
     engine_name: str,
+    sql_input_paths: dict[str, Path] | None = None,
 ) -> RunResult:
     """Run a flow graph and return its :class:`RunResult`.
 
     Constructed as a module-level function so it is importable in spawned
     worker processes. It builds a fresh :class:`FlowExecutor` in the worker and
-    takes no DB session, so it is safe to run in another process.
+    takes no DB session, so it is safe to run in another process. SQL inputs are
+    pre-materialized to parquet in the parent (the picklable paths cross here).
     """
     return FlowExecutor().run_with_results(
-        graph, dataset_paths, output_dir, engine_name=engine_name
+        graph, dataset_paths, output_dir, engine_name=engine_name,
+        sql_input_paths=sql_input_paths,
     )
 
 

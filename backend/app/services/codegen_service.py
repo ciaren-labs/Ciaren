@@ -4,13 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.db.models.connection import Connection
 from app.db.models.dataset import Dataset
 from app.db.models.flow import Flow
 from app.engine.codegen import CodeGenerator
 from app.engine.graph import GraphValidationError
+from app.engine.node_kinds import INPUT_SOURCE_TYPES as _FILE_INPUT_TYPES
 from app.engine.polars_codegen import PolarsCodeGenerator
-
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
+from app.engine.sql_codegen import SQL_NODE_TYPES
 
 
 class CodegenService:
@@ -27,10 +28,11 @@ class CodegenService:
         # Use readable dataset filenames rather than absolute local paths so the
         # exported script is portable and we don't leak the server filesystem.
         dataset_names = await self._dataset_filenames(graph)
+        connections = await self._connection_meta(graph)
         try:
             return {
-                "pandas": CodeGenerator().generate(graph, dataset_names),
-                "polars": PolarsCodeGenerator().generate(graph, dataset_names),
+                "pandas": CodeGenerator().generate(graph, dataset_names, connections),
+                "polars": PolarsCodeGenerator().generate(graph, dataset_names, connections),
             }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
@@ -41,7 +43,7 @@ class CodegenService:
         dataset_ids = {
             n["data"]["config"]["dataset_id"]
             for n in graph.get("nodes", [])
-            if n["type"] in _INPUT_TYPES
+            if n["type"] in _FILE_INPUT_TYPES
         }
         if not dataset_ids:
             return {}
@@ -53,6 +55,30 @@ class CodegenService:
         if missing:
             raise NotFoundError("Dataset", ", ".join(sorted(missing)))
         return {ds_id: ds.name for ds_id, ds in datasets.items()}
+
+    async def _connection_meta(self, graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        """Connection details for SQL nodes — provider/host/.../password_env only.
+        Never the secret itself; the generated code reads it from ``os.environ``."""
+        ids = {
+            n.get("data", {}).get("config", {}).get("connection_id")
+            for n in graph.get("nodes", [])
+            if n.get("type") in SQL_NODE_TYPES
+        }
+        ids.discard(None)
+        if not ids:
+            return {}
+        result = await self.db.execute(select(Connection).where(Connection.id.in_(ids)))
+        return {
+            c.id: {
+                "provider": c.provider,
+                "host": c.host,
+                "port": c.port,
+                "database": c.database,
+                "username": c.username,
+                "password_env": c.password_env,
+            }
+            for c in result.scalars().all()
+        }
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

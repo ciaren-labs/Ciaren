@@ -20,6 +20,7 @@ from app.engine.process_pool import (
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
+from app.services.sql_resolver import materialize_sql_inputs, push_sql_outputs
 
 _OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
 _EXECUTION_MODES = ("thread", "process")
@@ -79,6 +80,12 @@ class ExecutionService:
 
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
+            # Read any SQL inputs live (in this async parent, which holds the DB
+            # session + secrets) and snapshot them to parquet, so the off-loop
+            # executor only ever touches plain files.
+            sql_input_paths = await materialize_sql_inputs(
+                self.db, flow.graph_json, output_dir
+            )
             # The executor is synchronous (pandas/polars compute); offload it off
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
@@ -95,6 +102,7 @@ class ExecutionService:
                     dataset_paths,
                     output_dir,
                     engine,
+                    sql_input_paths,
                 )
             else:
                 compute = asyncio.to_thread(
@@ -103,6 +111,7 @@ class ExecutionService:
                     dataset_paths,
                     output_dir,
                     engine_name=engine,
+                    sql_input_paths=sql_input_paths,
                 )
 
             timeout = self.settings.RUN_TIMEOUT_SECONDS
@@ -113,6 +122,9 @@ class ExecutionService:
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:
+                # Deliver SQL sinks before declaring success — a write failure
+                # must fail the run (the output never reached the database).
+                await push_sql_outputs(self.db, flow.graph_json, result.output_paths)
                 run.status = "success"
                 # Store a path relative to the outputs dir so we never leak the
                 # absolute server filesystem layout in API responses.

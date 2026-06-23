@@ -87,6 +87,27 @@ async def test_preview_transformation_limit(client: AsyncClient) -> None:
     assert body["truncated"] is True
 
 
+async def test_preview_transformation_profile_flag(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    # Without the flag, no profile is computed.
+    plain = await client.post(
+        "/api/transformations/preview",
+        json={"type": "dropNulls", "dataset_id": ds["id"], "config": {}},
+    )
+    assert plain.json()["profile"] is None
+
+    r = await client.post(
+        "/api/transformations/preview",
+        json={"type": "dropNulls", "dataset_id": ds["id"], "config": {}, "profile": True},
+    )
+    assert r.status_code == 200, r.text
+    profile = r.json()["profile"]
+    assert profile is not None
+    by_name = {p["name"]: p for p in profile}
+    assert set(by_name) == {"name", "age", "city"}
+    assert by_name["age"]["dtype"] in {"integer", "float"}
+
+
 async def test_preview_transformation_unknown_type(client: AsyncClient) -> None:
     ds = await _upload(client)
     r = await client.post(
