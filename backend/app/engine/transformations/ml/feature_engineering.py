@@ -1,5 +1,8 @@
-"""Feature-engineering ML nodes: scaleFeatures, encodeCategories, imputeMissing,
+"""Feature-engineering ML nodes: scaleFeatures, encodeCategories,
 selectFeatures, reduceDimensions.
+
+(Missing-value imputation lives in the Fill Nulls cleaning node, which covers
+mean/median/mode/constant fills on both engines — see app/engine/transformations/nulls.py.)
 
 These are pure dataframe -> dataframe transforms. They are **stateless in the
 graph**: each refits on whatever frame arrives, which is correct for exploration
@@ -130,66 +133,6 @@ class EncodeCategoriesTransformation(MLTransformation):
         if config.get("method", "onehot") == "ordinal":
             return ["from sklearn.preprocessing import OrdinalEncoder"]
         return []
-
-
-# -- imputeMissing ----------------------------------------------------------
-
-_SIMPLE_STRATEGIES = {"mean", "median", "most_frequent", "constant"}
-
-
-class ImputeMissingTransformation(MLTransformation):
-    type = "imputeMissing"
-
-    def validate_config(self, config: dict[str, Any]) -> None:
-        _require_columns(config, "imputeMissing")
-        strategy = config.get("strategy", "mean")
-        if strategy not in _SIMPLE_STRATEGIES | {"knn"}:
-            raise ValueError(
-                f"imputeMissing 'strategy' must be one of {sorted(_SIMPLE_STRATEGIES | {'knn'})}."
-            )
-        n = config.get("n_neighbors", 5)
-        if strategy == "knn" and (not isinstance(n, int) or isinstance(n, bool) or n < 1):
-            raise ValueError("imputeMissing 'n_neighbors' must be a positive integer for the knn strategy.")
-
-    def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
-        _check_present(config["columns"], schema.columns, "imputeMissing")
-
-    def execute(
-        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
-    ) -> dict[str, AnyFrame]:
-        columns = config["columns"]
-        strategy = config.get("strategy", "mean")
-        pdf = engine.to_pandas(inputs["in"]).copy()
-        _check_present(columns, list(pdf.columns), "imputeMissing")
-        if strategy == "knn":
-            from sklearn.impute import KNNImputer
-
-            imputer: Any = KNNImputer(n_neighbors=config.get("n_neighbors", 5))
-        else:
-            from sklearn.impute import SimpleImputer
-
-            imputer = SimpleImputer(strategy=strategy, fill_value=config.get("fill_value"))
-        pdf[columns] = imputer.fit_transform(pdf[columns])
-        return {"out": engine.from_pandas(pdf)}
-
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
-        src, dst = input_vars["in"], output_vars["out"]
-        cols = config["columns"]
-        strategy = config.get("strategy", "mean")
-        if strategy == "knn":
-            ctor = f"KNNImputer(n_neighbors={config.get('n_neighbors', 5)!r})"
-        elif strategy == "constant":
-            ctor = f"SimpleImputer(strategy='constant', fill_value={config.get('fill_value')!r})"
-        else:
-            ctor = f"SimpleImputer(strategy={strategy!r})"
-        return f"{dst} = {src}.copy()\n{dst}[{cols!r}] = {ctor}.fit_transform({dst}[{cols!r}])"
-
-    def imports(self, config: dict[str, Any]) -> list[str]:
-        if config.get("strategy", "mean") == "knn":
-            return ["from sklearn.impute import KNNImputer"]
-        return ["from sklearn.impute import SimpleImputer"]
 
 
 # -- selectFeatures ---------------------------------------------------------

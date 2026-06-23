@@ -420,16 +420,6 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Turn categorical columns into numbers (one-hot or ordinal).",
   },
   {
-    type: "imputeMissing",
-    label: "Impute Missing",
-    category: "ml",
-    requiresMl: true,
-    defaultConfig: { strategy: "mean", columns: [], fill_value: "", n_neighbors: 5 },
-    inputHandles: ["in"],
-    hasOutput: true,
-    description: "Fill missing values with mean/median/most-frequent/constant or KNN.",
-  },
-  {
     type: "selectFeatures",
     label: "Select Features",
     category: "ml",

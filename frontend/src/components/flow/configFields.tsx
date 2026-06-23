@@ -105,6 +105,49 @@ export function ColumnSelect({ value, columns, onChange, placeholder }: ColumnSe
   );
 }
 
+interface OptionalColumnSelectProps {
+  value: string | null | undefined;
+  columns: string[];
+  onChange: (v: string | null) => void;
+  /** Label for the "no column" choice, e.g. "(no stratification)". */
+  noneLabel?: string;
+}
+
+/**
+ * Optional single-column picker that is ALWAYS a dropdown (never free text).
+ * Has an explicit "none" option; when no schema is known yet it shows just the
+ * none option plus a hint, so the user is never asked to type a column name.
+ */
+export function OptionalColumnSelect({
+  value,
+  columns,
+  onChange,
+  noneLabel = "(none)",
+}: OptionalColumnSelectProps) {
+  const options = withSelected(columns, value ? [value] : []);
+  return (
+    <div className="flex flex-col gap-1">
+      <Select
+        value={value ?? ""}
+        disabled={options.length === 0}
+        onChange={(e) => onChange(e.target.value || null)}
+      >
+        <option value="">{noneLabel}</option>
+        {options.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </Select>
+      {options.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          Connect an upstream input to choose a column.
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface ColumnMultiSelectProps {
   value: string[] | undefined;
   columns: string[];

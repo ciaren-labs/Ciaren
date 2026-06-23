@@ -98,7 +98,6 @@ def _register_ml_nodes() -> None:
     from app.engine.transformations.ml.evaluate import MLEvaluateTransformation
     from app.engine.transformations.ml.feature_engineering import (
         EncodeCategoriesTransformation,
-        ImputeMissingTransformation,
         ReduceDimensionsTransformation,
         ScaleFeaturesTransformation,
         SelectFeaturesTransformation,
@@ -112,7 +111,6 @@ def _register_ml_nodes() -> None:
         TrainTestSplitTransformation(),
         ScaleFeaturesTransformation(),
         EncodeCategoriesTransformation(),
-        ImputeMissingTransformation(),
         SelectFeaturesTransformation(),
         ReduceDimensionsTransformation(),
         MLTrainTransformation(),
