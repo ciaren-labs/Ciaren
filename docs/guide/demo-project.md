@@ -109,25 +109,25 @@ year/month columns, then after **Group By Aggregate** to see one row per month.
 This is the first branched flow: two inputs, each with its own cleaning chain,
 meeting at a **Join**.
 
-**Customer branch**
+### Customer branch
 
 1. **CSV Input** → `customers.csv`.
 2. **Fill Nulls** — `age`, median.
 3. **String Transform** — `country`, upper.
 
-**Orders branch**
+### Orders branch
 
 1. **CSV Input** → `orders.csv`.
 2. **Remove Duplicates** — keep **first** (drops those 3 dupe rows).
 3. **Remove Outliers** — column `amount`, method **IQR**, action **drop**
    (removes the 99999.99 / 88888.88 rows).
 
-**Then**
+### Join & finalize
 
-4. **Join** — left input = customers, right input = orders; `left_on = id`,
+1. **Join** — left input = customers, right input = orders; `left_on = id`,
    `right_on = customer_id`, how **inner**.
-5. **Calculated Column** — `net_amount = amount * 0.9`.
-6. **CSV Output**.
+2. **Calculated Column** — `net_amount = amount * 0.9`.
+3. **CSV Output**.
 
 **Follow along:** preview the **Remove Outliers** node — the row count drops as
 the outliers leave. Preview the **Join** to see customer columns sitting next to
@@ -146,34 +146,34 @@ three datasets, then label each category by revenue tier.
 
 This is the most complex flow — three inputs and two chained joins.
 
-**Order items branch**
+### Order items branch
 
 1. **CSV Input** → `order_items.csv`.
 2. **Calculated Column** — `line_total = quantity * unit_price`.
 
-**Products branch**
+### Products branch
 
 1. **CSV Input** → `products.csv`.
 2. **Fill Nulls** — `price`, strategy **mean**.
 
-**First join**
+### First join
 
-3. **Join** — items (left) + products (right) on `product_id`, how **left**.
+1. **Join** — items (left) + products (right) on `product_id`, how **left**.
 
-**Orders branch**
+### Orders branch
 
 1. **CSV Input** → `orders.csv`.
 2. **Remove Duplicates** — keep first.
 
-**Second join + aggregate + label**
+### Second join + aggregate + label
 
-4. **Join** — (items+products) (left) + orders (right) on `order_id`, how
+1. **Join** — (items+products) (left) + orders (right) on `order_id`, how
    **left**.
-5. **Group By Aggregate** — group by `category`; `line_total` **sum**,
+2. **Group By Aggregate** — group by `category`; `line_total` **sum**,
    `order_id` **count**.
-6. **Conditional Column** — `revenue_tier`: `line_total >= 5000` → **high**,
+3. **Conditional Column** — `revenue_tier`: `line_total >= 5000` → **high**,
    `>= 1000` → **medium**, else **low**.
-7. **CSV Output**.
+4. **CSV Output**.
 
 **Follow along:** preview each **Join** to watch the table widen as columns from
 the next dataset attach. Preview **Group By Aggregate** for the final
