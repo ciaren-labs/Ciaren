@@ -118,11 +118,13 @@ export function ColumnMultiSelect({
   onChange,
   placeholder,
 }: ColumnMultiSelectProps) {
-  const selected = value ?? [];
+  // Tolerate a scalar (or missing) value so a malformed config — e.g. a join
+  // key saved as a bare string — can't crash the whole editor with a blank page.
+  const selected = Array.isArray(value) ? value : value != null ? [String(value)] : [];
   if (columns.length === 0) {
     return (
       <div className="flex flex-col gap-1">
-        <CsvListInput value={value} onChange={onChange} placeholder={placeholder} />
+        <CsvListInput value={selected} onChange={onChange} placeholder={placeholder} />
         <ConnectHint />
       </div>
     );

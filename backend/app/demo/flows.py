@@ -36,12 +36,12 @@ def _node(node_id: str, node_type: str, config: dict[str, Any], x: int, y: int) 
     }
 
 
-def _output(node_id: str, x: int, y: int) -> dict[str, Any]:
+def _output(node_id: str, dataset_name: str, x: int, y: int) -> dict[str, Any]:
     return {
         "id": node_id,
         "type": "csvOutput",
         "position": {"x": x, "y": y},
-        "data": {"config": {}},
+        "data": {"config": {"dataset_name": dataset_name}},
     }
 
 
@@ -96,7 +96,7 @@ def _clean_customers(ds: dict[str, str]) -> DemoFlow:
                 750,
                 0,
             ),
-            _output("out_customers", 1000, 0),
+            _output("out_customers", "customers_clean", 1000, 0),
         ],
         "edges": [
             _edge("in_customers", "fill_age"),
@@ -160,7 +160,7 @@ def _order_revenue_by_month(ds: dict[str, str]) -> DemoFlow:
                 1250,
                 0,
             ),
-            _output("out_revenue", 1500, 0),
+            _output("out_revenue", "order_revenue_by_month", 1500, 0),
         ],
         "edges": [
             _edge("in_orders", "parse_date"),
@@ -217,7 +217,7 @@ def _customer_orders_join(ds: dict[str, str]) -> DemoFlow:
             _node(
                 "join",
                 "join",
-                {"left_on": "id", "right_on": "customer_id", "how": "inner"},
+                {"left_on": ["id"], "right_on": ["customer_id"], "how": "inner"},
                 800,
                 125,
             ),
@@ -228,7 +228,7 @@ def _customer_orders_join(ds: dict[str, str]) -> DemoFlow:
                 1050,
                 125,
             ),
-            _output("out_joined", 1300, 125),
+            _output("out_joined", "customer_orders", 1300, 125),
         ],
         "edges": [
             _edge("in_customers", "fill_age"),
@@ -330,7 +330,7 @@ def _full_sales_mart(ds: dict[str, str]) -> DemoFlow:
                 1350,
                 300,
             ),
-            _output("out_mart", 1600, 300),
+            _output("out_mart", "sales_mart", 1600, 300),
         ],
         "edges": [
             _edge("in_items", "line_total"),
