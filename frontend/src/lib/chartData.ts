@@ -152,6 +152,12 @@ export function barData(
   }));
 }
 
+/** Columns that are NOT numeric — good defaults for category / x-axis picks. */
+export function categoricalColumns(rows: Row[], columns: string[]): string[] {
+  const numeric = new Set(numericColumns(rows, columns));
+  return columns.filter((c) => !numeric.has(c));
+}
+
 /** Count how many rows fall into each distinct value of a column (frequency). */
 export function valueCounts(rows: Row[], column: string): BarDatum[] {
   const groups = new Map<string, number>();
@@ -178,6 +184,59 @@ function aggregateValues(values: number[], aggregate: Aggregate): number {
     default:
       return 0;
   }
+}
+
+export interface StackedBarDatum {
+  category: string;
+  [group: string]: string | number;
+}
+
+/**
+ * Pivot rows into stacked-bar format: one record per x-category with one
+ * numeric property per group value, capped at the 8 top groups by total Y
+ * magnitude so dense charts stay readable.
+ */
+export function stackedBarData(
+  rows: Row[],
+  x: string,
+  y: string,
+  group: string,
+  aggregate: Aggregate,
+): { data: StackedBarDatum[]; groups: string[] } {
+  // Pick top-8 groups by total absolute Y so the legend doesn't explode.
+  const groupTotals = new Map<string, number>();
+  for (const row of rows) {
+    const gKey = String(row[group] ?? "(blank)");
+    groupTotals.set(gKey, (groupTotals.get(gKey) ?? 0) + Math.abs(toNumber(row[y]) ?? 0));
+  }
+  const topGroups = [...groupTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([k]) => k);
+  const topGroupSet = new Set(topGroups);
+
+  const nested = new Map<string, Map<string, number[]>>();
+  for (const row of rows) {
+    const xKey = String(row[x] ?? "");
+    const gKey = String(row[group] ?? "(blank)");
+    if (!topGroupSet.has(gKey)) continue;
+    const v = toNumber(row[y]);
+    if (!nested.has(xKey)) nested.set(xKey, new Map());
+    const inner = nested.get(xKey)!;
+    const list = inner.get(gKey) ?? [];
+    if (v !== null) list.push(v);
+    inner.set(gKey, list);
+  }
+
+  const data: StackedBarDatum[] = [...nested.entries()].map(([category, groups]) => {
+    const datum: StackedBarDatum = { category };
+    for (const g of topGroups) {
+      datum[g] = aggregateValues(groups.get(g) ?? [], aggregate);
+    }
+    return datum;
+  });
+
+  return { data, groups: topGroups };
 }
 
 /** Map a correlation value in [-1, 1] to a blue↔red CSS colour. */

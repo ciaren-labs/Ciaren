@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFlowPreview } from "@/features/flows/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api";
 import { ColumnProfileList } from "@/components/data/ColumnProfileList";
-import type { Aggregate } from "@/lib/chartData";
+import { categoricalColumns, numericColumns, type Aggregate } from "@/lib/chartData";
 import { DataTable } from "./DataTable";
 import { ChartPreview } from "./ChartPreview";
 
@@ -25,6 +25,7 @@ const CHART_TYPES: { value: string; label: string }[] = [
   { value: "histogramChart", label: "Histogram" },
   { value: "valueCounts", label: "Value counts" },
   { value: "barChart", label: "Bar" },
+  { value: "stackedBarChart", label: "Stacked bar" },
   { value: "pieChart", label: "Pie" },
   { value: "lineChart", label: "Line / time series" },
   { value: "areaChart", label: "Area" },
@@ -34,9 +35,10 @@ const CHART_TYPES: { value: string; label: string }[] = [
 
 // Which controls each chart type needs.
 const SINGLE_COLUMN = new Set(["histogramChart", "valueCounts"]);
-const XY = new Set(["barChart", "pieChart", "lineChart", "areaChart", "scatterChart"]);
-const CATEGORY_XY = new Set(["barChart", "pieChart"]);
-const WITH_AGGREGATE = new Set(["barChart", "pieChart"]);
+const XY = new Set(["barChart", "stackedBarChart", "pieChart", "lineChart", "areaChart", "scatterChart"]);
+const CATEGORY_XY = new Set(["barChart", "stackedBarChart", "pieChart"]);
+const WITH_AGGREGATE = new Set(["barChart", "stackedBarChart", "pieChart"]);
+const WITH_GROUP = new Set(["stackedBarChart"]);
 
 const AGGREGATES: Aggregate[] = ["sum", "mean", "count", "min", "max"];
 
@@ -140,19 +142,67 @@ function ChartView({
   columns: string[];
   rows: Record<string, unknown>[];
 }) {
+  const numCols = useMemo(() => numericColumns(rows, columns), [rows, columns]);
+  const catCols = useMemo(() => categoricalColumns(rows, columns), [rows, columns]);
+  const numColSet = useMemo(() => new Set(numCols), [numCols]);
+
+  // Initialize to smart defaults for the starting chart type (histogram → numeric col).
   const [type, setType] = useState("histogramChart");
-  const [column, setColumn] = useState("");
+  const [column, setColumn] = useState(() => numericColumns(rows, columns)[0] ?? columns[0] ?? "");
   const [bins, setBins] = useState(20);
-  const [x, setX] = useState("");
-  const [y, setY] = useState("");
+  const [x, setX] = useState(() => {
+    const cats = categoricalColumns(rows, columns);
+    return cats[0] ?? columns[0] ?? "";
+  });
+  const [y, setY] = useState(() => {
+    const nums = numericColumns(rows, columns);
+    return nums[0] ?? columns[1] ?? "";
+  });
+  const [group, setGroup] = useState(() => {
+    const cats = categoricalColumns(rows, columns);
+    return cats[1] ?? cats[0] ?? columns[2] ?? "";
+  });
   const [aggregate, setAggregate] = useState<Aggregate>("sum");
 
-  // Fall back to sensible defaults so a chart appears without forcing a pick.
+  // When the chart type changes, pre-select columns that match what the chart needs.
+  const handleTypeChange = (newType: string) => {
+    setType(newType);
+    switch (newType) {
+      case "histogramChart":
+        setColumn(numCols[0] ?? columns[0] ?? "");
+        break;
+      case "valueCounts":
+        setColumn(catCols[0] ?? columns[0] ?? "");
+        break;
+      case "scatterChart":
+        setX(numCols[0] ?? columns[0] ?? "");
+        setY(numCols[1] ?? columns[1] ?? "");
+        break;
+      case "lineChart":
+      case "areaChart":
+        setX(columns[0] ?? "");
+        setY(numCols[0] ?? columns[1] ?? "");
+        break;
+      case "barChart":
+      case "pieChart":
+        setX(catCols[0] ?? columns[0] ?? "");
+        setY(numCols[0] ?? columns[1] ?? "");
+        break;
+      case "stackedBarChart":
+        setX(catCols[0] ?? columns[0] ?? "");
+        setY(numCols[0] ?? columns[1] ?? "");
+        setGroup(catCols[1] ?? catCols[0] ?? columns[2] ?? "");
+        break;
+    }
+  };
+
+  // Validated picks — fall back by index so the chart always has something to show.
   const pick = (value: string, fallbackIndex = 0) =>
     value && columns.includes(value) ? value : columns[fallbackIndex] ?? "";
   const col = pick(column);
   const xCol = pick(x);
   const yCol = pick(y, 1);
+  const groupCol = pick(group, 2);
 
   const config: Record<string, unknown> = (() => {
     switch (type) {
@@ -170,6 +220,8 @@ function ChartView({
       case "barChart":
       case "pieChart":
         return { x: xCol, y: yCol, aggregate };
+      case "stackedBarChart":
+        return { x: xCol, y: yCol, group: groupCol, aggregate };
       default:
         return {};
     }
@@ -179,7 +231,7 @@ function ChartView({
     <div className="flex flex-col gap-2 px-3 py-2">
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Chart">
-          <Select value={type} onChange={(e) => setType(e.target.value)}>
+          <Select value={type} onChange={(e) => handleTypeChange(e.target.value)}>
             {CHART_TYPES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -190,7 +242,7 @@ function ChartView({
 
         {SINGLE_COLUMN.has(type) && (
           <Field label="Column">
-            <ColumnSelect value={col} columns={columns} onChange={setColumn} />
+            <ColumnSelect value={col} columns={columns} numericColSet={numColSet} onChange={setColumn} />
           </Field>
         )}
 
@@ -209,12 +261,18 @@ function ChartView({
         {XY.has(type) && (
           <>
             <Field label={CATEGORY_XY.has(type) ? "Category (x)" : "X axis"}>
-              <ColumnSelect value={xCol} columns={columns} onChange={setX} />
+              <ColumnSelect value={xCol} columns={columns} numericColSet={numColSet} onChange={setX} />
             </Field>
             <Field label={CATEGORY_XY.has(type) ? "Value (y)" : "Y axis"}>
-              <ColumnSelect value={yCol} columns={columns} onChange={setY} />
+              <ColumnSelect value={yCol} columns={columns} numericColSet={numColSet} onChange={setY} />
             </Field>
           </>
+        )}
+
+        {WITH_GROUP.has(type) && (
+          <Field label="Group by">
+            <ColumnSelect value={groupCol} columns={columns} numericColSet={numColSet} onChange={setGroup} />
+          </Field>
         )}
 
         {WITH_AGGREGATE.has(type) && (
@@ -263,19 +321,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ColumnSelect({
   value,
   columns,
+  numericColSet,
   onChange,
 }: {
   value: string;
   columns: string[];
+  numericColSet?: Set<string>;
   onChange: (value: string) => void;
 }) {
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-8">
-      {columns.map((c) => (
-        <option key={c} value={c}>
-          {c}
-        </option>
-      ))}
+      {columns.map((c) => {
+        const prefix = numericColSet ? (numericColSet.has(c) ? "# " : "T ") : "";
+        return (
+          <option key={c} value={c}>
+            {prefix}{c}
+          </option>
+        );
+      })}
     </Select>
   );
 }
