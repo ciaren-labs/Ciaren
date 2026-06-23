@@ -74,7 +74,8 @@ export function useFlowPreview(id: string) {
 
 export function useExportPython(id: string) {
   return useMutation({
-    mutationFn: () => flowsApi.exportPython(id),
+    mutationFn: (freeIntermediates: boolean = false) =>
+      flowsApi.exportPython(id, freeIntermediates),
   });
 }
 

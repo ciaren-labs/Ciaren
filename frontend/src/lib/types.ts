@@ -346,6 +346,8 @@ export interface TransformationPreviewRequest {
 export interface ExportCodeResponse {
   /** pandas script (kept as `code` for back-compat). */
   code: string;
-  /** polars equivalent. */
+  /** eager polars equivalent. */
   polars: string;
+  /** optimized lazy polars (`scan_*` → `collect()`) equivalent. */
+  polars_lazy: string;
 }

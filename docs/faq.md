@@ -122,7 +122,7 @@ driver).
 
 ### What transformations are available?
 
-23 transformation nodes plus file input/output, including:
+28 transformation nodes plus file and SQL input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample

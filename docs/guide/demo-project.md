@@ -186,6 +186,6 @@ appear.
 ## Next steps
 
 - See every node these flows use in the [Transformations reference](../transformations/overview.md).
-- Run a flow and read the [exported Python code](./engines.md#code-export-is-dual)
+- Run a flow and read the [exported Python code](./engines.md#code-export-pandas-polars-and-lazy-polars)
   it generates — the demo flows make for readable, educational examples.
 - Build your own: [Quick Start (5 min)](./quick-start.md).
