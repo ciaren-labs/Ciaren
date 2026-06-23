@@ -310,6 +310,7 @@ function TestButton({
   onTest,
   isPending,
   result,
+  error,
   size = "default",
   disabled = false,
   className,
@@ -317,6 +318,7 @@ function TestButton({
   onTest: () => void;
   isPending: boolean;
   result?: { ok: boolean; message: string };
+  error?: unknown;
   size?: "sm" | "default";
   disabled?: boolean;
   className?: string;
@@ -326,14 +328,20 @@ function TestButton({
 
   useEffect(() => {
     clearTimeout(timerRef.current);
-    if (result) {
-      setVisibleResult(result);
+    // Derive a displayable result from either the happy-path data or a thrown error.
+    const derived: { ok: boolean; message: string } | undefined =
+      result ??
+      (error
+        ? { ok: false, message: (error as { message?: string }).message ?? "Test failed" }
+        : undefined);
+    if (derived) {
+      setVisibleResult(derived);
       timerRef.current = setTimeout(() => setVisibleResult(null), 5000);
     } else {
       setVisibleResult(null);
     }
     return () => clearTimeout(timerRef.current);
-  }, [result]);
+  }, [result, error]);
 
   if (isPending) {
     return (
@@ -416,6 +424,7 @@ function ConnectionCard({
         onTest={() => test.mutate(connection.id)}
         isPending={test.isPending}
         result={test.data}
+        error={test.error}
       />
       <Button size="sm" variant="ghost" onClick={() => onEdit(connection)} title="Edit connection">
         <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
@@ -807,6 +816,7 @@ function ConnectionDialog({
                   onTest={() => testConfig.mutate(payload())}
                   isPending={testConfig.isPending}
                   result={testConfig.data}
+                  error={testConfig.error}
                   disabled={!form.provider}
                 />
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
