@@ -1,4 +1,4 @@
-"""Feature-engineering ML nodes: scale, encode, impute, select, reduce.
+"""Feature-engineering ML nodes: scale, encode, select, reduce.
 
 Each node converts at the engine boundary (to_pandas/from_pandas), so the core
 behaviour is exercised on both engines; sklearn-specific assertions use pandas.
@@ -10,7 +10,6 @@ import pytest
 from app.engine.backends import get_engine
 from app.engine.transformations.ml.feature_engineering import (
     EncodeCategoriesTransformation,
-    ImputeMissingTransformation,
     ReduceDimensionsTransformation,
     ScaleFeaturesTransformation,
     SelectFeaturesTransformation,
@@ -86,37 +85,6 @@ def test_ordinal_encoding_is_numeric(engine_name):
     out = _run(EncodeCategoriesTransformation(), engine, frame, {"method": "ordinal", "columns": ["size"]})
     assert pd.api.types.is_numeric_dtype(out["size"])
     assert out["size"].nunique() == 3
-
-
-# -- imputeMissing ----------------------------------------------------------
-
-
-@pytest.mark.parametrize("strategy,expected", [("mean", 2.0), ("median", 2.0), ("constant", 0.0)])
-def test_simple_imputer_strategies(strategy, expected):
-    engine, frame = _frame("pandas", pd.DataFrame({"x": [1.0, np.nan, 3.0]}))
-    config = {"strategy": strategy, "columns": ["x"]}
-    if strategy == "constant":
-        config["fill_value"] = 0.0
-    out = _run(ImputeMissingTransformation(), engine, frame, config)
-    assert out["x"].isna().sum() == 0
-    assert out["x"].iloc[1] == pytest.approx(expected)
-
-
-@pytest.mark.parametrize("engine_name", ENGINES)
-def test_knn_imputer_fills(engine_name):
-    df = pd.DataFrame({"x": [1.0, 2, np.nan, 4, 5], "y": [1.0, 2, 3, 4, 5]})
-    engine, frame = _frame(engine_name, df)
-    config = {"strategy": "knn", "columns": ["x", "y"], "n_neighbors": 2}
-    out = _run(ImputeMissingTransformation(), engine, frame, config)
-    assert out["x"].isna().sum() == 0
-
-
-def test_impute_validate_rejects_bad_strategy_and_knn_neighbors():
-    node = ImputeMissingTransformation()
-    with pytest.raises(ValueError, match="strategy"):
-        node.validate_config({"strategy": "bogus", "columns": ["x"]})
-    with pytest.raises(ValueError, match="n_neighbors"):
-        node.validate_config({"strategy": "knn", "columns": ["x"], "n_neighbors": 0})
 
 
 # -- selectFeatures ---------------------------------------------------------
@@ -203,8 +171,6 @@ def test_reduce_validate_rejects_bad_n_components():
     (ScaleFeaturesTransformation(), {"method": "robust", "columns": ["a"]}),
     (EncodeCategoriesTransformation(), {"method": "onehot", "columns": ["a"]}),
     (EncodeCategoriesTransformation(), {"method": "ordinal", "columns": ["a"]}),
-    (ImputeMissingTransformation(), {"strategy": "median", "columns": ["a"]}),
-    (ImputeMissingTransformation(), {"strategy": "knn", "columns": ["a"]}),
     (SelectFeaturesTransformation(), {"method": "variance", "threshold": 0.0}),
     (SelectFeaturesTransformation(), {"method": "correlation", "threshold": 0.9}),
     (SelectFeaturesTransformation(), {"method": "kbest", "k": 1, "target_column": "t"}),

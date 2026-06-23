@@ -504,13 +504,6 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     columns: stringArray.min(1, "Pick at least one column"),
     drop_first: z.boolean().optional(),
   }),
-  imputeMissing: z
-    .object({
-      strategy: z.enum(["mean", "median", "most_frequent", "constant", "knn"]),
-      columns: stringArray.min(1, "Pick at least one column"),
-      fill_value: z.string().optional(),
-      n_neighbors: z.coerce.number().int().min(1).optional(),
-    }),
   selectFeatures: z
     .object({
       method: z.enum(["variance", "correlation", "kbest"]),

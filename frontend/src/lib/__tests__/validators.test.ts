@@ -70,7 +70,6 @@ const COVERED = new Set<string>([
   "trainTestSplit",
   "scaleFeatures",
   "encodeCategories",
-  "imputeMissing",
   "selectFeatures",
   "reduceDimensions",
   "mlTrain",
@@ -556,17 +555,6 @@ describe("encodeCategories", () => {
   it("accepts ordinal", () => accepts("encodeCategories", { method: "ordinal", columns: ["c"] }));
   it("rejects a bad method", () =>
     rejects("encodeCategories", { method: "binary", columns: ["c"] }, "method"));
-});
-
-describe("imputeMissing", () => {
-  it("accepts a simple strategy", () =>
-    accepts("imputeMissing", { strategy: "median", columns: ["a"] }));
-  it("accepts knn with neighbors", () =>
-    accepts("imputeMissing", { strategy: "knn", columns: ["a"], n_neighbors: 3 }));
-  it("rejects a bad strategy", () =>
-    rejects("imputeMissing", { strategy: "interp", columns: ["a"] }, "strategy"));
-  it("rejects an empty column list", () =>
-    rejects("imputeMissing", { strategy: "mean", columns: [] }, "columns"));
 });
 
 describe("selectFeatures", () => {

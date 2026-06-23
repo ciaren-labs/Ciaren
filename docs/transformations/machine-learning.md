@@ -1,7 +1,7 @@
 ---
 title: Machine Learning Nodes
 description: Reference for FlowFrame's ML nodes — split, feature engineering, train, predict, evaluate.
-search: ml machine learning train predict evaluate split scale encode impute pca feature importance
+search: ml machine learning train predict evaluate split scale encode pca feature importance
 layout: doc
 ---
 
@@ -36,11 +36,15 @@ same steps into the model so they're reapplied identically at predict time.
   (median/IQR) over chosen numeric columns.
 - **Encode Categories** — `onehot` (dummy columns, optional drop-first) or
   `ordinal` (integer codes).
-- **Impute Missing** — `mean` / `median` / `most_frequent` / `constant` / `knn`.
 - **Select Features** — `variance` threshold, `correlation` filter, or `kbest`
   (top-K by relevance to a target).
 - **Reduce Dimensions** — PCA; keep a number of components or a variance
   fraction. Chosen columns are replaced by `pc_1`, `pc_2`, ….
+
+To fill missing values, use the standard **[Fill Nulls](./fill-nulls.md)**
+cleaning node (mean / median / mode / constant / forward- / backward-fill) — it
+works on both engines. For training, Train Model's Advanced → Preprocessing also
+imputes inside the model pipeline so the same fill is applied at predict time.
 
 ## Train Model
 

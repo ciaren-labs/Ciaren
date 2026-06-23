@@ -41,7 +41,6 @@ Open a flow and expand **Machine Learning** in the node palette:
 | **Train / Test Split** | Splits rows into `train` and `test` outputs (seed required). |
 | **Scale Features** | Standardize / normalize numeric columns. |
 | **Encode Categories** | One-hot or ordinal encoding for text columns. |
-| **Impute Missing** | Fill gaps (mean/median/most-frequent/constant/KNN). |
 | **Select Features** | Keep the most useful columns (variance / correlation / top-K). |
 | **Reduce Dimensions** | Compress numeric columns with PCA. |
 | **Train Model** | Fit a model and log it to MLflow. |

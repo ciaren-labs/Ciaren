@@ -30,6 +30,7 @@ import {
   ColumnMultiSelect,
   ColumnSelect,
   CsvListInput,
+  OptionalColumnSelect,
   DateFormatPicker,
   DelimiterPicker,
   Field,
@@ -1452,6 +1453,11 @@ export function NodeConfigForm({
     case "trainTestSplit":
       return (
         <>
+          <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-snug text-slate-600">
+            Two outputs: the top <span className="font-medium">train</span> handle
+            feeds your model; the bottom <span className="font-medium">test</span>{" "}
+            handle is held out for evaluation.
+          </p>
           <Field
             label="Test size"
             error={errors.test_size}
@@ -1471,11 +1477,11 @@ export function NodeConfigForm({
             error={errors.stratify_column}
             help="Keep the same class balance in train and test by stratifying on this column. Leave empty for a plain random split."
           >
-            <ColumnSelect
-              value={c.stratify_column ?? ""}
+            <OptionalColumnSelect
+              value={c.stratify_column ?? null}
               columns={columns}
-              onChange={(v) => set({ stratify_column: v || null })}
-              placeholder="(no stratification)"
+              onChange={(v) => set({ stratify_column: v })}
+              noneLabel="(no stratification)"
             />
           </Field>
           <Field
@@ -1530,41 +1536,6 @@ export function NodeConfigForm({
               />
               Drop the first category (avoids collinearity)
             </label>
-          )}
-        </>
-      );
-    }
-
-    case "imputeMissing": {
-      const strategy = (c.strategy as string) ?? "mean";
-      return (
-        <>
-          <Field label="Strategy" error={errors.strategy} help="How to fill missing values.">
-            <Select value={strategy} onChange={(e) => set({ strategy: e.target.value })}>
-              <option value="mean">Mean</option>
-              <option value="median">Median</option>
-              <option value="most_frequent">Most frequent</option>
-              <option value="constant">Constant value</option>
-              <option value="knn">KNN (nearest neighbours)</option>
-            </Select>
-          </Field>
-          <Field label="Columns" error={errors.columns} help="The columns to fill.">
-            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
-          </Field>
-          {strategy === "constant" && (
-            <Field label="Fill value" error={errors.fill_value} help="The value written into empty cells.">
-              <Input value={c.fill_value ?? ""} onChange={(e) => set({ fill_value: e.target.value })} />
-            </Field>
-          )}
-          {strategy === "knn" && (
-            <Field label="Neighbours (k)" error={errors.n_neighbors} help="How many nearest rows to average when imputing.">
-              <Input
-                type="number"
-                min={1}
-                value={c.n_neighbors ?? 5}
-                onChange={(e) => set({ n_neighbors: Number(e.target.value) })}
-              />
-            </Field>
           )}
         </>
       );
@@ -1636,6 +1607,12 @@ export function NodeConfigForm({
     case "mlPredict":
       return (
         <>
+          <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-snug text-slate-600">
+            Two inputs: connect the <span className="font-medium">data</span> to
+            score, and provide a model — either wire the{" "}
+            <span className="font-medium">model</span> input from a Train Model
+            node, or set a Model URI below.
+          </p>
           <Field
             label="Model URI (optional)"
             error={errors.model_uri}

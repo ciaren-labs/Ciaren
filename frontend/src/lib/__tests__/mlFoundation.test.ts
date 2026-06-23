@@ -47,13 +47,12 @@ function dataset(id: string, cols: string[]): Dataset {
 // ---- Catalog --------------------------------------------------------------
 
 describe("ML node catalog", () => {
-  it("registers all ten ML nodes under the 'ml' category", () => {
+  it("registers all nine ML nodes under the 'ml' category", () => {
     const ml = Object.values(NODE_TYPE_MAP).filter((d) => d.category === "ml");
     expect(ml.map((d) => d.type).sort()).toEqual(
       [
         "encodeCategories",
         "featureImportance",
-        "imputeMissing",
         "mlEvaluate",
         "mlPredict",
         "mlTrain",
