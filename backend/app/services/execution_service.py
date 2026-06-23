@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import Awaitable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import asc, desc, select
@@ -59,7 +59,7 @@ class ExecutionService:
             trigger=trigger,
             schedule_id=schedule_id,
             status="running",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC).replace(tzinfo=None),
         )
         self.db.add(run)
         await self.db.flush()  # assign run.id without committing
@@ -125,7 +125,7 @@ class ExecutionService:
                     f"{run.id}/{next(iter(result.output_paths.values())).name}" if result.output_paths else None
                 )
                 elapsed_ms = (
-                    round((datetime.utcnow() - run.started_at).total_seconds() * 1000, 2) if run.started_at else None
+                    round((datetime.now(UTC).replace(tzinfo=None) - run.started_at).total_seconds() * 1000, 2) if run.started_at else None
                 )
                 run.logs_json = [
                     {
@@ -178,7 +178,7 @@ class ExecutionService:
             run.error_message = str(exc)
             run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
-            run.finished_at = datetime.utcnow()
+            run.finished_at = datetime.now(UTC).replace(tzinfo=None)
             await self.db.commit()
             await self.db.refresh(run)
 

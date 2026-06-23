@@ -63,13 +63,23 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
   filterRows: {
-    summary: "Keeps only the rows that match a condition.",
+    summary: "Keeps only the rows that match a condition. Rows that don't match are dropped.",
     fields: [
       { name: "Column", desc: "The column to test." },
-      { name: "Operator", desc: "How to compare — equals, greater-than, contains, is-null, etc." },
-      { name: "Value", desc: "What to compare against (not needed for is-null / not-null)." },
+      {
+        name: "Operator",
+        desc: "Comparison to apply: equals, not equals, greater/less than, between (range), in (list), contains / starts with / ends with (text), is null, is not null.",
+      },
+      {
+        name: "Value",
+        desc: "What to compare against. Not needed for 'is null' / 'is not null'. For 'in', enter comma-separated values. For 'between', two bound fields appear.",
+      },
     ],
-    example: "age >= 18 keeps adults only.",
+    example: "Column = country, Operator = in, Value = US, CA → keeps only US and Canadian rows.",
+    tips: [
+      "Chain multiple Filter Rows nodes to apply several conditions — rows must pass all of them.",
+      "'is null' and 'is not null' need no value — they just check for missing data.",
+    ],
   },
   sortRows: {
     summary: "Reorders rows by one or more columns.",
@@ -100,8 +110,15 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   stringTransform: {
     summary: "Applies a text operation to every value in a column.",
     fields: [
-      { name: "Column", desc: "A text column." },
-      { name: "Operation", desc: "lower, upper, strip (trim spaces), title or capitalize." },
+      { name: "Column", desc: "A text column to transform." },
+      {
+        name: "Operation",
+        desc: "Lowercase / Uppercase / Strip whitespace / Title Case / Capitalize / String length / Find & Replace / Pad to width.",
+      },
+    ],
+    tips: [
+      "Use 'Strip whitespace' before comparisons to avoid invisible-space mismatches.",
+      "'String length' produces a numeric column counting characters per row.",
     ],
   },
   calculatedColumn: {
@@ -125,12 +142,15 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     example: "Group by region, sum of sales → one row per region.",
   },
   join: {
-    summary: "Combines two tables side-by-side on matching key columns.",
+    summary: "Combines two tables side-by-side on matching key columns — equivalent to SQL JOIN.",
     fields: [
-      { name: "Join on", desc: "The key column(s) that must match between the left and right inputs." },
-      { name: "How", desc: "inner = only matches; left/right = keep all of one side; outer = keep everything." },
+      { name: "Join type", desc: "Inner: only matched rows. Left: all left rows + matched right. Right: all right rows + matched left. Full outer: all rows from both sides." },
+      { name: "Join on", desc: "The key column(s) that must match between the left and right inputs. Enable 'different names' if the key has a different name on each side." },
     ],
-    tips: ["Connect the two sources to the left and right handles on the node."],
+    tips: [
+      "Connect the two sources to the 'left' and 'right' handles on the node.",
+      "Use 'Left join' to keep all rows from the primary table even when there's no match in the lookup.",
+    ],
   },
   concatRows: {
     summary: "Stacks two or more tables on top of each other (union of rows).",
@@ -221,15 +241,22 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   },
 
   windowFunction: {
-    summary: "Compute a window function (rank, running total, lag/lead) into a new column.",
+    summary: "Compute a window/analytical function into a new column — equivalent to SQL window functions (OVER PARTITION BY).",
     fields: [
-      { name: "Function", desc: "row_number, rank, dense_rank, cumcount, cumsum, cummax, cummin, lag, lead." },
-      { name: "Partition by", desc: "Restart the window within each group (optional)." },
-      { name: "Order by", desc: "Row order within each partition." },
-      { name: "Target", desc: "Value column for cumsum/cummax/cummin/lag/lead." },
+      {
+        name: "Function",
+        desc: "Ranking: row_number, rank, dense_rank, cumcount. Running totals: cumsum, cummax, cummin. Time-shifted: lag (previous row), lead (next row).",
+      },
+      { name: "Partition by", desc: "Reset the window per group — e.g. partition by region gives an independent running total per region." },
+      { name: "Order by", desc: "Defines row order within each partition. Required for lag/lead and most ranking functions." },
+      { name: "Target column", desc: "Source column for cumsum / cummax / cummin / lag / lead. Not needed for ranking functions." },
+      { name: "New column name", desc: "Where the result is written." },
     ],
-    example: "function cumsum, partition by region, order by date → a running total per region.",
-    tips: ["Row order is preserved; the result is added as a new column."],
+    example: "cumsum partitioned by region, ordered by date → running sales total that resets per region.",
+    tips: [
+      "Use 'rank' when you want gaps for ties (1, 1, 3), 'dense_rank' for no gaps (1, 1, 2).",
+      "lag(n=1) gives you the previous row's value; lead(n=1) gives the next row's value.",
+    ],
   },
   conditionalColumn: {
     summary: "Build a column from ordered if/elif/else rules (CASE-WHEN). First match wins.",

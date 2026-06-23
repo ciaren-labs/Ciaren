@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -92,7 +92,7 @@ class DatasetService:
                     f"{source_type.upper()}. Use a different name for a new dataset."
                 )
             version_number = await self._next_version_number(dataset.id)
-            dataset.updated_at = datetime.utcnow()
+            dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         version = DatasetVersion(
             dataset_id=dataset.id,
@@ -152,7 +152,7 @@ class DatasetService:
         updates = data.model_dump(exclude_unset=True)
         for field, value in updates.items():
             setattr(dataset, field, value)
-        dataset.updated_at = datetime.utcnow()
+        dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         return await self._read(dataset.id)
 
@@ -218,7 +218,7 @@ class DatasetService:
                     f"produces {source_type.upper()}. Use a different dataset name."
                 )
             version_number = await self._next_version_number(dataset.id)
-            dataset.updated_at = datetime.utcnow()
+            dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         version = DatasetVersion(
             dataset_id=dataset.id,

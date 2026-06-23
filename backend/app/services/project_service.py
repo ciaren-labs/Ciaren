@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,7 +78,7 @@ class ProjectService:
             await self._ensure_name_free(updates["name"])
         for field, value in updates.items():
             setattr(project, field, value)
-        project.updated_at = datetime.utcnow()
+        project.updated_at = datetime.now(UTC).replace(tzinfo=None)
         # Cascade is_disabled to all datasets and flows in this project.
         if "is_disabled" in updates:
             disabled = updates["is_disabled"]

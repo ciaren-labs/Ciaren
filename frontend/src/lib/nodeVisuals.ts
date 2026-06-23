@@ -18,15 +18,18 @@ import {
   Database,
   DatabaseZap,
   Dices,
+  Download,
   Droplets,
   Eraser,
   FileDown,
   FileSpreadsheet,
   FileText,
   Filter,
+  FolderOpen,
   GitBranch,
   GitMerge,
   Grid3x3,
+  LayoutGrid,
   Layers,
   Replace,
   Rows3,
@@ -35,9 +38,11 @@ import {
   Shuffle,
   Sheet,
   Sigma,
+  Sparkles,
   Split,
   Tag,
   Trash2,
+  TrendingUp,
   Ungroup,
   type LucideIcon,
 } from "lucide-react";
@@ -98,6 +103,15 @@ export interface CategoryTheme {
   /** Palette swatch dot. */
   dot: string;
 }
+
+export const CATEGORY_ICONS: Record<NodeCategory, LucideIcon> = {
+  input: FolderOpen,
+  clean: Sparkles,
+  columns: Columns3,
+  reshape: LayoutGrid,
+  analytics: TrendingUp,
+  output: Download,
+};
 
 export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
   input: {

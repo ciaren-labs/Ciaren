@@ -24,14 +24,17 @@ It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
 
 ## Product Vision
 
-The simplest possible visual ETL tool for small and medium datasets.
+A practical, local-first visual ETL tool for small and medium datasets —
+powerful enough for data analysts and data engineers, approachable enough
+for business analysts and Python beginners.
 
-Primary users: analysts, data-curious business users, Python beginners,
-developers who want quick repeatable pandas pipelines, and educators.
+Primary users: data analysts, data engineers, developers who want
+repeatable pipelines without infrastructure overhead, business analysts,
+and Python learners getting started with data transformation.
 
 Core promise:
-> Upload data, build a visual cleaning pipeline, preview results, run it, and
-> export readable Python code.
+> Upload data, build a visual pipeline, preview every step, run it,
+> schedule it, get your outputs — and export readable Python code when you need it.
 
 ## Non-Goals
 
@@ -59,8 +62,8 @@ Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 ## Development Principles
 
 1. Keep the MVP small; prefer explicit code over clever abstractions.
-2. Every visual node maps to one clear pandas operation.
-3. Generated Python code must be readable and educational.
+2. Every visual node maps to one clear dataframe operation.
+3. Generated Python code must be readable and runnable anywhere.
 4. Backend is the source of truth; it validates everything (the frontend only
    validates early for UX).
 5. Avoid vendor lock-in; keep the app easy to run locally.

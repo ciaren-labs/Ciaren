@@ -11,14 +11,18 @@ import {
   dtypes,
   fillStrategies,
   filterOperators,
+  FILTER_OPERATOR_LABELS,
   getConfigSchema,
   conditionOperators,
   conditionValueless,
   joinHows,
+  JOIN_HOW_LABELS,
   outlierActions,
   outlierMethods,
+  OUTLIER_METHOD_LABELS,
   splitModes,
   stringOperations,
+  STRING_OPERATION_LABELS,
   windowFunctions,
   windowTargetFuncs,
 } from "@/lib/validators";
@@ -294,7 +298,7 @@ export function NodeConfigForm({
             <Select value={operator} onChange={(e) => set({ operator: e.target.value })}>
               {filterOperators.map((op) => (
                 <option key={op} value={op}>
-                  {op}
+                  {FILTER_OPERATOR_LABELS[op] ?? op}
                 </option>
               ))}
             </Select>
@@ -435,11 +439,11 @@ export function NodeConfigForm({
           <Field label="Column" error={errors.column}>
             <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
-          <Field label="Operation" error={errors.operation} help="Text transformation applied to every value.">
+          <Field label="Operation" error={errors.operation} help="Text transformation applied to every value in the column.">
             <Select value={op} onChange={(e) => set({ operation: e.target.value })}>
               {stringOperations.map((o) => (
                 <option key={o} value={o}>
-                  {o}
+                  {STRING_OPERATION_LABELS[o] ?? o}
                 </option>
               ))}
             </Select>
@@ -555,11 +559,11 @@ export function NodeConfigForm({
       const splitKeys = !!(c.left_on?.length || c.right_on?.length);
       return (
         <>
-          <Field label="How" error={errors.how} help="Which rows to keep when keys don't match on both sides.">
+          <Field label="Join type" error={errors.how} help="Which rows to keep when keys don't match on both sides.">
             <Select value={c.how ?? "inner"} onChange={(e) => set({ how: e.target.value })}>
               {joinHows.map((h) => (
                 <option key={h} value={h}>
-                  {h}
+                  {JOIN_HOW_LABELS[h] ?? h}
                 </option>
               ))}
             </Select>
@@ -650,11 +654,11 @@ export function NodeConfigForm({
           <Field label="Columns" error={errors.columns} help="Numeric columns to check for outliers.">
             <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
           </Field>
-          <Field label="Method" error={errors.method} help="IQR and z-score detect spread; percentile clips to a fixed range.">
+          <Field label="Method" error={errors.method} help="IQR and z-score detect statistical spread; percentile clips to a custom range.">
             <Select value={method} onChange={(e) => set({ method: e.target.value })}>
               {outlierMethods.map((m) => (
                 <option key={m} value={m}>
-                  {m}
+                  {OUTLIER_METHOD_LABELS[m] ?? m}
                 </option>
               ))}
             </Select>

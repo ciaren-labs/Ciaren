@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,7 +85,7 @@ class ConnectionService:
             existing = await self._by_name(conn.name)
             if existing and existing.id != conn.id:
                 raise ConflictError(f"A connection named '{conn.name}' already exists.")
-        conn.updated_at = datetime.utcnow()
+        conn.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(conn)
         return ConnectionRead.model_validate(conn)

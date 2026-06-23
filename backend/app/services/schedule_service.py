@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +40,7 @@ class ScheduleService:
             engine=data.engine,
             enabled=data.enabled,
             catch_up=data.catch_up,
-            next_run_at=(compute_next_run(data.cron, datetime.utcnow(), data.timezone) if data.enabled else None),
+            next_run_at=(compute_next_run(data.cron, datetime.now(UTC).replace(tzinfo=None), data.timezone) if data.enabled else None),
         )
         self.db.add(schedule)
         await self.db.commit()
@@ -83,8 +83,8 @@ class ScheduleService:
         elif (
             "cron" in updates or "timezone" in updates or updates.get("enabled") is True or schedule.next_run_at is None
         ):
-            schedule.next_run_at = compute_next_run(schedule.cron, datetime.utcnow(), schedule.timezone)
-        schedule.updated_at = datetime.utcnow()
+            schedule.next_run_at = compute_next_run(schedule.cron, datetime.now(UTC).replace(tzinfo=None), schedule.timezone)
+        schedule.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(schedule)
         return ScheduleRead.model_validate(schedule)
@@ -107,7 +107,7 @@ class ScheduleService:
         # out of the auto-disable/retry machinery: a success clears the failure
         # streak (a good "it's fixed now" signal), but a failure never counts
         # toward auto-disabling — only the scheduler's own runs do.
-        schedule.last_fired_at = datetime.utcnow()
+        schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
         schedule.last_status = run.status
         schedule.last_run_id = run.id
         if run.status == "success":
