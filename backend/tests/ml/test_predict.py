@@ -24,6 +24,24 @@ def test_predict_via_model_handle(trained_classifier):
     assert meta.model_uri
 
 
+def test_predict_blank_uri_falls_back_to_wired_model(trained_classifier):
+    """A blank model_uri (the UI's default value) must not shadow a wired model.
+
+    Regression: the editor saves model_uri="" by default; the resolver used to
+    only honor the wired model when model_uri was strictly None, so a wired flow
+    failed at run time with "no model to load" even though the wire was present.
+    """
+    engine, model_ref, df = trained_classifier
+    data = engine.from_pandas(df.drop(columns=["target"]))
+    for blank in ("", "   "):
+        out, meta = NODE.execute_with_metadata(
+            engine, {"in": data, "model": model_ref}, {"model_uri": blank}
+        )
+        result = engine.to_pandas(out["out"])
+        assert "prediction" in result.columns
+        assert meta.model_uri
+
+
 def test_predict_via_config_uri(trained_classifier):
     engine, model_ref, df = trained_classifier
     uri = _model_uri(model_ref, engine)
