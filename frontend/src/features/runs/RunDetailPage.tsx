@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { AlertCircle, ArrowLeft, Download, Loader2 } from "lucide-react";
 import { useRun } from "./hooks";
+import { MlMetricsPanel } from "./MlMetricsPanel";
 import { useFlow } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { RunDag } from "@/components/run/RunDag";
@@ -196,6 +197,8 @@ function NodeInspector({ result, runId }: { result: NodeResult; runId: string })
         </div>
         <StatusBadge status={result.status} />
       </div>
+
+      {result.status === "success" && <MlMetricsPanel result={result} runId={runId} />}
 
       {OUTPUT_NODE_TYPES.has(result.type) && result.status === "success" && (
         <div className="border-b border-border px-4 py-2">
