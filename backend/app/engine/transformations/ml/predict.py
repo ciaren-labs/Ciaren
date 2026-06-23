@@ -122,13 +122,19 @@ class MLPredictTransformation(MetadataMLTransformation):
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        uri = config.get("model_uri", "models:/your-model/Production")
         output_column = config.get("output_column", "prediction")
+        # Prefer the upstream trained-model variable; fall back to loading a URI.
+        model_var = input_vars.get("model")
+        load = "" if model_var else (
+            f"_model = mlflow.sklearn.load_model("
+            f"{config.get('model_uri', 'models:/your-model/Production')!r})\n"
+        )
+        model_ref = model_var or "_model"
         return (
-            f"_model = mlflow.sklearn.load_model({uri!r})\n"
-            f"{dst} = {src}.copy()\n"
-            f"{dst}[{output_column!r}] = _model.predict({src})"
+            f"{load}{dst} = {src}.copy()\n"
+            f"{dst}[{output_column!r}] = {model_ref}.predict({src})"
         )
 
     def imports(self, config: dict[str, Any]) -> list[str]:
+        # Only need the MLflow loader when there's no upstream model variable.
         return ["import mlflow.sklearn"]

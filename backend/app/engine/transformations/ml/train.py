@@ -348,11 +348,17 @@ class MLTrainTransformation(MetadataMLTransformation):
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         est = build_estimator(config["model_type"], config.get("hyperparameters"), config.get("seed"))
-        module = type(est).__module__.split(".")[0]
         cls = type(est).__name__
-        est_import = {
-            "sklearn": f"from {type(est).__module__} import {cls}",
-            "xgboost": f"from xgboost import {cls}",
-            "lightgbm": f"from lightgbm import {cls}",
-        }.get(module, f"from {type(est).__module__} import {cls}")
+        top = type(est).__module__.split(".")[0]
+        if top in ("xgboost", "lightgbm"):
+            est_import = f"from {top} import {cls}"
+        else:
+            # Use the public sklearn module (e.g. sklearn.ensemble), not the private
+            # implementation module (sklearn.ensemble._forest) the class lives in.
+            parts: list[str] = []
+            for part in type(est).__module__.split("."):
+                if part.startswith("_"):
+                    break
+                parts.append(part)
+            est_import = f"from {'.'.join(parts)} import {cls}"
         return ["import joblib", "from sklearn.pipeline import Pipeline", est_import]

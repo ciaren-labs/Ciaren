@@ -96,8 +96,10 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
     ) -> str:
         dst = output_vars["out"]
+        model_var = input_vars.get("model", "model")
         return (
-            "_est = model.named_steps.get('model', model) if hasattr(model, 'named_steps') else model\n"
+            f"_est = {model_var}.named_steps.get('model', {model_var}) "
+            f"if hasattr({model_var}, 'named_steps') else {model_var}\n"
             "_imp = getattr(_est, 'feature_importances_', None)\n"
             "if _imp is None:\n"
             "    _imp = abs(_est.coef_).mean(axis=0) if _est.coef_.ndim > 1 else abs(_est.coef_)\n"
