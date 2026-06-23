@@ -45,9 +45,38 @@ class Settings(BaseSettings):
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
 
+    # -- Machine learning (optional extension; see docs/ml-architecture.md) ----
+    # Feature flag. ML nodes are only registered and ML routes only respond when
+    # this is true AND the ``[ml]`` extra is installed. False keeps the base
+    # install lean and the ETL test suite untouched.
+    ML_ENABLED: bool = False
+    # MLflow tracking + registry. Local ``./mlruns`` needs no server; accepts any
+    # URI MLflow understands (sqlite:///, http://host:5000, databricks, ...).
+    MLFLOW_TRACKING_URI: str = "./mlruns"
+    # Registry URI; None means "same as tracking URI".
+    MLFLOW_REGISTRY_URI: str | None = None
+    # Local root for model artifacts, resolved under DATA_DIR when relative.
+    # mlPredict only loads local model paths that live under this directory.
+    ML_ARTIFACT_DIR: str = "ml_artifacts"
+    # Guardrails enforced before a training job consumes CPU (see §6.4).
+    ML_MAX_MODEL_SIZE_MB: int = 500
+    ML_MAX_TRAINING_ROWS: int = 5_000_000
+    ML_MAX_FEATURE_COLUMNS: int = 500
+
     @property
     def max_upload_bytes(self) -> int:
         return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+    @property
+    def ml_artifact_path(self) -> str:
+        """Absolute artifact root, resolved under DATA_DIR when given as a relative
+        path. mlPredict validates user-supplied model URIs against this."""
+        from pathlib import Path
+
+        p = Path(self.ML_ARTIFACT_DIR)
+        if not p.is_absolute():
+            p = Path(self.DATA_DIR) / p
+        return str(p.resolve())
 
 
 @lru_cache
