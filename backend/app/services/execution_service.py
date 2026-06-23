@@ -47,6 +47,8 @@ class ExecutionService:
         if flow.is_disabled:
             raise ValidationError("This flow is disabled and cannot be run.")
 
+        self._guard_ml_enabled(flow.graph_json)
+
         engine = data.engine or self.settings.DEFAULT_ENGINE
         if engine not in available_engines():
             raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
@@ -276,6 +278,27 @@ class ExecutionService:
         ]
 
     # -- Internals ------------------------------------------------------
+
+    def _guard_ml_enabled(self, graph: dict[str, Any] | None) -> None:
+        """Reject running a graph that uses ML nodes when the ML extension is off.
+
+        ML node types are registered whenever the [ml] libraries are importable, so
+        without this a crafted graph could execute ML nodes even with ML_ENABLED
+        false. Keeps the feature flag a real gate, not just a UI/palette toggle.
+        """
+        from app.core.exceptions import MLNotEnabledError
+        from app.engine.registry import ml_node_types
+        from app.ml.availability import ml_extension_ready
+
+        ml_types = ml_node_types()
+        if not ml_types:
+            return
+        graph_types = {n.get("type") for n in (graph or {}).get("nodes", [])}
+        if graph_types & ml_types and not ml_extension_ready():
+            raise MLNotEnabledError(
+                "This flow uses machine-learning nodes, but ML support is not enabled "
+                "on this server (set ML_ENABLED and install the [ml] extra)."
+            )
 
     async def _effective_timeout(self, data: FlowRunCreate, schedule_id: str | None) -> int:
         """Resolve the run timeout (seconds, 0 = no limit) by precedence:
