@@ -122,6 +122,24 @@ async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
     assert run["status"] == "success"
 
 
+async def test_run_honors_flow_saved_engine(client: AsyncClient) -> None:
+    # The flow saves a pandas preference in graph_json; a run with no explicit
+    # engine should honor it instead of falling back to the polars default.
+    ds = await _upload(client)
+    graph = {**_full_graph(ds["id"]), "engine": "pandas"}
+    flow = await _create_flow(client, graph)
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    assert run["engine"] == "pandas"
+
+
+async def test_explicit_engine_overrides_saved_engine(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    graph = {**_full_graph(ds["id"]), "engine": "pandas"}
+    flow = await _create_flow(client, graph)
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "polars"})).json()
+    assert run["engine"] == "polars"
+
+
 async def test_run_with_unknown_engine_is_400(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))
