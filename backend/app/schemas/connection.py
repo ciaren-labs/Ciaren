@@ -1,11 +1,15 @@
+import re
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Provider names mapped to their kind — kept in sync with providers.py.
 _STORAGE_PROVIDERS = frozenset({"local", "s3", "azure_blob", "gcs"})
 _MONGO_PROVIDERS = frozenset({"mongodb"})
+
+# Valid POSIX env var names: start with letter or underscore, then letters/digits/underscores.
+_ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class ConnectionBase(BaseModel):
@@ -18,6 +22,16 @@ class ConnectionBase(BaseModel):
     # The NAME of an environment variable holding the password (never the secret).
     password_env: str | None = None
     options: dict[str, Any] | None = None
+
+    @field_validator("password_env")
+    @classmethod
+    def validate_password_env(cls, v: str | None) -> str | None:
+        if v is not None and not _ENV_VAR_RE.match(v):
+            raise ValueError(
+                f"password_env must be a valid environment variable name "
+                f"(letters, digits, underscores; must not start with a digit). Got: {v!r}"
+            )
+        return v
 
 
 class ConnectionCreate(ConnectionBase):
@@ -33,6 +47,16 @@ class ConnectionUpdate(BaseModel):
     username: str | None = None
     password_env: str | None = None
     options: dict[str, Any] | None = None
+
+    @field_validator("password_env")
+    @classmethod
+    def validate_password_env(cls, v: str | None) -> str | None:
+        if v is not None and not _ENV_VAR_RE.match(v):
+            raise ValueError(
+                f"password_env must be a valid environment variable name "
+                f"(letters, digits, underscores; must not start with a digit). Got: {v!r}"
+            )
+        return v
 
 
 class ConnectionRead(BaseModel):

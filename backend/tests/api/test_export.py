@@ -93,6 +93,38 @@ async def test_export_python_missing_flow(client: AsyncClient) -> None:
     assert r.status_code == 404
 
 
+def test_sql_codegen_duckdb_driver_name() -> None:
+    """DuckDB nodes must emit 'duckdb:///' not fall back to the bare provider name."""
+    from app.engine.sql_codegen import engine_url_expr
+
+    expr = engine_url_expr({"provider": "duckdb", "database": "/data/warehouse.ddb"})
+    assert "duckdb:///" in expr
+    assert "/data/warehouse.ddb" in expr
+    compile(expr, "<test>", "eval")  # must be valid Python
+
+
+def test_sql_codegen_snowflake_driver_name() -> None:
+    """Snowflake nodes must emit the snowflake:// driver name."""
+    from app.engine.sql_codegen import engine_url_expr
+
+    expr = engine_url_expr({"provider": "snowflake", "host": "my-account", "database": "mydb", "username": "user"})
+    assert "snowflake://" in expr
+    compile(expr, "<test>", "eval")
+
+
+def test_sql_codegen_rejects_invalid_password_env() -> None:
+    """An invalid password_env name must raise ValueError, not silently emit broken code."""
+    from app.engine.sql_codegen import engine_url_expr
+
+    import pytest
+
+    for bad in ["1STARTS_DIGIT", "has space", "has-dash", "has$dollar"]:
+        with pytest.raises(ValueError, match="password_env"):
+            engine_url_expr(
+                {"provider": "postgresql", "host": "localhost", "database": "db", "password_env": bad}
+            )
+
+
 async def test_export_python_incomplete_graph_is_400(client: AsyncClient) -> None:
     ds = await _upload(client)
     # No output node -> invalid for export.

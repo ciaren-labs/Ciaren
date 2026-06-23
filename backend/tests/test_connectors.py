@@ -11,6 +11,8 @@ from app.connectors import (
     list_providers,
     validate_identifier,
 )
+from app.connectors.local_storage import LocalStorageConnector
+from app.connectors.storage_base import StorageSpec
 from app.core.exceptions import ValidationError
 from app.core.secrets import resolve_secret, scrub
 
@@ -102,3 +104,56 @@ def test_resolve_secret_unset_raises(monkeypatch):
 def test_scrub_redacts_secret():
     assert "s3cret" not in scrub("error: password=s3cret failed", "s3cret")
     assert scrub("plain", None) == "plain"
+
+
+# -- local storage path-traversal security ---------------------------------
+
+
+def _local_spec(tmp_path) -> StorageSpec:
+    return StorageSpec(provider="local", bucket=str(tmp_path))
+
+
+def test_local_storage_read_within_root_succeeds(tmp_path):
+    """Reading a legitimate file within the root directory works."""
+    (tmp_path / "data.csv").write_text("a,b\n1,2\n")
+    conn = LocalStorageConnector()
+    df = conn.read_file(_local_spec(tmp_path), "data.csv", "csv")
+    assert list(df.columns) == ["a", "b"]
+
+
+def test_local_storage_read_traversal_rejected(tmp_path):
+    """Paths that escape the root via '..' are blocked."""
+    conn = LocalStorageConnector()
+    # Create a sentinel file one level above tmp_path to prove traversal would work.
+    parent = tmp_path.parent
+    sentinel = parent / "secret.csv"
+    sentinel.write_text("secret,data\n1,2\n")
+    try:
+        with pytest.raises(ConnectorError, match="escapes the storage root"):
+            conn.read_file(_local_spec(tmp_path), "../secret.csv", "csv")
+    finally:
+        sentinel.unlink(missing_ok=True)
+
+
+def test_local_storage_write_traversal_rejected(tmp_path):
+    """Write paths that escape the root are blocked before any file is created."""
+    import pandas as pd
+
+    conn = LocalStorageConnector()
+    df = pd.DataFrame({"x": [1]})
+    with pytest.raises(ConnectorError, match="escapes the storage root"):
+        conn.write_file(_local_spec(tmp_path), df, "../../injected.csv", "csv", "overwrite")
+
+
+def test_local_storage_absolute_path_rejected(tmp_path):
+    """An absolute path that doesn't start within root is blocked."""
+    import sys
+
+    conn = LocalStorageConnector()
+    # Use a safe non-existent absolute path outside tmp_path.
+    if sys.platform == "win32":
+        evil_path = "C:/Windows/System32/drivers/etc/hosts"
+    else:
+        evil_path = "/etc/hosts"
+    with pytest.raises(ConnectorError, match="escapes the storage root"):
+        conn.read_file(_local_spec(tmp_path), evil_path, "csv")

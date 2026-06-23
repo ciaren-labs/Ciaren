@@ -156,23 +156,36 @@ def topological_sort(graph: dict[str, Any]) -> list[str]:
 
 
 def _has_cycle(node_ids: set[str], edges: list[dict[str, Any]]) -> bool:
+    """Iterative DFS-based cycle detection (avoids recursion-limit issues on deep graphs)."""
     adj: dict[str, list[str]] = defaultdict(list)
     for edge in edges:
         adj[edge["source"]].append(edge["target"])
 
     visited: set[str] = set()
-    in_stack: set[str] = set()
+    # Stack entries: (node, iterator-over-neighbors, in-recursion-stack flag)
+    # We use a colour scheme: WHITE=unvisited, GRAY=in-stack, BLACK=done.
+    WHITE, GRAY, BLACK = 0, 1, 2
+    colour: dict[str, int] = {n: WHITE for n in node_ids}
 
-    def dfs(node: str) -> bool:
-        visited.add(node)
-        in_stack.add(node)
-        for neighbor in adj[node]:
-            if neighbor not in visited:
-                if dfs(neighbor):
+    for start in node_ids:
+        if colour[start] != WHITE:
+            continue
+        # Each stack frame: (node, neighbour_index)
+        stack: list[tuple[str, int]] = [(start, 0)]
+        colour[start] = GRAY
+        while stack:
+            node, idx = stack[-1]
+            neighbours = adj[node]
+            if idx < len(neighbours):
+                stack[-1] = (node, idx + 1)
+                nbr = neighbours[idx]
+                if colour[nbr] == GRAY:
                     return True
-            elif neighbor in in_stack:
-                return True
-        in_stack.discard(node)
-        return False
+                if colour[nbr] == WHITE:
+                    colour[nbr] = GRAY
+                    stack.append((nbr, 0))
+            else:
+                colour[node] = BLACK
+                stack.pop()
 
-    return any(dfs(n) for n in node_ids if n not in visited)
+    return False
