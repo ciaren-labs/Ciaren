@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -145,11 +145,24 @@ export function FlowCanvas() {
 
   const minimapColor = (_node: Node) => "#a78bfa";
 
+  // Edges leaving a "model" output (mlTrain → mlPredict/featureImportance) carry a
+  // model reference, not data — draw them purple and non-animated to read at a
+  // glance: blue = data flow, purple = model flow.
+  const styledEdges = useMemo(
+    () =>
+      edges.map((e) =>
+        e.sourceHandle === "model"
+          ? { ...e, animated: false, style: { ...e.style, stroke: "#a855f7", strokeWidth: 2 } }
+          : e,
+      ),
+    [edges],
+  );
+
   return (
     <div className="canvas-surface h-full w-full">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={styledEdges}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={onNodesChange}
