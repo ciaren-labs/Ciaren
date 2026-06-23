@@ -149,7 +149,7 @@ class MLTrainTransformation(MetadataMLTransformation):
 
         self._enforce_model_size(pipeline, settings.ML_MAX_MODEL_SIZE_MB)
 
-        run_id, model_uri = self._log_to_mlflow(config, pipeline, features, metrics, n, seed)
+        run_id, model_uri = self._log_to_mlflow(config, pipeline, features, metrics, n, seed, x)
 
         model_ref = pd.DataFrame(
             [{"mlflow_run_id": run_id, "model_uri": model_uri, "task_type": spec.task}]
@@ -286,7 +286,14 @@ class MLTrainTransformation(MetadataMLTransformation):
             )
 
     def _log_to_mlflow(
-        self, config: dict[str, Any], pipeline: Any, features: list[str], metrics: dict[str, float], n: int, seed: int
+        self,
+        config: dict[str, Any],
+        pipeline: Any,
+        features: list[str],
+        metrics: dict[str, float],
+        n: int,
+        seed: int,
+        x: Any,
     ) -> tuple[str | None, str | None]:
         try:
             import sklearn
@@ -321,13 +328,63 @@ class MLTrainTransformation(MetadataMLTransformation):
                 # cloudpickle is MLflow's standard sklearn format; the newer skops
                 # default rejects common numpy types. User-supplied model paths are
                 # still validated separately in mlPredict (see app/ml/security.py).
+                #
+                # Pin pip requirements to the *imported* versions and attach a
+                # signature: MLflow's automatic requirement inference can record a
+                # different version than the one actually loaded, producing a
+                # misleading "dependencies mismatch" warning at load time. Pinning
+                # to importlib.metadata versions (the same source the load-time check
+                # reads) keeps log-time and load-time in agreement.
+                signature = self._infer_signature(pipeline, x)
                 info = mlflow.sklearn.log_model(
-                    pipeline, name="model", serialization_format="cloudpickle"
+                    pipeline,
+                    name="model",
+                    serialization_format="cloudpickle",
+                    signature=signature,
+                    input_example=x.head(5) if hasattr(x, "head") else None,
+                    pip_requirements=self._pinned_requirements(config),
                 )
                 return run.info.run_id, info.model_uri
         except Exception as exc:  # noqa: BLE001 - MLflow problems must not fail a good model
             logger.warning("mlTrain: MLflow logging failed (%s) — model trained but not tracked.", exc)
             return None, None
+
+    def _infer_signature(self, pipeline: Any, x: Any) -> Any:
+        """Best-effort MLflow signature from the training features and predictions.
+
+        Unsupervised estimators without ``predict`` (e.g. PCA) or any inference
+        hiccup simply yield no signature — never block logging a good model.
+        """
+        try:
+            from mlflow.models import infer_signature
+
+            sample = x.head(50) if hasattr(x, "head") else x
+            return infer_signature(sample, pipeline.predict(sample))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("mlTrain: could not infer model signature (%s).", exc)
+            return None
+
+    def _pinned_requirements(self, config: dict[str, Any]) -> list[str]:
+        """Pin the model's core dependencies to the versions actually imported.
+
+        Avoids MLflow's flaky requirement inference recording a version that
+        differs from the runtime, which surfaces as a spurious dependency-mismatch
+        warning when the model is loaded back in the same environment.
+        """
+        import importlib.metadata as md
+
+        packages = ["scikit-learn", "numpy", "pandas", "cloudpickle"]
+        est = build_estimator(config["model_type"], config.get("hyperparameters"), config.get("seed"))
+        top = type(est).__module__.split(".")[0]
+        if top in ("xgboost", "lightgbm"):
+            packages.append(top)
+        pinned: list[str] = []
+        for name in packages:
+            try:
+                pinned.append(f"{name}=={md.version(name)}")
+            except md.PackageNotFoundError:
+                continue
+        return pinned
 
     def _reproducibility_tags(self) -> dict[str, str]:
         """Back-pointer tags linking the MLflow run to the FlowFrame run/flow and the
