@@ -5,8 +5,8 @@ import type { Edge, Node } from "@xyflow/react";
 // of narrow nodes packs tightly, while a wide label only widens its own column.
 // The gaps leave room for the animated smoothstep edges to curve cleanly without
 // the nodes touching.
-const H_GAP = 54;
-const V_GAP = 32;
+const H_GAP = 43;
+const V_GAP = 26;
 // Fallbacks for nodes React Flow hasn't measured yet (e.g. just-created nodes).
 const FALLBACK_W = 180;
 const FALLBACK_H = 56;
