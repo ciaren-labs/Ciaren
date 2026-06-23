@@ -2,9 +2,11 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import (
@@ -120,6 +122,8 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "Accept"],
     )
+    # Compress responses (the served JS/CSS bundle and large JSON payloads).
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
 
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next: object) -> Response:
@@ -178,19 +182,32 @@ def create_app() -> FastAPI:
 def frontend_dist_path(settings: object | None = None) -> Path | None:
     """Resolve the built frontend directory, or None if it isn't available.
 
-    Uses FRONTEND_DIST when set, else the repo's frontend/dist (dev checkout).
-    Only returns a path that actually contains an index.html.
+    Checks, in order: the configured FRONTEND_DIST, the directory bundled inside
+    the installed package (``app/web`` — populated at build time), then the repo's
+    ``frontend/dist`` (source checkout). Returns the first that has an index.html.
     """
     if settings is None:
         settings = get_settings()
+    here = Path(__file__).resolve()
+    candidates: list[Path] = []
     configured = getattr(settings, "FRONTEND_DIST", None)
-    dist = Path(configured) if configured else Path(__file__).resolve().parents[2] / "frontend" / "dist"
-    return dist if (dist / "index.html").is_file() else None
+    if configured:
+        candidates.append(Path(configured))
+    candidates.append(here.parent / "web")  # bundled into the wheel
+    candidates.append(here.parents[2] / "frontend" / "dist")  # source checkout
+    for dist in candidates:
+        if (dist / "index.html").is_file():
+            return dist
+    return None
 
 
 def _mount_frontend(app: FastAPI, settings: object) -> None:
-    """Serve the built web UI (with SPA fallback) when it's available, so the
-    whole app is reachable at the server URL. No-op when the frontend isn't built."""
+    """Serve the built web UI (with SPA fallback) when it's available, so the whole
+    app is reachable at the server URL. No-op when the frontend isn't built.
+
+    Hashed assets get a long immutable cache; index.html is never cached so a new
+    build is picked up immediately. GZip is handled by app-level middleware.
+    """
     dist = frontend_dist_path(settings)
     if dist is None:
         return
@@ -198,11 +215,24 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
+    _IMMUTABLE = "public, max-age=31536000, immutable"
+
+    class CachedStatic(StaticFiles):
+        # Vite emits content-hashed filenames, so assets can be cached forever.
+        async def get_response(self, path: str, scope: Any) -> Response:
+            response = await super().get_response(path, scope)
+            response.headers.setdefault("Cache-Control", _IMMUTABLE)
+            return response
+
     assets = dist / "assets"
     if assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+        app.mount("/assets", CachedStatic(directory=str(assets)), name="assets")
 
     index = dist / "index.html"
+
+    def _index() -> FileResponse:
+        # index.html must not be cached, or clients pin a stale bundle reference.
+        return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
     # Catch-all for client-side routes: serve real files, else the SPA shell.
     # /api, /health, /docs are matched by their routes above (registered first).
@@ -214,7 +244,7 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
         # Guard against path traversal escaping the dist dir.
         if candidate.is_file() and str(candidate).startswith(str(dist.resolve())):
             return FileResponse(str(candidate))
-        return FileResponse(str(index))
+        return _index()
 
 
 app = create_app()

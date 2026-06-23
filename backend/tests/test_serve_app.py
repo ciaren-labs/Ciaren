@@ -8,18 +8,7 @@ def _clear() -> None:
     get_settings.cache_clear()
 
 
-def test_frontend_dist_path_none_when_missing(tmp_path, monkeypatch) -> None:
-    from app.main import frontend_dist_path
-
-    monkeypatch.setenv("FLOWFRAME_FRONTEND_DIST", str(tmp_path / "does-not-exist"))
-    _clear()
-    try:
-        assert frontend_dist_path() is None
-    finally:
-        _clear()
-
-
-def test_frontend_dist_path_found_when_index_present(tmp_path, monkeypatch) -> None:
+def test_frontend_dist_path_prefers_configured(tmp_path, monkeypatch) -> None:
     from app.main import frontend_dist_path
 
     (tmp_path / "index.html").write_text("<div id='root'></div>", encoding="utf-8")
@@ -27,6 +16,23 @@ def test_frontend_dist_path_found_when_index_present(tmp_path, monkeypatch) -> N
     _clear()
     try:
         assert frontend_dist_path() == tmp_path
+    finally:
+        _clear()
+
+
+def test_frontend_dist_path_falls_back_when_configured_invalid(tmp_path, monkeypatch) -> None:
+    # A configured path without an index.html is skipped; resolution falls through
+    # to the bundled/repo dist. Either a real dist is found, or None — never the
+    # bogus configured path.
+    from app.main import frontend_dist_path
+
+    monkeypatch.setenv("FLOWFRAME_FRONTEND_DIST", str(tmp_path / "does-not-exist"))
+    _clear()
+    try:
+        resolved = frontend_dist_path()
+        assert resolved != tmp_path / "does-not-exist"
+        if resolved is not None:
+            assert (resolved / "index.html").is_file()
     finally:
         _clear()
 
