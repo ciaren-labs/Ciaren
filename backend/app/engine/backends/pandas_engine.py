@@ -37,6 +37,10 @@ class PandasEngine:
     def to_pandas(self, df: pd.DataFrame) -> pd.DataFrame:
         return df
 
+    def from_pandas(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Already pandas — nothing to convert.
+        return df
+
     def to_records(self, df: pd.DataFrame, n: int | None = None) -> list[dict[str, Any]]:
         sample = df.head(n) if n is not None else df
         records = json.loads(sample.to_json(orient="records", date_format="iso"))

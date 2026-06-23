@@ -71,6 +71,10 @@ class PolarsEngine:
     def to_pandas(self, df: pl.DataFrame) -> pd.DataFrame:
         return df.to_pandas()
 
+    def from_pandas(self, df: pd.DataFrame) -> pl.DataFrame:
+        # Arrow-backed conversion (~zero-copy for numeric columns).
+        return pl.from_pandas(df)
+
     def to_records(self, df: pl.DataFrame, n: int | None = None) -> list[dict[str, Any]]:
         sample = df.head(n) if n is not None else df
         return sample.to_dicts()

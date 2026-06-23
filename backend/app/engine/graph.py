@@ -2,11 +2,12 @@ from collections import defaultdict, deque
 from typing import Any
 
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
-from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import (
+    MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
 )
+from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 
 
 class GraphValidationError(Exception):
@@ -39,7 +40,35 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
     if _has_cycle(node_ids, edges):
         raise GraphValidationError("Graph contains a cycle")
 
+    _validate_source_handles(nodes, edges)
     _validate_connections(nodes, edges)
+
+
+def _validate_source_handles(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
+    """Check that edges leaving a multi-output node name a real output handle.
+
+    Single-output nodes are unrestricted (their sole output is implied). For a
+    multi-output node (e.g. ``trainTestSplit``), every outgoing edge must carry a
+    ``sourceHandle`` that is one of the node's declared handles — otherwise the
+    executor cannot tell which frame the edge should carry.
+    """
+    types_by_id = {n["id"]: n["type"] for n in nodes}
+    labels_by_id = {n["id"]: (n.get("data", {}).get("label") or n["type"]) for n in nodes}
+    for edge in edges:
+        handles = MULTI_OUTPUT_NODES.get(types_by_id.get(edge["source"], ""))
+        if handles is None:
+            continue
+        label = labels_by_id[edge["source"]]
+        source_handle = edge.get("sourceHandle")
+        if source_handle is None:
+            raise GraphValidationError(
+                f"{label}: this node has multiple outputs {list(handles)}; "
+                f"each outgoing connection must choose one."
+            )
+        if source_handle not in handles:
+            raise GraphValidationError(
+                f"{label}: unknown output {source_handle!r} (expected one of {list(handles)})."
+            )
 
 
 def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
@@ -161,7 +190,6 @@ def _has_cycle(node_ids: set[str], edges: list[dict[str, Any]]) -> bool:
     for edge in edges:
         adj[edge["source"]].append(edge["target"])
 
-    visited: set[str] = set()
     # Stack entries: (node, iterator-over-neighbors, in-recursion-stack flag)
     # We use a colour scheme: WHITE=unvisited, GRAY=in-stack, BLACK=done.
     WHITE, GRAY, BLACK = 0, 1, 2
