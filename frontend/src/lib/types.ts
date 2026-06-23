@@ -5,7 +5,7 @@ export interface DatasetSchemaField {
   type: string;
 }
 
-export type DatasetSourceType = "csv" | "excel" | "parquet";
+export type DatasetSourceType = "csv" | "excel" | "parquet" | "json" | "text";
 
 export interface Project {
   id: string;

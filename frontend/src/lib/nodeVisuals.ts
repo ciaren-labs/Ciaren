@@ -3,12 +3,14 @@
 // catalog has no React/icon dependency.
 
 import {
+  AlignLeft,
   Archive,
   ArrowRightLeft,
   ArrowUpDown,
   BarChart3,
   Binary,
   Boxes,
+  Braces,
   CalendarClock,
   CalendarDays,
   Calculator,
@@ -52,6 +54,8 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   csvInput: FileText,
   excelInput: FileSpreadsheet,
   parquetInput: Boxes,
+  jsonInput: Braces,
+  textInput: AlignLeft,
   sqlInput: Database,
   storageInput: FolderOpen,
   dropNulls: Eraser,

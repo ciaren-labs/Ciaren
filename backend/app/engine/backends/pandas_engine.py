@@ -22,6 +22,10 @@ class PandasEngine:
             return pd.read_excel(path)
         if source_type == "parquet":
             return pd.read_parquet(path)
+        if source_type == "json":
+            return pd.read_json(path)
+        if source_type == "text":
+            return pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pd.DataFrame, path: str, source_type: str) -> None:

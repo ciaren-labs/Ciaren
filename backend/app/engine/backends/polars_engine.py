@@ -56,6 +56,13 @@ class PolarsEngine:
             # Native polars read (via openpyxl, already a dependency) so Excel gets
             # the same type inference as the CSV/Parquet paths — not pandas'.
             return pl.read_excel(path, engine="openpyxl")
+        if source_type == "json":
+            return pl.read_json(path)
+        if source_type == "text":
+            # polars has no line-reader; fall back to pandas for consistency with storage connector.
+            import pandas as _pd
+            pdf = _pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
+            return pl.from_pandas(pdf)
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pl.DataFrame, path: str, source_type: str) -> None:
