@@ -135,6 +135,49 @@ export interface MlRegisterResult {
   alias: string | null;
 }
 
+// ---- ML Models page (registry + experiments) ------------------------------
+
+export interface MlLineage {
+  flow_id?: string;
+  run_id?: string;
+  dataset_ids?: string[];
+}
+
+export interface MlModelVersion {
+  version: string;
+  run_id: string | null;
+  status: string | null;
+  aliases: string[];
+  created: string | null;
+  metrics: Record<string, number>;
+  lineage: MlLineage;
+}
+
+export interface MlRegisteredModel {
+  name: string;
+  description: string | null;
+  aliases: Record<string, string>;
+  last_updated: string | null;
+  versions: MlModelVersion[];
+}
+
+export interface MlExperimentSummary {
+  experiment_id: string;
+  name: string;
+  lifecycle_stage: string;
+  last_run: string | null;
+}
+
+export interface MlExperimentRun {
+  run_id: string;
+  run_name: string;
+  status: string;
+  start_time: string | null;
+  metrics: Record<string, number>;
+  params: Record<string, string>;
+  lineage: MlLineage;
+}
+
 /** One input dataset a run resolved, with the concrete version it read. */
 export interface InputDatasetRef {
   dataset_id: string;

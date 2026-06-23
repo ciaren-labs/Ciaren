@@ -18,7 +18,10 @@ import type {
   FlowRunSummary,
   FlowUpdate,
   MlExperiment,
+  MlExperimentRun,
+  MlExperimentSummary,
   MlNodeMetrics,
+  MlRegisteredModel,
   MlRegisterResult,
   PreviewResponse,
   Project,
@@ -172,6 +175,11 @@ export const mlApi = {
       body: JSON.stringify(body),
     }),
   experiments: (flowId: string) => request<MlExperiment[]>(`/flows/${flowId}/ml/experiments`),
+  // ML Models page: registry + experiment leaderboard (server-wide, not per-flow).
+  registeredModels: () => request<MlRegisteredModel[]>(`/ml/models`),
+  allExperiments: () => request<MlExperimentSummary[]>(`/ml/experiments`),
+  experimentRuns: (experimentId: string) =>
+    request<MlExperimentRun[]>(`/ml/experiments/${experimentId}/runs`),
 };
 
 // ---- Schedules -------------------------------------------------------------
