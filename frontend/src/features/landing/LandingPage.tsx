@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  BrainCircuit,
   Code2,
   Database,
   FolderKanban,
@@ -44,6 +45,11 @@ const FEATURES = [
     icon: FolderKanban,
     title: "Projects",
     body: "Group related datasets and flows into tidy, shareable workspaces.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "Machine learning",
+    body: "Split, train, predict, and evaluate models on the canvas — tracked with MLflow. Optional extension.",
   },
 ];
 

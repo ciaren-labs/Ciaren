@@ -342,14 +342,6 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Drop first", desc: "One-hot only: drop one category to avoid collinearity." },
     ],
   },
-  imputeMissing: {
-    summary: "Fills missing values so rows aren't dropped during training.",
-    fields: [
-      { name: "Strategy", desc: "Mean/median/most-frequent/constant, or KNN (average of nearest rows)." },
-      { name: "Fill value", desc: "Constant strategy only." },
-      { name: "Neighbours", desc: "KNN strategy only." },
-    ],
-  },
   selectFeatures: {
     summary: "Keeps the most useful columns and drops noise to simplify and speed up training.",
     fields: [

@@ -178,6 +178,23 @@ export function validateFlow(
           }
         }
       }
+
+      // 3b. mlPredict needs a model: either the "model" input wired from an
+      // mlTrain node, or a registered-model URI in its config. Without one it
+      // has nothing to predict with.
+      if (node.type === "mlPredict") {
+        const hasModelWire = (counts.get("model") ?? 0) > 0;
+        const modelUri = node.data.config.model_uri;
+        const hasModelUri = typeof modelUri === "string" && modelUri.trim() !== "";
+        if (!hasModelWire && !hasModelUri) {
+          issues.push({
+            severity: "error",
+            code: "MODEL_MISSING",
+            nodeId: node.id,
+            message: `${def.label}: connect a model to the "model" input, or set a model URI in its config.`,
+          });
+        }
+      }
     }
   }
 

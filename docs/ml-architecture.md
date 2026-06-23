@@ -127,10 +127,14 @@ contract with zero executor changes. Register in `app/engine/registry.py`.
 |---|---|---|
 | `scaleFeatures` | StandardScaler / MinMaxScaler / RobustScaler | `method`, `columns` |
 | `encodeCategories` | OneHotEncoder / OrdinalEncoder / TargetEncoder | `method`, `columns`, `drop_first` |
-| `imputeMissing` | Mean / Median / Mode / Constant / KNN imputer | `strategy`, `columns`, `fill_value` |
 | `selectFeatures` | Variance threshold, SelectKBest, correlation filter | `method`, `k`, `threshold` |
 | `createInteractions` | PolynomialFeatures on selected columns | `columns`, `degree`, `include_bias` |
 | `reduceDimensions` | PCA (transform only — for visualization or compression) | `n_components`, `method` |
+
+Missing-value imputation is **not** a separate ML node — it is handled by the
+existing `fillNulls` cleaning node (mean / median / mode / constant / ffill /
+bfill on both engines), so there is only one place to fill nulls. Train Model's
+preprocessing also imputes inside the fitted pipeline (see §3.2).
 
 We can add more if we see it as useful
 
@@ -910,8 +914,9 @@ tests passing (154 ML-specific), mypy + ruff clean. Delivered:
   `EngineBackend.from_pandas`, `EmitsNodeMetadata`/`NodeMetadata` channel,
   `optional_input_handles`, ML fields on `NodeResult` + schema.
 - Nodes (`app/engine/transformations/ml/`): trainTestSplit, scaleFeatures,
-  encodeCategories, imputeMissing, selectFeatures, reduceDimensions, mlTrain,
-  mlPredict, mlEvaluate, featureImportance.
+  encodeCategories, selectFeatures, reduceDimensions, mlTrain,
+  mlPredict, mlEvaluate, featureImportance. (Imputation reuses the `fillNulls`
+  cleaning node — no dedicated `imputeMissing` node.)
 - ML libs: `app/ml/{security,models,tracking,loader}.py` (model catalog of 17
   types, URI/pickle/hyperparameter guards, MLflow config + safe loading).
 - Code export: CodeGenerator handles multi-output vars + import collection.
@@ -984,7 +989,7 @@ Track progress here as features are built and tested.
 
 - [ ] `scaleFeatures` node — implement + tests (all 3 strategies)
 - [ ] `encodeCategories` node — implement + tests (onehot, ordinal; handle unknown categories)
-- [ ] `imputeMissing` node — implement + tests (all strategies; check no fit-on-test leakage warning)
+- [x] Imputation — reuse the `fillNulls` cleaning node instead of a dedicated ML node
 - [ ] `selectFeatures` node — implement + tests (variance threshold + SelectKBest)
 - [ ] `reduceDimensions` (PCA transform only) — implement + tests
 

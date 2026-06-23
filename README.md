@@ -29,6 +29,8 @@ builder for **small and medium datasets**. It lets you:
 - **Execute** flows with a single click — on **polars** (default) or **pandas**
 - **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
 - **Schedule** flows to run automatically with a built-in cron scheduler
+- **Train** machine-learning models visually and track them with MLflow — an
+  optional extension (`pip install "flowframe[ml]"`)
 
 Each visual node maps to **one clear dataframe operation** — so the generated
 code is readable whenever you export it, and execution is transparent. FlowFrame
@@ -73,6 +75,7 @@ for pushdown and join optimization on large files.
 | **Versioned Datasets** | Re-uploading a file keeps every version, so flows stay reproducible |
 | **Scheduling** | Built-in cron scheduler with retries, catch-up, and auto-disable |
 | **Projects & Runs** | Group work into projects; browse run history and per-node results |
+| **Machine Learning** *(optional)* | Split, train, predict, and evaluate models on the canvas; tracked with MLflow |
 | **Extensible** | Add custom transformation nodes on the backend |
 
 ---
@@ -96,7 +99,7 @@ cd FlowFrame/backend
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# Install FlowFrame
+# Install FlowFrame (add the optional ML extension with: pip install -e ".[ml]")
 pip install -e .
 
 # Run the API + background scheduler in one process
@@ -176,6 +179,36 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 - Join / merge, union / concat
 - Pivot, unpivot, window functions
 - Parse dates, extract date parts, bin a column
+
+---
+
+## 🤖 Machine Learning (optional extension)
+
+FlowFrame includes an optional, **high-guardrail** ML extension so you can go
+from raw data to a tracked model without leaving the canvas. It is off by default
+and ships as an extra:
+
+```bash
+pip install "flowframe[ml]"      # adds scikit-learn, XGBoost, LightGBM, MLflow
+```
+
+Once installed and enabled (`FLOWFRAME_ML_ENABLED=true`, the default), a
+**Machine Learning** category appears in the node palette:
+
+- **Train / Test Split** — one node, two clearly-labelled `train` / `test` outputs
+- **Feature engineering** — Scale Features, Encode Categories, Select Features,
+  Reduce Dimensions (PCA). *(Fill missing values with the standard Fill Nulls node.)*
+- **Train Model** — pick a classifier, regressor, or clustering model; tune the
+  common hyperparameters inline or open **Advanced options** for the full set,
+  cross-validation, and in-pipeline preprocessing. The chosen model shows on the
+  canvas node.
+- **Predict** — score new data using a wired model or a registered MLflow model URI
+- **Evaluate** & **Feature Importance** — metrics, confusion matrix, and rankings
+
+Every trained model is logged to **MLflow** (a local `./mlruns` store by default,
+or any tracking server via `FLOWFRAME_MLFLOW_TRACKING_URI`). Model loading is
+sandboxed to a validated artifact directory. See the
+[ML Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/ml-quickstart).
 
 ---
 

@@ -73,32 +73,6 @@ describe("ML node config forms", () => {
     expect(screen.queryByText(/Drop the first category/i)).not.toBeInTheDocument();
   });
 
-  it("imputeMissing reveals fill value for constant and neighbours for knn", () => {
-    const { rerender } = renderForm({
-      type: "imputeMissing",
-      config: { strategy: "constant", columns: ["a"] },
-      columns: ["a"],
-    });
-    expect(screen.getByText("Fill value")).toBeInTheDocument();
-    const wrap = (cfg: Record<string, unknown>) => (
-      <QueryClientProvider client={testQueryClient}>
-        <TooltipProvider>
-          <NodeConfigForm
-            type="imputeMissing"
-            config={cfg}
-            datasets={[]}
-            columns={["a"]}
-            onChange={() => {}}
-            onErrors={() => {}}
-          />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-    rerender(wrap({ strategy: "knn", columns: ["a"], n_neighbors: 5 }));
-    expect(screen.getByText("Neighbours (k)")).toBeInTheDocument();
-    expect(screen.queryByText("Fill value")).not.toBeInTheDocument();
-  });
-
   it("selectFeatures swaps threshold for target+K under kbest", () => {
     const { rerender } = renderForm({
       type: "selectFeatures",
