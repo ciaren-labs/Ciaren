@@ -18,15 +18,24 @@ import pandas as pd
 _SEED = 42
 
 
-def build_demo_frames() -> dict[str, pd.DataFrame]:
-    """Return the four demo datasets keyed by their CSV file name."""
+def build_demo_frames(include_ml: bool = False) -> dict[str, pd.DataFrame]:
+    """Return the demo datasets keyed by their CSV file name.
+
+    The four ETL datasets are always included. When ``include_ml`` is set, two
+    clean, model-ready datasets are added for the machine-learning demo flows:
+    a 3-class classification set (``iris.csv``) and a regression set
+    (``house_prices.csv``)."""
     rng = np.random.default_rng(_SEED)
-    return {
+    frames = {
         "customers.csv": _build_customers(rng),
         "orders.csv": _build_orders(rng),
         "products.csv": _build_products(rng),
         "order_items.csv": _build_order_items(rng),
     }
+    if include_ml:
+        frames["iris.csv"] = _build_iris(rng)
+        frames["house_prices.csv"] = _build_house_prices(rng)
+    return frames
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +164,67 @@ def _build_products(rng: np.random.Generator) -> pd.DataFrame:
             "category": categories,
             "price": prices,
             "rating": ratings,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Machine-learning datasets (clean and model-ready, unlike the ETL data above)
+# ---------------------------------------------------------------------------
+
+_IRIS_SPECIES = ["setosa", "versicolor", "virginica"]
+# Per-class (mean, std) for each of the four measurements — chosen so the classes
+# are well but not perfectly separable, so trained models score high yet non-trivially.
+_IRIS_PARAMS = {
+    "setosa": [(5.0, 0.35), (3.4, 0.38), (1.5, 0.17), (0.25, 0.11)],
+    "versicolor": [(5.9, 0.51), (2.8, 0.31), (4.3, 0.47), (1.3, 0.20)],
+    "virginica": [(6.6, 0.63), (3.0, 0.32), (5.6, 0.55), (2.0, 0.27)],
+}
+
+
+def _build_iris(rng: np.random.Generator) -> pd.DataFrame:
+    """A clean, deterministic 3-class flower dataset for classification demos."""
+    rows: list[dict[str, float | str]] = []
+    for species in _IRIS_SPECIES:
+        params = _IRIS_PARAMS[species]
+        for _ in range(50):
+            rows.append(
+                {
+                    "sepal_length": round(float(rng.normal(*params[0])), 2),
+                    "sepal_width": round(float(rng.normal(*params[1])), 2),
+                    "petal_length": round(float(rng.normal(*params[2])), 2),
+                    "petal_width": round(float(rng.normal(*params[3])), 2),
+                    "species": species,
+                }
+            )
+    df = pd.DataFrame(rows)
+    # Shuffle so the classes aren't blocked together (deterministic permutation).
+    return df.sample(frac=1.0, random_state=_SEED).reset_index(drop=True)
+
+
+def _build_house_prices(rng: np.random.Generator) -> pd.DataFrame:
+    """A clean regression dataset: price is a noisy linear function of features."""
+    n = 200
+    area = rng.uniform(50, 250, size=n)           # m²
+    bedrooms = rng.integers(1, 6, size=n)
+    age = rng.uniform(0, 40, size=n)              # years
+    distance_to_city = rng.uniform(1, 30, size=n)  # km
+    noise = rng.normal(0, 15_000, size=n)
+    price = (
+        30_000
+        + area * 3_000
+        + bedrooms * 12_000
+        - age * 1_500
+        - distance_to_city * 2_000
+        + noise
+    )
+    return pd.DataFrame(
+        {
+            "area": np.round(area, 1),
+            "bedrooms": bedrooms,
+            "age": np.round(age, 1),
+            "distance_to_city": np.round(distance_to_city, 1),
+            "price": np.round(price, 0),
         }
     )
 
