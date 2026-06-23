@@ -22,6 +22,26 @@ any conflicting statement elsewhere in this document.
 3. **Branch:** all ML work lands on `feature/ml-extension`, import-isolated from the
    ETL engine (see §13 "Branch strategy").
 
+### Post-v1 additions (2026-06-23, UX pass)
+
+- **MLflow connection is the source of truth.** A new `mlflow` connection
+  provider (kind `mlflow`, tracking URI stored in `database`) is seeded as
+  **Local MLflow** at startup when ML is enabled. The effective tracking URI is
+  resolved from this connection (carried into the off-loop executor via the run
+  context, and read from the DB by the ML API routes); `MLFLOW_TRACKING_URI` is
+  only the initial default. Tested via the connection's **Test** button
+  (`app/ml/tracking.py: resolve_tracking_uri / test_tracking_uri`).
+- **ML Models page.** `GET /api/ml/models`, `GET /api/ml/experiments`, and
+  `GET /api/ml/experiments/{id}/runs` back a dedicated frontend page (registry +
+  experiment leaderboard) that links each model/run to its FlowFrame
+  flow/run/dataset via the reproducibility tags.
+- **Demo ML content.** `iris.csv` / `house_prices.csv` datasets + four ML demo
+  flows are seeded when `[ml]` is ready; `flowframe serve --run-seed-flows`
+  (`SEED_RUN_FLOWS`) runs every demo flow once on first boot.
+- **mlTrain** pins `pip_requirements` to the imported versions and logs a
+  signature to avoid spurious MLflow dependency-mismatch warnings at load time.
+- **mlPredict** treats a blank `model_uri` as absent so a wired model is used.
+
 ### Audit corrections to the original plan
 
 The plan was written before the executor reached its current shape. Four

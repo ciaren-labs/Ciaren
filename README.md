@@ -205,9 +205,17 @@ Once installed and enabled (`FLOWFRAME_ML_ENABLED=true`, the default), a
 - **Predict** — score new data using a wired model or a registered MLflow model URI
 - **Evaluate** & **Feature Importance** — metrics, confusion matrix, and rankings
 
-Every trained model is logged to **MLflow** (a local `./mlruns` store by default,
-or any tracking server via `FLOWFRAME_MLFLOW_TRACKING_URI`). Model loading is
-sandboxed to a validated artifact directory. See the
+Every trained model is logged to **MLflow**. A built-in **Local MLflow**
+connection (in the Connections page) points at `./mlruns` by default and is the
+single source of truth for the tracking URI — edit and test it to use any
+tracking server, no restart needed. A dedicated **Models** page shows your
+registered models (versions, aliases, metrics, and lineage back to the flow/run
+that produced them) and an experiment leaderboard. Model loading is sandboxed to
+a validated artifact directory.
+
+The demo project ships ML example flows too (classification, train/validate,
+regression, PCA); `flowframe serve --run-seed-flows` runs every demo flow once
+on first boot so the Runs and Models views aren't empty. See the
 [ML Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/ml-quickstart).
 
 ---

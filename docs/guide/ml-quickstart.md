@@ -22,15 +22,28 @@ pip install "flowframe[ml]"     # scikit-learn, xgboost, lightgbm, mlflow, jobli
 ```
 
 `flowframe init` provisions a local MLflow store (`./mlruns`) and enables ML by
-default. To point at an existing MLflow server instead, set:
+default. To point at an existing MLflow server, either set the env var:
 
 ```bash
 FLOWFRAME_MLFLOW_TRACKING_URI=http://your-mlflow:5000   # or sqlite:///./mlflow.db
 ```
 
+…or edit the built-in **Local MLflow** connection in the **Connections** page
+(see below) — the connection is the source of truth and overrides the env var.
+
 Check it's ready with `flowframe check` — you should see `ml: ok`. When ML is
 off or the extra isn't installed, the **Machine Learning** palette section is
 simply hidden.
+
+### The MLflow connection
+
+When ML is enabled, FlowFrame seeds a **Local MLflow** connection (under
+**Connections → Experiment tracking**) pointing at `./mlruns`. It works just
+like the Local Storage connection: click **Test connection** to verify the
+tracking store is reachable, or edit its **Tracking URI** to point at a remote
+server (`http://host:5000`), a SQLite store (`sqlite:///mlflow.db`), or another
+folder. Every training run and the **ML Models** page read the tracking URI from
+this connection, so changing it re-points MLflow everywhere — no restart needed.
 
 ## The nodes
 
@@ -93,6 +106,26 @@ e.g. `models:/churn@production` (MLflow 3 uses `@alias`, not the old `/Stage`
 syntax), or a specific version like `models:/churn/1`. Re-pointing the alias to a
 new version in MLflow means scheduled prediction flows pick it up automatically,
 no flow edits needed.
+
+## Browse your models
+
+The **Models** page (in the top nav, shown only when ML is enabled) is a
+dedicated view over everything MLflow tracked:
+
+- **Registered Models** — every registered model with its versions, aliases
+  (e.g. `@production`), key metrics, and **lineage links back to the FlowFrame
+  flow and run** that produced each version.
+- **Experiments** — a leaderboard of training runs per experiment, with the
+  best value in each metric column highlighted (RMSE/MAE treated as
+  lower-is-better) so you can compare runs at a glance.
+
+## Try the demo flows
+
+When the `[ml]` extra is installed, the built-in **Demo** project includes four
+ready-to-run ML flows: *Iris — Quick Classifier*, *Iris — Train, Validate &
+Evaluate*, *House Prices — Regression*, and *Iris — PCA Explore*. Boot with
+`flowframe serve --run-seed-flows` to run them all once on first start, so the
+Runs history and the Models page are populated out of the box.
 
 ## Reproducibility & safety
 
