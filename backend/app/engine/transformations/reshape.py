@@ -150,8 +150,12 @@ class ExtractDatePartsTransformation(BaseTransformation):
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, parts = config["column"], config["parts"]
+        # polars weekday is Monday=1..Sunday=7; subtract 1 to match pandas (Monday=0).
         exprs = ", ".join(
-            f"pl.col({col!r}).dt.{p}().alias({(col + '_' + p)!r})" for p in parts
+            f"(pl.col({col!r}).dt.weekday() - 1).alias({(col + '_' + p)!r})"
+            if p == "weekday"
+            else f"pl.col({col!r}).dt.{p}().alias({(col + '_' + p)!r})"
+            for p in parts
         )
         return f"{dst} = {src}.with_columns([{exprs}])"
 

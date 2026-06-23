@@ -80,6 +80,12 @@ class JoinTransformation(BaseTransformation):
         left_on, right_on = _as_list(config.get("left_on")), _as_list(config.get("right_on"))
         if left_on and right_on:
             keys = f"left_on={left_on!r}, right_on={right_on!r}"
+            coalesce = ""
         else:
             keys = f"on={_as_list(config.get('on'))!r}"
-        return f"{dst} = {left}.join({right}, {keys}, how={how!r}, suffix={suffix!r})"
+            # coalesce shared keys so 'full' joins keep a single key column (like pandas).
+            coalesce = ", coalesce=True"
+        return (
+            f"{dst} = {left}.join({right}, {keys}, how={how!r}, "
+            f"suffix={suffix!r}{coalesce})"
+        )
