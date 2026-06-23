@@ -1,5 +1,20 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, Check, Copy, Database, Loader2, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Cloud,
+  Copy,
+  Database,
+  FolderOpen,
+  HardDrive,
+  Loader2,
+  Plus,
+  Snowflake,
+  Trash2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import type { Connection, ConnectionCreate, ProviderInfo } from "@/lib/types";
 import {
@@ -21,6 +36,97 @@ import {
   useTestConnection,
   useTestConnectionConfig,
 } from "./hooks";
+
+// ─── Provider metadata ────────────────────────────────────────────────────────
+
+type ProviderMeta = {
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+  description: string;
+};
+
+const PROVIDER_META: Record<string, ProviderMeta> = {
+  postgresql: {
+    icon: Database,
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    description: "Open-source relational database",
+  },
+  mysql: {
+    icon: Database,
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-600",
+    description: "Popular open-source database",
+  },
+  sqlite: {
+    icon: HardDrive,
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-500",
+    description: "Lightweight file-based database",
+  },
+  mssql: {
+    icon: Database,
+    iconBg: "bg-violet-100",
+    iconColor: "text-violet-600",
+    description: "Microsoft SQL Server",
+  },
+  duckdb: {
+    icon: HardDrive,
+    iconBg: "bg-yellow-100",
+    iconColor: "text-yellow-700",
+    description: "In-process analytics database",
+  },
+  snowflake: {
+    icon: Snowflake,
+    iconBg: "bg-sky-100",
+    iconColor: "text-sky-600",
+    description: "Cloud data warehouse",
+  },
+  mongodb: {
+    icon: Database,
+    iconBg: "bg-green-100",
+    iconColor: "text-green-600",
+    description: "Document-oriented NoSQL database",
+  },
+  s3: {
+    icon: Cloud,
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-600",
+    description: "AWS S3 or any S3-compatible store",
+  },
+  azure_blob: {
+    icon: Cloud,
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    description: "Microsoft Azure Blob Storage",
+  },
+  gcs: {
+    icon: Cloud,
+    iconBg: "bg-red-100",
+    iconColor: "text-red-500",
+    description: "Google Cloud Storage",
+  },
+  local: {
+    icon: FolderOpen,
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-500",
+    description: "Local folder on the server",
+  },
+};
+
+function getProviderMeta(name: string): ProviderMeta {
+  return (
+    PROVIDER_META[name] ?? {
+      icon: Database,
+      iconBg: "bg-slate-100",
+      iconColor: "text-slate-500",
+      description: "",
+    }
+  );
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const EMPTY: ConnectionCreate = {
   name: "",
@@ -33,7 +139,6 @@ const EMPTY: ConnectionCreate = {
   options: null,
 };
 
-// Used when the /providers endpoint can't be reached so the dropdown is never empty.
 const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("postgresql", "PostgreSQL", "sql", "psycopg", "postgres", 5432, true, true, true),
   mkProvider("mysql", "MySQL / MariaDB", "sql", "pymysql", "mysql", 3306, true, true, true),
@@ -78,10 +183,11 @@ function mkProvider(
   };
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export function ConnectionsPage() {
   const { data: connections = [], isLoading } = useConnections();
   const { data: fetchedProviders = [] } = useConnectionProviders();
-  // Fall back to the built-in list if the endpoint isn't reachable yet.
   const providers = fetchedProviders.length ? fetchedProviders : FALLBACK_PROVIDERS;
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -108,7 +214,7 @@ export function ConnectionsPage() {
         <div className="rounded-lg border border-dashed border-border p-10 text-center">
           <Database className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            No connections yet. Add one to read from or write to a database.
+            No connections yet. Add one to read from or write to a database or cloud storage.
           </p>
         </div>
       ) : (
@@ -123,6 +229,8 @@ export function ConnectionsPage() {
     </div>
   );
 }
+
+// ─── Connection list card ─────────────────────────────────────────────────────
 
 function connectionTarget(connection: Connection): string {
   if (connection.connection_type === "storage") {
@@ -144,18 +252,27 @@ function ConnectionCard({
   const test = useTestConnection();
   const del = useDeleteConnection();
   const provider = providers.find((p) => p.name === connection.provider);
+  const meta = getProviderMeta(connection.provider);
+  const Icon = meta.icon;
   const target = connectionTarget(connection);
   const isBuiltIn = connection.provider === "local";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-      <Database className="h-5 w-5 text-brand-600" />
+      <div className={cn("rounded-lg p-1.5", meta.iconBg)}>
+        <Icon className={cn("h-4 w-4", meta.iconColor)} />
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{connection.name}</span>
           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
             {provider?.label ?? connection.provider}
           </span>
+          {isBuiltIn && (
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              built-in
+            </span>
+          )}
         </div>
         <p className="truncate text-xs text-muted-foreground">{target}</p>
       </div>
@@ -191,6 +308,73 @@ function ConnectionCard({
   );
 }
 
+// ─── Provider picker card ─────────────────────────────────────────────────────
+
+function ProviderCard({
+  provider,
+  onSelect,
+}: {
+  provider: ProviderInfo;
+  onSelect: () => void;
+}) {
+  const meta = getProviderMeta(provider.name);
+  const Icon = meta.icon;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={!provider.available}
+      className={cn(
+        "group relative flex flex-col gap-2.5 rounded-xl border border-border p-3.5 text-left transition-all",
+        provider.available
+          ? "cursor-pointer hover:border-primary/60 hover:bg-muted/40 hover:shadow-sm"
+          : "cursor-not-allowed opacity-40",
+      )}
+    >
+      <div className={cn("w-fit rounded-lg p-2", meta.iconBg)}>
+        <Icon className={cn("h-5 w-5", meta.iconColor)} />
+      </div>
+      <div>
+        <p className="text-xs font-semibold leading-snug">{provider.label}</p>
+        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{meta.description}</p>
+      </div>
+      {!provider.available && (
+        <span className="absolute right-2 top-2 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+          driver missing
+        </span>
+      )}
+    </button>
+  );
+}
+
+function ProviderSection({
+  label,
+  providers,
+  onSelect,
+}: {
+  label: string;
+  providers: ProviderInfo[];
+  onSelect: (p: ProviderInfo) => void;
+}) {
+  if (providers.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {providers.map((p) => (
+          <ProviderCard key={p.name} provider={p} onSelect={() => onSelect(p)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Add-connection dialog ────────────────────────────────────────────────────
+
+type DialogStep = "pick" | "configure";
+
 function ConnectionDialog({
   open,
   onOpenChange,
@@ -202,13 +386,16 @@ function ConnectionDialog({
 }) {
   const create = useCreateConnection();
   const testConfig = useTestConnectionConfig();
+  const [step, setStep] = useState<DialogStep>("pick");
   const [form, setForm] = useState<ConnectionCreate>(EMPTY);
+
   const set = (patch: Partial<ConnectionCreate>) => {
-    testConfig.reset(); // a config change invalidates the last test result
+    testConfig.reset();
     setForm((f) => ({ ...f, ...patch }));
   };
 
-  const payload = (): ConnectionCreate => ({ ...form, port: form.port ? Number(form.port) : null });
+  const setOption = (key: string, value: string) =>
+    set({ options: { ...(form.options ?? {}), [key]: value || undefined } });
 
   const provider = useMemo(
     () => providers.find((p) => p.name === form.provider),
@@ -217,143 +404,230 @@ function ConnectionDialog({
   const isStorage = provider?.kind === "storage";
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
-  const setOption = (key: string, value: string) =>
-    set({ options: { ...(form.options ?? {}), [key]: value || undefined } });
-
-  // Exclude local from the user-facing list (it's auto-seeded from DATA_DIR).
+  // Exclude local — it's auto-seeded from DATA_DIR, not user-created.
   const selectableProviders = providers.filter((p) => p.name !== "local");
+  const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
+  const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
+
+  const selectProvider = (p: ProviderInfo) => {
+    testConfig.reset();
+    setForm({
+      ...EMPTY,
+      name: form.name, // preserve any name the user typed
+      provider: p.name,
+      port: p.default_port ?? null,
+    });
+    setStep("configure");
+  };
+
+  const goBack = () => {
+    testConfig.reset();
+    setStep("pick");
+  };
+
+  const payload = (): ConnectionCreate => ({ ...form, port: form.port ? Number(form.port) : null });
 
   const submit = async () => {
     try {
       await create.mutateAsync(payload());
-      setForm(EMPTY);
-      testConfig.reset();
       onOpenChange(false);
     } catch {
       /* error shown below */
     }
   };
 
+  // Reset fully when dialog closes.
+  useEffect(() => {
+    if (!open) {
+      const t = setTimeout(() => {
+        setStep("pick");
+        setForm(EMPTY);
+        testConfig.reset();
+      }, 200);
+      return () => clearTimeout(t);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const meta = getProviderMeta(form.provider);
+  const ProviderIcon = meta.icon;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add connection</DialogTitle>
-          <DialogDescription>
-            {isStorage
-              ? "Secret keys are read at runtime from named environment variables and are never stored by FlowFrame."
-              : "The password is read at runtime from the named environment variable and is never stored by FlowFrame."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={cn("transition-none", step === "pick" ? "sm:max-w-2xl" : "sm:max-w-lg")}>
+        {step === "pick" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Add connection</DialogTitle>
+              <DialogDescription>
+                Choose the type of database or storage you want to connect to.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-5 pt-1">
+              <ProviderSection label="Databases" providers={dbProviders} onSelect={selectProvider} />
+              <ProviderSection label="Cloud Storage" providers={storageProviders} onSelect={selectProvider} />
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title="Choose a different connector"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <DialogTitle>Configure connection</DialogTitle>
+                  <DialogDescription>
+                    {isStorage
+                      ? "Secret keys are read at runtime from env vars and never stored."
+                      : "Passwords are read at runtime from env vars and never stored."}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <Field label="Name">
-            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="my-s3-bucket" />
-          </Field>
+            {/* Selected provider chip */}
+            <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <div className={cn("rounded-md p-1.5", meta.iconBg)}>
+                <ProviderIcon className={cn("h-4 w-4", meta.iconColor)} />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold">{provider?.label}</p>
+                <p className="text-[10px] text-muted-foreground">{meta.description}</p>
+              </div>
+              <button
+                type="button"
+                onClick={goBack}
+                className="text-[11px] font-medium text-primary hover:underline"
+              >
+                Change
+              </button>
+            </div>
 
-          <Field label="Provider">
-            <Select
-              value={form.provider}
-              onChange={(e) => {
-                const p = providers.find((x) => x.name === e.target.value);
-                set({ provider: e.target.value, port: p?.default_port ?? null, options: null });
-              }}
-            >
-              {selectableProviders.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.label}
-                  {p.available ? "" : " — driver not installed"}
-                </option>
-              ))}
-            </Select>
             {provider && !provider.available && provider.extra && (
               <DriverHint
                 label={provider.label}
                 command={`pip install flowframe[${provider.extra}]`}
               />
             )}
-          </Field>
 
-          {isStorage ? (
-            <StorageFields form={form} provider={provider!} set={set} setOption={setOption} />
-          ) : isSqlite ? (
-            <Field label="Database file path">
-              <Input
-                value={form.database ?? ""}
-                onChange={(e) => set({ database: e.target.value })}
-                placeholder="/data/warehouse.db"
-              />
-            </Field>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Host">
-                  <Input value={form.host ?? ""} onChange={(e) => set({ host: e.target.value })} placeholder="localhost" />
-                </Field>
-                <Field label="Port">
-                  <Input
-                    type="number"
-                    value={form.port ?? ""}
-                    onChange={(e) => set({ port: e.target.value ? Number(e.target.value) : null })}
-                  />
-                </Field>
-              </div>
-              <Field label="Database">
-                <Input value={form.database ?? ""} onChange={(e) => set({ database: e.target.value })} />
+            <div className="flex flex-col gap-3">
+              <Field label="Connection name">
+                <Input
+                  value={form.name}
+                  onChange={(e) => set({ name: e.target.value })}
+                  placeholder={isStorage ? "my-s3-bucket" : "warehouse"}
+                  autoFocus
+                />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Username">
-                  <Input value={form.username ?? ""} onChange={(e) => set({ username: e.target.value })} />
-                </Field>
-                <Field label="Password env var" hint="e.g. PG_PASSWORD">
+
+              {isStorage ? (
+                <StorageFields form={form} provider={provider!} set={set} setOption={setOption} />
+              ) : isSqlite ? (
+                <Field label="Database file path">
                   <Input
-                    value={form.password_env ?? ""}
-                    onChange={(e) => set({ password_env: e.target.value })}
-                    placeholder="PG_PASSWORD"
+                    value={form.database ?? ""}
+                    onChange={(e) => set({ database: e.target.value })}
+                    placeholder="/data/warehouse.db"
                   />
                 </Field>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Host">
+                      <Input
+                        value={form.host ?? ""}
+                        onChange={(e) => set({ host: e.target.value })}
+                        placeholder="localhost"
+                      />
+                    </Field>
+                    <Field label="Port">
+                      <Input
+                        type="number"
+                        value={form.port ?? ""}
+                        onChange={(e) =>
+                          set({ port: e.target.value ? Number(e.target.value) : null })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Database">
+                    <Input
+                      value={form.database ?? ""}
+                      onChange={(e) => set({ database: e.target.value })}
+                    />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Username">
+                      <Input
+                        value={form.username ?? ""}
+                        onChange={(e) => set({ username: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Password env var" hint="e.g. PG_PASSWORD">
+                      <Input
+                        value={form.password_env ?? ""}
+                        onChange={(e) => set({ password_env: e.target.value })}
+                        placeholder="PG_PASSWORD"
+                      />
+                    </Field>
+                  </div>
+                </>
+              )}
+
+              {testConfig.data && (
+                <p
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs",
+                    testConfig.data.ok ? "text-success" : "text-destructive",
+                  )}
+                >
+                  {testConfig.data.ok ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
+                  {testConfig.data.message}
+                </p>
+              )}
+              {create.isError && (
+                <p className="text-xs text-destructive">
+                  {(create.error as ApiError)?.message ?? "Could not create connection."}
+                </p>
+              )}
+
+              <div className="mt-1 flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="mr-auto"
+                  onClick={() => testConfig.mutate(payload())}
+                  disabled={testConfig.isPending || !form.provider}
+                >
+                  {testConfig.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  Test connection
+                </Button>
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={submit} disabled={create.isPending || !form.name}>
+                  {create.isPending ? "Saving…" : "Save connection"}
+                </Button>
               </div>
-            </>
-          )}
-
-          {testConfig.data && (
-            <p
-              className={`flex items-center gap-1.5 text-xs ${testConfig.data.ok ? "text-success" : "text-destructive"}`}
-            >
-              {testConfig.data.ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-              {testConfig.data.message}
-            </p>
-          )}
-          {create.isError && (
-            <p className="text-xs text-destructive">
-              {(create.error as ApiError)?.message ?? "Could not create connection."}
-            </p>
-          )}
-
-          <div className="mt-2 flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              className="mr-auto"
-              onClick={() => testConfig.mutate(payload())}
-              disabled={testConfig.isPending || !form.provider}
-            >
-              {testConfig.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              Test connection
-            </Button>
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submit} disabled={create.isPending || !form.name}>
-              {create.isPending ? "Saving…" : "Save connection"}
-            </Button>
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
+// ─── Storage-specific fields ──────────────────────────────────────────────────
 
 function StorageFields({
   form,
@@ -378,14 +652,20 @@ function StorageFields({
             placeholder="my-data-bucket"
           />
         </Field>
-        <Field label="Access Key ID (optional)" hint="Leave empty to use IAM role or env credentials">
+        <Field
+          label="Access Key ID"
+          hint="Leave empty to use an IAM role or AWS_ACCESS_KEY_ID env var"
+        >
           <Input
             value={form.username ?? ""}
             onChange={(e) => set({ username: e.target.value })}
             placeholder="AKIAIOSFODNN7EXAMPLE"
           />
         </Field>
-        <Field label="Secret Access Key env var (optional)" hint="Name of the env var holding the secret key">
+        <Field
+          label="Secret Access Key env var"
+          hint="Name of the env var holding the secret key (optional if using IAM)"
+        >
           <Input
             value={form.password_env ?? ""}
             onChange={(e) => set({ password_env: e.target.value })}
@@ -393,14 +673,14 @@ function StorageFields({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Region (optional)" hint="e.g. us-east-1">
+          <Field label="Region" hint="e.g. us-east-1 (optional)">
             <Input
               value={opts.region ?? ""}
               onChange={(e) => setOption("region", e.target.value)}
               placeholder="us-east-1"
             />
           </Field>
-          <Field label="Endpoint URL (optional)" hint="For MinIO, R2, etc.">
+          <Field label="Endpoint URL" hint="For MinIO, R2, etc. (optional)">
             <Input
               value={form.host ?? ""}
               onChange={(e) => set({ host: e.target.value })}
@@ -450,7 +730,7 @@ function StorageFields({
             placeholder="my-gcs-bucket"
           />
         </Field>
-        <Field label="Project ID (optional)">
+        <Field label="Project ID" hint="Optional — uses the project from the service account if omitted">
           <Input
             value={opts.project_id ?? ""}
             onChange={(e) => setOption("project_id", e.target.value)}
@@ -458,7 +738,7 @@ function StorageFields({
           />
         </Field>
         <Field
-          label="Service account key path env var (optional)"
+          label="Service account key env var"
           hint="Env var holding the path to a service account JSON file. Leave empty for Application Default Credentials."
         >
           <Input
@@ -474,6 +754,8 @@ function StorageFields({
   return null;
 }
 
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
 function DriverHint({ label, command }: { label: string; command: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -482,7 +764,7 @@ function DriverHint({ label, command }: { label: string; command: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="mt-1 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700">
+    <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700">
       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
       <span className="shrink-0">The {label} driver isn't installed:</span>
       <code className="min-w-0 flex-1 truncate font-mono text-amber-900" title={command}>
