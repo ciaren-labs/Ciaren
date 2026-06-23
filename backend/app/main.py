@@ -79,19 +79,50 @@ async def _seed_mlflow_connection_safe(tracking_uri: str) -> None:
         logger.warning("MLflow connection seeding failed; continuing without it.", exc_info=True)
 
 
-async def _seed_demo_safe() -> None:
+async def _seed_demo_safe() -> str | None:
     """Seed the demo project, never letting a failure block startup.
 
     Seeding is idempotent (a no-op once the Demo project exists), so this is
     safe to run on every boot. Any error is logged as a warning and swallowed.
+    Returns the new project's id when it was just created (so its flows can be
+    run once), or None when seeding was skipped or failed.
     """
     try:
         from app.demo import seed_demo
 
         async with AsyncSessionLocal() as session:
-            await seed_demo(session)
+            project = await seed_demo(session)
+            return project.id if project is not None else None
     except Exception:  # noqa: BLE001 - seeding must never crash the server
         logger.warning("Demo project seeding failed; continuing without it.", exc_info=True)
+        return None
+
+
+async def _run_seeded_flows_safe(project_id: str) -> None:
+    """Run every flow in the freshly-seeded demo project once, best-effort.
+
+    Populates run history (and, for the ML flows, MLflow experiments/models) so a
+    new install isn't empty. Each flow runs in its own session; one failure never
+    blocks the others or startup."""
+    try:
+        from sqlalchemy import select
+
+        from app.db.models.flow import Flow
+        from app.schemas.run import FlowRunCreate
+        from app.services.execution_service import ExecutionService
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Flow.id, Flow.name).where(Flow.project_id == project_id))
+            flows = result.all()
+
+        for flow_id, flow_name in flows:
+            try:
+                async with AsyncSessionLocal() as session:
+                    await ExecutionService(session).run(flow_id, FlowRunCreate(), trigger="seed")
+            except Exception:  # noqa: BLE001 - one bad flow must not stop the rest
+                logger.warning("Seed run failed for flow %r; continuing.", flow_name, exc_info=True)
+    except Exception:  # noqa: BLE001
+        logger.warning("Running seeded flows failed; continuing without it.", exc_info=True)
 
 
 @asynccontextmanager
@@ -110,7 +141,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await _seed_mlflow_connection_safe(settings.MLFLOW_TRACKING_URI)
 
     if settings.SEED_DEMO:
-        await _seed_demo_safe()
+        seeded_project_id = await _seed_demo_safe()
+        if seeded_project_id is not None and settings.SEED_RUN_FLOWS:
+            logger.info("Running seeded demo flows once (SEED_RUN_FLOWS enabled)…")
+            await _run_seeded_flows_safe(seeded_project_id)
 
     runner = None
     if settings.SCHEDULER_ENABLED:

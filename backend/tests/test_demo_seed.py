@@ -192,6 +192,24 @@ async def test_ml_demo_flows_execute_end_to_end(ml_demo_db: AsyncSession, tmp_pa
         assert run.output_paths, f"{flow.name} produced no output"
 
 
+async def test_seed_run_creates_runs_with_seed_trigger(demo_db: AsyncSession) -> None:
+    """The run-on-seed path runs each demo flow once, tagged trigger='seed'."""
+    from app.db.models.run import FlowRun
+    from app.schemas.run import FlowRunCreate
+    from app.services.execution_service import ExecutionService
+
+    project = await _project(demo_db)
+    flows = (await demo_db.execute(select(Flow).where(Flow.project_id == project.id))).scalars().all()
+
+    for flow in flows:
+        run = await ExecutionService(demo_db).run(flow.id, FlowRunCreate(), trigger="seed")
+        assert run.trigger == "seed"
+        assert run.status == "success"
+
+    seed_runs = (await demo_db.execute(select(FlowRun).where(FlowRun.trigger == "seed"))).scalars().all()
+    assert len(seed_runs) == len(flows)
+
+
 async def test_seeder_is_idempotent(demo_db: AsyncSession) -> None:
     # A second call must not create a duplicate project / datasets / flows.
     second = await seed_demo(demo_db)

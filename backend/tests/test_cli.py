@@ -72,6 +72,21 @@ def test_serve_flags_are_parsed() -> None:
     assert args.log_level == "debug"
 
 
+def test_run_seed_flows_flag() -> None:
+    assert cli.build_parser().parse_args(["serve"]).run_seed_flows is False
+    assert cli.build_parser().parse_args(["serve", "--run-seed-flows"]).run_seed_flows is True
+
+
+def test_apply_serve_env_sets_run_seed_flows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FLOWFRAME_SEED_RUN_FLOWS", raising=False)
+    args = argparse.Namespace(
+        db_url=None, data_dir=None, engine=None, execution_mode=None,
+        no_scheduler=False, no_demo=False, run_seed_flows=True,
+    )
+    cli._apply_serve_env(args)
+    assert os.environ["FLOWFRAME_SEED_RUN_FLOWS"] == "true"
+
+
 def test_engine_choice_is_validated() -> None:
     with pytest.raises(SystemExit):
         cli.build_parser().parse_args(["serve", "--engine", "spark"])
