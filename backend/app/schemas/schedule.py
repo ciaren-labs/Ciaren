@@ -14,6 +14,8 @@ class ScheduleCreate(BaseModel):
     catch_up: bool = False
     max_retries: int = Field(0, ge=0, le=10)
     retry_delay_seconds: int = Field(60, ge=1)
+    # Per-schedule run timeout (seconds, 0 = no limit). None uses RUN_TIMEOUT_SECONDS.
+    run_timeout_seconds: int | None = Field(None, ge=0)
 
 
 class ScheduleUpdate(BaseModel):
@@ -26,6 +28,7 @@ class ScheduleUpdate(BaseModel):
     catch_up: bool | None = None
     max_retries: int | None = Field(None, ge=0, le=10)
     retry_delay_seconds: int | None = Field(None, ge=1)
+    run_timeout_seconds: int | None = Field(None, ge=0)
 
 
 class ScheduleRead(BaseModel):
@@ -40,6 +43,7 @@ class ScheduleRead(BaseModel):
     catch_up: bool
     max_retries: int
     retry_delay_seconds: int
+    run_timeout_seconds: int | None
     next_run_at: datetime | None
     last_fired_at: datetime | None
     last_run_id: str | None
