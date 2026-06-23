@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Path to the built frontend (frontend/dist). When set/auto-detected, the
+    # server also serves the web UI so `flowframe serve` is a single URL. None +
+    # no auto-detected dist = API only (run the Vite dev server separately).
+    FRONTEND_DIST: str | None = None
+
     # Days a soft-deleted dataset's files are retained before `purge-expired`
     # removes them. Until then the dataset can be restored and historical runs
     # that referenced it still resolve.

@@ -41,10 +41,12 @@ async def _seed_local_storage_safe(data_dir: str) -> None:
         from app.db.models.connection import Connection
 
         async with AsyncSessionLocal() as session:
+            # Use first() (not scalar_one_or_none): tolerate pre-existing duplicate
+            # rows from older builds instead of crashing startup seeding.
             result = await session.execute(
-                select(Connection).where(Connection.provider == "local")
+                select(Connection).where(Connection.provider == "local").limit(1)
             )
-            if result.scalar_one_or_none() is None:
+            if result.scalars().first() is None:
                 conn = Connection(name="Local Storage", provider="local", database=data_dir)
                 session.add(conn)
                 await session.commit()
@@ -168,7 +170,51 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    _mount_frontend(app, settings)
+
     return app
+
+
+def frontend_dist_path(settings: object | None = None) -> Path | None:
+    """Resolve the built frontend directory, or None if it isn't available.
+
+    Uses FRONTEND_DIST when set, else the repo's frontend/dist (dev checkout).
+    Only returns a path that actually contains an index.html.
+    """
+    if settings is None:
+        settings = get_settings()
+    configured = getattr(settings, "FRONTEND_DIST", None)
+    dist = Path(configured) if configured else Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    return dist if (dist / "index.html").is_file() else None
+
+
+def _mount_frontend(app: FastAPI, settings: object) -> None:
+    """Serve the built web UI (with SPA fallback) when it's available, so the
+    whole app is reachable at the server URL. No-op when the frontend isn't built."""
+    dist = frontend_dist_path(settings)
+    if dist is None:
+        return
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+
+    index = dist / "index.html"
+
+    # Catch-all for client-side routes: serve real files, else the SPA shell.
+    # /api, /health, /docs are matched by their routes above (registered first).
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa(path: str) -> Response:
+        if path.startswith("api/") or path in ("health", "openapi.json"):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        candidate = (dist / path).resolve()
+        # Guard against path traversal escaping the dist dir.
+        if candidate.is_file() and str(candidate).startswith(str(dist.resolve())):
+            return FileResponse(str(candidate))
+        return FileResponse(str(index))
 
 
 app = create_app()
