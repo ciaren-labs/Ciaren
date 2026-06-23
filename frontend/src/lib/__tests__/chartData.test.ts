@@ -6,6 +6,7 @@ import {
   numericColumns,
   pearson,
   toNumber,
+  valueCounts,
   type Row,
 } from "../chartData";
 
@@ -94,5 +95,21 @@ describe("barData", () => {
     expect(mean.find((d) => d.category === "a")?.value).toBe(2);
     const count = barData(rows, "cat", "v", "count");
     expect(count.find((d) => d.category === "a")?.value).toBe(2);
+  });
+});
+
+describe("valueCounts", () => {
+  it("counts occurrences per distinct value and labels blanks", () => {
+    const rows: Row[] = [
+      { status: "ok" },
+      { status: "ok" },
+      { status: "bad" },
+      { status: null },
+      { status: "" },
+    ];
+    const counts = valueCounts(rows, "status");
+    expect(counts.find((d) => d.category === "ok")?.value).toBe(2);
+    expect(counts.find((d) => d.category === "bad")?.value).toBe(1);
+    expect(counts.find((d) => d.category === "(blank)")?.value).toBe(2);
   });
 });

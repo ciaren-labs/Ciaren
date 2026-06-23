@@ -2,12 +2,17 @@
 // derived entirely client-side from the preview sample — the backend never
 // computes them — so they reflect a sample of the data, not the full dataset.
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -23,7 +28,9 @@ import {
   histogram,
   numericColumns,
   toNumber,
+  valueCounts,
   type Aggregate,
+  type BarDatum,
   type Row,
 } from "@/lib/chartData";
 
@@ -49,10 +56,16 @@ export function ChartPreview({ type, config, rows }: ChartPreviewProps) {
       return <HeatmapView rows={rows} config={config} />;
     case "lineChart":
       return <LineView rows={rows} config={config} />;
+    case "areaChart":
+      return <LineView rows={rows} config={config} area />;
     case "scatterChart":
       return <ScatterView rows={rows} config={config} />;
     case "barChart":
       return <BarView rows={rows} config={config} />;
+    case "valueCounts":
+      return <ValueCountsView rows={rows} config={config} />;
+    case "pieChart":
+      return <PieView rows={rows} config={config} />;
     default:
       return <Placeholder>Unsupported chart type.</Placeholder>;
   }
@@ -77,7 +90,15 @@ function HistogramView({ rows, config }: { rows: Row[]; config: Record<string, u
   );
 }
 
-function LineView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
+function LineView({
+  rows,
+  config,
+  area = false,
+}: {
+  rows: Row[];
+  config: Record<string, unknown>;
+  area?: boolean;
+}) {
   const x = typeof config.x === "string" ? config.x : "";
   const ys = Array.isArray(config.y) ? (config.y.filter((v) => typeof v === "string") as string[]) : [];
   if (!x || ys.length === 0) return <Placeholder>Pick an x axis and at least one series.</Placeholder>;
@@ -86,24 +107,38 @@ function LineView({ rows, config }: { rows: Row[]; config: Record<string, unknow
     for (const y of ys) point[y] = toNumber(r[y]);
     return point;
   });
+  const Chart = area ? AreaChart : LineChart;
   return (
     <ChartFrame>
-      <LineChart data={data}>
+      <Chart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
         <XAxis dataKey={x} tick={{ fontSize: 10 }} interval="preserveStartEnd" />
         <YAxis tick={{ fontSize: 10 }} />
         <Tooltip />
-        {ys.map((y, i) => (
-          <Line
-            key={y}
-            type="monotone"
-            dataKey={y}
-            stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-            dot={false}
-            isAnimationActive={false}
-          />
-        ))}
-      </LineChart>
+        {ys.map((y, i) => {
+          const color = SERIES_COLORS[i % SERIES_COLORS.length];
+          return area ? (
+            <Area
+              key={y}
+              type="monotone"
+              dataKey={y}
+              stroke={color}
+              fill={color}
+              fillOpacity={0.25}
+              isAnimationActive={false}
+            />
+          ) : (
+            <Line
+              key={y}
+              type="monotone"
+              dataKey={y}
+              stroke={color}
+              dot={false}
+              isAnimationActive={false}
+            />
+          );
+        })}
+      </Chart>
     </ChartFrame>
   );
 }
@@ -147,6 +182,51 @@ function BarView({ rows, config }: { rows: Row[]; config: Record<string, unknown
       </BarChart>
     </ChartFrame>
   );
+}
+
+function ValueCountsView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
+  const column = typeof config.column === "string" ? config.column : "";
+  if (!column) return <Placeholder>Pick a column to count.</Placeholder>;
+  const data = topN(valueCounts(rows, column), 20);
+  if (data.length === 0) return <Placeholder>No values to count.</Placeholder>;
+  return (
+    <ChartFrame>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+        <XAxis dataKey="category" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+        <Tooltip />
+        <Bar dataKey="value" fill="#8b5cf6" />
+      </BarChart>
+    </ChartFrame>
+  );
+}
+
+function PieView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
+  const x = typeof config.x === "string" ? config.x : "";
+  const y = typeof config.y === "string" ? config.y : "";
+  const aggregate = (typeof config.aggregate === "string" ? config.aggregate : "sum") as Aggregate;
+  if (!x || !y) return <Placeholder>Pick a category and a value column.</Placeholder>;
+  const data = topN(barData(rows, x, y, aggregate), 12);
+  if (data.length === 0) return <Placeholder>No values to chart.</Placeholder>;
+  return (
+    <ChartFrame>
+      <PieChart>
+        <Tooltip />
+        <Legend wrapperStyle={{ fontSize: 10 }} />
+        <Pie data={data} dataKey="value" nameKey="category" outerRadius="75%" isAnimationActive={false}>
+          {data.map((_, i) => (
+            <Cell key={i} fill={SERIES_COLORS[i % SERIES_COLORS.length]} />
+          ))}
+        </Pie>
+      </PieChart>
+    </ChartFrame>
+  );
+}
+
+/** Keep the largest-N categories by value so dense charts stay readable. */
+function topN(data: BarDatum[], n: number): BarDatum[] {
+  return [...data].sort((a, b) => b.value - a.value).slice(0, n);
 }
 
 function HeatmapView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
