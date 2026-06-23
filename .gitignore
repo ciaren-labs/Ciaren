@@ -231,3 +231,6 @@ mlruns/
 mlartifacts/
 backend/mlruns/
 backend/mlartifacts/
+
+# Web UI bundled into the wheel at build time (generated from frontend/dist)
+backend/app/web/
