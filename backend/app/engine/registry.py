@@ -94,6 +94,7 @@ def _register_ml_nodes() -> None:
 
     if not ml_core_available():
         return
+    from app.engine.transformations.ml.evaluate import MLEvaluateTransformation
     from app.engine.transformations.ml.feature_engineering import (
         EncodeCategoriesTransformation,
         ImputeMissingTransformation,
@@ -101,6 +102,8 @@ def _register_ml_nodes() -> None:
         ScaleFeaturesTransformation,
         SelectFeaturesTransformation,
     )
+    from app.engine.transformations.ml.importance import FeatureImportanceTransformation
+    from app.engine.transformations.ml.predict import MLPredictTransformation
     from app.engine.transformations.ml.split import TrainTestSplitTransformation
     from app.engine.transformations.ml.train import MLTrainTransformation
 
@@ -112,6 +115,9 @@ def _register_ml_nodes() -> None:
         SelectFeaturesTransformation(),
         ReduceDimensionsTransformation(),
         MLTrainTransformation(),
+        MLPredictTransformation(),
+        MLEvaluateTransformation(),
+        FeatureImportanceTransformation(),
     )
 
 

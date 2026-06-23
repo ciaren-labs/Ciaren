@@ -123,19 +123,24 @@ def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any
             continue
 
         handles = transformation.input_handles
+        optional = transformation.optional_input_handles
+        known = set(handles) | set(optional)
         by_handle: dict[str, int] = defaultdict(int)
         for edge in edges_in:
             handle = edge.get("targetHandle") or "in"
-            if handle not in handles:
+            if handle not in known:
                 raise GraphValidationError(f"{label}: connection to unknown input {handle!r}.")
             by_handle[handle] += 1
         for handle in handles:
             count = by_handle[handle]
-            which = f" {handle!r}" if len(handles) > 1 else ""
+            which = f" {handle!r}" if len(known) > 1 else ""
             if count == 0:
                 raise GraphValidationError(f"{label}: the{which} input is not connected.")
             if count > 1:
                 raise GraphValidationError(f"{label}: the{which} input accepts only one connection (got {count}).")
+        for handle in optional:
+            if by_handle[handle] > 1:
+                raise GraphValidationError(f"{label}: the {handle!r} input accepts only one connection.")
 
 
 def _validate_storage_input(label: str, config: dict[str, Any]) -> None:

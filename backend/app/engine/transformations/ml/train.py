@@ -26,26 +26,6 @@ MIN_TRAIN_ROWS = 10
 SMALL_TRAIN_ROWS = 50  # warn below this
 
 
-# MLflow tracking targets that are not filesystem paths and must pass through as-is.
-_BARE_MLFLOW_SCHEMES = {"databricks", "databricks-uc", "uc"}
-
-
-def _normalize_tracking_uri(uri: str) -> str:
-    """Make a local filesystem path a valid MLflow URI.
-
-    MLflow accepts ``scheme://...`` URIs (file/http/sqlite/...) and a few bare
-    words (``databricks``), but a bare absolute Windows path (``C:\\...``) is
-    misparsed as a ``c:`` scheme. Convert any plain path to an absolute
-    ``file://`` URI so the same config works on Windows and POSIX; pass real URIs
-    through untouched.
-    """
-    from pathlib import Path
-
-    if "://" in uri or uri in _BARE_MLFLOW_SCHEMES:
-        return uri
-    return Path(uri).resolve().as_uri()
-
-
 class MLTrainTransformation(MetadataMLTransformation):
     type = "mlTrain"
     input_handles = ("in",)
@@ -298,21 +278,13 @@ class MLTrainTransformation(MetadataMLTransformation):
         self, config: dict[str, Any], pipeline: Any, features: list[str], metrics: dict[str, float], n: int, seed: int
     ) -> tuple[str | None, str | None]:
         try:
-            import os
-
-            import mlflow
-            import mlflow.sklearn
             import sklearn
 
-            settings = get_settings()
-            # MLflow 3.14 puts the local file store in "maintenance mode" and raises
-            # unless this is set. Keep FlowFrame's zero-setup ./mlruns experience by
-            # opting in; teams wanting the DB backend point MLFLOW_TRACKING_URI at
-            # sqlite/postgres and this default is harmless.
-            os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
-            mlflow.set_tracking_uri(_normalize_tracking_uri(settings.MLFLOW_TRACKING_URI))
-            if settings.MLFLOW_REGISTRY_URI:
-                mlflow.set_registry_uri(_normalize_tracking_uri(settings.MLFLOW_REGISTRY_URI))
+            from app.ml.tracking import configure_mlflow
+
+            mlflow = configure_mlflow()
+            import mlflow.sklearn  # noqa: F811 - load the submodule onto the configured client
+
             mlflow.set_experiment(config.get("mlflow_experiment") or "flowframe")
             params = {
                 "model_type": config["model_type"],
