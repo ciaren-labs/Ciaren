@@ -68,13 +68,18 @@ class MLPredictTransformation(MetadataMLTransformation):
     def _resolve_model(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> tuple[str, str | None]:
+        # A blank string from the config form counts as "not set" — fall back to
+        # the wired model. (The UI saves model_uri="" by default, so only treating
+        # None as absent would ignore a perfectly good wired model.)
         uri = config.get("model_uri")
+        if isinstance(uri, str):
+            uri = uri.strip() or None
         task: str | None = None
         model_frame = inputs.get("model")
         if model_frame is not None:
             ref = engine.to_pandas(model_frame)
             if not ref.empty:
-                if uri is None and "model_uri" in ref.columns:
+                if not uri and "model_uri" in ref.columns:
                     uri = ref.iloc[0]["model_uri"]
                 if "task_type" in ref.columns:
                     task = ref.iloc[0]["task_type"]

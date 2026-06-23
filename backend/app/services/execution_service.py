@@ -49,7 +49,11 @@ class ExecutionService:
 
         self._guard_ml_enabled(flow.graph_json)
 
-        engine = data.engine or self.settings.DEFAULT_ENGINE
+        # Engine precedence: explicit run request > the flow's saved editor
+        # preference (graph_json.engine) > the global default. Honoring the saved
+        # preference means a flow built/tested on pandas runs on pandas.
+        graph_engine = flow.graph_json.get("engine") if isinstance(flow.graph_json, dict) else None
+        engine = data.engine or graph_engine or self.settings.DEFAULT_ENGINE
         if engine not in available_engines():
             raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
 
