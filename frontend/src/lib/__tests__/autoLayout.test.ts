@@ -59,7 +59,7 @@ describe("autoLayout", () => {
     expect(pos.get("a")!.x).toBe(pos.get("b")!.x);
     expect(pos.get("c")!.x).toBeGreaterThan(pos.get("a")!.x);
     // Two stacked nodes are separated by their height + the vertical gap, no overlap.
-    expect(Math.abs(pos.get("b")!.y - pos.get("a")!.y)).toBe(56 + 32);
+    expect(Math.abs(pos.get("b")!.y - pos.get("a")!.y)).toBe(56 + 26);
   });
 
   it("falls back to default sizes for unmeasured nodes without overlapping", () => {

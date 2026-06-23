@@ -162,7 +162,7 @@
 /* Smooth, branded edges in the React Flow canvas. */
 .react-flow__edge-path {
   stroke: hsl(264 22% 72%);
-  stroke-width: 1.75;
+  stroke-width: 1.5;
 }
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
