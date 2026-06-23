@@ -37,4 +37,5 @@ export const queryKeys = {
   connections: ["connections"] as const,
   connectionProviders: ["connections", "providers"] as const,
   connectionTables: (id: string) => ["connections", id, "tables"] as const,
+  connectionObjects: (id: string) => ["connections", id, "objects"] as const,
 };

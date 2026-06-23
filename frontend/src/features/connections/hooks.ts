@@ -65,3 +65,11 @@ export function useTestConnectionConfig() {
     mutationFn: (body: ConnectionCreate) => connectionsApi.testConfig(body),
   });
 }
+
+export function useConnectionObjects(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: id ? queryKeys.connectionObjects(id) : ["connections", "none", "objects"],
+    queryFn: () => connectionsApi.objects(id as string),
+    enabled: !!id && enabled,
+  });
+}
