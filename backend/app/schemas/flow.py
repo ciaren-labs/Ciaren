@@ -21,9 +21,11 @@ class FlowUpdate(BaseModel):
 
 class CodeExportResponse(BaseModel):
     # `code` is the pandas export (kept for back-compat); `polars` is the
-    # equivalent polars script.
+    # equivalent eager polars script; `polars_lazy` is the optimized lazy
+    # (`scan_*` → `collect()`) polars script.
     code: str
     polars: str
+    polars_lazy: str
 
 
 class FlowRead(BaseModel):

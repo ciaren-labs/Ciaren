@@ -54,9 +54,7 @@ class FlowRunRead(BaseModel):
     id: str
     flow_id: str
     input_dataset_id: str | None
-    input_datasets: list[InputDatasetRef] | None = Field(
-        None, validation_alias="input_datasets_json"
-    )
+    input_datasets: list[InputDatasetRef] | None = Field(None, validation_alias="input_datasets_json")
     status: str
     engine: str
     trigger: str = "manual"
@@ -66,9 +64,7 @@ class FlowRunRead(BaseModel):
     finished_at: datetime | None
     error_message: str | None
     logs_json: list[dict[str, Any]] | None
-    node_results: list[NodeResultRead] | None = Field(
-        None, validation_alias="node_results_json"
-    )
+    node_results: list[NodeResultRead] | None = Field(None, validation_alias="node_results_json")
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}

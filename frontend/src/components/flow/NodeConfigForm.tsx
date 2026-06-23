@@ -12,18 +12,25 @@ import {
   fillStrategies,
   filterOperators,
   getConfigSchema,
+  conditionOperators,
+  conditionValueless,
   joinHows,
   outlierActions,
   outlierMethods,
+  splitModes,
   stringOperations,
+  windowFunctions,
+  windowTargetFuncs,
 } from "@/lib/validators";
 import {
   ColumnKeyedEditor,
   ColumnMultiSelect,
   ColumnSelect,
+  CsvListInput,
   Field,
   KeyValueEditor,
 } from "./configFields";
+import { useConnections, useConnectionTables } from "@/features/connections/hooks";
 
 interface NodeConfigFormProps {
   type: string;
@@ -71,6 +78,12 @@ export function NodeConfigForm({
 
   const set = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
   const c = config as Record<string, any>;
+
+  // Connection data for SQL nodes (hooks must run unconditionally; the table
+  // query is disabled unless this is a SQL node with a chosen connection).
+  const { data: connections = [] } = useConnections();
+  const isSqlNode = type === "sqlInput" || type === "sqlOutput";
+  const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
 
   if (type === "csvInput" || type === "excelInput" || type === "parquetInput") {
     const accepted =
@@ -787,6 +800,425 @@ export function NodeConfigForm({
                   {a}
                 </option>
               ))}
+            </Select>
+          </Field>
+        </>
+      );
+
+    case "splitColumn": {
+      const mode = (c.mode as string) ?? "delimiter";
+      return (
+        <>
+          <Field label="Column" error={errors.column} help="The text column to split.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field label="Split by" error={errors.mode} help="A literal delimiter, or a regex whose capture groups become columns.">
+            <Select value={mode} onChange={(e) => set({ mode: e.target.value })}>
+              {splitModes.map((m) => (
+                <option key={m} value={m}>
+                  {m === "delimiter" ? "Delimiter" : "Regex groups"}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {mode === "delimiter" ? (
+            <Field label="Delimiter" error={errors.delimiter} help="Text to split on, e.g. a comma or space.">
+              <Input value={c.delimiter ?? ""} onChange={(e) => set({ delimiter: e.target.value })} placeholder="," />
+            </Field>
+          ) : (
+            <Field label="Pattern" error={errors.pattern} help="Regex with capture groups; group 1 → first column, etc.">
+              <Input value={c.pattern ?? ""} onChange={(e) => set({ pattern: e.target.value })} placeholder="(\d+)-(\d+)" />
+            </Field>
+          )}
+          <Field
+            label="New columns"
+            error={errors.into}
+            hint="Comma-separated names, in order"
+            help="Each split piece (or capture group) is written to these columns."
+          >
+            <CsvListInput value={c.into} onChange={(v) => set({ into: v })} placeholder="first, last" />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={c.keep_original !== false}
+              onChange={(e) => set({ keep_original: e.target.checked })}
+            />
+            Keep the original column
+          </label>
+        </>
+      );
+    }
+
+    case "parseDates":
+      return (
+        <>
+          <Field label="Columns" error={errors.columns} help="Text columns to parse into datetimes.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field
+            label="Date format (optional)"
+            hint="e.g. %d-%m-%Y"
+            help="strptime format. Leave empty to auto-detect."
+            error={errors.format}
+          >
+            <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+          </Field>
+          <Field label="On bad values" error={errors.errors} help="Raise an error, or coerce unparseable values to null.">
+            <Select value={c.errors ?? "coerce"} onChange={(e) => set({ errors: e.target.value })}>
+              <option value="coerce">Set to null (coerce)</option>
+              <option value="raise">Raise an error</option>
+            </Select>
+          </Field>
+        </>
+      );
+
+    case "mapValues":
+      return (
+        <>
+          <Field label="Column" error={errors.column} help="The column whose values are mapped.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field
+            label="New column (optional)"
+            error={errors.new_column}
+            hint="Empty = overwrite the source column"
+            help="Where the mapped result is written."
+          >
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="mapped" />
+          </Field>
+          <Field label="Mapping" hint="value → becomes" error={errors.mapping} help="Each listed value is replaced with its mapped value.">
+            <KeyValueEditor
+              value={c.mapping}
+              onChange={(v) => set({ mapping: v })}
+              keyLabel="value"
+              valueLabel="becomes"
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={!!c.use_default}
+              onChange={(e) => set({ use_default: e.target.checked })}
+            />
+            Replace unmapped values with a default
+          </label>
+          {c.use_default && (
+            <Field label="Default value" error={errors.default} help="Used for any value not listed in the mapping.">
+              <Input value={c.default ?? ""} onChange={(e) => set({ default: e.target.value })} />
+            </Field>
+          )}
+        </>
+      );
+
+    case "windowFunction": {
+      const fn = (c.function as string) ?? "row_number";
+      const needsTarget = windowTargetFuncs.has(fn);
+      const isLagLead = fn === "lag" || fn === "lead";
+      return (
+        <>
+          <Field label="Function" error={errors.function} help="row_number/rank order rows; cumsum/cummax/cummin run totals; lag/lead shift values.">
+            <Select value={fn} onChange={(e) => set({ function: e.target.value })}>
+              {windowFunctions.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="New column" error={errors.new_column} help="Name for the column the window result is written to.">
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="rank" />
+          </Field>
+          <Field label="Partition by (optional)" error={errors.partition_by} hint="Empty = whole table" help="Restart the window within each group of these columns.">
+            <ColumnMultiSelect value={c.partition_by} columns={columns} onChange={(v) => set({ partition_by: v })} />
+          </Field>
+          <Field label="Order by" error={errors.order_by} help="Row order within each partition (required for ranking, lag/lead, and running totals to be meaningful).">
+            <ColumnMultiSelect value={c.order_by} columns={columns} onChange={(v) => set({ order_by: v })} />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={!!c.descending}
+              onChange={(e) => set({ descending: e.target.checked })}
+            />
+            Order descending
+          </label>
+          {needsTarget && (
+            <Field label="Target column" error={errors.target} help="The value column the function operates on.">
+              <ColumnSelect value={c.target} columns={columns} onChange={(v) => set({ target: v })} />
+            </Field>
+          )}
+          {isLagLead && (
+            <Field label="Offset" error={errors.offset} help="How many rows to shift (default 1).">
+              <Input type="number" value={c.offset ?? 1} onChange={(e) => set({ offset: Number(e.target.value) })} />
+            </Field>
+          )}
+        </>
+      );
+    }
+
+    case "conditionalColumn": {
+      const rules = (c.rules as Record<string, any>[]) ?? [];
+      // A rule is either the new shape ({ match, conditions[], result }) or a
+      // legacy flat rule ({ column, operator, value, result }); normalize the
+      // conditions for display and migrate to the new shape on any edit.
+      const condsOf = (r: Record<string, any>): Record<string, any>[] =>
+        Array.isArray(r.conditions) && r.conditions.length
+          ? r.conditions
+          : [{ column: r.column ?? "", operator: r.operator ?? "==", value: r.value ?? "" }];
+      const matchOf = (r: Record<string, any>): "all" | "any" =>
+        r.match === "any" ? "any" : "all";
+      const updateRule = (i: number, patch: Record<string, unknown>) =>
+        set({
+          rules: rules.map((r, idx) =>
+            idx === i
+              ? { match: matchOf(r), conditions: condsOf(r), result: r.result ?? "", ...patch }
+              : r,
+          ),
+        });
+      const updateCondition = (i: number, j: number, patch: Record<string, unknown>) =>
+        updateRule(i, {
+          conditions: condsOf(rules[i]).map((cn, k) => (k === j ? { ...cn, ...patch } : cn)),
+        });
+      const addCondition = (i: number) =>
+        updateRule(i, {
+          conditions: [...condsOf(rules[i]), { column: "", operator: "==", value: "" }],
+        });
+      const removeCondition = (i: number, j: number) =>
+        updateRule(i, { conditions: condsOf(rules[i]).filter((_, k) => k !== j) });
+      const addRule = () =>
+        set({
+          rules: [
+            ...rules,
+            { match: "all", conditions: [{ column: "", operator: "==", value: "" }], result: "" },
+          ],
+        });
+      const removeRule = (i: number) => set({ rules: rules.filter((_, idx) => idx !== i) });
+      return (
+        <>
+          <Field label="New column" error={errors.new_column} help="Name for the column built from the rules below.">
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="tier" />
+          </Field>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-medium text-slate-600">Rules (first match wins)</span>
+            {rules.map((r, i) => {
+              const conditions = condsOf(r);
+              return (
+                <div key={i} className="flex flex-col gap-1.5 rounded-md border border-border p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      if
+                    </span>
+                    {conditions.length > 1 && (
+                      <Select
+                        className="h-7 w-36 text-[11px]"
+                        value={matchOf(r)}
+                        onChange={(e) => updateRule(i, { match: e.target.value })}
+                      >
+                        <option value="all">match ALL (AND)</option>
+                        <option value="any">match ANY (OR)</option>
+                      </Select>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeRule(i)}
+                      className="ml-auto text-[11px] text-muted-foreground hover:text-destructive"
+                    >
+                      remove
+                    </button>
+                  </div>
+                  {conditions.map((cn, j) => {
+                    const valueless = conditionValueless.has(cn.operator);
+                    return (
+                      <div key={j} className="flex flex-col gap-1">
+                        {j > 0 && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {matchOf(r) === "any" ? "or" : "and"}
+                          </span>
+                        )}
+                        <div className="flex items-start gap-1">
+                          <div className="flex flex-1 flex-col gap-1">
+                            <ColumnSelect
+                              value={cn.column}
+                              columns={columns}
+                              onChange={(v) => updateCondition(i, j, { column: v })}
+                            />
+                            <div className="flex gap-1">
+                              <Select
+                                className="h-8 w-28"
+                                value={cn.operator ?? "=="}
+                                onChange={(e) => updateCondition(i, j, { operator: e.target.value })}
+                              >
+                                {conditionOperators.map((op) => (
+                                  <option key={op} value={op}>
+                                    {op}
+                                  </option>
+                                ))}
+                              </Select>
+                              {!valueless && (
+                                <Input
+                                  className="h-8"
+                                  placeholder="value"
+                                  value={cn.value ?? ""}
+                                  onChange={(e) => updateCondition(i, j, { value: e.target.value })}
+                                />
+                              )}
+                            </div>
+                          </div>
+                          {conditions.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeCondition(i, j)}
+                              title="Remove condition"
+                              className="mt-1 px-1 text-[11px] text-muted-foreground hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => addCondition(i)}
+                    className="self-start text-[11px] font-medium text-primary hover:underline"
+                  >
+                    + add condition
+                  </button>
+                  <Input
+                    placeholder="then result →"
+                    value={r.result ?? ""}
+                    onChange={(e) => updateRule(i, { result: e.target.value })}
+                  />
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addRule}
+              className="rounded-md border border-dashed border-border px-2 py-1.5 text-xs font-medium text-slate-600 hover:border-primary/50 hover:bg-muted"
+            >
+              + Add rule
+            </button>
+            {errors.rules && (
+              <p className="text-[11px] font-medium text-destructive">{errors.rules}</p>
+            )}
+          </div>
+          <Field label="Default (else)" error={errors.default} help="Value used when no rule matches.">
+            <Input value={c.default ?? ""} onChange={(e) => set({ default: e.target.value })} placeholder="other" />
+          </Field>
+        </>
+      );
+    }
+
+    case "sqlInput": {
+      const mode = (c.mode as string) ?? "table";
+      const currentTable = c.schema ? `${c.schema}.${c.table}` : c.table;
+      const connectionPicker = (
+        <Field label="Connection" error={errors.connection_id} help="Reusable database connection (manage these on the Connections page).">
+          <Select
+            value={c.connection_id ?? ""}
+            onChange={(e) => set({ connection_id: e.target.value, table: "", schema: null })}
+          >
+            <option value="">Select a connection…</option>
+            {connections.map((cn) => (
+              <option key={cn.id} value={cn.id}>
+                {cn.name}
+              </option>
+            ))}
+          </Select>
+          {connections.length === 0 && (
+            <p className="text-[11px] text-amber-600">
+              No connections yet — add one on the Connections page.
+            </p>
+          )}
+        </Field>
+      );
+      return (
+        <>
+          {connectionPicker}
+          <Field label="Source" help="Read a whole table, or run a custom SQL query.">
+            <Select value={mode} onChange={(e) => set({ mode: e.target.value })}>
+              <option value="table">Table</option>
+              <option value="query">Custom SQL</option>
+            </Select>
+          </Field>
+          {mode === "query" ? (
+            <Field label="SQL query" error={errors.query} help="Runs against the selected connection.">
+              <textarea
+                className="min-h-[80px] w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={c.query ?? ""}
+                onChange={(e) => set({ query: e.target.value })}
+                placeholder="SELECT * FROM orders WHERE status = 'paid'"
+              />
+            </Field>
+          ) : (
+            <Field label="Table" error={errors.table} help="Tables are listed from the connection.">
+              {tablesQuery.data && tablesQuery.data.length > 0 ? (
+                <Select
+                  value={currentTable ?? ""}
+                  onChange={(e) => {
+                    const t = tablesQuery.data!.find((x) => x.qualified === e.target.value);
+                    set({ table: t?.name ?? e.target.value, schema: t?.schema_name ?? null });
+                  }}
+                >
+                  <option value="">Select a table…</option>
+                  {tablesQuery.data.map((t) => (
+                    <option key={t.qualified} value={t.qualified}>
+                      {t.qualified}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  value={c.table ?? ""}
+                  onChange={(e) => set({ table: e.target.value })}
+                  placeholder="table name"
+                />
+              )}
+              {tablesQuery.isFetching && (
+                <p className="text-[11px] text-muted-foreground">Loading tables…</p>
+              )}
+              {tablesQuery.isError && (
+                <p className="text-[11px] text-amber-600">
+                  Couldn't list tables — type the name manually.
+                </p>
+              )}
+            </Field>
+          )}
+        </>
+      );
+    }
+
+    case "sqlOutput":
+      return (
+        <>
+          <Field label="Connection" error={errors.connection_id} help="Where to write the result.">
+            <Select
+              value={c.connection_id ?? ""}
+              onChange={(e) => set({ connection_id: e.target.value })}
+            >
+              <option value="">Select a connection…</option>
+              {connections.map((cn) => (
+                <option key={cn.id} value={cn.id}>
+                  {cn.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Target table" error={errors.table} help="The table (or collection) to write to.">
+            <Input
+              value={c.table ?? ""}
+              onChange={(e) => set({ table: e.target.value })}
+              placeholder="cleaned_orders"
+            />
+          </Field>
+          <Field label="If table exists" error={errors.if_exists} help="What to do when the target already exists.">
+            <Select value={c.if_exists ?? "replace"} onChange={(e) => set({ if_exists: e.target.value })}>
+              <option value="replace">Replace</option>
+              <option value="append">Append</option>
+              <option value="fail">Fail</option>
             </Select>
           </Field>
         </>

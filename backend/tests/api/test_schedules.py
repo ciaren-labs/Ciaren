@@ -1,11 +1,11 @@
 """Schedule endpoint tests.
 
-  POST   /api/flows/{flow_id}/schedules
-  GET    /api/flows/{flow_id}/schedules
-  GET    /api/schedules, /api/schedules/{id}
-  PATCH  /api/schedules/{id}
-  DELETE /api/schedules/{id}
-  POST   /api/schedules/{id}/run-now
+POST   /api/flows/{flow_id}/schedules
+GET    /api/flows/{flow_id}/schedules
+GET    /api/schedules, /api/schedules/{id}
+PATCH  /api/schedules/{id}
+DELETE /api/schedules/{id}
+POST   /api/schedules/{id}/run-now
 """
 
 import io
@@ -98,9 +98,7 @@ async def test_create_schedule_missing_flow_is_404(client: AsyncClient) -> None:
 
 async def test_list_and_get_schedule(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
 
     by_flow = await client.get(f"/api/flows/{flow['id']}/schedules")
     assert by_flow.status_code == 200
@@ -116,13 +114,9 @@ async def test_list_and_get_schedule(client: AsyncClient) -> None:
 
 async def test_disable_clears_next_run_then_reenable_restores(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
 
-    disabled = await client.patch(
-        f"/api/schedules/{created['id']}", json={"enabled": False}
-    )
+    disabled = await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})
     assert disabled.status_code == 200
     assert disabled.json()["enabled"] is False
     assert disabled.json()["next_run_at"] is None
@@ -134,18 +128,14 @@ async def test_disable_clears_next_run_then_reenable_restores(client: AsyncClien
 
 async def test_update_invalid_cron_is_400(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
     r = await client.patch(f"/api/schedules/{created['id']}", json={"cron": "bad"})
     assert r.status_code == 400
 
 
 async def test_delete_schedule(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
     r = await client.delete(f"/api/schedules/{created['id']}")
     assert r.status_code == 204
     assert (await client.get(f"/api/schedules/{created['id']}")).status_code == 404
@@ -153,9 +143,7 @@ async def test_delete_schedule(client: AsyncClient) -> None:
 
 async def test_run_now_executes_flow_as_scheduled_run(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
 
     r = await client.post(f"/api/schedules/{created['id']}/run-now")
     assert r.status_code == 201, r.text
@@ -175,15 +163,10 @@ async def test_run_now_executes_flow_as_scheduled_run(client: AsyncClient) -> No
 
 async def test_schedule_run_history_is_filterable(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
 
     # Two scheduled runs (via run-now) and one ad-hoc manual run on the same flow.
-    sched_run_ids = {
-        (await client.post(f"/api/schedules/{created['id']}/run-now")).json()["id"]
-        for _ in range(2)
-    }
+    sched_run_ids = {(await client.post(f"/api/schedules/{created['id']}/run-now")).json()["id"] for _ in range(2)}
     manual_run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
 
     # /api/runs?schedule_id= returns only this schedule's runs.
@@ -203,20 +186,14 @@ async def test_schedule_runs_unknown_schedule_is_404(client: AsyncClient) -> Non
 
 async def test_reenabling_clears_failure_state(client: AsyncClient) -> None:
     flow = await _flow(client)
-    created = (
-        await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})
-    ).json()
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
     assert created["max_retries"] == 0
     assert created["consecutive_failures"] == 0
 
-    disabled = (
-        await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})
-    ).json()
+    disabled = (await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})).json()
     assert disabled["enabled"] is False
 
-    reenabled = (
-        await client.patch(f"/api/schedules/{created['id']}", json={"enabled": True})
-    ).json()
+    reenabled = (await client.patch(f"/api/schedules/{created['id']}", json={"enabled": True})).json()
     assert reenabled["enabled"] is True
     assert reenabled["consecutive_failures"] == 0
     assert reenabled["disabled_reason"] is None

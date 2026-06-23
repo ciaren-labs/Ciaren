@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # On first boot (when no "Demo" project exists yet) seed a built-in demo
+    # project with sample datasets and example flows so the app isn't empty.
+    # Idempotent and skippable via `flowframe serve --no-demo`.
+    SEED_DEMO: bool = True
+
     # Background cron scheduler. Disabled in tests (ASGITransport skips lifespan).
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_POLL_INTERVAL_SECONDS: int = 30

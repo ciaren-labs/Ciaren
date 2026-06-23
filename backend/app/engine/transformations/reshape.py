@@ -27,23 +27,14 @@ class GroupByAggregateTransformation(BaseTransformation):
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
-        result = engine.groupby_agg(
-            inputs["in"], config["group_by"], config["aggregations"]
-        )
+        result = engine.groupby_agg(inputs["in"], config["group_by"], config["aggregations"])
         return {"out": result}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        return (
-            f"{dst} = {src}.groupby({config['group_by']!r})"
-            f".agg({config['aggregations']!r}).reset_index()"
-        )
+        return f"{dst} = {src}.groupby({config['group_by']!r}).agg({config['aggregations']!r}).reset_index()"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         by = config["group_by"]
         aggs = ", ".join(
@@ -66,16 +57,12 @@ class ConcatRowsTransformation(BaseTransformation):
         frames = list(inputs.values())
         return {"out": engine.concat(frames)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
         src_list = list(input_vars.values())
         return f"{dst} = pd.concat([{', '.join(src_list)}], ignore_index=True)"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
         srcs = ", ".join(input_vars.values())
         return f"{dst} = pl.concat([{srcs}])"
@@ -93,22 +80,16 @@ class CreateCalculatedColumnTransformation(BaseTransformation):
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
-        result = engine.add_column(
-            inputs["in"], config["column_name"], config["expression"]
-        )
+        result = engine.add_column(inputs["in"], config["column_name"], config["expression"])
         return {"out": result}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column_name"]
         expr = config["expression"]
         return f"{dst} = {src}.assign(**{{{col!r}: {src}.eval({expr!r})}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, expr = config["column_name"], config["expression"]
         # pl.sql_expr handles arithmetic expressions like "price * quantity".
@@ -133,27 +114,72 @@ class ExtractDatePartsTransformation(BaseTransformation):
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
-        return {
-            "out": engine.extract_date_parts(inputs["in"], config["column"], config["parts"])
-        }
+        return {"out": engine.extract_date_parts(inputs["in"], config["column"], config["parts"])}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, parts = config["column"], config["parts"]
         items = ", ".join(f"{(col + '_' + p)!r}: _dt.dt.{p}" for p in parts)
         return f"_dt = pd.to_datetime({src}[{col!r}])\n{dst} = {src}.assign(**{{{items}}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, parts = config["column"], config["parts"]
+        # polars weekday is Monday=1..Sunday=7; subtract 1 to match pandas (Monday=0).
         exprs = ", ".join(
-            f"pl.col({col!r}).dt.{p}().alias({(col + '_' + p)!r})" for p in parts
+            f"(pl.col({col!r}).dt.weekday() - 1).alias({(col + '_' + p)!r})"
+            if p == "weekday"
+            else f"pl.col({col!r}).dt.{p}().alias({(col + '_' + p)!r})"
+            for p in parts
         )
         return f"{dst} = {src}.with_columns([{exprs}])"
+
+
+class ParseDatesTransformation(BaseTransformation):
+    """Parse string columns into datetimes, with optional format and coercion."""
+
+    type = "parseDates"
+
+    _ERRORS = {"raise", "coerce"}
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("columns"):
+            raise ValueError("parseDates requires a non-empty 'columns' list")
+        if config.get("errors", "coerce") not in self._ERRORS:
+            raise ValueError(f"parseDates 'errors' must be one of {sorted(self._ERRORS)}")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        return {
+            "out": engine.parse_dates(
+                inputs["in"],
+                config["columns"],
+                config.get("format") or None,
+                config.get("errors", "coerce"),
+            )
+        }
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        cols = config["columns"]
+        fmt = config.get("format") or None
+        errors = config.get("errors", "coerce")
+        return (
+            f"{dst} = {src}.assign(**{{c: pd.to_datetime({src}[c], "
+            f"format={fmt!r}, errors={errors!r}) for c in {cols!r}}})"
+        )
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        cols = config["columns"]
+        fmt = config.get("format") or None
+        strict = config.get("errors", "coerce") != "coerce"
+        return (
+            f"{dst} = {src}.with_columns("
+            f"[pl.col(c).str.to_datetime(format={fmt!r}, strict={strict!r}).alias(c) "
+            f"for c in {cols!r}])"
+        )
 
 
 class UnpivotTransformation(BaseTransformation):
@@ -176,9 +202,7 @@ class UnpivotTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return (
             f"{dst} = {src}.melt(id_vars={config['id_vars']!r}, "
@@ -187,9 +211,7 @@ class UnpivotTransformation(BaseTransformation):
             f"value_name={config.get('value_name', 'value')!r})"
         )
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return (
             f"{dst} = {src}.unpivot(index={config['id_vars']!r}, "
@@ -201,6 +223,7 @@ class UnpivotTransformation(BaseTransformation):
 
 class PivotTransformation(BaseTransformation):
     type = "pivot"
+    polars_lazy_safe = False  # LazyFrame has no .pivot()
 
     def validate_config(self, config: dict[str, Any]) -> None:
         for key in ("index", "columns", "values"):
@@ -222,9 +245,7 @@ class PivotTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         index = config["index"]
         index = [index] if isinstance(index, str) else index
@@ -234,9 +255,7 @@ class PivotTransformation(BaseTransformation):
             f".reset_index()"
         )
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         index = config["index"]
         index = [index] if isinstance(index, str) else index

@@ -79,7 +79,11 @@ CODEGEN_CASES = [
     ("replace_regex", "replaceValues", {"column": "a", "to_replace": "x+", "value": "y", "regex": True}),
     ("str_upper", "stringTransform", {"column": "a", "operation": "upper"}),
     ("str_replace", "stringTransform", {"column": "a", "operation": "replace", "find": "x", "replace_with": "y"}),
-    ("str_pad_right", "stringTransform", {"column": "a", "operation": "pad", "width": 5, "side": "right", "fill_char": "0"}),
+    (
+        "str_pad_right",
+        "stringTransform",
+        {"column": "a", "operation": "pad", "width": 5, "side": "right", "fill_char": "0"},
+    ),
     ("str_pad_left", "stringTransform", {"column": "a", "operation": "pad", "width": 5}),
     # numeric
     ("outlier_iqr_drop", "removeOutliers", {"columns": ["a"], "method": "iqr", "action": "drop"}),

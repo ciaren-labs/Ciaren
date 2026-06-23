@@ -33,7 +33,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = ["asyncpg>=0.30"]
+# asyncpg drives the app's own async DATABASE_URL; psycopg is the sync driver
+# the SQL connector uses (the execution engine runs off the event loop).
+postgres = ["asyncpg>=0.30", "psycopg[binary]>=3.1"]
+mysql = ["pymysql>=1.1"]
+mssql = ["pyodbc>=5.1"]
+mongo = ["pymongo>=4.6"]
+# Every optional driver in one shot. `all-connectors` is kept as an alias.
+all = ["asyncpg>=0.30", "psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.1", "pymongo>=4.6"]
+all-connectors = ["psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.1", "pymongo>=4.6"]
 
 [project.scripts]
 flowframe = "app.cli:main"
@@ -59,7 +67,7 @@ build-backend = "hatchling.build"
 packages = ["app"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 # Alembic generates these; don't lint machine-written migration scripts.
 extend-exclude = ["app/migrations/versions"]
 

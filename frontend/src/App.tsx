@@ -5,6 +5,7 @@ import { LandingPage } from "@/features/landing/LandingPage";
 import { FlowListPage } from "@/features/flows/FlowListPage";
 import { FlowEditorPage } from "@/features/flows/FlowEditorPage";
 import { DatasetsPage } from "@/features/datasets/DatasetsPage";
+import { ConnectionsPage } from "@/features/connections/ConnectionsPage";
 import { RunsPage } from "@/features/runs/RunsPage";
 import { RunDetailPage } from "@/features/runs/RunDetailPage";
 import { SchedulesPage } from "@/features/schedules/SchedulesPage";
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/datasets" element={<DatasetsPage />} />
+          <Route path="/connections" element={<ConnectionsPage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:runId" element={<RunDetailPage />} />
           <Route path="/schedules" element={<SchedulesPage />} />

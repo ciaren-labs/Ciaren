@@ -92,9 +92,7 @@ _MISSING_INPUT_GRAPH = {
 }
 
 
-async def _make_failing_schedule(
-    factory: async_sessionmaker[AsyncSession], **kwargs: Any
-) -> str:
+async def _make_failing_schedule(factory: async_sessionmaker[AsyncSession], **kwargs: Any) -> str:
     """A schedule whose flow references a non-existent dataset, so every run fails
     (at dataset resolution, before any output dir is touched)."""
     async with factory() as db:
@@ -102,7 +100,10 @@ async def _make_failing_schedule(
         db.add(flow)
         await db.flush()
         schedule = Schedule(
-            flow_id=flow.id, cron="* * * * *", timezone="UTC", next_run_at=datetime.utcnow(),
+            flow_id=flow.id,
+            cron="* * * * *",
+            timezone="UTC",
+            next_run_at=datetime.utcnow(),
             **kwargs,
         )
         db.add(schedule)
@@ -225,15 +226,9 @@ async def _flow_with_data(client: AsyncClient) -> str:
 
 
 @pytest.mark.usefixtures("client")
-async def test_fire_executes_flow_and_records_outcome(
-    client: AsyncClient, engine: AsyncEngine
-) -> None:
+async def test_fire_executes_flow_and_records_outcome(client: AsyncClient, engine: AsyncEngine) -> None:
     flow_id = await _flow_with_data(client)
-    created = (
-        await client.post(
-            f"/api/flows/{flow_id}/schedules", json={"cron": "* * * * *"}
-        )
-    ).json()
+    created = (await client.post(f"/api/flows/{flow_id}/schedules", json={"cron": "* * * * *"})).json()
 
     factory = _factory(engine)
     await SchedulerRunner(factory, get_settings())._fire(created["id"])
@@ -248,9 +243,7 @@ async def test_fire_executes_flow_and_records_outcome(
         assert schedule.next_run_at is not None
         assert schedule.next_run_at > datetime.utcnow()
 
-        runs = (
-            await db.execute(select(FlowRun).where(FlowRun.schedule_id == created["id"]))
-        ).scalars().all()
+        runs = (await db.execute(select(FlowRun).where(FlowRun.schedule_id == created["id"]))).scalars().all()
         assert len(runs) == 1
         assert runs[0].trigger == "schedule"
         assert runs[0].status == "success"

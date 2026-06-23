@@ -175,7 +175,7 @@ flowframe transformations list --output json
 ```
 
 ```text
-23 transformation node types:
+28 transformation node types:
   binColumn         inputs=1
   calculatedColumn  inputs=1
   concatRows        inputs=many

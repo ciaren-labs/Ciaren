@@ -39,6 +39,14 @@ export function useDatasetSample(id: string | null, version?: number) {
   });
 }
 
+export function useDatasetProfile(id: string | null, version?: number) {
+  return useQuery({
+    queryKey: id ? queryKeys.datasetProfile(id, version) : ["datasets", "none", "profile"],
+    queryFn: () => datasetsApi.profile(id as string, version),
+    enabled: !!id,
+  });
+}
+
 export function useDatasetFlows(id: string | null) {
   return useQuery({
     queryKey: id ? queryKeys.datasetFlows(id) : ["datasets", "none", "flows"],

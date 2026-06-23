@@ -39,9 +39,7 @@ class FilterRowsTransformation(BaseTransformation):
         op = config["operator"]
         return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, op = config["column"], config["operator"]
         val = config.get("value")
@@ -60,9 +58,7 @@ class FilterRowsTransformation(BaseTransformation):
             return f"{dst} = {src}[{src}[{col!r}].astype(str).str.{op}({val!r})]"
         raise ValueError(f"Unknown filter operator: {op!r}")
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, op = config["column"], config["operator"]
         val = config.get("value")
@@ -73,10 +69,7 @@ class FilterRowsTransformation(BaseTransformation):
         if op == "notnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_not_null())"
         if op == "between":
-            return (
-                f"{dst} = {src}.filter(pl.col({col!r})"
-                f".is_between({val!r}, {config.get('value2')!r}))"
-            )
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_between({val!r}, {config.get('value2')!r}))"
         if op == "in":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_in({self._values(config)!r}))"
         if op in {"contains", "startswith", "endswith"}:
@@ -117,32 +110,20 @@ class SortRowsTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         ascending = config.get("ascending", True)
         na_position = config.get("na_position", "last")
         extra = f", na_position={na_position!r}" if na_position != "last" else ""
-        return (
-            f"{dst} = {src}.sort_values(by={config['columns']!r}, "
-            f"ascending={ascending!r}{extra})"
-        )
+        return f"{dst} = {src}.sort_values(by={config['columns']!r}, ascending={ascending!r}{extra})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns = config["columns"]
         ascending = config.get("ascending", True)
-        descending = (
-            [not a for a in ascending] if isinstance(ascending, list) else not ascending
-        )
+        descending = [not a for a in ascending] if isinstance(ascending, list) else not ascending
         nulls_last = config.get("na_position", "last") == "last"
-        return (
-            f"{dst} = {src}.sort({columns!r}, descending={descending!r}, "
-            f"nulls_last={nulls_last!r})"
-        )
+        return f"{dst} = {src}.sort({columns!r}, descending={descending!r}, nulls_last={nulls_last!r})"
 
 
 class LimitRowsTransformation(BaseTransformation):
@@ -161,18 +142,14 @@ class LimitRowsTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         return {"out": engine.limit_rows(inputs["in"], config["n"], config.get("offset", 0))}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         n, offset = config["n"], config.get("offset", 0)
         if offset:
             return f"{dst} = {src}.iloc[{offset!r}:{offset + n!r}]"
         return f"{dst} = {src}.head({n!r})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         n, offset = config["n"], config.get("offset", 0)
         if offset:
@@ -182,6 +159,7 @@ class LimitRowsTransformation(BaseTransformation):
 
 class SampleRowsTransformation(BaseTransformation):
     type = "sampleRows"
+    polars_lazy_safe = False  # LazyFrame has no .sample()
 
     def validate_config(self, config: dict[str, Any]) -> None:
         n, frac = config.get("n"), config.get("frac")
@@ -198,28 +176,16 @@ class SampleRowsTransformation(BaseTransformation):
         n = None if frac is not None else config.get("n")
         return {"out": engine.sample_rows(inputs["in"], n, frac, config.get("seed"))}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         seed = config.get("seed")
-        size = (
-            f"frac={config['frac']!r}"
-            if config.get("frac") is not None
-            else f"n={config['n']!r}"
-        )
+        size = f"frac={config['frac']!r}" if config.get("frac") is not None else f"n={config['n']!r}"
         return f"{dst} = {src}.sample({size}, random_state={seed!r})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         seed = config.get("seed")
-        size = (
-            f"fraction={config['frac']!r}"
-            if config.get("frac") is not None
-            else f"n={config['n']!r}"
-        )
+        size = f"fraction={config['frac']!r}" if config.get("frac") is not None else f"n={config['n']!r}"
         return f"{dst} = {src}.sample({size}, seed={seed!r})"
 
 
@@ -240,9 +206,7 @@ class RemoveDuplicatesTransformation(BaseTransformation):
         keep = config.get("keep", "first")
         return {"out": engine.drop_duplicates(inputs["in"], subset, keep)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         subset = config.get("subset")
         keep = config.get("keep", "first")
@@ -251,9 +215,7 @@ class RemoveDuplicatesTransformation(BaseTransformation):
             args = f"subset={subset!r}, {args}"
         return f"{dst} = {src}.drop_duplicates({args})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         keep = self._POLARS_KEEP.get(config.get("keep", "first"), "first")
         subset = config.get("subset")

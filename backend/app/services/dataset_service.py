@@ -24,6 +24,8 @@ from app.core.exceptions import (
 )
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
+from app.engine.backends import get_engine
+from app.engine.profile import profile_frame
 from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.services.project_service import ProjectService
 
@@ -68,6 +70,7 @@ class DatasetService:
         df = _parse_dataframe(content, source_type, filename)
         schema = _extract_schema(df)
         sample = _df_to_records(df, _SAMPLE_ROWS)
+        profile = _profile_dataframe(df)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -97,6 +100,7 @@ class DatasetService:
             location="",  # filled in after we know the version id
             schema_json=schema,
             sample_json=sample,
+            profile_json=profile,
             row_count=int(len(df)),
         )
         self.db.add(version)
@@ -110,11 +114,7 @@ class DatasetService:
         return await self._read(dataset.id)
 
     async def list_all(self, project_id: str | None = None) -> list[DatasetRead]:
-        stmt = (
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .order_by(Dataset.created_at.desc())
-        )
+        stmt = select(Dataset).options(selectinload(Dataset.versions)).order_by(Dataset.created_at.desc())
         if project_id is not None:
             stmt = stmt.where(Dataset.project_id == project_id)
         result = await self.db.execute(stmt)
@@ -123,15 +123,29 @@ class DatasetService:
     async def get(self, dataset_id: str) -> DatasetRead:
         return await self._read(dataset_id)
 
-    async def get_schema(
-        self, dataset_id: str, version: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_schema(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).schema_json or []
 
-    async def get_sample(
-        self, dataset_id: str, version: int | None = None
-    ) -> list[dict[str, Any]]:
+    async def get_sample(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
         return (await self._version(dataset_id, version)).sample_json or []
+
+    async def get_profile(self, dataset_id: str, version: int | None = None) -> list[dict[str, Any]]:
+        """Per-column statistics for a version. Computed at upload time; for
+        versions created before profiling existed, it's computed on demand from
+        the stored file and backfilled so later reads are instant."""
+        ver = await self._version(dataset_id, version)
+        if ver.profile_json:
+            return ver.profile_json
+        dataset = await self._get_or_raise(dataset_id)
+        try:
+            content = Path(ver.location).read_bytes()
+            df = _parse_dataframe(content, dataset.source_type, ver.location)
+        except Exception:  # noqa: BLE001 - missing/unreadable file → no profile
+            return []
+        profile = _profile_dataframe(df)
+        ver.profile_json = profile
+        await self.db.commit()
+        return profile
 
     async def update(self, dataset_id: str, data: DatasetUpdate) -> DatasetRead:
         dataset = await self._get_or_raise(dataset_id)
@@ -144,9 +158,7 @@ class DatasetService:
 
     async def delete(self, dataset_id: str) -> None:
         result = await self.db.execute(
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .where(Dataset.id == dataset_id)
+            select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
@@ -185,6 +197,7 @@ class DatasetService:
         df = _parse_dataframe(content, source_type, str(file_path))
         schema = _extract_schema(df)
         sample = _df_to_records(df, _SAMPLE_ROWS)
+        profile = _profile_dataframe(df)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -213,6 +226,7 @@ class DatasetService:
             location=str(file_path),
             schema_json=schema,
             sample_json=sample,
+            profile_json=profile,
             row_count=int(len(df)),
             source_run_id=run_id,
         )
@@ -235,15 +249,14 @@ class DatasetService:
             version_count=len(versions),
             column_schema=latest.schema_json if latest else None,
             data_sample=latest.sample_json if latest else None,
+            column_profile=latest.profile_json if latest else None,
             created_at=dataset.created_at,
             updated_at=dataset.updated_at,
         )
 
     async def _read(self, dataset_id: str) -> DatasetRead:
         result = await self.db.execute(
-            select(Dataset)
-            .options(selectinload(Dataset.versions))
-            .where(Dataset.id == dataset_id)
+            select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
@@ -251,16 +264,12 @@ class DatasetService:
         return self._to_read(dataset)
 
     async def _get_by_name(self, name: str) -> Dataset | None:
-        result = await self.db.execute(
-            select(Dataset).where(func.lower(Dataset.name) == name.lower())
-        )
+        result = await self.db.execute(select(Dataset).where(func.lower(Dataset.name) == name.lower()))
         return result.scalar_one_or_none()
 
     async def _next_version_number(self, dataset_id: str) -> int:
         result = await self.db.execute(
-            select(func.max(DatasetVersion.version_number)).where(
-                DatasetVersion.dataset_id == dataset_id
-            )
+            select(func.max(DatasetVersion.version_number)).where(DatasetVersion.dataset_id == dataset_id)
         )
         return (result.scalar_one_or_none() or 0) + 1
 
@@ -274,9 +283,7 @@ class DatasetService:
         result = await self.db.execute(stmt.limit(1))
         found = result.scalar_one_or_none()
         if found is None:
-            raise NotFoundError(
-                "Dataset version", f"{dataset_id}:{version if version is not None else 'latest'}"
-            )
+            raise NotFoundError("Dataset version", f"{dataset_id}:{version if version is not None else 'latest'}")
         return found
 
     async def _get_or_raise(self, dataset_id: str) -> Dataset:
@@ -336,6 +343,11 @@ def _df_to_records(df: pd.DataFrame, n: int) -> list[dict[str, Any]]:
     """Serialize top-n rows to JSON-safe dicts (NaN → None, timestamps → ISO strings)."""
     records = json.loads(df.head(n).to_json(orient="records", date_format="iso"))
     return cast(list[dict[str, Any]], records)
+
+
+def _profile_dataframe(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Per-column statistics for a freshly parsed dataset version."""
+    return profile_frame(get_engine("pandas"), df)
 
 
 def _storage_filename(dataset_id: str, original_filename: str) -> str:
