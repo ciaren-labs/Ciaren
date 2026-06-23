@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
+  BrainCircuit,
   CalendarClock,
   Database,
   FolderKanban,
@@ -11,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { useMlEnabled } from "@/features/models/hooks";
 
 const NAV = [
   { to: "/projects", label: "Projects", icon: FolderKanban },
@@ -21,6 +23,9 @@ const NAV = [
   { to: "/runs", label: "Runs", icon: History },
 ];
 
+// Shown only when the ML extension is enabled (the [ml] extra is installed).
+const ML_NAV = { to: "/models", label: "Models", icon: BrainCircuit };
+
 function isActive(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
 }
@@ -28,6 +33,8 @@ function isActive(pathname: string, to: string): boolean {
 export function AppHeader() {
   const { pathname } = useLocation();
   const { timezone, setTimezone } = useTimezoneStore();
+  const mlEnabled = useMlEnabled();
+  const nav = mlEnabled ? [...NAV, ML_NAV] : NAV;
 
   return (
     <header className="flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -41,7 +48,7 @@ export function AppHeader() {
         </span>
       </Link>
       <nav className="flex items-center gap-1">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = isActive(pathname, item.to);
           const Icon = item.icon;
           return (
