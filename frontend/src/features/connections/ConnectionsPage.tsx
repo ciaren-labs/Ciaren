@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   ArrowLeft,
   Check,
   Cloud,
@@ -13,8 +12,19 @@ import {
   Snowflake,
   Trash2,
   X,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
+import {
+  siDuckdb,
+  siGooglecloudstorage,
+  siMongodb,
+  siMysql,
+  siPostgresql,
+  siSnowflake,
+  siSqlite,
+  type SimpleIcon,
+} from "simple-icons";
 import {
   Dialog,
   DialogContent,
@@ -37,80 +47,87 @@ import {
   useTestConnectionConfig,
 } from "./hooks";
 
-// ─── Provider metadata ────────────────────────────────────────────────────────
+// ─── Brand icon metadata ──────────────────────────────────────────────────────
 
 type ProviderMeta = {
-  icon: LucideIcon;
-  iconBg: string;
-  iconColor: string;
+  /** simple-icons SVG object. null = use lucideIcon instead. */
+  brandIcon: SimpleIcon | null;
+  /** Hex color (without #) for both the brand icon fill and the bg tint.
+   *  Overrides brandIcon.hex when the brand color has poor contrast on white. */
+  color: string;
+  lucideIcon: LucideIcon;
   description: string;
 };
 
 const PROVIDER_META: Record<string, ProviderMeta> = {
   postgresql: {
-    icon: Database,
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    brandIcon: siPostgresql,
+    color: siPostgresql.hex,
+    lucideIcon: Database,
     description: "Open-source relational database",
   },
   mysql: {
-    icon: Database,
-    iconBg: "bg-orange-100",
-    iconColor: "text-orange-600",
+    brandIcon: siMysql,
+    color: siMysql.hex,
+    lucideIcon: Database,
     description: "Popular open-source database",
   },
   sqlite: {
-    icon: HardDrive,
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-500",
+    brandIcon: siSqlite,
+    color: siSqlite.hex,
+    lucideIcon: HardDrive,
     description: "Lightweight file-based database",
   },
   mssql: {
-    icon: Database,
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
+    brandIcon: null,
+    color: "7c3aed",
+    lucideIcon: Database,
     description: "Microsoft SQL Server",
   },
   duckdb: {
-    icon: HardDrive,
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-700",
+    brandIcon: siDuckdb,
+    // FFF000 (pure yellow) is invisible on white; use a darker amber instead.
+    color: "c8a000",
+    lucideIcon: HardDrive,
     description: "In-process analytics database",
   },
   snowflake: {
-    icon: Snowflake,
-    iconBg: "bg-sky-100",
-    iconColor: "text-sky-600",
+    brandIcon: siSnowflake,
+    color: siSnowflake.hex,
+    lucideIcon: Snowflake,
     description: "Cloud data warehouse",
   },
   mongodb: {
-    icon: Database,
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
+    brandIcon: siMongodb,
+    color: siMongodb.hex,
+    lucideIcon: Database,
     description: "Document-oriented NoSQL database",
   },
+  // Amazon/Microsoft don't have public simple-icons due to trademark policy.
+  // Use Lucide icons with brand-appropriate colors instead.
   s3: {
-    icon: Cloud,
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
+    brandIcon: null,
+    color: "FF9900",
+    lucideIcon: Cloud,
     description: "AWS S3 or any S3-compatible store",
   },
   azure_blob: {
-    icon: Cloud,
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    brandIcon: null,
+    color: "0078D4",
+    lucideIcon: Cloud,
     description: "Microsoft Azure Blob Storage",
   },
   gcs: {
-    icon: Cloud,
-    iconBg: "bg-red-100",
-    iconColor: "text-red-500",
+    brandIcon: siGooglecloudstorage,
+    // AECBFA is too light; use Google's primary blue.
+    color: "4285F4",
+    lucideIcon: Cloud,
     description: "Google Cloud Storage",
   },
   local: {
-    icon: FolderOpen,
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-500",
+    brandIcon: null,
+    color: "64748b",
+    lucideIcon: FolderOpen,
     description: "Local folder on the server",
   },
 };
@@ -118,11 +135,47 @@ const PROVIDER_META: Record<string, ProviderMeta> = {
 function getProviderMeta(name: string): ProviderMeta {
   return (
     PROVIDER_META[name] ?? {
-      icon: Database,
-      iconBg: "bg-slate-100",
-      iconColor: "text-slate-500",
+      brandIcon: null,
+      color: "64748b",
+      lucideIcon: Database,
       description: "",
     }
+  );
+}
+
+/** Colored icon badge — shared between the picker cards and the connection list. */
+function ProviderIconBadge({
+  name,
+  size = "md",
+}: {
+  name: string;
+  size?: "sm" | "md";
+}) {
+  const meta = getProviderMeta(name);
+  const fill = `#${meta.color}`;
+  const bg = `${fill}18`; // ~10% opacity tint
+  const iconCls = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+  const padCls = size === "sm" ? "p-1.5" : "p-2";
+
+  return (
+    <div
+      className={cn("shrink-0 rounded-lg", padCls)}
+      style={{ backgroundColor: bg }}
+    >
+      {meta.brandIcon ? (
+        <svg
+          role="img"
+          viewBox="0 0 24 24"
+          className={iconCls}
+          style={{ fill }}
+          aria-label={meta.brandIcon.title}
+        >
+          <path d={meta.brandIcon.path} />
+        </svg>
+      ) : (
+        <meta.lucideIcon className={iconCls} style={{ color: fill }} />
+      )}
+    </div>
   );
 }
 
@@ -147,7 +200,7 @@ const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("duckdb", "DuckDB", "sql", "duckdb", "duckdb", null, false, false, true),
   mkProvider("snowflake", "Snowflake", "sql", "snowflake-connector-python", "snowflake", null, true, true, true),
   mkProvider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, true, true, false),
-  mkProvider("s3", "S3 / S3-Compatible", "storage", "boto3", "aws", null, false, false, false, true, true, true),
+  mkProvider("s3", "AWS S3", "storage", "boto3", "s3", null, false, false, false, true, true, true),
   mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, false),
   mkProvider("gcs", "Google Cloud Storage", "storage", "google-cloud-storage", "gcs", null, false, false, false, true, false, false),
 ];
@@ -252,16 +305,12 @@ function ConnectionCard({
   const test = useTestConnection();
   const del = useDeleteConnection();
   const provider = providers.find((p) => p.name === connection.provider);
-  const meta = getProviderMeta(connection.provider);
-  const Icon = meta.icon;
   const target = connectionTarget(connection);
   const isBuiltIn = connection.provider === "local";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-      <div className={cn("rounded-lg p-1.5", meta.iconBg)}>
-        <Icon className={cn("h-4 w-4", meta.iconColor)} />
-      </div>
+      <ProviderIconBadge name={connection.provider} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{connection.name}</span>
@@ -308,7 +357,7 @@ function ConnectionCard({
   );
 }
 
-// ─── Provider picker card ─────────────────────────────────────────────────────
+// ─── Provider picker cards ────────────────────────────────────────────────────
 
 function ProviderCard({
   provider,
@@ -318,32 +367,65 @@ function ProviderCard({
   onSelect: () => void;
 }) {
   const meta = getProviderMeta(provider.name);
-  const Icon = meta.icon;
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={!provider.available}
+    <div
       className={cn(
-        "group relative flex flex-col gap-2.5 rounded-xl border border-border p-3.5 text-left transition-all",
-        provider.available
-          ? "cursor-pointer hover:border-primary/60 hover:bg-muted/40 hover:shadow-sm"
-          : "cursor-not-allowed opacity-40",
+        "overflow-hidden rounded-xl border border-border transition-all",
+        provider.available && "hover:border-primary/50 hover:shadow-sm",
       )}
     >
-      <div className={cn("w-fit rounded-lg p-2", meta.iconBg)}>
-        <Icon className={cn("h-5 w-5", meta.iconColor)} />
-      </div>
-      <div>
-        <p className="text-xs font-semibold leading-snug">{provider.label}</p>
-        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{meta.description}</p>
-      </div>
-      {!provider.available && (
-        <span className="absolute right-2 top-2 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
-          driver missing
-        </span>
+      {/* Main selectable area */}
+      <button
+        type="button"
+        onClick={provider.available ? onSelect : undefined}
+        className={cn(
+          "flex w-full flex-col gap-2.5 p-3.5 text-left transition-colors",
+          provider.available ? "cursor-pointer hover:bg-muted/40" : "cursor-not-allowed opacity-40",
+        )}
+      >
+        <ProviderIconBadge name={provider.name} />
+        <div>
+          <p className="text-xs font-semibold leading-snug">{provider.label}</p>
+          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+            {meta.description}
+          </p>
+        </div>
+      </button>
+
+      {/* Install hint — outside the disabled button so the copy action still works */}
+      {!provider.available && provider.extra && (
+        <InstallHint command={`pip install flowframe[${provider.extra}]`} />
       )}
-    </button>
+    </div>
+  );
+}
+
+function InstallHint({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="flex items-center gap-1 border-t border-border/50 bg-muted/30 px-3 py-1.5">
+      <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        title="Copy install command"
+        className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-success" />
+        ) : (
+          <Copy className="h-3 w-3 text-muted-foreground" />
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -359,7 +441,7 @@ function ProviderSection({
   if (providers.length === 0) return null;
   return (
     <div>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+      <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -404,7 +486,7 @@ function ConnectionDialog({
   const isStorage = provider?.kind === "storage";
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
-  // Exclude local — it's auto-seeded from DATA_DIR, not user-created.
+  // Exclude local — auto-seeded from DATA_DIR, not user-created.
   const selectableProviders = providers.filter((p) => p.name !== "local");
   const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
   const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
@@ -413,7 +495,7 @@ function ConnectionDialog({
     testConfig.reset();
     setForm({
       ...EMPTY,
-      name: form.name, // preserve any name the user typed
+      name: form.name,
       provider: p.name,
       port: p.default_port ?? null,
     });
@@ -432,11 +514,11 @@ function ConnectionDialog({
       await create.mutateAsync(payload());
       onOpenChange(false);
     } catch {
-      /* error shown below */
+      /* error shown in UI */
     }
   };
 
-  // Reset fully when dialog closes.
+  // Reset when dialog closes.
   useEffect(() => {
     if (!open) {
       const t = setTimeout(() => {
@@ -449,11 +531,12 @@ function ConnectionDialog({
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meta = getProviderMeta(form.provider);
-  const ProviderIcon = meta.icon;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("transition-none", step === "pick" ? "sm:max-w-2xl" : "sm:max-w-lg")}>
+      <DialogContent
+        className={cn("transition-none", step === "pick" ? "sm:max-w-2xl" : "sm:max-w-lg")}
+      >
         {step === "pick" ? (
           <>
             <DialogHeader>
@@ -462,19 +545,31 @@ function ConnectionDialog({
                 Choose the type of database or storage you want to connect to.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-5 pt-1">
-              <ProviderSection label="Databases" providers={dbProviders} onSelect={selectProvider} />
-              <ProviderSection label="Cloud Storage" providers={storageProviders} onSelect={selectProvider} />
+
+            {/* Scrollable provider grid */}
+            <div className="max-h-[70vh] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-5 pb-1 pt-1">
+                <ProviderSection
+                  label="Databases"
+                  providers={dbProviders}
+                  onSelect={selectProvider}
+                />
+                <ProviderSection
+                  label="Cloud Storage"
+                  providers={storageProviders}
+                  onSelect={selectProvider}
+                />
+              </div>
             </div>
           </>
         ) : (
           <>
             <DialogHeader>
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <button
                   type="button"
                   onClick={goBack}
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="mt-0.5 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   title="Choose a different connector"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -492,9 +587,7 @@ function ConnectionDialog({
 
             {/* Selected provider chip */}
             <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
-              <div className={cn("rounded-md p-1.5", meta.iconBg)}>
-                <ProviderIcon className={cn("h-4 w-4", meta.iconColor)} />
-              </div>
+              <ProviderIconBadge name={form.provider} size="sm" />
               <div className="flex-1">
                 <p className="text-xs font-semibold">{provider?.label}</p>
                 <p className="text-[10px] text-muted-foreground">{meta.description}</p>
@@ -509,10 +602,13 @@ function ConnectionDialog({
             </div>
 
             {provider && !provider.available && provider.extra && (
-              <DriverHint
-                label={provider.label}
-                command={`pip install flowframe[${provider.extra}]`}
-              />
+              <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">
+                  Driver not installed.{" "}
+                  <code className="font-mono">pip install flowframe[{provider.extra}]</code>
+                </span>
+              </div>
             )}
 
             <div className="flex flex-col gap-3">
@@ -627,7 +723,7 @@ function ConnectionDialog({
   );
 }
 
-// ─── Storage-specific fields ──────────────────────────────────────────────────
+// ─── Storage-specific config fields ──────────────────────────────────────────
 
 function StorageFields({
   form,
@@ -730,7 +826,10 @@ function StorageFields({
             placeholder="my-gcs-bucket"
           />
         </Field>
-        <Field label="Project ID" hint="Optional — uses the project from the service account if omitted">
+        <Field
+          label="Project ID"
+          hint="Optional — uses the project from the service account if omitted"
+        >
           <Input
             value={opts.project_id ?? ""}
             onChange={(e) => setOption("project_id", e.target.value)}
@@ -755,32 +854,6 @@ function StorageFields({
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
-
-function DriverHint({ label, command }: { label: string; command: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700">
-      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-      <span className="shrink-0">The {label} driver isn't installed:</span>
-      <code className="min-w-0 flex-1 truncate font-mono text-amber-900" title={command}>
-        {command}
-      </code>
-      <button
-        type="button"
-        onClick={copy}
-        title="Copy install command"
-        className="shrink-0 rounded p-1 text-amber-700 transition-colors hover:bg-amber-100"
-      >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
-    </div>
-  );
-}
 
 function Field({
   label,
