@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, ExternalLink, History, Loader2, Table2, Workflow } from "lucide-react";
+import { BarChart3, Download, ExternalLink, History, Loader2, Table2, Workflow } from "lucide-react";
 import { datasetsApi } from "@/lib/api";
 import {
   Dialog,
@@ -11,7 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/flow/DataTable";
-import { useDatasetFlows, useDatasetSample, useDatasetVersions } from "./hooks";
+import { ColumnProfileList } from "@/components/data/ColumnProfileList";
+import {
+  useDatasetFlows,
+  useDatasetProfile,
+  useDatasetSample,
+  useDatasetVersions,
+} from "./hooks";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset } from "@/lib/types";
 
@@ -46,6 +52,9 @@ export function DatasetDetailDialog({
                 <TabsTrigger value="preview">
                   <Table2 className="mr-1.5 h-3.5 w-3.5" /> Preview
                 </TabsTrigger>
+                <TabsTrigger value="profile">
+                  <BarChart3 className="mr-1.5 h-3.5 w-3.5" /> Profile
+                </TabsTrigger>
                 <TabsTrigger value="versions">
                   <History className="mr-1.5 h-3.5 w-3.5" /> Versions
                 </TabsTrigger>
@@ -56,6 +65,9 @@ export function DatasetDetailDialog({
 
               <TabsContent value="preview">
                 <PreviewTab dataset={dataset} />
+              </TabsContent>
+              <TabsContent value="profile">
+                <ProfileTab dataset={dataset} />
               </TabsContent>
               <TabsContent value="versions">
                 <VersionsTab datasetId={dataset.id} latest={dataset.latest_version} />
@@ -105,6 +117,25 @@ function PreviewTab({ dataset }: { dataset: Dataset }) {
           <DataTable columns={columns} rows={rows.slice(0, 50)} />
         </div>
       )}
+    </div>
+  );
+}
+
+function ProfileTab({ dataset }: { dataset: Dataset }) {
+  // Fetch (computing on demand for older datasets) rather than relying on the
+  // list payload, so the profile shows even for versions uploaded before profiling.
+  const { data: profile, isLoading } = useDatasetProfile(dataset.id);
+  if (isLoading) return <Loading />;
+  if (!profile || profile.length === 0) {
+    return (
+      <p className="p-6 text-center text-sm text-muted-foreground">
+        No profile available for this dataset.
+      </p>
+    );
+  }
+  return (
+    <div className="max-h-[55vh] overflow-auto">
+      <ColumnProfileList profile={profile} />
     </div>
   );
 }

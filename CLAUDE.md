@@ -76,11 +76,13 @@ Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 
 ## Node Types
 
-- **Input:** CSV, Excel, Parquet
+- **Input:** CSV, Excel, Parquet, SQL (database, via `app/connectors/`)
 - **Cleaning:** rename/drop/select columns, filter rows, fill/drop nulls,
-  remove duplicates, change types, sort, limit, replace values, string ops
-- **Transform:** calculated column, group by + aggregate, join/merge, union/concat
-- **Output:** CSV, Excel, Parquet
+  remove duplicates, change types, sort, limit, replace values, string ops,
+  split column, map values
+- **Transform:** calculated column, group by + aggregate, join/merge,
+  union/concat, parse dates, window function, conditional column
+- **Output:** CSV, Excel, Parquet, SQL (database)
 
 `app/engine/registry.py` is the authoritative list — keep docs in sync with it.
 
@@ -96,6 +98,9 @@ REST only (no GraphQL for MVP).
   `GET /api/schedules/{id}/runs`
 - Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
   `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
+- Connections: `GET/POST /api/connections`, `GET/PATCH/DELETE /api/connections/{id}`,
+  `POST /api/connections/{id}/test`, `GET /api/connections/{id}/tables`,
+  `GET /api/connections/providers`
 - Code export: `POST /api/flows/{id}/export/python`
 
 ## Execution Engine

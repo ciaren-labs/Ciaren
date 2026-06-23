@@ -12,16 +12,12 @@ router = APIRouter()
 
 
 @router.post("/upload", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)
-async def upload_dataset(
-    file: UploadFile, service: DatasetServiceDep, project_id: str | None = None
-) -> DatasetRead:
+async def upload_dataset(file: UploadFile, service: DatasetServiceDep, project_id: str | None = None) -> DatasetRead:
     return await service.upload(file, project_id)
 
 
 @router.get("", response_model=list[DatasetRead])
-async def list_datasets(
-    service: DatasetServiceDep, project_id: str | None = None
-) -> list[DatasetRead]:
+async def list_datasets(service: DatasetServiceDep, project_id: str | None = None) -> list[DatasetRead]:
     return await service.list_all(project_id)
 
 
@@ -59,16 +55,12 @@ async def get_dataset(dataset_id: str, service: DatasetServiceDep) -> DatasetRea
 
 
 @router.get("/{dataset_id}/versions", response_model=list[DatasetVersionRead])
-async def list_dataset_versions(
-    dataset_id: str, service: DatasetServiceDep
-) -> list[DatasetVersionRead]:
+async def list_dataset_versions(dataset_id: str, service: DatasetServiceDep) -> list[DatasetVersionRead]:
     return await service.list_versions(dataset_id)
 
 
 @router.get("/{dataset_id}/versions/{version_number}/download")
-async def download_dataset_version(
-    dataset_id: str, version_number: int, service: DatasetServiceDep
-) -> FileResponse:
+async def download_dataset_version(dataset_id: str, version_number: int, service: DatasetServiceDep) -> FileResponse:
     """Stream a specific dataset version's file as a download."""
     file_path = await service.get_version_location(dataset_id, version_number)
     if not file_path.exists():
@@ -92,3 +84,10 @@ async def get_dataset_sample(
     dataset_id: str, service: DatasetServiceDep, version: int | None = None
 ) -> list[dict[str, Any]]:
     return await service.get_sample(dataset_id, version)
+
+
+@router.get("/{dataset_id}/profile")
+async def get_dataset_profile(
+    dataset_id: str, service: DatasetServiceDep, version: int | None = None
+) -> list[dict[str, Any]]:
+    return await service.get_profile(dataset_id, version)

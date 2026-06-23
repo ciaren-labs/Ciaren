@@ -1,5 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-import { CalendarClock, Database, FolderKanban, Globe, History, Workflow } from "lucide-react";
+import {
+  CalendarClock,
+  Database,
+  FolderKanban,
+  Globe,
+  History,
+  Plug,
+  Workflow,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
@@ -7,6 +15,7 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 const NAV = [
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
+  { to: "/connections", label: "Connections", icon: Plug },
   { to: "/flows", label: "Flows", icon: Workflow },
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
   { to: "/runs", label: "Runs", icon: History },

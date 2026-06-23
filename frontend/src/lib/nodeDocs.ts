@@ -190,6 +190,80 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
 
+  splitColumn: {
+    summary: "Splits one text column into several columns by a delimiter or regex groups.",
+    fields: [
+      { name: "Column", desc: "The text column to split." },
+      { name: "Split by", desc: "A literal delimiter, or a regex whose capture groups become columns." },
+      { name: "New columns", desc: "Names for the resulting columns, in order." },
+      { name: "Keep original", desc: "Whether the source column is retained." },
+    ],
+    example: "name = 'Ada Lovelace', delimiter ' ' → first = 'Ada', last = 'Lovelace'.",
+  },
+  parseDates: {
+    summary: "Parses text columns into real datetimes so date operations work.",
+    fields: [
+      { name: "Columns", desc: "The text columns to parse." },
+      { name: "Date format", desc: "Optional strptime format; leave empty to auto-detect." },
+      { name: "On bad values", desc: "Coerce unparseable values to null, or raise an error." },
+    ],
+    tips: ["Pairs well with Extract Date Parts once the column is a datetime."],
+  },
+  mapValues: {
+    summary: "Maps column values to new values via a lookup (CASE-WHEN-style).",
+    fields: [
+      { name: "Column", desc: "The column whose values are mapped." },
+      { name: "New column", desc: "Optional. Empty overwrites the source column." },
+      { name: "Mapping", desc: "Each listed value is replaced with its mapped value." },
+      { name: "Default", desc: "Optional value for anything not in the mapping (otherwise kept as-is)." },
+    ],
+    example: "{'A': 'Pass', 'B': 'Pass'}, default 'Fail' → C becomes 'Fail'.",
+  },
+
+  windowFunction: {
+    summary: "Compute a window function (rank, running total, lag/lead) into a new column.",
+    fields: [
+      { name: "Function", desc: "row_number, rank, dense_rank, cumcount, cumsum, cummax, cummin, lag, lead." },
+      { name: "Partition by", desc: "Restart the window within each group (optional)." },
+      { name: "Order by", desc: "Row order within each partition." },
+      { name: "Target", desc: "Value column for cumsum/cummax/cummin/lag/lead." },
+    ],
+    example: "function cumsum, partition by region, order by date → a running total per region.",
+    tips: ["Row order is preserved; the result is added as a new column."],
+  },
+  conditionalColumn: {
+    summary: "Build a column from ordered if/elif/else rules (CASE-WHEN). First match wins.",
+    fields: [
+      { name: "New column", desc: "Where the result is written." },
+      {
+        name: "Rules",
+        desc: "Each rule has one or more conditions (column + operator + value) combined with match ALL (AND) or ANY (OR) → result.",
+      },
+      { name: "Default", desc: "Value used when no rule matches." },
+    ],
+    example: "if age >= 18 AND country == 'US' → 'us_adult'; else 'other'.",
+  },
+
+  sqlInput: {
+    summary: "Read rows live from a database (table or custom SQL) at run time.",
+    fields: [
+      { name: "Connection", desc: "A reusable connection from the Connections page." },
+      { name: "Source", desc: "Pick a table, or write a custom SQL query." },
+    ],
+    tips: [
+      "Scheduled runs re-read the source each time, so the data is always fresh.",
+      "Passwords come from environment variables — never stored in the flow.",
+    ],
+  },
+  sqlOutput: {
+    summary: "Write the incoming table to a database table when the flow runs.",
+    fields: [
+      { name: "Connection", desc: "Where to write the result." },
+      { name: "Target table", desc: "The destination table (or collection)." },
+      { name: "If table exists", desc: "Replace, append, or fail." },
+    ],
+  },
+
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),
   parquetOutput: OUTPUT_DOC("Parquet"),

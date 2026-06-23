@@ -41,12 +41,12 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
 The chosen engine is **recorded on the run**, so the run is reproducible and you
 can see which engine produced a given output.
 
-## Code export is dual
+## Code export: pandas, polars, and lazy polars
 
-`POST /api/flows/{flow_id}/export/python` returns **both** versions of the flow's
-code — the pandas script and the polars script — generated from the same graph.
-Use whichever library your downstream code prefers; both are standalone and
-readable.
+`POST /api/flows/{flow_id}/export/python` returns **three** versions of the flow's
+code, all generated from the same graph. In the editor's **Generated code** dialog
+they appear as the `pandas`, `polars`, and `polars (lazy)` tabs. All three are
+standalone and readable — use whichever your downstream code prefers.
 
 ```python
 # pandas
@@ -58,13 +58,41 @@ df_3.to_csv("summary.csv", index=False)
 ```
 
 ```python
-# polars
+# polars (eager)
 import polars as pl
 df_1 = pl.read_csv("sales.csv")
 df_2 = df_1.drop_nulls(subset=['amount'])
 df_3 = df_2.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
 df_3.write_csv("summary.csv")
 ```
+
+### Lazy polars (for large inputs)
+
+The `polars (lazy)` variant reads with `scan_*` and builds a single
+**`LazyFrame`** query that only materializes at the final `collect()`. This lets
+polars apply projection and predicate pushdown (read fewer columns, filter at the
+scan) and optimize joins — a real speedup on large files for no change in results.
+
+```python
+# polars (lazy)
+import polars as pl
+df_1 = pl.scan_csv("sales.csv")
+df_2 = df_1.drop_nulls(subset=['amount'])
+df_3 = df_2.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
+df_3.collect().write_csv("summary.csv")
+```
+
+A few nodes have no lazy equivalent (`pivot`, `sample`); the lazy export
+materializes around just those steps (`.collect()` … `.lazy()`) and keeps the
+rest of the plan lazy.
+
+### Freeing intermediates (lower peak memory)
+
+Pass `?free_intermediates=true` (the **Free intermediate tables (`del`)** checkbox
+in the export dialog) to add a `del` after each dataframe's last use in the pandas
+and eager-polars scripts. This releases intermediate tables sooner, lowering peak
+memory on long pipelines. The lazy script is unaffected — its variables are query
+plans, not materialized data, so there is nothing to free.
 
 ## Execution mode: thread vs. process
 

@@ -60,6 +60,7 @@ async def init_db() -> None:
     # Import models inside the function so they register on Base.metadata
     # without creating an import cycle (models import Base from this module).
     from app.db.models import (  # noqa: F401
+        connection,
         dataset,
         dataset_version,
         flow,
@@ -99,10 +100,7 @@ def _pending_column_ddl(connection: Connection) -> list[str]:
 
 
 def _add_column_ddl(table: Table, column: Column[Any], dialect: Dialect) -> str:
-    parts = [
-        f"ALTER TABLE {table.name} ADD COLUMN "
-        f"{column.name} {column.type.compile(dialect=dialect)}"
-    ]
+    parts = [f"ALTER TABLE {table.name} ADD COLUMN {column.name} {column.type.compile(dialect=dialect)}"]
     default = _default_literal(column)
     if default is not None:
         parts.append(f"DEFAULT {default}")

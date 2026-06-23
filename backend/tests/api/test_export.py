@@ -68,6 +68,25 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
     assert ".write_csv(" in polars
     compile(polars, "<exported-polars>", "exec")
 
+    # ...and the optimized lazy polars variant.
+    polars_lazy = body["polars_lazy"]
+    assert 'pl.scan_csv("people.csv")' in polars_lazy
+    assert ".collect().write_csv(" in polars_lazy
+    compile(polars_lazy, "<exported-polars-lazy>", "exec")
+
+
+async def test_export_free_intermediates_adds_del(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/export/python?free_intermediates=true")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # del appears in the materializing scripts but never in the lazy one.
+    assert "del df_1" in body["code"]
+    assert "del df_1" in body["polars"]
+    assert "del " not in body["polars_lazy"]
+    compile(body["code"], "<exported-del>", "exec")
+
 
 async def test_export_python_missing_flow(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/export/python")

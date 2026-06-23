@@ -50,8 +50,32 @@ export interface Dataset {
   // `location` is intentionally never sent to the client. They reflect the latest version.
   column_schema: DatasetSchemaField[] | null;
   data_sample: Record<string, unknown>[] | null;
+  column_profile: ColumnProfile[] | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Per-column statistics (see backend app/engine/profile.py). Most fields are
+ *  type-dependent and only present when relevant to the column's dtype. */
+export interface ColumnProfile {
+  name: string;
+  dtype: "integer" | "float" | "boolean" | "datetime" | "string";
+  null_count: number;
+  null_pct: number;
+  distinct: number;
+  scanned: number;
+  total: number;
+  // numeric
+  min?: number | string | null;
+  max?: number | string | null;
+  mean?: number | null;
+  std?: number | null;
+  // boolean
+  true_count?: number;
+  // string
+  min_len?: number;
+  max_len?: number;
+  top_values?: { value: string; count: number }[];
 }
 
 export interface DatasetVersion {
@@ -59,6 +83,7 @@ export interface DatasetVersion {
   version_number: number;
   row_count: number;
   column_schema: DatasetSchemaField[] | null;
+  column_profile: ColumnProfile[] | null;
   source_run_id: string | null;
   created_at: string;
 }
@@ -242,16 +267,72 @@ export interface FlowUpdate {
   is_disabled?: boolean;
 }
 
+// ---- Connections (database sources/sinks) ---------------------------------
+
+export interface Connection {
+  id: string;
+  name: string;
+  provider: string;
+  host: string | null;
+  port: number | null;
+  database: string | null;
+  username: string | null;
+  /** NAME of an env var holding the password — never the secret itself. */
+  password_env: string | null;
+  options: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConnectionCreate {
+  name: string;
+  provider: string;
+  host?: string | null;
+  port?: number | null;
+  database?: string | null;
+  username?: string | null;
+  password_env?: string | null;
+  options?: Record<string, unknown> | null;
+}
+
+export type ConnectionUpdate = Partial<ConnectionCreate>;
+
+export interface ProviderInfo {
+  name: string;
+  label: string;
+  kind: "sql" | "mongo";
+  available: boolean;
+  driver_module: string | null;
+  extra: string | null;
+  default_port: number | null;
+  needs_host: boolean;
+  needs_auth: boolean;
+  supports_query: boolean;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface TableInfo {
+  name: string;
+  schema_name: string | null;
+  qualified: string;
+}
+
 export interface PreviewResponse {
   columns: string[];
   rows: Record<string, unknown>[];
   row_count: number;
   truncated: boolean;
+  profile: ColumnProfile[] | null;
 }
 
 export interface FlowPreviewRequest {
   node_id?: string;
   limit?: number;
+  profile?: boolean;
 }
 
 export interface TransformationPreviewRequest {
@@ -259,11 +340,14 @@ export interface TransformationPreviewRequest {
   dataset_id: string;
   config: Record<string, unknown>;
   limit?: number;
+  profile?: boolean;
 }
 
 export interface ExportCodeResponse {
   /** pandas script (kept as `code` for back-compat). */
   code: string;
-  /** polars equivalent. */
+  /** eager polars equivalent. */
   polars: string;
+  /** optimized lazy polars (`scan_*` → `collect()`) equivalent. */
+  polars_lazy: string;
 }

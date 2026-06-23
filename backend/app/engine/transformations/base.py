@@ -27,6 +27,12 @@ class BaseTransformation(ABC):
     #: ``"in"`` handle (concat). ``input_handles`` is then advisory.
     multi_input: bool = False
 
+    #: Whether this node's ``to_polars_code`` runs on a ``LazyFrame`` unchanged.
+    #: Most nodes are expression-based and lazy-safe; a few (``pivot``, ``sample``)
+    #: have no lazy equivalent, so the lazy code generator materializes around
+    #: them (``.collect()`` before, ``.lazy()`` after).
+    polars_lazy_safe: bool = True
+
     @abstractmethod
     def validate_config(self, config: dict[str, Any]) -> None: ...
 

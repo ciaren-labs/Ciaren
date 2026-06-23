@@ -1,0 +1,48 @@
+---
+title: SQL output
+search: sql output database table write connection if_exists append replace
+description: Write the result of a flow to a database table via a reusable connection
+---
+
+# SQL output — `sqlOutput`
+
+Write the result to a database table via a reusable
+[Connection](/guide/connections).
+
+## Use cases
+
+- Land a cleaned dataset into an analytics table on a schedule.
+- Append daily results to a growing table, or replace a table each run.
+
+## Configuration
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The connection to write to |
+| `table` | string | Yes | Target table |
+| `schema` | string | No | Schema to write into |
+| `if_exists` | string | No | `replace` (default), `append`, or `fail` |
+
+## Generated Python code
+
+```python
+df_5.to_sql("cleaned_orders", _engine_1, if_exists="replace", index=False)
+```
+
+::: tip Security
+Exported code reads the password from `os.environ` — FlowFrame never stores or
+embeds secrets. See [Connections](/guide/connections).
+:::
+
+## Tips & common mistakes
+
+- **`replace` drops and recreates** the table (and its schema/indexes). Use
+  `append` to keep an existing table and add rows; `fail` to abort if it exists.
+- **Match the table's columns.** With `append`, the frame's columns should line
+  up with the target table.
+
+## See also
+
+- [SQL input](./sql-input.md)
+- [Database Connections](/guide/connections)
+- [Connections API](/api/connections)
