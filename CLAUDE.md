@@ -3,7 +3,7 @@
 ## Project Summary
 
 FlowFrame is an open-source, local-first visual ETL builder for simple,
-pandas-based data transformations. Users build common ETL flows visually,
+dataframe-based data transformations. Users build common ETL flows visually,
 execute them through a Python/FastAPI backend, and export readable Python code.
 
 It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
@@ -15,12 +15,14 @@ It is **not** an Airflow/dbt/Spark replacement. Keep it lightweight.
   and Python code export.
 - **The frontend exists** in `frontend/` (Vite + React 18 + TS strict). Shipped
   pages: landing, projects, datasets, the React Flow editor, runs history + run
-  detail, and schedules (list + detail + cron builder). Dev runs locally — see
-  the frontend dev notes (default dev ports differ from the old `5173`).
+  detail, schedules (list + detail + cron builder), and connections. Dev server
+  defaults to port **5173** (frontend) proxying the API at **8055** (backend);
+  both are configurable via `VITE_PORT` and `VITE_API_TARGET`.
 - **Guardrail:** never document, demo, or claim a feature that is not actually
   implemented. Check the code before writing docs or examples — the backend
-  (`app/engine/registry.py` for transformations, `app/api/routes/` for the API)
-  and the frontend (`frontend/src/features/`) are authoritative.
+  (`app/engine/registry.py` for transformations, `app/engine/node_kinds.py` for
+  I/O node types, `app/api/routes/` for the API) and the frontend
+  (`frontend/src/features/`) are authoritative.
 
 ## Product Vision
 
@@ -45,8 +47,8 @@ Core promise:
 ## Tech Stack
 
 **Backend:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async),
-Alembic, pandas. Optional dataframe engines behind a backend abstraction
-(`app/engine/backends/`): pandas (default), polars.
+Alembic, polars, pandas. Pluggable dataframe engine abstraction lives in
+`app/engine/backends/`: polars (default), pandas.
 
 **Frontend:** React, TypeScript, Vite, @xyflow/react, TanStack Query,
 Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
@@ -79,15 +81,20 @@ Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 
 ## Node Types
 
-- **Input:** CSV, Excel, Parquet, SQL (database, via `app/connectors/`)
+- **Input:** CSV, Excel, Parquet, SQL (database, via `app/connectors/`),
+  Storage (S3/GCS/Azure Blob, via `app/connectors/`)
 - **Cleaning:** rename/drop/select columns, filter rows, fill/drop nulls,
   remove duplicates, change types, sort, limit, replace values, string ops,
-  split column, map values
+  split column, map values, remove outliers, round numbers, bin column,
+  sample rows
 - **Transform:** calculated column, group by + aggregate, join/merge,
-  union/concat, parse dates, window function, conditional column
-- **Output:** CSV, Excel, Parquet, SQL (database)
+  union/concat, parse dates, extract date parts, pivot, unpivot,
+  window function, conditional column
+- **Output:** CSV, Excel, Parquet, SQL (database), Storage (S3/GCS/Azure Blob)
 
-`app/engine/registry.py` is the authoritative list — keep docs in sync with it.
+`app/engine/registry.py` is the authoritative list for transformation nodes.
+`app/engine/node_kinds.py` is the authoritative list for I/O node types —
+keep docs in sync with both.
 
 ## API Design
 
@@ -95,14 +102,20 @@ REST only (no GraphQL for MVP).
 
 - Flows: `GET/POST /api/flows`, `GET/PUT/DELETE /api/flows/{id}`
 - Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
-- Runs: `POST /api/flows/{id}/runs`, `GET /api/runs/{id}`
+- Runs: `POST /api/flows/{id}/runs`, `GET /api/runs` (filterable by flow,
+  schedule, status, date), `GET /api/runs/{id}`, `GET /api/runs/{id}/output`
 - Schedules: `GET/POST /api/flows/{id}/schedules`, `GET /api/schedules`,
   `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`,
   `GET /api/schedules/{id}/runs`
 - Datasets: `POST /api/datasets/upload`, `GET /api/datasets`,
-  `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/schema`
+  `GET/PATCH/DELETE /api/datasets/{id}`, `GET /api/datasets/{id}/schema`,
+  `GET /api/datasets/{id}/sample`, `GET /api/datasets/{id}/profile`,
+  `GET /api/datasets/{id}/versions`,
+  `GET /api/datasets/{id}/versions/{version}/download`,
+  `GET /api/datasets/{id}/flows`
 - Connections: `GET/POST /api/connections`, `GET/PATCH/DELETE /api/connections/{id}`,
-  `POST /api/connections/{id}/test`, `GET /api/connections/{id}/tables`,
+  `POST /api/connections/test-config`, `POST /api/connections/{id}/test`,
+  `GET /api/connections/{id}/tables`, `GET /api/connections/{id}/objects`,
   `GET /api/connections/providers`
 - Code export: `POST /api/flows/{id}/export/python`
 
