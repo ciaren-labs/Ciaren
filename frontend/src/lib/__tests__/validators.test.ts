@@ -58,11 +58,25 @@ const COVERED = new Set<string>([
   "mapValues",
   "windowFunction",
   "conditionalColumn",
+  "jsonInput",
+  "textInput",
   "sqlInput",
   "sqlOutput",
+  "storageInput",
+  "storageOutput",
   "csvOutput",
   "excelOutput",
   "parquetOutput",
+  "trainTestSplit",
+  "scaleFeatures",
+  "encodeCategories",
+  "imputeMissing",
+  "selectFeatures",
+  "reduceDimensions",
+  "mlTrain",
+  "mlPredict",
+  "mlEvaluate",
+  "featureImportance",
 ]);
 
 describe("nodeConfigSchemas coverage guard", () => {
@@ -74,8 +88,8 @@ describe("nodeConfigSchemas coverage guard", () => {
 });
 
 // Input nodes -----------------------------------------------------------
-describe("input schemas (csv/excel/parquet)", () => {
-  for (const type of ["csvInput", "excelInput", "parquetInput"]) {
+describe("input schemas (csv/excel/parquet/json/text)", () => {
+  for (const type of ["csvInput", "excelInput", "parquetInput", "jsonInput", "textInput"]) {
     describe(type, () => {
       it("accepts a chosen dataset", () => {
         accepts(type, { dataset_id: "ds-1" });
@@ -491,4 +505,146 @@ describe("file output schemas (csv/excel/parquet)", () => {
       it("rejects a missing dataset name", () => rejects(type, {}, "dataset_name"));
     });
   }
+});
+
+// Storage I/O (added alongside the storage connectors) -------------------
+describe("storageInput", () => {
+  it("accepts a full config", () =>
+    accepts("storageInput", { connection_id: "c1", path: "data/in.csv", format: "csv" }));
+  it("rejects a missing connection", () =>
+    rejects("storageInput", { connection_id: "", path: "x", format: "csv" }, "connection_id"));
+  it("rejects a missing path", () =>
+    rejects("storageInput", { connection_id: "c1", path: "", format: "csv" }, "path"));
+  it("rejects a bad format", () =>
+    rejects("storageInput", { connection_id: "c1", path: "x", format: "avro" }, "format"));
+});
+
+describe("storageOutput", () => {
+  it("accepts a full config", () =>
+    accepts("storageOutput", { connection_id: "c1", path: "out.parquet", format: "parquet", if_exists: "overwrite" }));
+  it("rejects a missing path", () =>
+    rejects("storageOutput", { connection_id: "c1", path: "", format: "csv" }, "path"));
+});
+
+// Machine-learning nodes ------------------------------------------------
+describe("trainTestSplit", () => {
+  it("accepts a valid split", () =>
+    accepts("trainTestSplit", { test_size: 0.2, stratify_column: "target", seed: 42 }));
+  it("accepts a null stratify column", () =>
+    accepts("trainTestSplit", { test_size: 0.3, stratify_column: null, seed: 1 }));
+  it("rejects test_size of 0 or 1", () => {
+    rejects("trainTestSplit", { test_size: 0, seed: 1 }, "test_size");
+    rejects("trainTestSplit", { test_size: 1, seed: 1 }, "test_size");
+  });
+  it("requires a seed", () => rejects("trainTestSplit", { test_size: 0.2 }, "seed"));
+  it("requires an integer seed", () =>
+    rejects("trainTestSplit", { test_size: 0.2, seed: 1.5 }, "seed"));
+});
+
+describe("scaleFeatures", () => {
+  it("accepts a method + columns", () =>
+    accepts("scaleFeatures", { method: "standard", columns: ["a", "b"] }));
+  it("rejects an empty column list", () =>
+    rejects("scaleFeatures", { method: "minmax", columns: [] }, "columns"));
+  it("rejects a bad method", () =>
+    rejects("scaleFeatures", { method: "zscore", columns: ["a"] }, "method"));
+});
+
+describe("encodeCategories", () => {
+  it("accepts onehot with drop_first", () =>
+    accepts("encodeCategories", { method: "onehot", columns: ["c"], drop_first: true }));
+  it("accepts ordinal", () => accepts("encodeCategories", { method: "ordinal", columns: ["c"] }));
+  it("rejects a bad method", () =>
+    rejects("encodeCategories", { method: "binary", columns: ["c"] }, "method"));
+});
+
+describe("imputeMissing", () => {
+  it("accepts a simple strategy", () =>
+    accepts("imputeMissing", { strategy: "median", columns: ["a"] }));
+  it("accepts knn with neighbors", () =>
+    accepts("imputeMissing", { strategy: "knn", columns: ["a"], n_neighbors: 3 }));
+  it("rejects a bad strategy", () =>
+    rejects("imputeMissing", { strategy: "interp", columns: ["a"] }, "strategy"));
+  it("rejects an empty column list", () =>
+    rejects("imputeMissing", { strategy: "mean", columns: [] }, "columns"));
+});
+
+describe("selectFeatures", () => {
+  it("accepts variance", () => accepts("selectFeatures", { method: "variance", threshold: 0 }));
+  it("accepts correlation", () =>
+    accepts("selectFeatures", { method: "correlation", threshold: 0.9 }));
+  it("accepts kbest with target + k", () =>
+    accepts("selectFeatures", { method: "kbest", target_column: "y", k: 5 }));
+  it("rejects kbest without a target (superRefine)", () =>
+    rejects("selectFeatures", { method: "kbest", k: 5 }, "target_column"));
+  it("rejects kbest without k (superRefine)", () =>
+    rejects("selectFeatures", { method: "kbest", target_column: "y" }, "k"));
+});
+
+describe("reduceDimensions", () => {
+  it("accepts an int component count", () =>
+    accepts("reduceDimensions", { method: "pca", n_components: 3 }));
+  it("accepts a variance fraction", () =>
+    accepts("reduceDimensions", { method: "pca", n_components: 0.95 }));
+  it("rejects a non-positive n_components", () =>
+    rejects("reduceDimensions", { method: "pca", n_components: 0 }, "n_components"));
+  it("rejects a non-pca method", () =>
+    rejects("reduceDimensions", { method: "tsne", n_components: 2 }, "method"));
+});
+
+describe("mlTrain", () => {
+  it("accepts a supervised config with a target", () =>
+    accepts("mlTrain", {
+      model_type: "random_forest_classifier",
+      target_column: "churn",
+      feature_columns: ["a", "b"],
+      seed: 42,
+    }));
+  it("accepts an unsupervised model without a target", () =>
+    accepts("mlTrain", { model_type: "kmeans", seed: 1 }));
+  it("requires a seed", () =>
+    rejects("mlTrain", { model_type: "ridge", target_column: "y" }, "seed"));
+  it("rejects an unknown model_type", () =>
+    rejects("mlTrain", { model_type: "deep_net", target_column: "y", seed: 1 }, "model_type"));
+  it("requires a target for supervised models (superRefine)", () =>
+    rejects("mlTrain", { model_type: "ridge", seed: 1 }, "target_column"));
+  it("rejects the target appearing in features (leakage)", () =>
+    rejects(
+      "mlTrain",
+      { model_type: "ridge", target_column: "y", feature_columns: ["x", "y"], seed: 1 },
+      "feature_columns",
+    ));
+});
+
+describe("mlPredict", () => {
+  it("accepts an output column", () => accepts("mlPredict", { output_column: "prediction" }));
+  it("accepts a model_uri + proba columns", () =>
+    accepts("mlPredict", {
+      model_uri: "models:/churn/Production",
+      output_column: "yhat",
+      output_proba_columns: ["p0", "p1"],
+    }));
+  it("rejects a missing output column", () =>
+    rejects("mlPredict", { output_column: "" }, "output_column"));
+});
+
+describe("mlEvaluate", () => {
+  it("accepts classification with a target", () =>
+    accepts("mlEvaluate", {
+      task_type: "classification",
+      target_column: "y",
+      prediction_column: "prediction",
+    }));
+  it("accepts clustering without a target", () =>
+    accepts("mlEvaluate", { task_type: "clustering", prediction_column: "cluster" }));
+  it("rejects a bad task_type", () =>
+    rejects("mlEvaluate", { task_type: "ranking", prediction_column: "p" }, "task_type"));
+  it("requires a target for non-clustering (superRefine)", () =>
+    rejects("mlEvaluate", { task_type: "regression", prediction_column: "p" }, "target_column"));
+});
+
+describe("featureImportance", () => {
+  it("accepts an empty config", () => accepts("featureImportance", {}));
+  it("accepts a top_n", () => accepts("featureImportance", { top_n: 10 }));
+  it("rejects a top_n below 1", () => rejects("featureImportance", { top_n: 0 }, "top_n"));
 });

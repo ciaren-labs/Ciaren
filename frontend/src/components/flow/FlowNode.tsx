@@ -1,10 +1,15 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertCircle } from "lucide-react";
-import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowNodeType } from "@/stores/flowEditorStore";
+
+/** A "model" output (mlTrain) carries a model reference, not data — drawn purple. */
+function isModelHandle(handle: string): boolean {
+  return handle === "model";
+}
 
 /**
  * Minimalist node: a neutral surface with a thin purple border and a small,
@@ -12,7 +17,11 @@ import type { FlowNodeType } from "@/stores/flowEditorStore";
  */
 export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) {
   const def = getNodeTypeDef(type ?? "");
-  const inputHandles = def?.inputHandles ?? ["in"];
+  const inputHandles = [
+    ...(def?.inputHandles ?? ["in"]),
+    ...(def?.optionalInputHandles ?? []),
+  ];
+  const outputHandles = def ? getOutputHandles(def) : ["out"];
   const Icon = getNodeIcon(type);
 
   const hasError = useFlowEditorStore((s) => s.invalidNodeIds.includes(id));
@@ -38,7 +47,10 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
                 ? "50%"
                 : `${((idx + 1) / (inputHandles.length + 1)) * 100}%`,
           }}
-          className="!h-2.5 !w-2.5 !border-2 !border-background !bg-brand-300"
+          className={cn(
+            "!h-2.5 !w-2.5 !border-2 !border-background",
+            isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
+          )}
         />
       ))}
 
@@ -64,14 +76,34 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
         </div>
       )}
 
-      {def?.hasOutput && (
+      {outputHandles.length > 1 && (
+        <div className="mt-1 flex justify-end gap-2 px-0.5 text-[9px] font-medium uppercase text-slate-400">
+          {outputHandles.map((h) => (
+            <span key={h} className={cn(isModelHandle(h) && "text-purple-500")}>
+              {h}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {outputHandles.map((handleId, idx) => (
         <Handle
-          id="out"
+          key={handleId}
+          id={handleId}
           type="source"
           position={Position.Right}
-          className="!h-2.5 !w-2.5 !border-2 !border-background !bg-brand-300"
+          style={{
+            top:
+              outputHandles.length === 1
+                ? "50%"
+                : `${((idx + 1) / (outputHandles.length + 1)) * 100}%`,
+          }}
+          className={cn(
+            "!h-2.5 !w-2.5 !border-2 !border-background",
+            isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
+          )}
         />
-      )}
+      ))}
     </div>
   );
 }
