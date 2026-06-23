@@ -1,11 +1,36 @@
 from __future__ import annotations
 
+import datetime as _dt
+from decimal import Decimal
 from typing import Any, Literal, cast
 
 import pandas as pd
 import polars as pl
 
 from app.engine.backends.base import register_engine, rule_combine_all, rule_conditions
+
+
+def _json_safe(v: Any) -> Any:
+    """Coerce a polars cell value into a JSON-serializable primitive.
+
+    polars ``to_dicts`` yields native ``datetime``/``date``/``Decimal`` objects;
+    these records are persisted to a JSON column and returned over the API, so
+    temporal values become ISO strings (matching the pandas backend), durations
+    become seconds, and Decimals become floats. Nested lists/structs recurse.
+    """
+    if isinstance(v, (_dt.datetime, _dt.date, _dt.time)):
+        return v.isoformat()
+    if isinstance(v, _dt.timedelta):
+        return v.total_seconds()
+    if isinstance(v, Decimal):
+        return float(v)
+    if isinstance(v, bytes):
+        return v.decode("utf-8", "replace")
+    if isinstance(v, (list, tuple)):
+        return [_json_safe(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _json_safe(x) for k, x in v.items()}
+    return v
 
 # How values accepted by the public API mapped to polars' own vocabulary.
 _JOIN_HOW = {
@@ -84,7 +109,11 @@ class PolarsEngine:
 
     def to_records(self, df: pl.DataFrame, n: int | None = None) -> list[dict[str, Any]]:
         sample = df.head(n) if n is not None else df
-        return sample.to_dicts()
+        # to_dicts() returns native datetime/date/Decimal objects, which are not
+        # JSON-serializable — these records are stored in a JSON column (run
+        # node_results) and returned over the API. Coerce to JSON-safe primitives,
+        # matching the pandas backend (ISO date strings).
+        return [{k: _json_safe(v) for k, v in row.items()} for row in sample.to_dicts()]
 
     def row_count(self, df: pl.DataFrame) -> int:
         return df.height
