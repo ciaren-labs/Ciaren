@@ -94,9 +94,23 @@ def _register_ml_nodes() -> None:
 
     if not ml_core_available():
         return
+    from app.engine.transformations.ml.feature_engineering import (
+        EncodeCategoriesTransformation,
+        ImputeMissingTransformation,
+        ReduceDimensionsTransformation,
+        ScaleFeaturesTransformation,
+        SelectFeaturesTransformation,
+    )
     from app.engine.transformations.ml.split import TrainTestSplitTransformation
 
-    _register(TrainTestSplitTransformation())
+    _register(
+        TrainTestSplitTransformation(),
+        ScaleFeaturesTransformation(),
+        EncodeCategoriesTransformation(),
+        ImputeMissingTransformation(),
+        SelectFeaturesTransformation(),
+        ReduceDimensionsTransformation(),
+    )
 
 
 _register_ml_nodes()

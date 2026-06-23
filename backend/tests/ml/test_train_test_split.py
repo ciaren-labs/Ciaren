@@ -178,4 +178,4 @@ def test_to_python_code_compiles():
     assert "train_test_split(df_0" in code
     assert "random_state=42" in code
     # with the import prepended, the snippet is valid Python
-    compile("\n".join(NODE.imports() + [code]), "<gen>", "exec")
+    compile("\n".join(NODE.imports({}) + [code]), "<gen>", "exec")
