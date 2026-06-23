@@ -484,8 +484,14 @@ async def test_patch_dataset_disable_cascades_to_flows(client: AsyncClient) -> N
 
 async def test_delete_dataset(client: AsyncClient) -> None:
     up = await _upload(client, _csv(), "tmp.csv")
+    # Default delete is a soft-delete: the dataset is hidden from the list but
+    # still fetchable (marked deleted) so historical runs resolve. ?purge=true
+    # removes it for good. See tests/api/test_dataset_soft_delete.py.
     r = await client.delete(f"/api/datasets/{up['id']}")
     assert r.status_code == 204
+    assert up["id"] not in [d["id"] for d in (await client.get("/api/datasets")).json()]
+    r2 = await client.delete(f"/api/datasets/{up['id']}", params={"purge": True})
+    assert r2.status_code == 204
     assert (await client.get(f"/api/datasets/{up['id']}")).status_code == 404
 
 

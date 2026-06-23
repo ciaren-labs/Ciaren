@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Days a soft-deleted dataset's files are retained before `purge-expired`
+    # removes them. Until then the dataset can be restored and historical runs
+    # that referenced it still resolve.
+    DATASET_RETENTION_DAYS: int = 30
+
     # On first boot (when no "Demo" project exists yet) seed a built-in demo
     # project with sample datasets and example flows so the app isn't empty.
     # Idempotent and skippable via `flowframe serve --no-demo`.

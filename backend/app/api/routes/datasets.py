@@ -17,8 +17,16 @@ async def upload_dataset(file: UploadFile, service: DatasetServiceDep, project_i
 
 
 @router.get("", response_model=list[DatasetRead])
-async def list_datasets(service: DatasetServiceDep, project_id: str | None = None) -> list[DatasetRead]:
-    return await service.list_all(project_id)
+async def list_datasets(
+    service: DatasetServiceDep, project_id: str | None = None, include_deleted: bool = False
+) -> list[DatasetRead]:
+    return await service.list_all(project_id, include_deleted=include_deleted)
+
+
+@router.post("/purge-expired")
+async def purge_expired_datasets(service: DatasetServiceDep) -> dict[str, int]:
+    """Hard-delete soft-deleted datasets past the retention window (removes files)."""
+    return {"purged": await service.purge_expired()}
 
 
 @router.patch("/{dataset_id}", response_model=DatasetRead)
@@ -36,8 +44,15 @@ async def patch_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, service: DatasetServiceDep) -> None:
-    await service.delete(dataset_id)
+async def delete_dataset(dataset_id: str, service: DatasetServiceDep, purge: bool = False) -> None:
+    """Soft-delete a dataset (retained for restore); ``?purge=true`` deletes it and
+    its files immediately."""
+    await service.delete(dataset_id, purge=purge)
+
+
+@router.post("/{dataset_id}/restore", response_model=DatasetRead)
+async def restore_dataset(dataset_id: str, service: DatasetServiceDep) -> DatasetRead:
+    return await service.restore(dataset_id)
 
 
 @router.get("/{dataset_id}/flows", response_model=list[FlowRead])
