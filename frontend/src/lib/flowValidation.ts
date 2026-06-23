@@ -88,7 +88,9 @@ export function validateFlow(
       continue;
     }
 
-    if (!def.hasOutput) outputCount += 1;
+    // Output nodes (no downstream output) and model sinks (mlTrain logs to MLflow)
+    // both count as a valid flow terminal.
+    if (!def.hasOutput || def.isModelSink) outputCount += 1;
 
     // 1. Config shape (zod) -------------------------------------------------
     const parsed = getConfigSchema(node.type ?? "").safeParse(node.data.config);

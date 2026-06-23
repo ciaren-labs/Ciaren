@@ -101,6 +101,38 @@ export interface NodeResult {
   columns: string[];
   sample: Record<string, unknown>[];
   error: string | null;
+  // ML-specific — null for non-ML nodes.
+  ml_metrics?: Record<string, number> | null;
+  mlflow_run_id?: string | null;
+  model_uri?: string | null;
+  task_type?: string | null;
+  cv_scores?: number[] | null;
+}
+
+/** Per-node ML results returned by GET /runs/{id}/ml/metrics. */
+export interface MlNodeMetrics {
+  node_id: string;
+  type: string;
+  label: string | null;
+  ml_metrics: Record<string, number> | null;
+  model_uri: string | null;
+  task_type: string | null;
+  cv_scores: number[] | null;
+  mlflow_run_id: string | null;
+}
+
+export interface MlExperiment {
+  name: string;
+  experiment_id: string;
+  lifecycle_stage: string;
+  artifact_location: string;
+}
+
+export interface MlRegisterResult {
+  model_name: string;
+  version: string | number;
+  model_uri: string;
+  alias: string | null;
 }
 
 /** One input dataset a run resolved, with the concrete version it read. */

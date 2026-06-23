@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X } from "lucide-react";
+import { transformationsApi } from "@/lib/api";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -46,16 +48,28 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       return next;
     });
 
+  // The backend only lists ML node types when the ML extension is installed +
+  // enabled, so gate ML palette entries on what the server actually offers.
+  const { data: availableTypes } = useQuery({
+    queryKey: ["transformations", "available"],
+    queryFn: () => transformationsApi.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const visibleTypes = useMemo(() => {
+    const available = new Set(availableTypes ?? []);
+    return NODE_TYPES.filter((n) => !n.requiresMl || available.has(n.type));
+  }, [availableTypes]);
+
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return [];
-    return NODE_TYPES.filter(
+    return visibleTypes.filter(
       (n) =>
         n.label.toLowerCase().includes(q) ||
         n.description.toLowerCase().includes(q) ||
         n.type.toLowerCase().includes(q),
     );
-  }, [q]);
+  }, [q, visibleTypes]);
 
   if (collapsed) {
     return (
@@ -158,7 +172,13 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           )}
         </div>
       ) : (
-        <PaletteAccordion unlocked={unlocked} open={open} toggle={toggle} onAdd={onAdd} />
+        <PaletteAccordion
+          unlocked={unlocked}
+          open={open}
+          toggle={toggle}
+          onAdd={onAdd}
+          nodeTypes={visibleTypes}
+        />
       )}
     </div>
   );
@@ -169,11 +189,13 @@ function PaletteAccordion({
   open,
   toggle,
   onAdd,
+  nodeTypes,
 }: {
   unlocked: boolean;
   open: Set<NodeCategory>;
   toggle: (category: NodeCategory) => void;
   onAdd: (def: NodeTypeDef) => void;
+  nodeTypes: NodeTypeDef[];
 }) {
   return (
     <>
@@ -188,7 +210,8 @@ function PaletteAccordion({
       )}
 
       {CATEGORY_ORDER.map((category) => {
-        const items = NODE_TYPES.filter((n) => n.category === category);
+        const items = nodeTypes.filter((n) => n.category === category);
+        if (items.length === 0) return null;
         const isOpen = open.has(category);
         const locked = !unlocked && category !== "input";
         const CatIcon = CATEGORY_ICONS[category];

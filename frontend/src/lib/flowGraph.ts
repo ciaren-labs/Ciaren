@@ -234,6 +234,27 @@ function outputColumns(
       const index = asStringArray(config.index);
       return index.length ? index : inputCols;
     }
+    // ----- ML nodes -----
+    case "mlPredict": {
+      const out = typeof config.output_column === "string" && config.output_column
+        ? config.output_column
+        : "prediction";
+      const proba = asStringArray(config.output_proba_columns);
+      return Array.from(new Set([...inputCols, out, ...proba]));
+    }
+    case "mlEvaluate":
+      return ["metric", "value"];
+    case "featureImportance":
+      return ["feature_name", "importance", "rank"];
+    case "reduceDimensions": {
+      const cols = asStringArray(config.columns);
+      const n = typeof config.n_components === "number" ? config.n_components : 0;
+      const prefix = typeof config.prefix === "string" && config.prefix ? config.prefix : "pc";
+      if (!cols.length || n < 1) return inputCols; // can't predict without explicit cols
+      const kept = inputCols.filter((c) => !cols.includes(c));
+      const comps = Array.from({ length: Math.floor(n) }, (_, i) => `${prefix}_${i + 1}`);
+      return [...kept, ...comps];
+    }
     default:
       // Most cleaning transforms (filter, sort, fill, cast, dedupe, limit,
       // replace, string ops, concat, join) leave the column set unchanged.
