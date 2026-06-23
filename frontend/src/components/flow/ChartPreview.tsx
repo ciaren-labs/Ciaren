@@ -27,6 +27,7 @@ import {
   correlationMatrix,
   histogram,
   numericColumns,
+  stackedBarData,
   toNumber,
   valueCounts,
   type Aggregate,
@@ -41,8 +42,9 @@ interface ChartPreviewProps {
   rows: Row[] | null;
 }
 
-// A small palette for multi-series line charts.
-const SERIES_COLORS = ["#6366f1", "#ec4899", "#10b981", "#f59e0b", "#06b6d4"];
+// Brand-aligned palette: violet primary + complementary data colours.
+// Matches the app's violet-500 brand and the node-category colour conventions.
+const SERIES_COLORS = ["#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#d946ef", "#0ea5e9"];
 
 export function ChartPreview({ type, config, rows }: ChartPreviewProps) {
   if (!rows || rows.length === 0) {
@@ -62,6 +64,8 @@ export function ChartPreview({ type, config, rows }: ChartPreviewProps) {
       return <ScatterView rows={rows} config={config} />;
     case "barChart":
       return <BarView rows={rows} config={config} />;
+    case "stackedBarChart":
+      return <StackedBarView rows={rows} config={config} />;
     case "valueCounts":
       return <ValueCountsView rows={rows} config={config} />;
     case "pieChart":
@@ -84,7 +88,7 @@ function HistogramView({ rows, config }: { rows: Row[]; config: Record<string, u
         <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
         <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
         <Tooltip />
-        <Bar dataKey="count" fill="#6366f1" />
+        <Bar dataKey="count" fill="#8b5cf6" />
       </BarChart>
     </ChartFrame>
   );
@@ -159,7 +163,7 @@ function ScatterView({ rows, config }: { rows: Row[]; config: Record<string, unk
         <YAxis dataKey="y" name={y} type="number" tick={{ fontSize: 10 }} />
         <ZAxis range={[40, 40]} />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-        <Scatter data={data} fill="#6366f1" isAnimationActive={false} />
+        <Scatter data={data} fill="#8b5cf6" isAnimationActive={false} />
       </ScatterChart>
     </ChartFrame>
   );
@@ -178,7 +182,37 @@ function BarView({ rows, config }: { rows: Row[]; config: Record<string, unknown
         <XAxis dataKey="category" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
         <YAxis tick={{ fontSize: 10 }} />
         <Tooltip />
-        <Bar dataKey="value" fill="#ec4899" />
+        <Bar dataKey="value" fill="#8b5cf6" />
+      </BarChart>
+    </ChartFrame>
+  );
+}
+
+function StackedBarView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
+  const x = typeof config.x === "string" ? config.x : "";
+  const y = typeof config.y === "string" ? config.y : "";
+  const group = typeof config.group === "string" ? config.group : "";
+  const aggregate = (typeof config.aggregate === "string" ? config.aggregate : "sum") as Aggregate;
+  if (!x || !y || !group) return <Placeholder>Pick a category, value, and group-by column.</Placeholder>;
+  const { data, groups } = stackedBarData(rows, x, y, group, aggregate);
+  if (data.length === 0) return <Placeholder>No data to chart.</Placeholder>;
+  return (
+    <ChartFrame>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+        <XAxis dataKey="category" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+        <YAxis tick={{ fontSize: 10 }} />
+        <Tooltip />
+        <Legend wrapperStyle={{ fontSize: 10 }} />
+        {groups.map((g, i) => (
+          <Bar
+            key={g}
+            dataKey={g}
+            stackId="stack"
+            fill={SERIES_COLORS[i % SERIES_COLORS.length]}
+            isAnimationActive={false}
+          />
+        ))}
       </BarChart>
     </ChartFrame>
   );
@@ -196,7 +230,7 @@ function ValueCountsView({ rows, config }: { rows: Row[]; config: Record<string,
         <XAxis dataKey="category" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
         <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
         <Tooltip />
-        <Bar dataKey="value" fill="#8b5cf6" />
+        <Bar dataKey="value" fill="#06b6d4" />
       </BarChart>
     </ChartFrame>
   );
