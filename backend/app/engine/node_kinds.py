@@ -57,6 +57,9 @@ OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES)
 MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {
     # ML: trainTestSplit emits two frames; "train" is the primary (sampled) output.
     "trainTestSplit": ("train", "test"),
+    # ML: mlTrain passes the training frame through ("out", primary) and emits a
+    # one-row model reference frame ("model": run id / model URI / task).
+    "mlTrain": ("out", "model"),
 }
 
 
