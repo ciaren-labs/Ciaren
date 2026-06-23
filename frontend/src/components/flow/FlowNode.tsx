@@ -21,15 +21,40 @@ function topPct(idx: number, count: number): string {
   return count === 1 ? "50%" : `${((idx + 1) / (count + 1)) * 100}%`;
 }
 
-/** A small label pinned just outside the card at a handle's vertical position. */
-function HandleLabel({ side, top, label, model }: { side: "left" | "right"; top: string; label: string; model: boolean }) {
+/** Vertical offset (px) that pulls a label off its handle so the connecting wire
+ * isn't hidden behind the text: upper handles nudge up, lower handles down. */
+function labelNudge(idx: number, count: number): number {
+  if (count < 2) return 0;
+  const NUDGE = 11;
+  return (idx / (count - 1) - 0.5) * 2 * NUDGE;
+}
+
+/** A small label pinned just outside the card near a handle, nudged off the wire. */
+function HandleLabel({
+  side,
+  top,
+  nudge,
+  label,
+  model,
+}: {
+  side: "left" | "right";
+  top: string;
+  nudge: number;
+  label: string;
+  model: boolean;
+}) {
   return (
     <span
       className={cn(
-        "pointer-events-none absolute z-10 -translate-y-1/2 whitespace-nowrap rounded bg-card/90 px-1 text-[9px] font-medium uppercase tracking-tight shadow-sm",
+        "pointer-events-none absolute z-10 whitespace-nowrap rounded bg-card/90 px-1 text-[9px] font-medium uppercase tracking-tight shadow-sm",
         model ? "text-purple-600" : "text-slate-500",
       )}
-      style={{ top, [side === "left" ? "right" : "left"]: "100%", [side === "left" ? "marginRight" : "marginLeft"]: 6 }}
+      style={{
+        top,
+        transform: `translateY(calc(-50% + ${nudge}px))`,
+        [side === "left" ? "right" : "left"]: "100%",
+        [side === "left" ? "marginRight" : "marginLeft"]: 6,
+      }}
     >
       {label}
     </span>
@@ -81,7 +106,13 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
               )}
             />
             {inputHandles.length > 1 && (
-              <HandleLabel side="left" top={top} label={handleLabel(handleId)} model={isModelHandle(handleId)} />
+              <HandleLabel
+                side="left"
+                top={top}
+                nudge={labelNudge(idx, inputHandles.length)}
+                label={handleLabel(handleId)}
+                model={isModelHandle(handleId)}
+              />
             )}
           </div>
         );
@@ -117,7 +148,13 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
               )}
             />
             {outputHandles.length > 1 && (
-              <HandleLabel side="right" top={top} label={handleLabel(handleId)} model={isModelHandle(handleId)} />
+              <HandleLabel
+                side="right"
+                top={top}
+                nudge={labelNudge(idx, outputHandles.length)}
+                label={handleLabel(handleId)}
+                model={isModelHandle(handleId)}
+              />
             )}
           </div>
         );
