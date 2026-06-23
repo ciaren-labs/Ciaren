@@ -566,23 +566,27 @@ unmatched rows at the window edge are null.
 ### Conditional column — `conditionalColumn`
 
 Build a column from ordered if/elif/else rules (CASE-WHEN). The **first** matching
-rule wins; rows matching none take the default.
+rule wins; rows matching none take the default. Each rule can combine several
+conditions with **match ALL** (AND) or **match ANY** (OR).
 
 | Config key | Type | Required | Description |
 |---|---|---|---|
 | `new_column` | string | Yes | Name of the column to add |
-| `rules` | object[] | Yes | Ordered rules: `{ column, operator, value, result }` |
+| `rules` | object[] | Yes | Ordered rules: `{ match, conditions, result }` |
 | `default` | any | No | Value when no rule matches |
 
-**Rule operators:** `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startswith`,
-`endswith`, `isnull`, `notnull`.
+Each rule's `conditions` is a list of `{ column, operator, value }`, and `match`
+is `all` (AND, the default) or `any` (OR). A single-condition rule may also be
+written flat as `{ column, operator, value, result }`.
+
+**Condition operators:** `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`,
+`startswith`, `endswith`, `isnull`, `notnull`.
 
 ```python
-# rules: score >= 90 → "A", score >= 70 → "B"; default "F"
+# rule: age >= 18 AND country == "US" → "us_adult"; default "other"
 df_2 = df_1.copy()
-df_2['grade'] = 'F'
-df_2.loc[df_2['score'] >= 70, 'grade'] = 'B'
-df_2.loc[df_2['score'] >= 90, 'grade'] = 'A'
+df_2['segment'] = 'other'
+df_2.loc[(df_2['age'] >= 18) & (df_2['country'] == 'US'), 'segment'] = 'us_adult'
 ```
 
 ---

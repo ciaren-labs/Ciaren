@@ -3,7 +3,12 @@ column. The first matching rule wins; unmatched rows take the default."""
 
 from typing import Any
 
-from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.backends.base import (
+    AnyFrame,
+    EngineBackend,
+    rule_combine_all,
+    rule_conditions,
+)
 from app.engine.transformations.base import BaseTransformation
 
 # Comparison operators (and aliases) that map straight to a Python/expr operator.
@@ -20,8 +25,10 @@ _OPERATORS = set(_COMPARISON) | _VALUELESS | {"contains", "startswith", "endswit
 
 
 class ConditionalColumnTransformation(BaseTransformation):
-    """Build a column from ordered ``rules`` ({column, operator, value, result})
-    plus a ``default`` for rows that match none."""
+    """Build a column from ordered ``rules`` plus a ``default`` for rows matching
+    none. A rule has a ``result`` and one or more ``conditions``
+    ({column, operator, value}) combined by ``match`` ("all" = AND, "any" = OR).
+    A legacy flat rule ({column, operator, value, result}) is one condition."""
 
     type = "conditionalColumn"
 
@@ -32,13 +39,20 @@ class ConditionalColumnTransformation(BaseTransformation):
         if not isinstance(rules, list) or not rules:
             raise ValueError("conditionalColumn requires a non-empty 'rules' list")
         for rule in rules:
-            if not rule.get("column"):
-                raise ValueError("each conditionalColumn rule needs a 'column'")
-            operator = rule.get("operator", "==")
-            if operator not in _OPERATORS:
-                raise ValueError(f"conditionalColumn rule operator must be in {sorted(_OPERATORS)}")
-            if operator not in _VALUELESS and "value" not in rule:
-                raise ValueError(f"conditionalColumn rule '{operator}' needs a 'value'")
+            match = rule.get("match", "all")
+            if match not in ("all", "any"):
+                raise ValueError("conditionalColumn rule 'match' must be 'all' or 'any'")
+            conditions = rule_conditions(rule)
+            for condition in conditions:
+                if not condition.get("column"):
+                    raise ValueError("each conditionalColumn condition needs a 'column'")
+                operator = condition.get("operator", "==")
+                if operator not in _OPERATORS:
+                    raise ValueError(
+                        f"conditionalColumn condition operator must be in {sorted(_OPERATORS)}"
+                    )
+                if operator not in _VALUELESS and "value" not in condition:
+                    raise ValueError(f"conditionalColumn condition '{operator}' needs a 'value'")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -56,9 +70,20 @@ class ConditionalColumnTransformation(BaseTransformation):
 
     @staticmethod
     def _pandas_mask(dst: str, rule: dict[str, Any]) -> str:
-        col = f"{dst}[{rule['column']!r}]"
-        op = rule.get("operator", "==")
-        val = rule.get("value")
+        masks = [
+            ConditionalColumnTransformation._pandas_condition(dst, c)
+            for c in rule_conditions(rule)
+        ]
+        if len(masks) == 1:
+            return masks[0]
+        joiner = " & " if rule_combine_all(rule) else " | "
+        return joiner.join(f"({m})" for m in masks)
+
+    @staticmethod
+    def _pandas_condition(dst: str, condition: dict[str, Any]) -> str:
+        col = f"{dst}[{condition['column']!r}]"
+        op = condition.get("operator", "==")
+        val = condition.get("value")
         if op in _COMPARISON:
             return f"{col} {_COMPARISON[op]} {val!r}"
         if op == "contains":
@@ -83,9 +108,20 @@ class ConditionalColumnTransformation(BaseTransformation):
 
     @staticmethod
     def _polars_cond(rule: dict[str, Any]) -> str:
-        col = f"pl.col({rule['column']!r})"
-        op = rule.get("operator", "==")
-        val = rule.get("value")
+        exprs = [
+            ConditionalColumnTransformation._polars_condition(c)
+            for c in rule_conditions(rule)
+        ]
+        if len(exprs) == 1:
+            return exprs[0]
+        joiner = " & " if rule_combine_all(rule) else " | "
+        return joiner.join(f"({e})" for e in exprs)
+
+    @staticmethod
+    def _polars_condition(condition: dict[str, Any]) -> str:
+        col = f"pl.col({condition['column']!r})"
+        op = condition.get("operator", "==")
+        val = condition.get("value")
         if op in _COMPARISON:
             return f"{col} {_COMPARISON[op]} {val!r}"
         if op == "contains":

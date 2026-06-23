@@ -165,6 +165,27 @@ class EngineBackend(Protocol):
     ) -> AnyFrame: ...
 
 
+def rule_conditions(rule: dict[str, Any]) -> list[dict[str, Any]]:
+    """The conditions of a conditionalColumn rule, as a uniform list.
+
+    New rules carry a ``conditions`` list combined by ``match`` (all/any). Legacy
+    rules store a single flat condition on the rule itself; normalize those to a
+    one-item list so the engines and codegen only ever handle one shape.
+    """
+    conditions = rule.get("conditions")
+    if isinstance(conditions, list) and conditions:
+        return conditions
+    condition = {"column": rule.get("column"), "operator": rule.get("operator", "==")}
+    if "value" in rule:
+        condition["value"] = rule["value"]
+    return [condition]
+
+
+def rule_combine_all(rule: dict[str, Any]) -> bool:
+    """True when a rule's conditions must ALL hold (AND); False for ANY (OR)."""
+    return bool(rule.get("match", "all") != "any")
+
+
 _REGISTRY: dict[str, type[EngineBackend]] = {}
 
 

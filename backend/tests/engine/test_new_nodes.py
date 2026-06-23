@@ -399,6 +399,56 @@ def test_conditional_column_string_operator(engine):
     assert out["kind"].tolist() == ["personal", "other"]
 
 
+def test_conditional_column_match_all_and(engine):
+    pdf = pd.DataFrame({"age": [30, 30, 15], "country": ["US", "CA", "US"]})
+    out = run(
+        engine,
+        "conditionalColumn",
+        pdf,
+        {
+            "new_column": "segment",
+            "default": "other",
+            "rules": [
+                {
+                    "match": "all",
+                    "conditions": [
+                        {"column": "age", "operator": ">=", "value": 18},
+                        {"column": "country", "operator": "==", "value": "US"},
+                    ],
+                    "result": "us_adult",
+                },
+            ],
+        },
+    )
+    # Only the first row satisfies BOTH conditions.
+    assert out["segment"].tolist() == ["us_adult", "other", "other"]
+
+
+def test_conditional_column_match_any_or(engine):
+    pdf = pd.DataFrame({"plan": ["vip", "free", "free"], "spend": [0, 500, 10]})
+    out = run(
+        engine,
+        "conditionalColumn",
+        pdf,
+        {
+            "new_column": "priority",
+            "default": "low",
+            "rules": [
+                {
+                    "match": "any",
+                    "conditions": [
+                        {"column": "plan", "operator": "==", "value": "vip"},
+                        {"column": "spend", "operator": ">=", "value": 100},
+                    ],
+                    "result": "high",
+                },
+            ],
+        },
+    )
+    # Either being a VIP or spending >= 100 is enough.
+    assert out["priority"].tolist() == ["high", "high", "low"]
+
+
 # -- generated code is valid Python for both engines ---------------------
 
 _CODEGEN_CASES = [

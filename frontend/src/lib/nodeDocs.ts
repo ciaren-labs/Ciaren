@@ -235,10 +235,13 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     summary: "Build a column from ordered if/elif/else rules (CASE-WHEN). First match wins.",
     fields: [
       { name: "New column", desc: "Where the result is written." },
-      { name: "Rules", desc: "Each rule is column + operator + value → result." },
+      {
+        name: "Rules",
+        desc: "Each rule has one or more conditions (column + operator + value) combined with match ALL (AND) or ANY (OR) → result.",
+      },
       { name: "Default", desc: "Value used when no rule matches." },
     ],
-    example: "if score >= 90 → 'A'; elif score >= 70 → 'B'; else 'F'.",
+    example: "if age >= 18 AND country == 'US' → 'us_adult'; else 'other'.",
   },
 
   sqlInput: {

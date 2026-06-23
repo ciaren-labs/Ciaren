@@ -5,7 +5,7 @@ from typing import Any, Literal, cast
 import pandas as pd
 import polars as pl
 
-from app.engine.backends.base import register_engine
+from app.engine.backends.base import register_engine, rule_combine_all, rule_conditions
 
 # How values accepted by the public API mapped to polars' own vocabulary.
 _JOIN_HOW = {
@@ -497,9 +497,7 @@ class PolarsEngine:
     ) -> pl.DataFrame:
         chain: Any = None
         for rule in rules:
-            cond = _polars_condition_expr(
-                rule["column"], rule.get("operator", "=="), rule.get("value")
-            )
+            cond = _polars_rule_expr(rule)
             result = pl.lit(rule.get("result"))
             chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
         expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
@@ -532,8 +530,21 @@ def _polars_window_expr(
     return expr.over(part) if part else expr
 
 
+def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
+    """Combine a rule's conditions with AND (match all) or OR (match any)."""
+    exprs = [
+        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value"))
+        for c in rule_conditions(rule)
+    ]
+    combined = exprs[0]
+    combine_all = rule_combine_all(rule)
+    for expr in exprs[1:]:
+        combined = combined & expr if combine_all else combined | expr
+    return combined
+
+
 def _polars_condition_expr(column: str, operator: str, value: Any) -> pl.Expr:
-    """Boolean expression for one conditionalColumn rule (mirrors filter operators)."""
+    """Boolean expression for one conditionalColumn condition (mirrors filter operators)."""
     col = pl.col(column)
     expr: Any
     match operator:
