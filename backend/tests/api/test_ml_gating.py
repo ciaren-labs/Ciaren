@@ -1,0 +1,69 @@
+"""ML feature gating at the API layer: the transformations list hides ML nodes
+unless ML is enabled; ?category filters; previewing an ML node while disabled 501s."""
+from httpx import AsyncClient
+
+from app.core.config import get_settings
+
+
+def _enable_ml(monkeypatch):
+    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    get_settings.cache_clear()
+
+
+# -- disabled (default in tests) --------------------------------------------
+
+
+async def test_default_list_excludes_ml_when_disabled(client: AsyncClient) -> None:
+    types = (await client.get("/api/transformations")).json()
+    assert "dropNulls" in types
+    assert "mlTrain" not in types
+    assert "trainTestSplit" not in types
+
+
+async def test_category_ml_empty_when_disabled(client: AsyncClient) -> None:
+    r = await client.get("/api/transformations", params={"category": "ml"})
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+async def test_category_etl_excludes_ml(client: AsyncClient) -> None:
+    types = (await client.get("/api/transformations", params={"category": "etl"})).json()
+    assert "dropNulls" in types
+    assert "mlTrain" not in types
+
+
+async def test_preview_ml_node_disabled_returns_501(client: AsyncClient) -> None:
+    r = await client.post(
+        "/api/transformations/preview",
+        json={"type": "trainTestSplit", "dataset_id": "x", "config": {"seed": 1}},
+    )
+    assert r.status_code == 501
+    assert "ML support is not enabled" in r.json()["detail"]
+
+
+async def test_invalid_category_rejected(client: AsyncClient) -> None:
+    r = await client.get("/api/transformations", params={"category": "bogus"})
+    assert r.status_code == 422
+
+
+# -- enabled ----------------------------------------------------------------
+
+
+async def test_default_list_includes_ml_when_enabled(client: AsyncClient, monkeypatch) -> None:
+    _enable_ml(monkeypatch)
+    try:
+        types = (await client.get("/api/transformations")).json()
+        assert "mlTrain" in types
+        assert "dropNulls" in types
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_category_ml_lists_ml_nodes_when_enabled(client: AsyncClient, monkeypatch) -> None:
+    _enable_ml(monkeypatch)
+    try:
+        ml = (await client.get("/api/transformations", params={"category": "ml"})).json()
+        assert {"trainTestSplit", "mlTrain", "mlPredict", "mlEvaluate"}.issubset(set(ml))
+        assert "dropNulls" not in ml
+    finally:
+        get_settings.cache_clear()

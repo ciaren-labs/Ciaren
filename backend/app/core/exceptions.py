@@ -23,6 +23,16 @@ class ConflictError(Exception):
         super().__init__(detail)
 
 
+class MLNotEnabledError(Exception):
+    """Raised when an ML feature is requested but the ML extension is unavailable —
+    either ``ML_ENABLED`` is off or the ``[ml]`` extra isn't installed. Maps to
+    501 Not Implemented so callers can tell it apart from a bad request."""
+
+    def __init__(self, detail: str = "ML support is not enabled on this server.") -> None:
+        self.detail = detail
+        super().__init__(detail)
+
+
 class UnsupportedFileTypeError(Exception):
     ALLOWED = (".csv", ".xlsx", ".xls", ".parquet")
 
