@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,8 @@ from app.connectors import (
     is_storage_provider,
     list_providers,
 )
+from app.connectors.base import DataConnector
+from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.secrets import resolve_secret
 from app.db.models.connection import Connection
@@ -159,7 +162,8 @@ class ConnectionService:
                     password=resolve_secret(data.password_env),
                     options=data.options or {},
                 )
-            await asyncio.to_thread(connector.test_connection, spec)
+            # The connector and spec always match by provider kind (dispatched above).
+            await asyncio.to_thread(connector.test_connection, spec)  # type: ignore[arg-type]
         except (ConnectorError, ValidationError) as exc:
             return ConnectionTestResult(ok=False, message=str(exc))
         return ConnectionTestResult(ok=True, message="Connection successful.")
@@ -174,11 +178,13 @@ class ConnectionService:
             )
         connector = get_connector(provider)
         try:
+            spec: StorageSpec | ConnectionSpec
             if is_storage_provider(provider):
                 spec = build_storage_spec(conn)
             else:
                 spec = build_connection_spec(conn)
-            await asyncio.to_thread(connector.test_connection, spec)
+            # connector and spec always match by provider kind (dispatched above).
+            await asyncio.to_thread(connector.test_connection, spec)  # type: ignore[arg-type]
         except (ConnectorError, ValidationError) as exc:
             return ConnectionTestResult(ok=False, message=str(exc))
         return ConnectionTestResult(ok=True, message="Connection successful.")
@@ -194,7 +200,7 @@ class ConnectionService:
             raise ValidationError(
                 f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
             )
-        connector = get_connector(provider)
+        connector = cast(DataConnector, get_connector(provider))  # SQL/Mongo (guarded above)
         try:
             spec = build_connection_spec(conn)
             refs = await asyncio.to_thread(connector.list_tables, spec)
@@ -213,7 +219,7 @@ class ConnectionService:
             raise ValidationError(
                 f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
             )
-        connector = get_connector(provider)
+        connector = cast(StorageConnector, get_connector(provider))  # storage (guarded above)
         try:
             spec = build_storage_spec(conn)
             return await asyncio.to_thread(connector.list_objects, spec, prefix)

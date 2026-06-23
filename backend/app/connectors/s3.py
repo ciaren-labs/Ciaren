@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -25,7 +26,7 @@ for _logger in ("boto3", "botocore", "s3transfer"):
     logging.getLogger(_logger).setLevel(logging.CRITICAL)
 
 
-def _client(spec: StorageSpec):
+def _client(spec: StorageSpec) -> Any:
     try:
         import boto3
     except ImportError as exc:
@@ -33,7 +34,7 @@ def _client(spec: StorageSpec):
             "boto3 is not installed. Run: pip install flowframe[s3]"
         ) from exc
 
-    kwargs: dict = {}
+    kwargs: dict[str, Any] = {}
     if spec.region:
         kwargs["region_name"] = spec.region
     if spec.endpoint_url:
