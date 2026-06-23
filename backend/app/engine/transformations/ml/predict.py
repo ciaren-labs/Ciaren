@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation
 
@@ -36,6 +37,10 @@ class MLPredictTransformation(MetadataMLTransformation):
     def execute_with_metadata(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
+        # During preview we don't load a model or score; pass the data through.
+        if in_preview():
+            return {"out": inputs["in"]}, None
+
         from app.ml.loader import load_model
 
         pdf = engine.to_pandas(inputs["in"]).copy()

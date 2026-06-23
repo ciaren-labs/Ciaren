@@ -10,13 +10,16 @@ from __future__ import annotations
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation
 
 
 class FeatureImportanceTransformation(MetadataMLTransformation):
     type = "featureImportance"
-    input_handles = ("model",)
+    # The single input is mlTrain's "model" reference frame. Using the default
+    # "in" handle keeps edge wiring conventional (no special targetHandle needed).
+    input_handles = ("in",)
 
     def validate_config(self, config: dict[str, Any]) -> None:
         top_n = config.get("top_n")
@@ -28,9 +31,13 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
 
+        # During preview we don't load the model; pass the reference frame through.
+        if in_preview():
+            return {"out": inputs["in"]}, None
+
         from app.ml.loader import load_model
 
-        ref = engine.to_pandas(inputs["model"])
+        ref = engine.to_pandas(inputs["in"])
         if ref.empty or "model_uri" not in ref.columns or pd.isna(ref.iloc[0]["model_uri"]):
             raise ValueError("featureImportance: the model input has no usable model_uri.")
         uri = str(ref.iloc[0]["model_uri"])
@@ -96,7 +103,7 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
     ) -> str:
         dst = output_vars["out"]
-        model_var = input_vars.get("model", "model")
+        model_var = input_vars.get("in", "model")
         return (
             f"_est = {model_var}.named_steps.get('model', {model_var}) "
             f"if hasattr({model_var}, 'named_steps') else {model_var}\n"
