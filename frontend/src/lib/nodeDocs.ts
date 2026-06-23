@@ -291,6 +291,25 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
 
+  storageInput: {
+    summary: "Read a file (CSV, Excel, or Parquet) from S3, Azure Blob Storage, Google Cloud Storage, or a local folder.",
+    fields: [
+      { name: "Storage connection", desc: "The cloud storage or local folder connection to use." },
+      { name: "File path", desc: "Path to the file within the bucket or folder (e.g. data/input.csv)." },
+      { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
+    ],
+  },
+
+  storageOutput: {
+    summary: "Write the result as a file (CSV, Excel, or Parquet) to S3, Azure Blob Storage, Google Cloud Storage, or a local folder.",
+    fields: [
+      { name: "Storage connection", desc: "The cloud storage or local folder connection to use." },
+      { name: "Destination path", desc: "Where to write the file within the bucket or folder." },
+      { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
+      { name: "If file exists", desc: "Overwrite the existing file, or fail with an error." },
+    ],
+  },
+
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),
   parquetOutput: OUTPUT_DOC("Parquet"),

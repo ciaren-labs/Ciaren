@@ -19,7 +19,7 @@ import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
-import { hasReadyInput, isInputType, wouldCreateCycle } from "@/lib/flowGraph";
+import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
 import { autoLayout } from "@/lib/autoLayout";
 
@@ -103,7 +103,7 @@ export function FlowCanvas() {
       const type = event.dataTransfer.getData(NODE_DND_MIME);
       const def = getNodeTypeDef(type);
       if (!def) return;
-      if (!isInputType(def.type) && !hasReadyInput(nodes)) return;
+      if (!isFlowStartNode(def.type) && !hasReadyInput(nodes)) return;
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,

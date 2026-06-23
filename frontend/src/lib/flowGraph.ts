@@ -28,18 +28,40 @@ export function isInputType(type: string | undefined): boolean {
   return type ? type in INPUT_SOURCE_TYPE : false;
 }
 
+/** All node types that can act as the first node in a flow. */
+const FLOW_START_TYPES = new Set([
+  ...Object.keys(INPUT_SOURCE_TYPE),
+  "sqlInput",
+  "storageInput",
+]);
+
+/** Connected input types — use connection_id instead of dataset_id. */
+const CONNECTED_INPUT_TYPES = new Set(["sqlInput", "storageInput"]);
+
+/** Returns true for any node type that can appear as the first node in a flow. */
+export function isFlowStartNode(type: string | undefined): boolean {
+  return type ? FLOW_START_TYPES.has(type) : false;
+}
+
 /**
- * A flow's first step must be an input node with a dataset chosen. Until that
- * holds, the editor blocks adding any non-input node. Returns true once at least
- * one input node has a non-empty `dataset_id`.
+ * A flow's first step must be an input node. Returns true once at least one
+ * input node is configured (dataset chosen for file inputs, connection chosen
+ * for SQL/storage inputs).
  */
 export function hasReadyInput(nodes: GraphNodeLike[]): boolean {
-  return nodes.some(
-    (n) =>
+  return nodes.some((n) => {
+    if (CONNECTED_INPUT_TYPES.has(n.type ?? "")) {
+      return (
+        typeof n.data.config.connection_id === "string" &&
+        n.data.config.connection_id.length > 0
+      );
+    }
+    return (
       isInputType(n.type) &&
       typeof n.data.config.dataset_id === "string" &&
-      n.data.config.dataset_id.length > 0,
-  );
+      n.data.config.dataset_id.length > 0
+    );
+  });
 }
 
 function asStringArray(value: unknown): string[] {

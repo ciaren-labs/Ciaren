@@ -83,11 +83,14 @@ export function NodeConfigForm({
   const set = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
   const c = config as Record<string, any>;
 
-  // Connection data for SQL nodes (hooks must run unconditionally; the table
-  // query is disabled unless this is a SQL node with a chosen connection).
+  // Connection data for SQL/storage nodes (hooks must run unconditionally; the
+  // table query is disabled unless this is a SQL node with a chosen connection).
   const { data: connections = [] } = useConnections();
   const isSqlNode = type === "sqlInput" || type === "sqlOutput";
   const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
+
+  const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
+  const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
   if (type === "csvInput" || type === "excelInput" || type === "parquetInput") {
     const accepted =
@@ -1126,15 +1129,15 @@ export function NodeConfigForm({
             onChange={(e) => set({ connection_id: e.target.value, table: "", schema: null })}
           >
             <option value="">Select a connection…</option>
-            {connections.map((cn) => (
+            {sqlConnections.map((cn) => (
               <option key={cn.id} value={cn.id}>
                 {cn.name}
               </option>
             ))}
           </Select>
-          {connections.length === 0 && (
+          {sqlConnections.length === 0 && (
             <p className="text-[11px] text-amber-600">
-              No connections yet — add one on the Connections page.
+              No database connections yet — add one on the Connections page.
             </p>
           )}
         </Field>
@@ -1204,7 +1207,7 @@ export function NodeConfigForm({
               onChange={(e) => set({ connection_id: e.target.value })}
             >
               <option value="">Select a connection…</option>
-              {connections.map((cn) => (
+              {sqlConnections.map((cn) => (
                 <option key={cn.id} value={cn.id}>
                   {cn.name}
                 </option>
@@ -1223,6 +1226,98 @@ export function NodeConfigForm({
               <option value="replace">Replace</option>
               <option value="append">Append</option>
               <option value="fail">Fail</option>
+            </Select>
+          </Field>
+        </>
+      );
+
+    case "storageInput":
+      return (
+        <>
+          <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
+            <Select
+              value={c.connection_id ?? ""}
+              onChange={(e) => set({ connection_id: e.target.value })}
+            >
+              <option value="">Select a storage connection…</option>
+              {storageConnections.map((cn) => (
+                <option key={cn.id} value={cn.id}>
+                  {cn.name}
+                </option>
+              ))}
+            </Select>
+            {storageConnections.length === 0 && (
+              <p className="text-[11px] text-amber-600">
+                No storage connections yet — add one on the Connections page.
+              </p>
+            )}
+          </Field>
+          <Field
+            label="File path"
+            error={errors.path}
+            hint="e.g. folder/data.csv or s3://bucket/key.parquet"
+            help="Path to the file within the bucket or folder."
+          >
+            <Input
+              value={c.path ?? ""}
+              onChange={(e) => set({ path: e.target.value })}
+              placeholder="data/input.csv"
+            />
+          </Field>
+          <Field label="Format" error={errors.format} help="File format to read.">
+            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+              <option value="parquet">Parquet</option>
+            </Select>
+          </Field>
+        </>
+      );
+
+    case "storageOutput":
+      return (
+        <>
+          <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
+            <Select
+              value={c.connection_id ?? ""}
+              onChange={(e) => set({ connection_id: e.target.value })}
+            >
+              <option value="">Select a storage connection…</option>
+              {storageConnections.map((cn) => (
+                <option key={cn.id} value={cn.id}>
+                  {cn.name}
+                </option>
+              ))}
+            </Select>
+            {storageConnections.length === 0 && (
+              <p className="text-[11px] text-amber-600">
+                No storage connections yet — add one on the Connections page.
+              </p>
+            )}
+          </Field>
+          <Field
+            label="Destination path"
+            error={errors.path}
+            hint="e.g. outputs/result.parquet"
+            help="Where the file is written within the bucket or folder."
+          >
+            <Input
+              value={c.path ?? ""}
+              onChange={(e) => set({ path: e.target.value })}
+              placeholder="outputs/result.parquet"
+            />
+          </Field>
+          <Field label="Format" error={errors.format} help="File format to write.">
+            <Select value={c.format ?? "parquet"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+              <option value="parquet">Parquet</option>
+            </Select>
+          </Field>
+          <Field label="If file exists" error={errors.if_exists} help="Overwrite the existing file, or fail if it already exists.">
+            <Select value={c.if_exists ?? "overwrite"} onChange={(e) => set({ if_exists: e.target.value })}>
+              <option value="overwrite">Overwrite</option>
+              <option value="error">Fail with error</option>
             </Select>
           </Field>
         </>
