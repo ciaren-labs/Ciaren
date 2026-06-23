@@ -8,8 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import MLNotEnabledError, NotFoundError, ValidationError
+from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.ml.availability import ml_extension_ready
+
+# mlTrain's default experiment name when a node sets no mlflow_experiment.
+_DEFAULT_EXPERIMENT = "flowframe"
 
 # NodeResult keys that make a node "ML" for the metrics view.
 _ML_KEYS = ("ml_metrics", "model_uri", "task_type", "cv_scores", "mlflow_run_id")
@@ -76,6 +80,46 @@ class MLService:
             "alias": alias,
         }
 
+    async def list_experiments(self, flow_id: str) -> list[dict[str, Any]]:
+        """The MLflow experiments this flow's mlTrain nodes log to.
+
+        Experiment names are derived from the flow graph (each mlTrain node's
+        ``mlflow_experiment`` config, or the default), then looked up in MLflow so
+        the response reflects what actually exists.
+        """
+        if not ml_extension_ready():
+            raise MLNotEnabledError("Listing experiments requires the ML extension (ML_ENABLED + [ml] extra).")
+        flow = await self._get_flow(flow_id)
+        names = self._experiment_names(flow.graph_json or {})
+        if not names:
+            return []
+
+        from app.ml.tracking import configure_mlflow
+
+        mlflow = configure_mlflow()
+        client = mlflow.tracking.MlflowClient()
+        experiments: list[dict[str, Any]] = []
+        for name in sorted(names):
+            exp = client.get_experiment_by_name(name)
+            if exp is not None:
+                experiments.append(
+                    {
+                        "name": exp.name,
+                        "experiment_id": exp.experiment_id,
+                        "lifecycle_stage": exp.lifecycle_stage,
+                        "artifact_location": exp.artifact_location,
+                    }
+                )
+        return experiments
+
+    def _experiment_names(self, graph: dict[str, Any]) -> set[str]:
+        names: set[str] = set()
+        for node in graph.get("nodes", []):
+            if node.get("type") == "mlTrain":
+                config = node.get("data", {}).get("config", {})
+                names.add(config.get("mlflow_experiment") or _DEFAULT_EXPERIMENT)
+        return names
+
     # -- internals -----------------------------------------------------------
 
     def _model_uri(self, run: FlowRun) -> str | None:
@@ -91,3 +135,10 @@ class MLService:
         if run is None:
             raise NotFoundError("FlowRun", run_id)
         return run
+
+    async def _get_flow(self, flow_id: str) -> Flow:
+        result = await self.db.execute(select(Flow).where(Flow.id == flow_id))
+        flow = result.scalar_one_or_none()
+        if flow is None:
+            raise NotFoundError("Flow", flow_id)
+        return flow

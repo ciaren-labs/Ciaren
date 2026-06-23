@@ -20,3 +20,9 @@ async def register_run_model(
     run_id: str, body: MLRegisterRequest, service: MLServiceDep
 ) -> dict[str, object]:
     return await service.register_model(run_id, body.model_name, body.stage)
+
+
+@router.get("/flows/{flow_id}/ml/experiments")
+async def list_flow_ml_experiments(flow_id: str, service: MLServiceDep) -> list[dict[str, object]]:
+    """MLflow experiments this flow's mlTrain nodes log to."""
+    return await service.list_experiments(flow_id)
