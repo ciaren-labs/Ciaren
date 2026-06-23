@@ -165,16 +165,21 @@ class DatasetService:
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def delete(self, dataset_id: str, purge: bool = False) -> None:
+    async def delete(self, dataset_id: str, purge: bool = False, force: bool = False) -> None:
         """Soft-delete by default: mark the dataset deleted but retain its rows and
         files so it can be restored and historical runs still resolve. ``purge=True``
-        hard-deletes the dataset, its versions, and their files immediately."""
+        hard-deletes the dataset, its versions, and their files immediately.
+
+        Refuses (409) if a Production-aliased registered model was trained on this
+        dataset, unless ``force=True``."""
         result = await self.db.execute(
             select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
             raise NotFoundError("Dataset", dataset_id)
+        if not force:
+            await self._guard_production_dependency(dataset_id)
         if purge:
             self._remove_version_files(dataset)
             await self.db.delete(dataset)
@@ -209,6 +214,24 @@ class DatasetService:
         if expired:
             await self.db.commit()
         return len(expired)
+
+    async def _guard_production_dependency(self, dataset_id: str) -> None:
+        """Raise ConflictError (409) if a Production model was trained on this
+        dataset. No-op when the ML extension isn't active (no registry to check)."""
+        from app.ml.availability import ml_extension_ready
+
+        if not ml_extension_ready():
+            return
+        import asyncio
+
+        from app.ml.registry_deps import production_models_for_dataset
+
+        models = await asyncio.to_thread(production_models_for_dataset, dataset_id)
+        if models:
+            raise ConflictError(
+                f"A Production model ({', '.join(models)}) was trained on this dataset. "
+                f"Demote it from Production before deleting, or delete with force=true."
+            )
 
     def _remove_version_files(self, dataset: Dataset) -> None:
         """Best-effort removal of each version's file from disk."""
