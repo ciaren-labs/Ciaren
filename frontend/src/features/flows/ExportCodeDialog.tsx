@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { useExportPython } from "./hooks";
 import { ApiError } from "@/lib/api";
 
@@ -23,11 +24,12 @@ export function ExportCodeDialog({
   onOpenChange,
 }: ExportCodeDialogProps) {
   const exportPython = useExportPython(flowId);
+  const [freeIntermediates, setFreeIntermediates] = useState(false);
 
   useEffect(() => {
-    if (open) exportPython.mutate();
+    if (open) exportPython.mutate(freeIntermediates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, freeIntermediates]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +51,7 @@ export function ExportCodeDialog({
             <TabsList>
               <TabsTrigger value="pandas">pandas</TabsTrigger>
               <TabsTrigger value="polars">polars</TabsTrigger>
+              <TabsTrigger value="polars_lazy">polars (lazy)</TabsTrigger>
             </TabsList>
             <TabsContent value="pandas" className="min-w-0">
               <CodeBlock code={exportPython.data.code} />
@@ -56,8 +59,35 @@ export function ExportCodeDialog({
             <TabsContent value="polars" className="min-w-0">
               <CodeBlock code={exportPython.data.polars} />
             </TabsContent>
+            <TabsContent value="polars_lazy" className="min-w-0">
+              <p className="mb-2 text-xs text-muted-foreground">
+                Builds a single lazy query (scan → collect) so polars can apply
+                projection / predicate pushdown. Best for large inputs.
+              </p>
+              <CodeBlock code={exportPython.data.polars_lazy} />
+            </TabsContent>
           </Tabs>
         )}
+
+        <div className="flex items-start gap-2 border-t pt-3">
+          <input
+            id="free-intermediates"
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+            checked={freeIntermediates}
+            onChange={(e) => setFreeIntermediates(e.target.checked)}
+          />
+          <div className="min-w-0">
+            <Label htmlFor="free-intermediates" className="cursor-pointer">
+              Free intermediate tables (<code>del</code>)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Releases each table right after its last use to lower peak memory.
+              Applies to the pandas and polars tabs; the lazy plan needs no{" "}
+              <code>del</code>.
+            </p>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

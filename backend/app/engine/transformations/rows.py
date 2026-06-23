@@ -182,6 +182,7 @@ class LimitRowsTransformation(BaseTransformation):
 
 class SampleRowsTransformation(BaseTransformation):
     type = "sampleRows"
+    polars_lazy_safe = False  # LazyFrame has no .sample()
 
     def validate_config(self, config: dict[str, Any]) -> None:
         n, frac = config.get("n"), config.get("frac")

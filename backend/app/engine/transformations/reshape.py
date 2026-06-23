@@ -256,6 +256,7 @@ class UnpivotTransformation(BaseTransformation):
 
 class PivotTransformation(BaseTransformation):
     type = "pivot"
+    polars_lazy_safe = False  # LazyFrame has no .pivot()
 
     def validate_config(self, config: dict[str, Any]) -> None:
         for key in ("index", "columns", "values"):

@@ -43,7 +43,9 @@ async def preview_flow(
 
 @router.post("/{flow_id}/export/python", response_model=CodeExportResponse)
 async def export_flow_python(
-    flow_id: str, service: CodegenServiceDep
+    flow_id: str, service: CodegenServiceDep, free_intermediates: bool = False
 ) -> CodeExportResponse:
-    code = await service.export(flow_id)
-    return CodeExportResponse(code=code["pandas"], polars=code["polars"])
+    code = await service.export(flow_id, free_intermediates=free_intermediates)
+    return CodeExportResponse(
+        code=code["pandas"], polars=code["polars"], polars_lazy=code["polars_lazy"]
+    )
