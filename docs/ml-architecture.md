@@ -916,10 +916,20 @@ tests passing (154 ML-specific), mypy + ruff clean. Delivered:
   types, URI/pickle/hyperparameter guards, MLflow config + safe loading).
 - Code export: CodeGenerator handles multi-output vars + import collection.
 
-**Not yet done:** Phase 2 (API routes, ML_ENABLED service-layer gating,
-graph_snapshot/run_timeout wiring into the run service, dataset soft-delete),
-Phase 3 (frontend), Phase 5 (user docs). Registry gates ML nodes on library
-*availability*; the `ML_ENABLED` flag still needs to gate the API/palette surface.
+**Phase 2 (API & persistence) is largely complete** (1092 tests passing):
+- `flowframe init` provisions a default local MLflow (`./mlruns`), overridable via
+  `MLFLOW_TRACKING_URI`; `info`/`check` report ML status.
+- `ML_ENABLED` now gates the surface: `GET /api/transformations` hides ML nodes
+  and supports `?category=ml|etl`; previewing an ML node while disabled returns
+  501 (`MLNotEnabledError`).
+- `graph_snapshot_json` captured per run (+ `graph_snapshot` on the read schema);
+  run timeout precedence per-run > schedule (`run_timeout_seconds`) > global.
+- `GET /api/runs/{id}/ml/metrics` and `POST /api/runs/{id}/ml/register` (registry
+  promotion with MLflow-3 aliases).
+
+**Still TODO:** dataset soft-delete (`is_disabled`/`deleted_at` + retention, and
+the 409-on-delete-when-Production-model-depends check), `GET
+/api/flows/{id}/ml/experiments`, Phase 3 (frontend), Phase 5 (user docs).
 
 Track progress here as features are built and tested.
 
