@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -61,7 +61,7 @@ class FlowService:
             setattr(flow, field, value)
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
         # and SQLite's second-level resolution means tests may see the same value.
-        flow.updated_at = datetime.utcnow()
+        flow.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(flow)
         return FlowRead.model_validate(flow)

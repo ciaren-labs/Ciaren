@@ -22,8 +22,8 @@ const FEATURES = [
   },
   {
     icon: Code2,
-    title: "Readable code export",
-    body: "Every flow exports to clean, educational pandas — and the polars equivalent.",
+    title: "Python code export",
+    body: "Every flow exports to clean, runnable pandas or polars code — take it anywhere Python runs.",
   },
   {
     icon: Zap,
@@ -65,9 +65,10 @@ export function LandingPage() {
           The simplest <span className="brand-text-gradient">visual ETL</span> builder
         </h1>
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Upload data, build a visual cleaning pipeline, preview the results, run it, and
-          export readable Python. Built for analysts, learners, and anyone who wants quick,
-          repeatable pipelines.
+          Build, run, and schedule data pipelines on a drag-and-drop canvas. Preview every
+          step, execute with one click, and export readable Python when you need it. Built
+          for data analysts, data engineers, and anyone who wants reproducible ETL without
+          the boilerplate.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">

@@ -1,8 +1,9 @@
 # FlowFrame
 
-> **Build data pipelines by dragging boxes — walk away with real Python.**
-> Upload a file, clean and reshape it on a visual canvas, preview every step,
-> run it, and export the exact pandas **or** polars code it produced.
+> **Build, run, and schedule data pipelines visually — no boilerplate required.**
+> Upload a file, clean and reshape it on a drag-and-drop canvas, preview every
+> step, execute with one click, schedule recurring runs, and export the equivalent
+> pandas **or** polars code whenever you need it.
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -29,18 +30,19 @@ builder for **small and medium datasets**. It lets you:
 - **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
 - **Schedule** flows to run automatically with a built-in cron scheduler
 
-It maps each visual node to **one clear dataframe operation**, so the generated
-code stays educational and easy to read. FlowFrame is intentionally lightweight —
-it is **not** an Airflow/dbt/Spark replacement, and does not do distributed or
-streaming execution.
+Each visual node maps to **one clear dataframe operation** — so the generated
+code is readable whenever you export it, and execution is transparent. FlowFrame
+is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
+and does not do distributed or streaming execution.
 
-Built for analysts, data-curious business users, Python learners, developers who
-want quick repeatable pipelines, and educators.
+Built for **data analysts, data engineers, and developers** who want repeatable
+ETL pipelines without the infrastructure overhead — and accessible enough for
+business analysts and Python beginners who are just getting started.
 
-### See it: boxes in, real code out
+### See it: build visually, run instantly, export when you need to
 
-A three-step visual flow (read → drop nulls → group & sum) is exactly what you'd
-hand-write — FlowFrame just writes it for you:
+A three-step flow (read → drop nulls → group & sum) runs with one click and
+produces clean Python you can take anywhere:
 
 ```python
 import polars as pl
@@ -251,4 +253,4 @@ required copyright notices and license text. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Made with ❤️ for data enthusiasts who value simplicity.**
+**Made with ❤️ for data practitioners who value simplicity and reproducibility.**

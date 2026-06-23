@@ -69,6 +69,46 @@ export const aggFunctions = [
 
 export const joinHows = ["inner", "left", "right", "outer"] as const;
 
+export const FILTER_OPERATOR_LABELS: Record<string, string> = {
+  "==": "= equals",
+  "!=": "≠ not equals",
+  ">": "> greater than",
+  ">=": "≥ greater or equal",
+  "<": "< less than",
+  "<=": "≤ less or equal",
+  between: "between (range)",
+  in: "in (list of values)",
+  contains: "contains (text)",
+  startswith: "starts with",
+  endswith: "ends with",
+  isnull: "is null / empty",
+  notnull: "is not null / not empty",
+};
+
+export const STRING_OPERATION_LABELS: Record<string, string> = {
+  lower: "Lowercase (abc)",
+  upper: "Uppercase (ABC)",
+  strip: "Strip whitespace",
+  title: "Title Case (Abc Def)",
+  capitalize: "Capitalize first letter",
+  len: "String length (count characters)",
+  replace: "Find & Replace",
+  pad: "Pad to fixed width",
+};
+
+export const JOIN_HOW_LABELS: Record<string, string> = {
+  inner: "Inner — keep only matching rows",
+  left: "Left — all left rows, matched right",
+  right: "Right — all right rows, matched left",
+  outer: "Full outer — all rows from both sides",
+};
+
+export const OUTLIER_METHOD_LABELS: Record<string, string> = {
+  iqr: "IQR (interquartile range)",
+  zscore: "Z-score (standard deviations from mean)",
+  percentile: "Percentile (custom % bounds)",
+};
+
 export const outlierMethods = ["iqr", "zscore", "percentile"] as const;
 export const outlierActions = ["drop", "clip"] as const;
 export const binMethods = ["equalwidth", "quantile"] as const;
