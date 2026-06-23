@@ -502,6 +502,27 @@ ETL nodes for no benefit). Instead:
 
 ## 5. MLflow 3 Integration
 
+### 5.0 MLflow 3.14 behavior notes (discovered during implementation)
+
+The local-first defaults required handling several MLflow 3.x changes — captured
+here so they aren't rediscovered the hard way:
+
+- **File store is opt-in.** MLflow 3.14 puts the filesystem tracking backend
+  (``./mlruns``) in "maintenance mode" and *raises* unless
+  ``MLFLOW_ALLOW_FILE_STORE=true``. FlowFrame sets this automatically
+  (``app/ml/tracking.py``) to keep zero-setup local tracking working; teams can
+  still point ``MLFLOW_TRACKING_URI`` at sqlite/postgres.
+- **Local paths must be ``file://`` URIs.** A bare Windows path (``C:\...``) is
+  misparsed as a ``c:`` scheme. ``normalize_tracking_uri`` converts any plain path
+  to an absolute ``file://`` URI (works on Windows + POSIX).
+- **sklearn flavor defaults to skops**, which rejects ``numpy.dtype`` as untrusted.
+  We log with ``serialization_format="cloudpickle"`` (MLflow's long-standing
+  sklearn format). User-supplied model *paths* are still validated separately in
+  mlPredict (no pickle loads from outside the artifact root).
+- **``log_model`` returns a ``models:/m-<id>`` logged-model URI** (the MLflow 3
+  LoggedModel), not ``runs:/...``. Both are accepted by ``validate_model_uri``.
+- **``name=`` replaces the deprecated ``artifact_path=``** kwarg.
+
 ### 5.1 Configuration
 
 ```python
@@ -877,6 +898,28 @@ Covers cases that are not obvious and would otherwise produce silent failures or
 ---
 
 ## 13. Implementation TODO
+
+### Implementation status (2026-06-23)
+
+**Phase 1 (Backend Core) is complete** on `feature/ml-extension` — 1065 backend
+tests passing (154 ML-specific), mypy + ruff clean. Delivered:
+
+- Infra: `[ml]` extra, ML settings, `graph_snapshot_json` + `run_timeout_seconds`
+  columns + migration `d4e7b1f9a2c5`, `app/ml/availability.py` gating.
+- Executor: per-handle multi-output frames, `sourceHandle` routing,
+  `EngineBackend.from_pandas`, `EmitsNodeMetadata`/`NodeMetadata` channel,
+  `optional_input_handles`, ML fields on `NodeResult` + schema.
+- Nodes (`app/engine/transformations/ml/`): trainTestSplit, scaleFeatures,
+  encodeCategories, imputeMissing, selectFeatures, reduceDimensions, mlTrain,
+  mlPredict, mlEvaluate, featureImportance.
+- ML libs: `app/ml/{security,models,tracking,loader}.py` (model catalog of 17
+  types, URI/pickle/hyperparameter guards, MLflow config + safe loading).
+- Code export: CodeGenerator handles multi-output vars + import collection.
+
+**Not yet done:** Phase 2 (API routes, ML_ENABLED service-layer gating,
+graph_snapshot/run_timeout wiring into the run service, dataset soft-delete),
+Phase 3 (frontend), Phase 5 (user docs). Registry gates ML nodes on library
+*availability*; the `ML_ENABLED` flag still needs to gate the API/palette surface.
 
 Track progress here as features are built and tested.
 
