@@ -204,6 +204,7 @@ const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("duckdb", "DuckDB", "sql", "duckdb", "duckdb", null, false, false, true),
   mkProvider("snowflake", "Snowflake", "sql", "snowflake-connector-python", "snowflake", null, true, true, true),
   mkProvider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, true, true, false),
+  mkProvider("local", "Local Folder", "storage", null, null, null, false, false, false, true, false, false),
   mkProvider("s3", "AWS S3", "storage", "boto3", "s3", null, false, false, false, true, true, true),
   mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, false),
   mkProvider("gcs", "Google Cloud Storage", "storage", "google-cloud-storage", "gcs", null, false, false, false, true, false, false),
@@ -400,7 +401,8 @@ function ConnectionCard({
   const del = useDeleteConnection();
   const provider = providers.find((p) => p.name === connection.provider);
   const target = connectionTarget(connection);
-  const isBuiltIn = connection.provider === "local";
+  // Only the auto-seeded default is built-in; user-created local connections are deletable.
+  const isBuiltIn = connection.provider === "local" && connection.name === "Local Storage";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
@@ -592,8 +594,7 @@ function ConnectionDialog({
   const isStorage = provider?.kind === "storage";
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
-  // Exclude local — auto-seeded from DATA_DIR, not user-created.
-  const selectableProviders = providers.filter((p) => p.name !== "local");
+  const selectableProviders = providers;
   const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
   const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
 
@@ -679,7 +680,7 @@ function ConnectionDialog({
                   onSelect={selectProvider}
                 />
                 <ProviderSection
-                  label="Cloud Storage"
+                  label="Storage"
                   providers={storageProviders}
                   onSelect={selectProvider}
                 />
@@ -856,6 +857,22 @@ function StorageFields({
   setOption: (key: string, value: string) => void;
 }) {
   const opts = (form.options ?? {}) as Record<string, string>;
+
+  if (provider.name === "local") {
+    return (
+      <Field
+        label="Folder path"
+        hint="Absolute path to a directory on the server — created automatically if it doesn't exist"
+      >
+        <Input
+          value={form.database ?? ""}
+          onChange={(e) => set({ database: e.target.value })}
+          placeholder="/data/my-folder"
+          autoFocus
+        />
+      </Field>
+    );
+  }
 
   if (provider.name === "s3") {
     return (
