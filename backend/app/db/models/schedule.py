@@ -36,6 +36,10 @@ class Schedule(Base):
     # ``retry_delay_seconds``.
     max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     retry_delay_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    # Per-schedule run timeout override (seconds). NULL falls back to the global
+    # RUN_TIMEOUT_SECONDS. ML retraining can far outlast typical ETL runs, so a
+    # schedule can grant its runs more (or less) time without changing the default.
+    run_timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # -- Runtime / observability state ---------------------------------
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
