@@ -31,10 +31,43 @@ _EXPECTED_FLOWS = {
 
 @pytest.fixture
 async def demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
-    """Seed the demo project with DATA_DIR pointed at an isolated temp dir."""
+    """Seed the demo project with DATA_DIR pointed at an isolated temp dir.
+
+    ML is pinned OFF here so the base ETL datasets/flows are seeded deterministically
+    regardless of whether the [ml] extra is installed in the test environment.
+    """
     from app.core.config import get_settings
 
     monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
+    get_settings.cache_clear()
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+
+    await seed_demo(db_session)
+    yield db_session
+
+    get_settings.cache_clear()
+
+
+_EXPECTED_ML_DATASETS = {"iris.csv", "house_prices.csv"}
+_EXPECTED_ML_FLOWS = {
+    "Iris — Quick Classifier",
+    "Iris — Train, Validate & Evaluate",
+    "House Prices — Regression",
+    "Iris — PCA Explore",
+}
+
+
+@pytest.fixture
+async def ml_demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
+    """Seed the demo project with ML enabled, so the ML datasets/flows are added."""
+    pytest.importorskip("mlflow")
+    pytest.importorskip("sklearn")
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
     get_settings.cache_clear()
     (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
 
@@ -119,6 +152,44 @@ async def test_dataset_paths_resolve_to_pinned_version(demo_db: AsyncSession) ->
             config = node["data"]["config"]
             key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
             assert key in paths
+
+
+async def test_no_ml_content_when_ml_disabled(demo_db: AsyncSession) -> None:
+    project = await _project(demo_db)
+    datasets = (await demo_db.execute(select(Dataset).where(Dataset.project_id == project.id))).scalars().all()
+    flows = (await demo_db.execute(select(Flow).where(Flow.project_id == project.id))).scalars().all()
+    assert {d.name for d in datasets} == _EXPECTED_DATASETS
+    assert {f.name for f in flows} == _EXPECTED_FLOWS
+
+
+async def test_ml_datasets_and_flows_seeded(ml_demo_db: AsyncSession) -> None:
+    project = await _project(ml_demo_db)
+    datasets = (await ml_demo_db.execute(select(Dataset).where(Dataset.project_id == project.id))).scalars().all()
+    flows = (await ml_demo_db.execute(select(Flow).where(Flow.project_id == project.id))).scalars().all()
+    assert _EXPECTED_ML_DATASETS <= {d.name for d in datasets}
+    assert _EXPECTED_ML_FLOWS <= {f.name for f in flows}
+    # ML flow graphs are correctly wired (multi-output split + model handles).
+    for flow in flows:
+        if flow.name in _EXPECTED_ML_FLOWS:
+            validate_graph(flow.graph_json, require_output=True)
+
+
+async def test_ml_demo_flows_execute_end_to_end(ml_demo_db: AsyncSession, tmp_path) -> None:
+    project = await _project(ml_demo_db)
+    result = await ml_demo_db.execute(
+        select(Flow).where(Flow.project_id == project.id, Flow.name.in_(_EXPECTED_ML_FLOWS))
+    )
+    flows = result.scalars().all()
+    assert {f.name for f in flows} == _EXPECTED_ML_FLOWS
+
+    out_dir = tmp_path / "ml_out"
+    out_dir.mkdir()
+    for flow in flows:
+        dataset_paths, _ = await build_dataset_paths(ml_demo_db, flow.graph_json)
+        engine = flow.graph_json.get("engine", "pandas")
+        run = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, out_dir, engine_name=engine)
+        assert run.error is None, f"{flow.name} failed: {run.error}"
+        assert run.output_paths, f"{flow.name} produced no output"
 
 
 async def test_seeder_is_idempotent(demo_db: AsyncSession) -> None:
