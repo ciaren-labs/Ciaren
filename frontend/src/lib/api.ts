@@ -116,11 +116,16 @@ export const flowsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  exportPython: (id: string) =>
-    request<ExportCodeResponse>(`/flows/${id}/export/python`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
+  exportPython: (id: string, freeIntermediates = false) =>
+    request<ExportCodeResponse>(
+      `/flows/${id}/export/python${
+        freeIntermediates ? "?free_intermediates=true" : ""
+      }`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      },
+    ),
   createRun: (
     id: string,
     options: { inputDatasetId?: string; engine?: string } = {},

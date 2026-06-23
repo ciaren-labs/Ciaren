@@ -33,7 +33,7 @@ features:
 
   - icon: 🐍
     title: Export Python
-    details: Every flow exports to readable, standalone code — both polars and pandas.
+    details: Every flow exports to readable, standalone code — pandas, polars, or lazy polars.
 
   - icon: ⚡
     title: polars or pandas
@@ -71,7 +71,7 @@ change between releases. Use it for experimentation — not production pipelines
 
 ## No Code, All Power
 
-FlowFrame supports 23 transformation nodes plus file input/output out of the box:
+FlowFrame supports 28 transformation nodes plus file and SQL input/output out of the box:
 
 - **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
 - **Transform:** Filter, aggregate, join, calculated columns, replace/round values

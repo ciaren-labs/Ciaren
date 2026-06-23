@@ -21,8 +21,15 @@ class CodegenService:
     async def export_python(self, flow_id: str) -> str:
         return (await self.export(flow_id))["pandas"]
 
-    async def export(self, flow_id: str) -> dict[str, str]:
-        """Generate both the pandas and polars equivalents of a flow."""
+    async def export(
+        self, flow_id: str, *, free_intermediates: bool = False
+    ) -> dict[str, str]:
+        """Generate the pandas, eager-polars and lazy-polars equivalents of a flow.
+
+        ``free_intermediates`` adds ``del`` statements to the materializing
+        (pandas / eager-polars) scripts to lower peak memory; the lazy script is
+        unaffected since its variables are query plans, not data.
+        """
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
         # Use readable dataset filenames rather than absolute local paths so the
@@ -31,8 +38,15 @@ class CodegenService:
         connections = await self._connection_meta(graph)
         try:
             return {
-                "pandas": CodeGenerator().generate(graph, dataset_names, connections),
-                "polars": PolarsCodeGenerator().generate(graph, dataset_names, connections),
+                "pandas": CodeGenerator().generate(
+                    graph, dataset_names, connections, free_intermediates=free_intermediates
+                ),
+                "polars": PolarsCodeGenerator().generate(
+                    graph, dataset_names, connections, free_intermediates=free_intermediates
+                ),
+                "polars_lazy": PolarsCodeGenerator().generate(
+                    graph, dataset_names, connections, lazy=True
+                ),
             }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
