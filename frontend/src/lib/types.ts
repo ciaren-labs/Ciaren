@@ -334,7 +334,7 @@ export type ConnectionUpdate = Partial<ConnectionCreate>;
 export interface ProviderInfo {
   name: string;
   label: string;
-  kind: "sql" | "mongo" | "storage";
+  kind: "sql" | "mongo" | "storage" | "mlflow";
   available: boolean;
   driver_module: string | null;
   extra: string | null;

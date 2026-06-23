@@ -22,9 +22,20 @@ def current_run_context() -> dict[str, Any] | None:
 
 @contextmanager
 def run_context(
-    *, flow_id: str | None, run_id: str | None, dataset_ids: list[str]
+    *,
+    flow_id: str | None,
+    run_id: str | None,
+    dataset_ids: list[str],
+    tracking_uri: str | None = None,
 ) -> Iterator[None]:
-    token = _run_context.set({"flow_id": flow_id, "run_id": run_id, "dataset_ids": dataset_ids})
+    token = _run_context.set(
+        {
+            "flow_id": flow_id,
+            "run_id": run_id,
+            "dataset_ids": dataset_ids,
+            "tracking_uri": tracking_uri,
+        }
+    )
     try:
         yield
     finally:

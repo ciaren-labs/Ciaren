@@ -67,6 +67,15 @@ PROVIDERS: dict[str, Provider] = {
         needs_host=False, needs_auth=False, supports_query=False,
         needs_bucket=True, needs_region=False, needs_endpoint=False,
     ),
+    # ── Experiment tracking ────────────────────────────────────────────────
+    # MLflow is not a data source: it stores its tracking URI in `database`
+    # (a local folder for the file store, or sqlite:/// / http://host:5000 /
+    # databricks). It's tested and resolved through app/ml/tracking.py, not a
+    # DataConnector/StorageConnector.
+    "mlflow": Provider(
+        "mlflow", "MLflow Tracking", "mlflow", "mlflow", "ml", None,
+        needs_host=False, needs_auth=False, supports_query=False,
+    ),
 }
 
 _SQL_CONNECTOR = SqlConnector()
@@ -112,16 +121,27 @@ def driver_available(provider: Provider) -> bool:
 
 
 def get_connector(provider: Provider) -> DataConnector | StorageConnector:
-    """Return the connector for a provider. Storage providers return a StorageConnector."""
+    """Return the connector for a provider. Storage providers return a StorageConnector.
+
+    MLflow has no DataConnector/StorageConnector — it is handled separately by the
+    connection service (see app/ml/tracking.py); callers must guard with
+    :func:`is_mlflow_provider` before reaching here.
+    """
     if provider.kind == "storage":
         return _STORAGE_CONNECTOR_FACTORIES[provider.name]()
     if provider.kind == "mongo":
         return _MONGO_CONNECTOR
+    if provider.kind == "mlflow":
+        raise ValidationError("MLflow connections have no data connector.")
     return _SQL_CONNECTOR
 
 
 def is_storage_provider(provider: Provider) -> bool:
     return provider.kind == "storage"
+
+
+def is_mlflow_provider(provider: Provider) -> bool:
+    return provider.kind == "mlflow"
 
 
 def list_providers() -> list[dict[str, object]]:

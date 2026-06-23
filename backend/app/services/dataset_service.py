@@ -225,8 +225,10 @@ class DatasetService:
         import asyncio
 
         from app.ml.registry_deps import production_models_for_dataset
+        from app.ml.tracking import resolve_tracking_uri
 
-        models = await asyncio.to_thread(production_models_for_dataset, dataset_id)
+        tracking_uri = await resolve_tracking_uri(self.db)
+        models = await asyncio.to_thread(production_models_for_dataset, dataset_id, tracking_uri)
         if models:
             raise ConflictError(
                 f"A Production model ({', '.join(models)}) was trained on this dataset. "
