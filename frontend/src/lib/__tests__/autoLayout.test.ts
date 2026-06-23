@@ -148,5 +148,28 @@ describe("autoLayout", () => {
         expect(overlap).toBe(false);
       }
     }
+
+    // A 1-to-1 chain (the join -> group -> condition -> output tail) should sit
+    // on one horizontal line — connected single-neighbour nodes must align.
+    const centerY = (id: string) => {
+      const b = boxOf(byId.get(id)!);
+      return b.y + b.h / 2;
+    };
+    for (const id of ["grp", "cond", "out"]) {
+      expect(Math.abs(centerY(id) - centerY("j2"))).toBeLessThan(0.5);
+    }
+  });
+
+  it("aligns a 1-to-1 link even when each node shares its column", () => {
+    // a->c and b->d are independent 1-to-1 links; each pair must line up.
+    const nodes = [node("a"), node("b"), node("c"), node("d")];
+    const edges = [edge("a", "c"), edge("b", "d")];
+    const laid = autoLayout(nodes, edges);
+    const cy = (id: string) => {
+      const n = laid.find((m) => m.id === id)!;
+      return n.position.y + 56 / 2;
+    };
+    expect(Math.abs(cy("a") - cy("c"))).toBeLessThan(0.5);
+    expect(Math.abs(cy("b") - cy("d"))).toBeLessThan(0.5);
   });
 });

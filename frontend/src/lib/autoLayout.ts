@@ -12,7 +12,7 @@ const FALLBACK_H = 56;
 // vertical lane in each column it crosses, so it never passes behind a node.
 const DUMMY_H = 12;
 const ORDER_SWEEPS = 4;
-const POSITION_ITERS = 30;
+const POSITION_ITERS = 40;
 
 /**
  * Layered ("Sugiyama style") left-to-right auto-layout:
@@ -141,9 +141,12 @@ export function autoLayout<T extends Node>(nodes: T[], edges: Edge[]): T[] {
     x += (reals.length ? Math.max(...reals.map(widthOf)) : 0) + H_GAP;
   }
 
-  // 4b) y (centres): start from a centred stack, then repeatedly pull each node
-  //     toward the mean of its neighbours and project back to a feasible,
-  //     order-preserving column via isotonic regression (pool-adjacent-violators).
+  // 4b) y (centres): start from a centred stack, then sweep one side at a time —
+  //     downward aligns each node to the median of its parents, upward to the
+  //     median of its children — projecting back to a feasible, order-preserving
+  //     column via isotonic regression. One-sided median sweeps straighten 1-to-1
+  //     chains and the dummy lanes exactly, so connected nodes line up instead of
+  //     drifting a few pixels (which a two-sided average leaves behind).
   const cy = new Map<string, number>();
   for (let l = 0; l <= maxLayer; l++) {
     const ids = order[l];
@@ -155,21 +158,22 @@ export function autoLayout<T extends Node>(nodes: T[], edges: Edge[]): T[] {
     }
   }
   const sep = (a: string, b: string) => heightOf(a) / 2 + V_GAP + heightOf(b) / 2;
+  const place = (l: number, nb: Map<string, string[]>) => {
+    const ids = order[l];
+    if (ids.length === 0) return;
+    const desired = ids.map((id) => {
+      const ys = (nb.get(id) ?? []).map((n) => cy.get(n)!);
+      return ys.length ? median(ys) : cy.get(id)!;
+    });
+    // Minimum cumulative offset so consecutive centres keep their gaps.
+    const offset: number[] = [0];
+    for (let i = 1; i < ids.length; i++) offset[i] = offset[i - 1] + sep(ids[i - 1], ids[i]);
+    const fitted = isotonic(desired.map((d, i) => d - offset[i]));
+    ids.forEach((id, i) => cy.set(id, fitted[i] + offset[i]));
+  };
   for (let it = 0; it < POSITION_ITERS; it++) {
-    const prev = new Map(cy);
-    for (let l = 0; l <= maxLayer; l++) {
-      const ids = order[l];
-      if (ids.length === 0) continue;
-      const desired = ids.map((id) => {
-        const nbs = [...(upNb.get(id) ?? []), ...(downNb.get(id) ?? [])];
-        return nbs.length ? nbs.reduce((s, n) => s + prev.get(n)!, 0) / nbs.length : prev.get(id)!;
-      });
-      // Minimum cumulative offset so consecutive centres keep their gaps.
-      const offset: number[] = [0];
-      for (let i = 1; i < ids.length; i++) offset[i] = offset[i - 1] + sep(ids[i - 1], ids[i]);
-      const fitted = isotonic(desired.map((d, i) => d - offset[i]));
-      ids.forEach((id, i) => cy.set(id, fitted[i] + offset[i]));
-    }
+    if (it % 2 === 0) for (let l = 1; l <= maxLayer; l++) place(l, upNb);
+    else for (let l = maxLayer - 1; l >= 0; l--) place(l, downNb);
   }
 
   const pos = new Map<string, { x: number; y: number }>();
@@ -183,6 +187,12 @@ export function autoLayout<T extends Node>(nodes: T[], edges: Edge[]): T[] {
     const p = pos.get(n.id);
     return p ? { ...n, position: p } : n;
   });
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 /**
