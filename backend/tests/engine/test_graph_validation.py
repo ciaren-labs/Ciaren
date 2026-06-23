@@ -169,3 +169,48 @@ def test_transform_with_no_input_rejected():
     }
     with pytest.raises(GraphValidationError, match="not connected"):
         validate_graph(graph)
+
+
+def test_cycle_detection_works():
+    """A back-edge that creates a cycle must be detected."""
+    graph = {
+        "nodes": [_input("in1"), _node("a", "dropNulls"), _node("b", "dropNulls"), _node("out", "csvOutput")],
+        "edges": [
+            _edge("in1", "a"),
+            _edge("a", "b"),
+            _edge("b", "a"),  # cycle: a -> b -> a
+            _edge("b", "out"),
+        ],
+    }
+    with pytest.raises(GraphValidationError, match="[Cc]ycle"):
+        validate_graph(graph)
+
+
+def test_cycle_detection_is_iterative_for_large_graphs():
+    """The cycle-detection DFS must not hit Python's recursion limit for deep graphs.
+
+    Builds a linear chain of 2000 nodes (well past the default recursion limit of
+    1000) and asserts both a valid chain and a cyclic one are handled correctly.
+    """
+    import sys
+
+    n = sys.getrecursionlimit() + 500  # deliberately exceeds the recursion limit
+
+    # Valid deep chain: in -> t_0 -> t_1 -> ... -> t_{n-1} -> out
+    nodes = [_input("in1")]
+    edges = []
+    for i in range(n):
+        nodes.append(_node(f"t{i}", "dropNulls"))
+    nodes.append(_node("out", "csvOutput"))
+
+    edges.append(_edge("in1", "t0"))
+    for i in range(n - 1):
+        edges.append(_edge(f"t{i}", f"t{i+1}"))
+    edges.append(_edge(f"t{n-1}", "out"))
+
+    validate_graph({"nodes": nodes, "edges": edges})  # must not raise or stack-overflow
+
+    # Cyclic: add a back-edge from the last transform to the first
+    edges.append(_edge(f"t{n-1}", "t0"))
+    with pytest.raises(GraphValidationError, match="[Cc]ycle"):
+        validate_graph({"nodes": nodes, "edges": edges})
