@@ -243,6 +243,9 @@ def _apply_serve_env(args: argparse.Namespace) -> None:
 def _serve(args: argparse.Namespace) -> None:
     _load_env_file(args)
     _apply_serve_env(args)
+
+    _print_serve_banner(args)
+
     import uvicorn
 
     # Pass the import string (not the app object) so --reload works.
@@ -253,6 +256,27 @@ def _serve(args: argparse.Namespace) -> None:
         reload=args.reload,
         log_level=args.log_level,
     )
+
+
+def _print_serve_banner(args: argparse.Namespace) -> None:
+    """Tell the user where to actually open the app — the frontend, not the API."""
+    from app.core.config import get_settings
+    from app.main import frontend_dist_path
+
+    # 0.0.0.0 isn't browsable; show localhost.
+    host = "localhost" if args.host in ("0.0.0.0", "::") else args.host
+    base = f"http://{host}:{args.port}"
+    serves_ui = frontend_dist_path(get_settings()) is not None
+
+    print("\n  FlowFrame")
+    if serves_ui:
+        print(f"  ▶ Open the app:  {base}")
+        print(f"    API + docs:    {base}/docs")
+    else:
+        print(f"  ▶ API:           {base}  (docs at {base}/docs)")
+        print("    Web UI:        run `npm run dev` in frontend/, then open http://localhost:5173")
+        print("                   (or build it with `npm run build` to serve the UI from here)")
+    print("")
 
 
 def _info(args: argparse.Namespace) -> None:
