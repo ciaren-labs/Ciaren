@@ -63,6 +63,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Read rows live from a database table or query.",
   },
+  {
+    type: "storageInput",
+    label: "Storage Input",
+    category: "input",
+    defaultConfig: { connection_id: "", path: "", format: "csv" },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Read a file (CSV, Excel, Parquet) from S3, Azure Blob, GCS, or a local folder.",
+  },
   // ----- Cleaning / single-input transforms -----
   {
     type: "dropNulls",
@@ -384,6 +393,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     inputHandles: ["in"],
     hasOutput: false,
     description: "Write the result to a database table.",
+  },
+  {
+    type: "storageOutput",
+    label: "Storage Output",
+    category: "output",
+    defaultConfig: { connection_id: "", path: "", format: "parquet", if_exists: "overwrite" },
+    inputHandles: ["in"],
+    hasOutput: false,
+    description: "Write the result as a file (CSV, Excel, Parquet) to S3, Azure Blob, GCS, or a local folder.",
   },
 ];
 

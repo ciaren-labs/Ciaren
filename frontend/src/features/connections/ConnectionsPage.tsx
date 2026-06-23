@@ -30,41 +30,51 @@ const EMPTY: ConnectionCreate = {
   database: "",
   username: "",
   password_env: "",
+  options: null,
 };
 
-// Used when the /providers endpoint can't be reached (e.g. the backend hasn't
-// been restarted with the connectors build) so the dropdown is never empty.
-// Real driver-availability is overlaid once the endpoint responds.
+// Used when the /providers endpoint can't be reached so the dropdown is never empty.
 const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("postgresql", "PostgreSQL", "sql", "psycopg", "postgres", 5432, true, true, true),
   mkProvider("mysql", "MySQL / MariaDB", "sql", "pymysql", "mysql", 3306, true, true, true),
   mkProvider("sqlite", "SQLite", "sql", null, null, null, false, false, true),
   mkProvider("mssql", "SQL Server", "sql", "pyodbc", "mssql", 1433, true, true, true),
+  mkProvider("duckdb", "DuckDB", "sql", "duckdb", "duckdb", null, false, false, true),
+  mkProvider("snowflake", "Snowflake", "sql", "snowflake-connector-python", "snowflake", null, true, true, true),
   mkProvider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, true, true, false),
+  mkProvider("s3", "S3 / S3-Compatible", "storage", "boto3", "aws", null, false, false, false, true, true, true),
+  mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, false),
+  mkProvider("gcs", "Google Cloud Storage", "storage", "google-cloud-storage", "gcs", null, false, false, false, true, false, false),
 ];
 
 function mkProvider(
   name: string,
   label: string,
-  kind: "sql" | "mongo",
+  kind: "sql" | "mongo" | "storage",
   driver_module: string | null,
   extra: string | null,
   default_port: number | null,
   needs_host: boolean,
   needs_auth: boolean,
   supports_query: boolean,
+  needs_bucket = false,
+  needs_region = false,
+  needs_endpoint = false,
 ): ProviderInfo {
   return {
     name,
     label,
     kind,
-    available: true, // optimistic until the server reports real availability
+    available: true,
     driver_module,
     extra,
     default_port,
     needs_host,
     needs_auth,
     supports_query,
+    needs_bucket,
+    needs_region,
+    needs_endpoint,
   };
 }
 
@@ -81,8 +91,8 @@ export function ConnectionsPage() {
         <div>
           <h1 className="text-2xl font-bold">Connections</h1>
           <p className="text-sm text-muted-foreground">
-            Reusable database connections for SQL source &amp; sink nodes. Passwords
-            are read from environment variables — never stored.
+            Reusable connections for database and cloud storage nodes. Passwords and
+            secret keys are read from environment variables — never stored.
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
@@ -114,6 +124,16 @@ export function ConnectionsPage() {
   );
 }
 
+function connectionTarget(connection: Connection): string {
+  if (connection.connection_type === "storage") {
+    return connection.database ? `bucket: ${connection.database}` : connection.provider;
+  }
+  if (connection.provider === "sqlite" || connection.provider === "duckdb") {
+    return connection.database ?? connection.provider;
+  }
+  return `${connection.host ?? ""}${connection.port ? `:${connection.port}` : ""}/${connection.database ?? ""}`;
+}
+
 function ConnectionCard({
   connection,
   providers,
@@ -124,10 +144,8 @@ function ConnectionCard({
   const test = useTestConnection();
   const del = useDeleteConnection();
   const provider = providers.find((p) => p.name === connection.provider);
-  const target =
-    connection.provider === "sqlite"
-      ? connection.database
-      : `${connection.host ?? ""}${connection.port ? `:${connection.port}` : ""}/${connection.database ?? ""}`;
+  const target = connectionTarget(connection);
+  const isBuiltIn = connection.provider === "local";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
@@ -158,15 +176,17 @@ function ConnectionCard({
       >
         {test.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Test"}
       </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => {
-          if (confirm(`Delete connection "${connection.name}"?`)) del.mutate(connection.id);
-        }}
-      >
-        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-      </Button>
+      {!isBuiltIn && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (confirm(`Delete connection "${connection.name}"?`)) del.mutate(connection.id);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -194,7 +214,14 @@ function ConnectionDialog({
     () => providers.find((p) => p.name === form.provider),
     [providers, form.provider],
   );
-  const isSqlite = form.provider === "sqlite";
+  const isStorage = provider?.kind === "storage";
+  const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
+
+  const setOption = (key: string, value: string) =>
+    set({ options: { ...(form.options ?? {}), [key]: value || undefined } });
+
+  // Exclude local from the user-facing list (it's auto-seeded from DATA_DIR).
+  const selectableProviders = providers.filter((p) => p.name !== "local");
 
   const submit = async () => {
     try {
@@ -213,14 +240,15 @@ function ConnectionDialog({
         <DialogHeader>
           <DialogTitle>Add connection</DialogTitle>
           <DialogDescription>
-            The password is read at runtime from the named environment variable and is
-            never stored by FlowFrame.
+            {isStorage
+              ? "Secret keys are read at runtime from named environment variables and are never stored by FlowFrame."
+              : "The password is read at runtime from the named environment variable and is never stored by FlowFrame."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
           <Field label="Name">
-            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="warehouse" />
+            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="my-s3-bucket" />
           </Field>
 
           <Field label="Provider">
@@ -228,17 +256,17 @@ function ConnectionDialog({
               value={form.provider}
               onChange={(e) => {
                 const p = providers.find((x) => x.name === e.target.value);
-                set({ provider: e.target.value, port: p?.default_port ?? null });
+                set({ provider: e.target.value, port: p?.default_port ?? null, options: null });
               }}
             >
-              {providers.map((p) => (
+              {selectableProviders.map((p) => (
                 <option key={p.name} value={p.name}>
                   {p.label}
                   {p.available ? "" : " — driver not installed"}
                 </option>
               ))}
             </Select>
-            {provider && !provider.available && (
+            {provider && !provider.available && provider.extra && (
               <DriverHint
                 label={provider.label}
                 command={`pip install flowframe[${provider.extra}]`}
@@ -246,7 +274,9 @@ function ConnectionDialog({
             )}
           </Field>
 
-          {isSqlite ? (
+          {isStorage ? (
+            <StorageFields form={form} provider={provider!} set={set} setOption={setOption} />
+          ) : isSqlite ? (
             <Field label="Database file path">
               <Input
                 value={form.database ?? ""}
@@ -323,6 +353,125 @@ function ConnectionDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function StorageFields({
+  form,
+  provider,
+  set,
+  setOption,
+}: {
+  form: ConnectionCreate;
+  provider: ProviderInfo;
+  set: (patch: Partial<ConnectionCreate>) => void;
+  setOption: (key: string, value: string) => void;
+}) {
+  const opts = (form.options ?? {}) as Record<string, string>;
+
+  if (provider.name === "s3") {
+    return (
+      <>
+        <Field label="Bucket" hint="e.g. my-data-bucket">
+          <Input
+            value={form.database ?? ""}
+            onChange={(e) => set({ database: e.target.value })}
+            placeholder="my-data-bucket"
+          />
+        </Field>
+        <Field label="Access Key ID (optional)" hint="Leave empty to use IAM role or env credentials">
+          <Input
+            value={form.username ?? ""}
+            onChange={(e) => set({ username: e.target.value })}
+            placeholder="AKIAIOSFODNN7EXAMPLE"
+          />
+        </Field>
+        <Field label="Secret Access Key env var (optional)" hint="Name of the env var holding the secret key">
+          <Input
+            value={form.password_env ?? ""}
+            onChange={(e) => set({ password_env: e.target.value })}
+            placeholder="AWS_SECRET_ACCESS_KEY"
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Region (optional)" hint="e.g. us-east-1">
+            <Input
+              value={opts.region ?? ""}
+              onChange={(e) => setOption("region", e.target.value)}
+              placeholder="us-east-1"
+            />
+          </Field>
+          <Field label="Endpoint URL (optional)" hint="For MinIO, R2, etc.">
+            <Input
+              value={form.host ?? ""}
+              onChange={(e) => set({ host: e.target.value })}
+              placeholder="http://localhost:9000"
+            />
+          </Field>
+        </div>
+      </>
+    );
+  }
+
+  if (provider.name === "azure_blob") {
+    return (
+      <>
+        <Field label="Container">
+          <Input
+            value={form.database ?? ""}
+            onChange={(e) => set({ database: e.target.value })}
+            placeholder="my-container"
+          />
+        </Field>
+        <Field label="Storage account name">
+          <Input
+            value={form.username ?? ""}
+            onChange={(e) => set({ username: e.target.value })}
+            placeholder="mystorageaccount"
+          />
+        </Field>
+        <Field label="Account key env var" hint="Name of the env var holding the account key">
+          <Input
+            value={form.password_env ?? ""}
+            onChange={(e) => set({ password_env: e.target.value })}
+            placeholder="AZURE_STORAGE_ACCOUNT_KEY"
+          />
+        </Field>
+      </>
+    );
+  }
+
+  if (provider.name === "gcs") {
+    return (
+      <>
+        <Field label="Bucket">
+          <Input
+            value={form.database ?? ""}
+            onChange={(e) => set({ database: e.target.value })}
+            placeholder="my-gcs-bucket"
+          />
+        </Field>
+        <Field label="Project ID (optional)">
+          <Input
+            value={opts.project_id ?? ""}
+            onChange={(e) => setOption("project_id", e.target.value)}
+            placeholder="my-gcp-project"
+          />
+        </Field>
+        <Field
+          label="Service account key path env var (optional)"
+          hint="Env var holding the path to a service account JSON file. Leave empty for Application Default Credentials."
+        >
+          <Input
+            value={form.password_env ?? ""}
+            onChange={(e) => set({ password_env: e.target.value })}
+            placeholder="GOOGLE_APPLICATION_CREDENTIALS"
+          />
+        </Field>
+      </>
+    );
+  }
+
+  return null;
 }
 
 function DriverHint({ label, command }: { label: string; command: string }) {

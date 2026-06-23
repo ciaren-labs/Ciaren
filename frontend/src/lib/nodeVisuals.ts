@@ -53,6 +53,7 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   excelInput: FileSpreadsheet,
   parquetInput: Boxes,
   sqlInput: Database,
+  storageInput: FolderOpen,
   dropNulls: Eraser,
   fillNulls: Droplets,
   dropColumns: Trash2,
@@ -85,6 +86,7 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   excelOutput: Sheet,
   parquetOutput: Archive,
   sqlOutput: DatabaseZap,
+  storageOutput: Download,
 };
 
 export function getNodeIcon(type: string | undefined): LucideIcon {

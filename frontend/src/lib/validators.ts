@@ -469,6 +469,18 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     if_exists: z.enum(["replace", "append", "fail"]).optional(),
   }),
 
+  storageInput: z.object({
+    connection_id: z.string().min(1, "Select a storage connection"),
+    path: z.string().min(1, "File path is required"),
+    format: z.enum(["csv", "excel", "parquet"]),
+  }),
+  storageOutput: z.object({
+    connection_id: z.string().min(1, "Select a storage connection"),
+    path: z.string().min(1, "Destination path is required"),
+    format: z.enum(["csv", "excel", "parquet"]),
+    if_exists: z.enum(["overwrite", "error"]).optional(),
+  }),
+
   csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
   excelOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
   parquetOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
