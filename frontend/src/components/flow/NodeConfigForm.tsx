@@ -1640,11 +1640,11 @@ export function NodeConfigForm({
             label="Model URI (optional)"
             error={errors.model_uri}
             hint="Leave empty to use the connected model wire"
-            help="Reference a registered model directly, e.g. models:/churn/Production. Otherwise connect mlTrain's model output to the model input."
+            help="Reference a registered model by alias (models:/churn@production) or version (models:/churn/1). Otherwise connect mlTrain's model output to the model input."
           >
             <Input
               value={c.model_uri ?? ""}
-              placeholder="models:/your-model/Production"
+              placeholder="models:/your-model@production"
               onChange={(e) => set({ model_uri: e.target.value })}
             />
           </Field>
