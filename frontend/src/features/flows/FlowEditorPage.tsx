@@ -304,7 +304,7 @@ export function FlowEditorPage() {
           <NodePalette onAdd={handleAddNode} unlocked={inputReady} />
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
-              <FlowCanvas />
+              <FlowCanvas key={flow.id} />
             </div>
             {previewOpen && (
               <>
