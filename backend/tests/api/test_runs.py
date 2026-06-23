@@ -198,6 +198,39 @@ async def test_list_runs_returns_summaries_with_flow_name(client: AsyncClient) -
     assert "node_results" not in rows[0]
 
 
+async def test_list_runs_rejects_invalid_sort_params(client: AsyncClient) -> None:
+    """sort_by and sort_order must be validated — unknown values return 422."""
+    r = await client.get("/api/runs?sort_by=injected_column")
+    assert r.status_code == 422
+
+    r = await client.get("/api/runs?sort_order=INVALID")
+    assert r.status_code == 422
+
+
+async def test_list_runs_rejects_out_of_bounds_limit(client: AsyncClient) -> None:
+    """limit must be 1–10000; values outside that range return 422."""
+    r = await client.get("/api/runs?limit=0")
+    assert r.status_code == 422
+
+    r = await client.get("/api/runs?limit=99999")
+    assert r.status_code == 422
+
+    r = await client.get("/api/runs?limit=100")
+    assert r.status_code == 200
+
+
+async def test_download_output_rejects_malicious_node_id(client: AsyncClient, tmp_path: Path) -> None:
+    """node_id with path-traversal characters must be rejected before touching the filesystem."""
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    run_id = run["id"]
+
+    for evil in ["../etc/passwd", "../../secret", "foo/bar", "node id"]:
+        r = await client.get(f"/api/runs/{run_id}/output?node_id={evil}")
+        assert r.status_code == 400, f"Expected 400 for node_id={evil!r}, got {r.status_code}"
+
+
 async def test_list_runs_filters_by_flow_status_and_dataset(client: AsyncClient) -> None:
     ds = await _upload(client)
     ok_flow = await _create_flow(client, _full_graph(ds["id"]))

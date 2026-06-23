@@ -139,3 +139,28 @@ async def test_update_and_delete(client: AsyncClient):
     assert deleted.status_code == 204
     missing = await client.get(f"/api/connections/{created['id']}")
     assert missing.status_code == 404
+
+
+# -- password_env validation -----------------------------------------------
+
+
+async def test_valid_password_env_names_are_accepted(client: AsyncClient):
+    """Valid POSIX env var names (letters, digits, underscores) are accepted."""
+    for name in ["DB_PASS", "db_password", "MY_SECRET_123", "_LEADING_UNDERSCORE"]:
+        r = await client.post(
+            "/api/connections",
+            json={"name": f"conn_{name}", "provider": "sqlite", "database": "/tmp/x.db", "password_env": name},
+        )
+        assert r.status_code == 201, f"Expected 201 for password_env={name!r}, got {r.status_code}: {r.text}"
+
+
+async def test_invalid_password_env_names_are_rejected(client: AsyncClient):
+    """Env var names that start with a digit or contain special chars are rejected at the schema level."""
+    for bad in ["1STARTS_WITH_DIGIT", "has space", "has-dash", "has$dollar", ""]:
+        if not bad:
+            continue  # None/empty means "no password" and is valid
+        r = await client.post(
+            "/api/connections",
+            json={"name": "bad_conn", "provider": "sqlite", "database": "/tmp/x.db", "password_env": bad},
+        )
+        assert r.status_code == 422, f"Expected 422 for password_env={bad!r}, got {r.status_code}"

@@ -29,6 +29,18 @@ class LocalStorageConnector:
     def _root(self, spec: StorageSpec) -> Path:
         return Path(spec.bucket).expanduser().resolve()
 
+    def _safe_path(self, spec: StorageSpec, path: str) -> Path:
+        """Resolve *path* relative to root and raise if it escapes the root dir."""
+        root = self._root(spec)
+        full = (root / path).resolve()
+        try:
+            full.relative_to(root)
+        except ValueError:
+            raise ConnectorError(
+                f"Path {path!r} escapes the storage root — directory traversal is not allowed."
+            ) from None
+        return full
+
     def test_connection(self, spec: StorageSpec) -> None:
         root = self._root(spec)
         if not root.exists():
@@ -59,7 +71,7 @@ class LocalStorageConnector:
         reader = _READERS.get(fmt)
         if reader is None:
             raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet.")
-        full = self._root(spec) / path
+        full = self._safe_path(spec, path)
         if not full.exists():
             raise ConnectorError(f"File not found: {full}")
         try:
@@ -70,7 +82,7 @@ class LocalStorageConnector:
     def write_file(
         self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str
     ) -> None:
-        full = self._root(spec) / path
+        full = self._safe_path(spec, path)
         full.parent.mkdir(parents=True, exist_ok=True)
         if full.exists() and if_exists == "error":
             raise ConnectorError(
