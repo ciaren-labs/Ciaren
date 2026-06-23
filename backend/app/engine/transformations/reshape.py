@@ -156,6 +156,57 @@ class ExtractDatePartsTransformation(BaseTransformation):
         return f"{dst} = {src}.with_columns([{exprs}])"
 
 
+class ParseDatesTransformation(BaseTransformation):
+    """Parse string columns into datetimes, with optional format and coercion."""
+
+    type = "parseDates"
+
+    _ERRORS = {"raise", "coerce"}
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("columns"):
+            raise ValueError("parseDates requires a non-empty 'columns' list")
+        if config.get("errors", "coerce") not in self._ERRORS:
+            raise ValueError(f"parseDates 'errors' must be one of {sorted(self._ERRORS)}")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        return {
+            "out": engine.parse_dates(
+                inputs["in"],
+                config["columns"],
+                config.get("format") or None,
+                config.get("errors", "coerce"),
+            )
+        }
+
+    def to_python_code(
+        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
+    ) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        cols = config["columns"]
+        fmt = config.get("format") or None
+        errors = config.get("errors", "coerce")
+        return (
+            f"{dst} = {src}.assign(**{{c: pd.to_datetime({src}[c], "
+            f"format={fmt!r}, errors={errors!r}) for c in {cols!r}}})"
+        )
+
+    def to_polars_code(
+        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
+    ) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        cols = config["columns"]
+        fmt = config.get("format") or None
+        strict = config.get("errors", "coerce") != "coerce"
+        return (
+            f"{dst} = {src}.with_columns("
+            f"[pl.col(c).str.to_datetime(format={fmt!r}, strict={strict!r}).alias(c) "
+            f"for c in {cols!r}])"
+        )
+
+
 class UnpivotTransformation(BaseTransformation):
     type = "unpivot"
 

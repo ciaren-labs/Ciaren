@@ -92,3 +92,10 @@ async def get_dataset_sample(
     dataset_id: str, service: DatasetServiceDep, version: int | None = None
 ) -> list[dict[str, Any]]:
     return await service.get_sample(dataset_id, version)
+
+
+@router.get("/{dataset_id}/profile")
+async def get_dataset_profile(
+    dataset_id: str, service: DatasetServiceDep, version: int | None = None
+) -> list[dict[str, Any]]:
+    return await service.get_profile(dataset_id, version)

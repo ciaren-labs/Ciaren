@@ -409,3 +409,156 @@ class PolarsEngine:
         return df.pivot(
             on=columns, index=index, values=values, aggregate_function=cast(Any, agg)
         )
+
+    # -- New nodes (text/date/value mapping) ---------------------------
+
+    def split_column(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        into: list[str],
+        mode: str,
+        delimiter: str,
+        pattern: str,
+        keep_original: bool,
+    ) -> pl.DataFrame:
+        src = pl.col(column).cast(pl.Utf8)
+        if mode == "regex":
+            exprs = [src.str.extract(pattern, i + 1).alias(name) for i, name in enumerate(into)]
+        else:
+            split = src.str.split(delimiter)
+            exprs = [
+                split.list.get(i, null_on_oob=True).alias(name)
+                for i, name in enumerate(into)
+            ]
+        result = df.with_columns(exprs)
+        if not keep_original and column not in into:
+            result = result.drop(column)
+        return result
+
+    def parse_dates(
+        self, df: pl.DataFrame, columns: list[str], fmt: str | None, errors: str
+    ) -> pl.DataFrame:
+        strict = errors != "coerce"
+        exprs = []
+        for c in columns:
+            col = pl.col(c)
+            expr = (
+                col.str.to_datetime(format=fmt, strict=strict)
+                if df.schema[c] == pl.Utf8
+                else col.cast(pl.Datetime, strict=strict)
+            )
+            exprs.append(expr.alias(c))
+        return df.with_columns(exprs)
+
+    def map_values(
+        self,
+        df: pl.DataFrame,
+        column: str,
+        new_column: str | None,
+        mapping: dict[Any, Any],
+        default: Any,
+        use_default: bool,
+    ) -> pl.DataFrame:
+        target = new_column or column
+        col = pl.col(column)
+        # replace_strict + default maps unmapped values to the default; plain
+        # replace (no default) keeps unmapped values unchanged.
+        expr = col.replace_strict(mapping, default=default) if use_default else col.replace(mapping)
+        return df.with_columns(expr.alias(target))
+
+    def window_function(
+        self,
+        df: pl.DataFrame,
+        function: str,
+        partition_by: list[str],
+        order_by: list[str],
+        target: str | None,
+        offset: int,
+        descending: bool,
+        new_column: str,
+    ) -> pl.DataFrame:
+        # Tag original order, sort by the window order, compute, then restore.
+        work = df.with_row_index("__rn__")
+        if order_by:
+            work = work.sort(by=order_by, descending=descending)
+        expr = _polars_window_expr(
+            function, partition_by or None, order_by, target, offset, descending
+        )
+        work = work.with_columns(expr.alias(new_column))
+        return work.sort("__rn__").drop("__rn__")
+
+    def conditional_column(
+        self,
+        df: pl.DataFrame,
+        rules: list[dict[str, Any]],
+        default: Any,
+        new_column: str,
+    ) -> pl.DataFrame:
+        chain: Any = None
+        for rule in rules:
+            cond = _polars_condition_expr(
+                rule["column"], rule.get("operator", "=="), rule.get("value")
+            )
+            result = pl.lit(rule.get("result"))
+            chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
+        expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
+        return df.with_columns(expr.alias(new_column))
+
+
+def _polars_window_expr(
+    function: str,
+    part: list[str] | None,
+    order_by: list[str],
+    target: str | None,
+    offset: int,
+    descending: bool,
+) -> pl.Expr:
+    """Build the windowed expression (caller has already sorted by ``order_by``)."""
+    if function == "row_number":
+        expr = pl.int_range(1, pl.len() + 1)
+    elif function == "cumcount":
+        expr = pl.int_range(0, pl.len())
+    elif function in ("rank", "dense_rank"):
+        method = "dense" if function == "dense_rank" else "min"
+        expr = pl.col(order_by[0]).rank(method=cast(Any, method), descending=descending)
+    elif function in ("cumsum", "cummax", "cummin"):
+        method = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min"}[function]
+        expr = getattr(pl.col(cast(str, target)), method)()
+    elif function in ("lag", "lead"):
+        expr = pl.col(cast(str, target)).shift(offset if function == "lag" else -offset)
+    else:
+        raise ValueError(f"Unknown window function: {function!r}")
+    return expr.over(part) if part else expr
+
+
+def _polars_condition_expr(column: str, operator: str, value: Any) -> pl.Expr:
+    """Boolean expression for one conditionalColumn rule (mirrors filter operators)."""
+    col = pl.col(column)
+    expr: Any
+    match operator:
+        case "==" | "eq":
+            expr = col == value
+        case "!=" | "ne":
+            expr = col != value
+        case ">" | "gt":
+            expr = col > value
+        case ">=" | "gte":
+            expr = col >= value
+        case "<" | "lt":
+            expr = col < value
+        case "<=" | "lte":
+            expr = col <= value
+        case "contains":
+            expr = col.cast(pl.Utf8).str.contains(str(value), literal=True)
+        case "startswith":
+            expr = col.cast(pl.Utf8).str.starts_with(str(value))
+        case "endswith":
+            expr = col.cast(pl.Utf8).str.ends_with(str(value))
+        case "isnull":
+            expr = col.is_null()
+        case "notnull":
+            expr = col.is_not_null()
+        case _:
+            raise ValueError(f"Unknown condition operator: {operator!r}")
+    return cast(pl.Expr, expr)

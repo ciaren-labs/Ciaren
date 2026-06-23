@@ -17,7 +17,8 @@ from app.core.exceptions import NotFoundError
 from app.db.models.dataset_version import DatasetVersion
 from app.engine.executor import dataset_ref_key
 
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
+# File inputs only — SQL inputs carry no dataset_id and are resolved separately.
+from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
 
 
 async def resolve_version(

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, GripVertical, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, GripVertical, Lock, Search, X } from "lucide-react";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -27,6 +27,7 @@ interface NodePaletteProps {
 export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   // Accordion: all sections collapsed by default per design.
   const [open, setOpen] = useState<Set<NodeCategory>>(new Set());
+  const [query, setQuery] = useState("");
 
   const toggle = (category: NodeCategory) =>
     setOpen((prev) => {
@@ -35,6 +36,17 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       else next.add(category);
       return next;
     });
+
+  const q = query.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!q) return [];
+    return NODE_TYPES.filter(
+      (n) =>
+        n.label.toLowerCase().includes(q) ||
+        n.description.toLowerCase().includes(q) ||
+        n.type.toLowerCase().includes(q),
+    );
+  }, [q]);
 
   return (
     <div className="flex h-full w-60 flex-col gap-2 overflow-y-auto border-r border-border bg-muted/30 p-3">
@@ -45,6 +57,60 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
         </p>
       </div>
 
+      <div className="relative px-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search nodes…"
+          className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-7 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {q ? (
+        <div className="mt-1 flex flex-col gap-1 pl-1.5">
+          {matches.length === 0 ? (
+            <p className="px-1.5 py-2 text-xs text-muted-foreground">No nodes match "{query}".</p>
+          ) : (
+            matches.map((def) => (
+              <PaletteItem
+                key={def.type}
+                def={def}
+                disabled={!unlocked && def.category !== "input"}
+                onAdd={onAdd}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        <PaletteAccordion unlocked={unlocked} open={open} toggle={toggle} onAdd={onAdd} />
+      )}
+    </div>
+  );
+}
+
+function PaletteAccordion({
+  unlocked,
+  open,
+  toggle,
+  onAdd,
+}: {
+  unlocked: boolean;
+  open: Set<NodeCategory>;
+  toggle: (category: NodeCategory) => void;
+  onAdd: (def: NodeTypeDef) => void;
+}) {
+  return (
+    <>
       {!unlocked && (
         <div className="animate-fade-in flex items-start gap-2 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-2 text-[11px] leading-snug text-brand-800">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -95,7 +161,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           </div>
         );
       })}
-    </div>
+    </>
   );
 }
 

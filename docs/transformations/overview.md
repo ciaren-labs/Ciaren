@@ -6,7 +6,7 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-FlowFrame ships with file input/output nodes plus **23 transformation nodes** for
+FlowFrame ships with file input/output nodes plus **28 transformation nodes** for
 cleaning, reshaping, and combining data. Each node maps to one clear dataframe
 operation and contributes to the exported Python — both the **pandas** and the
 **polars** version.
@@ -30,14 +30,15 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 
 | Category | Nodes |
 |----------|-------|
-| **Input** | CSV, Excel, Parquet |
+| **Input** | CSV, Excel, Parquet, SQL (database) |
 | **Columns** | Drop, Rename, Select, Cast types |
 | **Nulls** | Drop nulls, Fill nulls |
 | **Rows** | Filter, Sort, Limit, Sample, Remove duplicates |
-| **Text** | Replace values, String transform |
+| **Text** | Replace values, String transform, Split column, Map values |
 | **Numeric** | Round, Remove outliers, Bin column |
-| **Reshape & combine** | Calculated column, Group by + aggregate, Join, Union/Concat, Pivot, Unpivot, Extract date parts |
-| **Output** | CSV, Excel, Parquet |
+| **Reshape & combine** | Calculated column, Group by + aggregate, Join, Union/Concat, Pivot, Unpivot, Extract date parts, Parse dates |
+| **Analytics** | Window function, Conditional column |
+| **Output** | CSV, Excel, Parquet, SQL (database) |
 
 ---
 
@@ -70,6 +71,51 @@ Write the upstream frame to a file. `type`: `csvOutput`, `excelOutput`,
 ```python
 df_5.to_csv("output.csv", index=False)
 ```
+
+## SQL input — `sqlInput`
+
+Read rows **live** from a database at run time, via a reusable
+[Connection](/guide/connections). `type`: `sqlInput`.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The connection to read from |
+| `mode` | string | No | `table` (default) or `query` |
+| `table` | string | Conditional | Table name (required in `table` mode) |
+| `schema` | string | No | Schema the table lives in |
+| `query` | string | Conditional | Custom SQL (required in `query` mode) |
+
+```python
+import os
+from sqlalchemy import create_engine
+
+_engine_1 = create_engine(f"postgresql+psycopg://reader:{os.environ['PG_PASSWORD']}@host:5432/shop")
+df_1 = pd.read_sql_table("orders", _engine_1)
+```
+
+Because the read happens every run, scheduled flows always process **fresh data**.
+Each run also snapshots the input to parquet for reproducibility. MongoDB sources
+use collection selection (no custom query).
+
+## SQL output — `sqlOutput`
+
+Write the result to a database table. `type`: `sqlOutput`.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `connection_id` | string | Yes | The connection to write to |
+| `table` | string | Yes | Target table |
+| `schema` | string | No | Schema to write into |
+| `if_exists` | string | No | `replace` (default), `append`, or `fail` |
+
+```python
+df_5.to_sql("cleaned_orders", _engine_1, if_exists="replace", index=False)
+```
+
+::: tip Security
+Exported code reads the password from `os.environ` — FlowFrame never stores or
+embeds secrets. See [Connections](/guide/connections).
+:::
 
 ---
 
@@ -272,6 +318,44 @@ Apply a string operation to a column.
 df_2 = df_1.assign(**{'region': df_1['region'].astype('string').str.strip()})
 ```
 
+### Split column — `splitColumn`
+
+Split one text column into several columns, by a literal delimiter or by regex
+capture groups.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `column` | string | Yes | Text column to split |
+| `mode` | string | No | `delimiter` (default) or `regex` |
+| `delimiter` | string | Conditional | Delimiter to split on (required for `delimiter` mode) |
+| `pattern` | string | Conditional | Regex; capture group 1 → first column, etc. (required for `regex` mode) |
+| `into` | string[] | Yes | Names for the resulting columns, in order |
+| `keep_original` | bool | No | Keep the source column (default `true`) |
+
+```python
+_parts = df_1['name'].astype('string').str.split(' ', expand=True, regex=False)
+df_2 = df_1.assign(**{'first': _parts[0], 'last': _parts[1]})
+```
+
+### Map values — `mapValues`
+
+Map column values to new values via a lookup (CASE-WHEN-style), with an optional
+default for unmapped values.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `column` | string | Yes | Column whose values are mapped |
+| `mapping` | object | Yes | `{ "value": "becomes" }` |
+| `new_column` | string | No | Write to a new column (empty = overwrite `column`) |
+| `default` | any | No | Value for anything not in the mapping |
+| `use_default` | bool | No | When `true`, unmapped values become `default`; otherwise they're kept as-is |
+
+```python
+# mapping: {"A": "Pass", "B": "Pass"}, default "Fail"
+df_2 = df_1.assign(**{'result': df_1['grade'].map({'A': 'Pass', 'B': 'Pass'})
+    .where(df_1['grade'].isin(['A', 'B']), 'Fail')})
+```
+
 ---
 
 ## Numeric nodes
@@ -429,6 +513,78 @@ _dt = pd.to_datetime(df_1['ordered_at'])
 df_2 = df_1.assign(**{'ordered_at_year': _dt.dt.year, 'ordered_at_month': _dt.dt.month})
 ```
 
+### Parse dates — `parseDates`
+
+Parse text columns into real datetimes so date operations (sorting, Extract date
+parts) work. Complements **Extract date parts** (which goes the other way,
+datetime → parts).
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `columns` | string[] | Yes | Text columns to parse |
+| `format` | string | No | strptime format (e.g. `%d-%m-%Y`); empty = auto-detect |
+| `errors` | string | No | `coerce` (default, bad values → null) or `raise` |
+
+```python
+df_2 = df_1.assign(**{c: pd.to_datetime(df_1[c], format=None, errors='coerce')
+    for c in ['ordered_at']})
+```
+
+---
+
+## Analytics nodes
+
+### Window function — `windowFunction`
+
+Compute a window/analytics value into a new column, optionally scoped to a
+partition and ordered within it. Row order is preserved; the result is added as a
+new column.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `function` | string | Yes | `row_number`, `rank`, `dense_rank`, `cumcount`, `cumsum`, `cummax`, `cummin`, `lag`, `lead` |
+| `new_column` | string | Yes | Name of the column to add |
+| `partition_by` | string[] | No | Restart the window within each group (empty = whole table) |
+| `order_by` | string[] | Conditional | Row order within the window; required for `rank`/`dense_rank` |
+| `target` | string | Conditional | Value column; required for `cumsum`/`cummax`/`cummin`/`lag`/`lead` |
+| `offset` | int | No | Shift distance for `lag`/`lead` (default 1) |
+| `descending` | bool | No | Order descending (default `false`) |
+
+```python
+# function: cumsum, partition_by: ['region'], order_by: ['date'], target: 'amount'
+_w = df_1.reset_index(drop=True)
+_w = _w.sort_values(by=['date'], ascending=[True], kind='stable')
+_w = _w.assign(**{'running_total': _w.groupby(['region'], sort=False)['amount'].cumsum()})
+df_2 = _w.sort_index().reset_index(drop=True)
+```
+
+::: tip
+`rank`/`dense_rank` rank by the **first** `order_by` column. For `lag`/`lead`,
+unmatched rows at the window edge are null.
+:::
+
+### Conditional column — `conditionalColumn`
+
+Build a column from ordered if/elif/else rules (CASE-WHEN). The **first** matching
+rule wins; rows matching none take the default.
+
+| Config key | Type | Required | Description |
+|---|---|---|---|
+| `new_column` | string | Yes | Name of the column to add |
+| `rules` | object[] | Yes | Ordered rules: `{ column, operator, value, result }` |
+| `default` | any | No | Value when no rule matches |
+
+**Rule operators:** `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startswith`,
+`endswith`, `isnull`, `notnull`.
+
+```python
+# rules: score >= 90 → "A", score >= 70 → "B"; default "F"
+df_2 = df_1.copy()
+df_2['grade'] = 'F'
+df_2.loc[df_2['score'] >= 70, 'grade'] = 'B'
+df_2.loc[df_2['score'] >= 90, 'grade'] = 'A'
+```
+
 ---
 
 ## Choosing the right node
@@ -450,15 +606,19 @@ df_2 = df_1.assign(**{'ordered_at_year': _dt.dt.year, 'ordered_at_month': _dt.dt
 | Reshape long ↔ wide | Pivot / Unpivot |
 | Bucket a number into bands | Bin column |
 | Split a date into year/month/… | Extract date parts |
+| Turn date text into real dates | Parse dates |
+| Split one column into several | Split column |
+| Recode values (A→Pass, B→Pass…) | Map values |
+| Rank, running total, lag/lead | Window function |
+| Bucket with custom if/else logic | Conditional column |
 
 ## Current limitations
 
 | Limitation | Workaround |
 |-----------|-----------|
-| No window functions | Use group by + join |
 | Join takes two inputs at a time | Chain multiple join nodes |
-| No if/else branching | Use multiple filter paths |
-| `calculatedColumn` evaluates arithmetic expressions | For complex logic, export and edit the Python |
+| `rank`/`dense_rank` rank by a single order column | Pre-sort, or use a calculated key |
+| `calculatedColumn` evaluates arithmetic expressions | For complex logic, use Conditional column, or export and edit the Python |
 
 ## Custom transformations
 

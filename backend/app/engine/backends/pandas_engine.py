@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Literal, cast
 
+import numpy as np
 import pandas as pd
 
 from .base import register_engine
@@ -368,3 +369,161 @@ class PandasEngine:
         result: pd.DataFrame = pivoted.reset_index()
         result.columns = [str(c) for c in result.columns]
         return result
+
+    # -- New nodes (text/date/value mapping) ---------------------------
+
+    def split_column(
+        self,
+        df: pd.DataFrame,
+        column: str,
+        into: list[str],
+        mode: str,
+        delimiter: str,
+        pattern: str,
+        keep_original: bool,
+    ) -> pd.DataFrame:
+        src = df[column].astype("string")
+        if mode == "regex":
+            parts = src.str.extract(pattern)
+        else:
+            parts = src.str.split(delimiter, expand=True, regex=False)
+        assignments: dict[str, Any] = {
+            name: (parts[i] if i in parts.columns else pd.NA)
+            for i, name in enumerate(into)
+        }
+        result = df.assign(**assignments)
+        if not keep_original and column not in into:
+            result = result.drop(columns=[column])
+        return result
+
+    def parse_dates(
+        self, df: pd.DataFrame, columns: list[str], fmt: str | None, errors: str
+    ) -> pd.DataFrame:
+        err: Literal["raise", "coerce"] = "coerce" if errors == "coerce" else "raise"
+        return df.assign(
+            **{c: pd.to_datetime(df[c], format=fmt or None, errors=err) for c in columns}
+        )
+
+    def map_values(
+        self,
+        df: pd.DataFrame,
+        column: str,
+        new_column: str | None,
+        mapping: dict[Any, Any],
+        default: Any,
+        use_default: bool,
+    ) -> pd.DataFrame:
+        target = new_column or column
+        if use_default:
+            mapped = df[column].map(mapping).where(df[column].isin(mapping), default)
+        else:
+            # Unmapped values keep their original value.
+            mapped = df[column].replace(mapping)
+        return df.assign(**{target: mapped})
+
+    def window_function(
+        self,
+        df: pd.DataFrame,
+        function: str,
+        partition_by: list[str],
+        order_by: list[str],
+        target: str | None,
+        offset: int,
+        descending: bool,
+        new_column: str,
+    ) -> pd.DataFrame:
+        # Work on a positional copy so we can restore the original row order
+        # after computing the (order-sensitive) window values.
+        work = df.reset_index(drop=True)
+        if order_by:
+            work = work.sort_values(
+                by=order_by, ascending=[not descending] * len(order_by), kind="stable"
+            )
+        values = self._window_values(
+            work, function, partition_by, order_by, target, offset, descending
+        )
+        work = work.assign(**{new_column: values})
+        return work.sort_index().reset_index(drop=True)
+
+    @staticmethod
+    def _window_values(
+        work: pd.DataFrame,
+        function: str,
+        partition_by: list[str],
+        order_by: list[str],
+        target: str | None,
+        offset: int,
+        descending: bool,
+    ) -> Any:
+        grouped = work.groupby(partition_by, sort=False) if partition_by else None
+        if function == "row_number":
+            return grouped.cumcount() + 1 if grouped is not None else range(1, len(work) + 1)
+        if function == "cumcount":
+            return grouped.cumcount() if grouped is not None else range(len(work))
+        if function in ("rank", "dense_rank"):
+            method: Any = "dense" if function == "dense_rank" else "min"
+            key = order_by[0]
+            ranked = (
+                grouped[key].rank(method=method, ascending=not descending)
+                if grouped is not None
+                else work[key].rank(method=method, ascending=not descending)
+            )
+            return ranked.astype("int64")
+        if function in ("cumsum", "cummax", "cummin"):
+            series = grouped[cast(str, target)] if grouped is not None else work[cast(str, target)]
+            return getattr(series, function)()
+        if function in ("lag", "lead"):
+            periods = offset if function == "lag" else -offset
+            series = grouped[cast(str, target)] if grouped is not None else work[cast(str, target)]
+            return series.shift(periods)
+        raise ValueError(f"Unknown window function: {function!r}")
+
+    def conditional_column(
+        self,
+        df: pd.DataFrame,
+        rules: list[dict[str, Any]],
+        default: Any,
+        new_column: str,
+    ) -> pd.DataFrame:
+        conditions = [
+            _pandas_condition_mask(df, r["column"], r.get("operator", "=="), r.get("value"))
+            for r in rules
+        ]
+        choices = [r.get("result") for r in rules]
+        # np.select picks the first matching condition (CASE-WHEN priority order).
+        result = np.select(conditions, choices, default=default)  # type: ignore[type-var]
+        return df.assign(**{new_column: result})
+
+
+def _pandas_condition_mask(
+    df: pd.DataFrame, column: str, operator: str, value: Any
+) -> pd.Series:
+    """Boolean mask for one conditionalColumn rule (mirrors filter operators)."""
+    col = df[column]
+    mask: Any
+    match operator:
+        case "==" | "eq":
+            mask = col == value
+        case "!=" | "ne":
+            mask = col != value
+        case ">" | "gt":
+            mask = col > value
+        case ">=" | "gte":
+            mask = col >= value
+        case "<" | "lt":
+            mask = col < value
+        case "<=" | "lte":
+            mask = col <= value
+        case "contains":
+            mask = col.astype(str).str.contains(str(value), na=False)
+        case "startswith":
+            mask = col.astype(str).str.startswith(str(value), na=False)
+        case "endswith":
+            mask = col.astype(str).str.endswith(str(value), na=False)
+        case "isnull":
+            mask = col.isna()
+        case "notnull":
+            mask = col.notna()
+        case _:
+            raise ValueError(f"Unknown condition operator: {operator!r}")
+    return cast("pd.Series", mask)

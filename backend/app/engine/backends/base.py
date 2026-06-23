@@ -122,6 +122,48 @@ class EngineBackend(Protocol):
         aggfunc: str,
     ) -> AnyFrame: ...
 
+    # -- New nodes (text/date/value mapping) ---------------------------
+    def split_column(
+        self,
+        df: AnyFrame,
+        column: str,
+        into: list[str],
+        mode: str,
+        delimiter: str,
+        pattern: str,
+        keep_original: bool,
+    ) -> AnyFrame: ...
+    def parse_dates(
+        self, df: AnyFrame, columns: list[str], fmt: str | None, errors: str
+    ) -> AnyFrame: ...
+    def map_values(
+        self,
+        df: AnyFrame,
+        column: str,
+        new_column: str | None,
+        mapping: dict[Any, Any],
+        default: Any,
+        use_default: bool,
+    ) -> AnyFrame: ...
+    def window_function(
+        self,
+        df: AnyFrame,
+        function: str,
+        partition_by: list[str],
+        order_by: list[str],
+        target: str | None,
+        offset: int,
+        descending: bool,
+        new_column: str,
+    ) -> AnyFrame: ...
+    def conditional_column(
+        self,
+        df: AnyFrame,
+        rules: list[dict[str, Any]],
+        default: Any,
+        new_column: str,
+    ) -> AnyFrame: ...
+
 
 _REGISTRY: dict[str, type[EngineBackend]] = {}
 

@@ -6,10 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.models.flow import Flow
+from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
 from app.services.project_service import ProjectService
-
-_INPUT_TYPES = {"csvInput", "excelInput", "parquetInput"}
 
 
 def _references_dataset(graph: dict[str, Any], dataset_id: str) -> bool:

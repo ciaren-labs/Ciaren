@@ -2,7 +2,13 @@
 // handle topology. This is the single source of truth the UI uses to render
 // the node palette, default new-node config, and edge-handle expectations.
 
-export type NodeCategory = "input" | "clean" | "transform" | "output";
+export type NodeCategory =
+  | "input"
+  | "clean"
+  | "columns"
+  | "reshape"
+  | "analytics"
+  | "output";
 
 export interface NodeTypeDef {
   type: string;
@@ -48,6 +54,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Load rows from an uploaded Parquet dataset.",
   },
+  {
+    type: "sqlInput",
+    label: "SQL Input",
+    category: "input",
+    defaultConfig: { connection_id: "", mode: "table", table: "", schema: null, query: "" },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Read rows live from a database table or query.",
+  },
   // ----- Cleaning / single-input transforms -----
   {
     type: "dropNulls",
@@ -70,7 +85,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "dropColumns",
     label: "Drop Columns",
-    category: "clean",
+    category: "columns",
     defaultConfig: { columns: [] },
     inputHandles: ["in"],
     hasOutput: true,
@@ -79,7 +94,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "renameColumns",
     label: "Rename Columns",
-    category: "clean",
+    category: "columns",
     defaultConfig: { mapping: {} },
     inputHandles: ["in"],
     hasOutput: true,
@@ -88,7 +103,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "selectColumns",
     label: "Select Columns",
-    category: "clean",
+    category: "columns",
     defaultConfig: { columns: [] },
     inputHandles: ["in"],
     hasOutput: true,
@@ -142,7 +157,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "replaceValues",
     label: "Replace Values",
-    category: "clean",
+    category: "columns",
     defaultConfig: { column: "", to_replace: "", value: "", regex: false },
     inputHandles: ["in"],
     hasOutput: true,
@@ -151,7 +166,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "stringTransform",
     label: "String Transform",
-    category: "clean",
+    category: "columns",
     defaultConfig: { column: "", operation: "lower" },
     inputHandles: ["in"],
     hasOutput: true,
@@ -160,7 +175,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "calculatedColumn",
     label: "Calculated Column",
-    category: "transform",
+    category: "columns",
     defaultConfig: { column_name: "", expression: "" },
     inputHandles: ["in"],
     hasOutput: true,
@@ -169,7 +184,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "groupByAggregate",
     label: "Group By Aggregate",
-    category: "transform",
+    category: "reshape",
     defaultConfig: { group_by: [], aggregations: {} },
     inputHandles: ["in"],
     hasOutput: true,
@@ -179,7 +194,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "join",
     label: "Join / Merge",
-    category: "transform",
+    category: "reshape",
     defaultConfig: { on: "", how: "inner" },
     inputHandles: ["left", "right"],
     hasOutput: true,
@@ -188,7 +203,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "concatRows",
     label: "Concat Rows",
-    category: "transform",
+    category: "reshape",
     defaultConfig: {},
     inputHandles: ["in"],
     multiInput: true,
@@ -208,7 +223,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "removeOutliers",
     label: "Remove Outliers",
-    category: "clean",
+    category: "analytics",
     defaultConfig: {
       columns: [],
       method: "iqr",
@@ -225,7 +240,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "roundNumbers",
     label: "Round Numbers",
-    category: "clean",
+    category: "analytics",
     defaultConfig: { columns: [], decimals: 0 },
     inputHandles: ["in"],
     hasOutput: true,
@@ -234,7 +249,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "binColumn",
     label: "Bin Column",
-    category: "transform",
+    category: "analytics",
     defaultConfig: { column: "", new_column: "", method: "equalwidth", bins: 4 },
     inputHandles: ["in"],
     hasOutput: true,
@@ -243,7 +258,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "extractDateParts",
     label: "Extract Date Parts",
-    category: "transform",
+    category: "analytics",
     defaultConfig: { column: "", parts: [] },
     inputHandles: ["in"],
     hasOutput: true,
@@ -252,7 +267,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "unpivot",
     label: "Unpivot / Melt",
-    category: "transform",
+    category: "reshape",
     defaultConfig: { id_vars: [], value_vars: [], var_name: "variable", value_name: "value" },
     inputHandles: ["in"],
     hasOutput: true,
@@ -261,11 +276,77 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "pivot",
     label: "Pivot Table",
-    category: "transform",
+    category: "reshape",
     defaultConfig: { index: [], columns: "", values: "", aggfunc: "sum" },
     inputHandles: ["in"],
     hasOutput: true,
     description: "Reshape long rows into a wide aggregated table.",
+  },
+  {
+    type: "splitColumn",
+    label: "Split Column",
+    category: "columns",
+    defaultConfig: {
+      column: "",
+      mode: "delimiter",
+      delimiter: ",",
+      pattern: "",
+      into: [],
+      keep_original: true,
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Split a text column into several columns by a delimiter or regex groups.",
+  },
+  {
+    type: "parseDates",
+    label: "Parse Dates",
+    category: "analytics",
+    defaultConfig: { columns: [], format: "", errors: "coerce" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Parse text columns into datetimes (optional format, coerce errors).",
+  },
+  {
+    type: "mapValues",
+    label: "Map Values",
+    category: "columns",
+    defaultConfig: {
+      column: "",
+      new_column: "",
+      mapping: {},
+      default: "",
+      use_default: false,
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Map column values via a lookup (CASE-WHEN), with an optional default.",
+  },
+  {
+    type: "windowFunction",
+    label: "Window Function",
+    category: "analytics",
+    defaultConfig: {
+      function: "row_number",
+      partition_by: [],
+      order_by: [],
+      target: "",
+      offset: 1,
+      descending: false,
+      new_column: "",
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Rank, running total, or lag/lead over a partition and order.",
+  },
+  {
+    type: "conditionalColumn",
+    label: "Conditional Column",
+    category: "analytics",
+    defaultConfig: { new_column: "", default: "", rules: [] },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Build a column from if/elif/else rules (CASE-WHEN).",
   },
   // ----- Outputs -----
   {
@@ -295,6 +376,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: false,
     description: "Write the result to a Parquet file.",
   },
+  {
+    type: "sqlOutput",
+    label: "SQL Output",
+    category: "output",
+    defaultConfig: { connection_id: "", table: "", schema: null, if_exists: "replace" },
+    inputHandles: ["in"],
+    hasOutput: false,
+    description: "Write the result to a database table.",
+  },
 ];
 
 export const NODE_TYPE_MAP: Record<string, NodeTypeDef> = Object.fromEntries(
@@ -308,13 +398,17 @@ export function getNodeTypeDef(type: string): NodeTypeDef | undefined {
 export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   input: "Inputs",
   clean: "Cleaning",
-  transform: "Transform",
+  columns: "Columns",
+  reshape: "Reshape",
+  analytics: "Analytics",
   output: "Outputs",
 };
 
 export const CATEGORY_ORDER: NodeCategory[] = [
   "input",
   "clean",
-  "transform",
+  "columns",
+  "reshape",
+  "analytics",
   "output",
 ];

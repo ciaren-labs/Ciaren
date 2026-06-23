@@ -23,6 +23,7 @@ function dataset(id: string, cols: string[], source: Dataset["source_type"] = "c
     version_count: 1,
     column_schema: cols.map((name) => ({ name, type: "string" })),
     data_sample: [],
+    column_profile: null,
     created_at: "",
     updated_at: "",
   };

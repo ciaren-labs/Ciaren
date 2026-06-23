@@ -46,7 +46,7 @@ export function NodeSidebar() {
   }
 
   const def = getNodeTypeDef(node.type ?? "");
-  const theme = CATEGORY_THEME[def?.category ?? "transform"];
+  const theme = CATEGORY_THEME[def?.category ?? "clean"];
   const Icon = getNodeIcon(node.type);
   const columns = columnsByNode.get(node.id)?.input ?? [];
 

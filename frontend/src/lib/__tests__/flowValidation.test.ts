@@ -19,6 +19,7 @@ function dataset(
     version_count: latestVersion,
     column_schema: [{ name: "a", type: "string" }],
     data_sample: [],
+    column_profile: null,
     created_at: "",
     updated_at: "",
   };

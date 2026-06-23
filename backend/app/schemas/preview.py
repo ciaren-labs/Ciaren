@@ -10,6 +10,8 @@ class TransformationPreviewRequest(BaseModel):
     dataset_id: str
     config: dict[str, Any] = Field(default_factory=dict)
     limit: int = Field(default=50, ge=1, le=1000)
+    # When true, also compute per-column statistics for the result.
+    profile: bool = False
 
 
 class FlowPreviewRequest(BaseModel):
@@ -17,6 +19,7 @@ class FlowPreviewRequest(BaseModel):
 
     node_id: str | None = None
     limit: int = Field(default=50, ge=1, le=1000)
+    profile: bool = False
 
 
 class PreviewResponse(BaseModel):
@@ -24,3 +27,6 @@ class PreviewResponse(BaseModel):
     rows: list[dict[str, Any]]
     row_count: int
     truncated: bool
+    # Per-column profile (null/distinct counts, numeric/string summaries).
+    # Only populated when the request sets ``profile=true``.
+    profile: list[dict[str, Any]] | None = None
