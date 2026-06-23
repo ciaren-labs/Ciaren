@@ -31,6 +31,25 @@ from app.core.logging import setup_logging
 logger = logging.getLogger("app.main")
 
 
+async def _seed_local_storage_safe(data_dir: str) -> None:
+    """Ensure the built-in 'Local Storage' connection exists. Idempotent."""
+    try:
+        from sqlalchemy import select
+
+        from app.db.models.connection import Connection
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Connection).where(Connection.provider == "local")
+            )
+            if result.scalar_one_or_none() is None:
+                conn = Connection(name="Local Storage", provider="local", database=data_dir)
+                session.add(conn)
+                await session.commit()
+    except Exception:  # noqa: BLE001
+        logger.warning("Local Storage seeding failed; continuing without it.", exc_info=True)
+
+
 async def _seed_demo_safe() -> None:
     """Seed the demo project, never letting a failure block startup.
 
@@ -55,6 +74,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
 
     await init_db()
+
+    await _seed_local_storage_safe(settings.DATA_DIR)
 
     if settings.SEED_DEMO:
         await _seed_demo_safe()

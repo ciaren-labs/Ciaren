@@ -8,7 +8,7 @@ from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SOURCE_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
-from app.engine.node_kinds import SQL_INPUT_TYPE
+from app.engine.node_kinds import PRE_MATERIALIZED_INPUT_TYPES
 from app.engine.registry import get_transformation
 
 
@@ -80,17 +80,17 @@ class FlowExecutor:
         incoming: dict[str, list[dict[str, Any]]],
         frames: dict[str, AnyFrame],
         dataset_paths: dict[str, Path],
-        sql_input_paths: dict[str, Path],
+        pre_paths: dict[str, Path],
     ) -> AnyFrame:
         """Compute a single node's output frame from its upstream frames."""
         node_id = node["id"]
         node_type = node["type"]
         config: dict[str, Any] = node.get("data", {}).get("config", {})
 
-        if node_type == SQL_INPUT_TYPE:
-            # The DB read happened in the parent (async) layer, which materialized
-            # the result to a parquet snapshot; the executor just loads it.
-            return engine.read(str(sql_input_paths[node_id]), "parquet")
+        if node_type in PRE_MATERIALIZED_INPUT_TYPES:
+            # Both sqlInput and storageInput are resolved in the parent async layer
+            # to parquet snapshots; the executor just loads the snapshot.
+            return engine.read(str(pre_paths[node_id]), "parquet")
         if node_type in _INPUT_TYPES:
             key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
             return engine.read(str(dataset_paths[key]), _INPUT_TYPES[node_type])
@@ -108,6 +108,7 @@ class FlowExecutor:
         engine: EngineBackend,
         require_output: bool = True,
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, AnyFrame]:
         """Run the graph in memory and return each node's resulting frame.
 
@@ -119,12 +120,12 @@ class FlowExecutor:
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
-        sql_paths = sql_input_paths or {}
+        pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
 
         frames: dict[str, AnyFrame] = {}
         for node_id in order:
             node = nodes_by_id[node_id]
-            frames[node_id] = self._node_frame(engine, node, incoming, frames, dataset_paths, sql_paths)
+            frames[node_id] = self._node_frame(engine, node, incoming, frames, dataset_paths, pre_paths)
 
         return frames
 
@@ -135,9 +136,14 @@ class FlowExecutor:
         output_dir: Path,
         engine_name: str = "pandas",
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, Path]:
         engine = get_engine(engine_name)
-        frames = self.compute_frames(graph, dataset_paths, engine, sql_input_paths=sql_input_paths)
+        frames = self.compute_frames(
+            graph, dataset_paths, engine,
+            sql_input_paths=sql_input_paths,
+            storage_input_paths=storage_input_paths,
+        )
 
         output_paths: dict[str, Path] = {}
         for node in graph["nodes"]:
@@ -159,6 +165,7 @@ class FlowExecutor:
         engine_name: str = "pandas",
         sample_rows: int = 20,
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> RunResult:
         """Execute the graph, capturing each node's row/column counts and a small
         sample for the read-only run view.
@@ -174,7 +181,7 @@ class FlowExecutor:
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
-        sql_paths = sql_input_paths or {}
+        pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
 
         frames: dict[str, AnyFrame] = {}
         node_results: list[NodeResult] = []
@@ -188,7 +195,7 @@ class FlowExecutor:
                 continue
             started = time.perf_counter()
             try:
-                frame = self._node_frame(engine, node, incoming, frames, dataset_paths, sql_paths)
+                frame = self._node_frame(engine, node, incoming, frames, dataset_paths, pre_paths)
                 frames[node_id] = frame
                 pdf = engine.to_pandas(frame)
                 node_results.append(

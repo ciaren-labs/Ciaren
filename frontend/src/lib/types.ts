@@ -273,6 +273,8 @@ export interface Connection {
   id: string;
   name: string;
   provider: string;
+  /** Derived from provider: "sql" | "mongo" | "storage" */
+  connection_type: string;
   host: string | null;
   port: number | null;
   database: string | null;
@@ -300,7 +302,7 @@ export type ConnectionUpdate = Partial<ConnectionCreate>;
 export interface ProviderInfo {
   name: string;
   label: string;
-  kind: "sql" | "mongo";
+  kind: "sql" | "mongo" | "storage";
   available: boolean;
   driver_module: string | null;
   extra: string | null;
@@ -308,6 +310,9 @@ export interface ProviderInfo {
   needs_host: boolean;
   needs_auth: boolean;
   supports_query: boolean;
+  needs_bucket: boolean;
+  needs_region: boolean;
+  needs_endpoint: boolean;
 }
 
 export interface ConnectionTestResult {
