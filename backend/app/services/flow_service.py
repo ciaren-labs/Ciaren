@@ -34,9 +34,7 @@ class FlowService:
     async def list_using_dataset(self, dataset_id: str) -> list[FlowRead]:
         """Flows whose graph has an input node bound to ``dataset_id`` (lineage)."""
         result = await self.db.execute(select(Flow).order_by(Flow.updated_at.desc()))
-        matches = [
-            f for f in result.scalars().all() if _references_dataset(f.graph_json, dataset_id)
-        ]
+        matches = [f for f in result.scalars().all() if _references_dataset(f.graph_json, dataset_id)]
         return [FlowRead.model_validate(f) for f in matches]
 
     async def create(self, data: FlowCreate) -> FlowRead:

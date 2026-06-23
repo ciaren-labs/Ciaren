@@ -33,8 +33,7 @@ def assert_no_use_after_del(code: str) -> None:
             continue
         for var in _VAR.findall(line):
             assert var not in deleted_at, (
-                f"{var} used on line {i} ({line!r}) after it was deleted "
-                f"on line {deleted_at[var]}"
+                f"{var} used on line {i} ({line!r}) after it was deleted on line {deleted_at[var]}"
             )
 
 
@@ -68,16 +67,14 @@ def _multi_join_graph(out_path: str) -> dict:
             {
                 "id": "calc",
                 "type": "calculatedColumn",
-                "data": {"config": {"column_name": "line_total",
-                                    "expression": "quantity * unit_price"}},
+                "data": {"config": {"column_name": "line_total", "expression": "quantity * unit_price"}},
             },
             {"id": "j1", "type": "join", "data": {"config": {"on": "product_id", "how": "left"}}},
             {"id": "j2", "type": "join", "data": {"config": {"on": "order_id", "how": "left"}}},
             {
                 "id": "grp",
                 "type": "groupByAggregate",
-                "data": {"config": {"group_by": ["category"],
-                                    "aggregations": {"line_total": "sum"}}},
+                "data": {"config": {"group_by": ["category"], "aggregations": {"line_total": "sum"}}},
             },
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": out_path}}},
         ],
@@ -145,10 +142,8 @@ def _diamond_graph(out_path: str) -> dict:
     return {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "people"}}},
-            {"id": "fa", "type": "filterRows",
-             "data": {"config": {"column": "age", "operator": ">", "value": 25}}},
-            {"id": "fb", "type": "filterRows",
-             "data": {"config": {"column": "age", "operator": "<=", "value": 25}}},
+            {"id": "fa", "type": "filterRows", "data": {"config": {"column": "age", "operator": ">", "value": 25}}},
+            {"id": "fb", "type": "filterRows", "data": {"config": {"column": "age", "operator": "<=", "value": 25}}},
             {"id": "cat", "type": "concatRows", "data": {"config": {}}},
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": out_path}}},
         ],
@@ -174,8 +169,7 @@ def test_pandas_fanout_input_not_freed_before_second_branch(tmp_path: Path) -> N
 
     assert_no_use_after_del(code)
     # in1 (df_1) feeds both filters; its del must come after the *second* one.
-    del_line = next(i for i, ln in enumerate(code.splitlines())
-                    if ln.strip() == "del df_1")
+    del_line = next(i for i, ln in enumerate(code.splitlines()) if ln.strip() == "del df_1")
     filter_lines = [i for i, ln in enumerate(code.splitlines()) if ".isin" in ln or "[df_1[" in ln]
     assert del_line > max(filter_lines)
 

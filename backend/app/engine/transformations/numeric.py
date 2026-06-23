@@ -62,29 +62,15 @@ class RemoveOutliersTransformation(BaseTransformation):
             )
         return f"lo, hi = {series}.quantile({lower!r} / 100), {series}.quantile({upper!r} / 100)"
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
         bounds = self._bounds_lines(config, "s")
         header = f"{dst} = {src}.copy()" if action == "clip" else f"{dst} = {src}"
-        body = (
-            f"{dst}[_col] = s.clip(lo, hi)"
-            if action == "clip"
-            else f"{dst} = {dst}[s.between(lo, hi) | s.isna()]"
-        )
-        return (
-            f"{header}\n"
-            f"for _col in {config['columns']!r}:\n"
-            f"    s = {dst}[_col]\n"
-            f"    {bounds}\n"
-            f"    {body}"
-        )
+        body = f"{dst}[_col] = s.clip(lo, hi)" if action == "clip" else f"{dst} = {dst}[s.between(lo, hi) | s.isna()]"
+        return f"{header}\nfor _col in {config['columns']!r}:\n    s = {dst}[_col]\n    {bounds}\n    {body}"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
         bounds = self._bounds_lines(config, f"{dst}[_col]")
@@ -93,12 +79,7 @@ class RemoveOutliersTransformation(BaseTransformation):
             if action == "clip"
             else f"{dst} = {dst}.filter(pl.col(_col).is_between(lo, hi) | pl.col(_col).is_null())"
         )
-        return (
-            f"{dst} = {src}\n"
-            f"for _col in {config['columns']!r}:\n"
-            f"    {bounds}\n"
-            f"    {body}"
-        )
+        return f"{dst} = {src}\nfor _col in {config['columns']!r}:\n    {bounds}\n    {body}"
 
 
 class RoundNumbersTransformation(BaseTransformation):
@@ -113,31 +94,17 @@ class RoundNumbersTransformation(BaseTransformation):
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> dict[str, AnyFrame]:
-        return {
-            "out": engine.round_columns(
-                inputs["in"], config["columns"], int(config.get("decimals", 0))
-            )
-        }
+        return {"out": engine.round_columns(inputs["in"], config["columns"], int(config.get("decimals", 0)))}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         decimals = int(config.get("decimals", 0))
-        return (
-            f"{dst} = {src}.assign(**{{c: {src}[c].round({decimals!r}) "
-            f"for c in {config['columns']!r}}})"
-        )
+        return f"{dst} = {src}.assign(**{{c: {src}[c].round({decimals!r}) for c in {config['columns']!r}}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         decimals = int(config.get("decimals", 0))
-        return (
-            f"{dst} = {src}.with_columns("
-            f"[pl.col(c).round({decimals!r}) for c in {config['columns']!r}])"
-        )
+        return f"{dst} = {src}.with_columns([pl.col(c).round({decimals!r}) for c in {config['columns']!r}])"
 
 
 class BinColumnTransformation(BaseTransformation):
@@ -170,9 +137,7 @@ class BinColumnTransformation(BaseTransformation):
             )
         }
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, new = config["column"], config["new_column"]
         bins = int(config.get("bins", 4))
@@ -183,9 +148,7 @@ class BinColumnTransformation(BaseTransformation):
             binned = f"pd.cut({src}[{col!r}], bins={bins!r}, labels={labels!r})"
         return f"{dst} = {src}.assign(**{{{new!r}: {binned}.astype('string')}})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, new = config["column"], config["new_column"]
         bins = int(config.get("bins", 4))

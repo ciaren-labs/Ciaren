@@ -16,15 +16,11 @@ class DropColumnsTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         return {"out": engine.drop_columns(inputs["in"], config["columns"])}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}.drop(columns={config['columns']!r})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}.drop({config['columns']!r})"
 
@@ -41,15 +37,11 @@ class RenameColumnsTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         return {"out": engine.rename_columns(inputs["in"], config["mapping"])}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}.rename(columns={config['mapping']!r})"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}.rename({config['mapping']!r})"
 
@@ -66,15 +58,11 @@ class SelectColumnsTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         return {"out": engine.select_columns(inputs["in"], config["columns"])}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}[{config['columns']!r}]"
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         return f"{dst} = {src}.select({config['columns']!r})"
 
@@ -114,9 +102,7 @@ class CastDtypesTransformation(BaseTransformation):
             df = engine.cast_column(df, column, dtype, fmt, errors)
         return {"out": df}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         fmt = config.get("format") or None
         errors = config.get("errors", "raise")
@@ -128,10 +114,7 @@ class CastDtypesTransformation(BaseTransformation):
                     extra += f", format={fmt!r}"
                 if errors != "raise":
                     extra += f", errors={errors!r}"
-                lines.append(
-                    f"{dst} = {dst}.assign(**{{{column!r}: "
-                    f"pd.to_datetime({dst}[{column!r}]{extra})}})"
-                )
+                lines.append(f"{dst} = {dst}.assign(**{{{column!r}: pd.to_datetime({dst}[{column!r}]{extra})}})")
             elif dtype in ("integer", "float") and errors == "coerce":
                 pd_dtype = self._CODE_DTYPE[dtype]
                 lines.append(
@@ -140,15 +123,10 @@ class CastDtypesTransformation(BaseTransformation):
                 )
             else:
                 pd_dtype = self._CODE_DTYPE[dtype]
-                lines.append(
-                    f"{dst} = {dst}.assign(**{{{column!r}: "
-                    f"{dst}[{column!r}].astype({pd_dtype!r})}})"
-                )
+                lines.append(f"{dst} = {dst}.assign(**{{{column!r}: {dst}[{column!r}].astype({pd_dtype!r})}})")
         return "\n".join(lines)
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         fmt = config.get("format") or None
         strict = config.get("errors", "raise") != "coerce"
@@ -156,13 +134,9 @@ class CastDtypesTransformation(BaseTransformation):
         for column, dtype in config["casts"].items():
             if dtype == "datetime":
                 lines.append(
-                    f"{dst} = {dst}.with_columns("
-                    f"pl.col({column!r}).str.to_datetime(format={fmt!r}, strict={strict}))"
+                    f"{dst} = {dst}.with_columns(pl.col({column!r}).str.to_datetime(format={fmt!r}, strict={strict}))"
                 )
             else:
                 pl_dtype = self._POLARS_DTYPE[dtype]
-                lines.append(
-                    f"{dst} = {dst}.with_columns("
-                    f"pl.col({column!r}).cast({pl_dtype}, strict={strict}))"
-                )
+                lines.append(f"{dst} = {dst}.with_columns(pl.col({column!r}).cast({pl_dtype}, strict={strict}))")
         return "\n".join(lines)

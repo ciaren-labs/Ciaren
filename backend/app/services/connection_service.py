@@ -110,8 +110,7 @@ class ConnectionService:
         if not driver_available(provider):
             return ConnectionTestResult(
                 ok=False,
-                message=f"The {provider.label} driver isn't installed "
-                f"(pip install flowframe[{provider.extra}]).",
+                message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
             )
         connector = get_connector(provider)
         try:
@@ -135,8 +134,7 @@ class ConnectionService:
         if not driver_available(provider):
             return ConnectionTestResult(
                 ok=False,
-                message=f"The {provider.label} driver isn't installed "
-                f"(pip install flowframe[{provider.extra}]).",
+                message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
             )
         connector = get_connector(provider)
         try:
@@ -152,8 +150,7 @@ class ConnectionService:
         provider = get_provider(conn.provider)
         if not driver_available(provider):
             raise ValidationError(
-                f"The {provider.label} driver isn't installed "
-                f"(pip install flowframe[{provider.extra}])."
+                f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
             )
         connector = get_connector(provider)
         try:
@@ -161,9 +158,7 @@ class ConnectionService:
             refs = await asyncio.to_thread(connector.list_tables, spec)
         except ConnectorError as exc:
             raise ValidationError(str(exc)) from None
-        return [
-            TableInfo(name=r.name, schema_name=r.schema, qualified=r.qualified) for r in refs
-        ]
+        return [TableInfo(name=r.name, schema_name=r.schema, qualified=r.qualified) for r in refs]
 
     # -- Internals ------------------------------------------------------
 
@@ -182,9 +177,7 @@ class ConnectionService:
             raise ValidationError(f"{p.label} needs a database name.")
 
     async def _by_name(self, name: str) -> Connection | None:
-        result = await self.db.execute(
-            select(Connection).where(func.lower(Connection.name) == name.lower())
-        )
+        result = await self.db.execute(select(Connection).where(func.lower(Connection.name) == name.lower()))
         return result.scalar_one_or_none()
 
     async def _get_or_raise(self, connection_id: str) -> Connection:

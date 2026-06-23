@@ -31,7 +31,10 @@ def run_graph_in_process(
     pre-materialized to parquet in the parent (the picklable paths cross here).
     """
     return FlowExecutor().run_with_results(
-        graph, dataset_paths, output_dir, engine_name=engine_name,
+        graph,
+        dataset_paths,
+        output_dir,
+        engine_name=engine_name,
         sql_input_paths=sql_input_paths,
     )
 

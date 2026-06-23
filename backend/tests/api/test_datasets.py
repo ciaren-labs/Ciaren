@@ -447,8 +447,7 @@ async def test_get_sample_parquet_roundtrip(client: AsyncClient) -> None:
 
 async def test_dataset_response_shape(client: AsyncClient) -> None:
     body = await _upload(client, _csv())
-    expected_keys = {"id", "name", "source_type", "column_schema", "data_sample",
-                     "created_at", "updated_at"}
+    expected_keys = {"id", "name", "source_type", "column_schema", "data_sample", "created_at", "updated_at"}
     assert expected_keys.issubset(body.keys())
     assert "location" not in body
 

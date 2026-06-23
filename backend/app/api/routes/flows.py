@@ -8,9 +8,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[FlowRead])
-async def list_flows(
-    service: FlowServiceDep, project_id: str | None = None
-) -> list[FlowRead]:
+async def list_flows(service: FlowServiceDep, project_id: str | None = None) -> list[FlowRead]:
     return await service.list_all(project_id)
 
 
@@ -35,9 +33,7 @@ async def delete_flow(flow_id: str, service: FlowServiceDep) -> None:
 
 
 @router.post("/{flow_id}/preview", response_model=PreviewResponse)
-async def preview_flow(
-    flow_id: str, body: FlowPreviewRequest, service: PreviewServiceDep
-) -> PreviewResponse:
+async def preview_flow(flow_id: str, body: FlowPreviewRequest, service: PreviewServiceDep) -> PreviewResponse:
     return await service.preview_flow(flow_id, body)
 
 
@@ -46,6 +42,4 @@ async def export_flow_python(
     flow_id: str, service: CodegenServiceDep, free_intermediates: bool = False
 ) -> CodeExportResponse:
     code = await service.export(flow_id, free_intermediates=free_intermediates)
-    return CodeExportResponse(
-        code=code["pandas"], polars=code["polars"], polars_lazy=code["polars_lazy"]
-    )
+    return CodeExportResponse(code=code["pandas"], polars=code["polars"], polars_lazy=code["polars_lazy"])

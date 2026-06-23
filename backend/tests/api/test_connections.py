@@ -1,10 +1,10 @@
 """Connection management endpoints.
 
-  GET/POST   /api/connections
-  GET        /api/connections/providers
-  GET/PATCH/DELETE /api/connections/{id}
-  POST       /api/connections/{id}/test
-  GET        /api/connections/{id}/tables
+GET/POST   /api/connections
+GET        /api/connections/providers
+GET/PATCH/DELETE /api/connections/{id}
+POST       /api/connections/{id}/test
+GET        /api/connections/{id}/tables
 """
 
 import pandas as pd
@@ -46,9 +46,7 @@ async def test_response_never_exposes_a_password(client: AsyncClient):
 
 async def test_duplicate_name_conflicts(client: AsyncClient):
     await _create(client, name="dup")
-    r = await client.post(
-        "/api/connections", json={"name": "dup", "provider": "sqlite", "database": "/tmp/y.db"}
-    )
+    r = await client.post("/api/connections", json={"name": "dup", "provider": "sqlite", "database": "/tmp/y.db"})
     assert r.status_code == 409
 
 
@@ -57,16 +55,12 @@ async def test_validation_requires_fields(client: AsyncClient):
     r = await client.post("/api/connections", json={"name": "bad", "provider": "sqlite"})
     assert r.status_code == 400
     # Postgres needs a host.
-    r2 = await client.post(
-        "/api/connections", json={"name": "pg", "provider": "postgresql", "database": "d"}
-    )
+    r2 = await client.post("/api/connections", json={"name": "pg", "provider": "postgresql", "database": "d"})
     assert r2.status_code == 400
 
 
 async def test_unknown_provider_rejected(client: AsyncClient):
-    r = await client.post(
-        "/api/connections", json={"name": "x", "provider": "oracle9000", "database": "d"}
-    )
+    r = await client.post("/api/connections", json={"name": "x", "provider": "oracle9000", "database": "d"})
     assert r.status_code == 400
 
 
@@ -89,9 +83,7 @@ async def test_test_endpoint_success_for_sqlite(client: AsyncClient, tmp_path):
 
 async def test_test_endpoint_reports_missing_driver(client: AsyncClient):
     # MySQL driver isn't installed in CI → ok=False with an install hint, not a crash.
-    created = await _create(
-        client, name="mysqlconn", provider="mysql", host="localhost", database="d"
-    )
+    created = await _create(client, name="mysqlconn", provider="mysql", host="localhost", database="d")
     r = await client.post(f"/api/connections/{created['id']}/test")
     assert r.status_code == 200
     body = r.json()
@@ -125,9 +117,7 @@ async def test_test_config_before_saving(client: AsyncClient, tmp_path):
 
 async def test_test_config_reports_problems(client: AsyncClient):
     # Missing required field → ok=False (not a 500).
-    bad = await client.post(
-        "/api/connections/test-config", json={"name": "x", "provider": "sqlite"}
-    )
+    bad = await client.post("/api/connections/test-config", json={"name": "x", "provider": "sqlite"})
     assert bad.status_code == 200
     assert bad.json()["ok"] is False
     # Missing driver → ok=False with an install hint.
@@ -141,9 +131,7 @@ async def test_test_config_reports_problems(client: AsyncClient):
 
 async def test_update_and_delete(client: AsyncClient):
     created = await _create(client, name="temp")
-    patched = await client.patch(
-        f"/api/connections/{created['id']}", json={"name": "renamed"}
-    )
+    patched = await client.patch(f"/api/connections/{created['id']}", json={"name": "renamed"})
     assert patched.status_code == 200
     assert patched.json()["name"] == "renamed"
 

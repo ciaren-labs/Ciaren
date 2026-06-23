@@ -86,9 +86,7 @@ class PolarsEngine:
     def drop_columns(self, df: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         return df.drop(columns)
 
-    def filter_rows(
-        self, df: pl.DataFrame, column: str, operator: str, value: Any
-    ) -> pl.DataFrame:
+    def filter_rows(self, df: pl.DataFrame, column: str, operator: str, value: Any) -> pl.DataFrame:
         col = pl.col(column)
         match operator:
             case "==" | "eq":
@@ -132,9 +130,7 @@ class PolarsEngine:
         "bfill": "backward",
     }
 
-    def fill_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any
-    ) -> pl.DataFrame:
+    def fill_nulls(self, df: pl.DataFrame, columns: list[str] | None, strategy: str, value: Any) -> pl.DataFrame:
         targets = columns or df.columns
         exprs = []
         for col_name in targets:
@@ -147,9 +143,7 @@ class PolarsEngine:
                 except Exception:
                     exprs.append(col)
             elif strategy in self._FILL_STRATEGY:
-                exprs.append(
-                    col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy]))
-                )
+                exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":
                 exprs.append(col.fill_null(df[col_name].median()))
             elif strategy == "mode":
@@ -159,17 +153,13 @@ class PolarsEngine:
                 raise ValueError(f"Unknown fill strategy: {strategy!r}")
         return df.with_columns(exprs)
 
-    def drop_nulls(
-        self, df: pl.DataFrame, columns: list[str] | None, how: str = "any"
-    ) -> pl.DataFrame:
+    def drop_nulls(self, df: pl.DataFrame, columns: list[str] | None, how: str = "any") -> pl.DataFrame:
         if how == "all":
             cols = columns or df.columns
             return df.filter(~pl.all_horizontal([pl.col(c).is_null() for c in cols]))
         return df.drop_nulls(subset=columns or None)
 
-    def drop_duplicates(
-        self, df: pl.DataFrame, subset: list[str] | None, keep: str | bool = "first"
-    ) -> pl.DataFrame:
+    def drop_duplicates(self, df: pl.DataFrame, subset: list[str] | None, keep: str | bool = "first") -> pl.DataFrame:
         # pandas allows keep=False (drop all dups); polars uses keep="none".
         polars_keep = cast(
             Literal["first", "last", "any", "none"],
@@ -213,9 +203,7 @@ class PolarsEngine:
         # SQL expression parsing handles arithmetic like "price * quantity".
         return df.with_columns(pl.sql_expr(expression).alias(name))
 
-    def groupby_agg(
-        self, df: pl.DataFrame, by: list[str], aggregations: dict[str, str]
-    ) -> pl.DataFrame:
+    def groupby_agg(self, df: pl.DataFrame, by: list[str], aggregations: dict[str, str]) -> pl.DataFrame:
         exprs = []
         for column, func in aggregations.items():
             if func not in _AGG_FUNCS:
@@ -240,9 +228,7 @@ class PolarsEngine:
         # polars takes a single suffix for overlapping right-side columns.
         suffix = suffixes[1]
         if left_on and right_on:
-            return left.join(
-                right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix
-            )
+            return left.join(right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix)
         # coalesce shared keys so a 'full'/'outer' join keeps a single key column,
         # matching pandas.merge(on=...). (Without it polars emits a duplicate 'key_y'.)
         return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
@@ -257,9 +243,7 @@ class PolarsEngine:
         self, df: pl.DataFrame, column: str, to_replace: Any, value: Any, regex: bool = False
     ) -> pl.DataFrame:
         if regex:
-            return df.with_columns(
-                pl.col(column).cast(pl.Utf8).str.replace_all(str(to_replace), str(value))
-            )
+            return df.with_columns(pl.col(column).cast(pl.Utf8).str.replace_all(str(to_replace), str(value)))
         return df.with_columns(pl.col(column).replace(to_replace, value))
 
     def string_transform(
@@ -299,9 +283,7 @@ class PolarsEngine:
 
     # -- New nodes (Phase 3) -------------------------------------------
 
-    def sample_rows(
-        self, df: pl.DataFrame, n: int | None, frac: float | None, seed: int | None
-    ) -> pl.DataFrame:
+    def sample_rows(self, df: pl.DataFrame, n: int | None, frac: float | None, seed: int | None) -> pl.DataFrame:
         if frac is not None:
             return df.sample(fraction=frac, seed=seed)
         return df.sample(n=cast(int, n), seed=seed)
@@ -345,14 +327,10 @@ class PolarsEngine:
             mean, std = cast(float, series.mean()), cast(float, series.std())
             return mean - threshold * std, mean + threshold * std
         if method == "percentile":
-            return cast(float, series.quantile(lower / 100)), cast(
-                float, series.quantile(upper / 100)
-            )
+            return cast(float, series.quantile(lower / 100)), cast(float, series.quantile(upper / 100))
         raise ValueError(f"Unknown outlier method: {method!r}")
 
-    def round_columns(
-        self, df: pl.DataFrame, columns: list[str], decimals: int
-    ) -> pl.DataFrame:
+    def round_columns(self, df: pl.DataFrame, columns: list[str], decimals: int) -> pl.DataFrame:
         return df.with_columns([pl.col(c).round(decimals) for c in columns])
 
     def bin_column(
@@ -375,9 +353,7 @@ class PolarsEngine:
             expr = pl.col(column).cut(breaks, labels=labels)
         return df.with_columns(expr.cast(pl.Utf8).alias(new_column))
 
-    def extract_date_parts(
-        self, df: pl.DataFrame, column: str, parts: list[str]
-    ) -> pl.DataFrame:
+    def extract_date_parts(self, df: pl.DataFrame, column: str, parts: list[str]) -> pl.DataFrame:
         dt = (
             pl.col(column).str.to_datetime(strict=False)
             if df.schema[column] == pl.Utf8
@@ -417,9 +393,7 @@ class PolarsEngine:
         aggfunc: str,
     ) -> pl.DataFrame:
         agg = "len" if aggfunc == "count" else aggfunc
-        return df.pivot(
-            on=columns, index=index, values=values, aggregate_function=cast(Any, agg)
-        )
+        return df.pivot(on=columns, index=index, values=values, aggregate_function=cast(Any, agg))
 
     # -- New nodes (text/date/value mapping) ---------------------------
 
@@ -438,18 +412,13 @@ class PolarsEngine:
             exprs = [src.str.extract(pattern, i + 1).alias(name) for i, name in enumerate(into)]
         else:
             split = src.str.split(delimiter)
-            exprs = [
-                split.list.get(i, null_on_oob=True).alias(name)
-                for i, name in enumerate(into)
-            ]
+            exprs = [split.list.get(i, null_on_oob=True).alias(name) for i, name in enumerate(into)]
         result = df.with_columns(exprs)
         if not keep_original and column not in into:
             result = result.drop(column)
         return result
 
-    def parse_dates(
-        self, df: pl.DataFrame, columns: list[str], fmt: str | None, errors: str
-    ) -> pl.DataFrame:
+    def parse_dates(self, df: pl.DataFrame, columns: list[str], fmt: str | None, errors: str) -> pl.DataFrame:
         strict = errors != "coerce"
         exprs = []
         for c in columns:
@@ -493,9 +462,7 @@ class PolarsEngine:
         work = df.with_row_index("__rn__")
         if order_by:
             work = work.sort(by=order_by, descending=descending)
-        expr = _polars_window_expr(
-            function, partition_by or None, order_by, target, offset, descending
-        )
+        expr = _polars_window_expr(function, partition_by or None, order_by, target, offset, descending)
         work = work.with_columns(expr.alias(new_column))
         return work.sort("__rn__").drop("__rn__")
 
@@ -544,8 +511,7 @@ def _polars_window_expr(
 def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
     """Combine a rule's conditions with AND (match all) or OR (match any)."""
     exprs = [
-        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value"))
-        for c in rule_conditions(rule)
+        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value")) for c in rule_conditions(rule)
     ]
     combined = exprs[0]
     combine_all = rule_combine_all(rule)

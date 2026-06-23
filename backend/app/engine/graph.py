@@ -42,9 +42,7 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
     _validate_connections(nodes, edges)
 
 
-def _validate_connections(
-    nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
-) -> None:
+def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
     """Check that every node's incoming edges respect its handle topology.
 
     Catches the wiring mistakes the frontend prevents but the API could still
@@ -67,9 +65,7 @@ def _validate_connections(
 
         if node_type in _INPUT_TYPES:
             if edges_in:
-                raise GraphValidationError(
-                    f"{label}: input nodes cannot have an incoming connection."
-                )
+                raise GraphValidationError(f"{label}: input nodes cannot have an incoming connection.")
             config = node.get("data", {}).get("config", {})
             if node_type == SQL_INPUT_TYPE:
                 _validate_sql_input(label, config)
@@ -79,10 +75,7 @@ def _validate_connections(
 
         if node_type in _OUTPUT_TYPES:
             if len(edges_in) != 1:
-                raise GraphValidationError(
-                    f"{label}: output nodes need exactly one input "
-                    f"(got {len(edges_in)})."
-                )
+                raise GraphValidationError(f"{label}: output nodes need exactly one input (got {len(edges_in)}).")
             if node_type == SQL_OUTPUT_TYPE:
                 _validate_sql_output(label, node.get("data", {}).get("config", {}))
             continue
@@ -102,9 +95,7 @@ def _validate_connections(
         for edge in edges_in:
             handle = edge.get("targetHandle") or "in"
             if handle not in handles:
-                raise GraphValidationError(
-                    f"{label}: connection to unknown input {handle!r}."
-                )
+                raise GraphValidationError(f"{label}: connection to unknown input {handle!r}.")
             by_handle[handle] += 1
         for handle in handles:
             count = by_handle[handle]
@@ -112,10 +103,7 @@ def _validate_connections(
             if count == 0:
                 raise GraphValidationError(f"{label}: the{which} input is not connected.")
             if count > 1:
-                raise GraphValidationError(
-                    f"{label}: the{which} input accepts only one connection "
-                    f"(got {count})."
-                )
+                raise GraphValidationError(f"{label}: the{which} input accepts only one connection (got {count}).")
 
 
 def _validate_sql_input(label: str, config: dict[str, Any]) -> None:

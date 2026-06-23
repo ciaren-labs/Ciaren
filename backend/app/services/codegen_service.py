@@ -21,9 +21,7 @@ class CodegenService:
     async def export_python(self, flow_id: str) -> str:
         return (await self.export(flow_id))["pandas"]
 
-    async def export(
-        self, flow_id: str, *, free_intermediates: bool = False
-    ) -> dict[str, str]:
+    async def export(self, flow_id: str, *, free_intermediates: bool = False) -> dict[str, str]:
         """Generate the pandas, eager-polars and lazy-polars equivalents of a flow.
 
         ``free_intermediates`` adds ``del`` statements to the materializing
@@ -44,9 +42,7 @@ class CodegenService:
                 "polars": PolarsCodeGenerator().generate(
                     graph, dataset_names, connections, free_intermediates=free_intermediates
                 ),
-                "polars_lazy": PolarsCodeGenerator().generate(
-                    graph, dataset_names, connections, lazy=True
-                ),
+                "polars_lazy": PolarsCodeGenerator().generate(graph, dataset_names, connections, lazy=True),
             }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
@@ -55,15 +51,11 @@ class CodegenService:
 
     async def _dataset_filenames(self, graph: dict[str, Any]) -> dict[str, str]:
         dataset_ids = {
-            n["data"]["config"]["dataset_id"]
-            for n in graph.get("nodes", [])
-            if n["type"] in _FILE_INPUT_TYPES
+            n["data"]["config"]["dataset_id"] for n in graph.get("nodes", []) if n["type"] in _FILE_INPUT_TYPES
         }
         if not dataset_ids:
             return {}
-        result = await self.db.execute(
-            select(Dataset).where(Dataset.id.in_(dataset_ids))
-        )
+        result = await self.db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
         datasets = {d.id: d for d in result.scalars().all()}
         missing = dataset_ids - datasets.keys()
         if missing:

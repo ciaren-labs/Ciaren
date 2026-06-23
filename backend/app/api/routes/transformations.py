@@ -14,7 +14,5 @@ async def list_transformations() -> list[str]:
 
 
 @router.post("/preview", response_model=PreviewResponse)
-async def preview_transformation(
-    body: TransformationPreviewRequest, service: PreviewServiceDep
-) -> PreviewResponse:
+async def preview_transformation(body: TransformationPreviewRequest, service: PreviewServiceDep) -> PreviewResponse:
     return await service.preview_transformation(body)

@@ -225,9 +225,7 @@ def test_two_input_inner_join_aggregate(join_inputs: dict[str, Path], tmp_path: 
     assert out == {"US": 20.0, "EU": 20.0}
 
 
-def test_two_input_left_join_keeps_unmatched(
-    join_inputs: dict[str, Path], tmp_path: Path
-) -> None:
+def test_two_input_left_join_keeps_unmatched(join_inputs: dict[str, Path], tmp_path: Path) -> None:
     result = _run_to_df(_two_input_graph("left"), join_inputs, tmp_path / "out")
 
     # Left join keeps active order rows with no customer (cid=3 and null cid).
@@ -242,12 +240,8 @@ def test_two_input_left_join_keeps_unmatched(
 
 def test_two_input_join_cardinality_with_duplicate_keys(tmp_path: Path) -> None:
     """An inner join must produce the cartesian product within a key group."""
-    left = _write_csv(
-        tmp_path / "l.csv", pd.DataFrame({"k": [1, 1, 2], "lv": ["a", "b", "c"]})
-    )
-    right = _write_csv(
-        tmp_path / "r.csv", pd.DataFrame({"k": [1, 1, 3], "rv": ["x", "y", "z"]})
-    )
+    left = _write_csv(tmp_path / "l.csv", pd.DataFrame({"k": [1, 1, 2], "lv": ["a", "b", "c"]}))
+    right = _write_csv(tmp_path / "r.csv", pd.DataFrame({"k": [1, 1, 3], "rv": ["x", "y", "z"]}))
     graph = {
         "nodes": [
             _node("l", "csvInput", dataset_id="L"),
@@ -346,9 +340,7 @@ def test_three_input_pipeline(tmp_path: Path) -> None:
         ],
     }
 
-    result = _run_to_df(
-        graph, _paths(orders=orders, items=items, products=products), tmp_path / "out"
-    )
+    result = _run_to_df(graph, _paths(orders=orders, items=items, products=products), tmp_path / "out")
 
     # Build a pandas reference independently.
     o = pd.read_csv(orders)
@@ -363,9 +355,7 @@ def test_three_input_pipeline(tmp_path: Path) -> None:
     # The qty=1000 row must have been dropped as an outlier.
     assert 1000 not in set(kept["qty"]), "outlier row should be removed before revenue"
     kept["line_total"] = kept["qty"] * kept["price"]
-    expected = (
-        kept.groupby("channel")["line_total"].sum().reset_index().sort_values("channel")
-    )
+    expected = kept.groupby("channel")["line_total"].sum().reset_index().sort_values("channel")
 
     got = result.sort_values("channel").reset_index(drop=True)
     pd.testing.assert_frame_equal(
@@ -485,9 +475,7 @@ def test_pivot_unpivot_roundtrip(tmp_path: Path) -> None:
         "edges": [_edge("in", "long"), _edge("long", "wide"), _edge("wide", "out")],
     }
     result = _run_to_df(graph, _paths(ds1=src), tmp_path / "out")
-    pd.testing.assert_frame_equal(
-        _normalize(result), _normalize(wide), check_dtype=False
-    )
+    pd.testing.assert_frame_equal(_normalize(result), _normalize(wide), check_dtype=False)
 
 
 def test_window_row_number_running_total_and_lag(tmp_path: Path) -> None:
@@ -646,9 +634,7 @@ def test_split_column_by_delimiter(tmp_path: Path) -> None:
         ("percentile", "clip", {"lower": 10.0, "upper": 90.0}),
     ],
 )
-def test_remove_outliers_methods(
-    tmp_path: Path, method: str, action: str, kwargs: dict[str, Any]
-) -> None:
+def test_remove_outliers_methods(tmp_path: Path, method: str, action: str, kwargs: dict[str, Any]) -> None:
     values = [10, 11, 12, 13, 14, 15, 16, 17, 18, 1000]
     src = _write_csv(tmp_path / f"o_{method}.csv", pd.DataFrame({"v": values}))
     graph = {
@@ -763,9 +749,7 @@ def test_engine_parity_complex_join_pipeline(tmp_path: Path) -> None:
     paths = _paths(orders=orders, customers=customers)
     pandas_out = _run_to_df(graph, paths, tmp_path / "pandas", "pandas")
     polars_out = _run_to_df(graph, paths, tmp_path / "polars", "polars")
-    pd.testing.assert_frame_equal(
-        _normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False
-    )
+    pd.testing.assert_frame_equal(_normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False)
 
 
 def test_engine_parity_window_and_conditional(tmp_path: Path) -> None:
@@ -807,9 +791,7 @@ def test_engine_parity_window_and_conditional(tmp_path: Path) -> None:
     paths = _paths(ds1=src)
     pandas_out = _run_to_df(graph, paths, tmp_path / "pandas", "pandas")
     polars_out = _run_to_df(graph, paths, tmp_path / "polars", "polars")
-    pd.testing.assert_frame_equal(
-        _normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False
-    )
+    pd.testing.assert_frame_equal(_normalize(pandas_out), _normalize(polars_out), check_dtype=False, check_exact=False)
 
 
 # ---------------------------------------------------------------------------
@@ -863,9 +845,7 @@ async def test_api_level_complex_run(client: AsyncClient, tmp_path: Path) -> Non
             _edge("grp", "out"),
         ],
     }
-    flow = (
-        await client.post("/api/flows", json={"name": "complex", "graph_json": graph})
-    ).json()
+    flow = (await client.post("/api/flows", json={"name": "complex", "graph_json": graph})).json()
 
     r = await client.post(f"/api/flows/{flow['id']}/runs", json={"engine": "pandas"})
     assert r.status_code == 201, r.text

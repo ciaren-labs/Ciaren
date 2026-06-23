@@ -53,9 +53,7 @@ class PandasEngine:
     def drop_columns(self, df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         return df.drop(columns=columns)
 
-    def filter_rows(
-        self, df: pd.DataFrame, column: str, operator: str, value: Any
-    ) -> pd.DataFrame:
+    def filter_rows(self, df: pd.DataFrame, column: str, operator: str, value: Any) -> pd.DataFrame:
         col = df[column]
         match operator:
             case "==" | "eq":
@@ -90,9 +88,7 @@ class PandasEngine:
         filtered: pd.DataFrame = df[mask]
         return filtered
 
-    def fill_nulls(
-        self, df: pd.DataFrame, columns: list[str] | None, strategy: str, value: Any
-    ) -> pd.DataFrame:
+    def fill_nulls(self, df: pd.DataFrame, columns: list[str] | None, strategy: str, value: Any) -> pd.DataFrame:
         targets = columns or df.columns.tolist()
         result = df.copy()
         for col in targets:
@@ -132,16 +128,12 @@ class PandasEngine:
             result[col] = series.fillna(fill)
         return result
 
-    def drop_nulls(
-        self, df: pd.DataFrame, columns: list[str] | None, how: str = "any"
-    ) -> pd.DataFrame:
+    def drop_nulls(self, df: pd.DataFrame, columns: list[str] | None, how: str = "any") -> pd.DataFrame:
         how_arg = cast(Literal["any", "all"], how)
         result: pd.DataFrame = df.dropna(subset=columns or None, how=how_arg)
         return result
 
-    def drop_duplicates(
-        self, df: pd.DataFrame, subset: list[str] | None, keep: str | bool = "first"
-    ) -> pd.DataFrame:
+    def drop_duplicates(self, df: pd.DataFrame, subset: list[str] | None, keep: str | bool = "first") -> pd.DataFrame:
         keep_arg = cast(Literal["first", "last", False], keep)
         result: pd.DataFrame = df.drop_duplicates(subset=subset or None, keep=keep_arg)
         return result
@@ -162,9 +154,7 @@ class PandasEngine:
         }
         err: Literal["raise", "coerce"] = "coerce" if errors == "coerce" else "raise"
         if dtype == "datetime":
-            return df.assign(
-                **{column: pd.to_datetime(df[column], format=fmt or None, errors=err)}
-            )
+            return df.assign(**{column: pd.to_datetime(df[column], format=fmt or None, errors=err)})
         if dtype not in _DTYPE_MAP:
             raise ValueError(f"Unknown dtype: {dtype!r}")
         if dtype in ("integer", "float") and errors == "coerce":
@@ -188,9 +178,7 @@ class PandasEngine:
     def add_column(self, df: pd.DataFrame, name: str, expression: str) -> pd.DataFrame:
         return df.assign(**{name: cast(Any, df.eval(expression))})
 
-    def groupby_agg(
-        self, df: pd.DataFrame, by: list[str], aggregations: dict[str, str]
-    ) -> pd.DataFrame:
+    def groupby_agg(self, df: pd.DataFrame, by: list[str], aggregations: dict[str, str]) -> pd.DataFrame:
         return df.groupby(by).agg(aggregations).reset_index()
 
     def join(
@@ -205,9 +193,7 @@ class PandasEngine:
     ) -> pd.DataFrame:
         how_arg = cast(Literal["left", "right", "outer", "inner", "cross"], how)
         if left_on and right_on:
-            return left.merge(
-                right, left_on=left_on, right_on=right_on, how=how_arg, suffixes=suffixes
-            )
+            return left.merge(right, left_on=left_on, right_on=right_on, how=how_arg, suffixes=suffixes)
         return left.merge(right, on=on, how=how_arg, suffixes=suffixes)
 
     def concat(self, frames: list[pd.DataFrame]) -> pd.DataFrame:
@@ -249,18 +235,14 @@ class PandasEngine:
         elif operation == "replace":
             result = accessor.replace(cast(str, find), cast(str, replace_with), regex=False)
         elif operation == "pad":
-            result = accessor.pad(
-                cast(int, width), side=cast(Any, side), fillchar=fill_char
-            )
+            result = accessor.pad(cast(int, width), side=cast(Any, side), fillchar=fill_char)
         else:
             raise ValueError(f"Unknown string operation: {operation!r}")
         return df.assign(**{column: result})
 
     # -- New nodes (Phase 3) -------------------------------------------
 
-    def sample_rows(
-        self, df: pd.DataFrame, n: int | None, frac: float | None, seed: int | None
-    ) -> pd.DataFrame:
+    def sample_rows(self, df: pd.DataFrame, n: int | None, frac: float | None, seed: int | None) -> pd.DataFrame:
         if frac is not None:
             return df.sample(frac=frac, random_state=seed)
         return df.sample(n=cast(int, n), random_state=seed)
@@ -307,9 +289,7 @@ class PandasEngine:
             return series.quantile(lower / 100), series.quantile(upper / 100)
         raise ValueError(f"Unknown outlier method: {method!r}")
 
-    def round_columns(
-        self, df: pd.DataFrame, columns: list[str], decimals: int
-    ) -> pd.DataFrame:
+    def round_columns(self, df: pd.DataFrame, columns: list[str], decimals: int) -> pd.DataFrame:
         return df.assign(**{c: df[c].round(decimals) for c in columns})
 
     def bin_column(
@@ -327,9 +307,7 @@ class PandasEngine:
             binned = pd.cut(df[column], bins=bins, labels=labels)
         return df.assign(**{new_column: binned.astype("string")})
 
-    def extract_date_parts(
-        self, df: pd.DataFrame, column: str, parts: list[str]
-    ) -> pd.DataFrame:
+    def extract_date_parts(self, df: pd.DataFrame, column: str, parts: list[str]) -> pd.DataFrame:
         ts = pd.to_datetime(df[column])
         accessors = {
             "year": ts.dt.year,
@@ -363,9 +341,7 @@ class PandasEngine:
         values: str,
         aggfunc: str,
     ) -> pd.DataFrame:
-        pivoted = df.pivot_table(
-            index=index, columns=columns, values=values, aggfunc=cast(Any, aggfunc)
-        )
+        pivoted = df.pivot_table(index=index, columns=columns, values=values, aggfunc=cast(Any, aggfunc))
         result: pd.DataFrame = pivoted.reset_index()
         result.columns = [str(c) for c in result.columns]
         return result
@@ -387,22 +363,15 @@ class PandasEngine:
             parts = src.str.extract(pattern)
         else:
             parts = src.str.split(delimiter, expand=True, regex=False)
-        assignments: dict[str, Any] = {
-            name: (parts[i] if i in parts.columns else pd.NA)
-            for i, name in enumerate(into)
-        }
+        assignments: dict[str, Any] = {name: (parts[i] if i in parts.columns else pd.NA) for i, name in enumerate(into)}
         result = df.assign(**assignments)
         if not keep_original and column not in into:
             result = result.drop(columns=[column])
         return result
 
-    def parse_dates(
-        self, df: pd.DataFrame, columns: list[str], fmt: str | None, errors: str
-    ) -> pd.DataFrame:
+    def parse_dates(self, df: pd.DataFrame, columns: list[str], fmt: str | None, errors: str) -> pd.DataFrame:
         err: Literal["raise", "coerce"] = "coerce" if errors == "coerce" else "raise"
-        return df.assign(
-            **{c: pd.to_datetime(df[c], format=fmt or None, errors=err) for c in columns}
-        )
+        return df.assign(**{c: pd.to_datetime(df[c], format=fmt or None, errors=err) for c in columns})
 
     def map_values(
         self,
@@ -436,12 +405,8 @@ class PandasEngine:
         # after computing the (order-sensitive) window values.
         work = df.reset_index(drop=True)
         if order_by:
-            work = work.sort_values(
-                by=order_by, ascending=[not descending] * len(order_by), kind="stable"
-            )
-        values = self._window_values(
-            work, function, partition_by, order_by, target, offset, descending
-        )
+            work = work.sort_values(by=order_by, ascending=[not descending] * len(order_by), kind="stable")
+        values = self._window_values(work, function, partition_by, order_by, target, offset, descending)
         work = work.assign(**{new_column: values})
         return work.sort_index().reset_index(drop=True)
 
@@ -495,8 +460,7 @@ class PandasEngine:
 def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
     """Combine a rule's conditions with AND (match all) or OR (match any)."""
     masks = [
-        _pandas_condition_mask(df, c["column"], c.get("operator", "=="), c.get("value"))
-        for c in rule_conditions(rule)
+        _pandas_condition_mask(df, c["column"], c.get("operator", "=="), c.get("value")) for c in rule_conditions(rule)
     ]
     combined = masks[0]
     combine_all = rule_combine_all(rule)
@@ -505,9 +469,7 @@ def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
     return combined
 
 
-def _pandas_condition_mask(
-    df: pd.DataFrame, column: str, operator: str, value: Any
-) -> pd.Series:
+def _pandas_condition_mask(df: pd.DataFrame, column: str, operator: str, value: Any) -> pd.Series:
     """Boolean mask for one conditionalColumn rule (mirrors filter operators)."""
     col = df[column]
     mask: Any

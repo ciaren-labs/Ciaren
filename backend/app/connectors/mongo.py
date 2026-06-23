@@ -70,15 +70,11 @@ class MongoConnector:
         finally:
             client.close()
 
-    def read_table(
-        self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None
-    ) -> pd.DataFrame:
+    def read_table(self, spec: ConnectionSpec, table: str, schema: str | None, limit: int | None) -> pd.DataFrame:
         validate_identifier(table, "collection")
         client = self._client(spec)
         try:
-            cursor = self._db(client, spec)[table].find(
-                {}, limit=limit if limit is not None else _READ_GUARD_LIMIT
-            )
+            cursor = self._db(client, spec)[table].find({}, limit=limit if limit is not None else _READ_GUARD_LIMIT)
             records = list(cursor)
             for doc in records:
                 if "_id" in doc:
@@ -90,9 +86,7 @@ class MongoConnector:
             client.close()
 
     def read_query(self, spec: ConnectionSpec, query: str) -> pd.DataFrame:
-        raise ConnectorError(
-            "MongoDB inputs use collection selection, not custom SQL. Pick a collection."
-        )
+        raise ConnectorError("MongoDB inputs use collection selection, not custom SQL. Pick a collection.")
 
     def write_table(
         self, spec: ConnectionSpec, df: pd.DataFrame, table: str, schema: str | None, if_exists: str

@@ -129,9 +129,7 @@ class PolarsCodeGenerator:
                         collected[lv] = etmp
                     eager_inputs[handle] = collected[lv]
                 eager_out = next_eager()
-                lines.append(
-                    transformation.to_polars_code(eager_inputs, {"out": eager_out}, config)
-                )
+                lines.append(transformation.to_polars_code(eager_inputs, {"out": eager_out}, config))
                 lines.append(f"{out_var} = {eager_out}.lazy()")
             else:
                 lines.append(transformation.to_polars_code(input_vars, {"out": out_var}, config))
