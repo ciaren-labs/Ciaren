@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ for _logger in ("google", "urllib3.connectionpool"):
     logging.getLogger(_logger).setLevel(logging.CRITICAL)
 
 
-def _client(spec: StorageSpec):
+def _client(spec: StorageSpec) -> Any:
     try:
         from google.cloud import storage as gcs
     except ImportError as exc:
@@ -39,7 +40,7 @@ def _client(spec: StorageSpec):
         try:
             from google.oauth2 import service_account
 
-            creds = service_account.Credentials.from_service_account_file(
+            creds = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call]
                 credentials_path,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )

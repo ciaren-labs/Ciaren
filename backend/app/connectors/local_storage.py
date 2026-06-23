@@ -9,12 +9,14 @@ as the built-in "Local Storage" connection at server startup.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
 
 from app.connectors.base import ConnectorError
 from app.connectors.storage_base import StorageSpec
+
 
 def _read_text(path: Path) -> pd.DataFrame:
     """Read a plain-text file as a single-column DataFrame (one row per line)."""
@@ -25,7 +27,7 @@ def _read_json(path: Path) -> pd.DataFrame:
     return pd.read_json(path)
 
 
-_READERS = {
+_READERS: dict[str, Callable[..., pd.DataFrame]] = {
     "csv": pd.read_csv,
     "excel": pd.read_excel,
     "parquet": pd.read_parquet,

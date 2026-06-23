@@ -145,7 +145,8 @@ class SchedulerRunner:
         schedule.consecutive_failures = 0
         schedule.retry_count = 0
         schedule.disabled_reason = None
-        schedule.next_run_at = compute_next_run(schedule.cron, datetime.now(UTC).replace(tzinfo=None), schedule.timezone)
+        now = datetime.now(UTC).replace(tzinfo=None)
+        schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
 
     def _on_failure(self, schedule: Schedule) -> None:
         """Decide what happens after a failed run: auto-disable (wins), retry with
@@ -169,7 +170,8 @@ class SchedulerRunner:
             schedule.next_run_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=delay)
         else:
             schedule.retry_count = 0
-            schedule.next_run_at = compute_next_run(schedule.cron, datetime.now(UTC).replace(tzinfo=None), schedule.timezone)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
 
     @staticmethod
     def _backoff_seconds(base: int, attempt: int) -> int:
