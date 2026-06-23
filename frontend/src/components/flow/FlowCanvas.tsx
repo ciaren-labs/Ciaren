@@ -116,7 +116,13 @@ export function FlowCanvas() {
   const handleAutoLayout = useCallback(() => {
     const laid = autoLayout(nodes, edges);
     setNodes(laid);
-    setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
+    // Double-rAF: first frame commits new positions, second lets React Flow
+    // measure them, then fitView calculates against the real bounding box.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        fitView({ padding: 0.12, duration: 350, maxZoom: 1.5 })
+      )
+    );
   }, [nodes, edges, setNodes, fitView]);
 
   const minimapColor = (_node: Node) => "#a78bfa";
@@ -137,7 +143,7 @@ export function FlowCanvas() {
         onDrop={onDrop}
         onDragOver={onDragOver}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.12, maxZoom: 1.5 }}
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#cbd5e1" />
