@@ -11,6 +11,7 @@ from app.api.routes import (
     connections,
     datasets,
     flows,
+    ml,
     projects,
     runs,
     schedules,
@@ -159,6 +160,7 @@ def create_app() -> FastAPI:
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
     app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
     app.include_router(runs.router, prefix="/api", tags=["runs"])
+    app.include_router(ml.router, prefix="/api", tags=["ml"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
 
