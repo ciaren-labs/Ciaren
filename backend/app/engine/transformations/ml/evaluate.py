@@ -152,8 +152,12 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         self._require_columns(pdf, *features)
         x = pdf[features]
         n_labels = labels.nunique()
-        if n_labels < 2:
-            logger.warning("mlEvaluate: clustering metrics need >= 2 clusters (got %d).", n_labels)
+        # silhouette/Davies-Bouldin require 2..n_samples-1 distinct clusters.
+        if n_labels < 2 or n_labels >= len(labels):
+            logger.warning(
+                "mlEvaluate: clustering metrics need 2..n-1 clusters (got %d for %d rows).",
+                n_labels, len(labels),
+            )
             return {}
         computed = {
             "silhouette": lambda: float(silhouette_score(x, labels)),
