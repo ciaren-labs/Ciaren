@@ -32,6 +32,7 @@ class DatasetRead(BaseModel):
     source_type: str
     dataset_kind: str = "input"  # "input" (uploaded) or "output" (flow-generated)
     is_disabled: bool = False
+    deleted_at: datetime | None = None
     project_id: str | None = None
     latest_version: int
     version_count: int
