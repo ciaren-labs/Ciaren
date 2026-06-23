@@ -20,9 +20,11 @@ from app.schemas.preview import (
 )
 from app.services.dataset_resolver import build_dataset_paths, resolve_version
 from app.services.sql_resolver import has_sql_inputs, materialize_sql_inputs
+from app.services.storage_resolver import has_storage_inputs, materialize_storage_inputs
 
-# Preview reads a bounded sample from SQL sources so it stays fast.
+# Preview reads a bounded sample from external sources so it stays fast.
 _PREVIEW_SQL_ROWS = 1000
+_PREVIEW_STORAGE_ROWS = 1000
 
 
 class PreviewService:
@@ -49,12 +51,17 @@ class PreviewService:
         graph = flow.graph_json
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
-        # SQL inputs are read live (bounded) into parquet snapshots in a temp dir
-        # that lives only for the duration of the in-memory compute.
+        # SQL and storage inputs are materialized into parquet snapshots in a temp
+        # dir that lives only for the duration of the in-memory compute.
         with tempfile.TemporaryDirectory() as tmp:
             sql_input_paths = (
                 await materialize_sql_inputs(self.db, graph, Path(tmp), limit=_PREVIEW_SQL_ROWS)
                 if has_sql_inputs(graph)
+                else {}
+            )
+            storage_input_paths = (
+                await materialize_storage_inputs(self.db, graph, Path(tmp), limit=_PREVIEW_STORAGE_ROWS)
+                if has_storage_inputs(graph)
                 else {}
             )
             frames = FlowExecutor().compute_frames(
@@ -63,6 +70,7 @@ class PreviewService:
                 self.engine,
                 require_output=False,
                 sql_input_paths=sql_input_paths,
+                storage_input_paths=storage_input_paths,
             )
             node_id = req.node_id or self._default_node(graph)
             if node_id not in frames:
