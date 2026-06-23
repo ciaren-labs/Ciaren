@@ -1234,12 +1234,19 @@ export function NodeConfigForm({
       );
 
     case "storageInput": {
-      const objects = objectsQuery.data ?? [];
+      const SUPPORTED_EXTS = new Set(["csv", "xlsx", "xls", "parquet", "json", "txt"]);
+      const allObjects = objectsQuery.data ?? [];
+      const objects = allObjects.filter((obj) => {
+        const ext = obj.split(".").pop()?.toLowerCase() ?? "";
+        return SUPPORTED_EXTS.has(ext);
+      });
       const selectedPath = (c.path as string) ?? "";
       const formatFromPath = (p: string): string => {
         const ext = p.split(".").pop()?.toLowerCase();
         if (ext === "parquet") return "parquet";
         if (ext === "xlsx" || ext === "xls") return "excel";
+        if (ext === "json") return "json";
+        if (ext === "txt") return "text";
         return "csv";
       };
       return (
@@ -1309,8 +1316,10 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to read.">
             <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
+              <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
+              <option value="json">JSON</option>
+              <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
         </>

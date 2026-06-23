@@ -15,7 +15,7 @@ import pandas as pd
 
 log = logging.getLogger("app.connectors.storage")
 
-FILE_FORMATS = ("csv", "excel", "parquet")
+FILE_FORMATS = ("csv", "excel", "parquet", "json", "text")
 STORAGE_WRITE_MODES = ("overwrite", "error")
 
 
