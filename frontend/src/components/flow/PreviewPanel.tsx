@@ -23,11 +23,20 @@ const CHART_SAMPLE_LIMIT = 500;
 
 const CHART_TYPES: { value: string; label: string }[] = [
   { value: "histogramChart", label: "Histogram" },
-  { value: "correlationHeatmap", label: "Correlation heatmap" },
-  { value: "lineChart", label: "Line / time series" },
-  { value: "scatterChart", label: "Scatter" },
+  { value: "valueCounts", label: "Value counts" },
   { value: "barChart", label: "Bar" },
+  { value: "pieChart", label: "Pie" },
+  { value: "lineChart", label: "Line / time series" },
+  { value: "areaChart", label: "Area" },
+  { value: "scatterChart", label: "Scatter" },
+  { value: "correlationHeatmap", label: "Correlation heatmap" },
 ];
+
+// Which controls each chart type needs.
+const SINGLE_COLUMN = new Set(["histogramChart", "valueCounts"]);
+const XY = new Set(["barChart", "pieChart", "lineChart", "areaChart", "scatterChart"]);
+const CATEGORY_XY = new Set(["barChart", "pieChart"]);
+const WITH_AGGREGATE = new Set(["barChart", "pieChart"]);
 
 const AGGREGATES: Aggregate[] = ["sum", "mean", "count", "min", "max"];
 
@@ -46,7 +55,7 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
   };
 
   return (
-    <div className="flex h-64 flex-col border-t border-border bg-background">
+    <div className="flex h-full flex-col border-t border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">Data Preview</h3>
@@ -149,13 +158,17 @@ function ChartView({
     switch (type) {
       case "histogramChart":
         return { column: col, bins };
+      case "valueCounts":
+        return { column: col };
       case "correlationHeatmap":
         return { columns: [] };
       case "lineChart":
+      case "areaChart":
         return { x: xCol, y: yCol ? [yCol] : [] };
       case "scatterChart":
         return { x: xCol, y: yCol };
       case "barChart":
+      case "pieChart":
         return { x: xCol, y: yCol, aggregate };
       default:
         return {};
@@ -175,35 +188,36 @@ function ChartView({
           </Select>
         </Field>
 
-        {type === "histogramChart" && (
-          <>
-            <Field label="Column">
-              <ColumnSelect value={col} columns={columns} onChange={setColumn} />
-            </Field>
-            <Field label="Bins">
-              <Input
-                type="number"
-                min={1}
-                value={bins}
-                onChange={(e) => setBins(Math.max(1, Number(e.target.value) || 1))}
-                className="h-8 w-20"
-              />
-            </Field>
-          </>
+        {SINGLE_COLUMN.has(type) && (
+          <Field label="Column">
+            <ColumnSelect value={col} columns={columns} onChange={setColumn} />
+          </Field>
         )}
 
-        {(type === "lineChart" || type === "scatterChart" || type === "barChart") && (
+        {type === "histogramChart" && (
+          <Field label="Bins">
+            <Input
+              type="number"
+              min={1}
+              value={bins}
+              onChange={(e) => setBins(Math.max(1, Number(e.target.value) || 1))}
+              className="h-8 w-20"
+            />
+          </Field>
+        )}
+
+        {XY.has(type) && (
           <>
-            <Field label={type === "barChart" ? "Category (x)" : "X axis"}>
+            <Field label={CATEGORY_XY.has(type) ? "Category (x)" : "X axis"}>
               <ColumnSelect value={xCol} columns={columns} onChange={setX} />
             </Field>
-            <Field label={type === "barChart" ? "Value (y)" : "Y axis"}>
+            <Field label={CATEGORY_XY.has(type) ? "Value (y)" : "Y axis"}>
               <ColumnSelect value={yCol} columns={columns} onChange={setY} />
             </Field>
           </>
         )}
 
-        {type === "barChart" && (
+        {WITH_AGGREGATE.has(type) && (
           <Field label="Aggregate">
             <Select
               value={aggregate}

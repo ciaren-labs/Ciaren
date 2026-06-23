@@ -152,6 +152,17 @@ export function barData(
   }));
 }
 
+/** Count how many rows fall into each distinct value of a column (frequency). */
+export function valueCounts(rows: Row[], column: string): BarDatum[] {
+  const groups = new Map<string, number>();
+  for (const row of rows) {
+    const cell = row[column];
+    const key = cell === null || cell === undefined || cell === "" ? "(blank)" : String(cell);
+    groups.set(key, (groups.get(key) ?? 0) + 1);
+  }
+  return [...groups.entries()].map(([category, value]) => ({ category, value }));
+}
+
 function aggregateValues(values: number[], aggregate: Aggregate): number {
   if (aggregate === "count") return values.length;
   if (values.length === 0) return 0;
