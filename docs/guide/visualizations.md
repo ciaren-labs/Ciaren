@@ -25,10 +25,13 @@ it re-draws from the data already loaded, so there's no waiting.
 | Type | What it shows | Inputs |
 |------|---------------|--------|
 | **Histogram** | Distribution of a numeric column | column, bin count |
-| **Correlation heatmap** | Pairwise Pearson correlation | all numeric columns in the sample |
-| **Line / time series** | A value over an ordered axis | x axis, y value |
-| **Scatter** | Relationship between two numeric columns | x, y |
+| **Value counts** | Frequency of each distinct value | column |
 | **Bar** | A value aggregated by category | category (x), value (y), aggregate |
+| **Pie** | A category's share of a total | category (x), value (y), aggregate |
+| **Line / time series** | A value over an ordered axis | x axis, y value |
+| **Area** | A value over an ordered axis, filled | x axis, y value |
+| **Scatter** | Relationship between two numeric columns | x, y |
+| **Correlation heatmap** | Pairwise Pearson correlation | all numeric columns in the sample |
 
 ## Charts are based on a sample
 
