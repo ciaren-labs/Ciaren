@@ -22,7 +22,6 @@ import {
   OUTLIER_METHOD_LABELS,
   splitModes,
   stringOperations,
-  STRING_OPERATION_LABELS,
   windowFunctions,
   windowTargetFuncs,
 } from "@/lib/validators";
@@ -31,8 +30,11 @@ import {
   ColumnMultiSelect,
   ColumnSelect,
   CsvListInput,
+  DateFormatPicker,
+  DelimiterPicker,
   Field,
   KeyValueEditor,
+  TagInput,
 } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
 
@@ -318,10 +320,17 @@ export function NodeConfigForm({
             <Field
               label={isBetween ? "From (lower bound)" : "Value"}
               error={errors.value}
-              hint={isIn ? "Comma-separated list, e.g. red, green, blue" : undefined}
               help={isIn ? "Keeps rows whose value matches any item in the list." : undefined}
             >
-              <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+              {isIn ? (
+                <TagInput
+                  value={typeof c.value === "string" ? c.value : ""}
+                  onChange={(v) => set({ value: v })}
+                  placeholder="e.g. red, green, blue"
+                />
+              ) : (
+                <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+              )}
             </Field>
           )}
           {isBetween && (
@@ -397,11 +406,10 @@ export function NodeConfigForm({
           {hasDatetime && (
             <Field
               label="Date format (optional)"
-              hint="e.g. %Y-%m-%d"
               help="strptime format for datetime casts. Leave empty to auto-detect."
               error={errors.format}
             >
-              <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+              <DateFormatPicker value={c.format} onChange={(v) => set({ format: v })} />
             </Field>
           )}
         </>
@@ -445,19 +453,42 @@ export function NodeConfigForm({
 
     case "stringTransform": {
       const op = (c.operation as string) ?? "lower";
+      const OP_LABELS: Record<string, string> = {
+        lower: "Lowercase",
+        upper: "Uppercase",
+        strip: "Strip spaces",
+        title: "Title Case",
+        capitalize: "Capitalize",
+        len: "Count chars",
+        replace: "Find & Replace",
+        pad: "Pad width",
+      };
       return (
         <>
           <Field label="Column" error={errors.column}>
             <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
           <Field label="Operation" error={errors.operation} help="Text transformation applied to every value in the column.">
-            <Select value={op} onChange={(e) => set({ operation: e.target.value })}>
-              {stringOperations.map((o) => (
-                <option key={o} value={o}>
-                  {STRING_OPERATION_LABELS[o] ?? o}
-                </option>
-              ))}
-            </Select>
+            <div className="grid grid-cols-2 gap-1">
+              {stringOperations.map((o) => {
+                const on = op === o;
+                return (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => set({ operation: o })}
+                    className={cn(
+                      "rounded border px-2 py-1 text-left text-[11px] font-medium transition-colors",
+                      on
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted",
+                    )}
+                  >
+                    {OP_LABELS[o] ?? o}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
           {op === "replace" && (
             <>
@@ -723,7 +754,15 @@ export function NodeConfigForm({
       return (
         <>
           <Field label="Column" error={errors.column} help="The numeric column to bucket.">
-            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+            <ColumnSelect
+              value={c.column}
+              columns={columns}
+              onChange={(v) => {
+                const patch: Record<string, unknown> = { column: v };
+                if (!c.new_column) patch.new_column = `${v}_bin`;
+                set(patch);
+              }}
+            />
           </Field>
           <Field label="New column" error={errors.new_column} help="Name for the bucket label column that's added.">
             <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="bucket" />
@@ -837,8 +876,8 @@ export function NodeConfigForm({
             </Select>
           </Field>
           {mode === "delimiter" ? (
-            <Field label="Delimiter" error={errors.delimiter} help="Text to split on, e.g. a comma or space.">
-              <Input value={c.delimiter ?? ""} onChange={(e) => set({ delimiter: e.target.value })} placeholder="," />
+            <Field label="Delimiter" error={errors.delimiter} help="Character or text to split on.">
+              <DelimiterPicker value={c.delimiter} onChange={(v) => set({ delimiter: v })} />
             </Field>
           ) : (
             <Field label="Pattern" error={errors.pattern} help="Regex with capture groups; group 1 → first column, etc.">
@@ -873,11 +912,10 @@ export function NodeConfigForm({
           </Field>
           <Field
             label="Date format (optional)"
-            hint="e.g. %d-%m-%Y"
             help="strptime format. Leave empty to auto-detect."
             error={errors.format}
           >
-            <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+            <DateFormatPicker value={c.format} onChange={(v) => set({ format: v })} />
           </Field>
           <Field label="On bad values" error={errors.errors} help="Raise an error, or coerce unparseable values to null.">
             <Select value={c.errors ?? "coerce"} onChange={(e) => set({ errors: e.target.value })}>
@@ -933,7 +971,14 @@ export function NodeConfigForm({
       return (
         <>
           <Field label="Function" error={errors.function} help="row_number/rank order rows; cumsum/cummax/cummin run totals; lag/lead shift values.">
-            <Select value={fn} onChange={(e) => set({ function: e.target.value })}>
+            <Select
+              value={fn}
+              onChange={(e) => {
+                const patch: Record<string, unknown> = { function: e.target.value };
+                if (!c.new_column) patch.new_column = e.target.value;
+                set(patch);
+              }}
+            >
               {windowFunctions.map((f) => (
                 <option key={f} value={f}>
                   {f}
