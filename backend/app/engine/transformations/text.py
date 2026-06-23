@@ -61,7 +61,8 @@ class StringTransformTransformation(BaseTransformation):
         "upper": ("upper", "to_uppercase()"),
         "strip": ("strip", "strip_chars()"),
         "title": ("title", "to_titlecase()"),
-        "capitalize": ("capitalize", "to_titlecase()"),
+        # capitalize is special-cased in to_polars_code (no direct polars method).
+        "capitalize": ("capitalize", None),
         "len": ("len", "len_chars()"),
     }
     _VALID_OPS = set(_SIMPLE_OPS) | {"replace", "pad"}
@@ -122,7 +123,10 @@ class StringTransformTransformation(BaseTransformation):
         col = config["column"]
         op = config["operation"]
         base = f"pl.col({col!r}).cast(pl.Utf8).str"
-        if op in self._SIMPLE_OPS:
+        if op == "capitalize":
+            # pandas capitalize: first char upper, the rest lower (whole string).
+            expr = f"({base}.slice(0, 1).str.to_uppercase() + {base}.slice(1).str.to_lowercase())"
+        elif op in self._SIMPLE_OPS:
             expr = f"{base}.{self._SIMPLE_OPS[op][1]}"
         elif op == "replace":
             expr = (
