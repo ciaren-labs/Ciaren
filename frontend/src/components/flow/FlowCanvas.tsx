@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -112,6 +112,24 @@ export function FlowCanvas() {
     },
     [nodes, screenToFlowPosition, addNode],
   );
+
+  const didInitialLayout = useRef(false);
+  useEffect(() => {
+    if (nodes.length === 0 || didInitialLayout.current) return;
+    didInitialLayout.current = true;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const laid = autoLayout(nodes, edges);
+        setNodes(laid);
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            fitView({ padding: 0.12, duration: 350, maxZoom: 1.5 })
+          )
+        );
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]);
 
   const handleAutoLayout = useCallback(() => {
     const laid = autoLayout(nodes, edges);
