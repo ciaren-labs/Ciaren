@@ -1,7 +1,7 @@
 ---
 title: REST API Reference
-description: FlowFrame REST API endpoints
-search: api rest endpoints datasets flows runs export
+description: FlowFrame REST API — overview and conventions
+search: api rest endpoints overview conventions base url swagger
 ---
 
 # REST API Reference
@@ -16,94 +16,25 @@ or `http://localhost:8055/redoc` for ReDoc. Both are generated from the running
 app, so they always match your version.
 :::
 
-## Health
+## Resources
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/health` | Returns `{"status": "ok"}` |
+Each resource has its own reference page:
 
-## Projects
+- [Projects](./projects.md) — workspaces grouping datasets and flows
+- [Datasets](./datasets.md) — upload and inspect versioned source files
+- [Flows](./flows.md) — saved pipelines (graph), preview, and code export
+- [Runs](./runs.md) — execute flows and read status, logs, per-node results
+- [Transformations](./transformations.md) — list node types, preview one node
+- [Schedules](./schedules.md) — run flows automatically on a cron schedule
+- [Connections](./connections.md) — reusable database connections for SQL nodes
 
-Lightweight workspaces that group related datasets and flows. A `Default`
-project is created automatically; every dataset and flow belongs to one.
+## Conventions
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/projects` | List projects (with dataset/flow counts) |
-| `POST` | `/api/projects` | Create a project |
-| `GET` | `/api/projects/{project_id}` | Get one project |
-| `PUT` | `/api/projects/{project_id}` | Update a project |
-| `DELETE` | `/api/projects/{project_id}` | Delete a project (its items move to `Default`) |
-
-## Datasets
-
-Upload and inspect source files (CSV, Excel, Parquet). Datasets are **versioned**:
-re-uploading a file under the same name appends a new immutable version, so flows
-pinned to an earlier version stay reproducible.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/api/datasets/upload` | Upload a file (optionally `?project_id=`); creates a dataset or a new version |
-| `GET` | `/api/datasets` | List datasets (optionally `?project_id=`) |
-| `GET` | `/api/datasets/{dataset_id}` | Get one dataset |
-| `GET` | `/api/datasets/{dataset_id}/versions` | List all versions, newest first |
-| `GET` | `/api/datasets/{dataset_id}/flows` | Flows that use this dataset (lineage) |
-| `GET` | `/api/datasets/{dataset_id}/schema` | Inferred column schema (optionally `?version=`) |
-| `GET` | `/api/datasets/{dataset_id}/sample` | Sample rows (optionally `?version=`) |
-
-## Flows
-
-Create, read, update, and delete saved pipelines. A flow stores a React
-Flow-compatible graph (`nodes` and `edges`).
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/flows` | List flows |
-| `POST` | `/api/flows` | Create a flow |
-| `GET` | `/api/flows/{flow_id}` | Get one flow |
-| `PUT` | `/api/flows/{flow_id}` | Update a flow |
-| `DELETE` | `/api/flows/{flow_id}` | Delete a flow |
-| `POST` | `/api/flows/{flow_id}/preview` | Preview the flow output without saving a run |
-| `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code (returns both `code` = pandas and `polars`) |
-
-## Runs
-
-Execute a flow and read run metadata, status, logs, and per-node results.
-The run request accepts an optional `engine` (`polars` default, or `pandas`),
-which is recorded on the run for reproducibility. Each run also stores a
-per-node result (status, row/column counts, a small sample, and `duration_ms`)
-for the read-only run view.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/api/flows/{flow_id}/runs` | Execute a flow (optional body `{"engine": "polars"}`) and create a run |
-| `GET` | `/api/runs` | List runs, filterable by `flow_id`, `project_id`, `dataset_id`, `status`, and date range |
-| `GET` | `/api/runs/{run_id}` | Get run status, output location, logs, and per-node results |
-
-## Transformations
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/transformations` | List available transformation types |
-| `POST` | `/api/transformations/preview` | Preview a single transformation against sample data |
-
-## Schedules
-
-Run a flow automatically on a cron schedule. A schedule carries a `cron`
-expression, a `timezone`, an optional `engine`, and reliability settings
-(`max_retries`, `retry_delay_seconds`, `catch_up`). See
-[Scheduling](/guide/scheduling) for the behavior.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/flows/{flow_id}/schedules` | List a flow's schedules |
-| `POST` | `/api/flows/{flow_id}/schedules` | Create a schedule for a flow |
-| `GET` | `/api/schedules` | List all schedules (optionally `?flow_id=`) |
-| `GET` | `/api/schedules/{schedule_id}` | Get one schedule |
-| `PATCH` | `/api/schedules/{schedule_id}` | Update a schedule (cron, engine, enabled, …) |
-| `DELETE` | `/api/schedules/{schedule_id}` | Delete a schedule |
-| `POST` | `/api/schedules/{schedule_id}/run-now` | Trigger a one-off run immediately |
-| `GET` | `/api/schedules/{schedule_id}/runs` | List runs created by this schedule |
+- **Base URL:** `http://localhost:8055` (configurable via `--host`/`--port`).
+- **Format:** JSON request and response bodies; `POST /api/datasets/upload` uses
+  multipart form data.
+- **IDs:** path parameters like `{flow_id}` are the resource's `id`.
+- **Health check:** `GET /health` returns `{"status": "ok"}`.
 
 ## Typical workflow
 
