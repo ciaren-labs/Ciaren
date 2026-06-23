@@ -26,3 +26,23 @@ async def register_run_model(
 async def list_flow_ml_experiments(flow_id: str, service: MLServiceDep) -> list[dict[str, object]]:
     """MLflow experiments this flow's mlTrain nodes log to."""
     return await service.list_experiments(flow_id)
+
+
+@router.get("/ml/models")
+async def list_registered_models(service: MLServiceDep) -> list[dict[str, object]]:
+    """All registered models with versions, aliases, metrics, and FlowFrame lineage."""
+    return await service.list_registered_models()
+
+
+@router.get("/ml/experiments")
+async def list_ml_experiments(service: MLServiceDep) -> list[dict[str, object]]:
+    """All MLflow experiments with a run count / last-run time."""
+    return await service.list_all_experiments()
+
+
+@router.get("/ml/experiments/{experiment_id}/runs")
+async def list_ml_experiment_runs(
+    experiment_id: str, service: MLServiceDep, limit: int = 100
+) -> list[dict[str, object]]:
+    """Runs in an experiment (metrics, params, lineage) for the leaderboard."""
+    return await service.list_experiment_runs(experiment_id, limit=limit)
