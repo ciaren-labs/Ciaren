@@ -150,17 +150,17 @@ function ProviderIconBadge({
   size = "md",
 }: {
   name: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }) {
   const meta = getProviderMeta(name);
   const fill = `#${meta.color}`;
   const bg = `${fill}18`; // ~10% opacity tint
-  const iconCls = size === "sm" ? "h-4 w-4" : "h-5 w-5";
-  const padCls = size === "sm" ? "p-1.5" : "p-2";
+  const iconCls = size === "sm" ? "h-4 w-4" : size === "lg" ? "h-9 w-9" : "h-5 w-5";
+  const padCls = size === "sm" ? "p-1.5" : size === "lg" ? "p-3.5" : "p-2";
 
   return (
     <div
-      className={cn("shrink-0 rounded-lg", padCls)}
+      className={cn("shrink-0", size === "lg" ? "rounded-2xl" : "rounded-lg", padCls)}
       style={{ backgroundColor: bg }}
     >
       {meta.brandIcon ? (
@@ -376,19 +376,18 @@ function ProviderCard({
         provider.available && "hover:border-primary/50 hover:shadow-sm",
       )}
     >
-      {/* Main selectable area */}
       <button
         type="button"
         onClick={provider.available ? onSelect : undefined}
         className={cn(
-          "flex w-full flex-col gap-2.5 p-3.5 text-left transition-colors",
+          "flex w-full flex-col items-center gap-3 px-3 pb-4 pt-5 text-center transition-colors",
           provider.available ? "cursor-pointer hover:bg-muted/40" : "cursor-not-allowed opacity-40",
         )}
       >
-        <ProviderIconBadge name={provider.name} />
+        <ProviderIconBadge name={provider.name} size="lg" />
         <div>
-          <p className="text-xs font-semibold leading-snug">{provider.label}</p>
-          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+          <p className="text-sm font-semibold leading-snug">{provider.label}</p>
+          <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
             {meta.description}
           </p>
         </div>
@@ -410,27 +409,22 @@ function InstallHint({ command }: { command: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="border-t border-border/50 bg-muted/30 px-3 py-2">
-      <div className="flex items-center gap-1">
-        <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
-          {command}
-        </code>
-        <button
-          type="button"
-          onClick={copy}
-          title="Copy install command"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
-        >
-          {copied ? (
-            <Check className="h-3 w-3 text-success" />
-          ) : (
-            <Copy className="h-3 w-3 text-muted-foreground" />
-          )}
-        </button>
-      </div>
-      <p className="mt-0.5 text-[9px] text-muted-foreground/70">
-        No server restart needed — run, then click Recheck
-      </p>
+    <div className="flex items-center gap-1 border-t border-border/50 bg-muted/30 px-3 py-2">
+      <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        title="Copy install command"
+        className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-success" />
+        ) : (
+          <Copy className="h-3 w-3 text-muted-foreground" />
+        )}
+      </button>
     </div>
   );
 }
