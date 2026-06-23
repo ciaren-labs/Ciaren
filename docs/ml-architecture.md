@@ -929,9 +929,15 @@ tests passing (154 ML-specific), mypy + ruff clean. Delivered:
 - Dataset soft-delete (§8): `deleted_at` + `DATASET_RETENTION_DAYS`; soft delete
   retains files (restore / revive-on-reupload), `?purge=true` + `purge-expired`
   hard-delete and remove files; runs referencing a purged file get a clear error.
+- `GET /api/flows/{id}/ml/experiments` (experiment names derived from the graph,
+  looked up in MLflow).
+- Reproducibility tags (§5.3): mlTrain tags MLflow runs with
+  flowframe_flow_id/run_id and dataset ids via a run-context ContextVar.
+- Dataset-delete guard (§8): 409 when a `production`-aliased registered model was
+  trained on the dataset; `?force=true` overrides.
 
-**Still TODO:** the 409-on-delete-when-a-Production-model-depends check (§8, v2),
-`GET /api/flows/{id}/ml/experiments`, Phase 3 (frontend), Phase 5 (user docs).
+**Backend is feature-complete for v1.** Still TODO: Phase 3 (frontend) and
+Phase 5 (user docs).
 
 Track progress here as features are built and tested.
 
