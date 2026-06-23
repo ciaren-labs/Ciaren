@@ -225,3 +225,9 @@ __marimo__/
 backend/*.db
 backend/.dev_data/
 backend/.data/
+
+# MLflow local store + model artifacts (created by `flowframe init` / training)
+mlruns/
+mlartifacts/
+backend/mlruns/
+backend/mlartifacts/
