@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Cable,
   Check,
   Cloud,
   Copy,
@@ -296,6 +297,79 @@ function connectionTarget(connection: Connection): string {
   return `${connection.host ?? ""}${connection.port ? `:${connection.port}` : ""}/${connection.database ?? ""}`;
 }
 
+function TestButton({
+  onTest,
+  isPending,
+  result,
+  size = "default",
+  disabled = false,
+  className,
+}: {
+  onTest: () => void;
+  isPending: boolean;
+  result?: { ok: boolean; message: string };
+  size?: "sm" | "default";
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [visibleResult, setVisibleResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    if (result) {
+      setVisibleResult(result);
+      timerRef.current = setTimeout(() => setVisibleResult(null), 5000);
+    } else {
+      setVisibleResult(null);
+    }
+    return () => clearTimeout(timerRef.current);
+  }, [result]);
+
+  if (isPending) {
+    return (
+      <Button size={size} variant="outline" disabled className={className}>
+        <Loader2 className={cn("animate-spin", size === "sm" ? "h-3 w-3" : "mr-1.5 h-3.5 w-3.5")} />
+        {size !== "sm" && "Testing…"}
+      </Button>
+    );
+  }
+
+  if (visibleResult) {
+    return (
+      <Button
+        size={size}
+        variant="outline"
+        onClick={onTest}
+        title={visibleResult.message}
+        className={cn(
+          "transition-all duration-300",
+          visibleResult.ok
+            ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400"
+            : "border-red-400 bg-red-50 text-red-700 hover:bg-red-50 dark:bg-red-950 dark:text-red-400",
+          className,
+        )}
+      >
+        {visibleResult.ok ? (
+          <Check className={cn(size === "sm" ? "h-3 w-3" : "mr-1.5 h-3.5 w-3.5")} />
+        ) : (
+          <AlertTriangle className={cn(size === "sm" ? "h-3 w-3" : "mr-1.5 h-3.5 w-3.5")} />
+        )}
+        {size === "sm"
+          ? visibleResult.ok ? "OK" : "Error"
+          : visibleResult.ok ? "Connected!" : "Failed"}
+      </Button>
+    );
+  }
+
+  return (
+    <Button size={size} variant="outline" onClick={onTest} disabled={disabled} className={className}>
+      {size !== "sm" && <Cable className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />}
+      {size === "sm" ? "Test" : "Test connection"}
+    </Button>
+  );
+}
+
 function ConnectionCard({
   connection,
   providers,
@@ -326,23 +400,12 @@ function ConnectionCard({
         </div>
         <p className="truncate text-xs text-muted-foreground">{target}</p>
       </div>
-      {test.data && (
-        <span
-          className={`flex items-center gap-1 text-xs ${test.data.ok ? "text-success" : "text-destructive"}`}
-          title={test.data.message}
-        >
-          {test.data.ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-          {test.data.ok ? "OK" : "Failed"}
-        </span>
-      )}
-      <Button
+      <TestButton
         size="sm"
-        variant="outline"
-        onClick={() => test.mutate(connection.id)}
-        disabled={test.isPending}
-      >
-        {test.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Test"}
-      </Button>
+        onTest={() => test.mutate(connection.id)}
+        isPending={test.isPending}
+        result={test.data}
+      />
       {!isBuiltIn && (
         <Button
           size="sm"
@@ -692,21 +755,6 @@ function ConnectionDialog({
                 </>
               )}
 
-              {testConfig.data && (
-                <p
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs",
-                    testConfig.data.ok ? "text-success" : "text-destructive",
-                  )}
-                >
-                  {testConfig.data.ok ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <X className="h-3.5 w-3.5" />
-                  )}
-                  {testConfig.data.message}
-                </p>
-              )}
               {create.isError && (
                 <p className="text-xs text-destructive">
                   {(create.error as ApiError)?.message ?? "Could not create connection."}
@@ -714,17 +762,13 @@ function ConnectionDialog({
               )}
 
               <div className="mt-1 flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
+                <TestButton
                   className="mr-auto"
-                  onClick={() => testConfig.mutate(payload())}
-                  disabled={testConfig.isPending || !form.provider}
-                >
-                  {testConfig.isPending ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : null}
-                  Test connection
-                </Button>
+                  onTest={() => testConfig.mutate(payload())}
+                  isPending={testConfig.isPending}
+                  result={testConfig.data}
+                  disabled={!form.provider}
+                />
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
