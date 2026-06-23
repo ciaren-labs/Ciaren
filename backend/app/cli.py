@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import re
+import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -276,12 +277,21 @@ def _print_serve_banner(args: argparse.Namespace) -> None:
     base = f"http://{host}:{args.port}"
     serves_ui = frontend_dist_path(get_settings()) is not None
 
+    # Use an arrow the console can render, falling back to ASCII on legacy
+    # Windows code pages (cp1252) that can't encode "▶".
+    arrow = "▶"
+    enc = getattr(sys.stdout, "encoding", None) or ""
+    try:
+        arrow.encode(enc or "ascii")
+    except (UnicodeEncodeError, LookupError):
+        arrow = ">"
+
     print("\n  FlowFrame")
     if serves_ui:
-        print(f"  ▶ Open the app:  {base}")
+        print(f"  {arrow} Open the app:  {base}")
         print(f"    API + docs:    {base}/docs")
     else:
-        print(f"  ▶ API:           {base}  (docs at {base}/docs)")
+        print(f"  {arrow} API:           {base}  (docs at {base}/docs)")
         print("    Web UI:        run `npm run dev` in frontend/, then open http://localhost:5173")
         print("                   (or build it with `npm run build` to serve the UI from here)")
     print("")
