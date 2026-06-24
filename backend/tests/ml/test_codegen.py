@@ -126,6 +126,49 @@ def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
     assert result["prediction"].notna().all()
 
 
+def test_exported_evaluate_and_proba_run_with_all_metrics(tmp_path):
+    """The export must emit *all* configured evaluate metrics (not just one) and
+    the requested class-probability columns, and the script must run."""
+    data = tmp_path / "data.csv"
+    rng = np.random.default_rng(1)
+    n = 120
+    pd.DataFrame({
+        "num1": rng.normal(size=n),
+        "num2": rng.normal(size=n),
+        "target": rng.integers(0, 2, size=n),
+    }).to_csv(data, index=False)
+    out = tmp_path / "metrics.csv"
+
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 7, "test_size": 0.25}}},
+            {"id": "tr", "type": "mlTrain", "data": {"config": {
+                "model_type": "random_forest_classifier", "target_column": "target",
+                "feature_columns": ["num1", "num2"], "seed": 7}}},
+            {"id": "pr", "type": "mlPredict", "data": {"config": {
+                "output_column": "prediction", "output_proba_columns": ["p0", "p1"]}}},
+            {"id": "ev", "type": "mlEvaluate", "data": {"config": {
+                "task_type": "classification", "target_column": "target",
+                "prediction_column": "prediction",
+                "metrics": ["accuracy", "precision", "recall", "f1"]}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": out.as_posix()}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "sp"},
+            {"id": "e2", "source": "sp", "target": "tr", "sourceHandle": "train"},
+            {"id": "e3", "source": "sp", "target": "pr", "sourceHandle": "test"},
+            {"id": "e4", "source": "tr", "target": "pr", "sourceHandle": "model", "targetHandle": "model"},
+            {"id": "e5", "source": "pr", "target": "ev"},
+            {"id": "e6", "source": "ev", "target": "out"},
+        ],
+    }
+    code = CodeGenerator().generate(graph, {"ds1": data.as_posix()})
+    exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
+    metrics = pd.read_csv(out)
+    assert set(metrics["metric"]) == {"accuracy", "precision", "recall", "f1"}
+
+
 def test_imports_are_deduplicated():
     # Two scaleFeatures nodes -> StandardScaler imported once.
     graph = {
