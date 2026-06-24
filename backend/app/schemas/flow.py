@@ -19,13 +19,40 @@ class FlowUpdate(BaseModel):
     is_disabled: bool | None = None
 
 
+# Versioned tag on the portable flow document so importers can sanity-check it.
+FLOW_DOCUMENT_FORMAT = "flowframe.flow/v1"
+
+
+class FlowDocument(BaseModel):
+    """A portable, environment-independent description of a flow — its name and
+    node graph — suitable for committing to git and importing elsewhere."""
+
+    format: str = FLOW_DOCUMENT_FORMAT
+    name: str
+    description: str | None = None
+    graph_json: dict[str, Any]
+
+
+class FlowImport(BaseModel):
+    """Payload for importing a flow document. Environment-specific bindings
+    (dataset/connection ids) in the graph are stripped on import."""
+
+    format: str | None = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = None
+    project_id: str | None = None
+    graph_json: dict[str, Any]
+
+
 class CodeExportResponse(BaseModel):
     # `code` is the pandas export (kept for back-compat); `polars` is the
     # equivalent eager polars script; `polars_lazy` is the optimized lazy
-    # (`scan_*` → `collect()`) polars script.
+    # (`scan_*` → `collect()`) polars script. `flow_document` is the importable
+    # JSON description of the flow (name + node graph).
     code: str
     polars: str
     polars_lazy: str
+    flow_document: FlowDocument
 
 
 class FlowRead(BaseModel):

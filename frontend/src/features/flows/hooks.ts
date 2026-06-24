@@ -7,6 +7,7 @@ import { flowsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import type {
   FlowCreate,
+  FlowImport,
   FlowPreviewRequest,
   FlowUpdate,
 } from "@/lib/types";
@@ -30,6 +31,14 @@ export function useCreateFlow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: FlowCreate) => flowsApi.create(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
+  });
+}
+
+export function useImportFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (document: FlowImport) => flowsApi.import(document),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
   });
 }

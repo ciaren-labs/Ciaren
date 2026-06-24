@@ -12,6 +12,7 @@ from app.engine.graph import GraphValidationError
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _FILE_INPUT_TYPES
 from app.engine.polars_codegen import PolarsCodeGenerator
 from app.engine.sql_codegen import SQL_NODE_TYPES
+from app.schemas.flow import FlowDocument
 
 
 class CodegenService:
@@ -19,9 +20,9 @@ class CodegenService:
         self.db = db
 
     async def export_python(self, flow_id: str) -> str:
-        return (await self.export(flow_id))["pandas"]
+        return str((await self.export(flow_id))["pandas"])
 
-    async def export(self, flow_id: str, *, free_intermediates: bool = False) -> dict[str, str]:
+    async def export(self, flow_id: str, *, free_intermediates: bool = False) -> dict[str, Any]:
         """Generate the pandas, eager-polars and lazy-polars equivalents of a flow.
 
         ``free_intermediates`` adds ``del`` statements to the materializing
@@ -43,6 +44,9 @@ class CodegenService:
                     graph, dataset_names, connections, free_intermediates=free_intermediates
                 ),
                 "polars_lazy": PolarsCodeGenerator().generate(graph, dataset_names, connections, lazy=True),
+                "flow_document": FlowDocument(
+                    name=flow.name, description=flow.description, graph_json=graph
+                ),
             }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc

@@ -39,8 +39,6 @@ const ENABLED_OPTIONS = [
   { value: "paused", label: "Paused" },
 ];
 
-/** Group key for schedules whose flow isn't attached to any project. */
-const NO_PROJECT = "__none__";
 
 /** Lifecycle rank for sorting the State column (active → paused → auto-disabled). */
 function scheduleState(s: Schedule): string {
@@ -128,7 +126,7 @@ export function SchedulesPage() {
   const groups = useMemo(() => {
     const map = new Map<string, Schedule[]>();
     for (const s of filtered) {
-      const pid = (s.flow_id && flowProject.get(s.flow_id)) || NO_PROJECT;
+      const pid = (s.flow_id && flowProject.get(s.flow_id)) || "";
       const arr = map.get(pid);
       if (arr) arr.push(s);
       else map.set(pid, [s]);
@@ -237,13 +235,12 @@ export function SchedulesPage() {
       ) : layout === "table" ? (
         <div className="flex flex-col gap-4">
           {groups.map(([pid, group]) => {
-            const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+            const proj = projectById.get(pid);
             return (
               <CollapsibleSection
                 key={pid}
-                title={proj?.name ?? "No project"}
+                title={proj?.name ?? "Unknown project"}
                 colorKey={proj?.color}
-                showDot={pid !== NO_PROJECT}
                 count={group.length}
               >
                 <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -295,13 +292,12 @@ export function SchedulesPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {groups.map(([pid, group]) => {
-            const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+            const proj = projectById.get(pid);
             return (
               <CollapsibleSection
                 key={pid}
-                title={proj?.name ?? "No project"}
+                title={proj?.name ?? "Unknown project"}
                 colorKey={proj?.color}
-                showDot={pid !== NO_PROJECT}
                 count={group.length}
               >
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

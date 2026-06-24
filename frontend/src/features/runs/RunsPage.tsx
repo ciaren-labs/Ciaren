@@ -31,8 +31,6 @@ const DATE_CLASS =
 
 const STATUSES: RunStatus[] = ["success", "failed", "running", "pending"];
 const PAGE_SIZE = 25;
-/** Group key for runs that aren't attached to any project. */
-const NO_PROJECT = "__none__";
 
 /** Dataset cell label: a single name, or "first +N" for multi-input runs. */
 function datasetLabel(run: FlowRunSummary, datasetName: Map<string, string>): string {
@@ -128,12 +126,12 @@ export function RunsPage() {
     [projects],
   );
 
-  // Card view groups the current page's runs into per-project sections, keeping
-  // the (already sorted) run order within each. Insertion order = first appearance.
+  // Group the current page's runs into per-project sections, keeping the (already
+  // sorted) run order within each. Insertion order = first appearance.
   const runGroups = useMemo(() => {
     const groups = new Map<string, FlowRunSummary[]>();
     for (const run of runs ?? []) {
-      const pid = run.project_id ?? NO_PROJECT;
+      const pid = run.project_id ?? "";
       const arr = groups.get(pid);
       if (arr) arr.push(run);
       else groups.set(pid, [run]);
@@ -255,13 +253,12 @@ export function RunsPage() {
           {layout === "table" ? (
             <div className="flex flex-col gap-4">
               {runGroups.map(([pid, group]) => {
-                const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+                const proj = projectById.get(pid);
                 return (
                   <CollapsibleSection
                     key={pid}
-                    title={proj?.name ?? "No project"}
+                    title={proj?.name ?? "Unknown project"}
                     colorKey={proj?.color}
-                    showDot={pid !== NO_PROJECT}
                     count={group.length}
                   >
                     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -301,13 +298,12 @@ export function RunsPage() {
           ) : (
             <div className="flex flex-col gap-4">
               {runGroups.map(([pid, group]) => {
-                const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+                const proj = projectById.get(pid);
                 return (
                   <CollapsibleSection
                     key={pid}
-                    title={proj?.name ?? "No project"}
+                    title={proj?.name ?? "Unknown project"}
                     colorKey={proj?.color}
-                    showDot={pid !== NO_PROJECT}
                     count={group.length}
                   >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
