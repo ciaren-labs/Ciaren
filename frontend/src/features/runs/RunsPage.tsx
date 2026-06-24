@@ -33,6 +33,8 @@ const DATE_CLASS =
 
 const STATUSES: RunStatus[] = ["success", "failed", "running", "pending"];
 const PAGE_SIZE = 25;
+/** Group key for runs that aren't attached to any project. */
+const NO_PROJECT = "__none__";
 
 /** Dataset cell label: a single name, or "first +N" for multi-input runs. */
 function datasetLabel(run: FlowRunSummary, datasetName: Map<string, string>): string {
@@ -96,6 +98,14 @@ export function RunsPage() {
   const [sortBy, setSortBy] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [layout, setLayout] = useLayoutPreference("runs", "table");
+  // Collapsed project sections in the card view (project id -> collapsed).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleSection = (pid: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(pid) ? next.delete(pid) : next.add(pid);
+      return next;
+    });
 
   const filters: RunListFilters = useMemo(
     () => ({
@@ -127,6 +137,19 @@ export function RunsPage() {
     () => new Map((projects ?? []).map((p) => [p.id, p])),
     [projects],
   );
+
+  // Card view groups the current page's runs into per-project sections, keeping
+  // the (already sorted) run order within each. Insertion order = first appearance.
+  const runGroups = useMemo(() => {
+    const groups = new Map<string, FlowRunSummary[]>();
+    for (const run of runs ?? []) {
+      const pid = run.project_id ?? NO_PROJECT;
+      const arr = groups.get(pid);
+      if (arr) arr.push(run);
+      else groups.set(pid, [run]);
+    }
+    return [...groups.entries()];
+  }, [runs]);
 
   const hasFilters = flowId || status || datasetId || projectId || after || before;
   const reset = () => {
@@ -281,21 +304,49 @@ export function RunsPage() {
               </table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {runs!.map((run) => (
-                <RunCard
-                  key={run.id}
-                  run={run}
-                  flowName={flowName}
-                  datasetName={datasetName}
-                  projectById={projectById}
-                  fmt={fmt}
-                  onClick={() => navigate(`/runs/${run.id}`)}
-                  onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
-                  onRetry={() => handleRetry(run)}
-                  retrying={retry.isPending}
-                />
-              ))}
+            <div className="flex flex-col gap-5">
+              {runGroups.map(([pid, group]) => {
+                const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+                const theme = projectColor(proj?.color);
+                const isCollapsed = collapsed.has(pid);
+                return (
+                  <section key={pid} className="flex flex-col gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(pid)}
+                      className="flex w-fit items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                      {proj && <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />}
+                      {proj?.name ?? "No project"}
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                        {group.length}
+                      </span>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {group.map((run) => (
+                          <RunCard
+                            key={run.id}
+                            run={run}
+                            flowName={flowName}
+                            datasetName={datasetName}
+                            fmt={fmt}
+                            onClick={() => navigate(`/runs/${run.id}`)}
+                            onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                            onRetry={() => handleRetry(run)}
+                            retrying={retry.isPending}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
 
@@ -452,7 +503,6 @@ function RunCard({
   run,
   flowName,
   datasetName,
-  projectById,
   fmt,
   onClick,
   onOpenFlow,
@@ -462,15 +512,12 @@ function RunCard({
   run: FlowRunSummary;
   flowName: Map<string, string>;
   datasetName: Map<string, string>;
-  projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
   onOpenFlow: () => void;
   onRetry: () => void;
   retrying: boolean;
 }) {
-  const proj = run.project_id ? projectById.get(run.project_id) : undefined;
-  const theme = projectColor(proj?.color);
   return (
     <div
       role="button"
@@ -488,12 +535,6 @@ function RunCard({
           <StatusBadge status={run.status} />
         </div>
       </div>
-      {proj && (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />
-          {proj.name}
-        </span>
-      )}
       {(run.input_datasets?.length || run.input_dataset_id) && (
         <span className="text-xs text-muted-foreground">
           {datasetLabel(run, datasetName)}

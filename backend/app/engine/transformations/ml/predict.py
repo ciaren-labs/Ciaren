@@ -134,15 +134,18 @@ class MLPredictTransformation(MetadataMLTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         output_column = config.get("output_column", "prediction")
         # Prefer the upstream trained-model variable; fall back to loading a URI.
+        # Use MLflow-3 alias syntax (models:/name@alias) — the legacy /Stage form
+        # silently resolves to nothing.
         model_var = input_vars.get("model")
-        load = "" if model_var else (
-            f"_model = mlflow.sklearn.load_model("
-            f"{config.get('model_uri', 'models:/your-model/Production')!r})\n"
-        )
+        uri = config.get("model_uri") or "models:/your-model@production"
+        load = "" if model_var else f"_model = mlflow.sklearn.load_model({uri!r})\n"
         model_ref = model_var or "_model"
+        # Score only the model's training features (drop the target / extra columns),
+        # mirroring _align_features — otherwise sklearn raises on a feature mismatch.
         return (
             f"{load}{dst} = {src}.copy()\n"
-            f"{dst}[{output_column!r}] = {model_ref}.predict({src})"
+            f"_model_features = list(getattr({model_ref}, 'feature_names_in_', {src}.columns))\n"
+            f"{dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])"
         )
 
     def imports(self, config: dict[str, Any]) -> list[str]:

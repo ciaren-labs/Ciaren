@@ -21,7 +21,7 @@ import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
-import { applyLayout, autoLayout, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
+import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
 import { cn } from "@/lib/utils";
 
 const defaultEdgeOptions = {
@@ -120,7 +120,7 @@ export function FlowCanvas() {
     didInitialLayout.current = true;
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        const laid = autoLayout(nodes, edges);
+        const laid = applyLayout(DEFAULT_LAYOUT, nodes, edges);
         setNodes(laid);
         requestAnimationFrame(() =>
           requestAnimationFrame(() =>
@@ -134,7 +134,7 @@ export function FlowCanvas() {
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   // Remember the last layout the user picked so the main button reapplies it.
-  const [lastLayout, setLastLayout] = useState<LayoutKind>("horizontal");
+  const [lastLayout, setLastLayout] = useState<LayoutKind>(DEFAULT_LAYOUT);
 
   const handleAutoLayout = useCallback(
     (kind: LayoutKind) => {
