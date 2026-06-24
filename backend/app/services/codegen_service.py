@@ -54,8 +54,14 @@ class CodegenService:
             raise ValidationError(f"Unknown node type: {exc}") from exc
 
     async def _dataset_filenames(self, graph: dict[str, Any]) -> dict[str, str]:
+        # Use .get throughout: an input node may have no dataset bound yet (e.g. a
+        # freshly imported flow), in which case codegen falls back to a placeholder
+        # filename rather than crashing.
         dataset_ids = {
-            n["data"]["config"]["dataset_id"] for n in graph.get("nodes", []) if n["type"] in _FILE_INPUT_TYPES
+            ds_id
+            for n in graph.get("nodes", [])
+            if n.get("type") in _FILE_INPUT_TYPES
+            and (ds_id := n.get("data", {}).get("config", {}).get("dataset_id"))
         }
         if not dataset_ids:
             return {}
