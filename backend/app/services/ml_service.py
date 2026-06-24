@@ -190,6 +190,39 @@ class MLService:
             "lineage": lineage,
         }
 
+    async def set_model_alias(self, model_name: str, version: str, alias: str) -> dict[str, Any]:
+        """Point an alias (e.g. ``production``) at a registered model version."""
+        if not ml_extension_ready():
+            raise MLNotEnabledError("Managing aliases requires the ML extension (ML_ENABLED + [ml] extra).")
+        alias = (alias or "").strip().lower()
+        if not alias:
+            raise ValidationError("An alias name is required.")
+
+        from app.ml.tracking import configure_mlflow, resolve_tracking_uri
+
+        mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        client = mlflow.tracking.MlflowClient()
+        try:
+            client.set_registered_model_alias(model_name, alias, str(version))
+        except Exception as exc:  # noqa: BLE001 - surfaced as a 400
+            raise ValidationError(f"Could not set alias {alias!r}: {exc}") from None
+        return {"model_name": model_name, "alias": alias, "version": str(version)}
+
+    async def clear_model_alias(self, model_name: str, alias: str) -> dict[str, Any]:
+        """Remove an alias from a registered model."""
+        if not ml_extension_ready():
+            raise MLNotEnabledError("Managing aliases requires the ML extension (ML_ENABLED + [ml] extra).")
+
+        from app.ml.tracking import configure_mlflow, resolve_tracking_uri
+
+        mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        client = mlflow.tracking.MlflowClient()
+        try:
+            client.delete_registered_model_alias(model_name, alias.strip().lower())
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError(f"Could not clear alias {alias!r}: {exc}") from None
+        return {"model_name": model_name, "alias": alias.strip().lower(), "cleared": True}
+
     async def list_all_experiments(self) -> list[dict[str, Any]]:
         """All MLflow experiments with a run count and last-run time, for the
         Experiments tab leaderboard navigation."""

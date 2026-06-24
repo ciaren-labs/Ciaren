@@ -173,6 +173,10 @@ class ConnectionService:
 
     async def test(self, connection_id: str) -> ConnectionTestResult:
         conn = await self._get_or_raise(connection_id)
+        # Record the attempt time regardless of outcome, so the UI can show when a
+        # connection was last checked.
+        conn.last_tested_at = datetime.now(UTC).replace(tzinfo=None)
+        await self.db.commit()
         provider = get_provider(conn.provider)
         if not driver_available(provider):
             return ConnectionTestResult(

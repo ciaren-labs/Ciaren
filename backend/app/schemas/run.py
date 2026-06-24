@@ -20,6 +20,11 @@ class MLRegisterRequest(BaseModel):
     stage: str | None = Field(None, max_length=64)
 
 
+class MLAliasRequest(BaseModel):
+    alias: str = Field(..., min_length=1, max_length=64)
+    version: str = Field(..., min_length=1, max_length=32)
+
+
 class MLNodeMetrics(BaseModel):
     node_id: str
     type: str

@@ -4,7 +4,7 @@ metrics is a pure read of stored run data and always works."""
 from fastapi import APIRouter
 
 from app.api.deps import MLServiceDep
-from app.schemas.run import MLNodeMetrics, MLRegisterRequest
+from app.schemas.run import MLAliasRequest, MLNodeMetrics, MLRegisterRequest
 
 router = APIRouter()
 
@@ -32,6 +32,20 @@ async def list_flow_ml_experiments(flow_id: str, service: MLServiceDep) -> list[
 async def list_registered_models(service: MLServiceDep) -> list[dict[str, object]]:
     """All registered models with versions, aliases, metrics, and FlowFrame lineage."""
     return await service.list_registered_models()
+
+
+@router.post("/ml/models/{model_name}/alias")
+async def set_model_alias(
+    model_name: str, body: MLAliasRequest, service: MLServiceDep
+) -> dict[str, object]:
+    """Point an alias (e.g. production) at a registered model version."""
+    return await service.set_model_alias(model_name, body.version, body.alias)
+
+
+@router.delete("/ml/models/{model_name}/alias/{alias}")
+async def clear_model_alias(model_name: str, alias: str, service: MLServiceDep) -> dict[str, object]:
+    """Remove an alias from a registered model."""
+    return await service.clear_model_alias(model_name, alias)
 
 
 @router.get("/ml/experiments")

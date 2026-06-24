@@ -122,6 +122,17 @@ async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
     assert run["status"] == "success"
 
 
+async def test_flow_last_run_at_populated_after_run(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    # No runs yet → last_run_at is null in the flow list.
+    listed = {f["id"]: f for f in (await client.get("/api/flows")).json()}
+    assert listed[flow["id"]]["last_run_at"] is None
+    await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    listed2 = {f["id"]: f for f in (await client.get("/api/flows")).json()}
+    assert listed2[flow["id"]]["last_run_at"] is not None
+
+
 async def test_run_honors_flow_saved_engine(client: AsyncClient) -> None:
     # The flow saves a pandas preference in graph_json; a run with no explicit
     # engine should honor it instead of falling back to the polars default.
