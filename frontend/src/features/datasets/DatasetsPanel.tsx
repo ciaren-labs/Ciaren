@@ -52,9 +52,6 @@ function versionLabel(latest: number, count: number): string {
   return count < latest ? `v${latest} (${count} kept)` : `v${latest}`;
 }
 
-/** Group key for datasets that aren't attached to any project. */
-const NO_PROJECT = "__none__";
-
 type DatasetSortKey = "name" | "columns" | "versions" | "created";
 const DATASET_SORT: Record<DatasetSortKey, (d: Dataset) => string | number> = {
   name: (d) => d.name.toLowerCase(),
@@ -154,19 +151,12 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
     if (scoped || projectFilter) return null;
     const byProject = new Map<string, Dataset[]>();
     for (const d of filtered) {
-      const key = d.project_id ?? NO_PROJECT;
-      byProject.set(key, [...(byProject.get(key) ?? []), d]);
+      if (!d.project_id) continue; // every dataset belongs to a project
+      byProject.set(d.project_id, [...(byProject.get(d.project_id) ?? []), d]);
     }
-    const result = (projects ?? [])
+    return (projects ?? [])
       .map((p) => ({ id: p.id, name: p.name, color: p.color as string | null | undefined, items: byProject.get(p.id) ?? [] }))
       .filter((g) => g.items.length > 0);
-    // Datasets can be uploaded without a project — surface them in their own
-    // section instead of dropping them from the grouped view.
-    const orphans = byProject.get(NO_PROJECT);
-    if (orphans?.length) {
-      result.push({ id: NO_PROJECT, name: "No project", color: undefined, items: orphans });
-    }
-    return result;
   }, [filtered, projects, scoped, projectFilter]);
 
   return (
@@ -277,7 +267,6 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
               key={g.id}
               title={g.name}
               colorKey={g.color}
-              showDot={g.id !== NO_PROJECT}
               count={g.items.length}
             >
               {layout === "cards" ? (

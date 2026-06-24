@@ -1,7 +1,13 @@
 from fastapi import APIRouter, status
 
 from app.api.deps import CodegenServiceDep, FlowServiceDep, PreviewServiceDep
-from app.schemas.flow import CodeExportResponse, FlowCreate, FlowRead, FlowUpdate
+from app.schemas.flow import (
+    CodeExportResponse,
+    FlowCreate,
+    FlowImport,
+    FlowRead,
+    FlowUpdate,
+)
 from app.schemas.preview import FlowPreviewRequest, PreviewResponse
 
 router = APIRouter()
@@ -10,6 +16,14 @@ router = APIRouter()
 @router.get("", response_model=list[FlowRead])
 async def list_flows(service: FlowServiceDep, project_id: str | None = None) -> list[FlowRead]:
     return await service.list_all(project_id)
+
+
+@router.post("/import", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
+async def import_flow(body: FlowImport, service: FlowServiceDep) -> FlowRead:
+    """Create a flow from an exported flow document. Environment-specific bindings
+    (dataset / connection ids) in the graph are stripped — the imported flow keeps
+    its node structure but its inputs/connections must be re-selected."""
+    return await service.import_flow(body)
 
 
 @router.post("", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
@@ -42,4 +56,9 @@ async def export_flow_python(
     flow_id: str, service: CodegenServiceDep, free_intermediates: bool = False
 ) -> CodeExportResponse:
     code = await service.export(flow_id, free_intermediates=free_intermediates)
-    return CodeExportResponse(code=code["pandas"], polars=code["polars"], polars_lazy=code["polars_lazy"])
+    return CodeExportResponse(
+        code=code["pandas"],
+        polars=code["polars"],
+        polars_lazy=code["polars_lazy"],
+        flow_document=code["flow_document"],
+    )

@@ -11,6 +11,7 @@ import type {
   DatasetSchemaField,
   DatasetVersion,
   ExportCodeResponse,
+  FlowImport,
   Flow,
   FlowCreate,
   FlowPreviewRequest,
@@ -109,6 +110,11 @@ export const flowsApi = {
     request<Flow>("/flows", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  import: (document: FlowImport) =>
+    request<Flow>("/flows/import", {
+      method: "POST",
+      body: JSON.stringify(document),
     }),
   update: (id: string, body: FlowUpdate) =>
     request<Flow>(`/flows/${id}`, {

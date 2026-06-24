@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { AlertCircle, CalendarClock, Loader2, Pencil, Play, Plus, Power, Trash2, Upload, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
@@ -35,8 +35,6 @@ type PendingAction =
   | { kind: "enable"; flow: Flow }
   | { kind: "delete"; flow: Flow };
 
-/** Group key for flows not attached to any project. */
-const NO_PROJECT = "__none__";
 
 type FlowSortKey = "name" | "nodes" | "status" | "created" | "last_run";
 const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
@@ -67,6 +65,31 @@ export function FlowListPage() {
   const runMutation = useRunFlow();
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
+  const importFlow = useImportFlow();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    setImportError(null);
+    let doc: { graph_json?: unknown };
+    try {
+      doc = JSON.parse(await file.text());
+    } catch {
+      setImportError("That file isn't valid JSON.");
+      return;
+    }
+    if (!doc || typeof doc !== "object" || !("graph_json" in doc)) {
+      setImportError("Not a flow document — expected a 'graph_json' field.");
+      return;
+    }
+    importFlow.mutate(doc as Parameters<typeof importFlow.mutate>[0], {
+      onSuccess: (flow) => navigate(`/flows/${flow.id}`),
+      onError: (err) => setImportError((err as Error)?.message ?? "Import failed."),
+    });
+  };
 
   const { sort, toggle: toggleSort } = useSort<FlowSortKey>("created", "desc");
 
@@ -94,7 +117,7 @@ export function FlowListPage() {
   const groups = useMemo(() => {
     const map = new Map<string, Flow[]>();
     for (const f of filtered) {
-      const pid = f.project_id ?? NO_PROJECT;
+      const pid = f.project_id ?? "";
       const arr = map.get(pid);
       if (arr) arr.push(f);
       else map.set(pid, [f]);
@@ -177,6 +200,21 @@ export function FlowListPage() {
         </div>
         <div className="flex items-center gap-2">
           <ViewToggle value={layout} onChange={setLayout} />
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={onImportFile}
+          />
+          <Button
+            variant="outline"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importFlow.isPending}
+            title="Import a flow from an exported .flow.json"
+          >
+            {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import
+          </Button>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
           <DialogTrigger asChild>
             <Button>
@@ -242,6 +280,12 @@ export function FlowListPage() {
         </div>
       )}
 
+      {importError && (
+        <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {importError}
+        </div>
+      )}
+
       {isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -250,13 +294,12 @@ export function FlowListPage() {
 
       <div className="flex flex-col gap-4">
         {groups.map(([pid, group]) => {
-          const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+          const proj = projectById.get(pid);
           return (
             <CollapsibleSection
               key={pid}
-              title={proj?.name ?? "No project"}
+              title={proj?.name ?? "Unknown project"}
               colorKey={proj?.color}
-              showDot={pid !== NO_PROJECT}
               count={group.length}
             >
               {layout === "cards" ? (
