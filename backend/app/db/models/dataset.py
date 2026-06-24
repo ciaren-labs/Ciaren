@@ -27,8 +27,10 @@ class Dataset(Base):
     # Set when the dataset is soft-deleted; its version files are retained until the
     # retention window passes and it is purged. None = live.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    project_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    # Every dataset belongs to exactly one project (reassigned to the default on
+    # project deletion), so it is never orphaned.
+    project_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

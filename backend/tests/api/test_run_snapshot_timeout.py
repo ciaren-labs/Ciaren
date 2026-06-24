@@ -94,7 +94,10 @@ async def test_effective_timeout_precedence(db_session, monkeypatch) -> None:
         from app.db.models.flow import Flow
         from app.db.models.schedule import Schedule
 
-        flow = Flow(name="f", graph_json={"nodes": [], "edges": []})
+        from app.services.project_service import ProjectService
+
+        pid = (await ProjectService(db_session).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json={"nodes": [], "edges": []})
         db_session.add(flow)
         await db_session.flush()
         sched = Schedule(flow_id=flow.id, cron="0 * * * *", run_timeout_seconds=120)

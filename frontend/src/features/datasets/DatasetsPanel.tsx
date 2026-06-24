@@ -208,11 +208,11 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
       ) : (
         <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
           <p className="text-sm font-medium text-foreground">Step 1 — Choose a project</p>
-          <p className="text-xs text-muted-foreground">Select the project this dataset belongs to before uploading.</p>
+          <p className="text-xs text-muted-foreground">Pick the project this dataset belongs to — it lands in the Default project if you don't.</p>
           <SearchableSelect
             value={uploadProjectId}
             onChange={setUploadProjectId}
-            allLabel="Select a project…"
+            allLabel="Default project"
             placeholder="Search projects…"
             className="mx-auto w-full max-w-xs"
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
