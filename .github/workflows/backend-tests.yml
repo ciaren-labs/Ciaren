@@ -21,6 +21,8 @@ jobs:
     name: Test | ${{ matrix.os }} · Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    # PRs run ubuntu + 3.12 only for fast feedback; full matrix runs on pushes to main
+    if: github.event_name == 'push' || (matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12')
 
     strategy:
       fail-fast: false

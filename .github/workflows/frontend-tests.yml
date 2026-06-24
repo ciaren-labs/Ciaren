@@ -1,32 +1,35 @@
-name: Frontend Tests (Disabled - No Tests Yet)
+name: Frontend CI
 
 on:
-  # Frontend tests disabled: no tests defined yet
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-tests.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - frontend/**
+      - .github/workflows/frontend-tests.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test | Node ${{ matrix.node-version }}
+  check:
+    name: Type-check & Build | Node 22.x
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Node.js ${{ matrix.node-version }}
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22.x
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -34,26 +37,24 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Lint with ESLint/Biome
+      - name: Type-check with TypeScript
         working-directory: frontend
-        run: npm run lint --if-present
-
-      - name: Type check with TypeScript
-        working-directory: frontend
-        run: npm run type-check --if-present
-
-      - name: Run tests
-        working-directory: frontend
-        run: npm run test --if-present
+        run: npm run type-check
 
       - name: Build
         working-directory: frontend
         run: npm run build
 
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm run test --if-present
+
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Only run E2E when tests exist
+    if: false
 
     steps:
       - name: Checkout code

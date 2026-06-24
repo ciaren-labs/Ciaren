@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.18
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        entry: bash -c 'cd backend && uv run mypy app'
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+
+      - id: tsc
+        name: tsc (frontend)
+        entry: bash -c 'cd frontend && npm run type-check'
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(ts|tsx)$
