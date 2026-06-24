@@ -9,6 +9,8 @@ import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +27,6 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ViewToggle } from "@/components/filters/ViewToggle";
-import { projectColor } from "@/lib/projectColors";
 import type { Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,18 @@ type PendingAction =
   | { kind: "disable"; flow: Flow }
   | { kind: "enable"; flow: Flow }
   | { kind: "delete"; flow: Flow };
+
+/** Group key for flows not attached to any project. */
+const NO_PROJECT = "__none__";
+
+type FlowSortKey = "name" | "nodes" | "status" | "created" | "last_run";
+const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
+  name: (f) => f.name.toLowerCase(),
+  nodes: (f) => f.graph_json?.nodes.length ?? 0,
+  status: (f) => (f.is_disabled ? "disabled" : "active"),
+  created: (f) => f.created_at,
+  last_run: (f) => f.last_run_at ?? null,
+};
 
 export function FlowListPage() {
   const { data: flows, isLoading } = useFlows();
@@ -55,6 +68,8 @@ export function FlowListPage() {
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
 
+  const { sort, toggle: toggleSort } = useSort<FlowSortKey>("created", "desc");
+
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
     [projects],
@@ -73,6 +88,21 @@ export function FlowListPage() {
     }
     return list;
   }, [flows, projectFilter, search]);
+
+  // Group flows by project (insertion order), sorting each group's rows by the
+  // active sort column. Both card and table views share this.
+  const groups = useMemo(() => {
+    const map = new Map<string, Flow[]>();
+    for (const f of filtered) {
+      const pid = f.project_id ?? NO_PROJECT;
+      const arr = map.get(pid);
+      if (arr) arr.push(f);
+      else map.set(pid, [f]);
+    }
+    return [...map.entries()].map(
+      ([pid, items]) => [pid, sortRows(items, sort, FLOW_SORT)] as const,
+    );
+  }, [filtered, sort]);
 
   const {
     register,
@@ -218,35 +248,49 @@ export function FlowListPage() {
         </p>
       )}
 
-      {layout === "cards" ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((flow) => (
-            <FlowCard
-              key={flow.id}
-              flow={flow}
-              projectName={flow.project_id ? projectById.get(flow.project_id)?.name : undefined}
-              projectColorKey={flow.project_id ? projectById.get(flow.project_id)?.color : undefined}
-              onOpen={() => navigate(`/flows/${flow.id}`)}
-              onEdit={() => setEditingFlow(flow)}
-              onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
-              onSchedule={() => setSchedulingFlow(flow)}
-              onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
-              onDelete={() => setPendingAction({ kind: "delete", flow })}
-            />
-          ))}
-        </div>
-      ) : (
-        <FlowTable
-          flows={filtered}
-          projectById={projectById}
-          onOpen={(id) => navigate(`/flows/${id}`)}
-          onEdit={(flow) => setEditingFlow(flow)}
-          onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
-          onSchedule={(flow) => setSchedulingFlow(flow)}
-          onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
-          onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
-        />
-      )}
+      <div className="flex flex-col gap-4">
+        {groups.map(([pid, group]) => {
+          const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+          return (
+            <CollapsibleSection
+              key={pid}
+              title={proj?.name ?? "No project"}
+              colorKey={proj?.color}
+              showDot={pid !== NO_PROJECT}
+              count={group.length}
+            >
+              {layout === "cards" ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((flow) => (
+                    <FlowCard
+                      key={flow.id}
+                      flow={flow}
+                      onOpen={() => navigate(`/flows/${flow.id}`)}
+                      onEdit={() => setEditingFlow(flow)}
+                      onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
+                      onSchedule={() => setSchedulingFlow(flow)}
+                      onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+                      onDelete={() => setPendingAction({ kind: "delete", flow })}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <FlowTable
+                  flows={group}
+                  sort={sort}
+                  onSort={toggleSort}
+                  onOpen={(id) => navigate(`/flows/${id}`)}
+                  onEdit={(flow) => setEditingFlow(flow)}
+                  onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
+                  onSchedule={(flow) => setSchedulingFlow(flow)}
+                  onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+                  onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
+                />
+              )}
+            </CollapsibleSection>
+          );
+        })}
+      </div>
 
       {!isLoading && filtered.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -368,8 +412,6 @@ export function FlowListPage() {
 
 function FlowCard({
   flow,
-  projectName,
-  projectColorKey,
   onOpen,
   onEdit,
   onRun,
@@ -378,8 +420,6 @@ function FlowCard({
   onDelete,
 }: {
   flow: Flow;
-  projectName?: string;
-  projectColorKey?: string;
   onOpen: () => void;
   onEdit: () => void;
   onRun: () => void;
@@ -387,7 +427,6 @@ function FlowCard({
   onToggle: () => void;
   onDelete: () => void;
 }) {
-  const theme = projectColor(projectColorKey);
   const fmt = useFormatDateTime();
   return (
     <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
@@ -406,12 +445,6 @@ function FlowCard({
         </p>
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
           <span>{flow.graph_json?.nodes.length ?? 0} nodes</span>
-          {projectName && (
-            <span className="flex items-center gap-1.5">
-              <span className={cn("h-2 w-2 rounded-full", theme.dot)} />
-              {projectName}
-            </span>
-          )}
         </div>
         <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
           <span>Created {fmt(flow.created_at)}</span>
@@ -469,7 +502,8 @@ function FlowCard({
 
 function FlowTable({
   flows,
-  projectById,
+  sort,
+  onSort,
   onOpen,
   onEdit,
   onRun,
@@ -478,7 +512,8 @@ function FlowTable({
   onDelete,
 }: {
   flows: Flow[];
-  projectById: Map<string, { name: string; color: string }>;
+  sort: SortState<FlowSortKey>;
+  onSort: (key: FlowSortKey) => void;
   onOpen: (id: string) => void;
   onEdit: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
@@ -493,19 +528,16 @@ function FlowTable({
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
-            <th className="px-4 py-2.5 text-left font-semibold">Name</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Project</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Nodes</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Status</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Created</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Last run</th>
+            <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Nodes" sortKey="nodes" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Status" sortKey="status" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Created" sortKey="created" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Last run" sortKey="last_run" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
             <th className="px-4 py-2.5" />
           </tr>
         </thead>
         <tbody>
           {flows.map((flow) => {
-            const proj = flow.project_id ? projectById.get(flow.project_id) : undefined;
-            const theme = projectColor(proj?.color);
             return (
               <tr
                 key={flow.id}
@@ -515,14 +547,6 @@ function FlowTable({
                   <button onClick={() => onOpen(flow.id)} className="font-medium hover:underline">
                     {flow.name}
                   </button>
-                </td>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {proj ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className={cn("h-2 w-2 rounded-full", theme.dot)} />
-                      {proj.name}
-                    </span>
-                  ) : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   {flow.graph_json?.nodes.length ?? 0}
