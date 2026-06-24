@@ -227,6 +227,17 @@ class ExecutionService:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
 
+    async def retry(self, run_id: str) -> FlowRunRead:
+        """Re-run a previous run's flow with the same config (engine + input),
+        producing a brand-new run (new id). It executes the flow's *current* graph,
+        so a fixed flow is picked up; the original run is left untouched."""
+        result = await self.db.execute(select(FlowRun).where(FlowRun.id == run_id))
+        original = result.scalar_one_or_none()
+        if original is None:
+            raise NotFoundError("FlowRun", run_id)
+        body = FlowRunCreate(engine=original.engine, input_dataset_id=original.input_dataset_id)
+        return await self.run(original.flow_id, body, trigger="retry")
+
     _SORT_FIELDS = {
         "created_at": FlowRun.created_at,
         "started_at": FlowRun.started_at,

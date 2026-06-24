@@ -259,7 +259,7 @@ export function ConnectionsPage() {
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Connections</h1>

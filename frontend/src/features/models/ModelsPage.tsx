@@ -13,6 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { useFlows } from "@/features/flows/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { cn } from "@/lib/utils";
 import type {
@@ -57,9 +60,17 @@ function headlineMetric(metrics: Record<string, number>): { key: string; value: 
 
 export function ModelsPage() {
   const mlEnabled = useMlEnabled();
+  const { data: flows } = useFlows();
+  const { data: projects } = useProjects();
+  const flowName = useMemo(() => new Map((flows ?? []).map((f) => [f.id, f.name])), [flows]);
+  const flowProject = useMemo(
+    () => new Map((flows ?? []).map((f) => [f.id, f.project_id])),
+    [flows],
+  );
+  const projectName = useMemo(() => new Map((projects ?? []).map((p) => [p.id, p.name])), [projects]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <BrainCircuit className="h-6 w-6 text-purple-600" /> ML Models
@@ -83,10 +94,14 @@ export function ModelsPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="models">
-            <RegisteredModelsTab />
+            <RegisteredModelsTab
+              flowName={flowName}
+              flowProject={flowProject}
+              projectName={projectName}
+            />
           </TabsContent>
           <TabsContent value="experiments">
-            <ExperimentsTab />
+            <ExperimentsTab flowName={flowName} />
           </TabsContent>
         </Tabs>
       )}
@@ -127,33 +142,36 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-function LineageChips({ lineage }: { lineage: MlLineage }) {
+function LineageChips({
+  lineage,
+  flowName,
+}: {
+  lineage: MlLineage;
+  flowName?: Map<string, string>;
+}) {
   if (!lineage.flow_id && !lineage.run_id) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
+  const label = lineage.flow_id ? flowName?.get(lineage.flow_id) ?? "Flow" : null;
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
       {lineage.flow_id && (
         <Link
           to={`/flows/${lineage.flow_id}`}
-          className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 transition-colors hover:bg-brand-100"
+          title={label ?? undefined}
+          className="inline-flex max-w-[160px] items-center gap-1 truncate rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 transition-colors hover:bg-brand-100"
         >
-          <GitBranch className="h-3 w-3" /> Flow
+          <GitBranch className="h-3 w-3 shrink-0" /> <span className="truncate">{label}</span>
         </Link>
       )}
       {lineage.run_id && (
         <Link
           to={`/runs/${lineage.run_id}`}
-          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent"
         >
           Run
         </Link>
       )}
-      {lineage.dataset_ids?.length ? (
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-          {lineage.dataset_ids.length} dataset{lineage.dataset_ids.length > 1 ? "s" : ""}
-        </span>
-      ) : null}
     </span>
   );
 }
@@ -185,8 +203,27 @@ function EmptyBox({ title, body }: { title: string; body: string }) {
 
 // ─── Registered models ──────────────────────────────────────────────────────
 
-function RegisteredModelsTab() {
+const NO_PROJECT = "__none__";
+
+function RegisteredModelsTab({
+  flowName,
+  flowProject,
+  projectName,
+}: {
+  flowName: Map<string, string>;
+  flowProject: Map<string, string | null>;
+  projectName: Map<string, string>;
+}) {
   const { data: models, isLoading, isError } = useRegisteredModels();
+  const [projectFilter, setProjectFilter] = useState("");
+
+  // A model's project = the project of the flow that produced its production (or
+  // latest) version. Multi-project models fall under their representative version.
+  const projectOf = (m: MlRegisteredModel): string => {
+    const v = m.versions.find((x) => x.version === m.aliases.production) ?? m.versions[0];
+    const flowId = v?.lineage.flow_id;
+    return (flowId && flowProject.get(flowId)) || NO_PROJECT;
+  };
 
   if (isLoading) return <Loading />;
   if (isError) return <ErrorBox what="registered models" />;
@@ -199,21 +236,55 @@ function RegisteredModelsTab() {
     );
   }
 
+  // Group models by project for the segmented view.
+  const groups = new Map<string, MlRegisteredModel[]>();
+  for (const m of models) {
+    const pid = projectOf(m);
+    if (projectFilter && pid !== projectFilter) continue;
+    (groups.get(pid) ?? groups.set(pid, []).get(pid)!).push(m);
+  }
+  const projectLabel = (pid: string) =>
+    pid === NO_PROJECT ? "No project" : projectName.get(pid) ?? "Unknown project";
+
+  // Filter options: only projects that actually own a registered model.
+  const presentProjects = [...new Set(models.map(projectOf))];
+
   return (
     <div className="mt-4 flex flex-col gap-5">
-      <SummaryStrip models={models} />
-      <div className="flex flex-col gap-4">
-        {models.map((m) => (
-          <ModelCard key={m.name} model={m} />
-        ))}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Project</span>
+        <div className="w-56">
+          <SearchableSelect
+            value={projectFilter}
+            onChange={setProjectFilter}
+            allLabel="All projects"
+            placeholder="Filter by project…"
+            options={presentProjects.map((pid) => ({ value: pid, label: projectLabel(pid) }))}
+          />
+        </div>
       </div>
+
+      {[...groups.entries()].map(([pid, group]) => (
+        <section key={pid} className="flex flex-col gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+            {projectLabel(pid)}
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">{group.length}</span>
+          </h2>
+          <SummaryStrip models={group} flowName={flowName} />
+          <div className="flex flex-col gap-4">
+            {group.map((m) => (
+              <ModelCard key={m.name} model={m} flowName={flowName} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
 
 /** "At a glance" cards: each registered model's production (or latest) version and
  * its headline metric — the quick "what's my best model" answer. */
-function SummaryStrip({ models }: { models: MlRegisteredModel[] }) {
+function SummaryStrip({ models, flowName }: { models: MlRegisteredModel[]; flowName: Map<string, string> }) {
   const cards = models.map((m) => {
     const prodVersion = m.aliases.production;
     const chosen =
@@ -241,12 +312,20 @@ function SummaryStrip({ models }: { models: MlRegisteredModel[] }) {
                 <span className="text-sm text-muted-foreground">no metrics</span>
               )}
             </div>
-            <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
               <span className={cn("rounded px-1.5 py-0.5 font-medium", isProd ? "bg-purple-100 text-purple-700" : "bg-muted")}>
                 {isProd ? "@production" : "latest"} · v{version?.version ?? "—"}
               </span>
-              {version && <LineageChips lineage={version.lineage} />}
+              {version && <LineageChips lineage={version.lineage} flowName={flowName} />}
             </div>
+            {version?.lineage.flow_id && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                winner from{" "}
+                <span className="font-medium text-foreground">
+                  {flowName.get(version.lineage.flow_id) ?? "a flow"}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
@@ -254,7 +333,7 @@ function SummaryStrip({ models }: { models: MlRegisteredModel[] }) {
   );
 }
 
-function ModelCard({ model }: { model: MlRegisteredModel }) {
+function ModelCard({ model, flowName }: { model: MlRegisteredModel; flowName: Map<string, string> }) {
   const fmt = useFormatDateTime();
   const metricKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -303,7 +382,7 @@ function ModelCard({ model }: { model: MlRegisteredModel }) {
                     {k in v.metrics ? fmtMetric(v.metrics[k]) : <span className="text-muted-foreground">—</span>}
                   </td>
                 ))}
-                <td className="py-2 pr-3"><LineageChips lineage={v.lineage} /></td>
+                <td className="py-2 pr-3"><LineageChips lineage={v.lineage} flowName={flowName} /></td>
                 <td className="py-2 pr-3"><AliasEditor model={model.name} version={v} /></td>
                 <td className="py-2 pr-3">
                   <div className="flex items-center justify-end gap-1">
@@ -383,7 +462,7 @@ function AliasEditor({ model, version }: { model: string; version: MlModelVersio
 
 // ─── Experiments leaderboard ────────────────────────────────────────────────
 
-function ExperimentsTab() {
+function ExperimentsTab({ flowName }: { flowName: Map<string, string> }) {
   const { data: experiments, isLoading, isError } = useMlExperiments();
   const [selected, setSelected] = useState<string | null>(null);
   const fmt = useFormatDateTime();
@@ -420,12 +499,12 @@ function ExperimentsTab() {
           </button>
         ))}
       </div>
-      <ExperimentDetail key={activeId} experimentId={activeId} />
+      <ExperimentDetail key={activeId} experimentId={activeId} flowName={flowName} />
     </div>
   );
 }
 
-function ExperimentDetail({ experimentId }: { experimentId: string }) {
+function ExperimentDetail({ experimentId, flowName }: { experimentId: string; flowName: Map<string, string> }) {
   const { data: runs, isLoading, isError } = useExperimentRuns(experimentId);
   const fmt = useFormatDateTime();
   const [primary, setPrimary] = useState<string | null>(null);
@@ -494,7 +573,12 @@ function ExperimentDetail({ experimentId }: { experimentId: string }) {
                 <Trophy className="h-3 w-3 text-amber-500" /> Best {bestHead.key}
               </div>
               <div className="text-xl font-bold tabular-nums text-emerald-600">{fmtMetric(bestHead.value)}</div>
-              <div className="text-[11px] text-muted-foreground">{bestRun.params.model_type ?? bestRun.run_name}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {bestRun.params.model_type ?? bestRun.run_name}
+                {bestRun.lineage.flow_id && (
+                  <> · from <span className="font-medium text-foreground">{flowName.get(bestRun.lineage.flow_id) ?? "a flow"}</span></>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -533,7 +617,7 @@ function ExperimentDetail({ experimentId }: { experimentId: string }) {
                   </button>
                 </th>
               ))}
-              <th className="px-3 py-2 font-medium">Lineage</th>
+              <th className="px-3 py-2 font-medium">Flow &amp; run</th>
             </tr>
           </thead>
           <tbody>
@@ -546,6 +630,7 @@ function ExperimentDetail({ experimentId }: { experimentId: string }) {
                 best={best}
                 primaryMetric={primaryMetric}
                 when={fmt(r.start_time)}
+                flowName={flowName}
               />
             ))}
           </tbody>
@@ -562,6 +647,7 @@ function RunRow({
   best,
   primaryMetric,
   when,
+  flowName,
 }: {
   rank: number;
   run: MlExperimentRun;
@@ -569,6 +655,7 @@ function RunRow({
   best: Record<string, number>;
   primaryMetric: string | null;
   when: string;
+  flowName: Map<string, string>;
 }) {
   return (
     <tr className="border-b border-border/50">
@@ -603,7 +690,7 @@ function RunRow({
           </td>
         );
       })}
-      <td className="px-3 py-2"><LineageChips lineage={run.lineage} /></td>
+      <td className="px-3 py-2"><LineageChips lineage={run.lineage} flowName={flowName} /></td>
     </tr>
   );
 }

@@ -8,7 +8,6 @@ import {
   Github,
   Layers,
   Workflow,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,13 +22,8 @@ const FEATURES = [
   },
   {
     icon: Code2,
-    title: "Python code export",
-    body: "Every flow exports to clean, runnable pandas or polars code — take it anywhere Python runs.",
-  },
-  {
-    icon: Zap,
-    title: "polars or pandas",
-    body: "Runs on polars by default for fast, light execution — switch to pandas per run any time.",
+    title: "polars or pandas, exported to Python",
+    body: "Runs on polars by default (switch to pandas per run) and exports every flow to clean, runnable Python you can take anywhere.",
   },
   {
     icon: Database,
@@ -61,7 +55,7 @@ const STEPS = [
 
 export function LandingPage() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-6xl px-6 py-12">
       {/* Hero */}
       <section className="flex flex-col items-center text-center">
         <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">

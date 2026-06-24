@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import { AlertCircle, ArrowLeft, Download, Loader2 } from "lucide-react";
-import { useRun } from "./hooks";
+import { AlertCircle, ArrowLeft, Download, Loader2, RotateCcw } from "lucide-react";
+import { useRetryRun, useRun } from "./hooks";
 import { MlMetricsPanel } from "./MlMetricsPanel";
 import { useFlow } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDuration } from "@/lib/format";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { getNodeIcon } from "@/lib/nodeVisuals";
+import { cn } from "@/lib/utils";
 import type { InputDatasetRef, NodeResult } from "@/lib/types";
 
 const OUTPUT_NODE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
@@ -22,7 +23,14 @@ export function RunDetailPage() {
   const { data: run, isLoading } = useRun(runId ?? null);
   const { data: flow } = useFlow(run?.flow_id ?? null);
   const { data: datasets } = useDatasets();
+  const retry = useRetryRun();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const handleRetry = () => {
+    if (!run) return;
+    if (!confirm("Re-run this flow with the same config? This creates a new run (a new run id) — the current one is kept.")) return;
+    retry.mutate(run.id, { onSuccess: (created) => navigate(`/runs/${created.id}`) });
+  };
 
   const fmt = useFormatDateTime();
   const results = useMemo(() => run?.node_results ?? [], [run]);
@@ -76,6 +84,17 @@ export function RunDetailPage() {
           <StatusBadge status={run.status} />
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {run.status === "failed" && (
+            <button
+              onClick={handleRetry}
+              disabled={retry.isPending}
+              title="Re-run the flow with the same config (creates a new run)"
+              className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RotateCcw className={cn("h-3.5 w-3.5", retry.isPending && "animate-spin")} />
+              {retry.isPending ? "Retrying…" : "Retry"}
+            </button>
+          )}
           <span>Started {fmt(run.created_at)}</span>
           <span>Duration {formatDuration(run.started_at, run.finished_at)}</span>
         </div>

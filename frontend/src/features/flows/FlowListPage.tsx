@@ -131,7 +131,7 @@ export function FlowListPage() {
   ) : null;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
@@ -501,6 +501,7 @@ function FlowTable({
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
 }) {
+  const fmt = useFormatDateTime();
   if (flows.length === 0) return null;
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -511,6 +512,8 @@ function FlowTable({
             <th className="px-4 py-2.5 text-left font-semibold">Project</th>
             <th className="px-4 py-2.5 text-left font-semibold">Nodes</th>
             <th className="px-4 py-2.5 text-left font-semibold">Status</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Created</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Last run</th>
             <th className="px-4 py-2.5" />
           </tr>
         </thead>
@@ -549,6 +552,10 @@ function FlowTable({
                       active
                     </span>
                   )}
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{fmt(flow.created_at)}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
+                  {flow.last_run_at ? fmt(flow.last_run_at) : "—"}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
