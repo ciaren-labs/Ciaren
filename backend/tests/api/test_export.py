@@ -74,6 +74,18 @@ async def test_import_flow_strips_env_bindings(client: AsyncClient) -> None:
     assert [n["id"] for n in imported["graph_json"]["nodes"]] == ["in1", "drop", "out1"]
 
 
+async def test_import_flow_honors_target_project(client: AsyncClient) -> None:
+    proj = (await client.post("/api/projects", json={"name": "Imports"})).json()
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    doc = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()["flow_document"]
+    doc["project_id"] = proj["id"]
+
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 201, r.text
+    assert r.json()["project_id"] == proj["id"]
+
+
 async def test_import_flow_rejects_unknown_node_type(client: AsyncClient) -> None:
     doc = {
         "format": "flowframe.flow/v1",
