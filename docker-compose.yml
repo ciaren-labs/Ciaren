@@ -1,0 +1,71 @@
+# FlowFrame — Visual ETL Builder
+#
+# Quick start:
+#   docker compose up --build
+#   open http://localhost:8055
+#
+# To enable optional feature bundles, pass EXTRAS at build time:
+#   EXTRAS=ml docker compose build          # ML nodes (scikit-learn, XGBoost, MLflow)
+#   EXTRAS=postgres docker compose build    # PostgreSQL connector
+#   EXTRAS=ml,postgres docker compose build # both
+#   EXTRAS=all-connectors docker compose build  # all DB connectors
+#
+# All FLOWFRAME_* env vars below map to `flowframe serve` flags.
+# Run `docker compose exec flowframe flowframe info` to inspect resolved settings.
+
+services:
+  flowframe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Comma-separated optional extras: ml, postgres, mysql, mongo, all-connectors
+        EXTRAS: ${EXTRAS:-}
+    image: flowframe:latest
+    ports:
+      - "${FLOWFRAME_PORT:-8055}:8055"
+    volumes:
+      - flowframe-data:/data
+    environment:
+      FLOWFRAME_ENVIRONMENT: ${FLOWFRAME_ENVIRONMENT:-production}
+
+      # ── Dataframe engine & execution ────────────────────────────────────────
+      FLOWFRAME_DEFAULT_ENGINE: ${FLOWFRAME_DEFAULT_ENGINE:-polars}
+      FLOWFRAME_EXECUTION_MODE: ${FLOWFRAME_EXECUTION_MODE:-thread}
+      FLOWFRAME_RUN_TIMEOUT_SECONDS: ${FLOWFRAME_RUN_TIMEOUT_SECONDS:-0}
+
+      # ── Scheduler ───────────────────────────────────────────────────────────
+      FLOWFRAME_SCHEDULER_ENABLED: ${FLOWFRAME_SCHEDULER_ENABLED:-true}
+      FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS: ${FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS:-30}
+      FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS: ${FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS:-1}
+      FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES: ${FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES:-5}
+
+      # ── ML extension (requires EXTRAS=ml at build time) ─────────────────────
+      FLOWFRAME_ML_ENABLED: ${FLOWFRAME_ML_ENABLED:-true}
+      FLOWFRAME_MLFLOW_TRACKING_URI: ${FLOWFRAME_MLFLOW_TRACKING_URI:-/data/mlruns}
+
+      # ── Database (SQLite default, zero setup) ───────────────────────────────
+      # PostgreSQL: set DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
+      #   and rebuild with EXTRAS=postgres
+      FLOWFRAME_DATABASE_URL: ${FLOWFRAME_DATABASE_URL:-sqlite+aiosqlite:////data/flowframe.db}
+
+      # ── Upload limit ────────────────────────────────────────────────────────
+      FLOWFRAME_MAX_UPLOAD_SIZE_MB: ${FLOWFRAME_MAX_UPLOAD_SIZE_MB:-100}
+
+      # ── CORS (unset = same-origin; set if API is accessed from other origins)
+      # FLOWFRAME_CORS_ORIGINS: '["https://your-domain.com"]'
+
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8055/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  flowframe-data:

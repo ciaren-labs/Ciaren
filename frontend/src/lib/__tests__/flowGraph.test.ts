@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanStaleColumnRefs,
   computeNodeColumns,
+  getDownstreamNodeIds,
   hasCycle,
   hasReadyInput,
   isInputType,
@@ -191,5 +193,496 @@ describe("computeNodeColumns", () => {
     const edges = [edge("l", "j", "left"), edge("r", "j", "right")];
     const cols = computeNodeColumns(nodes, edges, ds);
     expect(cols.get("j")?.input.sort()).toEqual(["amount", "id", "name"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDownstreamNodeIds
+// ---------------------------------------------------------------------------
+
+describe("getDownstreamNodeIds", () => {
+  it("returns empty set when source has no outgoing edges", () => {
+    const result = getDownstreamNodeIds("a", []);
+    expect(result.size).toBe(0);
+  });
+
+  it("returns the direct successor", () => {
+    const result = getDownstreamNodeIds("a", [edge("a", "b")]);
+    expect(result).toEqual(new Set(["b"]));
+  });
+
+  it("traverses multiple hops", () => {
+    const edges = [edge("a", "b"), edge("b", "c"), edge("c", "d")];
+    const result = getDownstreamNodeIds("a", edges);
+    expect(result).toEqual(new Set(["b", "c", "d"]));
+  });
+
+  it("includes all branches in a fan-out graph", () => {
+    // a -> b, a -> c, b -> d
+    const edges = [edge("a", "b"), edge("a", "c"), edge("b", "d")];
+    const result = getDownstreamNodeIds("a", edges);
+    expect(result).toEqual(new Set(["b", "c", "d"]));
+  });
+
+  it("deduplicates diamond-shaped paths", () => {
+    // a -> b, a -> c, b -> d, c -> d  (d reachable via two routes)
+    const edges = [edge("a", "b"), edge("a", "c"), edge("b", "d"), edge("c", "d")];
+    const result = getDownstreamNodeIds("a", edges);
+    expect(result).toEqual(new Set(["b", "c", "d"]));
+  });
+
+  it("does not include the source node itself", () => {
+    const result = getDownstreamNodeIds("a", [edge("a", "b"), edge("b", "a")]);
+    expect(result.has("a")).toBe(false);
+  });
+
+  it("does not include nodes that are upstream only", () => {
+    // x -> a -> b;  x is upstream of a, not downstream
+    const edges = [edge("x", "a"), edge("a", "b")];
+    const result = getDownstreamNodeIds("a", edges);
+    expect(result.has("x")).toBe(false);
+    expect(result.has("b")).toBe(true);
+  });
+
+  it("returns empty set when the source is the last node", () => {
+    const result = getDownstreamNodeIds("b", [edge("a", "b")]);
+    expect(result.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanStaleColumnRefs — helpers
+// ---------------------------------------------------------------------------
+
+const VALID = new Set(["name", "age", "score"]);
+
+/** Shorthand: clean config of `type` and assert no stale refs were found. */
+function expectClean(type: string, config: Record<string, unknown>) {
+  const { hadStale, patched } = cleanStaleColumnRefs(type, config, VALID);
+  expect(hadStale).toBe(false);
+  expect(patched).toEqual(config);
+}
+
+/** Shorthand: clean config of `type` and return the patched config. */
+function clean(type: string, config: Record<string, unknown>) {
+  return cleanStaleColumnRefs(type, config, VALID);
+}
+
+describe("cleanStaleColumnRefs — no-op cases", () => {
+  it("returns hadStale=false when all column refs are valid", () => {
+    expectClean("dropColumns", { columns: ["name", "age"] });
+    expectClean("selectColumns", { columns: ["score"] });
+    expectClean("filterRows", { column: "age", operator: "==", value: "42" });
+    expectClean("sortRows", { columns: ["name", "score"] });
+    expectClean("renameColumns", { mapping: { name: "full_name", age: "years" } });
+    expectClean("groupByAggregate", { group_by: ["name"], aggregations: { age: "mean" } });
+  });
+
+  it("returns hadStale=false for empty arrays", () => {
+    expectClean("dropColumns", { columns: [] });
+    expectClean("dropNulls", { subset: [] });
+    expectClean("groupByAggregate", { group_by: [], aggregations: {} });
+  });
+
+  it("returns hadStale=false for optional fields that are absent", () => {
+    expectClean("dropNulls", { how: "any" }); // no subset key
+    expectClean("fillNulls", { strategy: "constant", value: "0" }); // no columns key
+    expectClean("windowFunction", { function: "row_number", new_column: "rn" }); // no partition_by/order_by/target
+  });
+
+  it("returns hadStale=false for unknown node types (no-op)", () => {
+    expectClean("csvOutput", { path: "out.csv" });
+    expectClean("concatRows", {});
+    expectClean("limitRows", { n: 10 });
+  });
+
+  it("does not mutate the original config object", () => {
+    const config = { columns: ["name", "unknown_col"] };
+    clean("dropColumns", config);
+    expect(config.columns).toEqual(["name", "unknown_col"]); // original unchanged
+  });
+});
+
+describe("cleanStaleColumnRefs — array fields", () => {
+  it("removes stale entries from dropColumns.columns", () => {
+    const { hadStale, patched } = clean("dropColumns", { columns: ["name", "missing", "age"] });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["name", "age"]);
+  });
+
+  it("removes stale entries from selectColumns.columns", () => {
+    const { hadStale, patched } = clean("selectColumns", { columns: ["gone", "score"] });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["score"]);
+  });
+
+  it("removes all entries when none are valid (dropColumns)", () => {
+    const { hadStale, patched } = clean("dropColumns", { columns: ["x", "y", "z"] });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual([]);
+  });
+
+  it("clears subset for dropNulls", () => {
+    const { hadStale, patched } = clean("dropNulls", { subset: ["age", "gone"], how: "any" });
+    expect(hadStale).toBe(true);
+    expect(patched.subset).toEqual(["age"]);
+    expect(patched.how).toBe("any"); // non-column field preserved
+  });
+
+  it("clears subset for removeDuplicates", () => {
+    const { hadStale, patched } = clean("removeDuplicates", { subset: ["gone"], keep: "first" });
+    expect(hadStale).toBe(true);
+    expect(patched.subset).toEqual([]);
+  });
+
+  it("clears columns for fillNulls", () => {
+    const { hadStale, patched } = clean("fillNulls", { strategy: "mean", columns: ["age", "missing"] });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["age"]);
+  });
+
+  it("clears columns for sortRows (multi-column sort)", () => {
+    const { hadStale, patched } = clean("sortRows", { columns: ["name", "gone"], ascending: true });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["name"]);
+  });
+
+  it("clears columns for roundNumbers", () => {
+    const { hadStale, patched } = clean("roundNumbers", { columns: ["age", "bad_col"], decimals: 2 });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["age"]);
+  });
+
+  it("clears columns for removeOutliers", () => {
+    const { hadStale, patched } = clean("removeOutliers", { columns: ["score", "nonexistent"], method: "iqr" });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["score"]);
+  });
+
+  it("clears columns for parseDates", () => {
+    const { hadStale, patched } = clean("parseDates", { columns: ["missing_date"] });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual([]);
+  });
+
+  it("clears columns for reduceDimensions", () => {
+    const { hadStale, patched } = clean("reduceDimensions", { columns: ["age", "gone"], n_components: 2 });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toEqual(["age"]);
+  });
+});
+
+describe("cleanStaleColumnRefs — single column fields", () => {
+  it("clears filterRows.column when invalid", () => {
+    const { hadStale, patched } = clean("filterRows", { column: "deleted_col", operator: ">", value: "0" });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+    expect(patched.operator).toBe(">"); // non-column fields preserved
+  });
+
+  it("leaves filterRows.column when valid", () => {
+    expectClean("filterRows", { column: "age", operator: ">", value: "0" });
+  });
+
+  it("clears replaceValues.column when invalid", () => {
+    const { hadStale, patched } = clean("replaceValues", { column: "gone", to_replace: "x", value: "y" });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+  });
+
+  it("clears stringTransform.column when invalid", () => {
+    const { hadStale, patched } = clean("stringTransform", { column: "removed", operation: "lower" });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+  });
+
+  it("clears binColumn.column when invalid", () => {
+    const { hadStale, patched } = clean("binColumn", { column: "stale", new_column: "stale_bin", bins: 4 });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+    expect(patched.new_column).toBe("stale_bin"); // output name preserved
+  });
+
+  it("clears extractDateParts.column when invalid", () => {
+    const { hadStale, patched } = clean("extractDateParts", { column: "old_date", parts: ["year"] });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+  });
+
+  it("clears splitColumn.column when invalid", () => {
+    const { hadStale, patched } = clean("splitColumn", { column: "gone", mode: "delimiter", delimiter: "," });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+  });
+
+  it("clears mapValues.column when invalid", () => {
+    const { hadStale, patched } = clean("mapValues", { column: "missing", mapping: { a: "b" } });
+    expect(hadStale).toBe(true);
+    expect(patched.column).toBe("");
+  });
+
+  it("ignores column when value is empty string (already unset)", () => {
+    expectClean("filterRows", { column: "", operator: "==", value: "" });
+  });
+});
+
+describe("cleanStaleColumnRefs — record-key fields", () => {
+  it("removes stale keys from renameColumns.mapping", () => {
+    const { hadStale, patched } = clean("renameColumns", {
+      mapping: { name: "full_name", gone: "new_gone", age: "years" },
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.mapping).toEqual({ name: "full_name", age: "years" });
+  });
+
+  it("removes all keys when none are valid (renameColumns)", () => {
+    const { hadStale, patched } = clean("renameColumns", { mapping: { x: "a", y: "b" } });
+    expect(hadStale).toBe(true);
+    expect(patched.mapping).toEqual({});
+  });
+
+  it("removes stale keys from castDtypes.casts", () => {
+    const { hadStale, patched } = clean("castDtypes", {
+      casts: { age: "integer", gone: "string", score: "float" },
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.casts).toEqual({ age: "integer", score: "float" });
+  });
+
+  it("removes stale keys from groupByAggregate.aggregations", () => {
+    const { hadStale, patched } = clean("groupByAggregate", {
+      group_by: ["name"],
+      aggregations: { age: "mean", missing: "sum", score: "max" },
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.group_by).toEqual(["name"]);
+    expect(patched.aggregations).toEqual({ age: "mean", score: "max" });
+  });
+
+  it("handles missing or non-object mapping gracefully", () => {
+    expectClean("renameColumns", { mapping: null });
+    expectClean("renameColumns", { mapping: undefined });
+    expectClean("castDtypes", { casts: [] }); // array is not a record
+  });
+});
+
+describe("cleanStaleColumnRefs — join node", () => {
+  it("clears invalid columns from on (shared-key join)", () => {
+    const { hadStale, patched } = clean("join", { on: ["name", "gone"], how: "inner" });
+    expect(hadStale).toBe(true);
+    expect(patched.on).toEqual(["name"]);
+  });
+
+  it("clears invalid columns from left_on and right_on (split-key join)", () => {
+    const { hadStale, patched } = clean("join", {
+      left_on: ["name", "bad"],
+      right_on: ["score", "also_bad"],
+      how: "left",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.left_on).toEqual(["name"]);
+    expect(patched.right_on).toEqual(["score"]);
+  });
+
+  it("no-op when all join keys are valid", () => {
+    expectClean("join", { on: ["name", "age"], how: "inner" });
+  });
+});
+
+describe("cleanStaleColumnRefs — pivot / unpivot", () => {
+  it("clears stale index columns from pivot", () => {
+    const { hadStale, patched } = clean("pivot", {
+      index: ["name", "gone"],
+      columns: "age",
+      values: "score",
+      aggfunc: "sum",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.index).toEqual(["name"]);
+    expect(patched.columns).toBe("age"); // valid, preserved
+    expect(patched.values).toBe("score"); // valid, preserved
+  });
+
+  it("clears stale pivot.columns (the pivot column) when invalid", () => {
+    const { hadStale, patched } = clean("pivot", {
+      index: ["name"],
+      columns: "deleted_col",
+      values: "score",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.columns).toBe("");
+  });
+
+  it("clears stale pivot.values when invalid", () => {
+    const { hadStale, patched } = clean("pivot", {
+      index: ["name"],
+      columns: "age",
+      values: "gone",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.values).toBe("");
+  });
+
+  it("clears stale columns from unpivot.id_vars and value_vars", () => {
+    const { hadStale, patched } = clean("unpivot", {
+      id_vars: ["name", "removed"],
+      value_vars: ["age", "also_gone"],
+      var_name: "metric",
+      value_name: "val",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.id_vars).toEqual(["name"]);
+    expect(patched.value_vars).toEqual(["age"]);
+    expect(patched.var_name).toBe("metric"); // non-column preserved
+  });
+});
+
+describe("cleanStaleColumnRefs — windowFunction", () => {
+  it("clears stale partition_by and order_by columns", () => {
+    const { hadStale, patched } = clean("windowFunction", {
+      function: "rank",
+      new_column: "rnk",
+      partition_by: ["name", "gone"],
+      order_by: ["score", "missing"],
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.partition_by).toEqual(["name"]);
+    expect(patched.order_by).toEqual(["score"]);
+  });
+
+  it("clears stale target column for value functions", () => {
+    const { hadStale, patched } = clean("windowFunction", {
+      function: "cumsum",
+      new_column: "running_total",
+      partition_by: [],
+      order_by: ["name"],
+      target: "deleted_value",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.target).toBe("");
+  });
+
+  it("preserves valid target column", () => {
+    expectClean("windowFunction", {
+      function: "cumsum",
+      new_column: "running",
+      order_by: ["name"],
+      target: "age",
+    });
+  });
+});
+
+describe("cleanStaleColumnRefs — conditionalColumn", () => {
+  it("clears stale column in new-shape rules", () => {
+    const { hadStale, patched } = clean("conditionalColumn", {
+      rules: [
+        { match: "all", conditions: [{ column: "name", operator: "==", value: "Alice" }], result: "yes" },
+        { match: "all", conditions: [{ column: "gone", operator: ">", value: "0" }], result: "no" },
+      ],
+      new_column: "flag",
+    });
+    expect(hadStale).toBe(true);
+    const rules = patched.rules as any[];
+    expect(rules[0].conditions[0].column).toBe("name"); // valid, kept
+    expect(rules[1].conditions[0].column).toBe(""); // invalid, cleared
+  });
+
+  it("handles legacy flat-rule shape (column at rule level)", () => {
+    const { hadStale, patched } = clean("conditionalColumn", {
+      rules: [
+        { column: "gone", operator: "==", value: "x", result: "y" },
+        { column: "name", operator: "==", value: "Alice", result: "z" },
+      ],
+      new_column: "label",
+    });
+    expect(hadStale).toBe(true);
+    const rules = patched.rules as any[];
+    expect(rules[0].column).toBe("");
+    expect(rules[1].column).toBe("name");
+  });
+
+  it("no-op when all rule columns are valid", () => {
+    expectClean("conditionalColumn", {
+      rules: [
+        { match: "all", conditions: [{ column: "age", operator: ">", value: "18" }], result: "adult" },
+      ],
+      new_column: "category",
+    });
+  });
+
+  it("handles a rule with multiple conditions — clears only stale ones", () => {
+    const { hadStale, patched } = clean("conditionalColumn", {
+      rules: [
+        {
+          match: "all",
+          conditions: [
+            { column: "age", operator: ">", value: "18" },
+            { column: "gone", operator: "!=", value: "" },
+            { column: "score", operator: "<", value: "100" },
+          ],
+          result: "match",
+        },
+      ],
+      new_column: "result",
+    });
+    expect(hadStale).toBe(true);
+    const conds = (patched.rules as any[])[0].conditions;
+    expect(conds[0].column).toBe("age");
+    expect(conds[1].column).toBe(""); // stale
+    expect(conds[2].column).toBe("score");
+  });
+
+  it("no-op when rules array is empty", () => {
+    expectClean("conditionalColumn", { rules: [], new_column: "x" });
+  });
+});
+
+describe("cleanStaleColumnRefs — mlTrain", () => {
+  it("clears stale feature_columns and target_column", () => {
+    const { hadStale, patched } = clean("mlTrain", {
+      model_type: "random_forest",
+      feature_columns: ["age", "missing_feature", "score"],
+      target_column: "gone_label",
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.feature_columns).toEqual(["age", "score"]);
+    expect(patched.target_column).toBe("");
+  });
+
+  it("preserves valid feature_columns and target_column", () => {
+    expectClean("mlTrain", {
+      model_type: "linear_regression",
+      feature_columns: ["age", "score"],
+      target_column: "name",
+    });
+  });
+
+  it("handles absent feature_columns gracefully", () => {
+    const { hadStale } = clean("mlTrain", { model_type: "svm", target_column: "name" });
+    expect(hadStale).toBe(false);
+  });
+});
+
+describe("cleanStaleColumnRefs — mixed valid/invalid", () => {
+  it("reports hadStale=true when at least one field has a stale ref, even if others are clean", () => {
+    const { hadStale, patched } = clean("groupByAggregate", {
+      group_by: ["name", "gone"],
+      aggregations: { age: "sum" }, // all valid
+    });
+    expect(hadStale).toBe(true);
+    expect(patched.group_by).toEqual(["name"]);
+    expect(patched.aggregations).toEqual({ age: "sum" }); // unchanged
+  });
+
+  it("preserves non-column config keys in all cases", () => {
+    const { patched } = clean("filterRows", {
+      column: "gone",
+      operator: "between",
+      value: "10",
+      value2: "99",
+    });
+    expect(patched.operator).toBe("between");
+    expect(patched.value).toBe("10");
+    expect(patched.value2).toBe("99");
   });
 });
