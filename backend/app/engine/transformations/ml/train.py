@@ -420,19 +420,71 @@ class MLTrainTransformation(MetadataMLTransformation):
             f"_features = {feat_expr}",
             f"X = {src}[_features]",
         ]
+        # Mirror execute(): bundle the same preprocessing into the Pipeline so the
+        # exported script reproduces the run (imputation/scaling/encoding) and runs
+        # on categorical or null-containing data — not just on clean numerics.
+        pre_lines, steps = self._preprocessor_code(config)
+        lines += pre_lines
+        steps.append(f"('model', {est_repr})")
+        pipeline_expr = "Pipeline([" + ", ".join(steps) + "])"
         if spec.supervised:
             lines += [
                 f"y = {src}[{target!r}]",
-                f"{model_var} = Pipeline([('model', {est_repr})])",
+                f"{model_var} = {pipeline_expr}",
                 f"{model_var}.fit(X, y)",
             ]
         else:
             lines += [
-                f"{model_var} = Pipeline([('model', {est_repr})])",
+                f"{model_var} = {pipeline_expr}",
                 f"{model_var}.fit(X)",
             ]
         lines.append(f"{out} = {src}")
         return "\n".join(lines)
+
+    _SCALER_CLASSES = {
+        "standard_scaler": "StandardScaler",
+        "minmax_scaler": "MinMaxScaler",
+        "robust_scaler": "RobustScaler",
+    }
+
+    def _preprocessor_code(self, config: dict[str, Any]) -> tuple[list[str], list[str]]:
+        """Emit code that rebuilds the same ColumnTransformer as ``_build_preprocessor``.
+
+        Returns ``(lines, steps)`` where ``lines`` define ``_preprocessor`` and
+        ``steps`` is the leading Pipeline step list (``[]`` when no preprocessing
+        is needed). When the config pins explicit numeric/categorical columns we
+        emit literals; otherwise we detect them by dtype at runtime, exactly like
+        the executor.
+        """
+        pre = config.get("preprocessing") or {}
+        impute_numeric = pre.get("impute_numeric", "median")
+        impute_categorical = pre.get("impute_categorical", "most_frequent")
+        num_strategy = pre.get("numeric_strategy", "standard_scaler")
+
+        lines: list[str] = []
+        if pre.get("numeric_columns") is not None or pre.get("categorical_columns") is not None:
+            lines.append(f"_numeric = {list(pre.get('numeric_columns') or [])!r}")
+            lines.append(f"_categorical = {list(pre.get('categorical_columns') or [])!r}")
+        else:
+            lines.append("_numeric = [c for c in _features if pd.api.types.is_numeric_dtype(X[c])]")
+            lines.append("_categorical = [c for c in _features if c not in _numeric]")
+
+        num_steps = [f"('impute', SimpleImputer(strategy={impute_numeric!r}))"]
+        if num_strategy in self._SCALER_CLASSES:
+            num_steps.append(f"('scale', {self._SCALER_CLASSES[num_strategy]}())")
+        num_pipe = "Pipeline([" + ", ".join(num_steps) + "])"
+        cat_pipe = (
+            "Pipeline(["
+            f"('impute', SimpleImputer(strategy={impute_categorical!r})), "
+            "('encode', OneHotEncoder(handle_unknown='ignore'))])"
+        )
+        lines += [
+            "_transformers = []",
+            f"if _numeric:\n    _transformers.append(('num', {num_pipe}, _numeric))",
+            f"if _categorical:\n    _transformers.append(('cat', {cat_pipe}, _categorical))",
+            "_preprocessor = ColumnTransformer(_transformers, remainder='drop')",
+        ]
+        return lines, ["('preprocessor', _preprocessor)"]
 
     def _estimator_repr(self, config: dict[str, Any]) -> str:
         # Build the estimator just to render a faithful repr in exported code.
@@ -454,4 +506,16 @@ class MLTrainTransformation(MetadataMLTransformation):
                     break
                 parts.append(part)
             est_import = f"from {'.'.join(parts)} import {cls}"
-        return ["import joblib", "from sklearn.pipeline import Pipeline", est_import]
+        imps = [
+            "import joblib",
+            "from sklearn.pipeline import Pipeline",
+            est_import,
+            # The exported preprocessing pipeline mirrors execute() (see _preprocessor_code).
+            "from sklearn.compose import ColumnTransformer",
+            "from sklearn.impute import SimpleImputer",
+            "from sklearn.preprocessing import OneHotEncoder",
+        ]
+        num_strategy = (config.get("preprocessing") or {}).get("numeric_strategy", "standard_scaler")
+        if num_strategy in self._SCALER_CLASSES:
+            imps.append(f"from sklearn.preprocessing import {self._SCALER_CLASSES[num_strategy]}")
+        return imps

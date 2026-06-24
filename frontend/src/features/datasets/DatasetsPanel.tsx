@@ -43,6 +43,16 @@ import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * Version label for a dataset. ``latest_version`` is the current version number;
+ * ``version_count`` is how many versions still exist. They only differ once older
+ * versions have been deleted/purged (e.g. v5 is current but only 2 remain), so we
+ * show just ``v5`` normally and append the kept-count only when it's informative.
+ */
+function versionLabel(latest: number, count: number): string {
+  return count < latest ? `v${latest} (${count} kept)` : `v${latest}`;
+}
+
 const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: string }> = {
   csv: { icon: FileText, tint: "bg-emerald-500" },
   excel: { icon: FileSpreadsheet, tint: "bg-green-600" },
@@ -430,7 +440,7 @@ function DatasetTable({
                 {d.column_schema?.length ?? 0}
               </td>
               <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>
-                {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : `v${d.latest_version}`}
+                {versionLabel(d.latest_version, d.version_count)}
               </td>
               <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => onSelect(d)}>
                 {fmtDate(d.created_at)}
@@ -503,7 +513,7 @@ function DatasetCard({
               </div>
               <CardDescription className="text-xs">
                 {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
-                {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : "v1"}
+                {versionLabel(d.latest_version, d.version_count)}
               </CardDescription>
             </div>
           </CardHeader>

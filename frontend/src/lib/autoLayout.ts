@@ -7,6 +7,12 @@ const MAIN_GAP = 43; // along the flow direction (between layers)
 const CROSS_GAP = 26; // across the flow direction (between siblings)
 const COMPACT_MAIN_GAP = 28;
 const COMPACT_CROSS_GAP = 14;
+// Handles (and their text labels: "train"/"test"/"model"/"data") always sit on the
+// node's left/right edges, so in top→bottom layouts the labels of side-by-side
+// siblings stick out *horizontally* into the cross gap. Vertical/Tree therefore
+// need a wider cross gap than LR, or adjacent labels overlap and "get mixed".
+const VERTICAL_CROSS_GAP = 96;
+const TREE_CROSS_GAP = 72;
 // Fallbacks for nodes React Flow hasn't measured yet (e.g. just-created nodes).
 const FALLBACK_W = 180;
 const FALLBACK_H = 56;
@@ -26,12 +32,15 @@ export interface LayoutOption {
 }
 
 export const LAYOUT_OPTIONS: LayoutOption[] = [
-  { kind: "horizontal", label: "Horizontal", hint: "Left → right (default)" },
-  { kind: "vertical", label: "Vertical", hint: "Top → bottom, uses vertical space" },
+  { kind: "vertical", label: "Vertical", hint: "Top → bottom (default)" },
+  { kind: "horizontal", label: "Horizontal", hint: "Left → right, uses horizontal space" },
   { kind: "compact", label: "Compact", hint: "Left → right, tighter spacing" },
   { kind: "tree", label: "Tree", hint: "Top → bottom, tight branches" },
   { kind: "grid", label: "Grid", hint: "Balanced, roughly square" },
 ];
+
+/** The layout applied on first open and by the bare {@link autoLayout} helper. */
+export const DEFAULT_LAYOUT: LayoutKind = "vertical";
 
 interface LayeredOptions {
   direction: "LR" | "TB";
@@ -43,11 +52,11 @@ interface LayeredOptions {
 export function applyLayout<T extends Node>(kind: LayoutKind, nodes: T[], edges: Edge[]): T[] {
   switch (kind) {
     case "vertical":
-      return layeredLayout(nodes, edges, { direction: "TB", mainGap: MAIN_GAP, crossGap: CROSS_GAP });
+      return layeredLayout(nodes, edges, { direction: "TB", mainGap: MAIN_GAP, crossGap: VERTICAL_CROSS_GAP });
     case "compact":
       return layeredLayout(nodes, edges, { direction: "LR", mainGap: COMPACT_MAIN_GAP, crossGap: COMPACT_CROSS_GAP });
     case "tree":
-      return layeredLayout(nodes, edges, { direction: "TB", mainGap: COMPACT_MAIN_GAP, crossGap: COMPACT_CROSS_GAP });
+      return layeredLayout(nodes, edges, { direction: "TB", mainGap: COMPACT_MAIN_GAP, crossGap: TREE_CROSS_GAP });
     case "grid":
       return gridLayout(nodes, edges);
     case "horizontal":
