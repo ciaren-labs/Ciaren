@@ -3,12 +3,17 @@
 // catalog has no React/icon dependency.
 
 import {
+  AlignLeft,
   Archive,
   ArrowRightLeft,
   ArrowUpDown,
   BarChart3,
+  BarChartBig,
   Binary,
   Boxes,
+  Braces,
+  Brain,
+  BrainCircuit,
   CalendarClock,
   CalendarDays,
   Calculator,
@@ -18,26 +23,38 @@ import {
   Database,
   DatabaseZap,
   Dices,
+  Download,
   Droplets,
   Eraser,
   FileDown,
   FileSpreadsheet,
   FileText,
   Filter,
+  FolderOpen,
+  Gauge,
   GitBranch,
   GitMerge,
   Grid3x3,
+  LayoutGrid,
   Layers,
+  ListChecks,
   Replace,
   Rows3,
+  Scaling,
   Scissors,
   ScatterChart,
+  Shrink,
   Shuffle,
   Sheet,
   Sigma,
+  Sparkles,
   Split,
+  SquareSplitHorizontal,
   Tag,
+  Tags,
+  Target,
   Trash2,
+  TrendingUp,
   Ungroup,
   type LucideIcon,
 } from "lucide-react";
@@ -47,7 +64,10 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   csvInput: FileText,
   excelInput: FileSpreadsheet,
   parquetInput: Boxes,
+  jsonInput: Braces,
+  textInput: AlignLeft,
   sqlInput: Database,
+  storageInput: FolderOpen,
   dropNulls: Eraser,
   fillNulls: Droplets,
   dropColumns: Trash2,
@@ -76,10 +96,20 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   mapValues: ArrowRightLeft,
   windowFunction: Sigma,
   conditionalColumn: GitBranch,
+  trainTestSplit: SquareSplitHorizontal,
+  scaleFeatures: Scaling,
+  encodeCategories: Tags,
+  selectFeatures: ListChecks,
+  reduceDimensions: Shrink,
+  mlTrain: BrainCircuit,
+  mlPredict: Target,
+  mlEvaluate: Gauge,
+  featureImportance: BarChartBig,
   csvOutput: FileDown,
   excelOutput: Sheet,
   parquetOutput: Archive,
   sqlOutput: DatabaseZap,
+  storageOutput: Download,
 };
 
 export function getNodeIcon(type: string | undefined): LucideIcon {
@@ -98,6 +128,16 @@ export interface CategoryTheme {
   /** Palette swatch dot. */
   dot: string;
 }
+
+export const CATEGORY_ICONS: Record<NodeCategory, LucideIcon> = {
+  input: FolderOpen,
+  clean: Sparkles,
+  columns: Columns3,
+  reshape: LayoutGrid,
+  analytics: TrendingUp,
+  ml: Brain,
+  output: Download,
+};
 
 export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
   input: {
@@ -134,6 +174,13 @@ export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
     ring: "ring-fuchsia-400",
     text: "text-fuchsia-700",
     dot: "bg-fuchsia-500",
+  },
+  ml: {
+    badge: "bg-purple-500 text-white",
+    card: "border-purple-200 bg-purple-50/60",
+    ring: "ring-purple-400",
+    text: "text-purple-700",
+    dot: "bg-purple-500",
   },
   output: {
     badge: "bg-amber-500 text-white",

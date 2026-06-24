@@ -1,8 +1,10 @@
 # FlowFrame
 
-> **Build data pipelines by dragging boxes — walk away with real Python.**
-> Upload a file, clean and reshape it on a visual canvas, preview every step,
-> run it, and export the exact pandas **or** polars code it produced.
+> **Build, run, and schedule data pipelines — and train ML models — visually, no boilerplate required.**
+> Upload a file, clean and reshape it on a drag-and-drop canvas, train and track
+> machine-learning models, preview every step, execute with one click, schedule
+> recurring runs, and export the equivalent pandas **or** polars code whenever you
+> need it.
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -20,7 +22,8 @@
 ## What is FlowFrame?
 
 FlowFrame is an open-source, **local-first** visual ETL (Extract, Transform, Load)
-builder for **small and medium datasets**. It lets you:
+builder — with an optional **machine-learning** extension — for **small and medium
+datasets**. It lets you:
 
 - **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
 - **Build** transformation pipelines on a drag-and-drop canvas
@@ -28,19 +31,22 @@ builder for **small and medium datasets**. It lets you:
 - **Execute** flows with a single click — on **polars** (default) or **pandas**
 - **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
 - **Schedule** flows to run automatically with a built-in cron scheduler
+- **Train** machine-learning models visually and track them with MLflow — an
+  optional extension (`pip install "flowframe[ml]"`)
 
-It maps each visual node to **one clear dataframe operation**, so the generated
-code stays educational and easy to read. FlowFrame is intentionally lightweight —
-it is **not** an Airflow/dbt/Spark replacement, and does not do distributed or
-streaming execution.
+Each visual node maps to **one clear dataframe operation** — so the generated
+code is readable whenever you export it, and execution is transparent. FlowFrame
+is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
+and does not do distributed or streaming execution.
 
-Built for analysts, data-curious business users, Python learners, developers who
-want quick repeatable pipelines, and educators.
+Built for **data analysts, data engineers, and developers** who want repeatable
+ETL pipelines without the infrastructure overhead — and accessible enough for
+business analysts and Python beginners who are just getting started.
 
-### See it: boxes in, real code out
+### See it: build visually, run instantly, export when you need to
 
-A three-step visual flow (read → drop nulls → group & sum) is exactly what you'd
-hand-write — FlowFrame just writes it for you:
+A three-step flow (read → drop nulls → group & sum) runs with one click and
+produces clean Python you can take anywhere:
 
 ```python
 import polars as pl
@@ -71,6 +77,7 @@ for pushdown and join optimization on large files.
 | **Versioned Datasets** | Re-uploading a file keeps every version, so flows stay reproducible |
 | **Scheduling** | Built-in cron scheduler with retries, catch-up, and auto-disable |
 | **Projects & Runs** | Group work into projects; browse run history and per-node results |
+| **Machine Learning** *(optional)* | Split, train, predict, and evaluate models on the canvas; tracked with MLflow |
 | **Extensible** | Add custom transformation nodes on the backend |
 
 ---
@@ -94,7 +101,7 @@ cd FlowFrame/backend
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# Install FlowFrame
+# Install FlowFrame (add the optional ML extension with: pip install -e ".[ml]")
 pip install -e .
 
 # Run the API + background scheduler in one process
@@ -177,6 +184,44 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 
 ---
 
+## 🤖 Machine Learning (optional extension)
+
+FlowFrame includes an optional, **high-guardrail** ML extension so you can go
+from raw data to a tracked model without leaving the canvas. It is off by default
+and ships as an extra:
+
+```bash
+pip install "flowframe[ml]"      # adds scikit-learn, XGBoost, LightGBM, MLflow
+```
+
+Once installed and enabled (`FLOWFRAME_ML_ENABLED=true`, the default), a
+**Machine Learning** category appears in the node palette:
+
+- **Train / Test Split** — one node, two clearly-labelled `train` / `test` outputs
+- **Feature engineering** — Scale Features, Encode Categories, Select Features,
+  Reduce Dimensions (PCA). *(Fill missing values with the standard Fill Nulls node.)*
+- **Train Model** — pick a classifier, regressor, or clustering model; tune the
+  common hyperparameters inline or open **Advanced options** for the full set,
+  cross-validation, and in-pipeline preprocessing. The chosen model shows on the
+  canvas node.
+- **Predict** — score new data using a wired model or a registered MLflow model URI
+- **Evaluate** & **Feature Importance** — metrics, confusion matrix, and rankings
+
+Every trained model is logged to **MLflow**. A built-in **Local MLflow**
+connection (in the Connections page) points at `./mlruns` by default and is the
+single source of truth for the tracking URI — edit and test it to use any
+tracking server, no restart needed. A dedicated **Models** page shows your
+registered models (versions, aliases, metrics, and lineage back to the flow/run
+that produced them) and an experiment leaderboard. Model loading is sandboxed to
+a validated artifact directory.
+
+The demo project ships ML example flows too (classification, train/validate,
+regression, PCA); `flowframe serve --run-seed-flows` runs every demo flow once
+on first boot so the Runs and Models views aren't empty. See the
+[ML Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/ml-quickstart).
+
+---
+
 ## 🏗️ Tech Stack
 
 **Backend:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async), pandas,
@@ -251,4 +296,4 @@ required copyright notices and license text. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Made with ❤️ for data enthusiasts who value simplicity.**
+**Made with ❤️ for data practitioners who value simplicity and reproducibility.**

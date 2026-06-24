@@ -1,12 +1,14 @@
 import asyncio
 from collections.abc import Awaitable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import asc, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.enums import ExecutionMode
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
@@ -17,13 +19,17 @@ from app.engine.process_pool import (
     recycle_process_pool,
     run_graph_in_process,
 )
+from app.engine.run_context import run_context
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
 from app.services.sql_resolver import materialize_sql_inputs, push_sql_outputs
+from app.services.storage_resolver import materialize_storage_inputs, push_storage_outputs
 
 _OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
-_EXECUTION_MODES = ("thread", "process")
+# StrEnum members compare equal to their str value, so this works for `x in ...`
+# checks against the raw EXECUTION_MODE setting string.
+_EXECUTION_MODES = tuple(ExecutionMode)
 
 
 class ExecutionService:
@@ -44,7 +50,13 @@ class ExecutionService:
         if flow.is_disabled:
             raise ValidationError("This flow is disabled and cannot be run.")
 
-        engine = data.engine or self.settings.DEFAULT_ENGINE
+        self._guard_ml_enabled(flow.graph_json)
+
+        # Engine precedence: explicit run request > the flow's saved editor
+        # preference (graph_json.engine) > the global default. Honoring the saved
+        # preference means a flow built/tested on pandas runs on pandas.
+        graph_engine = flow.graph_json.get("engine") if isinstance(flow.graph_json, dict) else None
+        engine = data.engine or graph_engine or self.settings.DEFAULT_ENGINE
         if engine not in available_engines():
             raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
 
@@ -59,10 +71,15 @@ class ExecutionService:
             trigger=trigger,
             schedule_id=schedule_id,
             status="running",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(UTC).replace(tzinfo=None),
+            # Snapshot the graph at trigger time: the flow can be edited later, but a
+            # run (especially an ML training run) must stay reproducible.
+            graph_snapshot_json=flow.graph_json,
         )
         self.db.add(run)
         await self.db.flush()  # assign run.id without committing
+
+        timeout = await self._effective_timeout(data, schedule_id)
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
@@ -79,14 +96,27 @@ class ExecutionService:
             # session + secrets) and snapshot them to parquet, so the off-loop
             # executor only ever touches plain files.
             sql_input_paths = await materialize_sql_inputs(self.db, flow.graph_json, output_dir)
+            storage_input_paths = await materialize_storage_inputs(self.db, flow.graph_json, output_dir)
             # The executor is synchronous (pandas/polars compute); offload it off
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
             # running it off-loop (in a thread or a separate process) is safe.
+            # Context ML nodes read to tag MLflow runs (back-pointers + dataset link).
+            dataset_ids: list[str] = [v["dataset_id"] for v in resolved_versions]
+            # The MLflow connection is the source of truth for the tracking URI;
+            # resolve it here (DB available) and carry it into the off-loop worker.
+            tracking_uri = await self._resolve_tracking_uri()
+            ctx_data: dict[str, Any] = {
+                "flow_id": flow_id,
+                "run_id": run.id,
+                "dataset_ids": dataset_ids,
+                "tracking_uri": tracking_uri,
+            }
             compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
                 # processes. Only the picklable compute crosses the boundary.
+                # ContextVars don't cross processes, so pass the context explicitly.
                 loop = asyncio.get_running_loop()
                 compute = loop.run_in_executor(
                     get_process_pool(),
@@ -96,6 +126,8 @@ class ExecutionService:
                     output_dir,
                     engine,
                     sql_input_paths,
+                    storage_input_paths,
+                    ctx_data,
                 )
             else:
                 compute = asyncio.to_thread(
@@ -105,28 +137,35 @@ class ExecutionService:
                     output_dir,
                     engine_name=engine,
                     sql_input_paths=sql_input_paths,
+                    storage_input_paths=storage_input_paths,
                 )
 
-            timeout = self.settings.RUN_TIMEOUT_SECONDS
-            if timeout > 0:
-                result = await asyncio.wait_for(compute, timeout=timeout)
-            else:
-                result = await compute
+            # to_thread copies this context into the worker thread (thread mode);
+            # process mode re-establishes it from ctx_data inside the worker.
+            with run_context(
+                flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri
+            ):
+                if timeout > 0:
+                    result = await asyncio.wait_for(compute, timeout=timeout)
+                else:
+                    result = await compute
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.error is None:
                 # Deliver SQL sinks before declaring success — a write failure
                 # must fail the run (the output never reached the database).
                 await push_sql_outputs(self.db, flow.graph_json, result.output_paths)
+                await push_storage_outputs(self.db, flow.graph_json, result.output_paths)
                 run.status = "success"
                 # Store a path relative to the outputs dir so we never leak the
                 # absolute server filesystem layout in API responses.
                 run.output_location = (
                     f"{run.id}/{next(iter(result.output_paths.values())).name}" if result.output_paths else None
                 )
-                elapsed_ms = (
-                    round((datetime.utcnow() - run.started_at).total_seconds() * 1000, 2) if run.started_at else None
-                )
+                elapsed_ms = None
+                if run.started_at:
+                    elapsed = datetime.now(UTC).replace(tzinfo=None) - run.started_at
+                    elapsed_ms = round(elapsed.total_seconds() * 1000, 2)
                 run.logs_json = [
                     {
                         "level": "info",
@@ -178,7 +217,7 @@ class ExecutionService:
             run.error_message = str(exc)
             run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
-            run.finished_at = datetime.utcnow()
+            run.finished_at = datetime.now(UTC).replace(tzinfo=None)
             await self.db.commit()
             await self.db.refresh(run)
 
@@ -190,6 +229,17 @@ class ExecutionService:
         if run is None:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
+
+    async def retry(self, run_id: str) -> FlowRunRead:
+        """Re-run a previous run's flow with the same config (engine + input),
+        producing a brand-new run (new id). It executes the flow's *current* graph,
+        so a fixed flow is picked up; the original run is left untouched."""
+        result = await self.db.execute(select(FlowRun).where(FlowRun.id == run_id))
+        original = result.scalar_one_or_none()
+        if original is None:
+            raise NotFoundError("FlowRun", run_id)
+        body = FlowRunCreate(engine=original.engine, input_dataset_id=original.input_dataset_id)
+        return await self.run(original.flow_id, body, trigger="retry")
 
     _SORT_FIELDS = {
         "created_at": FlowRun.created_at,
@@ -256,6 +306,57 @@ class ExecutionService:
         ]
 
     # -- Internals ------------------------------------------------------
+
+    def _guard_ml_enabled(self, graph: dict[str, Any] | None) -> None:
+        """Reject running a graph that uses ML nodes when the ML extension is off.
+
+        ML node types are registered whenever the [ml] libraries are importable, so
+        without this a crafted graph could execute ML nodes even with ML_ENABLED
+        false. Keeps the feature flag a real gate, not just a UI/palette toggle.
+        """
+        from app.core.exceptions import MLNotEnabledError
+        from app.engine.registry import ml_node_types
+        from app.ml.availability import ml_extension_ready
+
+        ml_types = ml_node_types()
+        if not ml_types:
+            return
+        graph_types = {n.get("type") for n in (graph or {}).get("nodes", [])}
+        if graph_types & ml_types and not ml_extension_ready():
+            raise MLNotEnabledError(
+                "This flow uses machine-learning nodes, but ML support is not enabled "
+                "on this server (set ML_ENABLED and install the [ml] extra)."
+            )
+
+    async def _resolve_tracking_uri(self) -> str | None:
+        """The MLflow tracking URI to use for this run (connection > setting).
+
+        Returns None when ML isn't installed so the run never depends on MLflow.
+        """
+        try:
+            from app.ml.tracking import resolve_tracking_uri
+        except Exception:  # noqa: BLE001 - [ml] not installed
+            return None
+        try:
+            return await resolve_tracking_uri(self.db)
+        except Exception:  # noqa: BLE001 - never let MLflow config block a run
+            return None
+
+    async def _effective_timeout(self, data: FlowRunCreate, schedule_id: str | None) -> int:
+        """Resolve the run timeout (seconds, 0 = no limit) by precedence:
+        explicit per-run override > the schedule's override > the global setting."""
+        if data.timeout_seconds is not None:
+            return data.timeout_seconds
+        if schedule_id is not None:
+            from app.db.models.schedule import Schedule
+
+            result = await self.db.execute(
+                select(Schedule.run_timeout_seconds).where(Schedule.id == schedule_id)
+            )
+            schedule_timeout = result.scalar_one_or_none()
+            if schedule_timeout is not None:
+                return schedule_timeout
+        return self.settings.RUN_TIMEOUT_SECONDS
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

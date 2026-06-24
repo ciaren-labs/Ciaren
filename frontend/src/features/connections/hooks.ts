@@ -14,7 +14,10 @@ export function useConnectionProviders() {
   return useQuery({
     queryKey: queryKeys.connectionProviders,
     queryFn: () => connectionsApi.providers(),
-    staleTime: 5 * 60_000, // driver availability rarely changes at runtime
+    // Short stale time so that installing a driver (no restart needed —
+    // find_spec is non-caching and connectors use lazy imports) is picked up
+    // quickly, especially after the user clicks "Recheck drivers".
+    staleTime: 30_000,
   });
 }
 
@@ -52,13 +55,24 @@ export function useDeleteConnection() {
 }
 
 export function useTestConnection() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => connectionsApi.test(id),
+    // Refresh the list so the "last tested" timestamp updates immediately.
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
   });
 }
 
 export function useTestConnectionConfig() {
   return useMutation({
     mutationFn: (body: ConnectionCreate) => connectionsApi.testConfig(body),
+  });
+}
+
+export function useConnectionObjects(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: id ? queryKeys.connectionObjects(id) : ["connections", "none", "objects"],
+    queryFn: () => connectionsApi.objects(id as string),
+    enabled: !!id && enabled,
   });
 }

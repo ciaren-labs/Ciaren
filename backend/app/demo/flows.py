@@ -45,25 +45,45 @@ def _output(node_id: str, dataset_name: str, x: int, y: int) -> dict[str, Any]:
     }
 
 
-def _edge(source: str, target: str, target_handle: str | None = None) -> dict[str, Any]:
+def _edge(
+    source: str,
+    target: str,
+    target_handle: str | None = None,
+    source_handle: str | None = None,
+) -> dict[str, Any]:
+    suffix = "".join(f"-{h}" for h in (source_handle, target_handle) if h)
     edge: dict[str, Any] = {
-        "id": f"e-{source}-{target}" + (f"-{target_handle}" if target_handle else ""),
+        "id": f"e-{source}-{target}{suffix}",
         "source": source,
         "target": target,
     }
+    if source_handle is not None:
+        edge["sourceHandle"] = source_handle
     if target_handle is not None:
         edge["targetHandle"] = target_handle
     return edge
 
 
-def build_demo_flows(dataset_ids: dict[str, str]) -> list[DemoFlow]:
-    """Return every demo flow wired to the given dataset ids (by CSV file name)."""
-    return [
+def build_demo_flows(dataset_ids: dict[str, str], include_ml: bool = False) -> list[DemoFlow]:
+    """Return every demo flow wired to the given dataset ids (by CSV file name).
+
+    When ``include_ml`` is set (the ML extension is installed), the machine-learning
+    example flows are appended — they reference the ``iris.csv`` / ``house_prices.csv``
+    datasets that :func:`build_demo_frames` adds in the same mode."""
+    flows = [
         _clean_customers(dataset_ids),
         _order_revenue_by_month(dataset_ids),
         _customer_orders_join(dataset_ids),
         _full_sales_mart(dataset_ids),
     ]
+    if include_ml:
+        flows += [
+            _iris_quick_classifier(dataset_ids),
+            _iris_train_validate_evaluate(dataset_ids),
+            _house_prices_regression(dataset_ids),
+            _iris_pca_explore(dataset_ids),
+        ]
+    return flows
 
 
 # ---------------------------------------------------------------------------
@@ -347,5 +367,208 @@ def _full_sales_mart(ds: dict[str, str]) -> DemoFlow:
         "Full Sales Mart",
         "Join order items to products and orders, total revenue per category, and "
         "label each category with a revenue tier.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Machine-learning demo flows (only seeded when the [ml] extra is installed)
+# ---------------------------------------------------------------------------
+
+_IRIS_FEATURES = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+
+
+# 5. Iris — Quick Classifier: the smallest end-to-end modeling flow.
+def _iris_quick_classifier(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_iris", ds["iris.csv"], 0, 0),
+            _node(
+                "split",
+                "trainTestSplit",
+                {"test_size": 0.25, "stratify_column": "species", "seed": 42},
+                250,
+                0,
+            ),
+            _node(
+                "train",
+                "mlTrain",
+                {
+                    "model_type": "random_forest_classifier",
+                    "target_column": "species",
+                    "feature_columns": _IRIS_FEATURES,
+                    "hyperparameters": {},
+                    "seed": 42,
+                },
+                500,
+                0,
+            ),
+            _output("out_train", "iris_training_set", 750, 0),
+        ],
+        "edges": [
+            _edge("in_iris", "split"),
+            _edge("split", "train", target_handle="in", source_handle="train"),
+            _edge("train", "out_train", source_handle="out"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "Iris — Quick Classifier",
+        "Split the iris data, train a random-forest classifier on the training set, "
+        "and log it to MLflow. The smallest end-to-end modeling flow.",
+        graph,
+    )
+
+
+# 6. Iris — Train, Validate & Evaluate: scaling, stratified split, cross-validation,
+#    held-out evaluation, and feature importance.
+def _iris_train_validate_evaluate(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_iris", ds["iris.csv"], 0, 100),
+            _node("scale", "scaleFeatures", {"columns": _IRIS_FEATURES, "method": "standard"}, 240, 100),
+            _node(
+                "split",
+                "trainTestSplit",
+                {"test_size": 0.25, "stratify_column": "species", "seed": 42},
+                480,
+                100,
+            ),
+            _node(
+                "train",
+                "mlTrain",
+                {
+                    "model_type": "random_forest_classifier",
+                    "target_column": "species",
+                    "feature_columns": _IRIS_FEATURES,
+                    "hyperparameters": {},
+                    "cross_validate": True,
+                    "cv_folds": 5,
+                    "seed": 42,
+                },
+                720,
+                0,
+            ),
+            _node(
+                "predict",
+                "mlPredict",
+                {"model_uri": "", "output_column": "prediction"},
+                960,
+                100,
+            ),
+            _node(
+                "evaluate",
+                "mlEvaluate",
+                {
+                    "task_type": "classification",
+                    "target_column": "species",
+                    "prediction_column": "prediction",
+                },
+                1200,
+                100,
+            ),
+            _output("out_metrics", "iris_metrics", 1440, 100),
+            _node("importance", "featureImportance", {"top_n": 4}, 960, 260),
+            _output("out_importance", "iris_feature_importance", 1200, 260),
+        ],
+        "edges": [
+            _edge("in_iris", "scale"),
+            _edge("scale", "split"),
+            _edge("split", "train", target_handle="in", source_handle="train"),
+            _edge("split", "predict", target_handle="in", source_handle="test"),
+            _edge("train", "predict", target_handle="model", source_handle="model"),
+            _edge("predict", "evaluate"),
+            _edge("evaluate", "out_metrics"),
+            _edge("train", "importance", target_handle="in", source_handle="model"),
+            _edge("importance", "out_importance"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "Iris — Train, Validate & Evaluate",
+        "Scale features, stratify a train/test split, cross-validate a classifier, "
+        "evaluate it on the held-out set, and rank feature importance.",
+        graph,
+    )
+
+
+# 7. House Prices — Regression: a full regression train/test/evaluate flow.
+def _house_prices_regression(ds: dict[str, str]) -> DemoFlow:
+    features = ["area", "bedrooms", "age", "distance_to_city"]
+    graph = {
+        "nodes": [
+            _input("in_houses", ds["house_prices.csv"], 0, 0),
+            _node("split", "trainTestSplit", {"test_size": 0.25, "seed": 42}, 250, 0),
+            _node(
+                "train",
+                "mlTrain",
+                {
+                    "model_type": "random_forest_regressor",
+                    "target_column": "price",
+                    "feature_columns": features,
+                    "hyperparameters": {},
+                    "seed": 42,
+                },
+                500,
+                -60,
+            ),
+            _node("predict", "mlPredict", {"model_uri": "", "output_column": "prediction"}, 750, 0),
+            _node(
+                "evaluate",
+                "mlEvaluate",
+                {
+                    "task_type": "regression",
+                    "target_column": "price",
+                    "prediction_column": "prediction",
+                },
+                1000,
+                0,
+            ),
+            _output("out_metrics", "house_price_metrics", 1250, 0),
+        ],
+        "edges": [
+            _edge("in_houses", "split"),
+            _edge("split", "train", target_handle="in", source_handle="train"),
+            _edge("split", "predict", target_handle="in", source_handle="test"),
+            _edge("train", "predict", target_handle="model", source_handle="model"),
+            _edge("predict", "evaluate"),
+            _edge("evaluate", "out_metrics"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "House Prices — Regression",
+        "Predict house prices with a random-forest regressor: split, train, predict on "
+        "the held-out set, and evaluate with regression metrics (R², RMSE, MAE).",
+        graph,
+    )
+
+
+# 8. Iris — PCA Explore: scale then compress to 2 components for visualization.
+def _iris_pca_explore(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_iris", ds["iris.csv"], 0, 0),
+            _node("scale", "scaleFeatures", {"columns": _IRIS_FEATURES, "method": "standard"}, 250, 0),
+            _node(
+                "pca",
+                "reduceDimensions",
+                {"method": "pca", "n_components": 2, "columns": _IRIS_FEATURES},
+                500,
+                0,
+            ),
+            _output("out_pca", "iris_pca_components", 750, 0),
+        ],
+        "edges": [
+            _edge("in_iris", "scale"),
+            _edge("scale", "pca"),
+            _edge("pca", "out_pca"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "Iris — PCA Explore",
+        "Standardize the four measurements and compress them to two principal "
+        "components with PCA — ready to chart or cluster.",
         graph,
     )

@@ -1,5 +1,6 @@
 // Small helper inputs used inside node config forms. These work on plain
 // values and call onChange — the parent form wires them to the editor store.
+import { useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +102,49 @@ export function ColumnSelect({ value, columns, onChange, placeholder }: ColumnSe
         </option>
       ))}
     </Select>
+  );
+}
+
+interface OptionalColumnSelectProps {
+  value: string | null | undefined;
+  columns: string[];
+  onChange: (v: string | null) => void;
+  /** Label for the "no column" choice, e.g. "(no stratification)". */
+  noneLabel?: string;
+}
+
+/**
+ * Optional single-column picker that is ALWAYS a dropdown (never free text).
+ * Has an explicit "none" option; when no schema is known yet it shows just the
+ * none option plus a hint, so the user is never asked to type a column name.
+ */
+export function OptionalColumnSelect({
+  value,
+  columns,
+  onChange,
+  noneLabel = "(none)",
+}: OptionalColumnSelectProps) {
+  const options = withSelected(columns, value ? [value] : []);
+  return (
+    <div className="flex flex-col gap-1">
+      <Select
+        value={value ?? ""}
+        disabled={options.length === 0}
+        onChange={(e) => onChange(e.target.value || null)}
+      >
+        <option value="">{noneLabel}</option>
+        {options.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </Select>
+      {options.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          Connect an upstream input to choose a column.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -300,6 +344,188 @@ export function KeyValueEditor({
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---- Delimiter picker -------------------------------------------------------
+
+const DELIMITER_PRESETS = [
+  { label: "Comma", value: "," },
+  { label: "Tab", value: "\t" },
+  { label: "Pipe", value: "|" },
+  { label: "Semicolon", value: ";" },
+  { label: "Space", value: " " },
+] as const;
+
+interface DelimiterPickerProps {
+  value: string | undefined;
+  onChange: (v: string) => void;
+}
+
+/** Preset delimiter buttons + free-text fallback for splitColumn. */
+export function DelimiterPicker({ value, onChange }: DelimiterPickerProps) {
+  const displayVal = value === "\t" ? "\\t" : (value ?? "");
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1">
+        {DELIMITER_PRESETS.map((p) => {
+          const on = value === p.value;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => onChange(p.value)}
+              className={cn(
+                "rounded border px-2 py-0.5 text-xs font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      <Input
+        value={displayVal}
+        placeholder="or type a custom delimiter…"
+        onChange={(e) => {
+          const v = e.target.value;
+          onChange(v === "\\t" ? "\t" : v);
+        }}
+      />
+    </div>
+  );
+}
+
+// ---- Date format picker -----------------------------------------------------
+
+const DATE_FORMAT_PRESETS = [
+  { label: "YYYY-MM-DD", value: "%Y-%m-%d" },
+  { label: "DD/MM/YYYY", value: "%d/%m/%Y" },
+  { label: "MM/DD/YYYY", value: "%m/%d/%Y" },
+  { label: "YYYY-MM-DD HH:MM:SS", value: "%Y-%m-%d %H:%M:%S" },
+  { label: "DD-MMM-YYYY", value: "%d-%b-%Y" },
+] as const;
+
+interface DateFormatPickerProps {
+  value: string | undefined;
+  onChange: (v: string) => void;
+}
+
+/** Common strptime format presets + free-text override for date parsing. */
+export function DateFormatPicker({ value, onChange }: DateFormatPickerProps) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1">
+        {DATE_FORMAT_PRESETS.map((p) => {
+          const on = value === p.value;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => onChange(p.value)}
+              className={cn(
+                "rounded border px-2 py-0.5 font-mono text-[11px] font-medium transition-colors",
+                on
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+      <Input
+        value={value ?? ""}
+        placeholder="or type a custom format…"
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+// ---- Tag (chip) input -------------------------------------------------------
+
+interface TagInputProps {
+  /** Stored as a comma-separated string (matches filterRows "in" wire format). */
+  value: string | undefined;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}
+
+/**
+ * Chip-based tag input for the filterRows "in" operator.
+ * Press Enter or comma to confirm a tag; Backspace on empty removes the last one.
+ */
+export function TagInput({ value, onChange, placeholder }: TagInputProps) {
+  const [draft, setDraft] = useState("");
+  const tags = (value ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const commit = (next: string[]) => onChange(next.join(", "));
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim();
+    if (!tag || tags.includes(tag)) {
+      setDraft("");
+      return;
+    }
+    commit([...tags, tag]);
+    setDraft("");
+  };
+
+  const removeTag = (tag: string) => commit(tags.filter((t) => t !== tag));
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div
+        className="flex min-h-[36px] flex-wrap items-center gap-1 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring"
+        onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus()}
+      >
+        {tags.map((t) => (
+          <span
+            key={t}
+            className="flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0 text-[11px] font-medium text-primary"
+          >
+            {t}
+            <button
+              type="button"
+              onClick={() => removeTag(t)}
+              className="ml-0.5 text-primary/60 hover:text-primary"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          className="min-w-[80px] flex-1 bg-transparent text-xs outline-none"
+          value={draft}
+          placeholder={tags.length === 0 ? (placeholder ?? "type and press Enter…") : "add more…"}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              addTag(draft);
+            } else if (e.key === "Backspace" && !draft && tags.length > 0) {
+              removeTag(tags[tags.length - 1]);
+            }
+          }}
+          onBlur={() => {
+            if (draft.trim()) addTag(draft);
+          }}
+        />
+      </div>
+      {tags.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          {tags.length} value{tags.length !== 1 ? "s" : ""} — rows matching any of these are kept
+        </p>
+      )}
     </div>
   );
 }

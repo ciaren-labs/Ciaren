@@ -8,6 +8,7 @@ export type NodeCategory =
   | "columns"
   | "reshape"
   | "analytics"
+  | "ml"
   | "output";
 
 export interface NodeTypeDef {
@@ -18,10 +19,21 @@ export interface NodeTypeDef {
   defaultConfig: Record<string, unknown>;
   /** Input handle ids. Empty for input nodes. */
   inputHandles: string[];
+  /** Input handles that may be connected but aren't required (e.g. mlPredict's
+   *  "model" handle, optional when a model_uri is set in config). */
+  optionalInputHandles?: string[];
   /** Whether the node accepts an arbitrary number of incoming edges. */
   multiInput?: boolean;
-  /** Output handle ids. Empty for output nodes (they still flow downstream). */
+  /** Output handle ids. Empty for output nodes (they still flow downstream).
+   *  Single-output nodes omit this and use the implicit "out" handle. */
+  outputHandles?: string[];
+  /** Whether the node emits anything downstream (renders a source handle). */
   hasOutput: boolean;
+  /** A terminal that persists a result without a file-output node (mlTrain logs a
+   *  model to MLflow), so a flow ending here is still "complete". */
+  isModelSink?: boolean;
+  /** Only available when the ML extension is installed + enabled on the server. */
+  requiresMl?: boolean;
   description: string;
 }
 
@@ -55,6 +67,24 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Load rows from an uploaded Parquet dataset.",
   },
   {
+    type: "jsonInput",
+    label: "JSON Input",
+    category: "input",
+    defaultConfig: { dataset_id: "", dataset_version: null },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Load records from an uploaded JSON dataset.",
+  },
+  {
+    type: "textInput",
+    label: "Text Input",
+    category: "input",
+    defaultConfig: { dataset_id: "", dataset_version: null },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Load lines from an uploaded text file (one row per line).",
+  },
+  {
     type: "sqlInput",
     label: "SQL Input",
     category: "input",
@@ -62,6 +92,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     inputHandles: [],
     hasOutput: true,
     description: "Read rows live from a database table or query.",
+  },
+  {
+    type: "storageInput",
+    label: "Storage Input",
+    category: "input",
+    defaultConfig: { connection_id: "", path: "", format: "csv" },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Read a file (CSV, Excel, Parquet) from S3, Azure Blob, GCS, or a local folder.",
   },
   // ----- Cleaning / single-input transforms -----
   {
@@ -348,6 +387,115 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Build a column from if/elif/else rules (CASE-WHEN).",
   },
+  // ----- Machine Learning -----
+  {
+    type: "trainTestSplit",
+    label: "Train / Test Split",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { test_size: 0.2, stratify_column: null, seed: 42 },
+    inputHandles: ["in"],
+    outputHandles: ["train", "test"],
+    hasOutput: true,
+    description: "Split rows into a training set and a test set (seed required).",
+  },
+  {
+    type: "scaleFeatures",
+    label: "Scale Features",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { method: "standard", columns: [] },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Standardize / normalize numeric columns (standard, min-max, robust).",
+  },
+  {
+    type: "encodeCategories",
+    label: "Encode Categories",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { method: "onehot", columns: [], drop_first: false },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Turn categorical columns into numbers (one-hot or ordinal).",
+  },
+  {
+    type: "selectFeatures",
+    label: "Select Features",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { method: "variance", threshold: 0.0, k: 10, target_column: "" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Keep the most useful features (variance, correlation, or top-K).",
+  },
+  {
+    type: "reduceDimensions",
+    label: "Reduce Dimensions",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { method: "pca", n_components: 2, columns: [], prefix: "pc", seed: 42 },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Compress numeric features into principal components (PCA).",
+  },
+  {
+    type: "mlTrain",
+    label: "Train Model",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "random_forest_classifier",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      cross_validate: false,
+      cv_folds: 5,
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["out", "model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Fit a model and log it to MLflow (classification, regression, clustering).",
+  },
+  {
+    type: "mlPredict",
+    label: "Predict",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { model_uri: "", output_column: "prediction", output_proba_columns: [], batch_size: null },
+    inputHandles: ["in"],
+    optionalInputHandles: ["model"],
+    hasOutput: true,
+    description: "Score rows with a trained model (from the model wire or a registry URI).",
+  },
+  {
+    type: "mlEvaluate",
+    label: "Evaluate",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      task_type: "classification",
+      target_column: "",
+      prediction_column: "prediction",
+      proba_columns: [],
+      metrics: [],
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Compute metrics from predictions (accuracy, RMSE, silhouette, …).",
+  },
+  {
+    type: "featureImportance",
+    label: "Feature Importance",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: { top_n: null },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Rank which features a trained model relied on most.",
+  },
   // ----- Outputs -----
   {
     type: "csvOutput",
@@ -385,6 +533,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: false,
     description: "Write the result to a database table.",
   },
+  {
+    type: "storageOutput",
+    label: "Storage Output",
+    category: "output",
+    defaultConfig: { connection_id: "", path: "", format: "parquet", if_exists: "overwrite" },
+    inputHandles: ["in"],
+    hasOutput: false,
+    description: "Write the result as a file (CSV, Excel, Parquet) to S3, Azure Blob, GCS, or a local folder.",
+  },
 ];
 
 export const NODE_TYPE_MAP: Record<string, NodeTypeDef> = Object.fromEntries(
@@ -401,6 +558,7 @@ export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   columns: "Columns",
   reshape: "Reshape",
   analytics: "Analytics",
+  ml: "Machine Learning",
   output: "Outputs",
 };
 
@@ -410,5 +568,12 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "columns",
   "reshape",
   "analytics",
+  "ml",
   "output",
 ];
+
+/** Output handle ids for a node (single implicit "out" unless it declares more). */
+export function getOutputHandles(def: NodeTypeDef): string[] {
+  if (def.outputHandles) return def.outputHandles;
+  return def.hasOutput ? ["out"] : [];
+}

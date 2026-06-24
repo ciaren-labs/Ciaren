@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { runsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import type { RunListFilters } from "@/lib/types";
@@ -23,6 +23,18 @@ export function useRun(id: string | null) {
       const status = query.state.data?.status;
       if (status === "success" || status === "failed") return false;
       return 1500;
+    },
+  });
+}
+
+/** Re-run a run's flow with the same config (new run id). */
+export function useRetryRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => runsApi.retry(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: ["flows"] }); // refresh last_run_at
     },
   });
 }

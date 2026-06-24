@@ -28,6 +28,8 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   csvInput: INPUT_DOC("CSV"),
   excelInput: INPUT_DOC("Excel"),
   parquetInput: INPUT_DOC("Parquet"),
+  jsonInput: INPUT_DOC("JSON"),
+  textInput: INPUT_DOC("Text"),
 
   dropNulls: {
     summary: "Removes rows that contain missing (null) values.",
@@ -63,13 +65,23 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
   filterRows: {
-    summary: "Keeps only the rows that match a condition.",
+    summary: "Keeps only the rows that match a condition. Rows that don't match are dropped.",
     fields: [
       { name: "Column", desc: "The column to test." },
-      { name: "Operator", desc: "How to compare — equals, greater-than, contains, is-null, etc." },
-      { name: "Value", desc: "What to compare against (not needed for is-null / not-null)." },
+      {
+        name: "Operator",
+        desc: "Comparison to apply: equals, not equals, greater/less than, between (range), in (list), contains / starts with / ends with (text), is null, is not null.",
+      },
+      {
+        name: "Value",
+        desc: "What to compare against. Not needed for 'is null' / 'is not null'. For 'in', enter comma-separated values. For 'between', two bound fields appear.",
+      },
     ],
-    example: "age >= 18 keeps adults only.",
+    example: "Column = country, Operator = in, Value = US, CA → keeps only US and Canadian rows.",
+    tips: [
+      "Chain multiple Filter Rows nodes to apply several conditions — rows must pass all of them.",
+      "'is null' and 'is not null' need no value — they just check for missing data.",
+    ],
   },
   sortRows: {
     summary: "Reorders rows by one or more columns.",
@@ -100,8 +112,15 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   stringTransform: {
     summary: "Applies a text operation to every value in a column.",
     fields: [
-      { name: "Column", desc: "A text column." },
-      { name: "Operation", desc: "lower, upper, strip (trim spaces), title or capitalize." },
+      { name: "Column", desc: "A text column to transform." },
+      {
+        name: "Operation",
+        desc: "Lowercase / Uppercase / Strip whitespace / Title Case / Capitalize / String length / Find & Replace / Pad to width.",
+      },
+    ],
+    tips: [
+      "Use 'Strip whitespace' before comparisons to avoid invisible-space mismatches.",
+      "'String length' produces a numeric column counting characters per row.",
     ],
   },
   calculatedColumn: {
@@ -125,12 +144,15 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     example: "Group by region, sum of sales → one row per region.",
   },
   join: {
-    summary: "Combines two tables side-by-side on matching key columns.",
+    summary: "Combines two tables side-by-side on matching key columns — equivalent to SQL JOIN.",
     fields: [
-      { name: "Join on", desc: "The key column(s) that must match between the left and right inputs." },
-      { name: "How", desc: "inner = only matches; left/right = keep all of one side; outer = keep everything." },
+      { name: "Join type", desc: "Inner: only matched rows. Left: all left rows + matched right. Right: all right rows + matched left. Full outer: all rows from both sides." },
+      { name: "Join on", desc: "The key column(s) that must match between the left and right inputs. Enable 'different names' if the key has a different name on each side." },
     ],
-    tips: ["Connect the two sources to the left and right handles on the node."],
+    tips: [
+      "Connect the two sources to the 'left' and 'right' handles on the node.",
+      "Use 'Left join' to keep all rows from the primary table even when there's no match in the lookup.",
+    ],
   },
   concatRows: {
     summary: "Stacks two or more tables on top of each other (union of rows).",
@@ -221,15 +243,22 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   },
 
   windowFunction: {
-    summary: "Compute a window function (rank, running total, lag/lead) into a new column.",
+    summary: "Compute a window/analytical function into a new column — equivalent to SQL window functions (OVER PARTITION BY).",
     fields: [
-      { name: "Function", desc: "row_number, rank, dense_rank, cumcount, cumsum, cummax, cummin, lag, lead." },
-      { name: "Partition by", desc: "Restart the window within each group (optional)." },
-      { name: "Order by", desc: "Row order within each partition." },
-      { name: "Target", desc: "Value column for cumsum/cummax/cummin/lag/lead." },
+      {
+        name: "Function",
+        desc: "Ranking: row_number, rank, dense_rank, cumcount. Running totals: cumsum, cummax, cummin. Time-shifted: lag (previous row), lead (next row).",
+      },
+      { name: "Partition by", desc: "Reset the window per group — e.g. partition by region gives an independent running total per region." },
+      { name: "Order by", desc: "Defines row order within each partition. Required for lag/lead and most ranking functions." },
+      { name: "Target column", desc: "Source column for cumsum / cummax / cummin / lag / lead. Not needed for ranking functions." },
+      { name: "New column name", desc: "Where the result is written." },
     ],
-    example: "function cumsum, partition by region, order by date → a running total per region.",
-    tips: ["Row order is preserved; the result is added as a new column."],
+    example: "cumsum partitioned by region, ordered by date → running sales total that resets per region.",
+    tips: [
+      "Use 'rank' when you want gaps for ties (1, 1, 3), 'dense_rank' for no gaps (1, 1, 2).",
+      "lag(n=1) gives you the previous row's value; lead(n=1) gives the next row's value.",
+    ],
   },
   conditionalColumn: {
     summary: "Build a column from ordered if/elif/else rules (CASE-WHEN). First match wins.",
@@ -264,9 +293,105 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
 
+  storageInput: {
+    summary: "Read a file (CSV, Excel, or Parquet) from S3, Azure Blob Storage, Google Cloud Storage, or a local folder.",
+    fields: [
+      { name: "Storage connection", desc: "The cloud storage or local folder connection to use." },
+      { name: "File path", desc: "Path to the file within the bucket or folder (e.g. data/input.csv)." },
+      { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
+    ],
+  },
+
+  storageOutput: {
+    summary: "Write the result as a file (CSV, Excel, or Parquet) to S3, Azure Blob Storage, Google Cloud Storage, or a local folder.",
+    fields: [
+      { name: "Storage connection", desc: "The cloud storage or local folder connection to use." },
+      { name: "Destination path", desc: "Where to write the file within the bucket or folder." },
+      { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
+      { name: "If file exists", desc: "Overwrite the existing file, or fail with an error." },
+    ],
+  },
+
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),
   parquetOutput: OUTPUT_DOC("Parquet"),
+
+  // ----- Machine learning -----
+  trainTestSplit: {
+    summary:
+      "Splits rows into a training set and a test set. Train your model on one, measure it honestly on the other. Has two outputs: train and test.",
+    fields: [
+      { name: "Test size", desc: "Fraction held out for testing, e.g. 0.2 = 20% test." },
+      { name: "Stratify by", desc: "Optional. Keep the same class balance in both splits (classification targets)." },
+      { name: "Random seed", desc: "Required — the same seed always produces the same split." },
+    ],
+    tips: [
+      "Wire the train output into Train Model, and the test output into Predict → Evaluate.",
+      "Stratify on your target column for imbalanced classification data.",
+    ],
+  },
+  scaleFeatures: {
+    summary: "Puts numeric columns on a comparable scale so no single feature dominates by magnitude.",
+    fields: [{ name: "Method", desc: "Standard (z-score), Min-max (0–1), or Robust (median/IQR, resists outliers)." }],
+    tips: ["Helpful for distance- and gradient-based models (KNN, SVM, logistic regression)."],
+  },
+  encodeCategories: {
+    summary: "Turns text categories into numbers a model can use.",
+    fields: [
+      { name: "Method", desc: "One-hot makes a 0/1 column per category; ordinal maps each to an integer." },
+      { name: "Drop first", desc: "One-hot only: drop one category to avoid collinearity." },
+    ],
+  },
+  selectFeatures: {
+    summary: "Keeps the most useful columns and drops noise to simplify and speed up training.",
+    fields: [
+      { name: "Method", desc: "Variance threshold, correlation filter, or top-K by relevance to a target." },
+      { name: "Threshold / K / Target", desc: "Shown depending on the chosen method." },
+    ],
+  },
+  reduceDimensions: {
+    summary: "Compresses many numeric columns into a few principal components (PCA) — handy for visualization or de-noising.",
+    fields: [
+      { name: "Components", desc: "A whole number of components, or a fraction (0–1) of variance to keep." },
+      { name: "Columns", desc: "Optional. Empty means all numeric columns." },
+    ],
+  },
+  mlTrain: {
+    summary:
+      "Fits a model and logs it to MLflow. Preprocessing is bundled into the model so the exact same steps run at prediction time. Outputs the data (out) and a model reference (model).",
+    fields: [
+      { name: "Model", desc: "Pick an algorithm grouped by task (classification, regression, clustering)." },
+      { name: "Target", desc: "The column to predict (supervised models only)." },
+      { name: "Features", desc: "Optional. Empty = every column except the target." },
+      { name: "Advanced options", desc: "Cross-validation, preprocessing, and the full hyperparameter set." },
+    ],
+    tips: [
+      "Feed it the train output of Train / Test Split.",
+      "The seed is required so a run reproduces the same model.",
+      "Wire the model output into Predict or Feature Importance.",
+    ],
+  },
+  mlPredict: {
+    summary: "Scores rows with a trained model, adding a prediction column.",
+    fields: [
+      { name: "Model URI", desc: "Optional. Use a registry URI, or leave empty and connect the model wire." },
+      { name: "Prediction column", desc: "Name for the output column." },
+      { name: "Probability columns", desc: "Optional class probabilities (classifiers)." },
+    ],
+  },
+  mlEvaluate: {
+    summary: "Computes evaluation metrics from predictions and returns them as a metric/value table.",
+    fields: [
+      { name: "Task type", desc: "Classification, regression, or clustering." },
+      { name: "True value / Prediction", desc: "The columns to compare." },
+      { name: "Metrics", desc: "Optional. Empty uses a sensible default set for the task." },
+    ],
+  },
+  featureImportance: {
+    summary: "Ranks which features a trained model relied on most.",
+    fields: [{ name: "Top N", desc: "Optional limit to the N most important features." }],
+    tips: ["Connect the model output of Train Model. Works for tree and linear models (not SVM-rbf or KNN)."],
+  },
 };
 
 export function getNodeDoc(type: string | undefined): NodeDoc | undefined {

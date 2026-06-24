@@ -9,6 +9,34 @@ import pandas as pd
 from app.engine.polars_codegen import PolarsCodeGenerator
 
 
+def _multi_output_graph() -> dict:
+    """trainTestSplit (train/test) feeding two sinks — the polars generator must
+    route each sourceHandle to its own variable, not collapse to a single 'out'."""
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1, "test_size": 0.2}}},
+            {"id": "o1", "type": "csvOutput", "data": {"config": {"path": "train.csv"}}},
+            {"id": "o2", "type": "csvOutput", "data": {"config": {"path": "test.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "sp"},
+            {"id": "e2", "source": "sp", "target": "o1", "sourceHandle": "train"},
+            {"id": "e3", "source": "sp", "target": "o2", "sourceHandle": "test"},
+        ],
+    }
+
+
+def test_multi_output_node_routes_each_handle() -> None:
+    # Regression: a multi-output node used to raise KeyError('train') because the
+    # generator passed only {"out": var} to to_polars_code.
+    for lazy in (False, True):
+        code = PolarsCodeGenerator().generate(_multi_output_graph(), {"ds1": "in.csv"}, lazy=lazy)
+        assert "train_test_split(" in code
+        assert "train.csv" in code and "test.csv" in code
+        compile(code, "<gen>", "exec")
+
+
 def _wide_graph(dataset_id: str = "ds1") -> dict:
     """An input feeding a chain that exercises many node types."""
     return {
@@ -47,7 +75,7 @@ def _wide_graph(dataset_id: str = "ds1") -> dict:
 def test_polars_codegen_is_valid_and_uses_polars() -> None:
     code = PolarsCodeGenerator().generate(_wide_graph(), {"ds1": "/data/in.csv"})
     assert code.startswith("import polars as pl")
-    assert 'pl.read_csv("/data/in.csv")' in code
+    assert "pl.read_csv('/data/in.csv')" in code
     assert ".drop_nulls()" in code
     assert ".rename({'a': 'alpha'})" in code
     assert ".filter(pl.col('alpha') > 1)" in code
@@ -125,7 +153,7 @@ def _run(code: str, tmp_path: Path) -> pd.DataFrame:
 
 def test_polars_lazy_uses_scan_and_collect() -> None:
     code = PolarsCodeGenerator().generate(_wide_graph(), {"ds1": "/data/in.csv"}, lazy=True)
-    assert 'pl.scan_csv("/data/in.csv")' in code  # lazy reader, not read_csv
+    assert "pl.scan_csv('/data/in.csv')" in code  # lazy reader, not read_csv
     assert "pl.read_csv" not in code
     assert ".collect().write_csv(" in code  # materialize only at the sink
     assert ".drop_nulls()" in code  # transformation bodies are unchanged

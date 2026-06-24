@@ -22,24 +22,48 @@ export const INPUT_SOURCE_TYPE: Record<string, DatasetSourceType> = {
   csvInput: "csv",
   excelInput: "excel",
   parquetInput: "parquet",
+  jsonInput: "json",
+  textInput: "text",
 };
 
 export function isInputType(type: string | undefined): boolean {
   return type ? type in INPUT_SOURCE_TYPE : false;
 }
 
+/** All node types that can act as the first node in a flow. */
+const FLOW_START_TYPES = new Set([
+  ...Object.keys(INPUT_SOURCE_TYPE),
+  "sqlInput",
+  "storageInput",
+]);
+
+/** Connected input types — use connection_id instead of dataset_id. */
+const CONNECTED_INPUT_TYPES = new Set(["sqlInput", "storageInput"]);
+
+/** Returns true for any node type that can appear as the first node in a flow. */
+export function isFlowStartNode(type: string | undefined): boolean {
+  return type ? FLOW_START_TYPES.has(type) : false;
+}
+
 /**
- * A flow's first step must be an input node with a dataset chosen. Until that
- * holds, the editor blocks adding any non-input node. Returns true once at least
- * one input node has a non-empty `dataset_id`.
+ * A flow's first step must be an input node. Returns true once at least one
+ * input node is configured (dataset chosen for file inputs, connection chosen
+ * for SQL/storage inputs).
  */
 export function hasReadyInput(nodes: GraphNodeLike[]): boolean {
-  return nodes.some(
-    (n) =>
+  return nodes.some((n) => {
+    if (CONNECTED_INPUT_TYPES.has(n.type ?? "")) {
+      return (
+        typeof n.data.config.connection_id === "string" &&
+        n.data.config.connection_id.length > 0
+      );
+    }
+    return (
       isInputType(n.type) &&
       typeof n.data.config.dataset_id === "string" &&
-      n.data.config.dataset_id.length > 0,
-  );
+      n.data.config.dataset_id.length > 0
+    );
+  });
 }
 
 function asStringArray(value: unknown): string[] {
@@ -209,6 +233,27 @@ function outputColumns(
       // The pivoted column names are data-dependent; expose the known index cols.
       const index = asStringArray(config.index);
       return index.length ? index : inputCols;
+    }
+    // ----- ML nodes -----
+    case "mlPredict": {
+      const out = typeof config.output_column === "string" && config.output_column
+        ? config.output_column
+        : "prediction";
+      const proba = asStringArray(config.output_proba_columns);
+      return Array.from(new Set([...inputCols, out, ...proba]));
+    }
+    case "mlEvaluate":
+      return ["metric", "value"];
+    case "featureImportance":
+      return ["feature_name", "importance", "rank"];
+    case "reduceDimensions": {
+      const cols = asStringArray(config.columns);
+      const n = typeof config.n_components === "number" ? config.n_components : 0;
+      const prefix = typeof config.prefix === "string" && config.prefix ? config.prefix : "pc";
+      if (!cols.length || n < 1) return inputCols; // can't predict without explicit cols
+      const kept = inputCols.filter((c) => !cols.includes(c));
+      const comps = Array.from({ length: Math.floor(n) }, (_, i) => `${prefix}_${i + 1}`);
+      return [...kept, ...comps];
     }
     default:
       // Most cleaning transforms (filter, sort, fill, cast, dedupe, limit,

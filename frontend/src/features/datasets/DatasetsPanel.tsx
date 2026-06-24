@@ -2,15 +2,13 @@ import { useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
+  AlignLeft,
+  Braces,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Database,
   EyeOff,
   FileSpreadsheet,
   FileText,
-  LayoutGrid,
-  List,
   Loader2,
   Power,
   Trash2,
@@ -22,6 +20,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { ViewToggle } from "@/components/filters/ViewToggle";
 import {
   Card,
   CardContent,
@@ -37,14 +36,36 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import { projectColor } from "@/lib/projectColors";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * Version label for a dataset. ``latest_version`` is the current version number;
+ * ``version_count`` is how many versions still exist. They only differ once older
+ * versions have been deleted/purged (e.g. v5 is current but only 2 remain), so we
+ * show just ``v5`` normally and append the kept-count only when it's informative.
+ */
+function versionLabel(latest: number, count: number): string {
+  return count < latest ? `v${latest} (${count} kept)` : `v${latest}`;
+}
+
+type DatasetSortKey = "name" | "columns" | "versions" | "created";
+const DATASET_SORT: Record<DatasetSortKey, (d: Dataset) => string | number> = {
+  name: (d) => d.name.toLowerCase(),
+  columns: (d) => d.column_schema?.length ?? 0,
+  versions: (d) => d.latest_version,
+  created: (d) => d.created_at,
+};
 
 const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: string }> = {
   csv: { icon: FileText, tint: "bg-emerald-500" },
   excel: { icon: FileSpreadsheet, tint: "bg-green-600" },
   parquet: { icon: Database, tint: "bg-indigo-500" },
+  json: { icon: Braces, tint: "bg-amber-500" },
+  text: { icon: AlignLeft, tint: "bg-slate-500" },
 };
 
 interface DatasetsPanelProps {
@@ -69,7 +90,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
   const [layout, setLayout] = useLayoutPreference("datasets", "cards");
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const { sort, toggle: toggleSort } = useSort<DatasetSortKey>("created", "desc");
   // Pending disable/delete action with cascade confirmation
   const [pendingAction, setPendingAction] = useState<{
     dataset: Dataset;
@@ -130,11 +151,11 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
     if (scoped || projectFilter) return null;
     const byProject = new Map<string, Dataset[]>();
     for (const d of filtered) {
-      const key = d.project_id ?? "none";
-      byProject.set(key, [...(byProject.get(key) ?? []), d]);
+      if (!d.project_id) continue; // every dataset belongs to a project
+      byProject.set(d.project_id, [...(byProject.get(d.project_id) ?? []), d]);
     }
     return (projects ?? [])
-      .map((p) => ({ project: p, items: byProject.get(p.id) ?? [] }))
+      .map((p) => ({ id: p.id, name: p.name, color: p.color as string | null | undefined, items: byProject.get(p.id) ?? [] }))
       .filter((g) => g.items.length > 0);
   }, [filtered, projects, scoped, projectFilter]);
 
@@ -177,11 +198,11 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
       ) : (
         <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
           <p className="text-sm font-medium text-foreground">Step 1 — Choose a project</p>
-          <p className="text-xs text-muted-foreground">Select the project this dataset belongs to before uploading.</p>
+          <p className="text-xs text-muted-foreground">Pick the project this dataset belongs to — it lands in the Default project if you don't.</p>
           <SearchableSelect
             value={uploadProjectId}
             onChange={setUploadProjectId}
-            allLabel="Select a project…"
+            allLabel="Default project"
             placeholder="Search projects…"
             className="mx-auto w-full max-w-xs"
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
@@ -221,29 +242,8 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
             ]}
           />
         </FilterField>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn(
-              "rounded p-1.5 transition-colors",
-              layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn(
-              "rounded p-1.5 transition-colors",
-              layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
+        <div className="ml-auto self-end">
+          <ViewToggle value={layout} onChange={setLayout} />
         </div>
       </FilterBar>
 
@@ -262,49 +262,26 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
       {groups ? (
         <div className="flex flex-col gap-4">
-          {groups.map(({ project, items }) => {
-            const theme = projectColor(project.color);
-            const collapsed = collapsedSections.has(project.id);
-            const toggle = () =>
-              setCollapsedSections((prev) => {
-                const next = new Set(prev);
-                collapsed ? next.delete(project.id) : next.add(project.id);
-                return next;
-              });
-            return (
-              <section key={project.id} className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={toggle}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left transition-colors hover:bg-muted/70"
-                >
-                  {collapsed ? (
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                  <span className={cn("h-2.5 w-2.5 rounded-full", theme.dot)} />
-                  <span className="flex-1 text-sm font-semibold">{project.name}</span>
-                  <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {items.length}
-                  </span>
-                </button>
-                {!collapsed && (
-                  layout === "cards" ? (
-                    <DatasetGrid datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
-                  ) : (
-                    <DatasetTable datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
-                  )
-                )}
-              </section>
-            );
-          })}
+          {groups.map((g) => (
+            <CollapsibleSection
+              key={g.id}
+              title={g.name}
+              colorKey={g.color}
+              count={g.items.length}
+            >
+              {layout === "cards" ? (
+                <DatasetGrid datasets={sortRows(g.items, sort, DATASET_SORT)} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+              ) : (
+                <DatasetTable datasets={sortRows(g.items, sort, DATASET_SORT)} sort={sort} onSort={toggleSort} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+              )}
+            </CollapsibleSection>
+          ))}
         </div>
       ) : (
         layout === "cards" ? (
-          <DatasetGrid datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+          <DatasetGrid datasets={sortRows(filtered, sort, DATASET_SORT)} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         ) : (
-          <DatasetTable datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+          <DatasetTable datasets={sortRows(filtered, sort, DATASET_SORT)} sort={sort} onSort={toggleSort} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         )
       )}
 
@@ -391,23 +368,30 @@ function DatasetGrid({
 
 function DatasetTable({
   datasets,
+  sort,
+  onSort,
   onSelect,
   onAction,
 }: {
   datasets: Dataset[];
+  sort: SortState<DatasetSortKey>;
+  onSort: (key: DatasetSortKey) => void;
   onSelect: (d: Dataset) => void;
   onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
 }) {
+  const fmtDate = useFormatDateTime();
+  const thClass = "border-b border-border px-3 py-2 text-left font-semibold";
   return (
     <div className="overflow-auto rounded-lg border border-border">
       <table className="w-full border-collapse text-xs">
         <thead className="sticky top-0 bg-muted">
           <tr>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Name</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Type</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Kind</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Columns</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Versions</th>
+            <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className={thClass} />
+            <th className={thClass}>Type</th>
+            <th className={thClass}>Kind</th>
+            <SortableTh label="Columns" sortKey="columns" sort={sort} onSort={onSort} className={thClass} />
+            <SortableTh label="Versions" sortKey="versions" sort={sort} onSort={onSort} className={thClass} />
+            <SortableTh label="Created" sortKey="created" sort={sort} onSort={onSort} className={thClass} />
             {onAction && <th className="border-b border-border px-3 py-2" />}
           </tr>
         </thead>
@@ -445,7 +429,10 @@ function DatasetTable({
                 {d.column_schema?.length ?? 0}
               </td>
               <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>
-                v{d.latest_version} ({d.version_count})
+                {versionLabel(d.latest_version, d.version_count)}
+              </td>
+              <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => onSelect(d)}>
+                {fmtDate(d.created_at)}
               </td>
               {onAction && (
                 <td className="border-b border-border px-3 py-2">
@@ -515,7 +502,7 @@ function DatasetCard({
               </div>
               <CardDescription className="text-xs">
                 {d.source_type.toUpperCase()} · {schema.length} columns ·{" "}
-                {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : "v1"}
+                {versionLabel(d.latest_version, d.version_count)}
               </CardDescription>
             </div>
           </CardHeader>
@@ -603,7 +590,7 @@ function UploadDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,.xlsx,.xls,.parquet"
+        accept=".csv,.xlsx,.xls,.parquet,.json,.txt"
         className="hidden"
         onChange={onFile}
       />

@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, LayoutGrid, List, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { AlertCircle, CalendarClock, Loader2, Pencil, Play, Plus, Power, Trash2, Upload, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,14 +25,25 @@ import {
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
-import { projectColor } from "@/lib/projectColors";
-import type { Flow } from "@/lib/types";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
+import { ViewToggle } from "@/components/filters/ViewToggle";
+import { ENGINES, type Engine, type Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PendingAction =
   | { kind: "disable"; flow: Flow }
   | { kind: "enable"; flow: Flow }
   | { kind: "delete"; flow: Flow };
+
+
+type FlowSortKey = "name" | "nodes" | "status" | "created" | "last_run";
+const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
+  name: (f) => f.name.toLowerCase(),
+  nodes: (f) => f.graph_json?.nodes.length ?? 0,
+  status: (f) => (f.is_disabled ? "disabled" : "active"),
+  created: (f) => f.created_at,
+  last_run: (f) => f.last_run_at ?? null,
+};
 
 export function FlowListPage() {
   const { data: flows, isLoading } = useFlows();
@@ -48,10 +61,43 @@ export function FlowListPage() {
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [runFlow, setRunFlow] = useState<Flow | null>(null);
-  const [runEngine, setRunEngine] = useState<"pandas" | "polars">("pandas");
+  const [runEngine, setRunEngine] = useState<Engine>("pandas");
   const runMutation = useRunFlow();
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
+  const importFlow = useImportFlow();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    setImportError(null);
+    let doc: { graph_json?: unknown };
+    try {
+      doc = JSON.parse(await file.text());
+    } catch {
+      setImportError("That file isn't valid JSON.");
+      return;
+    }
+    if (!doc || typeof doc !== "object" || !("graph_json" in doc)) {
+      setImportError("Not a flow document — expected a 'graph_json' field.");
+      return;
+    }
+    // The target project comes from the active filter (the UI context), never the
+    // file — project is an environment binding, so the document never carries one.
+    const payload = {
+      ...(doc as Record<string, unknown>),
+      project_id: projectFilter || undefined,
+    } as Parameters<typeof importFlow.mutate>[0];
+    importFlow.mutate(payload, {
+      onSuccess: (flow) => navigate(`/flows/${flow.id}`),
+      onError: (err) => setImportError((err as Error)?.message ?? "Import failed."),
+    });
+  };
+
+  const { sort, toggle: toggleSort } = useSort<FlowSortKey>("created", "desc");
 
   const projectById = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p])),
@@ -71,6 +117,21 @@ export function FlowListPage() {
     }
     return list;
   }, [flows, projectFilter, search]);
+
+  // Group flows by project (insertion order), sorting each group's rows by the
+  // active sort column. Both card and table views share this.
+  const groups = useMemo(() => {
+    const map = new Map<string, Flow[]>();
+    for (const f of filtered) {
+      const pid = f.project_id ?? "";
+      const arr = map.get(pid);
+      if (arr) arr.push(f);
+      else map.set(pid, [f]);
+    }
+    return [...map.entries()].map(
+      ([pid, items]) => [pid, sortRows(items, sort, FLOW_SORT)] as const,
+    );
+  }, [filtered, sort]);
 
   const {
     register,
@@ -130,7 +191,7 @@ export function FlowListPage() {
   ) : null;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
@@ -143,7 +204,28 @@ export function FlowListPage() {
             </p>
           </div>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={layout} onChange={setLayout} />
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={onImportFile}
+          />
+          <Button
+            variant="outline"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importFlow.isPending}
+            title={
+              projectFilter
+                ? `Import a flow into ${projectById.get(projectFilter)?.name ?? "this project"}`
+                : "Import a flow from an exported .flow.json (lands in the Default project)"
+            }
+          >
+            {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import
+          </Button>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4" /> New flow
@@ -170,7 +252,7 @@ export function FlowListPage() {
                 <SearchableSelect
                   value={newFlowProjectId}
                   onChange={setNewFlowProjectId}
-                  allLabel="No project"
+                  allLabel="Default project"
                   placeholder="Search projects…"
                   options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
                 />
@@ -181,6 +263,7 @@ export function FlowListPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -198,24 +281,6 @@ export function FlowListPage() {
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
           />
         </FilterField>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-        </div>
       </FilterBar>
 
       {(toggleFlow.isError || deleteFlow.isError) && (
@@ -225,41 +290,60 @@ export function FlowListPage() {
         </div>
       )}
 
+      {importError && (
+        <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {importError}
+        </div>
+      )}
+
       {isLoading && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </p>
       )}
 
-      {layout === "cards" ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((flow) => (
-            <FlowCard
-              key={flow.id}
-              flow={flow}
-              projectName={flow.project_id ? projectById.get(flow.project_id)?.name : undefined}
-              projectColorKey={flow.project_id ? projectById.get(flow.project_id)?.color : undefined}
-              onOpen={() => navigate(`/flows/${flow.id}`)}
-              onEdit={() => setEditingFlow(flow)}
-              onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
-              onSchedule={() => setSchedulingFlow(flow)}
-              onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
-              onDelete={() => setPendingAction({ kind: "delete", flow })}
-            />
-          ))}
-        </div>
-      ) : (
-        <FlowTable
-          flows={filtered}
-          projectById={projectById}
-          onOpen={(id) => navigate(`/flows/${id}`)}
-          onEdit={(flow) => setEditingFlow(flow)}
-          onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
-          onSchedule={(flow) => setSchedulingFlow(flow)}
-          onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
-          onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
-        />
-      )}
+      <div className="flex flex-col gap-4">
+        {groups.map(([pid, group]) => {
+          const proj = projectById.get(pid);
+          return (
+            <CollapsibleSection
+              key={pid}
+              title={proj?.name ?? "Unknown project"}
+              colorKey={proj?.color}
+              count={group.length}
+            >
+              {layout === "cards" ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((flow) => (
+                    <FlowCard
+                      key={flow.id}
+                      flow={flow}
+                      onOpen={() => navigate(`/flows/${flow.id}`)}
+                      onEdit={() => setEditingFlow(flow)}
+                      onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
+                      onSchedule={() => setSchedulingFlow(flow)}
+                      onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+                      onDelete={() => setPendingAction({ kind: "delete", flow })}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <FlowTable
+                  flows={group}
+                  sort={sort}
+                  onSort={toggleSort}
+                  onOpen={(id) => navigate(`/flows/${id}`)}
+                  onEdit={(flow) => setEditingFlow(flow)}
+                  onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
+                  onSchedule={(flow) => setSchedulingFlow(flow)}
+                  onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
+                  onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
+                />
+              )}
+            </CollapsibleSection>
+          );
+        })}
+      </div>
 
       {!isLoading && filtered.length === 0 && (
         <p className="text-sm text-muted-foreground">
@@ -282,7 +366,7 @@ export function FlowListPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Engine</Label>
               <div className="flex items-center gap-2 overflow-hidden rounded-md border border-input text-sm">
-                {(["pandas", "polars"] as const).map((e) => (
+                {ENGINES.map((e) => (
                   <button
                     key={e}
                     type="button"
@@ -381,8 +465,6 @@ export function FlowListPage() {
 
 function FlowCard({
   flow,
-  projectName,
-  projectColorKey,
   onOpen,
   onEdit,
   onRun,
@@ -391,8 +473,6 @@ function FlowCard({
   onDelete,
 }: {
   flow: Flow;
-  projectName?: string;
-  projectColorKey?: string;
   onOpen: () => void;
   onEdit: () => void;
   onRun: () => void;
@@ -400,7 +480,7 @@ function FlowCard({
   onToggle: () => void;
   onDelete: () => void;
 }) {
-  const theme = projectColor(projectColorKey);
+  const fmt = useFormatDateTime();
   return (
     <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
       <button onClick={onOpen} className="flex-1 text-left">
@@ -418,12 +498,10 @@ function FlowCard({
         </p>
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
           <span>{flow.graph_json?.nodes.length ?? 0} nodes</span>
-          {projectName && (
-            <span className="flex items-center gap-1.5">
-              <span className={cn("h-2 w-2 rounded-full", theme.dot)} />
-              {projectName}
-            </span>
-          )}
+        </div>
+        <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
+          <span>Created {fmt(flow.created_at)}</span>
+          <span>{flow.last_run_at ? `Last run ${fmt(flow.last_run_at)}` : "Never run"}</span>
         </div>
       </button>
       <div className="mt-3 flex items-center justify-end gap-2 border-t border-border pt-2.5">
@@ -477,7 +555,8 @@ function FlowCard({
 
 function FlowTable({
   flows,
-  projectById,
+  sort,
+  onSort,
   onOpen,
   onEdit,
   onRun,
@@ -486,7 +565,8 @@ function FlowTable({
   onDelete,
 }: {
   flows: Flow[];
-  projectById: Map<string, { name: string; color: string }>;
+  sort: SortState<FlowSortKey>;
+  onSort: (key: FlowSortKey) => void;
   onOpen: (id: string) => void;
   onEdit: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
@@ -494,23 +574,23 @@ function FlowTable({
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
 }) {
+  const fmt = useFormatDateTime();
   if (flows.length === 0) return null;
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
-            <th className="px-4 py-2.5 text-left font-semibold">Name</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Project</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Nodes</th>
-            <th className="px-4 py-2.5 text-left font-semibold">Status</th>
+            <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Nodes" sortKey="nodes" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Status" sortKey="status" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Created" sortKey="created" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
+            <SortableTh label="Last run" sortKey="last_run" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
             <th className="px-4 py-2.5" />
           </tr>
         </thead>
         <tbody>
           {flows.map((flow) => {
-            const proj = flow.project_id ? projectById.get(flow.project_id) : undefined;
-            const theme = projectColor(proj?.color);
             return (
               <tr
                 key={flow.id}
@@ -520,14 +600,6 @@ function FlowTable({
                   <button onClick={() => onOpen(flow.id)} className="font-medium hover:underline">
                     {flow.name}
                   </button>
-                </td>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {proj ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className={cn("h-2 w-2 rounded-full", theme.dot)} />
-                      {proj.name}
-                    </span>
-                  ) : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   {flow.graph_json?.nodes.length ?? 0}
@@ -542,6 +614,10 @@ function FlowTable({
                       active
                     </span>
                   )}
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{fmt(flow.created_at)}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
+                  {flow.last_run_at ? fmt(flow.last_run_at) : "—"}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">

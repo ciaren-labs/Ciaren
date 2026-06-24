@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,7 @@ class ScheduleService:
         await self._get_flow(flow_id)
         self._validate(data.cron, data.timezone, data.engine)
 
+        now = datetime.now(UTC).replace(tzinfo=None)
         schedule = Schedule(
             flow_id=flow_id,
             name=data.name,
@@ -40,7 +41,10 @@ class ScheduleService:
             engine=data.engine,
             enabled=data.enabled,
             catch_up=data.catch_up,
-            next_run_at=(compute_next_run(data.cron, datetime.utcnow(), data.timezone) if data.enabled else None),
+            max_retries=data.max_retries,
+            retry_delay_seconds=data.retry_delay_seconds,
+            run_timeout_seconds=data.run_timeout_seconds,
+            next_run_at=(compute_next_run(data.cron, now, data.timezone) if data.enabled else None),
         )
         self.db.add(schedule)
         await self.db.commit()
@@ -83,8 +87,9 @@ class ScheduleService:
         elif (
             "cron" in updates or "timezone" in updates or updates.get("enabled") is True or schedule.next_run_at is None
         ):
-            schedule.next_run_at = compute_next_run(schedule.cron, datetime.utcnow(), schedule.timezone)
-        schedule.updated_at = datetime.utcnow()
+            now = datetime.now(UTC).replace(tzinfo=None)
+            schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
+        schedule.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(schedule)
         return ScheduleRead.model_validate(schedule)
@@ -107,7 +112,7 @@ class ScheduleService:
         # out of the auto-disable/retry machinery: a success clears the failure
         # streak (a good "it's fixed now" signal), but a failure never counts
         # toward auto-disabling — only the scheduler's own runs do.
-        schedule.last_fired_at = datetime.utcnow()
+        schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
         schedule.last_status = run.status
         schedule.last_run_id = run.id
         if run.status == "success":
