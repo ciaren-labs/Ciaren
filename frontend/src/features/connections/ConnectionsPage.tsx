@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ApiError } from "@/lib/api";
 import type { Connection, ConnectionCreate, ProviderInfo } from "@/lib/types";
 import {
@@ -409,6 +410,7 @@ function ConnectionCard({
 }) {
   const test = useTestConnection();
   const del = useDeleteConnection();
+  const fmtDate = useFormatDateTime();
   const provider = providers.find((p) => p.name === connection.provider);
   const target = connectionTarget(connection);
   // Only the auto-seeded defaults are built-in; user-created connections are deletable.
@@ -432,6 +434,13 @@ function ConnectionCard({
           )}
         </div>
         <p className="truncate text-xs text-muted-foreground">{target}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+          Added {fmtDate(connection.created_at)}
+          {" · "}
+          {connection.last_tested_at
+            ? `tested ${fmtDate(connection.last_tested_at)}`
+            : "never tested"}
+        </p>
       </div>
       <TestButton
         size="sm"

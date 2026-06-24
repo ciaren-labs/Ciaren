@@ -13,6 +13,7 @@ import {
   Loader2,
   MousePointerClick,
   RotateCcw,
+  SquarePen,
 } from "lucide-react";
 import { useRuns } from "./hooks";
 import { useFlows } from "@/features/flows/hooks";
@@ -270,6 +271,7 @@ export function RunsPage() {
                       </SortHeader>
                     </th>
                     <th className="px-4 py-2.5 text-left font-semibold">Duration</th>
+                    <th className="px-4 py-2.5 text-right font-semibold sr-only">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -282,6 +284,7 @@ export function RunsPage() {
                       projectById={projectById}
                       fmt={fmt}
                       onClick={() => navigate(`/runs/${run.id}`)}
+                      onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
                     />
                   ))}
                 </tbody>
@@ -298,6 +301,7 @@ export function RunsPage() {
                   projectById={projectById}
                   fmt={fmt}
                   onClick={() => navigate(`/runs/${run.id}`)}
+                  onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
                 />
               ))}
             </div>
@@ -376,6 +380,7 @@ function RunRow({
   projectById,
   fmt,
   onClick,
+  onOpenFlow,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
@@ -383,6 +388,7 @@ function RunRow({
   projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
+  onOpenFlow: () => void;
 }) {
   return (
     <tr
@@ -421,6 +427,15 @@ function RunRow({
       <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
         {formatDuration(run.started_at, run.finished_at)}
       </td>
+      <td className="px-4 py-2.5 text-right">
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+          title="Open the flow in the editor"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <SquarePen className="h-3.5 w-3.5" /> Flow
+        </button>
+      </td>
     </tr>
   );
 }
@@ -432,6 +447,7 @@ function RunCard({
   projectById,
   fmt,
   onClick,
+  onOpenFlow,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
@@ -439,13 +455,17 @@ function RunCard({
   projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
+  onOpenFlow: () => void;
 }) {
   const proj = run.project_id ? projectById.get(run.project_id) : undefined;
   const theme = projectColor(proj?.color);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="animate-fade-in-up flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="animate-fade-in-up flex cursor-pointer flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-semibold leading-tight">
@@ -471,6 +491,13 @@ function RunCard({
         <span>{fmt(run.created_at)}</span>
         <span className="tabular-nums">{formatDuration(run.started_at, run.finished_at)}</span>
       </div>
-    </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+        title="Open the flow in the editor"
+        className="mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <SquarePen className="h-3.5 w-3.5" /> Open flow
+      </button>
+    </div>
   );
 }
