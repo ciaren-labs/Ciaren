@@ -153,21 +153,23 @@ class CodeGenerator:
                 node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 func = _READ_FUNCS.get(node_type)
+                # repr() the path so Windows backslashes, spaces, or quotes in a
+                # dataset name / output path can't produce invalid Python.
                 if func is not None:
-                    body.append(f'{var} = {func}("{path}")')
+                    body.append(f"{var} = {func}({path!r})")
                 elif node_type == "textInput":
                     body.append(
-                        f'{var} = pd.read_csv("{path}", sep="\\n", header=None, '
+                        f"{var} = pd.read_csv({path!r}, sep=\"\\n\", header=None, "
                         f'names=["text"], engine="python", dtype=str)'
                     )
                 else:
-                    body.append(f'{var} = pd.read_csv("{path}")  # unsupported input type: {node_type}')
+                    body.append(f"{var} = pd.read_csv({path!r})  # unsupported input type: {node_type}")
 
             elif node_type in _OUTPUT_TYPES:
                 src_var = _source_var(node_outputs, incoming[node_id][0])
                 method, extra = _WRITE_FUNCS[node_type]
                 out_path = config.get("path", "output.csv")
-                body.append(f'{src_var}.{method}("{out_path}", {extra})')
+                body.append(f"{src_var}.{method}({out_path!r}, {extra})")
 
             else:
                 transformation = get_transformation(node_type)

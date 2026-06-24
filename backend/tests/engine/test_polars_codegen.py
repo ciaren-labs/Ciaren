@@ -47,7 +47,7 @@ def _wide_graph(dataset_id: str = "ds1") -> dict:
 def test_polars_codegen_is_valid_and_uses_polars() -> None:
     code = PolarsCodeGenerator().generate(_wide_graph(), {"ds1": "/data/in.csv"})
     assert code.startswith("import polars as pl")
-    assert 'pl.read_csv("/data/in.csv")' in code
+    assert "pl.read_csv('/data/in.csv')" in code
     assert ".drop_nulls()" in code
     assert ".rename({'a': 'alpha'})" in code
     assert ".filter(pl.col('alpha') > 1)" in code
@@ -125,7 +125,7 @@ def _run(code: str, tmp_path: Path) -> pd.DataFrame:
 
 def test_polars_lazy_uses_scan_and_collect() -> None:
     code = PolarsCodeGenerator().generate(_wide_graph(), {"ds1": "/data/in.csv"}, lazy=True)
-    assert 'pl.scan_csv("/data/in.csv")' in code  # lazy reader, not read_csv
+    assert "pl.scan_csv('/data/in.csv')" in code  # lazy reader, not read_csv
     assert "pl.read_csv" not in code
     assert ".collect().write_csv(" in code  # materialize only at the sink
     assert ".drop_nulls()" in code  # transformation bodies are unchanged

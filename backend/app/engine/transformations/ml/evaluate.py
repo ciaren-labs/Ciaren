@@ -165,23 +165,74 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         }
         return {m: computed[m]() for m in wanted if m in computed}
 
+    # metric -> (sklearn function, extra call kwargs) for the scalar metrics the
+    # export can reproduce. roc_auc / confusion_matrix (classification) need
+    # probabilities / 2-D output and are intentionally left out of the export.
+    _CLS_METRICS = {
+        "accuracy": ("accuracy_score", ""),
+        "precision": ("precision_score", ", average='weighted', zero_division=0"),
+        "recall": ("recall_score", ", average='weighted', zero_division=0"),
+        "f1": ("f1_score", ", average='weighted', zero_division=0"),
+    }
+    _REG_METRICS = {
+        "rmse": ("root_mean_squared_error", ""),
+        "mae": ("mean_absolute_error", ""),
+        "r2": ("r2_score", ""),
+        "mape": ("mean_absolute_percentage_error", ""),
+    }
+    _CLU_METRICS = {
+        "silhouette": "silhouette_score",
+        "davies_bouldin": "davies_bouldin_score",
+    }
+
+    def _wanted(self, config: dict[str, Any]) -> list[str]:
+        task = str(config.get("task_type") or "")
+        return config.get("metrics") or _DEFAULT_METRICS.get(task, [])
+
     def to_python_code(
         self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
+        task = config.get("task_type")
         target = config.get("target_column")
         pred = config.get("prediction_column")
-        if config.get("task_type") == "regression":
-            return (
-                f"_rmse = root_mean_squared_error({src}[{target!r}], {src}[{pred!r}])\n"
-                f"{dst} = pd.DataFrame([{{'metric': 'rmse', 'value': _rmse}}])"
-            )
-        return (
-            f"_acc = accuracy_score({src}[{target!r}], {src}[{pred!r}])\n"
-            f"{dst} = pd.DataFrame([{{'metric': 'accuracy', 'value': _acc}}])"
-        )
+        wanted = self._wanted(config)
+        pre: list[str] = []
+        entries: list[str] = []
+
+        if task == "clustering":
+            cols = config.get("feature_columns")
+            features_expr = repr(cols) if cols else f"list({src}.select_dtypes(include='number').columns)"
+            pre.append(f"_features = {features_expr}")
+            for m in wanted:
+                fn = self._CLU_METRICS.get(m)
+                if fn:
+                    entries.append(f"    {m!r}: {fn}({src}[_features], {src}[{pred!r}]),")
+        else:
+            table = self._REG_METRICS if task == "regression" else self._CLS_METRICS
+            for m in wanted:
+                spec = table.get(m)
+                if spec:
+                    fn, extra = spec
+                    entries.append(f"    {m!r}: {fn}({src}[{target!r}], {src}[{pred!r}]{extra}),")
+
+        if not entries:  # nothing reproducible — emit an empty metrics frame
+            entries.append("")
+        body = "\n".join(entries)
+        lines = [*pre, "_metrics = {", body, "}"] if body else [*pre, "_metrics = {}"]
+        lines.append(f"{dst} = pd.DataFrame([{{'metric': k, 'value': v}} for k, v in _metrics.items()])")
+        return "\n".join(lines)
 
     def imports(self, config: dict[str, Any]) -> list[str]:
-        if config.get("task_type") == "regression":
-            return ["from sklearn.metrics import root_mean_squared_error"]
-        return ["from sklearn.metrics import accuracy_score"]
+        task = config.get("task_type")
+        wanted = self._wanted(config)
+        names: list[str] = []
+        if task == "clustering":
+            names = [self._CLU_METRICS[m] for m in wanted if m in self._CLU_METRICS]
+        else:
+            table = self._REG_METRICS if task == "regression" else self._CLS_METRICS
+            names = [table[m][0] for m in wanted if m in table]
+        if not names:  # keep a valid import even if no scalar metric is reproducible
+            names = ["accuracy_score"]
+        unique = sorted(set(names))
+        return [f"from sklearn.metrics import {', '.join(unique)}"]

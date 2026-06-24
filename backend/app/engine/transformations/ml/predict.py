@@ -142,11 +142,17 @@ class MLPredictTransformation(MetadataMLTransformation):
         model_ref = model_var or "_model"
         # Score only the model's training features (drop the target / extra columns),
         # mirroring _align_features — otherwise sklearn raises on a feature mismatch.
-        return (
-            f"{load}{dst} = {src}.copy()\n"
-            f"_model_features = list(getattr({model_ref}, 'feature_names_in_', {src}.columns))\n"
-            f"{dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])"
-        )
+        lines = [
+            f"{load}{dst} = {src}.copy()",
+            f"_model_features = list(getattr({model_ref}, 'feature_names_in_', {src}.columns))",
+            f"{dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])",
+        ]
+        proba_columns = config.get("output_proba_columns")
+        if proba_columns:
+            lines.append(f"_proba = {model_ref}.predict_proba({src}[_model_features])")
+            for i, col in enumerate(proba_columns):
+                lines.append(f"{dst}[{col!r}] = _proba[:, {i}]")
+        return "\n".join(lines)
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         # Only need the MLflow loader when there's no upstream model variable.

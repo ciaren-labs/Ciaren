@@ -165,23 +165,24 @@ class PolarsCodeGenerator:
                 node_var[node_id] = var
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
                 suffix = ".lazy()" if lazy else ""
-                lines.append(f'with open("{path}") as _f:')
+                lines.append(f"with open({path!r}) as _f:")
                 lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
             elif node_type in _INPUT_READ:
                 var = next_var()
                 node_var[node_id] = var
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
+                # repr() the path so Windows backslashes / spaces / quotes stay valid.
                 if lazy and node_type in _INPUT_SCAN:
-                    lines.append(f'{var} = {_INPUT_SCAN[node_type]}("{path}")')
+                    lines.append(f"{var} = {_INPUT_SCAN[node_type]}({path!r})")
                 else:
                     extra = _INPUT_READ_KWARGS.get(node_type, "")
                     suffix = ".lazy()" if lazy else ""
-                    lines.append(f'{var} = {_INPUT_READ[node_type]}("{path}"{extra}){suffix}')
+                    lines.append(f"{var} = {_INPUT_READ[node_type]}({path!r}{extra}){suffix}")
             elif node_type in _OUTPUT_WRITE:
                 src_var = node_var[incoming[node_id][0]["source"]]
                 out_path = config.get("path", "output.csv")
                 frame = f"{src_var}.collect()" if lazy else src_var
-                lines.append(f'{frame}.{_OUTPUT_WRITE[node_type]}("{out_path}")')
+                lines.append(f"{frame}.{_OUTPUT_WRITE[node_type]}({out_path!r})")
             else:
                 emit_transformation(node_id, node_type, config)
 
