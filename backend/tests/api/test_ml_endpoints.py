@@ -168,6 +168,29 @@ async def test_models_501_when_ml_disabled(client: AsyncClient) -> None:
     assert r2.status_code == 501
 
 
+async def test_set_and_clear_model_alias(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        await _train_register(db_session, tmp_path, name="alias-model")
+        # Set an alias on version 1.
+        r = await client.post(
+            "/api/ml/models/alias-model/alias", json={"alias": "Staging", "version": "1"}
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["alias"] == "staging"
+        models = {m["name"]: m for m in (await client.get("/api/ml/models")).json()}
+        assert models["alias-model"]["aliases"].get("staging") == "1"
+        # Clear it.
+        r2 = await client.delete("/api/ml/models/alias-model/alias/staging")
+        assert r2.status_code == 200
+        models2 = {m["name"]: m for m in (await client.get("/api/ml/models")).json()}
+        assert "staging" not in models2["alias-model"]["aliases"]
+    finally:
+        get_settings.cache_clear()
+
+
 async def test_register_happy_path(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
     # Train a real model so we have a resolvable MLflow model_uri.
     monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))

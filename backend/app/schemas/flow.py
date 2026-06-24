@@ -37,5 +37,8 @@ class FlowRead(BaseModel):
     is_disabled: bool = False
     created_at: datetime
     updated_at: datetime
+    # When this flow last ran (any trigger), or None if it never has. Populated by
+    # the list/get endpoints; not a column on the flow itself.
+    last_run_at: datetime | None = None
 
     model_config = {"from_attributes": True}

@@ -198,6 +198,16 @@ async def test_mlflow_connection_test_succeeds_for_local_store(client: AsyncClie
     assert r.json()["ok"] is True
 
 
+async def test_test_records_last_tested_at(client: AsyncClient, tmp_path):
+    db = str(tmp_path / "warehouse.db")
+    _seed_sqlite(db)
+    created = await _create(client, name="dated", database=db)
+    assert created["last_tested_at"] is None
+    await client.post(f"/api/connections/{created['id']}/test")
+    after = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert after["last_tested_at"] is not None
+
+
 async def test_mlflow_connection_is_source_of_truth(client: AsyncClient, db_session, tmp_path):
     """resolve_tracking_uri returns the connection's URI over the setting default."""
     from app.ml.tracking import resolve_tracking_uri
