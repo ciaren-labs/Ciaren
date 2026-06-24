@@ -19,7 +19,7 @@
     "vue": "^3.4.19"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.4",
+    "@vitejs/plugin-vue": "^6.0.7",
     "vitepress": "^1.1.4",
     "typescript": "^5.4.5",
     "markdownlint-cli": "^0.39.0",
