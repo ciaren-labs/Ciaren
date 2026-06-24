@@ -34,6 +34,8 @@ _DRIVERNAMES = {
     "mysql": "mysql+pymysql",
     "sqlite": "sqlite",
     "mssql": "mssql+pyodbc",
+    "duckdb": "duckdb",
+    "snowflake": "snowflake",
 }
 
 # Cap rows scanned when previewing/snapshotting a table without an explicit limit.
@@ -49,9 +51,20 @@ class SqlConnector:
         drivername = _DRIVERNAMES.get(spec.provider)
         if drivername is None:
             raise ConnectorError(f"Unsupported SQL provider {spec.provider!r}.")
-        if spec.provider == "sqlite":
-            # SQLite is a local file (or :memory:) — no host/credentials.
-            return URL.create("sqlite", database=spec.database or "")
+        if spec.provider in ("sqlite", "duckdb"):
+            # File-based databases: no host or credentials.
+            return URL.create(drivername, database=spec.database or "")
+        if spec.provider == "snowflake":
+            # Snowflake: host = account identifier, options carry warehouse/schema.
+            opts = {str(k): str(v) for k, v in (spec.options or {}).items() if v}
+            return URL.create(
+                "snowflake",
+                username=spec.username or None,
+                password=spec.password or None,
+                host=spec.host or None,
+                database=spec.database or None,
+                query=opts,
+            )
         return URL.create(
             drivername,
             username=spec.username or None,

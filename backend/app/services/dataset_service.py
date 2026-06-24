@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
+from app.core.enums import DatasetKind
 from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
@@ -34,6 +35,8 @@ _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".xlsx": "excel",
     ".xls": "excel",
     ".parquet": "parquet",
+    ".json": "json",
+    ".txt": "text",
 }
 
 _SAMPLE_ROWS = 100
@@ -92,7 +95,10 @@ class DatasetService:
                     f"{source_type.upper()}. Use a different name for a new dataset."
                 )
             version_number = await self._next_version_number(dataset.id)
-            dataset.updated_at = datetime.utcnow()
+            dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            # Re-uploading to a soft-deleted dataset revives it.
+            dataset.is_disabled = False
+            dataset.deleted_at = None
 
         version = DatasetVersion(
             dataset_id=dataset.id,
@@ -113,10 +119,14 @@ class DatasetService:
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def list_all(self, project_id: str | None = None) -> list[DatasetRead]:
+    async def list_all(
+        self, project_id: str | None = None, include_deleted: bool = False
+    ) -> list[DatasetRead]:
         stmt = select(Dataset).options(selectinload(Dataset.versions)).order_by(Dataset.created_at.desc())
         if project_id is not None:
             stmt = stmt.where(Dataset.project_id == project_id)
+        if not include_deleted:
+            stmt = stmt.where(Dataset.deleted_at.is_(None))
         result = await self.db.execute(stmt)
         return [self._to_read(d) for d in result.scalars().all()]
 
@@ -152,26 +162,102 @@ class DatasetService:
         updates = data.model_dump(exclude_unset=True)
         for field, value in updates.items():
             setattr(dataset, field, value)
-        dataset.updated_at = datetime.utcnow()
+        dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def delete(self, dataset_id: str) -> None:
+    async def delete(self, dataset_id: str, purge: bool = False, force: bool = False) -> None:
+        """Soft-delete by default: mark the dataset deleted but retain its rows and
+        files so it can be restored and historical runs still resolve. ``purge=True``
+        hard-deletes the dataset, its versions, and their files immediately.
+
+        Refuses (409) if a Production-aliased registered model was trained on this
+        dataset, unless ``force=True``."""
         result = await self.db.execute(
             select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
         dataset = result.scalar_one_or_none()
         if dataset is None:
             raise NotFoundError("Dataset", dataset_id)
-        await self.db.delete(dataset)
+        if not force:
+            await self._guard_production_dependency(dataset_id)
+        if purge:
+            self._remove_version_files(dataset)
+            await self.db.delete(dataset)
+        else:
+            dataset.is_disabled = True
+            dataset.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
 
-    async def list_versions(self, dataset_id: str) -> list[DatasetVersionRead]:
+    async def restore(self, dataset_id: str) -> DatasetRead:
+        """Undo a soft-delete, bringing the dataset back to live."""
+        dataset = await self._get_or_raise(dataset_id)
+        dataset.is_disabled = False
+        dataset.deleted_at = None
+        dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        await self.db.commit()
+        return await self._read(dataset.id)
+
+    async def purge_expired(self, now: datetime | None = None) -> int:
+        """Hard-delete soft-deleted datasets whose retention window has elapsed,
+        removing their files. Returns the number purged."""
+        retention_days = get_settings().DATASET_RETENTION_DAYS
+        cutoff = (now or datetime.now(UTC).replace(tzinfo=None)) - timedelta(days=retention_days)
+        result = await self.db.execute(
+            select(Dataset)
+            .options(selectinload(Dataset.versions))
+            .where(Dataset.deleted_at.is_not(None), Dataset.deleted_at < cutoff)
+        )
+        expired = list(result.scalars().all())
+        for dataset in expired:
+            self._remove_version_files(dataset)
+            await self.db.delete(dataset)
+        if expired:
+            await self.db.commit()
+        return len(expired)
+
+    async def _guard_production_dependency(self, dataset_id: str) -> None:
+        """Raise ConflictError (409) if a Production model was trained on this
+        dataset. No-op when the ML extension isn't active (no registry to check)."""
+        from app.ml.availability import ml_extension_ready
+
+        if not ml_extension_ready():
+            return
+        import asyncio
+
+        from app.ml.registry_deps import production_models_for_dataset
+        from app.ml.tracking import resolve_tracking_uri
+
+        tracking_uri = await resolve_tracking_uri(self.db)
+        models = await asyncio.to_thread(production_models_for_dataset, dataset_id, tracking_uri)
+        if models:
+            raise ConflictError(
+                f"A Production model ({', '.join(models)}) was trained on this dataset. "
+                f"Demote it from Production before deleting, or delete with force=true."
+            )
+
+    def _remove_version_files(self, dataset: Dataset) -> None:
+        """Best-effort removal of each version's file from disk."""
+        for version in dataset.versions:
+            if not version.location:
+                continue
+            try:
+                Path(version.location).unlink(missing_ok=True)
+            except OSError:
+                pass  # never fail a purge on a stray filesystem error
+
+    async def list_versions(
+        self, dataset_id: str, limit: int = 100, offset: int = 0
+    ) -> list[DatasetVersionRead]:
+        """Newest-first page of a dataset's versions. Output datasets accrue one
+        version per run, so this is paginated to stay bounded in production."""
         await self._get_or_raise(dataset_id)
         result = await self.db.execute(
             select(DatasetVersion)
             .where(DatasetVersion.dataset_id == dataset_id)
             .order_by(DatasetVersion.version_number.desc())
+            .offset(offset)
+            .limit(limit)
         )
         return [DatasetVersionRead.model_validate(v) for v in result.scalars().all()]
 
@@ -218,7 +304,7 @@ class DatasetService:
                     f"produces {source_type.upper()}. Use a different dataset name."
                 )
             version_number = await self._next_version_number(dataset.id)
-            dataset.updated_at = datetime.utcnow()
+            dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         version = DatasetVersion(
             dataset_id=dataset.id,
@@ -242,8 +328,9 @@ class DatasetService:
             id=dataset.id,
             name=dataset.name,
             source_type=dataset.source_type,
-            dataset_kind=dataset.dataset_kind or "input",
+            dataset_kind=DatasetKind(dataset.dataset_kind or DatasetKind.INPUT),
             is_disabled=bool(dataset.is_disabled),
+            deleted_at=dataset.deleted_at,
             project_id=dataset.project_id,
             latest_version=latest.version_number if latest else 0,
             version_count=len(versions),
@@ -316,6 +403,10 @@ def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.Data
             return pd.read_excel(buf)
         if source_type == "parquet":
             return pd.read_parquet(buf)
+        if source_type == "json":
+            return pd.read_json(buf)
+        if source_type == "text":
+            return pd.read_csv(buf, sep="\n", header=None, names=["text"], engine="python", dtype=str)
     except Exception as exc:
         raise DatasetParseError(filename, str(exc)) from exc
     raise DatasetParseError(filename, f"unknown source_type '{source_type}'")

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.dataset_version import DatasetVersion
 from app.engine.executor import dataset_ref_key
 
@@ -64,6 +64,21 @@ async def build_dataset_paths(db: AsyncSession, graph: dict[str, Any]) -> tuple[
     resolved: list[dict[str, Any]] = []
     for dataset_id, version in _input_refs(graph):
         ver = await resolve_version(db, dataset_id, version)
-        paths[dataset_ref_key(dataset_id, version)] = Path(ver.location)
+        location = Path(ver.location)
+        if not location.exists():
+            # The dataset was purged after its retention window: the row still
+            # references the version, but the file is gone. Surface a clear error
+            # instead of a cryptic file-not-found from the engine.
+            name = ver.dataset.name if ver.dataset else dataset_id
+            deleted = (
+                f" (deleted on {ver.dataset.deleted_at:%Y-%m-%d})"
+                if ver.dataset and ver.dataset.deleted_at
+                else ""
+            )
+            raise ValidationError(
+                f"Dataset version 'v{ver.version_number} of {name}'{deleted} is no longer "
+                f"available — its file was purged. Re-upload the dataset to re-run this flow."
+            )
+        paths[dataset_ref_key(dataset_id, version)] = location
         resolved.append({"dataset_id": dataset_id, "version_number": ver.version_number})
     return paths, resolved

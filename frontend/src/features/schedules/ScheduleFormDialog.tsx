@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { CronBuilder } from "@/components/schedules/CronBuilder";
 import { useFlows } from "@/features/flows/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { ApiError } from "@/lib/api";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
@@ -49,8 +50,10 @@ export function ScheduleFormDialog({
   onSubmit,
 }: ScheduleFormDialogProps) {
   const { data: flows } = useFlows();
+  const { data: projects } = useProjects();
   const isEdit = !!schedule;
 
+  const [projectId, setProjectId] = useState("");
   const [flowId, setFlowId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -66,6 +69,9 @@ export function ScheduleFormDialog({
   // Reset the form each time the dialog opens (create or a specific schedule).
   useEffect(() => {
     if (!open) return;
+    // The project selector is only shown for fresh creation (flow not locked),
+    // so it always starts empty; flow is pre-set when editing/locked.
+    setProjectId("");
     setFlowId(schedule?.flow_id ?? lockedFlowId ?? "");
     setName(schedule?.name ?? "");
     setDescription(schedule?.description ?? "");
@@ -111,26 +117,48 @@ export function ScheduleFormDialog({
           <DialogTitle>{isEdit ? "Edit schedule" : "New schedule"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4">
-          {/* Flow */}
-          <div className="flex flex-col gap-1.5">
-            <Label>Flow</Label>
-            {isEdit || lockedFlowId ? (
+          {/* Project + Flow (project first; flow list is scoped to it) */}
+          {isEdit || lockedFlowId ? (
+            <div className="flex flex-col gap-1.5">
+              <Label>Flow</Label>
               <div className="flex items-center gap-2 rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
                 <Workflow className="h-4 w-4 text-brand-600" />
                 {lockedFlowName ?? "Selected flow"}
               </div>
-            ) : (
-              <SearchableSelect
-                value={flowId}
-                onChange={setFlowId}
-                allLabel="Select a flow…"
-                placeholder="Search flows…"
-                options={(flows ?? [])
-                  .filter((f) => !f.is_disabled)
-                  .map((f) => ({ value: f.id, label: f.name }))}
-              />
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label>Project</Label>
+                <SearchableSelect
+                  value={projectId}
+                  onChange={(v) => {
+                    setProjectId(v);
+                    setFlowId(""); // reset flow when the project changes
+                  }}
+                  allLabel="All projects"
+                  placeholder="Search projects…"
+                  options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Flow</Label>
+                <SearchableSelect
+                  value={flowId}
+                  onChange={setFlowId}
+                  allLabel="Select a flow…"
+                  placeholder="Search flows…"
+                  options={(flows ?? [])
+                    .filter((f) => !f.is_disabled)
+                    .filter((f) => !projectId || f.project_id === projectId)
+                    .map((f) => ({ value: f.id, label: f.name }))}
+                />
+                {projectId && (flows ?? []).filter((f) => !f.is_disabled && f.project_id === projectId).length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">No runnable flows in this project.</p>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Name */}
           <div className="flex flex-col gap-1.5">

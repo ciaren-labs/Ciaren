@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  BrainCircuit,
   Code2,
   Database,
   FolderKanban,
   Github,
   Layers,
   Workflow,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,13 +22,8 @@ const FEATURES = [
   },
   {
     icon: Code2,
-    title: "Readable code export",
-    body: "Every flow exports to clean, educational pandas — and the polars equivalent.",
-  },
-  {
-    icon: Zap,
-    title: "polars or pandas",
-    body: "Runs on polars by default for fast, light execution — switch to pandas per run any time.",
+    title: "polars or pandas, exported to Python",
+    body: "Runs on polars by default (switch to pandas per run) and exports every flow to clean, runnable Python you can take anywhere.",
   },
   {
     icon: Database,
@@ -45,6 +40,11 @@ const FEATURES = [
     title: "Projects",
     body: "Group related datasets and flows into tidy, shareable workspaces.",
   },
+  {
+    icon: BrainCircuit,
+    title: "Machine learning",
+    body: "Split, train, predict, and evaluate models on the canvas — tracked with MLflow. Optional extension.",
+  },
 ];
 
 const STEPS = [
@@ -55,19 +55,20 @@ const STEPS = [
 
 export function LandingPage() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-6xl px-6 py-12">
       {/* Hero */}
       <section className="flex flex-col items-center text-center">
         <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
           <Github className="h-3.5 w-3.5" /> Open-source · local-first
         </span>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          The simplest <span className="brand-text-gradient">visual ETL</span> builder
+          The simplest visual <span className="brand-text-gradient">data &amp; ML</span> builder
         </h1>
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Upload data, build a visual cleaning pipeline, preview the results, run it, and
-          export readable Python. Built for analysts, learners, and anyone who wants quick,
-          repeatable pipelines.
+          Build, run, and schedule data pipelines — and train machine-learning models — on a
+          drag-and-drop canvas. Preview every step, execute with one click, and export readable
+          Python when you need it. Built for data analysts, data engineers, and anyone who wants
+          reproducible pipelines without the boilerplate.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">

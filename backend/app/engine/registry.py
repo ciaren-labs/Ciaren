@@ -80,6 +80,54 @@ _register(
 )
 
 
+def _register_ml_nodes() -> None:
+    """Register ML nodes when the ``[ml]`` extra is installed.
+
+    Gated on library *availability* (not ``ML_ENABLED``): a base install without
+    the extra never imports ``app.engine.transformations.ml`` at all, keeping it
+    import-isolated per the architecture guide. The ``ML_ENABLED`` flag gates the
+    product surface (palette, routes) at the service layer, not the registry — so
+    the engine can validate and run ML graphs in tests without restart gymnastics.
+    The ML node modules import sklearn lazily, so this stays cheap.
+    """
+    from app.ml.availability import ml_core_available
+
+    if not ml_core_available():
+        return
+    before = set(_REGISTRY)
+    from app.engine.transformations.ml.evaluate import MLEvaluateTransformation
+    from app.engine.transformations.ml.feature_engineering import (
+        EncodeCategoriesTransformation,
+        ReduceDimensionsTransformation,
+        ScaleFeaturesTransformation,
+        SelectFeaturesTransformation,
+    )
+    from app.engine.transformations.ml.importance import FeatureImportanceTransformation
+    from app.engine.transformations.ml.predict import MLPredictTransformation
+    from app.engine.transformations.ml.split import TrainTestSplitTransformation
+    from app.engine.transformations.ml.train import MLTrainTransformation
+
+    _register(
+        TrainTestSplitTransformation(),
+        ScaleFeaturesTransformation(),
+        EncodeCategoriesTransformation(),
+        SelectFeaturesTransformation(),
+        ReduceDimensionsTransformation(),
+        MLTrainTransformation(),
+        MLPredictTransformation(),
+        MLEvaluateTransformation(),
+        FeatureImportanceTransformation(),
+    )
+    _ML_TYPES.update(set(_REGISTRY) - before)
+
+
+# Type names registered as ML nodes (empty when the [ml] extra is absent). Lets the
+# API filter/hide ML nodes by category without hard-coding the list in two places.
+_ML_TYPES: set[str] = set()
+
+_register_ml_nodes()
+
+
 def get_transformation(node_type: str) -> BaseTransformation:
     if node_type not in _REGISTRY:
         raise KeyError(f"Unknown transformation type: {node_type!r}")
@@ -88,3 +136,12 @@ def get_transformation(node_type: str) -> BaseTransformation:
 
 def list_transformation_types() -> list[str]:
     return sorted(_REGISTRY.keys())
+
+
+def ml_node_types() -> set[str]:
+    """The set of registered ML node type names (empty without the [ml] extra)."""
+    return set(_ML_TYPES)
+
+
+def is_ml_node(node_type: str) -> bool:
+    return node_type in _ML_TYPES

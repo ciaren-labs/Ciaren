@@ -16,7 +16,7 @@ brief):
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, select, update
@@ -87,7 +87,7 @@ class SchedulerRunner:
                 pass
 
     async def _tick(self) -> None:
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         async with self._session_factory() as db:
             result = await db.execute(
                 select(Schedule).where(
@@ -132,7 +132,7 @@ class SchedulerRunner:
         except Exception:  # noqa: BLE001 - record on the schedule, then re-raise nothing
             logger.exception("Run failed for schedule %s (flow %s)", schedule.id, schedule.flow_id)
         finally:
-            schedule.last_fired_at = datetime.utcnow()
+            schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
             schedule.last_status = status
             schedule.last_run_id = run_id
             if status == "success":
@@ -145,7 +145,8 @@ class SchedulerRunner:
         schedule.consecutive_failures = 0
         schedule.retry_count = 0
         schedule.disabled_reason = None
-        schedule.next_run_at = compute_next_run(schedule.cron, datetime.utcnow(), schedule.timezone)
+        now = datetime.now(UTC).replace(tzinfo=None)
+        schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
 
     def _on_failure(self, schedule: Schedule) -> None:
         """Decide what happens after a failed run: auto-disable (wins), retry with
@@ -166,10 +167,11 @@ class SchedulerRunner:
         elif schedule.retry_count < schedule.max_retries:
             schedule.retry_count += 1
             delay = self._backoff_seconds(schedule.retry_delay_seconds, schedule.retry_count)
-            schedule.next_run_at = datetime.utcnow() + timedelta(seconds=delay)
+            schedule.next_run_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=delay)
         else:
             schedule.retry_count = 0
-            schedule.next_run_at = compute_next_run(schedule.cron, datetime.utcnow(), schedule.timezone)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
 
     @staticmethod
     def _backoff_seconds(base: int, attempt: int) -> int:
@@ -183,7 +185,7 @@ class SchedulerRunner:
         by a crash/restart — it can never complete. Clearing them keeps the run
         history honest and frees the (in-memory) overlap state implicitly.
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         async with self._session_factory() as db:
             result = cast(
                 CursorResult[Any],
@@ -210,7 +212,7 @@ class SchedulerRunner:
         * missed slot and ``catch_up`` is True: leave it — the first tick fires it
           once, then advances to the next future slot.
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         async with self._session_factory() as db:
             result = await db.execute(select(Schedule).where(Schedule.enabled.is_(True)))
             changed = False

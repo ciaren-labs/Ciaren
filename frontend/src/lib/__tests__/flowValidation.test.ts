@@ -156,6 +156,44 @@ describe("validateFlow", () => {
     expect(codes(v.errors)).toContain("CYCLE");
   });
 
+  it("flags mlPredict with no model wire and no model URI", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("p", "mlPredict", { output_column: "prediction" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const v = validateFlow(nodes, [edge("in", "p"), edge("p", "out")], [csvDs]);
+    expect(codes(v.errors)).toContain("MODEL_MISSING");
+    expect(v.canRun).toBe(false);
+  });
+
+  it("accepts mlPredict when a model URI is provided", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("p", "mlPredict", { output_column: "prediction", model_uri: "models:/churn@production" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const v = validateFlow(nodes, [edge("in", "p"), edge("p", "out")], [csvDs]);
+    expect(codes(v.errors)).not.toContain("MODEL_MISSING");
+  });
+
+  it("accepts mlPredict when a model is wired to the model input", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("t", "mlTrain", { model_type: "logistic_regression", target_column: "a", feature_columns: ["a"] }),
+      node("p", "mlPredict", { output_column: "prediction" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges = [
+      edge("in", "t"),
+      edge("t", "p", "model"),
+      edge("in", "p"),
+      edge("p", "out"),
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).not.toContain("MODEL_MISSING");
+  });
+
   it("flags invalid node config", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "" }), // empty -> zod error

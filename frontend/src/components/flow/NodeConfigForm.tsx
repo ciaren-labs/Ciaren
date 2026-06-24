@@ -11,12 +11,15 @@ import {
   dtypes,
   fillStrategies,
   filterOperators,
+  FILTER_OPERATOR_LABELS,
   getConfigSchema,
   conditionOperators,
   conditionValueless,
   joinHows,
+  JOIN_HOW_LABELS,
   outlierActions,
   outlierMethods,
+  OUTLIER_METHOD_LABELS,
   splitModes,
   stringOperations,
   windowFunctions,
@@ -27,10 +30,15 @@ import {
   ColumnMultiSelect,
   ColumnSelect,
   CsvListInput,
+  OptionalColumnSelect,
+  DateFormatPicker,
+  DelimiterPicker,
   Field,
   KeyValueEditor,
+  TagInput,
 } from "./configFields";
-import { useConnections, useConnectionTables } from "@/features/connections/hooks";
+import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
+import { MlTrainConfig } from "./MlTrainConfig";
 
 interface NodeConfigFormProps {
   type: string;
@@ -79,15 +87,26 @@ export function NodeConfigForm({
   const set = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
   const c = config as Record<string, any>;
 
-  // Connection data for SQL nodes (hooks must run unconditionally; the table
-  // query is disabled unless this is a SQL node with a chosen connection).
+  // Connection data for SQL/storage nodes (hooks must run unconditionally; the
+  // table query is disabled unless this is a SQL node with a chosen connection).
   const { data: connections = [] } = useConnections();
   const isSqlNode = type === "sqlInput" || type === "sqlOutput";
+  const isStorageInput = type === "storageInput";
   const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
+  const objectsQuery = useConnectionObjects(isStorageInput ? c.connection_id || null : null);
 
-  if (type === "csvInput" || type === "excelInput" || type === "parquetInput") {
-    const accepted =
-      type === "csvInput" ? "csv" : type === "excelInput" ? "excel" : "parquet";
+  const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
+  const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
+
+  const FILE_INPUT_SOURCE: Record<string, string> = {
+    csvInput: "csv",
+    excelInput: "excel",
+    parquetInput: "parquet",
+    jsonInput: "json",
+    textInput: "text",
+  };
+  if (type in FILE_INPUT_SOURCE) {
+    const accepted = FILE_INPUT_SOURCE[type];
     const compatible = datasets.filter((d) => d.source_type === accepted);
     const selected = datasets.find((d) => d.id === c.dataset_id);
     const pinned = (c.dataset_version as number | null | undefined) ?? selected?.latest_version;
@@ -294,7 +313,7 @@ export function NodeConfigForm({
             <Select value={operator} onChange={(e) => set({ operator: e.target.value })}>
               {filterOperators.map((op) => (
                 <option key={op} value={op}>
-                  {op}
+                  {FILTER_OPERATOR_LABELS[op] ?? op}
                 </option>
               ))}
             </Select>
@@ -303,10 +322,17 @@ export function NodeConfigForm({
             <Field
               label={isBetween ? "From (lower bound)" : "Value"}
               error={errors.value}
-              hint={isIn ? "Comma-separated list, e.g. red, green, blue" : undefined}
               help={isIn ? "Keeps rows whose value matches any item in the list." : undefined}
             >
-              <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+              {isIn ? (
+                <TagInput
+                  value={typeof c.value === "string" ? c.value : ""}
+                  onChange={(v) => set({ value: v })}
+                  placeholder="e.g. red, green, blue"
+                />
+              ) : (
+                <Input value={c.value ?? ""} onChange={(e) => set({ value: e.target.value })} />
+              )}
             </Field>
           )}
           {isBetween && (
@@ -382,11 +408,10 @@ export function NodeConfigForm({
           {hasDatetime && (
             <Field
               label="Date format (optional)"
-              hint="e.g. %Y-%m-%d"
               help="strptime format for datetime casts. Leave empty to auto-detect."
               error={errors.format}
             >
-              <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+              <DateFormatPicker value={c.format} onChange={(v) => set({ format: v })} />
             </Field>
           )}
         </>
@@ -430,19 +455,42 @@ export function NodeConfigForm({
 
     case "stringTransform": {
       const op = (c.operation as string) ?? "lower";
+      const OP_LABELS: Record<string, string> = {
+        lower: "Lowercase",
+        upper: "Uppercase",
+        strip: "Strip spaces",
+        title: "Title Case",
+        capitalize: "Capitalize",
+        len: "Count chars",
+        replace: "Find & Replace",
+        pad: "Pad width",
+      };
       return (
         <>
           <Field label="Column" error={errors.column}>
             <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
-          <Field label="Operation" error={errors.operation} help="Text transformation applied to every value.">
-            <Select value={op} onChange={(e) => set({ operation: e.target.value })}>
-              {stringOperations.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+          <Field label="Operation" error={errors.operation} help="Text transformation applied to every value in the column.">
+            <div className="grid grid-cols-2 gap-1">
+              {stringOperations.map((o) => {
+                const on = op === o;
+                return (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => set({ operation: o })}
+                    className={cn(
+                      "rounded border px-2 py-1 text-left text-[11px] font-medium transition-colors",
+                      on
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted",
+                    )}
+                  >
+                    {OP_LABELS[o] ?? o}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
           {op === "replace" && (
             <>
@@ -555,11 +603,11 @@ export function NodeConfigForm({
       const splitKeys = !!(c.left_on?.length || c.right_on?.length);
       return (
         <>
-          <Field label="How" error={errors.how} help="Which rows to keep when keys don't match on both sides.">
+          <Field label="Join type" error={errors.how} help="Which rows to keep when keys don't match on both sides.">
             <Select value={c.how ?? "inner"} onChange={(e) => set({ how: e.target.value })}>
               {joinHows.map((h) => (
                 <option key={h} value={h}>
-                  {h}
+                  {JOIN_HOW_LABELS[h] ?? h}
                 </option>
               ))}
             </Select>
@@ -650,11 +698,11 @@ export function NodeConfigForm({
           <Field label="Columns" error={errors.columns} help="Numeric columns to check for outliers.">
             <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
           </Field>
-          <Field label="Method" error={errors.method} help="IQR and z-score detect spread; percentile clips to a fixed range.">
+          <Field label="Method" error={errors.method} help="IQR and z-score detect statistical spread; percentile clips to a custom range.">
             <Select value={method} onChange={(e) => set({ method: e.target.value })}>
               {outlierMethods.map((m) => (
                 <option key={m} value={m}>
-                  {m}
+                  {OUTLIER_METHOD_LABELS[m] ?? m}
                 </option>
               ))}
             </Select>
@@ -708,7 +756,15 @@ export function NodeConfigForm({
       return (
         <>
           <Field label="Column" error={errors.column} help="The numeric column to bucket.">
-            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+            <ColumnSelect
+              value={c.column}
+              columns={columns}
+              onChange={(v) => {
+                const patch: Record<string, unknown> = { column: v };
+                if (!c.new_column) patch.new_column = `${v}_bin`;
+                set(patch);
+              }}
+            />
           </Field>
           <Field label="New column" error={errors.new_column} help="Name for the bucket label column that's added.">
             <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="bucket" />
@@ -822,8 +878,8 @@ export function NodeConfigForm({
             </Select>
           </Field>
           {mode === "delimiter" ? (
-            <Field label="Delimiter" error={errors.delimiter} help="Text to split on, e.g. a comma or space.">
-              <Input value={c.delimiter ?? ""} onChange={(e) => set({ delimiter: e.target.value })} placeholder="," />
+            <Field label="Delimiter" error={errors.delimiter} help="Character or text to split on.">
+              <DelimiterPicker value={c.delimiter} onChange={(v) => set({ delimiter: v })} />
             </Field>
           ) : (
             <Field label="Pattern" error={errors.pattern} help="Regex with capture groups; group 1 → first column, etc.">
@@ -858,11 +914,10 @@ export function NodeConfigForm({
           </Field>
           <Field
             label="Date format (optional)"
-            hint="e.g. %d-%m-%Y"
             help="strptime format. Leave empty to auto-detect."
             error={errors.format}
           >
-            <Input value={c.format ?? ""} onChange={(e) => set({ format: e.target.value })} placeholder="%Y-%m-%d" />
+            <DateFormatPicker value={c.format} onChange={(v) => set({ format: v })} />
           </Field>
           <Field label="On bad values" error={errors.errors} help="Raise an error, or coerce unparseable values to null.">
             <Select value={c.errors ?? "coerce"} onChange={(e) => set({ errors: e.target.value })}>
@@ -918,7 +973,14 @@ export function NodeConfigForm({
       return (
         <>
           <Field label="Function" error={errors.function} help="row_number/rank order rows; cumsum/cummax/cummin run totals; lag/lead shift values.">
-            <Select value={fn} onChange={(e) => set({ function: e.target.value })}>
+            <Select
+              value={fn}
+              onChange={(e) => {
+                const patch: Record<string, unknown> = { function: e.target.value };
+                if (!c.new_column) patch.new_column = e.target.value;
+                set(patch);
+              }}
+            >
               {windowFunctions.map((f) => (
                 <option key={f} value={f}>
                   {f}
@@ -1122,15 +1184,15 @@ export function NodeConfigForm({
             onChange={(e) => set({ connection_id: e.target.value, table: "", schema: null })}
           >
             <option value="">Select a connection…</option>
-            {connections.map((cn) => (
+            {sqlConnections.map((cn) => (
               <option key={cn.id} value={cn.id}>
                 {cn.name}
               </option>
             ))}
           </Select>
-          {connections.length === 0 && (
+          {sqlConnections.length === 0 && (
             <p className="text-[11px] text-amber-600">
-              No connections yet — add one on the Connections page.
+              No database connections yet — add one on the Connections page.
             </p>
           )}
         </Field>
@@ -1200,7 +1262,7 @@ export function NodeConfigForm({
               onChange={(e) => set({ connection_id: e.target.value })}
             >
               <option value="">Select a connection…</option>
-              {connections.map((cn) => (
+              {sqlConnections.map((cn) => (
                 <option key={cn.id} value={cn.id}>
                   {cn.name}
                 </option>
@@ -1224,6 +1286,148 @@ export function NodeConfigForm({
         </>
       );
 
+    case "storageInput": {
+      const SUPPORTED_EXTS = new Set(["csv", "xlsx", "xls", "parquet", "json", "txt"]);
+      const allObjects = objectsQuery.data ?? [];
+      const objects = allObjects.filter((obj) => {
+        const ext = obj.split(".").pop()?.toLowerCase() ?? "";
+        return SUPPORTED_EXTS.has(ext);
+      });
+      const selectedPath = (c.path as string) ?? "";
+      const formatFromPath = (p: string): string => {
+        const ext = p.split(".").pop()?.toLowerCase();
+        if (ext === "parquet") return "parquet";
+        if (ext === "xlsx" || ext === "xls") return "excel";
+        if (ext === "json") return "json";
+        if (ext === "txt") return "text";
+        return "csv";
+      };
+      return (
+        <>
+          <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
+            <Select
+              value={c.connection_id ?? ""}
+              onChange={(e) => set({ connection_id: e.target.value, path: "", format: "csv" })}
+            >
+              <option value="">Select a storage connection…</option>
+              {storageConnections.map((cn) => (
+                <option key={cn.id} value={cn.id}>
+                  {cn.name}
+                </option>
+              ))}
+            </Select>
+            {storageConnections.length === 0 && (
+              <p className="text-[11px] text-amber-600">
+                No storage connections yet — add one on the Connections page.
+              </p>
+            )}
+          </Field>
+          {c.connection_id && (
+            <Field
+              label="File"
+              error={errors.path}
+              help="Select a file from the storage connection, or type a path manually."
+            >
+              {objectsQuery.isFetching ? (
+                <p className="text-[11px] text-muted-foreground">Loading files…</p>
+              ) : objects.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background">
+                    {objects.map((obj) => (
+                      <button
+                        key={obj}
+                        type="button"
+                        onClick={() => set({ path: obj, format: formatFromPath(obj) })}
+                        className={cn(
+                          "w-full px-2 py-1 text-left text-[11px] font-mono hover:bg-muted",
+                          selectedPath === obj && "bg-primary/10 font-semibold text-primary",
+                        )}
+                      >
+                        {obj}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPath && !objects.includes(selectedPath) && (
+                    <p className="text-[11px] text-amber-600">
+                      Current path not found in connection — update or retype below.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  No files found in this connection.
+                </p>
+              )}
+              <Input
+                className="mt-1"
+                value={selectedPath}
+                onChange={(e) => set({ path: e.target.value, format: formatFromPath(e.target.value) })}
+                placeholder="data/input.csv"
+              />
+            </Field>
+          )}
+          <Field label="Format" error={errors.format} help="File format to read.">
+            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV</option>
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="parquet">Parquet</option>
+              <option value="json">JSON</option>
+              <option value="text">Text (one row per line)</option>
+            </Select>
+          </Field>
+        </>
+      );
+    }
+
+    case "storageOutput":
+      return (
+        <>
+          <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
+            <Select
+              value={c.connection_id ?? ""}
+              onChange={(e) => set({ connection_id: e.target.value })}
+            >
+              <option value="">Select a storage connection…</option>
+              {storageConnections.map((cn) => (
+                <option key={cn.id} value={cn.id}>
+                  {cn.name}
+                </option>
+              ))}
+            </Select>
+            {storageConnections.length === 0 && (
+              <p className="text-[11px] text-amber-600">
+                No storage connections yet — add one on the Connections page.
+              </p>
+            )}
+          </Field>
+          <Field
+            label="Destination path"
+            error={errors.path}
+            hint="e.g. outputs/result.parquet"
+            help="Where the file is written within the bucket or folder."
+          >
+            <Input
+              value={c.path ?? ""}
+              onChange={(e) => set({ path: e.target.value })}
+              placeholder="outputs/result.parquet"
+            />
+          </Field>
+          <Field label="Format" error={errors.format} help="File format to write.">
+            <Select value={c.format ?? "parquet"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+              <option value="parquet">Parquet</option>
+            </Select>
+          </Field>
+          <Field label="If file exists" error={errors.if_exists} help="Overwrite the existing file, or fail if it already exists.">
+            <Select value={c.if_exists ?? "overwrite"} onChange={(e) => set({ if_exists: e.target.value })}>
+              <option value="overwrite">Overwrite</option>
+              <option value="error">Fail with error</option>
+            </Select>
+          </Field>
+        </>
+      );
+
     case "csvOutput":
     case "excelOutput":
     case "parquetOutput":
@@ -1238,6 +1442,270 @@ export function NodeConfigForm({
             value={c.dataset_name ?? ""}
             onChange={(e) => set({ dataset_name: e.target.value })}
             placeholder="my_output_dataset"
+          />
+        </Field>
+      );
+
+    // ----- Machine learning -----
+    case "mlTrain":
+      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} />;
+
+    case "trainTestSplit":
+      return (
+        <>
+          <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-snug text-slate-600">
+            Two outputs: the top <span className="font-medium">train</span> handle
+            feeds your model; the bottom <span className="font-medium">test</span>{" "}
+            handle is held out for evaluation.
+          </p>
+          <Field
+            label="Test size"
+            error={errors.test_size}
+            help="Fraction of rows held out for testing (e.g. 0.2 = 20% test, 80% train)."
+          >
+            <Input
+              type="number"
+              min={0.05}
+              max={0.95}
+              step={0.05}
+              value={c.test_size ?? 0.2}
+              onChange={(e) => set({ test_size: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label="Stratify by (optional)"
+            error={errors.stratify_column}
+            help="Keep the same class balance in train and test by stratifying on this column. Leave empty for a plain random split."
+          >
+            <OptionalColumnSelect
+              value={c.stratify_column ?? null}
+              columns={columns}
+              onChange={(v) => set({ stratify_column: v })}
+              noneLabel="(no stratification)"
+            />
+          </Field>
+          <Field
+            label="Random seed"
+            error={errors.seed}
+            help="Required: the same seed reproduces the exact same split every run."
+          >
+            <Input
+              type="number"
+              value={c.seed ?? 42}
+              onChange={(e) => set({ seed: Number(e.target.value) })}
+            />
+          </Field>
+        </>
+      );
+
+    case "scaleFeatures":
+      return (
+        <>
+          <Field label="Method" error={errors.method} help="StandardScaler (mean 0, std 1), MinMax (0–1), or Robust (median/IQR, outlier-resistant).">
+            <Select value={c.method ?? "standard"} onChange={(e) => set({ method: e.target.value })}>
+              <option value="standard">Standard (z-score)</option>
+              <option value="minmax">Min-max (0 to 1)</option>
+              <option value="robust">Robust (median / IQR)</option>
+            </Select>
+          </Field>
+          <Field label="Columns" error={errors.columns} help="The numeric columns to scale.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+        </>
+      );
+
+    case "encodeCategories": {
+      const method = (c.method as string) ?? "onehot";
+      return (
+        <>
+          <Field label="Method" error={errors.method} help="One-hot creates a 0/1 column per category; ordinal maps each category to an integer.">
+            <Select value={method} onChange={(e) => set({ method: e.target.value })}>
+              <option value="onehot">One-hot (dummy columns)</option>
+              <option value="ordinal">Ordinal (integer codes)</option>
+            </Select>
+          </Field>
+          <Field label="Columns" error={errors.columns} help="The categorical (text) columns to encode.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          {method === "onehot" && (
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={!!c.drop_first}
+                onChange={(e) => set({ drop_first: e.target.checked })}
+              />
+              Drop the first category (avoids collinearity)
+            </label>
+          )}
+        </>
+      );
+    }
+
+    case "selectFeatures": {
+      const method = (c.method as string) ?? "variance";
+      return (
+        <>
+          <Field label="Method" error={errors.method} help="Variance drops near-constant columns; correlation drops one of each highly-correlated pair; SelectKBest keeps the top features by relevance to a target.">
+            <Select value={method} onChange={(e) => set({ method: e.target.value })}>
+              <option value="variance">Variance threshold</option>
+              <option value="correlation">Correlation filter</option>
+              <option value="kbest">Top-K by relevance</option>
+            </Select>
+          </Field>
+          {method !== "kbest" && (
+            <Field
+              label="Threshold"
+              error={errors.threshold}
+              help={method === "variance" ? "Drop columns with variance at or below this." : "Drop a column when its absolute correlation with another exceeds this (0–1)."}
+            >
+              <Input
+                type="number"
+                step={0.05}
+                value={c.threshold ?? (method === "variance" ? 0 : 0.9)}
+                onChange={(e) => set({ threshold: Number(e.target.value) })}
+              />
+            </Field>
+          )}
+          {method === "kbest" && (
+            <>
+              <Field label="Target column" error={errors.target_column} help="The column being predicted — relevance is scored against it.">
+                <ColumnSelect value={c.target_column ?? ""} columns={columns} onChange={(v) => set({ target_column: v })} />
+              </Field>
+              <Field label="Keep top K" error={errors.k} help="How many of the best features to keep.">
+                <Input type="number" min={1} value={c.k ?? 10} onChange={(e) => set({ k: Number(e.target.value) })} />
+              </Field>
+            </>
+          )}
+        </>
+      );
+    }
+
+    case "reduceDimensions":
+      return (
+        <>
+          <Field label="Components" error={errors.n_components} help="A whole number = how many components to keep; a fraction in (0,1) = keep enough to explain that much variance.">
+            <Input
+              type="number"
+              step={0.05}
+              min={0}
+              value={c.n_components ?? 2}
+              onChange={(e) => set({ n_components: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Columns (optional)" error={errors.columns} hint="Empty = all numeric columns" help="The numeric columns to compress into components.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="Component prefix" error={errors.prefix} help="New columns are named prefix_1, prefix_2, …">
+            <Input value={c.prefix ?? "pc"} onChange={(e) => set({ prefix: e.target.value })} />
+          </Field>
+          <Field label="Random seed" error={errors.seed} help="Makes the (randomized) solver reproducible.">
+            <Input type="number" value={c.seed ?? 42} onChange={(e) => set({ seed: Number(e.target.value) })} />
+          </Field>
+        </>
+      );
+
+    case "mlPredict":
+      return (
+        <>
+          <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-snug text-slate-600">
+            Two inputs: connect the <span className="font-medium">data</span> to
+            score, and provide a model — either wire the{" "}
+            <span className="font-medium">model</span> input from a Train Model
+            node, or set a Model URI below.
+          </p>
+          <Field
+            label="Model URI (optional)"
+            error={errors.model_uri}
+            hint="Leave empty to use the connected model wire"
+            help="Reference a registered model by alias (models:/churn@production) or version (models:/churn/1). Otherwise connect mlTrain's model output to the model input."
+          >
+            <Input
+              value={c.model_uri ?? ""}
+              placeholder="models:/your-model@production"
+              onChange={(e) => set({ model_uri: e.target.value })}
+            />
+          </Field>
+          <Field label="Prediction column" error={errors.output_column} help="Name of the new column holding the model's prediction.">
+            <Input value={c.output_column ?? "prediction"} onChange={(e) => set({ output_column: e.target.value })} />
+          </Field>
+          <Field
+            label="Probability columns (optional)"
+            error={errors.output_proba_columns}
+            hint="One name per class, e.g. proba_0, proba_1"
+            help="For classifiers: also output class probabilities under these column names."
+          >
+            <CsvListInput
+              value={c.output_proba_columns}
+              onChange={(v) => set({ output_proba_columns: v })}
+              placeholder="proba_0, proba_1"
+            />
+          </Field>
+        </>
+      );
+
+    case "mlEvaluate": {
+      const task = (c.task_type as string) ?? "classification";
+      const metricOptions: Record<string, string[]> = {
+        classification: ["accuracy", "precision", "recall", "f1", "roc_auc", "confusion_matrix"],
+        regression: ["rmse", "mae", "r2", "mape", "residual_std"],
+        clustering: ["silhouette", "davies_bouldin"],
+      };
+      return (
+        <>
+          <Field label="Task type" error={errors.task_type} help="Pick the kind of model whose predictions you're scoring.">
+            <Select value={task} onChange={(e) => set({ task_type: e.target.value })}>
+              <option value="classification">Classification</option>
+              <option value="regression">Regression</option>
+              <option value="clustering">Clustering</option>
+            </Select>
+          </Field>
+          {task !== "clustering" && (
+            <Field label="True value column" error={errors.target_column} help="The actual/observed values to compare predictions against.">
+              <ColumnSelect value={c.target_column ?? ""} columns={columns} onChange={(v) => set({ target_column: v })} />
+            </Field>
+          )}
+          <Field
+            label={task === "clustering" ? "Cluster label column" : "Prediction column"}
+            error={errors.prediction_column}
+            help="The column holding the model output (from mlPredict)."
+          >
+            <ColumnSelect value={c.prediction_column ?? "prediction"} columns={columns} onChange={(v) => set({ prediction_column: v })} />
+          </Field>
+          {task === "classification" && (
+            <Field
+              label="Probability columns (optional)"
+              error={errors.proba_columns}
+              hint="Needed for ROC-AUC"
+              help="Class-probability columns produced by mlPredict."
+            >
+              <ColumnMultiSelect value={c.proba_columns} columns={columns} onChange={(v) => set({ proba_columns: v })} />
+            </Field>
+          )}
+          <Field label="Metrics (optional)" error={errors.metrics} hint="Empty = a sensible default set" help="Pick which metrics to compute.">
+            <ColumnMultiSelect
+              value={c.metrics}
+              columns={metricOptions[task] ?? []}
+              onChange={(v) => set({ metrics: v })}
+            />
+          </Field>
+        </>
+      );
+    }
+
+    case "featureImportance":
+      return (
+        <Field
+          label="Show top N (optional)"
+          error={errors.top_n}
+          hint="Empty = all features"
+          help="Limit the output to the N most important features."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={c.top_n ?? ""}
+            placeholder="all"
+            onChange={(e) => set({ top_n: e.target.value === "" ? null : Number(e.target.value) })}
           />
         </Field>
       );

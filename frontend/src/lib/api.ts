@@ -11,12 +11,19 @@ import type {
   DatasetSchemaField,
   DatasetVersion,
   ExportCodeResponse,
+  FlowImport,
   Flow,
   FlowCreate,
   FlowPreviewRequest,
   FlowRun,
   FlowRunSummary,
   FlowUpdate,
+  MlExperiment,
+  MlExperimentRun,
+  MlExperimentSummary,
+  MlNodeMetrics,
+  MlRegisteredModel,
+  MlRegisterResult,
   PreviewResponse,
   Project,
   ProjectCreate,
@@ -104,6 +111,11 @@ export const flowsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  import: (document: FlowImport) =>
+    request<Flow>("/flows/import", {
+      method: "POST",
+      body: JSON.stringify(document),
+    }),
   update: (id: string, body: FlowUpdate) =>
     request<Flow>(`/flows/${id}`, {
       method: "PUT",
@@ -157,6 +169,35 @@ export const runsApi = {
   get: (id: string) => request<FlowRun>(`/runs/${id}`),
   list: (filters: RunListFilters = {}) =>
     request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
+  // Re-run the run's flow with the same config; returns a brand-new run.
+  retry: (id: string) => request<FlowRun>(`/runs/${id}/retry`, { method: "POST" }),
+};
+
+// ---- Machine learning ------------------------------------------------------
+
+export const mlApi = {
+  metrics: (runId: string) => request<MlNodeMetrics[]>(`/runs/${runId}/ml/metrics`),
+  register: (runId: string, body: { model_name: string; stage?: string | null }) =>
+    request<MlRegisterResult>(`/runs/${runId}/ml/register`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  experiments: (flowId: string) => request<MlExperiment[]>(`/flows/${flowId}/ml/experiments`),
+  // ML Models page: registry + experiment leaderboard (server-wide, not per-flow).
+  registeredModels: () => request<MlRegisteredModel[]>(`/ml/models`),
+  allExperiments: () => request<MlExperimentSummary[]>(`/ml/experiments`),
+  experimentRuns: (experimentId: string) =>
+    request<MlExperimentRun[]>(`/ml/experiments/${experimentId}/runs`),
+  setAlias: (modelName: string, alias: string, version: string) =>
+    request<{ model_name: string; alias: string; version: string }>(
+      `/ml/models/${encodeURIComponent(modelName)}/alias`,
+      { method: "POST", body: JSON.stringify({ alias, version }) },
+    ),
+  clearAlias: (modelName: string, alias: string) =>
+    request<{ model_name: string; alias: string; cleared: boolean }>(
+      `/ml/models/${encodeURIComponent(modelName)}/alias/${encodeURIComponent(alias)}`,
+      { method: "DELETE" },
+    ),
 };
 
 // ---- Schedules -------------------------------------------------------------
@@ -206,6 +247,8 @@ export const connectionsApi = {
       body: JSON.stringify(body),
     }),
   tables: (id: string) => request<TableInfo[]>(`/connections/${id}/tables`),
+  objects: (id: string, prefix?: string) =>
+    request<string[]>(`/connections/${id}/objects${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ""}`),
 };
 
 // ---- Datasets --------------------------------------------------------------
@@ -214,8 +257,8 @@ export const datasetsApi = {
   list: (projectId?: string) =>
     request<Dataset[]>(`/datasets${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Dataset>(`/datasets/${id}`),
-  versions: (id: string) =>
-    request<DatasetVersion[]>(`/datasets/${id}/versions`),
+  versions: (id: string, limit?: number) =>
+    request<DatasetVersion[]>(`/datasets/${id}/versions${queryString({ limit })}`),
   flows: (id: string) => request<Flow[]>(`/datasets/${id}/flows`),
   schema: (id: string, version?: number) =>
     request<DatasetSchemaField[]>(
