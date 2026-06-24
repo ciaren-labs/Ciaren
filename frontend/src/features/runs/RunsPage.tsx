@@ -8,8 +8,6 @@ import {
   ChevronUp,
   ChevronsUpDown,
   History,
-  LayoutGrid,
-  List,
   Loader2,
   MousePointerClick,
   RotateCcw,
@@ -22,6 +20,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { ViewToggle } from "@/components/filters/ViewToggle";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
 import { projectColor } from "@/lib/projectColors";
@@ -167,24 +166,7 @@ export function RunsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <ViewToggle value={layout} onChange={setLayout} />
       </div>
 
       {/* Filter bar */}

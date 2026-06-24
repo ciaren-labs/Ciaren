@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Database,
   FolderKanban,
-  LayoutGrid,
-  List,
   Loader2,
   Pencil,
   Plus,
@@ -24,6 +22,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { projectColor } from "@/lib/projectColors";
+import { ViewToggle } from "@/components/filters/ViewToggle";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -99,24 +99,7 @@ export function ProjectsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-            <button
-              type="button"
-              onClick={() => setLayout("cards")}
-              className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-              title="Card view"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setLayout("table")}
-              className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-              title="Table view"
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <ViewToggle value={layout} onChange={setLayout} />
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" /> New project
           </Button>
@@ -214,6 +197,7 @@ function ProjectCard({
   onDelete: () => void;
 }) {
   const theme = projectColor(project.color);
+  const fmt = useFormatDateTime();
   return (
     <div className={cn("group animate-fade-in-up overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md", project.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
       <button onClick={onOpen} className="block w-full text-left">
@@ -245,13 +229,16 @@ function ProjectCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 px-4 py-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Database className="h-3.5 w-3.5" /> {project.dataset_count} datasets
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Workflow className="h-3.5 w-3.5" /> {project.flow_count} flows
-          </span>
+        <div className="flex flex-col gap-1.5 px-4 py-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <Database className="h-3.5 w-3.5" /> {project.dataset_count} datasets
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Workflow className="h-3.5 w-3.5" /> {project.flow_count} flows
+            </span>
+          </div>
+          <span className="text-[11px] text-muted-foreground/80">Created {fmt(project.created_at)}</span>
         </div>
       </button>
       <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -301,6 +288,7 @@ function ProjectTable({
   onToggle: (p: Project) => void;
   onDelete: (p: Project) => void;
 }) {
+  const fmt = useFormatDateTime();
   if (projects.length === 0) return null;
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -311,6 +299,7 @@ function ProjectTable({
             <th className="px-4 py-2.5 text-left font-semibold">Datasets</th>
             <th className="px-4 py-2.5 text-left font-semibold">Flows</th>
             <th className="px-4 py-2.5 text-left font-semibold">Status</th>
+            <th className="px-4 py-2.5 text-left font-semibold">Created</th>
             <th className="px-4 py-2.5" />
           </tr>
         </thead>
@@ -346,6 +335,7 @@ function ProjectTable({
                     </span>
                   )}
                 </td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{fmt(project.created_at)}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">
                     <button
