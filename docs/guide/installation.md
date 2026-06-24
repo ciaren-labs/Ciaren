@@ -84,7 +84,36 @@ backend on port `8055`.
 
 ### 4. Open in your browser
 
-Visit `http://localhost:5173` and start building flows.
+Visit `http://localhost:5173` and start building flows. (During development this
+is the URL to open — **not** the backend's `:8055`, which serves the API.)
+
+:::tip One-command app (no separate frontend server)
+Build the frontend once and `flowframe serve` will serve the web UI too, so the
+whole app lives at a single URL:
+
+```bash
+cd frontend && npm run build      # produces frontend/dist
+cd ../backend && flowframe serve  # banner: "Open the app: http://localhost:8055"
+```
+
+`flowframe serve` auto-detects `frontend/dist`; override its location with
+`FLOWFRAME_FRONTEND_DIST`. Its startup banner always tells you the exact URL to open.
+:::
+
+:::tip Enable Machine Learning
+The ML nodes (Train / Predict / Evaluate …) only appear once you install the extra
+**and** enable the feature:
+
+```bash
+pip install -e ".[ml]"
+# .env  (flowframe init writes these for you)
+FLOWFRAME_ML_ENABLED=true
+```
+
+If the **Machine Learning** palette section is missing, check `flowframe check`
+(it reports `ml: ok`) and that the frontend you're viewing is up to date. See the
+[ML Quick Start](/guide/ml-quickstart).
+:::
 
 ## Detailed Setup
 

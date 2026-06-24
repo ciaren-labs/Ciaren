@@ -59,3 +59,11 @@ async def test_connection(connection_id: str, service: ConnectionServiceDep) -> 
 @router.get("/{connection_id}/tables", response_model=list[TableInfo])
 async def list_connection_tables(connection_id: str, service: ConnectionServiceDep) -> list[TableInfo]:
     return await service.list_tables(connection_id)
+
+
+@router.get("/{connection_id}/objects", response_model=list[str])
+async def list_connection_objects(
+    connection_id: str, service: ConnectionServiceDep, prefix: str = ""
+) -> list[str]:
+    """List files/objects in a storage connection (S3 bucket, local folder, …)."""
+    return await service.list_objects(connection_id, prefix)

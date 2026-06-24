@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, UploadFile, status
+from fastapi import APIRouter, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.deps import DatasetServiceDep, FlowServiceDep
@@ -17,8 +17,16 @@ async def upload_dataset(file: UploadFile, service: DatasetServiceDep, project_i
 
 
 @router.get("", response_model=list[DatasetRead])
-async def list_datasets(service: DatasetServiceDep, project_id: str | None = None) -> list[DatasetRead]:
-    return await service.list_all(project_id)
+async def list_datasets(
+    service: DatasetServiceDep, project_id: str | None = None, include_deleted: bool = False
+) -> list[DatasetRead]:
+    return await service.list_all(project_id, include_deleted=include_deleted)
+
+
+@router.post("/purge-expired")
+async def purge_expired_datasets(service: DatasetServiceDep) -> dict[str, int]:
+    """Hard-delete soft-deleted datasets past the retention window (removes files)."""
+    return {"purged": await service.purge_expired()}
 
 
 @router.patch("/{dataset_id}", response_model=DatasetRead)
@@ -36,8 +44,18 @@ async def patch_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, service: DatasetServiceDep) -> None:
-    await service.delete(dataset_id)
+async def delete_dataset(
+    dataset_id: str, service: DatasetServiceDep, purge: bool = False, force: bool = False
+) -> None:
+    """Soft-delete a dataset (retained for restore); ``?purge=true`` deletes it and
+    its files immediately. Refuses with 409 if a Production model was trained on it,
+    unless ``?force=true``."""
+    await service.delete(dataset_id, purge=purge, force=force)
+
+
+@router.post("/{dataset_id}/restore", response_model=DatasetRead)
+async def restore_dataset(dataset_id: str, service: DatasetServiceDep) -> DatasetRead:
+    return await service.restore(dataset_id)
 
 
 @router.get("/{dataset_id}/flows", response_model=list[FlowRead])
@@ -55,8 +73,13 @@ async def get_dataset(dataset_id: str, service: DatasetServiceDep) -> DatasetRea
 
 
 @router.get("/{dataset_id}/versions", response_model=list[DatasetVersionRead])
-async def list_dataset_versions(dataset_id: str, service: DatasetServiceDep) -> list[DatasetVersionRead]:
-    return await service.list_versions(dataset_id)
+async def list_dataset_versions(
+    dataset_id: str,
+    service: DatasetServiceDep,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> list[DatasetVersionRead]:
+    return await service.list_versions(dataset_id, limit=limit, offset=offset)
 
 
 @router.get("/{dataset_id}/versions/{version_number}/download")

@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.enums import DatasetKind
+
 
 class DatasetUpdate(BaseModel):
     is_disabled: bool | None = None
@@ -30,8 +32,9 @@ class DatasetRead(BaseModel):
     id: str
     name: str
     source_type: str
-    dataset_kind: str = "input"  # "input" (uploaded) or "output" (flow-generated)
+    dataset_kind: DatasetKind = DatasetKind.INPUT
     is_disabled: bool = False
+    deleted_at: datetime | None = None
     project_id: str | None = None
     latest_version: int
     version_count: int

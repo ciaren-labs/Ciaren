@@ -2,28 +2,26 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarClock,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  ChevronsUpDown,
   History,
-  LayoutGrid,
-  List,
   Loader2,
   MousePointerClick,
   RotateCcw,
+  SquarePen,
 } from "lucide-react";
-import { useRuns } from "./hooks";
+import { useRetryRun, useRuns } from "./hooks";
 import { useFlows } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { ViewToggle } from "@/components/filters/ViewToggle";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
-import { projectColor } from "@/lib/projectColors";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import type { RunListFilters, RunStatus, FlowRunSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -76,6 +74,12 @@ function TriggerBadge({ run }: { run: FlowRunSummary }) {
 export function RunsPage() {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
+  const retry = useRetryRun();
+
+  const handleRetry = (run: FlowRunSummary) => {
+    if (!confirm("Re-run this flow with the same config? This creates a new run (a new run id) — the current one is kept.")) return;
+    retry.mutate(run.id, { onSuccess: (created) => navigate(`/runs/${created.id}`) });
+  };
   const { data: flows } = useFlows();
   const { data: datasets } = useDatasets();
   const { data: projects } = useProjects();
@@ -122,6 +126,19 @@ export function RunsPage() {
     [projects],
   );
 
+  // Group the current page's runs into per-project sections, keeping the (already
+  // sorted) run order within each. Insertion order = first appearance.
+  const runGroups = useMemo(() => {
+    const groups = new Map<string, FlowRunSummary[]>();
+    for (const run of runs ?? []) {
+      const pid = run.project_id ?? "";
+      const arr = groups.get(pid);
+      if (arr) arr.push(run);
+      else groups.set(pid, [run]);
+    }
+    return [...groups.entries()];
+  }, [runs]);
+
   const hasFilters = flowId || status || datasetId || projectId || after || before;
   const reset = () => {
     setFlowId("");
@@ -147,7 +164,7 @@ export function RunsPage() {
   const isEmpty = !runs || runs.length === 0;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
@@ -160,24 +177,7 @@ export function RunsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <ViewToggle value={layout} onChange={setLayout} />
       </div>
 
       {/* Filter bar */}
@@ -251,55 +251,79 @@ export function RunsPage() {
       ) : !isEmpty ? (
         <>
           {layout === "table" ? (
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Project</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">
-                      <SortHeader field="status" current={sortBy} order={sortOrder} onSort={handleSort}>
-                        Status
-                      </SortHeader>
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Trigger</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">
-                      <SortHeader field="created_at" current={sortBy} order={sortOrder} onSort={handleSort}>
-                        Started
-                      </SortHeader>
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {runs!.map((run) => (
-                    <RunRow
-                      key={run.id}
-                      run={run}
-                      flowName={flowName}
-                      datasetName={datasetName}
-                      projectById={projectById}
-                      fmt={fmt}
-                      onClick={() => navigate(`/runs/${run.id}`)}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-col gap-4">
+              {runGroups.map(([pid, group]) => {
+                const proj = projectById.get(pid);
+                return (
+                  <CollapsibleSection
+                    key={pid}
+                    title={proj?.name ?? "Unknown project"}
+                    colorKey={proj?.color}
+                    count={group.length}
+                  >
+                    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
+                            <SortableTh label="Status" sortKey="status" sort={{ key: sortBy, dir: sortOrder }} onSort={handleSort} className="px-4 py-2.5 text-left" />
+                            <th className="px-4 py-2.5 text-left font-semibold">Trigger</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
+                            <SortableTh label="Started" sortKey="created_at" sort={{ key: sortBy, dir: sortOrder }} onSort={handleSort} className="px-4 py-2.5 text-left" />
+                            <th className="px-4 py-2.5 text-left font-semibold">Duration</th>
+                            <th className="px-4 py-2.5 text-right font-semibold sr-only">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.map((run) => (
+                            <RunRow
+                              key={run.id}
+                              run={run}
+                              flowName={flowName}
+                              datasetName={datasetName}
+                              fmt={fmt}
+                              onClick={() => navigate(`/runs/${run.id}`)}
+                              onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                              onRetry={() => handleRetry(run)}
+                              retrying={retry.isPending}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CollapsibleSection>
+                );
+              })}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {runs!.map((run) => (
-                <RunCard
-                  key={run.id}
-                  run={run}
-                  flowName={flowName}
-                  datasetName={datasetName}
-                  projectById={projectById}
-                  fmt={fmt}
-                  onClick={() => navigate(`/runs/${run.id}`)}
-                />
-              ))}
+            <div className="flex flex-col gap-4">
+              {runGroups.map(([pid, group]) => {
+                const proj = projectById.get(pid);
+                return (
+                  <CollapsibleSection
+                    key={pid}
+                    title={proj?.name ?? "Unknown project"}
+                    colorKey={proj?.color}
+                    count={group.length}
+                  >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.map((run) => (
+                        <RunCard
+                          key={run.id}
+                          run={run}
+                          flowName={flowName}
+                          datasetName={datasetName}
+                          fmt={fmt}
+                          onClick={() => navigate(`/runs/${run.id}`)}
+                          onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                          onRetry={() => handleRetry(run)}
+                          retrying={retry.isPending}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                );
+              })}
             </div>
           )}
 
@@ -339,50 +363,24 @@ export function RunsPage() {
   );
 }
 
-function SortHeader({
-  field,
-  current,
-  order,
-  onSort,
-  children,
-}: {
-  field: SortField;
-  current: SortField;
-  order: "asc" | "desc";
-  onSort: (f: SortField) => void;
-  children: React.ReactNode;
-}) {
-  const active = field === current;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(field)}
-      className="flex items-center gap-1 hover:text-foreground"
-    >
-      {children}
-      {active ? (
-        order === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-      ) : (
-        <ChevronsUpDown className="h-3 w-3 opacity-40" />
-      )}
-    </button>
-  );
-}
-
 function RunRow({
   run,
   flowName,
   datasetName,
-  projectById,
   fmt,
   onClick,
+  onOpenFlow,
+  onRetry,
+  retrying,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
   datasetName: Map<string, string>;
-  projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
+  onOpenFlow: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) {
   return (
     <tr
@@ -391,22 +389,6 @@ function RunRow({
     >
       <td className="px-4 py-2.5 font-medium">
         {run.flow_name ?? flowName.get(run.flow_id) ?? "—"}
-      </td>
-      <td className="px-4 py-2.5">
-        {run.project_id ? (
-          (() => {
-            const proj = projectById.get(run.project_id);
-            const theme = projectColor(proj?.color);
-            return (
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />
-                {proj?.name ?? "—"}
-              </span>
-            );
-          })()
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
       </td>
       <td className="px-4 py-2.5">
         <StatusBadge status={run.status} />
@@ -421,6 +403,27 @@ function RunRow({
       <td className="px-4 py-2.5 tabular-nums text-muted-foreground">
         {formatDuration(run.started_at, run.finished_at)}
       </td>
+      <td className="px-4 py-2.5 text-right">
+        <div className="flex items-center justify-end gap-1">
+          {run.status === "failed" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRetry(); }}
+              disabled={retrying}
+              title="Re-run the flow with the same config (creates a new run)"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              <RotateCcw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} /> Retry
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+            title="Open the flow in the editor"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <SquarePen className="h-3.5 w-3.5" /> Flow
+          </button>
+        </div>
+      </td>
     </tr>
   );
 }
@@ -429,23 +432,28 @@ function RunCard({
   run,
   flowName,
   datasetName,
-  projectById,
   fmt,
   onClick,
+  onOpenFlow,
+  onRetry,
+  retrying,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
   datasetName: Map<string, string>;
-  projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
+  onOpenFlow: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) {
-  const proj = run.project_id ? projectById.get(run.project_id) : undefined;
-  const theme = projectColor(proj?.color);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="animate-fade-in-up flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="animate-fade-in-up flex cursor-pointer flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-semibold leading-tight">
@@ -456,12 +464,6 @@ function RunCard({
           <StatusBadge status={run.status} />
         </div>
       </div>
-      {proj && (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />
-          {proj.name}
-        </span>
-      )}
       {(run.input_datasets?.length || run.input_dataset_id) && (
         <span className="text-xs text-muted-foreground">
           {datasetLabel(run, datasetName)}
@@ -471,6 +473,25 @@ function RunCard({
         <span>{fmt(run.created_at)}</span>
         <span className="tabular-nums">{formatDuration(run.started_at, run.finished_at)}</span>
       </div>
-    </button>
+      <div className="mt-1 flex items-center gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+          title="Open the flow in the editor"
+          className="inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <SquarePen className="h-3.5 w-3.5" /> Open flow
+        </button>
+        {run.status === "failed" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRetry(); }}
+            disabled={retrying}
+            title="Re-run the flow with the same config (creates a new run)"
+            className="inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RotateCcw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} /> Retry
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ end-to-end.
 """
 
 import io
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pandas as pd
@@ -20,6 +20,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.scheduler.runner import SchedulerRunner
+from app.services.project_service import ProjectService
 
 
 def _factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
@@ -34,7 +35,8 @@ async def _make_schedule(
     **kwargs: Any,
 ) -> str:
     async with factory() as db:
-        flow = Flow(name="f", graph_json={})
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json={})
         db.add(flow)
         await db.flush()
         schedule = Schedule(flow_id=flow.id, cron=cron, timezone=timezone, **kwargs)
@@ -53,12 +55,12 @@ async def test_reconcile_sets_next_run_when_missing(engine: AsyncEngine) -> None
         schedule = await db.get(Schedule, sid)
         assert schedule is not None
         assert schedule.next_run_at is not None
-        assert schedule.next_run_at > datetime.utcnow()
+        assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
 
 
 async def test_reconcile_skips_missed_slot_without_catch_up(engine: AsyncEngine) -> None:
     factory = _factory(engine)
-    past = datetime.utcnow() - timedelta(hours=2)
+    past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
     sid = await _make_schedule(factory, next_run_at=past, catch_up=False, enabled=True)
 
     await SchedulerRunner(factory, get_settings())._reconcile_on_startup()
@@ -68,12 +70,12 @@ async def test_reconcile_skips_missed_slot_without_catch_up(engine: AsyncEngine)
         assert schedule is not None
         # advanced past "now" — the missed slot is dropped, not backfilled
         assert schedule.next_run_at is not None
-        assert schedule.next_run_at > datetime.utcnow()
+        assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
 
 
 async def test_reconcile_keeps_missed_slot_with_catch_up(engine: AsyncEngine) -> None:
     factory = _factory(engine)
-    past = datetime.utcnow() - timedelta(hours=2)
+    past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
     sid = await _make_schedule(factory, next_run_at=past, catch_up=True, enabled=True)
 
     await SchedulerRunner(factory, get_settings())._reconcile_on_startup()
@@ -83,7 +85,7 @@ async def test_reconcile_keeps_missed_slot_with_catch_up(engine: AsyncEngine) ->
         assert schedule is not None
         # left in the past so the next tick fires it once (catch-up)
         assert schedule.next_run_at is not None
-        assert schedule.next_run_at < datetime.utcnow()
+        assert schedule.next_run_at < datetime.now(UTC).replace(tzinfo=None)
 
 
 _MISSING_INPUT_GRAPH = {
@@ -96,14 +98,15 @@ async def _make_failing_schedule(factory: async_sessionmaker[AsyncSession], **kw
     """A schedule whose flow references a non-existent dataset, so every run fails
     (at dataset resolution, before any output dir is touched)."""
     async with factory() as db:
-        flow = Flow(name="f", graph_json=_MISSING_INPUT_GRAPH)
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json=_MISSING_INPUT_GRAPH)
         db.add(flow)
         await db.flush()
         schedule = Schedule(
             flow_id=flow.id,
             cron="* * * * *",
             timezone="UTC",
-            next_run_at=datetime.utcnow(),
+            next_run_at=datetime.now(UTC).replace(tzinfo=None),
             **kwargs,
         )
         db.add(schedule)
@@ -121,11 +124,12 @@ def test_backoff_is_exponential_and_capped() -> None:
 async def test_recover_orphaned_runs_marks_running_as_failed(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     async with factory() as db:
-        flow = Flow(name="f", graph_json={})
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json={})
         db.add(flow)
         await db.flush()
-        alive = FlowRun(flow_id=flow.id, status="running", started_at=datetime.utcnow())
-        done = FlowRun(flow_id=flow.id, status="success", started_at=datetime.utcnow())
+        alive = FlowRun(flow_id=flow.id, status="running", started_at=datetime.now(UTC).replace(tzinfo=None))
+        done = FlowRun(flow_id=flow.id, status="success", started_at=datetime.now(UTC).replace(tzinfo=None))
         db.add_all([alive, done])
         await db.commit()
         alive_id, done_id = alive.id, done.id
@@ -172,7 +176,7 @@ async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: Asyn
             assert schedule.enabled is True
             assert schedule.retry_count == expected_retry
             assert schedule.next_run_at is not None
-            assert schedule.next_run_at > datetime.utcnow()
+            assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
 
     # Third failure exhausts retries -> reset counter, advance to next cron slot.
     await runner._fire(sid)
@@ -186,7 +190,7 @@ async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: Asyn
 
 async def test_tick_skips_in_flight_schedule(engine: AsyncEngine) -> None:
     factory = _factory(engine)
-    past = datetime.utcnow() - timedelta(minutes=1)
+    past = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
     sid = await _make_schedule(factory, cron="* * * * *", next_run_at=past, enabled=True)
 
     runner = SchedulerRunner(factory, get_settings())
@@ -241,7 +245,7 @@ async def test_fire_executes_flow_and_records_outcome(client: AsyncClient, engin
         assert schedule.last_run_id is not None
         # the fire advanced the cadence to a future slot
         assert schedule.next_run_at is not None
-        assert schedule.next_run_at > datetime.utcnow()
+        assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
 
         runs = (await db.execute(select(FlowRun).where(FlowRun.schedule_id == created["id"]))).scalars().all()
         assert len(runs) == 1

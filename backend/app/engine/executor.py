@@ -4,12 +4,16 @@ from pathlib import Path
 from typing import Any
 
 from app.engine.backends import AnyFrame, EngineBackend, get_engine
-from app.engine.graph import topological_sort, validate_graph
+from app.engine.graph import GraphValidationError, topological_sort, validate_graph
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SOURCE_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
-from app.engine.node_kinds import SQL_INPUT_TYPE
+from app.engine.node_kinds import PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
 from app.engine.registry import get_transformation
+from app.engine.transformations.base import EmitsNodeMetadata, NodeMetadata
+
+# A node's outputs, keyed by source handle. Single-output nodes use ``{"out": df}``.
+NodeOutputs = dict[str, AnyFrame]
 
 
 @dataclass
@@ -26,6 +30,21 @@ class NodeResult:
     error: str | None = None
     # Wall-clock time spent computing this node (None for skipped nodes).
     duration_ms: float | None = None
+    # ML-specific metadata — None for ETL nodes (see EmitsNodeMetadata / NodeMetadata).
+    ml_metrics: dict[str, float] | None = None
+    mlflow_run_id: str | None = None
+    model_uri: str | None = None
+    task_type: str | None = None
+    cv_scores: list[float] | None = None
+
+    def apply_metadata(self, meta: NodeMetadata | None) -> None:
+        if meta is None:
+            return
+        self.ml_metrics = meta.ml_metrics
+        self.mlflow_run_id = meta.mlflow_run_id
+        self.model_uri = meta.model_uri
+        self.task_type = meta.task_type
+        self.cv_scores = meta.cv_scores
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +57,11 @@ class NodeResult:
             "sample": self.sample,
             "error": self.error,
             "duration_ms": self.duration_ms,
+            "ml_metrics": self.ml_metrics,
+            "mlflow_run_id": self.mlflow_run_id,
+            "model_uri": self.model_uri,
+            "task_type": self.task_type,
+            "cv_scores": self.cv_scores,
         }
 
 
@@ -56,50 +80,92 @@ def dataset_ref_key(dataset_id: str, version: int | None) -> str:
     return f"{dataset_id}:{version if version is not None else 'latest'}"
 
 
-def _build_inputs(incoming: list[dict[str, Any]], frames: dict[str, AnyFrame]) -> dict[str, AnyFrame]:
-    """Map incoming edges to a handle->frame dict.
+def _resolve_source(outputs: dict[str, NodeOutputs], edge: dict[str, Any]) -> AnyFrame:
+    """Pick the upstream frame an edge carries, honoring ``sourceHandle``.
 
-    Missing target handles default to ``"in"``. If multiple edges share a
-    handle (e.g. a variadic concat node), later ones get a unique suffix so
-    none are silently dropped.
+    Single-output sources (the common case) need no handle: their sole frame is
+    used. Multi-output sources (e.g. ``trainTestSplit``) require the edge to name
+    which output via ``sourceHandle``; an absent or unknown handle is a wiring
+    error the frontend prevents but the API could still submit.
+    """
+    src = outputs[edge["source"]]
+    handle = edge.get("sourceHandle")
+    if handle is not None:
+        if handle not in src:
+            raise GraphValidationError(
+                f"Edge from {edge['source']!r} names output {handle!r}, "
+                f"but that node emits {sorted(src)}."
+            )
+        return src[handle]
+    if len(src) == 1:
+        return next(iter(src.values()))
+    if "out" in src:
+        return src["out"]
+    raise GraphValidationError(
+        f"Edge from {edge['source']!r} has no sourceHandle, but that node emits "
+        f"multiple outputs {sorted(src)} — specify which one."
+    )
+
+
+def _build_inputs(incoming: list[dict[str, Any]], outputs: dict[str, NodeOutputs]) -> dict[str, AnyFrame]:
+    """Map a node's incoming edges to a target-handle -> frame dict.
+
+    Missing target handles default to ``"in"``. If multiple edges share a handle
+    (e.g. a variadic concat node), later ones get a unique suffix so none are
+    silently dropped. Each edge's frame is resolved through its ``sourceHandle``.
     """
     inputs: dict[str, AnyFrame] = {}
     for i, edge in enumerate(incoming):
         handle = edge.get("targetHandle") or "in"
         if handle in inputs:
             handle = f"{handle}_{i}"
-        inputs[handle] = frames[edge["source"]]
+        inputs[handle] = _resolve_source(outputs, edge)
     return inputs
 
 
+def _primary_frame(node_type: str, node_outputs: NodeOutputs) -> AnyFrame:
+    """The single frame that represents a node in single-frame views (preview, the
+    run DAG sample). For multi-output nodes this is the declared primary handle."""
+    handle = primary_output_handle(node_type)
+    if handle in node_outputs:
+        return node_outputs[handle]
+    return next(iter(node_outputs.values()))
+
+
 class FlowExecutor:
-    def _node_frame(
+    def _node_outputs(
         self,
         engine: EngineBackend,
         node: dict[str, Any],
         incoming: dict[str, list[dict[str, Any]]],
-        frames: dict[str, AnyFrame],
+        outputs: dict[str, NodeOutputs],
         dataset_paths: dict[str, Path],
-        sql_input_paths: dict[str, Path],
-    ) -> AnyFrame:
-        """Compute a single node's output frame from its upstream frames."""
+        pre_paths: dict[str, Path],
+    ) -> tuple[NodeOutputs, NodeMetadata | None]:
+        """Compute one node's output frames (keyed by handle) and any metadata.
+
+        Input/output/passthrough nodes are single-output (``{"out": ...}``).
+        Transformations return their own handle map; metadata-emitting nodes also
+        return a :class:`NodeMetadata` to attach to the run's NodeResult.
+        """
         node_id = node["id"]
         node_type = node["type"]
         config: dict[str, Any] = node.get("data", {}).get("config", {})
 
-        if node_type == SQL_INPUT_TYPE:
-            # The DB read happened in the parent (async) layer, which materialized
-            # the result to a parquet snapshot; the executor just loads it.
-            return engine.read(str(sql_input_paths[node_id]), "parquet")
+        if node_type in PRE_MATERIALIZED_INPUT_TYPES:
+            # Both sqlInput and storageInput are resolved in the parent async layer
+            # to parquet snapshots; the executor just loads the snapshot.
+            return {"out": engine.read(str(pre_paths[node_id]), "parquet")}, None
         if node_type in _INPUT_TYPES:
             key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
-            return engine.read(str(dataset_paths[key]), _INPUT_TYPES[node_type])
+            return {"out": engine.read(str(dataset_paths[key]), _INPUT_TYPES[node_type])}, None
         if node_type in _OUTPUT_TYPES:
-            return frames[incoming[node_id][0]["source"]]
+            return {"out": _resolve_source(outputs, incoming[node_id][0])}, None
         transformation = get_transformation(node_type)
-        inputs = _build_inputs(incoming[node_id], frames)
-        result = transformation.execute(engine, inputs, config)
-        return result.get("out", next(iter(result.values())))
+        inputs = _build_inputs(incoming[node_id], outputs)
+        if isinstance(transformation, EmitsNodeMetadata):
+            return transformation.execute_with_metadata(engine, inputs, config)
+        return transformation.execute(engine, inputs, config), None
 
     def compute_frames(
         self,
@@ -108,25 +174,46 @@ class FlowExecutor:
         engine: EngineBackend,
         require_output: bool = True,
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, AnyFrame]:
-        """Run the graph in memory and return each node's resulting frame.
+        """Run the graph in memory and return each node's *primary* frame.
 
         Output nodes pass their upstream frame through unchanged (no file is
-        written here), which is what preview needs.
+        written here), which is what preview needs. Multi-output nodes are
+        collapsed to their primary handle; downstream wiring still sees every
+        handle via :meth:`_compute_all_outputs`.
         """
+        outputs = self._compute_all_outputs(
+            graph, dataset_paths, engine,
+            require_output=require_output,
+            sql_input_paths=sql_input_paths,
+            storage_input_paths=storage_input_paths,
+        )
+        nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+        return {nid: _primary_frame(nodes_by_id[nid]["type"], outs) for nid, outs in outputs.items()}
+
+    def _compute_all_outputs(
+        self,
+        graph: dict[str, Any],
+        dataset_paths: dict[str, Path],
+        engine: EngineBackend,
+        require_output: bool = True,
+        sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
+    ) -> dict[str, NodeOutputs]:
         validate_graph(graph, require_output=require_output)
         order = topological_sort(graph)
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
-        sql_paths = sql_input_paths or {}
+        pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
 
-        frames: dict[str, AnyFrame] = {}
+        outputs: dict[str, NodeOutputs] = {}
         for node_id in order:
             node = nodes_by_id[node_id]
-            frames[node_id] = self._node_frame(engine, node, incoming, frames, dataset_paths, sql_paths)
-
-        return frames
+            node_outputs, _meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
+            outputs[node_id] = node_outputs
+        return outputs
 
     def execute(
         self,
@@ -135,9 +222,14 @@ class FlowExecutor:
         output_dir: Path,
         engine_name: str = "pandas",
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, Path]:
         engine = get_engine(engine_name)
-        frames = self.compute_frames(graph, dataset_paths, engine, sql_input_paths=sql_input_paths)
+        outputs = self._compute_all_outputs(
+            graph, dataset_paths, engine,
+            sql_input_paths=sql_input_paths,
+            storage_input_paths=storage_input_paths,
+        )
 
         output_paths: dict[str, Path] = {}
         for node in graph["nodes"]:
@@ -146,7 +238,7 @@ class FlowExecutor:
                 continue
             source_type = _OUTPUT_TYPES[node_type]
             out_path = output_dir / f"{node['id']}{_OUTPUT_SUFFIX[source_type]}"
-            engine.write(frames[node["id"]], str(out_path), source_type)
+            engine.write(outputs[node["id"]]["out"], str(out_path), source_type)
             output_paths[node["id"]] = out_path
 
         return output_paths
@@ -159,6 +251,7 @@ class FlowExecutor:
         engine_name: str = "pandas",
         sample_rows: int = 20,
         sql_input_paths: dict[str, Path] | None = None,
+        storage_input_paths: dict[str, Path] | None = None,
     ) -> RunResult:
         """Execute the graph, capturing each node's row/column counts and a small
         sample for the read-only run view.
@@ -174,9 +267,9 @@ class FlowExecutor:
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
-        sql_paths = sql_input_paths or {}
+        pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
 
-        frames: dict[str, AnyFrame] = {}
+        outputs: dict[str, NodeOutputs] = {}
         node_results: list[NodeResult] = []
         error: str | None = None
 
@@ -188,21 +281,24 @@ class FlowExecutor:
                 continue
             started = time.perf_counter()
             try:
-                frame = self._node_frame(engine, node, incoming, frames, dataset_paths, sql_paths)
-                frames[node_id] = frame
-                pdf = engine.to_pandas(frame)
-                node_results.append(
-                    NodeResult(
-                        node_id=node_id,
-                        type=node["type"],
-                        label=label,
-                        status="success",
-                        rows=int(engine.row_count(frame)),
-                        columns=[str(c) for c in pdf.columns],
-                        sample=engine.to_records(frame, sample_rows),
-                        duration_ms=_elapsed_ms(started),
-                    )
+                node_outputs, meta = self._node_outputs(
+                    engine, node, incoming, outputs, dataset_paths, pre_paths
                 )
+                outputs[node_id] = node_outputs
+                frame = _primary_frame(node["type"], node_outputs)
+                pdf = engine.to_pandas(frame)
+                result = NodeResult(
+                    node_id=node_id,
+                    type=node["type"],
+                    label=label,
+                    status="success",
+                    rows=int(engine.row_count(frame)),
+                    columns=[str(c) for c in pdf.columns],
+                    sample=engine.to_records(frame, sample_rows),
+                    duration_ms=_elapsed_ms(started),
+                )
+                result.apply_metadata(meta)
+                node_results.append(result)
             except Exception as exc:  # noqa: BLE001 - surfaced on the run record
                 node_results.append(
                     NodeResult(
@@ -224,7 +320,7 @@ class FlowExecutor:
                     continue
                 source_type = _OUTPUT_TYPES[node_type]
                 out_path = output_dir / f"{node['id']}{_OUTPUT_SUFFIX[source_type]}"
-                engine.write(frames[node["id"]], str(out_path), source_type)
+                engine.write(outputs[node["id"]]["out"], str(out_path), source_type)
                 output_paths[node["id"]] = out_path
 
         return RunResult(output_paths, node_results, error)

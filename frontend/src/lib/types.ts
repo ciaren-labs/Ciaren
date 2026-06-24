@@ -5,7 +5,7 @@ export interface DatasetSchemaField {
   type: string;
 }
 
-export type DatasetSourceType = "csv" | "excel" | "parquet";
+export type DatasetSourceType = "csv" | "excel" | "parquet" | "json" | "text";
 
 export interface Project {
   id: string;
@@ -88,6 +88,10 @@ export interface DatasetVersion {
   created_at: string;
 }
 
+/** Dataframe engine a run executes on. Mirrors the backend Engine enum. */
+export type Engine = "pandas" | "polars";
+export const ENGINES: readonly Engine[] = ["pandas", "polars"];
+
 export type RunStatus = "pending" | "running" | "success" | "failed";
 
 export type NodeResultStatus = "success" | "failed" | "skipped";
@@ -101,6 +105,81 @@ export interface NodeResult {
   columns: string[];
   sample: Record<string, unknown>[];
   error: string | null;
+  // ML-specific — null for non-ML nodes.
+  ml_metrics?: Record<string, number> | null;
+  mlflow_run_id?: string | null;
+  model_uri?: string | null;
+  task_type?: string | null;
+  cv_scores?: number[] | null;
+}
+
+/** Per-node ML results returned by GET /runs/{id}/ml/metrics. */
+export interface MlNodeMetrics {
+  node_id: string;
+  type: string;
+  label: string | null;
+  ml_metrics: Record<string, number> | null;
+  model_uri: string | null;
+  task_type: string | null;
+  cv_scores: number[] | null;
+  mlflow_run_id: string | null;
+}
+
+export interface MlExperiment {
+  name: string;
+  experiment_id: string;
+  lifecycle_stage: string;
+  artifact_location: string;
+}
+
+export interface MlRegisterResult {
+  model_name: string;
+  version: string | number;
+  model_uri: string;
+  alias: string | null;
+}
+
+// ---- ML Models page (registry + experiments) ------------------------------
+
+export interface MlLineage {
+  flow_id?: string;
+  run_id?: string;
+  dataset_ids?: string[];
+}
+
+export interface MlModelVersion {
+  version: string;
+  run_id: string | null;
+  status: string | null;
+  aliases: string[];
+  created: string | null;
+  metrics: Record<string, number>;
+  lineage: MlLineage;
+}
+
+export interface MlRegisteredModel {
+  name: string;
+  description: string | null;
+  aliases: Record<string, string>;
+  last_updated: string | null;
+  versions: MlModelVersion[];
+}
+
+export interface MlExperimentSummary {
+  experiment_id: string;
+  name: string;
+  lifecycle_stage: string;
+  last_run: string | null;
+}
+
+export interface MlExperimentRun {
+  run_id: string;
+  run_name: string;
+  status: string;
+  start_time: string | null;
+  metrics: Record<string, number>;
+  params: Record<string, string>;
+  lineage: MlLineage;
 }
 
 /** One input dataset a run resolved, with the concrete version it read. */
@@ -250,6 +329,8 @@ export interface Flow {
   is_disabled: boolean;
   created_at: string;
   updated_at: string;
+  /** When this flow last ran (any trigger), or null if it never has. */
+  last_run_at: string | null;
 }
 
 export interface FlowCreate {
@@ -273,6 +354,8 @@ export interface Connection {
   id: string;
   name: string;
   provider: string;
+  /** Derived from provider: "sql" | "mongo" | "storage" */
+  connection_type: string;
   host: string | null;
   port: number | null;
   database: string | null;
@@ -282,6 +365,8 @@ export interface Connection {
   options: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+  /** When the connection was last tested (any test, pass or fail). */
+  last_tested_at: string | null;
 }
 
 export interface ConnectionCreate {
@@ -300,7 +385,7 @@ export type ConnectionUpdate = Partial<ConnectionCreate>;
 export interface ProviderInfo {
   name: string;
   label: string;
-  kind: "sql" | "mongo";
+  kind: "sql" | "mongo" | "storage" | "mlflow";
   available: boolean;
   driver_module: string | null;
   extra: string | null;
@@ -308,6 +393,9 @@ export interface ProviderInfo {
   needs_host: boolean;
   needs_auth: boolean;
   supports_query: boolean;
+  needs_bucket: boolean;
+  needs_region: boolean;
+  needs_endpoint: boolean;
 }
 
 export interface ConnectionTestResult {
@@ -343,6 +431,23 @@ export interface TransformationPreviewRequest {
   profile?: boolean;
 }
 
+/** Portable, environment-independent description of a flow (name + node graph). */
+export interface FlowDocument {
+  format: string;
+  name: string;
+  description?: string | null;
+  graph_json: Record<string, unknown>;
+}
+
+/** Import payload: only the graph is required; the rest is optional metadata. */
+export interface FlowImport {
+  format?: string;
+  name?: string;
+  description?: string | null;
+  project_id?: string;
+  graph_json: Record<string, unknown>;
+}
+
 export interface ExportCodeResponse {
   /** pandas script (kept as `code` for back-compat). */
   code: string;
@@ -350,4 +455,6 @@ export interface ExportCodeResponse {
   polars: string;
   /** optimized lazy polars (`scan_*` → `collect()`) equivalent. */
   polars_lazy: string;
+  /** importable JSON description of the flow. */
+  flow_document: FlowDocument;
 }

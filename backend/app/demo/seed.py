@@ -54,11 +54,23 @@ async def seed_demo(db: AsyncSession) -> Project | None:
     db.add(project)
     await db.flush()  # assign project.id
 
-    dataset_ids = await _seed_datasets(db, project.id)
-    _seed_flows(db, project.id, dataset_ids)
+    include_ml = _ml_available()
+    dataset_ids = await _seed_datasets(db, project.id, include_ml=include_ml)
+    _seed_flows(db, project.id, dataset_ids, include_ml=include_ml)
 
     await db.commit()
     return project
+
+
+def _ml_available() -> bool:
+    """Whether to seed the ML demo datasets/flows: the [ml] extra is importable and
+    ML is enabled. Best-effort — any import problem means "no ML demo content"."""
+    try:
+        from app.ml.availability import ml_extension_ready
+
+        return ml_extension_ready()
+    except Exception:  # noqa: BLE001
+        return False
 
 
 async def _demo_exists(db: AsyncSession) -> bool:
@@ -66,7 +78,7 @@ async def _demo_exists(db: AsyncSession) -> bool:
     return result.scalar_one_or_none() is not None
 
 
-async def _seed_datasets(db: AsyncSession, project_id: str) -> dict[str, str]:
+async def _seed_datasets(db: AsyncSession, project_id: str, include_ml: bool = False) -> dict[str, str]:
     """Write each demo CSV and register it as a versioned dataset.
 
     Returns a map of CSV file name -> dataset id so flows can wire their inputs.
@@ -76,7 +88,7 @@ async def _seed_datasets(db: AsyncSession, project_id: str) -> dict[str, str]:
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     dataset_ids: dict[str, str] = {}
-    for filename, df in build_demo_frames().items():
+    for filename, df in build_demo_frames(include_ml=include_ml).items():
         dataset = Dataset(
             name=filename,
             source_type="csv",
@@ -107,8 +119,10 @@ async def _seed_datasets(db: AsyncSession, project_id: str) -> dict[str, str]:
     return dataset_ids
 
 
-def _seed_flows(db: AsyncSession, project_id: str, dataset_ids: dict[str, str]) -> None:
-    for name, description, graph in build_demo_flows(dataset_ids):
+def _seed_flows(
+    db: AsyncSession, project_id: str, dataset_ids: dict[str, str], include_ml: bool = False
+) -> None:
+    for name, description, graph in build_demo_flows(dataset_ids, include_ml=include_ml):
         db.add(
             Flow(
                 name=name,

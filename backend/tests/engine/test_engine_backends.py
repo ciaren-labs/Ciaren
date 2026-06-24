@@ -7,6 +7,9 @@ wiring is covered in ``test_transformations.py``; this file targets the engine
 methods themselves.
 """
 
+import datetime as dt
+import json
+
 import pandas as pd
 import polars as pl
 import pytest
@@ -14,6 +17,27 @@ import pytest
 from app.engine.backends import get_engine
 
 ENGINES = ["pandas", "polars"]
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
+def test_to_records_are_json_serializable_with_dates(engine_name: str) -> None:
+    """Samples flow into a JSON column (run node_results) and over the API, so
+    temporal values must serialize. Regression: polars to_dicts() returned native
+    datetime objects, which broke persistence of any date-parsing flow's run."""
+    engine = get_engine(engine_name)
+    pdf = pd.DataFrame(
+        {
+            "when": pd.to_datetime(["2023-01-02", "2023-03-04"]),
+            "day": [dt.date(2023, 1, 2), dt.date(2023, 3, 4)],
+            "n": [1, 2],
+        }
+    )
+    frame = pl.from_pandas(pdf) if engine_name == "polars" else pdf
+    records = engine.to_records(frame)
+    # Must not raise — proves no datetime/date objects leaked through.
+    json.dumps(records)
+    assert isinstance(records[0]["when"], str)
+    assert records[0]["when"].startswith("2023-01-02")
 
 
 def _make(engine_name: str, data: dict) -> object:

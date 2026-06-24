@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
+  BrainCircuit,
   CalendarClock,
   Database,
   FolderKanban,
@@ -11,15 +12,23 @@ import {
 import { cn } from "@/lib/utils";
 import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { useMlEnabled } from "@/features/models/hooks";
 
-const NAV = [
+// Order: Connections first, then setup → build → run. Models slots in right
+// after Flows (only when ML is enabled — see ML_NAV / nav assembly below).
+const NAV_BEFORE_MODELS = [
+  { to: "/connections", label: "Connections", icon: Plug },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
-  { to: "/connections", label: "Connections", icon: Plug },
   { to: "/flows", label: "Flows", icon: Workflow },
+];
+const NAV_AFTER_MODELS = [
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
   { to: "/runs", label: "Runs", icon: History },
 ];
+
+// Shown only when the ML extension is enabled (the [ml] extra is installed).
+const ML_NAV = { to: "/models", label: "Models", icon: BrainCircuit };
 
 function isActive(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
@@ -28,6 +37,12 @@ function isActive(pathname: string, to: string): boolean {
 export function AppHeader() {
   const { pathname } = useLocation();
   const { timezone, setTimezone } = useTimezoneStore();
+  const mlEnabled = useMlEnabled();
+  const nav = [
+    ...NAV_BEFORE_MODELS,
+    ...(mlEnabled ? [ML_NAV] : []),
+    ...NAV_AFTER_MODELS,
+  ];
 
   return (
     <header className="flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -41,7 +56,7 @@ export function AppHeader() {
         </span>
       </Link>
       <nav className="flex items-center gap-1">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = isActive(pathname, item.to);
           const Icon = item.icon;
           return (

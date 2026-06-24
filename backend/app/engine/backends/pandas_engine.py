@@ -22,6 +22,10 @@ class PandasEngine:
             return pd.read_excel(path)
         if source_type == "parquet":
             return pd.read_parquet(path)
+        if source_type == "json":
+            return pd.read_json(path)
+        if source_type == "text":
+            return pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pd.DataFrame, path: str, source_type: str) -> None:
@@ -35,6 +39,10 @@ class PandasEngine:
             raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def to_pandas(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df
+
+    def from_pandas(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Already pandas — nothing to convert.
         return df
 
     def to_records(self, df: pd.DataFrame, n: int | None = None) -> list[dict[str, Any]]:

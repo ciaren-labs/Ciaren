@@ -7,6 +7,7 @@ import { flowsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import type {
   FlowCreate,
+  FlowImport,
   FlowPreviewRequest,
   FlowUpdate,
 } from "@/lib/types";
@@ -30,6 +31,14 @@ export function useCreateFlow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: FlowCreate) => flowsApi.create(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
+  });
+}
+
+export function useImportFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (document: FlowImport) => flowsApi.import(document),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.flows }),
   });
 }
@@ -91,7 +100,10 @@ export function useRunFlow() {
       engine?: string;
       inputDatasetId?: string;
     }) => flowsApi.createRun(flowId, { engine, inputDatasetId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: queryKeys.flows }); // refresh last_run_at
+    },
   });
 }
 
@@ -100,7 +112,11 @@ export function useCreateRun(id: string) {
   return useMutation({
     mutationFn: (options?: { inputDatasetId?: string; engine?: string }) =>
       flowsApi.createRun(id, options ?? {}),
-    // Invalidate every run query (lists + details) so history refreshes.
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+    // Invalidate every run query (lists + details) so history refreshes, and the
+    // flows list so the flow's "last run" updates.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: queryKeys.flows });
+    },
   });
 }

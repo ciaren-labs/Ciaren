@@ -1,10 +1,15 @@
 """Generate readable **pandas** code for a flow graph.
 
 The counterpart to :class:`app.engine.polars_codegen.PolarsCodeGenerator`: it walks
-the graph in topological order, assigns each node a ``df_N`` variable, handles
-input-read / output-write / SQL nodes inline, and delegates every transformation
-node to its own ``to_python_code`` method — so a node's pandas mapping lives next
-to its ``execute`` and ``to_polars_code``.
+the graph in topological order, assigns each node output a ``df_N`` variable,
+handles input-read / output-write / SQL nodes inline, and delegates every
+transformation node to its own ``to_python_code`` method — so a node's pandas
+mapping lives next to its ``execute`` and ``to_polars_code``.
+
+Multi-output nodes (e.g. ``trainTestSplit``, ``mlTrain``) get one variable per
+declared handle; downstream edges pick the right one via ``sourceHandle``. Nodes
+may also declare extra ``imports()`` (e.g. scikit-learn) which are collected and
+de-duplicated into the script header.
 
 The optional ``free_intermediates`` mode emits a ``del`` once each dataframe's last
 consumer has run, lowering peak memory on long pipelines (see
@@ -18,7 +23,7 @@ from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
-from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE
+from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
@@ -26,12 +31,31 @@ _READ_FUNCS = {
     "csvInput": "pd.read_csv",
     "excelInput": "pd.read_excel",
     "parquetInput": "pd.read_parquet",
+    "jsonInput": "pd.read_json",
 }
 _WRITE_FUNCS = {
     "csvOutput": ("to_csv", "index=False"),
     "excelOutput": ("to_excel", "index=False"),
     "parquetOutput": ("to_parquet", "index=False"),
 }
+
+
+def _source_var(node_outputs: dict[str, dict[str, str]], edge: dict[str, Any]) -> str:
+    """The variable an edge carries, honoring ``sourceHandle`` for multi-output nodes."""
+    outs = node_outputs[edge["source"]]
+    handle = edge.get("sourceHandle")
+    if handle and handle in outs:
+        return outs[handle]
+    if "out" in outs:
+        return outs["out"]
+    return next(iter(outs.values()))
+
+
+def _ordered_imports(imports: list[str]) -> list[str]:
+    """``import x`` lines first, then ``from x import y`` lines, each sorted."""
+    plain = sorted(i for i in imports if i.startswith("import "))
+    froms = sorted(i for i in imports if not i.startswith("import "))
+    return plain + froms
 
 
 class CodeGenerator:
@@ -67,19 +91,27 @@ class CodeGenerator:
         last_use = last_consumer_index(order, edges) if free_intermediates else {}
         pending_del: dict[int, list[str]] = {}
 
-        header = ["import pandas as pd"]
+        base_header = ["import pandas as pd"]
         if graph_has_sql(graph):
-            header = ["import os", "import pandas as pd", "from sqlalchemy import create_engine"]
-        lines: list[str] = [*header, ""]
+            base_header = ["import os", "import pandas as pd", "from sqlalchemy import create_engine"]
+        body: list[str] = []
 
         var_counter = 0
-        node_var: dict[str, str] = {}
+        node_outputs: dict[str, dict[str, str]] = {}
         engine_vars: dict[str, str] = {}  # connection_id -> engine var
+        extra_imports: list[str] = []
+        seen_imports = set(base_header)
 
         def next_var() -> str:
             nonlocal var_counter
             var_counter += 1
             return f"df_{var_counter}"
+
+        def add_imports(imports: list[str]) -> None:
+            for imp in imports:
+                if imp not in seen_imports:
+                    seen_imports.add(imp)
+                    extra_imports.append(imp)
 
         def schedule_del(node_id: str, var: str) -> None:
             li = last_use.get(node_id)
@@ -90,7 +122,7 @@ class CodeGenerator:
             if connection_id not in engine_vars:
                 var = f"_engine_{len(engine_vars) + 1}"
                 info = connections.get(connection_id, {"provider": "sqlite", "database": ""})
-                lines.append(f"{var} = create_engine({engine_url_expr(info)})")
+                body.append(f"{var} = create_engine({engine_url_expr(info)})")
                 engine_vars[connection_id] = var
             return engine_vars[connection_id]
 
@@ -101,34 +133,43 @@ class CodeGenerator:
 
             if node_type == SQL_INPUT_TYPE:
                 var = next_var()
-                node_var[node_id] = var
+                node_outputs[node_id] = {"out": var}
                 eng = engine_for(config.get("connection_id", ""))
                 if config.get("mode") == "query":
-                    lines.append(f"{var} = pd.read_sql_query({config.get('query', '')!r}, {eng})")
+                    body.append(f"{var} = pd.read_sql_query({config.get('query', '')!r}, {eng})")
                 else:
-                    lines.append(f"{var} = pd.read_sql_table({config.get('table', '')!r}, {eng})")
+                    body.append(f"{var} = pd.read_sql_table({config.get('table', '')!r}, {eng})")
 
             elif node_type == SQL_OUTPUT_TYPE:
-                src_var = node_var[incoming[node_id][0]["source"]]
+                src_var = _source_var(node_outputs, incoming[node_id][0])
                 eng = engine_for(config.get("connection_id", ""))
                 if_exists = config.get("if_exists", "replace")
-                lines.append(
+                body.append(
                     f"{src_var}.to_sql({config.get('table', '')!r}, {eng}, if_exists={if_exists!r}, index=False)"
                 )
 
             elif node_type in _INPUT_TYPES:
                 var = next_var()
-                node_var[node_id] = var
+                node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
-                func = _READ_FUNCS[node_type]
-                lines.append(f'{var} = {func}("{path}")')
+                func = _READ_FUNCS.get(node_type)
+                # repr() the path so Windows backslashes, spaces, or quotes in a
+                # dataset name / output path can't produce invalid Python.
+                if func is not None:
+                    body.append(f"{var} = {func}({path!r})")
+                elif node_type == "textInput":
+                    body.append(
+                        f"{var} = pd.read_csv({path!r}, sep=\"\\n\", header=None, "
+                        f'names=["text"], engine="python", dtype=str)'
+                    )
+                else:
+                    body.append(f"{var} = pd.read_csv({path!r})  # unsupported input type: {node_type}")
 
             elif node_type in _OUTPUT_TYPES:
-                src_id = incoming[node_id][0]["source"]
-                src_var = node_var[src_id]
+                src_var = _source_var(node_outputs, incoming[node_id][0])
                 method, extra = _WRITE_FUNCS[node_type]
                 out_path = config.get("path", "output.csv")
-                lines.append(f'{src_var}.{method}("{out_path}", {extra})')
+                body.append(f"{src_var}.{method}({out_path!r}, {extra})")
 
             else:
                 transformation = get_transformation(node_type)
@@ -137,17 +178,18 @@ class CodeGenerator:
                     handle = e.get("targetHandle") or "in"
                     if handle in input_vars:
                         handle = f"{handle}_{i}"
-                    input_vars[handle] = node_var[e["source"]]
-                out_var = next_var()
-                output_vars = {"out": out_var}
-                code = transformation.to_python_code(input_vars, output_vars, config)
-                node_var[node_id] = out_var
-                lines.append(code)
+                    input_vars[handle] = _source_var(node_outputs, e)
+                output_vars = {h: next_var() for h in output_handles(node_type)}
+                node_outputs[node_id] = output_vars
+                add_imports(transformation.imports(config))
+                body.append(transformation.to_python_code(input_vars, output_vars, config))
 
-            if free_intermediates:
-                if node_id in node_var:
-                    schedule_del(node_id, node_var[node_id])
+            if free_intermediates and node_id in node_outputs:
+                outs = node_outputs[node_id]
+                if len(outs) == 1:  # multi-output liveness is ambiguous; only free singles
+                    schedule_del(node_id, next(iter(outs.values())))
                 for dead in pending_del.pop(idx, []):
-                    lines.append(f"del {dead}")
+                    body.append(f"del {dead}")
 
-        return "\n".join(lines) + "\n"
+        header = base_header + _ordered_imports(extra_imports)
+        return "\n".join([*header, "", *body]) + "\n"
