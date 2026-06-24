@@ -5,8 +5,6 @@ import {
   AlignLeft,
   Braces,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Database,
   EyeOff,
   FileSpreadsheet,
@@ -38,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import { projectColor } from "@/lib/projectColors";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -83,7 +81,6 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
   const [layout, setLayout] = useLayoutPreference("datasets", "cards");
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   // Pending disable/delete action with cascade confirmation
   const [pendingAction, setPendingAction] = useState<{
     dataset: Dataset;
@@ -255,43 +252,20 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
       {groups ? (
         <div className="flex flex-col gap-4">
-          {groups.map(({ project, items }) => {
-            const theme = projectColor(project.color);
-            const collapsed = collapsedSections.has(project.id);
-            const toggle = () =>
-              setCollapsedSections((prev) => {
-                const next = new Set(prev);
-                collapsed ? next.delete(project.id) : next.add(project.id);
-                return next;
-              });
-            return (
-              <section key={project.id} className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={toggle}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left transition-colors hover:bg-muted/70"
-                >
-                  {collapsed ? (
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                  <span className={cn("h-2.5 w-2.5 rounded-full", theme.dot)} />
-                  <span className="flex-1 text-sm font-semibold">{project.name}</span>
-                  <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {items.length}
-                  </span>
-                </button>
-                {!collapsed && (
-                  layout === "cards" ? (
-                    <DatasetGrid datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
-                  ) : (
-                    <DatasetTable datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
-                  )
-                )}
-              </section>
-            );
-          })}
+          {groups.map(({ project, items }) => (
+            <CollapsibleSection
+              key={project.id}
+              title={project.name}
+              colorKey={project.color}
+              count={items.length}
+            >
+              {layout === "cards" ? (
+                <DatasetGrid datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+              ) : (
+                <DatasetTable datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+              )}
+            </CollapsibleSection>
+          ))}
         </div>
       ) : (
         layout === "cards" ? (

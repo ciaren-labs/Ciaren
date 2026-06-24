@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useFlows } from "@/features/flows/hooks";
 import { useProjects } from "@/features/projects/hooks";
@@ -68,6 +69,10 @@ export function ModelsPage() {
     [flows],
   );
   const projectName = useMemo(() => new Map((projects ?? []).map((p) => [p.id, p.name])), [projects]);
+  const projectColorById = useMemo(
+    () => new Map((projects ?? []).map((p) => [p.id, p.color])),
+    [projects],
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
@@ -98,6 +103,7 @@ export function ModelsPage() {
               flowName={flowName}
               flowProject={flowProject}
               projectName={projectName}
+              projectColorById={projectColorById}
             />
           </TabsContent>
           <TabsContent value="experiments">
@@ -209,10 +215,12 @@ function RegisteredModelsTab({
   flowName,
   flowProject,
   projectName,
+  projectColorById,
 }: {
   flowName: Map<string, string>;
   flowProject: Map<string, string | null>;
   projectName: Map<string, string>;
+  projectColorById: Map<string, string | null | undefined>;
 }) {
   const { data: models, isLoading, isError } = useRegisteredModels();
   const [projectFilter, setProjectFilter] = useState("");
@@ -265,18 +273,22 @@ function RegisteredModelsTab({
       </div>
 
       {[...groups.entries()].map(([pid, group]) => (
-        <section key={pid} className="flex flex-col gap-3">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-            {projectLabel(pid)}
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">{group.length}</span>
-          </h2>
-          <SummaryStrip models={group} flowName={flowName} />
-          <div className="flex flex-col gap-4">
-            {group.map((m) => (
-              <ModelCard key={m.name} model={m} flowName={flowName} />
-            ))}
+        <CollapsibleSection
+          key={pid}
+          title={projectLabel(pid)}
+          colorKey={projectColorById.get(pid)}
+          showDot={pid !== NO_PROJECT}
+          count={group.length}
+        >
+          <div className="flex flex-col gap-3">
+            <SummaryStrip models={group} flowName={flowName} />
+            <div className="flex flex-col gap-4">
+              {group.map((m) => (
+                <ModelCard key={m.name} model={m} flowName={flowName} />
+              ))}
+            </div>
           </div>
-        </section>
+        </CollapsibleSection>
       ))}
     </div>
   );

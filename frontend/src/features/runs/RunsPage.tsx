@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { ViewToggle } from "@/components/filters/ViewToggle";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
 import { projectColor } from "@/lib/projectColors";
@@ -98,14 +99,6 @@ export function RunsPage() {
   const [sortBy, setSortBy] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [layout, setLayout] = useLayoutPreference("runs", "table");
-  // Collapsed project sections in the card view (project id -> collapsed).
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const toggleSection = (pid: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      next.has(pid) ? next.delete(pid) : next.add(pid);
-      return next;
-    });
 
   const filters: RunListFilters = useMemo(
     () => ({
@@ -304,47 +297,33 @@ export function RunsPage() {
               </table>
             </div>
           ) : (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               {runGroups.map(([pid, group]) => {
                 const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
-                const theme = projectColor(proj?.color);
-                const isCollapsed = collapsed.has(pid);
                 return (
-                  <section key={pid} className="flex flex-col gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(pid)}
-                      className="flex w-fit items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                      {proj && <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />}
-                      {proj?.name ?? "No project"}
-                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
-                        {group.length}
-                      </span>
-                    </button>
-                    {!isCollapsed && (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {group.map((run) => (
-                          <RunCard
-                            key={run.id}
-                            run={run}
-                            flowName={flowName}
-                            datasetName={datasetName}
-                            fmt={fmt}
-                            onClick={() => navigate(`/runs/${run.id}`)}
-                            onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
-                            onRetry={() => handleRetry(run)}
-                            retrying={retry.isPending}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </section>
+                  <CollapsibleSection
+                    key={pid}
+                    title={proj?.name ?? "No project"}
+                    colorKey={proj?.color}
+                    showDot={pid !== NO_PROJECT}
+                    count={group.length}
+                  >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.map((run) => (
+                        <RunCard
+                          key={run.id}
+                          run={run}
+                          flowName={flowName}
+                          datasetName={datasetName}
+                          fmt={fmt}
+                          onClick={() => navigate(`/runs/${run.id}`)}
+                          onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                          onRetry={() => handleRetry(run)}
+                          retrying={retry.isPending}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleSection>
                 );
               })}
             </div>
