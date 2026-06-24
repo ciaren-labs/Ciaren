@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.models.flow import Flow
+from app.db.models.run import FlowRun
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.schemas.flow import FlowCreate, FlowRead, FlowUpdate
 from app.services.project_service import ProjectService
@@ -29,13 +30,32 @@ class FlowService:
         if project_id is not None:
             stmt = stmt.where(Flow.project_id == project_id)
         result = await self.db.execute(stmt)
-        return [FlowRead.model_validate(f) for f in result.scalars().all()]
+        flows = list(result.scalars().all())
+        return await self._with_last_run(flows)
 
     async def list_using_dataset(self, dataset_id: str) -> list[FlowRead]:
         """Flows whose graph has an input node bound to ``dataset_id`` (lineage)."""
         result = await self.db.execute(select(Flow).order_by(Flow.updated_at.desc()))
         matches = [f for f in result.scalars().all() if _references_dataset(f.graph_json, dataset_id)]
-        return [FlowRead.model_validate(f) for f in matches]
+        return await self._with_last_run(matches)
+
+    async def _with_last_run(self, flows: list[Flow]) -> list[FlowRead]:
+        """Attach each flow's most-recent run time in a single grouped query."""
+        if not flows:
+            return []
+        ids = [f.id for f in flows]
+        rows = await self.db.execute(
+            select(FlowRun.flow_id, func.max(FlowRun.created_at))
+            .where(FlowRun.flow_id.in_(ids))
+            .group_by(FlowRun.flow_id)
+        )
+        last_run: dict[str, datetime] = {fid: ts for fid, ts in rows.all()}
+        reads: list[FlowRead] = []
+        for f in flows:
+            read = FlowRead.model_validate(f)
+            read.last_run_at = last_run.get(f.id)
+            reads.append(read)
+        return reads
 
     async def create(self, data: FlowCreate) -> FlowRead:
         project_id = await ProjectService(self.db).resolve_id(data.project_id)

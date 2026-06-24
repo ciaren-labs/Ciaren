@@ -117,6 +117,7 @@ class ConnectionRead(BaseModel):
     options: dict[str, Any] | None = Field(default=None, validation_alias="options_json")
     created_at: datetime
     updated_at: datetime
+    last_tested_at: datetime | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
