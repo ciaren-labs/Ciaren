@@ -2,11 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarClock,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  ChevronsUpDown,
   History,
   Loader2,
   MousePointerClick,
@@ -22,9 +19,9 @@ import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { ViewToggle } from "@/components/filters/ViewToggle";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
-import { projectColor } from "@/lib/projectColors";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import type { RunListFilters, RunStatus, FlowRunSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -256,45 +253,50 @@ export function RunsPage() {
       ) : !isEmpty ? (
         <>
           {layout === "table" ? (
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Project</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">
-                      <SortHeader field="status" current={sortBy} order={sortOrder} onSort={handleSort}>
-                        Status
-                      </SortHeader>
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Trigger</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">
-                      <SortHeader field="created_at" current={sortBy} order={sortOrder} onSort={handleSort}>
-                        Started
-                      </SortHeader>
-                    </th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Duration</th>
-                    <th className="px-4 py-2.5 text-right font-semibold sr-only">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {runs!.map((run) => (
-                    <RunRow
-                      key={run.id}
-                      run={run}
-                      flowName={flowName}
-                      datasetName={datasetName}
-                      projectById={projectById}
-                      fmt={fmt}
-                      onClick={() => navigate(`/runs/${run.id}`)}
-                      onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
-                      onRetry={() => handleRetry(run)}
-                      retrying={retry.isPending}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-col gap-4">
+              {runGroups.map(([pid, group]) => {
+                const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+                return (
+                  <CollapsibleSection
+                    key={pid}
+                    title={proj?.name ?? "No project"}
+                    colorKey={proj?.color}
+                    showDot={pid !== NO_PROJECT}
+                    count={group.length}
+                  >
+                    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
+                            <SortableTh label="Status" sortKey="status" sort={{ key: sortBy, dir: sortOrder }} onSort={handleSort} className="px-4 py-2.5 text-left" />
+                            <th className="px-4 py-2.5 text-left font-semibold">Trigger</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">Dataset</th>
+                            <SortableTh label="Started" sortKey="created_at" sort={{ key: sortBy, dir: sortOrder }} onSort={handleSort} className="px-4 py-2.5 text-left" />
+                            <th className="px-4 py-2.5 text-left font-semibold">Duration</th>
+                            <th className="px-4 py-2.5 text-right font-semibold sr-only">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.map((run) => (
+                            <RunRow
+                              key={run.id}
+                              run={run}
+                              flowName={flowName}
+                              datasetName={datasetName}
+                              fmt={fmt}
+                              onClick={() => navigate(`/runs/${run.id}`)}
+                              onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                              onRetry={() => handleRetry(run)}
+                              retrying={retry.isPending}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CollapsibleSection>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col gap-4">
@@ -365,41 +367,10 @@ export function RunsPage() {
   );
 }
 
-function SortHeader({
-  field,
-  current,
-  order,
-  onSort,
-  children,
-}: {
-  field: SortField;
-  current: SortField;
-  order: "asc" | "desc";
-  onSort: (f: SortField) => void;
-  children: React.ReactNode;
-}) {
-  const active = field === current;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(field)}
-      className="flex items-center gap-1 hover:text-foreground"
-    >
-      {children}
-      {active ? (
-        order === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-      ) : (
-        <ChevronsUpDown className="h-3 w-3 opacity-40" />
-      )}
-    </button>
-  );
-}
-
 function RunRow({
   run,
   flowName,
   datasetName,
-  projectById,
   fmt,
   onClick,
   onOpenFlow,
@@ -409,7 +380,6 @@ function RunRow({
   run: FlowRunSummary;
   flowName: Map<string, string>;
   datasetName: Map<string, string>;
-  projectById: Map<string, { name: string; color: string }>;
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
   onOpenFlow: () => void;
@@ -423,22 +393,6 @@ function RunRow({
     >
       <td className="px-4 py-2.5 font-medium">
         {run.flow_name ?? flowName.get(run.flow_id) ?? "—"}
-      </td>
-      <td className="px-4 py-2.5">
-        {run.project_id ? (
-          (() => {
-            const proj = projectById.get(run.project_id);
-            const theme = projectColor(proj?.color);
-            return (
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <span className={cn("h-2 w-2 rounded-full shrink-0", theme.dot)} />
-                {proj?.name ?? "—"}
-              </span>
-            );
-          })()
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
       </td>
       <td className="px-4 py-2.5">
         <StatusBadge status={run.status} />
