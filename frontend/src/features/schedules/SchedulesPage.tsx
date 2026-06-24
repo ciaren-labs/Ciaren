@@ -19,7 +19,9 @@ import {
 } from "./hooks";
 import { ScheduleFormDialog } from "./ScheduleFormDialog";
 import { useFlows } from "@/features/flows/hooks";
+import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
@@ -35,6 +37,9 @@ const ENABLED_OPTIONS = [
   { value: "enabled", label: "Active" },
   { value: "paused", label: "Paused" },
 ];
+
+/** Group key for schedules whose flow isn't attached to any project. */
+const NO_PROJECT = "__none__";
 
 /** Lifecycle pill: paused vs auto-disabled vs active. */
 export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
@@ -67,6 +72,7 @@ export function SchedulesPage() {
   const fmt = useFormatDateTime();
   const { data: schedules, isLoading } = useSchedules();
   const { data: flows } = useFlows();
+  const { data: projects } = useProjects();
   const createSchedule = useCreateSchedule();
   const updateSchedule = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
@@ -83,6 +89,14 @@ export function SchedulesPage() {
     () => new Map((flows ?? []).map((f) => [f.id, f.name])),
     [flows],
   );
+  const flowProject = useMemo(
+    () => new Map((flows ?? []).map((f) => [f.id, f.project_id])),
+    [flows],
+  );
+  const projectById = useMemo(
+    () => new Map((projects ?? []).map((p) => [p.id, p])),
+    [projects],
+  );
 
   const filtered = useMemo(() => {
     let list = schedules ?? [];
@@ -91,6 +105,18 @@ export function SchedulesPage() {
     if (state === "paused") list = list.filter((s) => !s.enabled);
     return list;
   }, [schedules, flowId, state]);
+
+  // Card view groups schedules by the project of their flow (insertion order).
+  const groups = useMemo(() => {
+    const map = new Map<string, Schedule[]>();
+    for (const s of filtered) {
+      const pid = (s.flow_id && flowProject.get(s.flow_id)) || NO_PROJECT;
+      const arr = map.get(pid);
+      if (arr) arr.push(s);
+      else map.set(pid, [s]);
+    }
+    return [...map.entries()];
+  }, [filtered, flowProject]);
 
   const openCreate = () => {
     setEditing(null);
@@ -232,16 +258,31 @@ export function SchedulesPage() {
           </table>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((s) => (
-            <ScheduleCard
-              key={s.id}
-              schedule={s}
-              flowName={flowName.get(s.flow_id)}
-              fmt={fmt}
-              actions={actions}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          {groups.map(([pid, group]) => {
+            const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+            return (
+              <CollapsibleSection
+                key={pid}
+                title={proj?.name ?? "No project"}
+                colorKey={proj?.color}
+                showDot={pid !== NO_PROJECT}
+                count={group.length}
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((s) => (
+                    <ScheduleCard
+                      key={s.id}
+                      schedule={s}
+                      flowName={flowName.get(s.flow_id)}
+                      fmt={fmt}
+                      actions={actions}
+                    />
+                  ))}
+                </div>
+              </CollapsibleSection>
+            );
+          })}
         </div>
       )}
 
