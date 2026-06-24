@@ -204,7 +204,7 @@ export function FlowListPage() {
                 <SearchableSelect
                   value={newFlowProjectId}
                   onChange={setNewFlowProjectId}
-                  allLabel="No project"
+                  allLabel="Default project"
                   placeholder="Search projects…"
                   options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
                 />
