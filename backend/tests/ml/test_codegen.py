@@ -1,5 +1,8 @@
 """ML code export: the CodeGenerator wires multi-output handle variables and
 collects per-node sklearn imports; the exported script compiles."""
+import numpy as np
+import pandas as pd
+
 from app.engine.codegen import CodeGenerator
 
 
@@ -78,6 +81,49 @@ def test_feature_engineering_export_compiles():
     assert "from sklearn.preprocessing import StandardScaler" in code
     assert "pd.get_dummies(" in code
     compile(code, "<gen>", "exec")
+
+
+def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
+    """The exported script must *run*, not just compile: mlTrain bundles the same
+    preprocessing as the run (impute + scale + one-hot), and mlPredict scores only
+    the model's features. A flow with a categorical column and nulls would crash
+    if either of those were dropped from the export."""
+    data = tmp_path / "data.csv"
+    rng = np.random.default_rng(0)
+    n = 120
+    df = pd.DataFrame({
+        "num1": rng.normal(size=n),
+        "num2": rng.normal(size=n),
+        "color": rng.choice(["r", "g", "b"], size=n),
+        "target": rng.integers(0, 2, size=n),
+    })
+    df.loc[0:5, "num1"] = np.nan  # nulls force the imputer to be present
+    df.to_csv(data, index=False)
+    pred_out = tmp_path / "pred.csv"
+
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 42, "test_size": 0.25}}},
+            {"id": "tr", "type": "mlTrain", "data": {"config": {
+                "model_type": "random_forest_classifier", "target_column": "target",
+                "feature_columns": ["num1", "num2", "color"], "seed": 42}}},
+            {"id": "pr", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": pred_out.as_posix()}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "sp"},
+            {"id": "e2", "source": "sp", "target": "tr", "sourceHandle": "train"},
+            {"id": "e3", "source": "sp", "target": "pr", "sourceHandle": "test"},
+            {"id": "e4", "source": "tr", "target": "pr", "sourceHandle": "model", "targetHandle": "model"},
+            {"id": "e5", "source": "pr", "target": "out"},
+        ],
+    }
+    code = CodeGenerator().generate(graph, {"ds1": data.as_posix()})
+    exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
+    result = pd.read_csv(pred_out)
+    assert "prediction" in result.columns
+    assert result["prediction"].notna().all()
 
 
 def test_imports_are_deduplicated():
