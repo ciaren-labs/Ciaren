@@ -114,9 +114,9 @@ def test_sql_codegen_snowflake_driver_name() -> None:
 
 def test_sql_codegen_rejects_invalid_password_env() -> None:
     """An invalid password_env name must raise ValueError, not silently emit broken code."""
-    from app.engine.sql_codegen import engine_url_expr
-
     import pytest
+
+    from app.engine.sql_codegen import engine_url_expr
 
     for bad in ["1STARTS_DIGIT", "has space", "has-dash", "has$dollar"]:
         with pytest.raises(ValueError, match="password_env"):
