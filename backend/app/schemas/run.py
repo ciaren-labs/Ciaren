@@ -3,10 +3,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.enums import Engine, MLTask, NodeStatus, RunStatus, RunTrigger
+
 
 class FlowRunCreate(BaseModel):
     input_dataset_id: str | None = None
-    # None falls back to the server's DEFAULT_ENGINE in ExecutionService.
+    # Permissive str (not the Engine enum) so an unknown engine yields a friendly
+    # 400 from ExecutionService (with the available engines) rather than a raw 422.
     engine: str | None = None
     # Per-run timeout override in seconds (0 = no limit). None falls back to the
     # schedule's run_timeout_seconds (for scheduled runs) then RUN_TIMEOUT_SECONDS.
@@ -31,7 +34,7 @@ class MLNodeMetrics(BaseModel):
     label: str | None = None
     ml_metrics: dict[str, float] | None = None
     model_uri: str | None = None
-    task_type: str | None = None
+    task_type: MLTask | None = None
     cv_scores: list[float] | None = None
     mlflow_run_id: str | None = None
 
@@ -49,7 +52,7 @@ class NodeResultRead(BaseModel):
     node_id: str
     type: str
     label: str
-    status: str  # success | failed | skipped
+    status: NodeStatus
     rows: int | None = None
     columns: list[str] = Field(default_factory=list)
     sample: list[dict[str, Any]] = Field(default_factory=list)
@@ -59,7 +62,7 @@ class NodeResultRead(BaseModel):
     ml_metrics: dict[str, float] | None = None
     mlflow_run_id: str | None = None
     model_uri: str | None = None
-    task_type: str | None = None
+    task_type: MLTask | None = None
     cv_scores: list[float] | None = None
 
 
@@ -72,9 +75,9 @@ class FlowRunSummary(BaseModel):
     project_id: str | None
     input_dataset_id: str | None
     input_datasets: list[InputDatasetRef] | None = None
-    status: str
-    engine: str
-    trigger: str = "manual"
+    status: RunStatus
+    engine: Engine
+    trigger: RunTrigger = RunTrigger.MANUAL
     schedule_id: str | None = None
     output_location: str | None
     started_at: datetime | None
@@ -87,9 +90,9 @@ class FlowRunRead(BaseModel):
     flow_id: str
     input_dataset_id: str | None
     input_datasets: list[InputDatasetRef] | None = Field(None, validation_alias="input_datasets_json")
-    status: str
-    engine: str
-    trigger: str = "manual"
+    status: RunStatus
+    engine: Engine
+    trigger: RunTrigger = RunTrigger.MANUAL
     schedule_id: str | None = None
     output_location: str | None
     started_at: datetime | None

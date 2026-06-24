@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 
 from app.api.deps import PreviewServiceDep
+from app.core.enums import TransformationCategory
 from app.core.exceptions import MLNotEnabledError
 from app.engine.registry import is_ml_node, list_transformation_types, ml_node_types
 from app.ml.availability import ml_extension_ready
@@ -11,7 +12,7 @@ router = APIRouter()
 
 @router.get("")
 async def list_transformations(
-    category: str | None = Query(default=None, pattern="^(ml|etl)$"),
+    category: TransformationCategory | None = None,
 ) -> list[str]:
     """The transformation node types the engine supports.
 
@@ -23,9 +24,9 @@ async def list_transformations(
     ml_types = ml_node_types()
     ready = ml_extension_ready()
 
-    if category == "ml":
+    if category == TransformationCategory.ML:
         return sorted(ml_types) if ready else []
-    if category == "etl":
+    if category == TransformationCategory.ETL:
         return sorted(t for t in all_types if t not in ml_types)
     # Default: ETL always; ML only when the extension is ready.
     if ready:
