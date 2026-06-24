@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -90,9 +90,14 @@ function RegisterModelDialog({ runId }: { runId: string }) {
   const [stage, setStage] = useState("");
   const [result, setResult] = useState<MlRegisterResult | null>(null);
 
+  const qc = useQueryClient();
   const mutation = useMutation({
     mutationFn: () => mlApi.register(runId, { model_name: name.trim(), stage: stage || null }),
-    onSuccess: setResult,
+    onSuccess: (res) => {
+      setResult(res);
+      // So the Models page reflects the new registration without a manual refresh.
+      qc.invalidateQueries({ queryKey: ["ml", "models"] });
+    },
   });
 
   return (

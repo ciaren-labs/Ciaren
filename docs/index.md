@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Visual ETL builder — Simple, local-first data pipelines on polars or pandas
-search: flowframe etl visual polars pandas data pipeline
+description: Visual ETL & ML builder — Simple, local-first data pipelines and machine-learning models on polars or pandas
+search: flowframe etl ml machine learning visual polars pandas data pipeline mlflow
 
 hero:
   name: FlowFrame
-  text: The simplest visual ETL builder
-  tagline: Upload data, build a visual cleaning pipeline, preview, run it, and export readable Python — local-first, on polars or pandas.
+  text: The simplest visual data & ML builder
+  tagline: Upload data, build a visual pipeline, train and track models, preview, run it, and export readable Python — local-first, on polars or pandas.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -32,12 +32,12 @@ features:
     details: See your data transform on real rows before running the full pipeline.
 
   - icon: 🐍
-    title: Export Python
-    details: Every flow exports to readable, standalone code — pandas, polars, or lazy polars.
+    title: polars or pandas, exported to Python
+    details: Runs on polars by default (switch to pandas per run) and exports every flow to readable, standalone Python.
 
-  - icon: ⚡
-    title: polars or pandas
-    details: Runs on polars by default for speed; switch to pandas per run any time.
+  - icon: 🤖
+    title: Machine Learning
+    details: Split, train, predict, and evaluate models on the canvas — tracked with MLflow. Optional extension.
 
   - icon: 🚀
     title: Local-First
@@ -142,4 +142,4 @@ Apache License 2.0 — Free for personal and commercial use.
 
 ---
 
-**Ready to build your first ETL flow?** [Get Started →](/guide/getting-started)
+**Ready to build your first data or ML flow?** [Get Started →](/guide/getting-started)

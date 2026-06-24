@@ -62,13 +62,13 @@ export function LandingPage() {
           <Github className="h-3.5 w-3.5" /> Open-source · local-first
         </span>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          The simplest <span className="brand-text-gradient">visual ETL</span> builder
+          The simplest visual <span className="brand-text-gradient">data &amp; ML</span> builder
         </h1>
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Build, run, and schedule data pipelines on a drag-and-drop canvas. Preview every
-          step, execute with one click, and export readable Python when you need it. Built
-          for data analysts, data engineers, and anyone who wants reproducible ETL without
-          the boilerplate.
+          Build, run, and schedule data pipelines — and train machine-learning models — on a
+          drag-and-drop canvas. Preview every step, execute with one click, and export readable
+          Python when you need it. Built for data analysts, data engineers, and anyone who wants
+          reproducible pipelines without the boilerplate.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">

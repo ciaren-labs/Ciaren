@@ -434,13 +434,14 @@ function ConnectionCard({
           )}
         </div>
         <p className="truncate text-xs text-muted-foreground">{target}</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-          Added {fmtDate(connection.created_at)}
-          {" · "}
-          {connection.last_tested_at
-            ? `tested ${fmtDate(connection.last_tested_at)}`
-            : "never tested"}
-        </p>
+        <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
+          <span>Added {fmtDate(connection.created_at)}</span>
+          <span>
+            {connection.last_tested_at
+              ? `Tested ${fmtDate(connection.last_tested_at)}`
+              : "Never tested"}
+          </span>
+        </div>
       </div>
       <TestButton
         size="sm"

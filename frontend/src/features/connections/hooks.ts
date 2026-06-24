@@ -55,8 +55,11 @@ export function useDeleteConnection() {
 }
 
 export function useTestConnection() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => connectionsApi.test(id),
+    // Refresh the list so the "last tested" timestamp updates immediately.
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
   });
 }
 
