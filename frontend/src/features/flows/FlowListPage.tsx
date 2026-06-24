@@ -27,7 +27,7 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ViewToggle } from "@/components/filters/ViewToggle";
-import type { Flow } from "@/lib/types";
+import { ENGINES, type Engine, type Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PendingAction =
@@ -61,7 +61,7 @@ export function FlowListPage() {
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [runFlow, setRunFlow] = useState<Flow | null>(null);
-  const [runEngine, setRunEngine] = useState<"pandas" | "polars">("pandas");
+  const [runEngine, setRunEngine] = useState<Engine>("pandas");
   const runMutation = useRunFlow();
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
@@ -366,7 +366,7 @@ export function FlowListPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Engine</Label>
               <div className="flex items-center gap-2 overflow-hidden rounded-md border border-input text-sm">
-                {(["pandas", "polars"] as const).map((e) => (
+                {ENGINES.map((e) => (
                   <button
                     key={e}
                     type="button"

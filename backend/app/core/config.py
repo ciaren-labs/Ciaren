@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.enums import Engine, ExecutionMode
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -19,12 +21,15 @@ class Settings(BaseSettings):
 
     # Default dataframe engine for runs that don't request one explicitly.
     # "polars" is faster on medium data; "pandas" remains fully supported.
-    DEFAULT_ENGINE: str = "polars"
+    # Kept as str (not the Engine enum) so a bad value is reported as a friendly
+    # run-time 400 rather than crashing settings load; the default references the
+    # enum as the single source of truth.
+    DEFAULT_ENGINE: str = Engine.POLARS
 
     # How the synchronous flow compute is offloaded off the event loop.
     # "thread" (default) shares the GIL; "process" uses a ProcessPoolExecutor
     # for true multi-core parallelism.
-    EXECUTION_MODE: str = "thread"
+    EXECUTION_MODE: str = ExecutionMode.THREAD
 
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100

@@ -8,6 +8,7 @@ from sqlalchemy import asc, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.enums import ExecutionMode
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
@@ -26,7 +27,9 @@ from app.services.sql_resolver import materialize_sql_inputs, push_sql_outputs
 from app.services.storage_resolver import materialize_storage_inputs, push_storage_outputs
 
 _OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
-_EXECUTION_MODES = ("thread", "process")
+# StrEnum members compare equal to their str value, so this works for `x in ...`
+# checks against the raw EXECUTION_MODE setting string.
+_EXECUTION_MODES = tuple(ExecutionMode)
 
 
 class ExecutionService:
