@@ -14,11 +14,15 @@ import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useMlEnabled } from "@/features/models/hooks";
 
-const NAV = [
+// Order: Connections first, then setup → build → run. Models slots in right
+// after Flows (only when ML is enabled — see ML_NAV / nav assembly below).
+const NAV_BEFORE_MODELS = [
+  { to: "/connections", label: "Connections", icon: Plug },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/datasets", label: "Datasets", icon: Database },
-  { to: "/connections", label: "Connections", icon: Plug },
   { to: "/flows", label: "Flows", icon: Workflow },
+];
+const NAV_AFTER_MODELS = [
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
   { to: "/runs", label: "Runs", icon: History },
 ];
@@ -34,7 +38,11 @@ export function AppHeader() {
   const { pathname } = useLocation();
   const { timezone, setTimezone } = useTimezoneStore();
   const mlEnabled = useMlEnabled();
-  const nav = mlEnabled ? [...NAV, ML_NAV] : NAV;
+  const nav = [
+    ...NAV_BEFORE_MODELS,
+    ...(mlEnabled ? [ML_NAV] : []),
+    ...NAV_AFTER_MODELS,
+  ];
 
   return (
     <header className="flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">

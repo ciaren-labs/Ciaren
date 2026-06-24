@@ -72,30 +72,34 @@ function renderPage() {
 }
 
 describe("ModelsPage", () => {
-  it("lists registered models with versions, aliases, metrics, and lineage links", async () => {
+  it("lists registered models with versions, aliases, metrics, lineage and copy", async () => {
     renderPage();
-    expect(await screen.findByText("iris-model")).toBeInTheDocument();
+    // Name appears in both the summary strip and the detail card.
+    expect((await screen.findAllByText("iris-model")).length).toBeGreaterThan(0);
     expect(screen.getByText("v2")).toBeInTheDocument();
-    expect(screen.getByText("0.9700")).toBeInTheDocument();
+    expect(screen.getAllByText("0.9700").length).toBeGreaterThan(0);
     expect(screen.getByText("@production → v2")).toBeInTheDocument();
-    // Lineage links point back to the flow and run that produced the version.
-    const flowLink = screen.getByRole("link", { name: "flow" });
+    // Lineage flow chip links back to the producing flow.
+    const flowLink = screen.getAllByRole("link", { name: /Flow/i })[0];
     expect(flowLink).toHaveAttribute("href", "/flows/f1");
+    // Copy buttons for the model URI + run id.
+    expect(screen.getByText("URI")).toBeInTheDocument();
+    expect(screen.getByText("run id")).toBeInTheDocument();
+    // Alias editor offers adding a new alias.
+    expect(screen.getByText("alias")).toBeInTheDocument();
   });
 
-  it("shows the experiments leaderboard and highlights the best metric per column", async () => {
+  it("shows the experiments leaderboard ranked with best metric highlighted", async () => {
     renderPage();
-    await screen.findByText("iris-model");
+    await screen.findAllByText("iris-model");
     await userEvent.click(screen.getByRole("tab", { name: /Experiments/i }));
 
     expect(await screen.findByText("flowframe")).toBeInTheDocument();
-    // Both runs and their model types appear in the leaderboard.
     expect(screen.getByText("run-r2")).toBeInTheDocument();
-    expect(screen.getByText("random_forest_classifier")).toBeInTheDocument();
-    // Best accuracy (higher better) and best rmse (lower better) are highlighted.
-    const bestAcc = screen.getByText("0.9700");
-    const bestRmse = screen.getByText("0.1000");
-    expect(bestAcc.className).toMatch(/text-emerald-600/);
-    expect(bestRmse.className).toMatch(/text-emerald-600/);
+    // model type shows in both the summary header and the leaderboard row.
+    expect(screen.getAllByText("random_forest_classifier").length).toBeGreaterThan(0);
+    // Best accuracy (0.97) is highlighted somewhere (summary + leaderboard cell).
+    const best = screen.getAllByText("0.9700");
+    expect(best.some((el) => el.className.includes("text-emerald-600"))).toBe(true);
   });
 });

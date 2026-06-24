@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -14,14 +14,15 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { LayoutGrid } from "lucide-react";
+import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
-import { autoLayout } from "@/lib/autoLayout";
+import { applyLayout, autoLayout, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
+import { cn } from "@/lib/utils";
 
 const defaultEdgeOptions = {
   type: "smoothstep" as const,
@@ -131,17 +132,26 @@ export function FlowCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
-  const handleAutoLayout = useCallback(() => {
-    const laid = autoLayout(nodes, edges);
-    setNodes(laid);
-    // Double-rAF: first frame commits new positions, second lets React Flow
-    // measure them, then fitView calculates against the real bounding box.
-    requestAnimationFrame(() =>
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  // Remember the last layout the user picked so the main button reapplies it.
+  const [lastLayout, setLastLayout] = useState<LayoutKind>("horizontal");
+
+  const handleAutoLayout = useCallback(
+    (kind: LayoutKind) => {
+      setLastLayout(kind);
+      setLayoutMenuOpen(false);
+      const laid = applyLayout(kind, nodes, edges);
+      setNodes(laid);
+      // Double-rAF: first frame commits new positions, second lets React Flow
+      // measure them, then fitView calculates against the real bounding box.
       requestAnimationFrame(() =>
-        fitView({ padding: 0.12, duration: 350, maxZoom: 1.5 })
-      )
-    );
-  }, [nodes, edges, setNodes, fitView]);
+        requestAnimationFrame(() =>
+          fitView({ padding: 0.12, duration: 350, maxZoom: 1.5 })
+        )
+      );
+    },
+    [nodes, edges, setNodes, fitView],
+  );
 
   const minimapColor = (_node: Node) => "#a78bfa";
 
@@ -186,14 +196,45 @@ export function FlowCanvas() {
           className="!rounded-lg !border !border-border"
         />
         <Panel position="top-right">
-          <button
-            onClick={handleAutoLayout}
-            title="Auto-arrange nodes"
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-accent transition-colors"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Auto-arrange
-          </button>
+          <div className="relative flex items-stretch rounded-lg border border-border bg-background shadow-sm">
+            <button
+              onClick={() => handleAutoLayout(lastLayout)}
+              title="Auto-arrange nodes"
+              className="flex items-center gap-1.5 rounded-l-lg px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Auto-arrange
+            </button>
+            <button
+              onClick={() => setLayoutMenuOpen((o) => !o)}
+              title="Choose a layout"
+              aria-label="Choose a layout"
+              className="flex items-center border-l border-border px-1.5 hover:bg-accent transition-colors rounded-r-lg"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            {layoutMenuOpen && (
+              <>
+                {/* click-away */}
+                <div className="fixed inset-0 z-10" onClick={() => setLayoutMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-md">
+                  {LAYOUT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.kind}
+                      onClick={() => handleAutoLayout(opt.kind)}
+                      className={cn(
+                        "flex w-full flex-col items-start px-3 py-1.5 text-left transition-colors hover:bg-accent",
+                        opt.kind === lastLayout && "bg-accent/50",
+                      )}
+                    >
+                      <span className="text-xs font-medium">{opt.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{opt.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </Panel>
       </ReactFlow>
     </div>
