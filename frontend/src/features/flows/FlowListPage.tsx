@@ -68,15 +68,19 @@ export function FlowListPage() {
   const importFlow = useImportFlow();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [pendingImportDoc, setPendingImportDoc] = useState<Record<string, unknown> | null>(null);
+  const [importName, setImportName] = useState("");
+  const [importNameError, setImportNameError] = useState<string | null>(null);
 
   const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-importing the same file
     if (!file) return;
     setImportError(null);
-    let doc: { graph_json?: unknown };
+    let doc: Record<string, unknown>;
     try {
-      doc = JSON.parse(await file.text());
+      doc = JSON.parse(await file.text()) as Record<string, unknown>;
     } catch {
       setImportError("That file isn't valid JSON.");
       return;
@@ -85,16 +89,46 @@ export function FlowListPage() {
       setImportError("Not a flow document — expected a 'graph_json' field.");
       return;
     }
-    // The target project comes from the active filter (the UI context), never the
-    // file — project is an environment binding, so the document never carries one.
+    const defaultName =
+      typeof doc.name === "string" && doc.name.trim() ? doc.name.trim() : "Imported flow";
+    setPendingImportDoc(doc);
+    setImportName(defaultName);
+    setImportNameError(null);
+    setImportDialogOpen(true);
+  };
+
+  const handleImportConfirm = () => {
+    if (!pendingImportDoc) return;
+    const name = importName.trim();
+    if (!name) {
+      setImportNameError("Name is required.");
+      return;
+    }
+    const conflict = (flows ?? []).some((f) => f.name.toLowerCase() === name.toLowerCase());
+    if (conflict) {
+      setImportNameError(`A flow named "${name}" already exists. Choose a different name.`);
+      return;
+    }
     const payload = {
-      ...(doc as Record<string, unknown>),
+      ...pendingImportDoc,
+      name,
       project_id: projectFilter || undefined,
     } as Parameters<typeof importFlow.mutate>[0];
     importFlow.mutate(payload, {
-      onSuccess: (flow) => navigate(`/flows/${flow.id}`),
+      onSuccess: (flow) => {
+        setImportDialogOpen(false);
+        setPendingImportDoc(null);
+        navigate(`/flows/${flow.id}`);
+      },
       onError: (err) => setImportError((err as Error)?.message ?? "Import failed."),
     });
+  };
+
+  const closeImportDialog = () => {
+    setImportDialogOpen(false);
+    setPendingImportDoc(null);
+    setImportName("");
+    setImportNameError(null);
   };
 
   const { sort, toggle: toggleSort } = useSort<FlowSortKey>("created", "desc");
@@ -459,6 +493,46 @@ export function FlowListPage() {
         isPending={deleteFlow.isPending || toggleFlow.isPending}
         onConfirm={handleConfirm}
       />
+
+      {/* Import name confirmation dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(o) => !o && closeImportDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import flow</DialogTitle>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => { e.preventDefault(); handleImportConfirm(); }}
+          >
+            <div className="flex flex-col gap-1">
+              <Label>Name</Label>
+              <Input
+                value={importName}
+                onChange={(e) => { setImportName(e.target.value); setImportNameError(null); }}
+                placeholder="Flow name"
+                autoFocus
+              />
+              {importNameError && (
+                <p className="text-[11px] text-destructive">{importNameError}</p>
+              )}
+            </div>
+            {importError && (
+              <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {importError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeImportDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={importFlow.isPending}>
+                {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Import
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

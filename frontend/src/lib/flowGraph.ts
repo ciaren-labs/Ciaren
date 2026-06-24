@@ -270,6 +270,153 @@ export interface NodeColumns {
 }
 
 /**
+ * All node IDs reachable downstream from `sourceId` (not including the source
+ * itself). Used to find nodes that may hold stale column references after the
+ * source's dataset changes.
+ */
+export function getDownstreamNodeIds(
+  sourceId: string,
+  edges: GraphEdgeLike[],
+): Set<string> {
+  const outgoing = new Map<string, string[]>();
+  for (const e of edges) {
+    const list = outgoing.get(e.source) ?? [];
+    list.push(e.target);
+    outgoing.set(e.source, list);
+  }
+  // Seed the source so a cycle that leads back to it doesn't re-visit.
+  const seen = new Set<string>([sourceId]);
+  const result = new Set<string>();
+  const stack = [...(outgoing.get(sourceId) ?? [])];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.add(id);
+    for (const next of outgoing.get(id) ?? []) stack.push(next);
+  }
+  return result;
+}
+
+function filterArr(
+  arr: unknown,
+  valid: Set<string>,
+): { result: string[]; removed: boolean } {
+  const src = asStringArray(arr);
+  const result = src.filter((c) => valid.has(c));
+  return { result, removed: result.length < src.length };
+}
+
+/**
+ * Remove column references in `config` that are not in `validCols`. Returns
+ * the patched config and whether any stale refs were found and cleared. Only
+ * fields that are genuine column selectors are touched; free-form expressions
+ * and output-column names are left as-is.
+ */
+export function cleanStaleColumnRefs(
+  type: string,
+  config: Record<string, unknown>,
+  validCols: Set<string>,
+): { patched: Record<string, unknown>; hadStale: boolean } {
+  let hadStale = false;
+  const p = { ...config };
+
+  function arr(key: string) {
+    const { result, removed } = filterArr(p[key], validCols);
+    if (removed) { p[key] = result; hadStale = true; }
+  }
+  function single(key: string) {
+    const v = p[key];
+    if (typeof v === "string" && v && !validCols.has(v)) {
+      p[key] = ""; hadStale = true;
+    }
+  }
+  function recKeys(key: string) {
+    const obj = p[key];
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
+    const src = obj as Record<string, unknown>;
+    const result = Object.fromEntries(Object.entries(src).filter(([k]) => validCols.has(k)));
+    if (Object.keys(result).length < Object.keys(src).length) {
+      p[key] = result; hadStale = true;
+    }
+  }
+
+  switch (type) {
+    case "dropNulls":
+    case "removeDuplicates":
+      arr("subset"); break;
+    case "fillNulls":
+    case "dropColumns":
+    case "selectColumns":
+    case "roundNumbers":
+    case "removeOutliers":
+    case "parseDates":
+    case "reduceDimensions":
+      arr("columns"); break;
+    case "renameColumns":
+      recKeys("mapping"); break;
+    case "castDtypes":
+      recKeys("casts"); break;
+    case "filterRows":
+    case "replaceValues":
+    case "stringTransform":
+    case "binColumn":
+    case "extractDateParts":
+    case "splitColumn":
+    case "mapValues":
+      single("column"); break;
+    case "sortRows":
+      arr("columns"); break;
+    case "groupByAggregate":
+      arr("group_by");
+      recKeys("aggregations"); break;
+    case "join":
+      arr("left_on");
+      arr("right_on");
+      arr("on"); break;
+    case "unpivot":
+      arr("id_vars");
+      arr("value_vars"); break;
+    case "pivot":
+      arr("index");
+      single("columns");
+      single("values"); break;
+    case "windowFunction":
+      arr("partition_by");
+      arr("order_by");
+      single("target"); break;
+    case "conditionalColumn": {
+      const rules = Array.isArray(p.rules) ? (p.rules as Record<string, unknown>[]) : [];
+      let rulesChanged = false;
+      const cleaned = rules.map((rule) => {
+        const conditions = Array.isArray(rule.conditions)
+          ? (rule.conditions as Record<string, unknown>[]).map((cond) => {
+              if (typeof cond.column === "string" && cond.column && !validCols.has(cond.column)) {
+                rulesChanged = true;
+                return { ...cond, column: "" };
+              }
+              return cond;
+            })
+          : rule.conditions;
+        // Legacy flat rule shape: { column, operator, value, result }
+        if (typeof rule.column === "string" && rule.column && !validCols.has(rule.column)) {
+          rulesChanged = true;
+          return { ...rule, conditions, column: "" };
+        }
+        return Array.isArray(rule.conditions) ? { ...rule, conditions } : rule;
+      });
+      if (rulesChanged) { p.rules = cleaned; hadStale = true; }
+      break;
+    }
+    case "mlTrain":
+      arr("feature_columns");
+      single("target_column"); break;
+  }
+
+  return { patched: p, hadStale };
+}
+
+/**
  * Propagate column schemas forward from input nodes through the whole graph.
  * Input nodes seed their columns from the selected dataset's schema; every
  * other node derives its input columns from the union of its upstream sources.

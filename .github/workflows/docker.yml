@@ -1,0 +1,155 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - backend/**
+      - frontend/**
+      - .github/workflows/docker.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - backend/**
+      - frontend/**
+      - .github/workflows/docker.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & smoke-test (base)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: flowframe:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify frontend is bundled in the image
+        run: |
+          docker run --rm --entrypoint sh flowframe:ci -c \
+            '[ -f /app/app/web/index.html ] \
+              && echo "✅ index.html present" \
+              || (echo "❌ index.html missing from /app/app/web/" && exit 1)'
+
+      - name: Start container
+        run: |
+          docker run -d \
+            --name flowframe-ci \
+            -p 8055:8055 \
+            flowframe:ci
+
+      - name: Wait for the health endpoint to be ready
+        run: |
+          echo "Waiting for FlowFrame to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8055/health > /dev/null 2>&1; then
+              echo "✅ Ready after $((i * 3))s"
+              exit 0
+            fi
+            echo "  [$i/30] not ready yet..."
+            sleep 3
+          done
+          echo "❌ Health check timed out after 90s"
+          docker logs flowframe-ci
+          exit 1
+
+      - name: Verify /health response
+        run: curl -sf http://localhost:8055/health
+
+      - name: Verify frontend is served at /
+        run: |
+          curl -sf http://localhost:8055/ | grep -qi '<!doctype html' \
+            && echo "✅ Frontend served" \
+            || (echo "❌ Unexpected response from /"; exit 1)
+
+      - name: flowframe info (resolve settings)
+        run: |
+          docker exec flowframe-ci flowframe info \
+            && echo "✅ flowframe info succeeded"
+
+      - name: flowframe check (validate environment)
+        run: |
+          docker exec flowframe-ci flowframe check \
+            && echo "✅ flowframe check passed"
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs flowframe-ci
+
+      - name: Stop container
+        if: always()
+        run: docker stop flowframe-ci || true
+
+  build-ml:
+    name: Build with ML extras
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # ML build is slow (~1 GB of packages) — run only on push, not every PR.
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (EXTRAS=ml)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: flowframe:ci-ml
+          build-args: |
+            EXTRAS=ml
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify ML packages are importable
+        run: |
+          docker run --rm --entrypoint python flowframe:ci-ml -c \
+            "import sklearn, xgboost, lightgbm, mlflow; print('✅ ML packages available')"
+
+      - name: flowframe check with ML extras
+        run: |
+          docker run --rm --entrypoint flowframe flowframe:ci-ml check \
+            && echo "✅ flowframe check passed with ML extras"
+
+  summary:
+    name: Docker Summary
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Docker build or smoke-test failed"
+            exit 1
+          fi
+          echo "✅ Docker image builds and passes smoke tests"
