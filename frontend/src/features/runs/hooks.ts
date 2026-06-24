@@ -32,6 +32,9 @@ export function useRetryRun() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runsApi.retry(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: ["flows"] }); // refresh last_run_at
+    },
   });
 }

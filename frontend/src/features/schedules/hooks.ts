@@ -63,6 +63,7 @@ export function useRunScheduleNow() {
     mutationFn: (id: string) => schedulesApi.runNow(id),
     onSuccess: (_run, id) => {
       qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: ["flows"] }); // refresh last_run_at
       qc.invalidateQueries({ queryKey: queryKeys.schedules });
       qc.invalidateQueries({ queryKey: queryKeys.scheduleRuns(id) });
     },

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, LayoutGrid, List, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
+import { AlertCircle, CalendarClock, Loader2, Pencil, Play, Plus, Power, Trash2, Workflow } from "lucide-react";
 import { useCreateFlow, useDeleteFlow, useFlows, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
@@ -24,6 +24,7 @@ import { FilterBar, FilterField, SearchInput } from "@/components/filters/Filter
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
+import { ViewToggle } from "@/components/filters/ViewToggle";
 import { projectColor } from "@/lib/projectColors";
 import type { Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -144,7 +145,9 @@ export function FlowListPage() {
             </p>
           </div>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={layout} onChange={setLayout} />
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setNewFlowProjectId(projectFilter); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4" /> New flow
@@ -182,6 +185,7 @@ export function FlowListPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -199,24 +203,6 @@ export function FlowListPage() {
             options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
           />
         </FilterField>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-        </div>
       </FilterBar>
 
       {(toggleFlow.isError || deleteFlow.isError) && (
@@ -427,10 +413,9 @@ function FlowCard({
             </span>
           )}
         </div>
-        <div className="mt-1.5 text-[11px] text-muted-foreground/80">
-          Created {fmt(flow.created_at)}
-          {" · "}
-          {flow.last_run_at ? `last run ${fmt(flow.last_run_at)}` : "never run"}
+        <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
+          <span>Created {fmt(flow.created_at)}</span>
+          <span>{flow.last_run_at ? `Last run ${fmt(flow.last_run_at)}` : "Never run"}</span>
         </div>
       </button>
       <div className="mt-3 flex items-center justify-end gap-2 border-t border-border pt-2.5">

@@ -1,9 +1,10 @@
 # FlowFrame
 
-> **Build, run, and schedule data pipelines visually — no boilerplate required.**
-> Upload a file, clean and reshape it on a drag-and-drop canvas, preview every
-> step, execute with one click, schedule recurring runs, and export the equivalent
-> pandas **or** polars code whenever you need it.
+> **Build, run, and schedule data pipelines — and train ML models — visually, no boilerplate required.**
+> Upload a file, clean and reshape it on a drag-and-drop canvas, train and track
+> machine-learning models, preview every step, execute with one click, schedule
+> recurring runs, and export the equivalent pandas **or** polars code whenever you
+> need it.
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -21,7 +22,8 @@
 ## What is FlowFrame?
 
 FlowFrame is an open-source, **local-first** visual ETL (Extract, Transform, Load)
-builder for **small and medium datasets**. It lets you:
+builder — with an optional **machine-learning** extension — for **small and medium
+datasets**. It lets you:
 
 - **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
 - **Build** transformation pipelines on a drag-and-drop canvas

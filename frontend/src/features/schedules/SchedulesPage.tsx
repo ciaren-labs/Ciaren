@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CalendarClock,
-  LayoutGrid,
-  List,
   Loader2,
   Pause,
   Pencil,
@@ -26,6 +24,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { ViewToggle } from "@/components/filters/ViewToggle";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { describeCron } from "@/lib/cron";
@@ -139,9 +138,12 @@ export function SchedulesPage() {
             </p>
           </div>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" /> New schedule
-        </Button>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={layout} onChange={setLayout} />
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" /> New schedule
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -164,24 +166,6 @@ export function SchedulesPage() {
             options={ENABLED_OPTIONS}
           />
         </FilterField>
-        <div className="ml-auto flex items-center gap-1 self-end rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn("rounded p-1.5 transition-colors", layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn("rounded p-1.5 transition-colors", layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-        </div>
       </FilterBar>
 
       {(updateSchedule.isError || deleteSchedule.isError || runNow.isError) && (

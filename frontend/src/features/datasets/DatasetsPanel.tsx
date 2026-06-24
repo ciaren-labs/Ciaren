@@ -11,8 +11,6 @@ import {
   EyeOff,
   FileSpreadsheet,
   FileText,
-  LayoutGrid,
-  List,
   Loader2,
   Power,
   Trash2,
@@ -24,6 +22,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { DatasetDetailDialog } from "./DatasetDetailDialog";
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
+import { ViewToggle } from "@/components/filters/ViewToggle";
 import {
   Card,
   CardContent,
@@ -226,29 +225,8 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
             ]}
           />
         </FilterField>
-        <div className="flex items-center gap-1 rounded-md border border-input bg-background p-0.5">
-          <button
-            type="button"
-            onClick={() => setLayout("cards")}
-            className={cn(
-              "rounded p-1.5 transition-colors",
-              layout === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-            title="Card view"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayout("table")}
-            className={cn(
-              "rounded p-1.5 transition-colors",
-              layout === "table" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-            title="Table view"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
+        <div className="ml-auto self-end">
+          <ViewToggle value={layout} onChange={setLayout} />
         </div>
       </FilterBar>
 
