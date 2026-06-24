@@ -9,6 +9,34 @@ import pandas as pd
 from app.engine.polars_codegen import PolarsCodeGenerator
 
 
+def _multi_output_graph() -> dict:
+    """trainTestSplit (train/test) feeding two sinks — the polars generator must
+    route each sourceHandle to its own variable, not collapse to a single 'out'."""
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1, "test_size": 0.2}}},
+            {"id": "o1", "type": "csvOutput", "data": {"config": {"path": "train.csv"}}},
+            {"id": "o2", "type": "csvOutput", "data": {"config": {"path": "test.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "sp"},
+            {"id": "e2", "source": "sp", "target": "o1", "sourceHandle": "train"},
+            {"id": "e3", "source": "sp", "target": "o2", "sourceHandle": "test"},
+        ],
+    }
+
+
+def test_multi_output_node_routes_each_handle() -> None:
+    # Regression: a multi-output node used to raise KeyError('train') because the
+    # generator passed only {"out": var} to to_polars_code.
+    for lazy in (False, True):
+        code = PolarsCodeGenerator().generate(_multi_output_graph(), {"ds1": "in.csv"}, lazy=lazy)
+        assert "train_test_split(" in code
+        assert "train.csv" in code and "test.csv" in code
+        compile(code, "<gen>", "exec")
+
+
 def _wide_graph(dataset_id: str = "ds1") -> dict:
     """An input feeding a chain that exercises many node types."""
     return {
