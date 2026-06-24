@@ -126,7 +126,7 @@ export function SchedulesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-700">

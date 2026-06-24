@@ -6,6 +6,14 @@ import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/lib/api", () => ({
   transformationsApi: { list: vi.fn(() => Promise.resolve(["mlTrain", "dropNulls"])) },
+  flowsApi: {
+    list: vi.fn(() =>
+      Promise.resolve([
+        { id: "f1", name: "Iris Quick Classifier", project_id: "p1", graph_json: { nodes: [], edges: [] }, is_disabled: false, created_at: "", updated_at: "", last_run_at: null },
+      ]),
+    ),
+  },
+  projectsApi: { list: vi.fn(() => Promise.resolve([{ id: "p1", name: "Demo", color: "emerald" }])) },
   mlApi: {
     registeredModels: vi.fn(() =>
       Promise.resolve([
@@ -79,9 +87,12 @@ describe("ModelsPage", () => {
     expect(screen.getByText("v2")).toBeInTheDocument();
     expect(screen.getAllByText("0.9700").length).toBeGreaterThan(0);
     expect(screen.getByText("@production → v2")).toBeInTheDocument();
-    // Lineage flow chip links back to the producing flow.
-    const flowLink = screen.getAllByRole("link", { name: /Flow/i })[0];
-    expect(flowLink).toHaveAttribute("href", "/flows/f1");
+    // Segmented by project.
+    expect(screen.getByText("Demo")).toBeInTheDocument();
+    // Lineage flow chip shows the flow name and links back to the producing flow.
+    const flowLink = screen.getAllByRole("link").find((l) => l.getAttribute("href") === "/flows/f1");
+    expect(flowLink).toBeDefined();
+    expect(flowLink).toHaveTextContent("Iris Quick Classifier");
     // Copy buttons for the model URI + run id.
     expect(screen.getByText("URI")).toBeInTheDocument();
     expect(screen.getByText("run id")).toBeInTheDocument();

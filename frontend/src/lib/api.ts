@@ -163,6 +163,8 @@ export const runsApi = {
   get: (id: string) => request<FlowRun>(`/runs/${id}`),
   list: (filters: RunListFilters = {}) =>
     request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
+  // Re-run the run's flow with the same config; returns a brand-new run.
+  retry: (id: string) => request<FlowRun>(`/runs/${id}/retry`, { method: "POST" }),
 };
 
 // ---- Machine learning ------------------------------------------------------
