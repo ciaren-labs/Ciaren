@@ -33,6 +33,7 @@ interface FlowEditorState {
   removeNode: (id: string) => void;
   setEdges: (edges: FlowEdgeType[]) => void;
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
+  patchMultipleNodeConfigs: (patches: Record<string, Record<string, unknown>>) => void;
   updateNodeLabel: (id: string, label: string) => void;
   selectNode: (id: string | null) => void;
   setNodes: (nodes: FlowNodeType[]) => void;
@@ -104,6 +105,14 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
         n.id === id
           ? { ...n, data: { ...n.data, config } }
           : n,
+      ),
+      dirty: true,
+    })),
+
+  patchMultipleNodeConfigs: (patches) =>
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        n.id in patches ? { ...n, data: { ...n.data, config: patches[n.id] } } : n,
       ),
       dirty: true,
     })),
