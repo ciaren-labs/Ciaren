@@ -72,7 +72,7 @@ jobs:
         run: uv run pytest tests --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=95
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./backend/coverage.xml
           flags: backend-${{ matrix.os }}-py${{ matrix.python-version }}
