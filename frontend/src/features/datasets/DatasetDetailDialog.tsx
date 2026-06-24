@@ -140,11 +140,16 @@ function ProfileTab({ dataset }: { dataset: Dataset }) {
   );
 }
 
+const VERSIONS_PAGE = 50;
+
 function VersionsTab({ datasetId, latest }: { datasetId: string; latest: number }) {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
-  const { data: versions, isLoading } = useDatasetVersions(datasetId);
+  // Output datasets accrue a version per run, so load newest-first in pages.
+  const [limit, setLimit] = useState(VERSIONS_PAGE);
+  const { data: versions, isLoading } = useDatasetVersions(datasetId, limit);
   if (isLoading) return <Loading />;
+  const hasMore = (versions?.length ?? 0) === limit;
   return (
     <div className="flex max-h-[55vh] flex-col gap-2 overflow-auto">
       {(versions ?? []).map((v) => (
@@ -197,6 +202,14 @@ function VersionsTab({ datasetId, latest }: { datasetId: string; latest: number 
           </div>
         </div>
       ))}
+      {hasMore && (
+        <button
+          onClick={() => setLimit((l) => l + VERSIONS_PAGE)}
+          className="mx-auto rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          Show more versions
+        </button>
+      )}
     </div>
   );
 }

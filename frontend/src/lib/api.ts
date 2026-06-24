@@ -257,8 +257,8 @@ export const datasetsApi = {
   list: (projectId?: string) =>
     request<Dataset[]>(`/datasets${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Dataset>(`/datasets/${id}`),
-  versions: (id: string) =>
-    request<DatasetVersion[]>(`/datasets/${id}/versions`),
+  versions: (id: string, limit?: number) =>
+    request<DatasetVersion[]>(`/datasets/${id}/versions${queryString({ limit })}`),
   flows: (id: string) => request<Flow[]>(`/datasets/${id}/flows`),
   schema: (id: string, version?: number) =>
     request<DatasetSchemaField[]>(
