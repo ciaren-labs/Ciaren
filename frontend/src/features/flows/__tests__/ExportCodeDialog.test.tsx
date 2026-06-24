@@ -78,6 +78,23 @@ describe("ExportCodeDialog", () => {
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
   });
 
+  it("does not crash when the response has no flow_document (older backend)", async () => {
+    // Regression: the JSON tab read flow_document.name eagerly, blanking the page
+    // when an older backend omitted the field. The tab should simply be absent.
+    fetchMock.mockImplementation(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        const { flow_document: _omit, ...rest } = EXPORT_RESPONSE;
+        return rest;
+      },
+    }));
+    renderDialog();
+    await screen.findByText(/pd\.read_csv/, { selector: "code" });
+    expect(screen.getByRole("tab", { name: "pandas" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Flow JSON" })).not.toBeInTheDocument();
+  });
+
   it("re-exports with free_intermediates when the del option is checked", async () => {
     renderDialog();
     await screen.findByText(/pd\.read_csv/, { selector: "code" });

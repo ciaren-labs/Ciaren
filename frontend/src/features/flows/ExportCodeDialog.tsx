@@ -52,7 +52,9 @@ export function ExportCodeDialog({
               <TabsTrigger value="pandas">pandas</TabsTrigger>
               <TabsTrigger value="polars">polars</TabsTrigger>
               <TabsTrigger value="polars_lazy">polars (lazy)</TabsTrigger>
-              <TabsTrigger value="json">Flow JSON</TabsTrigger>
+              {exportPython.data.flow_document && (
+                <TabsTrigger value="json">Flow JSON</TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value="pandas" className="min-w-0">
               <CodeBlock code={exportPython.data.code} />
@@ -67,17 +69,19 @@ export function ExportCodeDialog({
               </p>
               <CodeBlock code={exportPython.data.polars_lazy} />
             </TabsContent>
-            <TabsContent value="json" className="min-w-0">
-              <p className="mb-2 text-xs text-muted-foreground">
-                The flow's node graph as portable JSON — commit it to git and
-                import it elsewhere. Dataset and connection bindings are dropped on
-                import, so you re-select inputs in the target environment.
-              </p>
-              <CodeBlock
-                code={JSON.stringify(exportPython.data.flow_document, null, 2)}
-                downloadName={`${exportPython.data.flow_document.name || "flow"}.flow.json`}
-              />
-            </TabsContent>
+            {exportPython.data.flow_document && (
+              <TabsContent value="json" className="min-w-0">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  The flow's node graph as portable JSON — commit it to git and
+                  import it elsewhere. Dataset and connection bindings are dropped on
+                  import, so you re-select inputs in the target environment.
+                </p>
+                <CodeBlock
+                  code={JSON.stringify(exportPython.data.flow_document, null, 2)}
+                  downloadName={`${exportPython.data.flow_document.name || "flow"}.flow.json`}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         )}
 
