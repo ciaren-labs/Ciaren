@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, FolderOpen, Trash2, X } from "lucide-react";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { useDatasets } from "@/features/datasets/hooks";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
-import { computeNodeColumns } from "@/lib/flowGraph";
+import { cleanStaleColumnRefs, computeNodeColumns, getDownstreamNodeIds, isInputType } from "@/lib/flowGraph";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,17 @@ export function NodeSidebar() {
   const nodes = useFlowEditorStore((s) => s.nodes);
   const edges = useFlowEditorStore((s) => s.edges);
   const updateNodeConfig = useFlowEditorStore((s) => s.updateNodeConfig);
+  const patchMultipleNodeConfigs = useFlowEditorStore((s) => s.patchMultipleNodeConfigs);
   const updateNodeLabel = useFlowEditorStore((s) => s.updateNodeLabel);
   const removeNode = useFlowEditorStore((s) => s.removeNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
   const { data: datasets } = useDatasets(flowProjectId ?? undefined);
   const [hasErrors, setHasErrors] = useState(false);
+  const [schemaWarning, setSchemaWarning] = useState(0);
+
+  // Reset warning whenever the user switches to a different node.
+  useEffect(() => { setSchemaWarning(0); }, [selectedNodeId]);
 
   // Columns available on the wire into the selected node, derived from the
   // upstream input datasets' schemas (recomputed as the graph changes).
@@ -49,6 +54,39 @@ export function NodeSidebar() {
   const theme = CATEGORY_THEME[def?.category ?? "clean"];
   const Icon = getNodeIcon(node.type);
   const columns = columnsByNode.get(node.id)?.input ?? [];
+
+  const handleConfigChange = (newConfig: Record<string, unknown>) => {
+    // When a file-input node's dataset changes, scan downstream nodes for
+    // column references that no longer exist in the new schema and clear them.
+    if (isInputType(node.type)) {
+      const oldId = node.data.config.dataset_id;
+      const newId = newConfig.dataset_id;
+      if (oldId !== newId && typeof newId === "string" && newId) {
+        const ds = (datasets ?? []).find((d) => d.id === newId);
+        if (ds?.column_schema) {
+          const validCols = new Set(ds.column_schema.map((f) => f.name));
+          const downstream = getDownstreamNodeIds(node.id, edges);
+          const patches: Record<string, Record<string, unknown>> = { [node.id]: newConfig };
+          let staleCount = 0;
+          for (const did of downstream) {
+            const dn = nodes.find((n) => n.id === did);
+            if (!dn) continue;
+            const { patched, hadStale } = cleanStaleColumnRefs(
+              dn.type ?? "",
+              dn.data.config,
+              validCols,
+            );
+            if (hadStale) { patches[did] = patched; staleCount++; }
+          }
+          patchMultipleNodeConfigs(patches);
+          setSchemaWarning(staleCount);
+          return;
+        }
+      }
+    }
+    updateNodeConfig(node.id, newConfig);
+    if (schemaWarning > 0) setSchemaWarning(0);
+  };
 
   return (
     <div className="flex h-full w-80 animate-slide-in-right flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4">
@@ -93,10 +131,28 @@ export function NodeSidebar() {
               config={node.data.config}
               datasets={datasets ?? []}
               columns={columns}
-              onChange={(config) => updateNodeConfig(node.id, config)}
+              onChange={handleConfigChange}
               onErrors={setHasErrors}
             />
           </div>
+
+          {schemaWarning > 0 && (
+            <div className="flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700 border border-amber-200">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">
+                Column settings in {schemaWarning}{" "}
+                {schemaWarning === 1 ? "downstream node were" : "downstream nodes were"} reset — the
+                new dataset has a different schema.
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-amber-600 hover:text-amber-800"
+                onClick={() => setSchemaWarning(0)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {flowProjectId && (
             <p className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">

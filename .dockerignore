@@ -1,0 +1,40 @@
+# ── Python build artifacts ────────────────────────────────────────────────────
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# ── Local data and secrets (never bake these into the image) ──────────────────
+backend/.env
+backend/.data/
+backend/.dev_data/
+backend/mlruns/
+backend/dev_ui.db
+
+# ── Tests (not needed in the production image) ────────────────────────────────
+backend/tests/
+backend/conftest.py
+
+# ── Frontend artifacts (built fresh in the frontend-builder stage) ────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── IDE, CI, and VCS tooling ─────────────────────────────────────────────────
+.git/
+.github/
+.idea/
+.vscode/
+.claude/
+.pre-commit-config.yaml
+
+# ── Documentation (not needed at runtime) ────────────────────────────────────
+docs/
+architecture.md
+*.md
+
+# ── Root node_modules (shouldn't exist, exclude for safety) ──────────────────
+node_modules/
