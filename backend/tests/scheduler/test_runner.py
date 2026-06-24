@@ -20,6 +20,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.scheduler.runner import SchedulerRunner
+from app.services.project_service import ProjectService
 
 
 def _factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
@@ -34,7 +35,8 @@ async def _make_schedule(
     **kwargs: Any,
 ) -> str:
     async with factory() as db:
-        flow = Flow(name="f", graph_json={})
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json={})
         db.add(flow)
         await db.flush()
         schedule = Schedule(flow_id=flow.id, cron=cron, timezone=timezone, **kwargs)
@@ -96,7 +98,8 @@ async def _make_failing_schedule(factory: async_sessionmaker[AsyncSession], **kw
     """A schedule whose flow references a non-existent dataset, so every run fails
     (at dataset resolution, before any output dir is touched)."""
     async with factory() as db:
-        flow = Flow(name="f", graph_json=_MISSING_INPUT_GRAPH)
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json=_MISSING_INPUT_GRAPH)
         db.add(flow)
         await db.flush()
         schedule = Schedule(
@@ -121,7 +124,8 @@ def test_backoff_is_exponential_and_capped() -> None:
 async def test_recover_orphaned_runs_marks_running_as_failed(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     async with factory() as db:
-        flow = Flow(name="f", graph_json={})
+        pid = (await ProjectService(db).ensure_default()).id
+        flow = Flow(name="f", project_id=pid, graph_json={})
         db.add(flow)
         await db.flush()
         alive = FlowRun(flow_id=flow.id, status="running", started_at=datetime.now(UTC).replace(tzinfo=None))

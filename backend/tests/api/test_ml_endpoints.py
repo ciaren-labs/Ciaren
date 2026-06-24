@@ -6,10 +6,12 @@ from httpx import AsyncClient
 from app.core.config import get_settings
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
+from app.services.project_service import ProjectService
 
 
 async def _flow(db_session) -> str:
-    flow = Flow(name="f", graph_json={"nodes": [], "edges": []})
+    pid = (await ProjectService(db_session).ensure_default()).id
+    flow = Flow(name="f", project_id=pid, graph_json={"nodes": [], "edges": []})
     db_session.add(flow)
     await db_session.flush()
     return flow.id
