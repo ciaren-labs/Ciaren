@@ -85,7 +85,13 @@ export function FlowListPage() {
       setImportError("Not a flow document — expected a 'graph_json' field.");
       return;
     }
-    importFlow.mutate(doc as Parameters<typeof importFlow.mutate>[0], {
+    // The target project comes from the active filter (the UI context), never the
+    // file — project is an environment binding, so the document never carries one.
+    const payload = {
+      ...(doc as Record<string, unknown>),
+      project_id: projectFilter || undefined,
+    } as Parameters<typeof importFlow.mutate>[0];
+    importFlow.mutate(payload, {
       onSuccess: (flow) => navigate(`/flows/${flow.id}`),
       onError: (err) => setImportError((err as Error)?.message ?? "Import failed."),
     });
@@ -211,7 +217,11 @@ export function FlowListPage() {
             variant="outline"
             onClick={() => importInputRef.current?.click()}
             disabled={importFlow.isPending}
-            title="Import a flow from an exported .flow.json"
+            title={
+              projectFilter
+                ? `Import a flow into ${projectById.get(projectFilter)?.name ?? "this project"}`
+                : "Import a flow from an exported .flow.json (lands in the Default project)"
+            }
           >
             {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import
           </Button>
