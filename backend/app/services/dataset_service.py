@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
+from app.core.enums import DatasetKind
 from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
@@ -245,12 +246,18 @@ class DatasetService:
             except OSError:
                 pass  # never fail a purge on a stray filesystem error
 
-    async def list_versions(self, dataset_id: str) -> list[DatasetVersionRead]:
+    async def list_versions(
+        self, dataset_id: str, limit: int = 100, offset: int = 0
+    ) -> list[DatasetVersionRead]:
+        """Newest-first page of a dataset's versions. Output datasets accrue one
+        version per run, so this is paginated to stay bounded in production."""
         await self._get_or_raise(dataset_id)
         result = await self.db.execute(
             select(DatasetVersion)
             .where(DatasetVersion.dataset_id == dataset_id)
             .order_by(DatasetVersion.version_number.desc())
+            .offset(offset)
+            .limit(limit)
         )
         return [DatasetVersionRead.model_validate(v) for v in result.scalars().all()]
 
@@ -321,7 +328,7 @@ class DatasetService:
             id=dataset.id,
             name=dataset.name,
             source_type=dataset.source_type,
-            dataset_kind=dataset.dataset_kind or "input",
+            dataset_kind=DatasetKind(dataset.dataset_kind or DatasetKind.INPUT),
             is_disabled=bool(dataset.is_disabled),
             deleted_at=dataset.deleted_at,
             project_id=dataset.project_id,
