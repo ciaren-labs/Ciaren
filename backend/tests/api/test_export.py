@@ -47,6 +47,44 @@ def _full_graph(dataset_id: str) -> dict:
     }
 
 
+async def test_export_includes_portable_flow_document(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    r = await client.post(f"/api/flows/{flow['id']}/export/python")
+    assert r.status_code == 200, r.text
+    doc = r.json()["flow_document"]
+    assert doc["format"] == "flowframe.flow/v1"
+    assert doc["name"] == "f"
+    assert [n["id"] for n in doc["graph_json"]["nodes"]] == ["in1", "drop", "out1"]
+
+
+async def test_import_flow_strips_env_bindings(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    doc = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()["flow_document"]
+
+    # Importing recreates the structure but drops the dataset binding.
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 201, r.text
+    imported = r.json()
+    assert imported["id"] != flow["id"]
+    assert imported["project_id"]  # always assigned a project
+    nodes = {n["id"]: n for n in imported["graph_json"]["nodes"]}
+    assert "dataset_id" not in nodes["in1"]["data"]["config"]
+    assert [n["id"] for n in imported["graph_json"]["nodes"]] == ["in1", "drop", "out1"]
+
+
+async def test_import_flow_rejects_unknown_node_type(client: AsyncClient) -> None:
+    doc = {
+        "format": "flowframe.flow/v1",
+        "name": "bad",
+        "graph_json": {"nodes": [{"id": "x", "type": "totallyNotANode", "data": {}}], "edges": []},
+    }
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 400, r.text
+    assert "Unknown node types" in r.json()["detail"]
+
+
 async def test_export_python_happy_path(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))

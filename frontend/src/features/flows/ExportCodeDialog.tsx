@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,7 @@ export function ExportCodeDialog({
               <TabsTrigger value="pandas">pandas</TabsTrigger>
               <TabsTrigger value="polars">polars</TabsTrigger>
               <TabsTrigger value="polars_lazy">polars (lazy)</TabsTrigger>
+              <TabsTrigger value="json">Flow JSON</TabsTrigger>
             </TabsList>
             <TabsContent value="pandas" className="min-w-0">
               <CodeBlock code={exportPython.data.code} />
@@ -65,6 +66,17 @@ export function ExportCodeDialog({
                 projection / predicate pushdown. Best for large inputs.
               </p>
               <CodeBlock code={exportPython.data.polars_lazy} />
+            </TabsContent>
+            <TabsContent value="json" className="min-w-0">
+              <p className="mb-2 text-xs text-muted-foreground">
+                The flow's node graph as portable JSON — commit it to git and
+                import it elsewhere. Dataset and connection bindings are dropped on
+                import, so you re-select inputs in the target environment.
+              </p>
+              <CodeBlock
+                code={JSON.stringify(exportPython.data.flow_document, null, 2)}
+                downloadName={`${exportPython.data.flow_document.name || "flow"}.flow.json`}
+              />
             </TabsContent>
           </Tabs>
         )}
@@ -93,24 +105,35 @@ export function ExportCodeDialog({
   );
 }
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({ code, downloadName }: { code: string; downloadName?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+  const download = () => {
+    if (!downloadName) return;
+    const url = URL.createObjectURL(new Blob([code], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   return (
     <div className="relative min-w-0">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={copy}
-        className="absolute right-2 top-2 z-10"
-      >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-        {copied ? "Copied" : "Copy"}
-      </Button>
+      <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+        {downloadName && (
+          <Button variant="outline" size="sm" onClick={download}>
+            <Download className="h-3.5 w-3.5" /> Download
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={copy}>
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
       <pre className="max-h-[70vh] overflow-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
         <code>{code}</code>
       </pre>

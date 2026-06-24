@@ -9,6 +9,12 @@ const EXPORT_RESPONSE = {
   code: 'import pandas as pd\ndf_1 = pd.read_csv("sales.csv")\n',
   polars: 'import polars as pl\ndf_1 = pl.read_csv("sales.csv")\n',
   polars_lazy: 'import polars as pl\ndf_1 = pl.scan_csv("sales.csv")\n',
+  flow_document: {
+    format: "flowframe.flow/v1",
+    name: "Sales",
+    description: null,
+    graph_json: { nodes: [], edges: [] },
+  },
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -59,6 +65,17 @@ describe("ExportCodeDialog", () => {
     expect(
       await screen.findByText(/scan_csv/, { selector: "code" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the importable Flow JSON document on its tab", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByText(/pd\.read_csv/, { selector: "code" });
+
+    await user.click(screen.getByRole("tab", { name: "Flow JSON" }));
+
+    expect(await screen.findByText(/flowframe\.flow\/v1/, { selector: "code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
   });
 
   it("re-exports with free_intermediates when the del option is checked", async () => {

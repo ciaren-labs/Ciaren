@@ -427,6 +427,23 @@ export interface TransformationPreviewRequest {
   profile?: boolean;
 }
 
+/** Portable, environment-independent description of a flow (name + node graph). */
+export interface FlowDocument {
+  format: string;
+  name: string;
+  description?: string | null;
+  graph_json: Record<string, unknown>;
+}
+
+/** Import payload: only the graph is required; the rest is optional metadata. */
+export interface FlowImport {
+  format?: string;
+  name?: string;
+  description?: string | null;
+  project_id?: string;
+  graph_json: Record<string, unknown>;
+}
+
 export interface ExportCodeResponse {
   /** pandas script (kept as `code` for back-compat). */
   code: string;
@@ -434,4 +451,6 @@ export interface ExportCodeResponse {
   polars: string;
   /** optimized lazy polars (`scan_*` → `collect()`) equivalent. */
   polars_lazy: string;
+  /** importable JSON description of the flow. */
+  flow_document: FlowDocument;
 }
