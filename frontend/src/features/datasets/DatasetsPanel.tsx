@@ -37,6 +37,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,14 @@ import { cn } from "@/lib/utils";
 function versionLabel(latest: number, count: number): string {
   return count < latest ? `v${latest} (${count} kept)` : `v${latest}`;
 }
+
+type DatasetSortKey = "name" | "columns" | "versions" | "created";
+const DATASET_SORT: Record<DatasetSortKey, (d: Dataset) => string | number> = {
+  name: (d) => d.name.toLowerCase(),
+  columns: (d) => d.column_schema?.length ?? 0,
+  versions: (d) => d.latest_version,
+  created: (d) => d.created_at,
+};
 
 const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: string }> = {
   csv: { icon: FileText, tint: "bg-emerald-500" },
@@ -81,6 +90,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [versionWarnOpen, setVersionWarnOpen] = useState(false);
   const [layout, setLayout] = useLayoutPreference("datasets", "cards");
+  const { sort, toggle: toggleSort } = useSort<DatasetSortKey>("created", "desc");
   // Pending disable/delete action with cascade confirmation
   const [pendingAction, setPendingAction] = useState<{
     dataset: Dataset;
@@ -260,18 +270,18 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
               count={items.length}
             >
               {layout === "cards" ? (
-                <DatasetGrid datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+                <DatasetGrid datasets={sortRows(items, sort, DATASET_SORT)} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
               ) : (
-                <DatasetTable datasets={items} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+                <DatasetTable datasets={sortRows(items, sort, DATASET_SORT)} sort={sort} onSort={toggleSort} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
               )}
             </CollapsibleSection>
           ))}
         </div>
       ) : (
         layout === "cards" ? (
-          <DatasetGrid datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+          <DatasetGrid datasets={sortRows(filtered, sort, DATASET_SORT)} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         ) : (
-          <DatasetTable datasets={filtered} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
+          <DatasetTable datasets={sortRows(filtered, sort, DATASET_SORT)} sort={sort} onSort={toggleSort} onSelect={setSelected} onAction={(d, k) => setPendingAction({ dataset: d, kind: k })} />
         )
       )}
 
@@ -358,25 +368,30 @@ function DatasetGrid({
 
 function DatasetTable({
   datasets,
+  sort,
+  onSort,
   onSelect,
   onAction,
 }: {
   datasets: Dataset[];
+  sort: SortState<DatasetSortKey>;
+  onSort: (key: DatasetSortKey) => void;
   onSelect: (d: Dataset) => void;
   onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
 }) {
   const fmtDate = useFormatDateTime();
+  const thClass = "border-b border-border px-3 py-2 text-left font-semibold";
   return (
     <div className="overflow-auto rounded-lg border border-border">
       <table className="w-full border-collapse text-xs">
         <thead className="sticky top-0 bg-muted">
           <tr>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Name</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Type</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Kind</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Columns</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Versions</th>
-            <th className="border-b border-border px-3 py-2 text-left font-semibold">Created</th>
+            <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className={thClass} />
+            <th className={thClass}>Type</th>
+            <th className={thClass}>Kind</th>
+            <SortableTh label="Columns" sortKey="columns" sort={sort} onSort={onSort} className={thClass} />
+            <SortableTh label="Versions" sortKey="versions" sort={sort} onSort={onSort} className={thClass} />
+            <SortableTh label="Created" sortKey="created" sort={sort} onSort={onSort} className={thClass} />
             {onAction && <th className="border-b border-border px-3 py-2" />}
           </tr>
         </thead>

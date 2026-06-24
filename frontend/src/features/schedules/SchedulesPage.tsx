@@ -22,6 +22,7 @@ import { useFlows } from "@/features/flows/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { SortableTh, sortRows, useSort } from "@/components/ui/SortableHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
@@ -40,6 +41,21 @@ const ENABLED_OPTIONS = [
 
 /** Group key for schedules whose flow isn't attached to any project. */
 const NO_PROJECT = "__none__";
+
+/** Lifecycle rank for sorting the State column (active → paused → auto-disabled). */
+function scheduleState(s: Schedule): string {
+  if (s.disabled_reason) return "3 auto-disabled";
+  if (!s.enabled) return "2 paused";
+  return "1 active";
+}
+
+type ScheduleSortKey = "name" | "next" | "last" | "state";
+const SCHEDULE_SORT: Record<ScheduleSortKey, (s: Schedule) => string | number | null> = {
+  name: (s) => (s.name || "untitled schedule").toLowerCase(),
+  next: (s) => (s.enabled ? s.next_run_at : null), // paused/disabled have no next run → last
+  last: (s) => s.last_status ?? null,
+  state: scheduleState,
+};
 
 /** Lifecycle pill: paused vs auto-disabled vs active. */
 export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
@@ -79,6 +95,7 @@ export function SchedulesPage() {
   const runNow = useRunScheduleNow();
 
   const [layout, setLayout] = useLayoutPreference("schedules", "table");
+  const { sort, toggle: toggleSort } = useSort<ScheduleSortKey>("next", "asc");
   const [flowId, setFlowId] = useState("");
   const [state, setState] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -106,7 +123,8 @@ export function SchedulesPage() {
     return list;
   }, [schedules, flowId, state]);
 
-  // Card view groups schedules by the project of their flow (insertion order).
+  // Group schedules by the project of their flow, sorting each group's rows by the
+  // active sort column (insertion order of the groups themselves).
   const groups = useMemo(() => {
     const map = new Map<string, Schedule[]>();
     for (const s of filtered) {
@@ -115,8 +133,10 @@ export function SchedulesPage() {
       if (arr) arr.push(s);
       else map.set(pid, [s]);
     }
-    return [...map.entries()];
-  }, [filtered, flowProject]);
+    return [...map.entries()].map(
+      ([pid, items]) => [pid, sortRows(items, sort, SCHEDULE_SORT)] as const,
+    );
+  }, [filtered, flowProject, sort]);
 
   const openCreate = () => {
     setEditing(null);
@@ -215,47 +235,62 @@ export function SchedulesPage() {
           </p>
         </div>
       ) : layout === "table" ? (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2.5 text-left font-semibold">Name</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Interval</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Next run</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Last</th>
-                <th className="px-4 py-2.5 text-left font-semibold">State</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr
-                  key={s.id}
-                  onClick={() => actions.open(s)}
-                  className="cursor-pointer border-t border-border transition-colors hover:bg-accent/40"
-                >
-                  <td className="px-4 py-2.5 font-medium">{s.name || "Untitled schedule"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {flowName.get(s.flow_id) ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{describeCron(s.cron)}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {s.enabled ? fmt(s.next_run_at) : "—"}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {s.last_status ? <StatusBadge status={s.last_status} /> : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <ScheduleStateBadge schedule={s} />
-                  </td>
-                  <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                    <RowActions schedule={s} actions={actions} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-4">
+          {groups.map(([pid, group]) => {
+            const proj = pid === NO_PROJECT ? undefined : projectById.get(pid);
+            return (
+              <CollapsibleSection
+                key={pid}
+                title={proj?.name ?? "No project"}
+                colorKey={proj?.color}
+                showDot={pid !== NO_PROJECT}
+                count={group.length}
+              >
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <SortableTh label="Name" sortKey="name" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
+                        <th className="px-4 py-2.5 text-left font-semibold">Flow</th>
+                        <th className="px-4 py-2.5 text-left font-semibold">Interval</th>
+                        <SortableTh label="Next run" sortKey="next" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
+                        <SortableTh label="Last" sortKey="last" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
+                        <SortableTh label="State" sortKey="state" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
+                        <th className="px-4 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.map((s) => (
+                        <tr
+                          key={s.id}
+                          onClick={() => actions.open(s)}
+                          className="cursor-pointer border-t border-border transition-colors hover:bg-accent/40"
+                        >
+                          <td className="px-4 py-2.5 font-medium">{s.name || "Untitled schedule"}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {flowName.get(s.flow_id) ?? "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{describeCron(s.cron)}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">
+                            {s.enabled ? fmt(s.next_run_at) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            {s.last_status ? <StatusBadge status={s.last_status} /> : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <ScheduleStateBadge schedule={s} />
+                          </td>
+                          <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                            <RowActions schedule={s} actions={actions} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CollapsibleSection>
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
