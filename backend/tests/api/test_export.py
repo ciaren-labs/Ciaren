@@ -55,7 +55,7 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
     body = r.json()
     code = body["code"]
     assert "import pandas as pd" in code
-    assert 'pd.read_csv("people.csv")' in code  # dataset name, not server path
+    assert "pd.read_csv('people.csv')" in code  # dataset name, not server path
     assert ".dropna()" in code
     assert ".to_csv(" in code
     compile(code, "<exported>", "exec")  # must be valid Python
@@ -63,14 +63,14 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
     # The polars equivalent is generated alongside it.
     polars = body["polars"]
     assert "import polars as pl" in polars
-    assert 'pl.read_csv("people.csv")' in polars
+    assert "pl.read_csv('people.csv')" in polars
     assert ".drop_nulls()" in polars
     assert ".write_csv(" in polars
     compile(polars, "<exported-polars>", "exec")
 
     # ...and the optimized lazy polars variant.
     polars_lazy = body["polars_lazy"]
-    assert 'pl.scan_csv("people.csv")' in polars_lazy
+    assert "pl.scan_csv('people.csv')" in polars_lazy
     assert ".collect().write_csv(" in polars_lazy
     compile(polars_lazy, "<exported-polars-lazy>", "exec")
 
