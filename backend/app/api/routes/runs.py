@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import ExecutionServiceDep
 from app.core.config import get_settings
+from app.core.enums import RunSortField, RunStatus, SortOrder
 from app.core.exceptions import NotFoundError, ValidationError
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 
@@ -32,11 +33,11 @@ async def list_runs(
     project_id: str | None = None,
     dataset_id: str | None = None,
     schedule_id: str | None = None,
-    run_status: str | None = Query(default=None, alias="status"),
+    run_status: RunStatus | None = Query(default=None, alias="status"),
     started_after: datetime | None = None,
     started_before: datetime | None = None,
-    sort_by: str = Query(default="created_at", pattern="^(created_at|started_at|status)$"),
-    sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
+    sort_by: RunSortField = RunSortField.CREATED_AT,
+    sort_order: SortOrder = SortOrder.DESC,
     limit: int = Query(default=100, ge=1, le=10000),
     offset: int = Query(default=0, ge=0),
 ) -> list[FlowRunSummary]:

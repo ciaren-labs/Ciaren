@@ -88,6 +88,10 @@ export interface DatasetVersion {
   created_at: string;
 }
 
+/** Dataframe engine a run executes on. Mirrors the backend Engine enum. */
+export type Engine = "pandas" | "polars";
+export const ENGINES: readonly Engine[] = ["pandas", "polars"];
+
 export type RunStatus = "pending" | "running" | "success" | "failed";
 
 export type NodeResultStatus = "success" | "failed" | "skipped";
