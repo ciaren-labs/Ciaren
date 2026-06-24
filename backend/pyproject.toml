@@ -43,7 +43,7 @@ mongo = ["pymongo>=4.6"]
 # The base install never imports these; ML nodes are gated on ML_ENABLED + availability.
 ml = [
     "scikit-learn>=1.5",
-    "xgboost>=2.0",
+    "xgboost>=3.3.0",
     "lightgbm>=4.0",
     "mlflow>=3.0",
     "joblib>=1.3",
