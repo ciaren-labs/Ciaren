@@ -23,7 +23,7 @@ export const queryKeys = {
   datasetSchema: (id: string) => ["datasets", id, "schema"] as const,
   datasetSample: (id: string, version?: number) =>
     ["datasets", id, "sample", version ?? "latest"] as const,
-  datasetVersions: (id: string) => ["datasets", id, "versions"] as const,
+  datasetVersions: (id: string, limit?: number) => ["datasets", id, "versions", { limit }] as const,
   datasetFlows: (id: string) => ["datasets", id, "flows"] as const,
   datasetProfile: (id: string, version?: number) =>
     ["datasets", id, "profile", version ?? "latest"] as const,

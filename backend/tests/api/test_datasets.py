@@ -306,6 +306,21 @@ async def test_list_versions_returns_all_newest_first(client: AsyncClient) -> No
     assert versions[0]["row_count"] == len(ROWS)
 
 
+async def test_list_versions_is_paginated(client: AsyncClient) -> None:
+    # Output datasets accrue a version per run; the endpoint must page (newest-first).
+    up = await _upload(client, _csv(), "sales.csv")
+    for _ in range(4):  # -> 5 versions total
+        await client.post("/api/datasets/upload", files={"file": ("sales.csv", _csv(), "text/csv")})
+
+    page1 = (await client.get(f"/api/datasets/{up['id']}/versions?limit=2")).json()
+    assert [v["version_number"] for v in page1] == [5, 4]
+    page2 = (await client.get(f"/api/datasets/{up['id']}/versions?limit=2&offset=2")).json()
+    assert [v["version_number"] for v in page2] == [3, 2]
+    # limit is bounded
+    r = await client.get(f"/api/datasets/{up['id']}/versions?limit=0")
+    assert r.status_code == 422
+
+
 async def test_get_schema_for_specific_version(client: AsyncClient) -> None:
     up = await _upload(client, _csv(), "sales.csv")
     r = await client.get(f"/api/datasets/{up['id']}/schema?version=1")

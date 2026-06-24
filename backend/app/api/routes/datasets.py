@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, UploadFile, status
+from fastapi import APIRouter, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.deps import DatasetServiceDep, FlowServiceDep
@@ -73,8 +73,13 @@ async def get_dataset(dataset_id: str, service: DatasetServiceDep) -> DatasetRea
 
 
 @router.get("/{dataset_id}/versions", response_model=list[DatasetVersionRead])
-async def list_dataset_versions(dataset_id: str, service: DatasetServiceDep) -> list[DatasetVersionRead]:
-    return await service.list_versions(dataset_id)
+async def list_dataset_versions(
+    dataset_id: str,
+    service: DatasetServiceDep,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> list[DatasetVersionRead]:
+    return await service.list_versions(dataset_id, limit=limit, offset=offset)
 
 
 @router.get("/{dataset_id}/versions/{version_number}/download")

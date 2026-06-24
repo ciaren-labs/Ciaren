@@ -21,10 +21,10 @@ export function useDatasetSchema(id: string | null) {
   });
 }
 
-export function useDatasetVersions(id: string | null) {
+export function useDatasetVersions(id: string | null, limit?: number) {
   return useQuery({
-    queryKey: id ? queryKeys.datasetVersions(id) : ["datasets", "none", "versions"],
-    queryFn: () => datasetsApi.versions(id as string),
+    queryKey: id ? queryKeys.datasetVersions(id, limit) : ["datasets", "none", "versions"],
+    queryFn: () => datasetsApi.versions(id as string, limit),
     enabled: !!id,
   });
 }
