@@ -60,6 +60,12 @@ async def get_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
     return await service.get(run_id)
 
 
+@router.post("/runs/{run_id}/retry", response_model=FlowRunRead, status_code=http_status.HTTP_201_CREATED)
+async def retry_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
+    """Re-run this run's flow with the same config, creating a new run (new id)."""
+    return await service.retry(run_id)
+
+
 @router.get("/runs/{run_id}/output")
 async def download_run_output(run_id: str, node_id: str, service: ExecutionServiceDep) -> FileResponse:
     """Stream a specific output node's result file as a download."""

@@ -15,7 +15,7 @@ import {
   RotateCcw,
   SquarePen,
 } from "lucide-react";
-import { useRuns } from "./hooks";
+import { useRetryRun, useRuns } from "./hooks";
 import { useFlows } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
@@ -77,6 +77,12 @@ function TriggerBadge({ run }: { run: FlowRunSummary }) {
 export function RunsPage() {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
+  const retry = useRetryRun();
+
+  const handleRetry = (run: FlowRunSummary) => {
+    if (!confirm("Re-run this flow with the same config? This creates a new run (a new run id) — the current one is kept.")) return;
+    retry.mutate(run.id, { onSuccess: (created) => navigate(`/runs/${created.id}`) });
+  };
   const { data: flows } = useFlows();
   const { data: datasets } = useDatasets();
   const { data: projects } = useProjects();
@@ -148,7 +154,7 @@ export function RunsPage() {
   const isEmpty = !runs || runs.length === 0;
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
@@ -285,6 +291,8 @@ export function RunsPage() {
                       fmt={fmt}
                       onClick={() => navigate(`/runs/${run.id}`)}
                       onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                      onRetry={() => handleRetry(run)}
+                      retrying={retry.isPending}
                     />
                   ))}
                 </tbody>
@@ -302,6 +310,8 @@ export function RunsPage() {
                   fmt={fmt}
                   onClick={() => navigate(`/runs/${run.id}`)}
                   onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
+                  onRetry={() => handleRetry(run)}
+                  retrying={retry.isPending}
                 />
               ))}
             </div>
@@ -381,6 +391,8 @@ function RunRow({
   fmt,
   onClick,
   onOpenFlow,
+  onRetry,
+  retrying,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
@@ -389,6 +401,8 @@ function RunRow({
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
   onOpenFlow: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) {
   return (
     <tr
@@ -428,13 +442,25 @@ function RunRow({
         {formatDuration(run.started_at, run.finished_at)}
       </td>
       <td className="px-4 py-2.5 text-right">
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
-          title="Open the flow in the editor"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <SquarePen className="h-3.5 w-3.5" /> Flow
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          {run.status === "failed" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRetry(); }}
+              disabled={retrying}
+              title="Re-run the flow with the same config (creates a new run)"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              <RotateCcw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} /> Retry
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+            title="Open the flow in the editor"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <SquarePen className="h-3.5 w-3.5" /> Flow
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -448,6 +474,8 @@ function RunCard({
   fmt,
   onClick,
   onOpenFlow,
+  onRetry,
+  retrying,
 }: {
   run: FlowRunSummary;
   flowName: Map<string, string>;
@@ -456,6 +484,8 @@ function RunCard({
   fmt: (iso: string | null | undefined) => string;
   onClick: () => void;
   onOpenFlow: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) {
   const proj = run.project_id ? projectById.get(run.project_id) : undefined;
   const theme = projectColor(proj?.color);
@@ -491,13 +521,25 @@ function RunCard({
         <span>{fmt(run.created_at)}</span>
         <span className="tabular-nums">{formatDuration(run.started_at, run.finished_at)}</span>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
-        title="Open the flow in the editor"
-        className="mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <SquarePen className="h-3.5 w-3.5" /> Open flow
-      </button>
+      <div className="mt-1 flex items-center gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenFlow(); }}
+          title="Open the flow in the editor"
+          className="inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <SquarePen className="h-3.5 w-3.5" /> Open flow
+        </button>
+        {run.status === "failed" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRetry(); }}
+            disabled={retrying}
+            title="Re-run the flow with the same config (creates a new run)"
+            className="inline-flex w-fit items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RotateCcw className={cn("h-3.5 w-3.5", retrying && "animate-spin")} /> Retry
+          </button>
+        )}
+      </div>
     </div>
   );
 }

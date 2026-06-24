@@ -122,6 +122,28 @@ async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
     assert run["status"] == "success"
 
 
+async def test_retry_creates_a_new_run_with_same_config(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    graph = {**_full_graph(ds["id"]), "engine": "pandas"}
+    flow = await _create_flow(client, graph)
+    first = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    assert first["engine"] == "pandas"
+
+    r = await client.post(f"/api/runs/{first['id']}/retry")
+    assert r.status_code == 201, r.text
+    retried = r.json()
+    assert retried["id"] != first["id"]  # brand-new run id
+    assert retried["engine"] == "pandas"  # same config
+    assert retried["input_dataset_id"] == first["input_dataset_id"]
+    assert retried["trigger"] == "retry"
+    assert retried["status"] == "success"
+
+
+async def test_retry_unknown_run_is_404(client: AsyncClient) -> None:
+    r = await client.post("/api/runs/nope/retry")
+    assert r.status_code == 404
+
+
 async def test_flow_last_run_at_populated_after_run(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))

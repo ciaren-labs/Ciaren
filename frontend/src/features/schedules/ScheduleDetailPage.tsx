@@ -59,7 +59,7 @@ export function ScheduleDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       {/* Header */}
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
