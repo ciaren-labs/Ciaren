@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppFooter } from "@/components/layout/AppFooter";
 import { LandingPage } from "@/features/landing/LandingPage";
@@ -15,10 +16,14 @@ import { ProjectsPage } from "@/features/projects/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
 
 export default function App() {
+  // Reset the error boundary on navigation so an error on one page doesn't
+  // strand the user — moving to another route clears the fallback.
+  const location = useLocation();
   return (
     <div className="flex h-full flex-col">
       <AppHeader />
       <main className="min-h-0 flex-1 overflow-y-auto">
+        <ErrorBoundary resetKey={location.pathname}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/flows" element={<FlowListPage />} />
@@ -33,6 +38,7 @@ export default function App() {
           <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
           <Route path="/flows/:flowId" element={<FlowEditorPage />} />
         </Routes>
+        </ErrorBoundary>
       </main>
       <AppFooter />
     </div>
