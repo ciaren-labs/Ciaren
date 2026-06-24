@@ -22,7 +22,7 @@ from typing import Any
 
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE
+from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
@@ -81,7 +81,9 @@ class PolarsCodeGenerator:
 
         var_counter = 0
         eager_counter = 0
-        node_var: dict[str, str] = {}
+        # node id -> {output handle: variable}. Multi-output nodes (trainTestSplit,
+        # mlTrain) expose several handles; downstream edges pick one via sourceHandle.
+        node_outputs: dict[str, dict[str, str]] = {}
         engine_vars: dict[str, str] = {}
 
         def next_var() -> str:
@@ -93,6 +95,16 @@ class PolarsCodeGenerator:
             nonlocal eager_counter
             eager_counter += 1
             return f"_eager_{eager_counter}"
+
+        def source_var(edge: dict[str, Any]) -> str:
+            """The variable an edge carries, honoring sourceHandle for multi-output nodes."""
+            outs = node_outputs[edge["source"]]
+            handle = edge.get("sourceHandle")
+            if handle and handle in outs:
+                return outs[handle]
+            if "out" in outs:
+                return outs["out"]
+            return next(iter(outs.values()))
 
         def schedule_del(node_id: str, var: str) -> None:
             li = last_use.get(node_id)
@@ -114,9 +126,8 @@ class PolarsCodeGenerator:
                 handle = e.get("targetHandle") or "in"
                 if handle in input_vars:
                     handle = f"{handle}_{i}"
-                input_vars[handle] = node_var[e["source"]]
-            out_var = next_var()
-            node_var[node_id] = out_var
+                input_vars[handle] = source_var(e)
+            handles = output_handles(node_type)
             if lazy and not transformation.polars_lazy_safe:
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -129,11 +140,18 @@ class PolarsCodeGenerator:
                         lines.append(f"{etmp} = {lv}.collect()")
                         collected[lv] = etmp
                     eager_inputs[handle] = collected[lv]
-                eager_out = next_eager()
-                lines.append(transformation.to_polars_code(eager_inputs, {"out": eager_out}, config))
-                lines.append(f"{out_var} = {eager_out}.lazy()")
+                eager_outs = {h: next_eager() for h in handles}
+                lines.append(transformation.to_polars_code(eager_inputs, eager_outs, config))
+                outs: dict[str, str] = {}
+                for h in handles:
+                    v = next_var()
+                    lines.append(f"{v} = {eager_outs[h]}.lazy()")
+                    outs[h] = v
+                node_outputs[node_id] = outs
             else:
-                lines.append(transformation.to_polars_code(input_vars, {"out": out_var}, config))
+                outs = {h: next_var() for h in handles}
+                node_outputs[node_id] = outs
+                lines.append(transformation.to_polars_code(input_vars, outs, config))
 
         for idx, node_id in enumerate(order):
             node = nodes_by_id[node_id]
@@ -142,7 +160,7 @@ class PolarsCodeGenerator:
 
             if node_type == SQL_INPUT_TYPE:
                 var = next_var()
-                node_var[node_id] = var
+                node_outputs[node_id] = {"out": var}
                 eng = engine_for(config.get("connection_id", ""))
                 query = (
                     config.get("query", "")
@@ -152,7 +170,7 @@ class PolarsCodeGenerator:
                 read = f"pl.read_database({query!r}, {eng}.connect())"
                 lines.append(f"{var} = {read}.lazy()" if lazy else f"{var} = {read}")
             elif node_type == SQL_OUTPUT_TYPE:
-                src_var = node_var[incoming[node_id][0]["source"]]
+                src_var = source_var(incoming[node_id][0])
                 eng = engine_for(config.get("connection_id", ""))
                 if_exists = config.get("if_exists", "replace")
                 frame = f"{src_var}.collect()" if lazy else src_var
@@ -162,14 +180,14 @@ class PolarsCodeGenerator:
                 )
             elif node_type == "textInput":
                 var = next_var()
-                node_var[node_id] = var
+                node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
                 suffix = ".lazy()" if lazy else ""
                 lines.append(f"with open({path!r}) as _f:")
                 lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
             elif node_type in _INPUT_READ:
                 var = next_var()
-                node_var[node_id] = var
+                node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
                 if lazy and node_type in _INPUT_SCAN:
@@ -179,7 +197,7 @@ class PolarsCodeGenerator:
                     suffix = ".lazy()" if lazy else ""
                     lines.append(f"{var} = {_INPUT_READ[node_type]}({path!r}{extra}){suffix}")
             elif node_type in _OUTPUT_WRITE:
-                src_var = node_var[incoming[node_id][0]["source"]]
+                src_var = source_var(incoming[node_id][0])
                 out_path = config.get("path", "output.csv")
                 frame = f"{src_var}.collect()" if lazy else src_var
                 lines.append(f"{frame}.{_OUTPUT_WRITE[node_type]}({out_path!r})")
@@ -187,8 +205,10 @@ class PolarsCodeGenerator:
                 emit_transformation(node_id, node_type, config)
 
             if emit_del:
-                if node_id in node_var:
-                    schedule_del(node_id, node_var[node_id])
+                outs = node_outputs.get(node_id, {})
+                # Multi-output liveness is ambiguous; only free single-output nodes.
+                if len(outs) == 1:
+                    schedule_del(node_id, next(iter(outs.values())))
                 for dead in pending_del.pop(idx, []):
                     lines.append(f"del {dead}")
 
