@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { projectColor } from "@/lib/projectColors";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -402,6 +403,7 @@ function DatasetTable({
   onSelect: (d: Dataset) => void;
   onAction?: (d: Dataset, kind: "disable" | "enable" | "delete") => void;
 }) {
+  const fmtDate = useFormatDateTime();
   return (
     <div className="overflow-auto rounded-lg border border-border">
       <table className="w-full border-collapse text-xs">
@@ -412,6 +414,7 @@ function DatasetTable({
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Kind</th>
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Columns</th>
             <th className="border-b border-border px-3 py-2 text-left font-semibold">Versions</th>
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">Created</th>
             {onAction && <th className="border-b border-border px-3 py-2" />}
           </tr>
         </thead>
@@ -449,7 +452,10 @@ function DatasetTable({
                 {d.column_schema?.length ?? 0}
               </td>
               <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer" onClick={() => onSelect(d)}>
-                v{d.latest_version} ({d.version_count})
+                {d.version_count > 1 ? `v${d.latest_version} (${d.version_count} versions)` : `v${d.latest_version}`}
+              </td>
+              <td className="border-b border-border px-3 py-2 text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => onSelect(d)}>
+                {fmtDate(d.created_at)}
               </td>
               {onAction && (
                 <td className="border-b border-border px-3 py-2">

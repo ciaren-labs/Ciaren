@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { autoLayout } from "../autoLayout";
+import { applyLayout, autoLayout, LAYOUT_OPTIONS } from "../autoLayout";
 
 // Minimal node with a known rendered size, as React Flow reports via `measured`.
 function node(id: string, width = 180, height = 56): Node {
@@ -171,5 +171,37 @@ describe("autoLayout", () => {
     };
     expect(Math.abs(cy("a") - cy("c"))).toBeLessThan(0.5);
     expect(Math.abs(cy("b") - cy("d"))).toBeLessThan(0.5);
+  });
+
+  it("vertical layout advances along y, horizontal along x", () => {
+    const nodes = [node("a"), node("b"), node("c")];
+    const edges = [edge("a", "b"), edge("b", "c")];
+    const h = posById(applyLayout("horizontal", nodes, edges));
+    expect(h.get("c")!.x).toBeGreaterThan(h.get("a")!.x);
+    expect(Math.abs(h.get("c")!.y - h.get("a")!.y)).toBeLessThan(1);
+
+    const v = posById(applyLayout("vertical", nodes, edges));
+    expect(v.get("c")!.y).toBeGreaterThan(v.get("a")!.y);
+    expect(Math.abs(v.get("c")!.x - v.get("a")!.x)).toBeLessThan(1);
+  });
+
+  it("every layout option returns a position for every node", () => {
+    const nodes = [node("a"), node("b"), node("c"), node("d")];
+    const edges = [edge("a", "b"), edge("a", "c"), edge("b", "d"), edge("c", "d")];
+    for (const opt of LAYOUT_OPTIONS) {
+      const laid = applyLayout(opt.kind, nodes, edges);
+      expect(laid).toHaveLength(4);
+      for (const n of laid) {
+        expect(Number.isFinite(n.position.x)).toBe(true);
+        expect(Number.isFinite(n.position.y)).toBe(true);
+      }
+    }
+  });
+
+  it("grid layout is more compact in width than horizontal for many nodes", () => {
+    const nodes = Array.from({ length: 9 }, (_, i) => node(`n${i}`));
+    const edges = Array.from({ length: 8 }, (_, i) => edge(`n${i}`, `n${i + 1}`));
+    const widthOf = (ns: Node[]) => Math.max(...ns.map((n) => n.position.x)) - Math.min(...ns.map((n) => n.position.x));
+    expect(widthOf(applyLayout("grid", nodes, edges))).toBeLessThan(widthOf(applyLayout("horizontal", nodes, edges)));
   });
 });

@@ -59,6 +59,10 @@ export function RunDag({ graph, results, selectedNodeId, onSelectNode }: RunDagP
         targetHandle: e.targetHandle ?? undefined,
         type: "smoothstep",
         animated: false,
+        // Model-reference edges read purple, matching the editor canvas.
+        ...(e.sourceHandle === "model"
+          ? { style: { stroke: "#a855f7", strokeWidth: 2 } }
+          : {}),
       })),
     [graph.edges],
   );

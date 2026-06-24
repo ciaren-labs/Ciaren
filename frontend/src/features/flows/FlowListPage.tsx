@@ -23,6 +23,7 @@ import {
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
+import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { projectColor } from "@/lib/projectColors";
 import type { Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -401,6 +402,7 @@ function FlowCard({
   onDelete: () => void;
 }) {
   const theme = projectColor(projectColorKey);
+  const fmt = useFormatDateTime();
   return (
     <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
       <button onClick={onOpen} className="flex-1 text-left">
@@ -424,6 +426,11 @@ function FlowCard({
               {projectName}
             </span>
           )}
+        </div>
+        <div className="mt-1.5 text-[11px] text-muted-foreground/80">
+          Created {fmt(flow.created_at)}
+          {" · "}
+          {flow.last_run_at ? `last run ${fmt(flow.last_run_at)}` : "never run"}
         </div>
       </button>
       <div className="mt-3 flex items-center justify-end gap-2 border-t border-border pt-2.5">

@@ -180,6 +180,16 @@ export const mlApi = {
   allExperiments: () => request<MlExperimentSummary[]>(`/ml/experiments`),
   experimentRuns: (experimentId: string) =>
     request<MlExperimentRun[]>(`/ml/experiments/${experimentId}/runs`),
+  setAlias: (modelName: string, alias: string, version: string) =>
+    request<{ model_name: string; alias: string; version: string }>(
+      `/ml/models/${encodeURIComponent(modelName)}/alias`,
+      { method: "POST", body: JSON.stringify({ alias, version }) },
+    ),
+  clearAlias: (modelName: string, alias: string) =>
+    request<{ model_name: string; alias: string; cleared: boolean }>(
+      `/ml/models/${encodeURIComponent(modelName)}/alias/${encodeURIComponent(alias)}`,
+      { method: "DELETE" },
+    ),
 };
 
 // ---- Schedules -------------------------------------------------------------

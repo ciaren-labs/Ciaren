@@ -1,10 +1,18 @@
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { AlertCircle, CheckCircle2, MinusCircle } from "lucide-react";
-import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import type { NodeResultStatus } from "@/lib/types";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+function isModelHandle(handle: string): boolean {
+  return handle === "model";
+}
+
+function topPct(idx: number, count: number): string {
+  return count === 1 ? "50%" : `${((idx + 1) / (count + 1)) * 100}%`;
+}
 
 export interface RunDagNodeData {
   label: string;
@@ -34,7 +42,14 @@ const STATUS_ICON: Record<string, { icon: typeof CheckCircle2; className: string
  * coloured ring indicating status: green = success, red = failed, blue = pending. */
 export function RunDagNode({ data, selected }: NodeProps<RunDagNodeType>) {
   const def = getNodeTypeDef(data.nodeType);
-  const inputHandles = def?.inputHandles ?? ["in"];
+  // Mirror the editor node's handles exactly (incl. optional + multi-output
+  // handles like model/train/test) so the saved edges' sourceHandle/targetHandle
+  // attach — otherwise multi-handle ML nodes render disconnected.
+  const inputHandles = [
+    ...(def?.inputHandles ?? ["in"]),
+    ...(def?.optionalInputHandles ?? []),
+  ];
+  const outputHandles = def ? getOutputHandles(def) : ["out"];
   const Icon = getNodeIcon(data.nodeType);
   const statusIcon = STATUS_ICON[data.status];
 
@@ -54,13 +69,11 @@ export function RunDagNode({ data, selected }: NodeProps<RunDagNodeType>) {
           type="target"
           position={Position.Left}
           isConnectable={false}
-          style={{
-            top:
-              inputHandles.length === 1
-                ? "50%"
-                : `${((idx + 1) / (inputHandles.length + 1)) * 100}%`,
-          }}
-          className="!h-2.5 !w-2.5 !border-2 !border-background !bg-brand-300"
+          style={{ top: topPct(idx, inputHandles.length) }}
+          className={cn(
+            "!h-2.5 !w-2.5 !border-2 !border-background",
+            isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
+          )}
         />
       ))}
 
@@ -83,15 +96,21 @@ export function RunDagNode({ data, selected }: NodeProps<RunDagNodeType>) {
         )}
       </div>
 
-      {def?.hasOutput && (
-        <Handle
-          id="out"
-          type="source"
-          position={Position.Right}
-          isConnectable={false}
-          className="!h-2.5 !w-2.5 !border-2 !border-background !bg-brand-300"
-        />
-      )}
+      {def?.hasOutput &&
+        outputHandles.map((handleId, idx) => (
+          <Handle
+            key={handleId}
+            id={handleId}
+            type="source"
+            position={Position.Right}
+            isConnectable={false}
+            style={{ top: topPct(idx, outputHandles.length) }}
+            className={cn(
+              "!h-2.5 !w-2.5 !border-2 !border-background",
+              isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
+            )}
+          />
+        ))}
     </div>
   );
 }

@@ -325,6 +325,8 @@ export interface Flow {
   is_disabled: boolean;
   created_at: string;
   updated_at: string;
+  /** When this flow last ran (any trigger), or null if it never has. */
+  last_run_at: string | null;
 }
 
 export interface FlowCreate {
@@ -359,6 +361,8 @@ export interface Connection {
   options: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+  /** When the connection was last tested (any test, pass or fail). */
+  last_tested_at: string | null;
 }
 
 export interface ConnectionCreate {
