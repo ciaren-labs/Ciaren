@@ -52,6 +52,50 @@ uv run pytest tests --cov=app --cov-report=term-missing --cov-fail-under=95
 - Coverage is uploaded to Codecov when a `CODECOV_TOKEN` secret is set
   (optional — CI does not fail without it).
 
+## Docker
+
+### Workflow: `docker.yml`
+
+Runs on every pull request and push to `main` that touches `Dockerfile`,
+`docker-compose.yml`, `.dockerignore`, `backend/**`, or `frontend/**`.
+
+#### Jobs
+
+| Job | When | What it tests |
+|-----|------|---------------|
+| `build` | PRs + push to main | Base image (no extras) |
+| `build-ml` | Push to main only | Image with `EXTRAS=ml` |
+| `summary` | Always | Gate check |
+
+#### `build` job (base image)
+
+1. Builds the image with Docker BuildKit (GitHub Actions cache)
+2. Verifies `/app/app/web/index.html` is present inside the image (frontend bundled)
+3. Starts a container and waits up to 90 s for `/health` to respond
+4. Hits `GET /` and checks for an HTML response (frontend served)
+5. Runs `flowframe info` inside the live container (settings resolve correctly)
+6. Runs `flowframe check` inside the live container (DB reachable, engines available)
+
+#### `build-ml` job (ML extras, push only)
+
+Rebuilds with `--build-arg EXTRAS=ml` and verifies:
+- `scikit-learn`, `xgboost`, `lightgbm`, `mlflow` are importable
+- `flowframe check` passes with ML enabled
+
+#### Local equivalent
+
+```bash
+# build
+docker compose build
+
+# run
+docker compose up
+
+# smoke-test
+curl http://localhost:8055/health
+docker compose exec flowframe flowframe check
+```
+
 ## Documentation
 
 ### Workflow: `docs-deploy.yml`

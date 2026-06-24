@@ -78,6 +78,12 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Deployment',
+          items: [
+            { text: 'Docker', link: '/guide/docker' },
+          ],
+        },
+        {
           text: 'Reference',
           items: [
             { text: 'Design System', link: '/guide/design-system' },
