@@ -29,25 +29,16 @@ A drag-and-drop tool for building repeatable data cleaning and transformation wo
 
 ## How It Works
 
-```
-Your Data
-   ↓
-[Upload CSV/Excel]
-   ↓
-[Visual Pipeline Editor]
-   ├─ Filter rows
-   ├─ Rename columns
-   ├─ Drop nulls
-   ├─ Group & aggregate
-   ├─ Join with other data
-   └─ ...
-   ↓
-[Live Preview]
-   ↓
-[Run Pipeline]
-   ↓
-[Download Results + Python Code]
-```
+Upload your data, arrange nodes on a canvas, preview every step, then run the full
+pipeline and export readable Python — all without writing a line of code.
+
+<FlowPipeline :vertical="true" :nodes='[
+  {"type":"input","label":"Upload Data","detail":"CSV, Excel, Parquet, or SQL"},
+  {"type":"clean","label":"Build Your Pipeline","detail":"drag nodes · connect handles · configure each step"},
+  {"type":"clean","label":"Live Preview","detail":"see your data transform on real rows instantly"},
+  {"type":"transform","label":"Run the Full Flow","detail":"executes on polars (or pandas) · saves a run record"},
+  {"type":"output","label":"Download Results + Python Code","detail":"standalone script — runs anywhere without FlowFrame"}
+]' />
 
 ## Who is FlowFrame For?
 
@@ -89,25 +80,18 @@ schedule — see [Scheduling](/guide/scheduling).
 
 ## Quick Preview
 
-Here's what a typical flow looks like:
+Here is what a typical sales-summary pipeline looks like in FlowFrame. Each colored
+card is one node; you drag them from the palette and connect them on the canvas.
 
-```
-[CSV Input: sales.csv]
-          ↓
-[Drop columns: "internal_id", "temp_notes"]
-          ↓
-[Filter rows: amount > 0]
-          ↓
-[Fill nulls: region = "Unknown"]
-          ↓
-[Group by region, Sum amount]
-          ↓
-[Rename columns: sum_amount → total_sales]
-          ↓
-[CSV Output: sales_summary.csv]
-```
-
-You build this in the visual editor by dragging nodes and clicking to configure them.
+<FlowPipeline :nodes='[
+  {"type":"input","label":"CSV Input","detail":"sales.csv"},
+  {"type":"clean","label":"Drop Columns","detail":"remove internal_id, temp_notes"},
+  {"type":"clean","label":"Filter Rows","detail":"amount > 0"},
+  {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},
+  {"type":"transform","label":"Group By + Aggregate","detail":"by region · sum amount"},
+  {"type":"clean","label":"Rename Columns","detail":"sum_amount → total_sales"},
+  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+]' />
 
 ## FAQ
 
