@@ -74,10 +74,21 @@ class PolarsCodeGenerator:
         last_use = last_consumer_index(order, edges) if emit_del else {}
         pending_del: dict[int, list[str]] = {}
 
-        header = ["import polars as pl"]
+        base_header = ["import polars as pl"]
         if graph_has_sql(graph):
-            header = ["import os", "import polars as pl", "from sqlalchemy import create_engine"]
-        lines: list[str] = [*header, ""]
+            base_header = ["import os", "import polars as pl", "from sqlalchemy import create_engine"]
+        # ML nodes emit pandas code; their imports (sklearn, joblib, numpy) plus a
+        # pandas import are collected during the walk and merged into the header so
+        # a polars flow containing an ML node still produces a runnable script.
+        lines: list[str] = []
+        extra_imports: list[str] = []
+        seen_imports: set[str] = set(base_header)
+
+        def add_imports(imports: list[str]) -> None:
+            for imp in imports:
+                if imp not in seen_imports:
+                    seen_imports.add(imp)
+                    extra_imports.append(imp)
 
         var_counter = 0
         eager_counter = 0
@@ -119,15 +130,69 @@ class PolarsCodeGenerator:
                 engine_vars[connection_id] = var
             return engine_vars[connection_id]
 
+        def emit_pandas_bridge(
+            node_id: str,
+            transformation: Any,
+            edges_in: list[dict[str, Any]],
+            handles: tuple[str, ...],
+            config: dict[str, Any],
+        ) -> None:
+            """Run a pandas-bodied node (ML) inside the polars script: convert each
+            polars *frame* input to pandas, run the pandas code, then lift frame
+            outputs back to polars.
+
+            The ``model`` reference an ML flow passes between nodes (mlTrain ->
+            mlPredict / featureImportance) is a fitted estimator object, **not** a
+            frame — identified by ``sourceHandle == "model"`` on its edge and the
+            ``"model"`` output handle. Those never go through pandas/polars
+            conversion; they stay plain Python variables.
+            """
+            pdf_inputs: dict[str, str] = {}
+            converted: dict[str, str] = {}
+            for i, e in enumerate(edges_in):
+                handle = e.get("targetHandle") or "in"
+                if handle in pdf_inputs:
+                    handle = f"{handle}_{i}"
+                src_v = source_var(e)
+                if e.get("sourceHandle") == "model":
+                    pdf_inputs[handle] = src_v  # estimator object — pass through
+                    continue
+                if src_v not in converted:
+                    pdf = next_eager()
+                    # collect() first in lazy mode (the var is a query plan).
+                    expr = f"{src_v}.collect().to_pandas()" if lazy else f"{src_v}.to_pandas()"
+                    lines.append(f"{pdf} = {expr}")
+                    converted[src_v] = pdf
+                pdf_inputs[handle] = converted[src_v]
+            pdf_outs = {h: next_eager() for h in handles}
+            lines.append(transformation.to_polars_code(pdf_inputs, pdf_outs, config))
+            outs: dict[str, str] = {}
+            for h in handles:
+                if h == "model":
+                    outs[h] = pdf_outs[h]  # estimator object — keep as a plain variable
+                    continue
+                v = next_var()
+                suffix = ".lazy()" if lazy else ""
+                lines.append(f"{v} = pl.from_pandas({pdf_outs[h]}){suffix}")
+                outs[h] = v
+            node_outputs[node_id] = outs
+
         def emit_transformation(node_id: str, node_type: str, config: dict[str, Any]) -> None:
             transformation = get_transformation(node_type)
+            handles = output_handles(node_type)
+            if transformation.emits_pandas_code:
+                # The node's to_polars_code is actually pandas (scikit-learn). Bridge
+                # it: hand it pandas frames and lift the pandas results back to polars
+                # so the surrounding (lazy or eager) polars plan is unaffected.
+                add_imports(["import pandas as pd", *transformation.imports(config)])
+                emit_pandas_bridge(node_id, transformation, incoming[node_id], handles, config)
+                return
             input_vars: dict[str, str] = {}
             for i, e in enumerate(incoming[node_id]):
                 handle = e.get("targetHandle") or "in"
                 if handle in input_vars:
                     handle = f"{handle}_{i}"
                 input_vars[handle] = source_var(e)
-            handles = output_handles(node_type)
             if lazy and not transformation.polars_lazy_safe:
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -212,4 +277,9 @@ class PolarsCodeGenerator:
                 for dead in pending_del.pop(idx, []):
                     lines.append(f"del {dead}")
 
-        return "\n".join(lines) + "\n"
+        # ``import x`` lines first (sorted), then ``from x import y`` (sorted),
+        # appended after the fixed polars/sql base header.
+        plain = sorted(i for i in extra_imports if i.startswith("import "))
+        froms = sorted(i for i in extra_imports if not i.startswith("import "))
+        header = [*base_header, *plain, *froms]
+        return "\n".join([*header, "", *lines]) + "\n"

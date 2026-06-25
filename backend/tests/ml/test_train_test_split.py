@@ -1,5 +1,6 @@
 """trainTestSplit node: seed enforcement, split correctness on both engines,
 stratification edge cases, and the min-train-rows guardrail."""
+
 import pandas as pd
 import pytest
 
@@ -172,10 +173,29 @@ def test_executor_routes_train_and_test(tmp_path):
 
 
 def test_to_python_code_compiles():
-    code = NODE.to_python_code(
-        {"in": "df_0"}, {"train": "df_tr", "test": "df_te"}, {"seed": 42, "test_size": 0.2}
-    )
+    code = NODE.to_python_code({"in": "df_0"}, {"train": "df_tr", "test": "df_te"}, {"seed": 42, "test_size": 0.2})
     assert "train_test_split(df_0" in code
     assert "random_state=42" in code
     # with the import prepended, the snippet is valid Python
     compile("\n".join(NODE.imports({}) + [code]), "<gen>", "exec")
+
+
+def test_export_matches_execute_including_index():
+    # The exported splits must equal execute()'s exactly — same rows AND the same
+    # fresh 0..n index (execute resets it; the export must too).
+    import numpy as np
+
+    rng = np.random.RandomState(0)
+    df = pd.DataFrame({"a": rng.rand(50), "b": rng.rand(50), "y": rng.randint(0, 2, 50)})
+    engine = get_engine("pandas")
+    config = {"seed": 1, "test_size": 0.3}
+    res = NODE.execute(engine, {"in": engine.from_pandas(df)}, config)
+    ex_train = engine.to_pandas(res["train"])
+    ex_test = engine.to_pandas(res["test"])
+
+    ns = {"pd": pd, "np": np, "df": df.copy()}
+    for imp in NODE.imports(config):
+        exec(imp, ns)  # noqa: S102
+    exec(NODE.to_python_code({"in": "df"}, {"train": "tr", "test": "te"}, config), ns)  # noqa: S102
+    assert ex_train.equals(ns["tr"])
+    assert ex_test.equals(ns["te"])

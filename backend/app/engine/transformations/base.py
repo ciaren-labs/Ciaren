@@ -52,6 +52,13 @@ class BaseTransformation(ABC):
     #: them (``.collect()`` before, ``.lazy()`` after).
     polars_lazy_safe: bool = True
 
+    #: Whether this node's ``to_polars_code`` actually emits **pandas** code (e.g. ML
+    #: nodes that wrap scikit-learn). The polars code generator bridges these by
+    #: converting inputs to pandas (``.to_pandas()``) and results back
+    #: (``pl.from_pandas(...)``) around the node, and pulls in its ``imports()`` —
+    #: so a polars flow that contains an ML node still produces a runnable script.
+    emits_pandas_code: bool = False
+
     @abstractmethod
     def validate_config(self, config: dict[str, Any]) -> None: ...
 
