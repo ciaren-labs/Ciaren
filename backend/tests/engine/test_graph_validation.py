@@ -205,12 +205,76 @@ def test_cycle_detection_is_iterative_for_large_graphs():
 
     edges.append(_edge("in1", "t0"))
     for i in range(n - 1):
-        edges.append(_edge(f"t{i}", f"t{i+1}"))
-    edges.append(_edge(f"t{n-1}", "out"))
+        edges.append(_edge(f"t{i}", f"t{i + 1}"))
+    edges.append(_edge(f"t{n - 1}", "out"))
 
     validate_graph({"nodes": nodes, "edges": edges})  # must not raise or stack-overflow
 
     # Cyclic: add a back-edge from the last transform to the first
-    edges.append(_edge(f"t{n-1}", "t0"))
+    edges.append(_edge(f"t{n - 1}", "t0"))
     with pytest.raises(GraphValidationError, match="[Cc]ycle"):
         validate_graph({"nodes": nodes, "edges": edges})
+
+
+# -- model handles (model wires are type-checked) ---------------------------
+
+
+def _ml_input(node_id="in1", dataset_id="ds1"):
+    return _node(node_id, "csvInput", {"dataset_id": dataset_id})
+
+
+def test_model_to_model_handle_is_valid():
+    # mlTrain (single model output) -> mlPredict.model + featureImportance.model.
+    graph = {
+        "nodes": [
+            _ml_input(),
+            _node("tr", "mlTrain", {"model_type": "ridge", "target_column": "y", "seed": 1}),
+            _node("pr", "mlPredict"),
+            _node("fi", "featureImportance"),
+            _node("out", "csvOutput"),
+        ],
+        "edges": [
+            _edge("in1", "tr"),
+            _edge("in1", "pr"),  # data into mlPredict's "in"
+            _edge("tr", "pr", "model"),
+            _edge("tr", "fi", "model"),
+            _edge("pr", "out"),
+        ],
+    }
+    validate_graph(graph)
+
+
+def test_model_into_data_input_rejected():
+    # A trained model wired into a node's data "in" handle must be rejected.
+    graph = {
+        "nodes": [
+            _ml_input(),
+            _node("tr", "mlTrain", {"model_type": "ridge", "target_column": "y", "seed": 1}),
+            _node("drop", "dropNulls"),
+            _node("out", "csvOutput"),
+        ],
+        "edges": [
+            _edge("in1", "tr"),
+            _edge("tr", "drop"),  # model -> data input
+            _edge("drop", "out"),
+        ],
+    }
+    with pytest.raises(GraphValidationError, match="model can only connect to a model input"):
+        validate_graph(graph)
+
+
+def test_data_into_model_input_rejected():
+    # A plain dataframe wired into a model input must be rejected.
+    graph = {
+        "nodes": [
+            _ml_input(),
+            _node("fi", "featureImportance"),
+            _node("out", "csvOutput"),
+        ],
+        "edges": [
+            _edge("in1", "fi", "model"),  # data -> model input
+            _edge("fi", "out"),
+        ],
+    }
+    with pytest.raises(GraphValidationError, match="needs a trained model"):
+        validate_graph(graph)

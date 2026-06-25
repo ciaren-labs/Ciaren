@@ -18,7 +18,7 @@ import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
-import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, isModelInputHandle, isModelOutputHandle } from "@/lib/nodeCatalog";
 import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
@@ -81,6 +81,15 @@ export function FlowCanvas() {
       );
       if (!sourceDef?.hasOutput) return false;
       if (!targetDef || targetDef.inputHandles.length === 0) return false;
+      // A model wire only connects a model output to a model input (and vice
+      // versa) — mirrors the backend guard so a model can't be dropped onto a
+      // data input or a dataframe onto a model input.
+      if (
+        isModelOutputHandle(sourceDef, conn.sourceHandle) !==
+        isModelInputHandle(targetDef, conn.targetHandle)
+      ) {
+        return false;
+      }
       const duplicate = edges.some(
         (e) =>
           e.source === conn.source &&
