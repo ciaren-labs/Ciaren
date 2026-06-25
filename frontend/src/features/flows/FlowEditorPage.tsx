@@ -22,7 +22,6 @@ import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
-import type { ParameterSpec } from "@/lib/types";
 import { type NodeTypeDef } from "@/lib/nodeCatalog";
 import { createFlowNode } from "@/lib/createNode";
 import { hasReadyInput } from "@/lib/flowGraph";
@@ -98,9 +97,11 @@ export function FlowEditorPage() {
   };
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
-  // Parameter specs declared on the flow. Held here (like `engine`) and re-attached
-  // to graph_json on save/run, since storeToGraph only carries nodes + edges.
-  const [parameters, setParameters] = useState<ParameterSpec[]>([]);
+  // Parameter specs declared on the flow. Kept in the editor store (so the node
+  // sidebar can surface them) and re-attached to graph_json on save/run, since
+  // storeToGraph only carries nodes + edges.
+  const parameters = useFlowEditorStore((s) => s.parameters);
+  const setParameters = useFlowEditorStore((s) => s.setParameters);
   const createRun = useCreateRun(flowId ?? "");
   const createSchedule = useCreateSchedule();
   const toggleFlow = useToggleFlow();

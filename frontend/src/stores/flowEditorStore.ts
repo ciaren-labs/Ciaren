@@ -8,7 +8,7 @@ import type {
   OnNodesChange,
 } from "@xyflow/react";
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
-import type { GraphNodeData } from "@/lib/types";
+import type { GraphNodeData, ParameterSpec } from "@/lib/types";
 
 export type FlowNodeType = Node<GraphNodeData>;
 export type FlowEdgeType = Edge;
@@ -24,8 +24,11 @@ interface FlowEditorState {
   invalidNodeIds: string[];
   /** Project the current flow belongs to — used to scope the dataset picker. */
   flowProjectId: string | null;
+  /** Parameter specs declared on the current flow (graph_json.parameters). */
+  parameters: ParameterSpec[];
 
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
+  setParameters: (parameters: ParameterSpec[]) => void;
   setInvalidNodeIds: (ids: string[]) => void;
   onNodesChange: OnNodesChange<FlowNodeType>;
   onEdgesChange: OnEdgesChange<FlowEdgeType>;
@@ -54,9 +57,12 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   dirty: false,
   invalidNodeIds: [],
   flowProjectId: null,
+  parameters: [],
 
   setGraph: (nodes, edges) =>
     set({ nodes, edges, dirty: false, selectedNodeId: null }),
+
+  setParameters: (parameters) => set({ parameters }),
 
   setInvalidNodeIds: (ids) =>
     set((state) => {
@@ -145,5 +151,6 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       dirty: false,
       invalidNodeIds: [],
       flowProjectId: null,
+      parameters: [],
     }),
 }));
