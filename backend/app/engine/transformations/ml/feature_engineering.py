@@ -312,9 +312,13 @@ class ReduceDimensionsTransformation(MLTransformation):
         cols_expr = (
             repr(config["columns"]) if config.get("columns") else f"list({src}.select_dtypes(include='number').columns)"
         )
+        # Mirror execute(): an integer component count is capped to the number of
+        # features and rows so the exported script doesn't crash when n_components
+        # exceeds them (a variance fraction in (0, 1) is passed through untouched).
+        n_expr = f"min({n!r}, len(_cols), len({src}))" if isinstance(n, int) else f"{n!r}"
         return (
             f"_cols = {cols_expr}\n"
-            f"_pca = PCA(n_components={n!r}, random_state={config.get('seed')!r})\n"
+            f"_pca = PCA(n_components={n_expr}, random_state={config.get('seed')!r})\n"
             f"_comp = _pca.fit_transform({src}[_cols])\n"
             f"_names = [f'{prefix}_{{i + 1}}' for i in range(_comp.shape[1])]\n"
             f"{dst} = pd.concat([{src}.drop(columns=_cols), "
