@@ -45,6 +45,27 @@ server (`http://host:5000`), a SQLite store (`sqlite:///mlflow.db`), or another
 folder. Every training run and the **ML Models** page read the tracking URI from
 this connection, so changing it re-points MLflow everywhere — no restart needed.
 
+## ML pipeline at a glance
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"churn dataset"},
+    {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
+    {"type":"ml","label":"Scale Features","detail":"normalize numeric cols"},
+    {"type":"ml","label":"Train Model","detail":"Random Forest → MLflow"},
+    {"type":"ml","label":"Predict","detail":"test output + model wire"},
+    {"type":"ml","label":"Evaluate","detail":"accuracy, AUC, F1"},
+    {"type":"output","label":"CSV Output","detail":"save metrics"}
+  ]'
+/>
+
+:::tip Purple model wire
+**Train/Test Split** has two output handles: `train` and `test`. The train handle
+feeds **Scale Features** and then **Train Model**. The test handle feeds the data
+input of **Predict** directly. **Train Model** has a second output — the **model**
+handle — which connects via a purple wire to **Predict**'s model input.
+:::
+
 ## The nodes
 
 Open a flow and expand **Machine Learning** in the node palette:
