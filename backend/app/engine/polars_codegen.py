@@ -22,7 +22,13 @@ from typing import Any
 
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles
+from app.engine.node_kinds import (
+    MODEL_OUTPUT_HANDLES,
+    SQL_INPUT_TYPE,
+    SQL_OUTPUT_TYPE,
+    edge_carries_model,
+    output_handles,
+)
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
@@ -154,7 +160,8 @@ class PolarsCodeGenerator:
                 if handle in pdf_inputs:
                     handle = f"{handle}_{i}"
                 src_v = source_var(e)
-                if e.get("sourceHandle") == "model":
+                src_type = nodes_by_id[e["source"]]["type"]
+                if edge_carries_model(src_type, e.get("sourceHandle")):
                     pdf_inputs[handle] = src_v  # estimator object — pass through
                     continue
                 if src_v not in converted:
@@ -166,9 +173,11 @@ class PolarsCodeGenerator:
                 pdf_inputs[handle] = converted[src_v]
             pdf_outs = {h: next_eager() for h in handles}
             lines.append(transformation.to_polars_code(pdf_inputs, pdf_outs, config))
+            node_type = nodes_by_id[node_id]["type"]
+            model_handles = MODEL_OUTPUT_HANDLES.get(node_type, frozenset())
             outs: dict[str, str] = {}
             for h in handles:
-                if h == "model":
+                if h in model_handles:
                     outs[h] = pdf_outs[h]  # estimator object — keep as a plain variable
                     continue
                 v = next_var()

@@ -63,17 +63,57 @@ ML_OUTPUT_NODES: frozenset[str] = frozenset({"mlTrain"})
 MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {
     # ML: trainTestSplit emits two frames; "train" is the primary (sampled) output.
     "trainTestSplit": ("train", "test"),
-    # ML: mlTrain passes the training frame through ("out", primary) and emits a
-    # one-row model reference frame ("model": run id / model URI / task).
-    "mlTrain": ("out", "model"),
+}
+
+# -- model handles ----------------------------------------------------------
+# A "model" connection carries a trained model, not a dataframe. It is its own
+# kind of wire: a model output may only feed a model input (graph validation
+# enforces this), so a model can never be mis-wired into a data input (or written
+# to a file). mlTrain's single output IS the model; mlPredict / featureImportance
+# consume it on a dedicated "model" input handle.
+
+#: Output handles (by node type) that carry a model rather than a frame.
+MODEL_OUTPUT_HANDLES: dict[str, frozenset[str]] = {
+    "mlTrain": frozenset({"model"}),
+}
+#: Input handles (by node type) that expect a model rather than a frame.
+MODEL_INPUT_HANDLES: dict[str, frozenset[str]] = {
+    "mlPredict": frozenset({"model"}),
+    "featureImportance": frozenset({"model"}),
 }
 
 
 def output_handles(node_type: str) -> tuple[str, ...]:
-    """Declared output handles for a node type (``("out",)`` for single-output)."""
-    return MULTI_OUTPUT_NODES.get(node_type, ("out",))
+    """Declared output handles for a node type.
+
+    Multi-output nodes are listed in ``MULTI_OUTPUT_NODES``; a model-emitting node
+    (mlTrain) declares its single ``"model"`` handle; everything else defaults to
+    the implicit ``"out"``.
+    """
+    if node_type in MULTI_OUTPUT_NODES:
+        return MULTI_OUTPUT_NODES[node_type]
+    model_out = MODEL_OUTPUT_HANDLES.get(node_type)
+    if model_out:
+        return tuple(sorted(model_out))
+    return ("out",)
 
 
 def primary_output_handle(node_type: str) -> str:
     """The handle whose frame represents the node in the run DAG / single-frame views."""
     return output_handles(node_type)[0]
+
+
+def edge_carries_model(source_type: str, source_handle: str | None) -> bool:
+    """Whether an edge leaving ``source_type`` (via ``source_handle``) carries a
+    trained model rather than a dataframe. For a single-output model node (mlTrain)
+    the edge has no ``sourceHandle`` and resolves to its sole model handle."""
+    handles = MODEL_OUTPUT_HANDLES.get(source_type)
+    if not handles:
+        return False
+    resolved = source_handle or primary_output_handle(source_type)
+    return resolved in handles
+
+
+def is_model_input_handle(node_type: str, handle: str) -> bool:
+    """Whether ``handle`` on ``node_type`` expects a model rather than a frame."""
+    return handle in MODEL_INPUT_HANDLES.get(node_type, frozenset())

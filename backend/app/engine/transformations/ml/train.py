@@ -2,11 +2,13 @@
 
 The central ML node. It bundles preprocessing INTO an sklearn ``Pipeline`` so the
 exact transforms used at fit time are reapplied at predict time (no train/serve
-skew, no leakage from upstream nodes fitting on the full dataset). It emits two
-outputs — ``out`` (the training frame, passed through) and ``model`` (a one-row
-reference frame with the MLflow run id / model URI / task) — plus run metadata
-(metrics, cv scores) onto its NodeResult.
+skew, no leakage from upstream nodes fitting on the full dataset). It emits a
+single ``model`` output — a one-row reference frame with the MLflow run id /
+model URI / task — plus run metadata (metrics, cv scores) onto its NodeResult.
+The ``model`` wire is type-checked: it can only feed a model input (mlPredict /
+featureImportance), never a data input.
 """
+
 from __future__ import annotations
 
 import io
@@ -51,9 +53,7 @@ class MLTrainTransformation(MetadataMLTransformation):
                 if not isinstance(features, list) or not all(isinstance(c, str) for c in features):
                     raise ValueError("mlTrain 'feature_columns' must be a list of column names.")
                 if target in features:
-                    raise ValueError(
-                        f"mlTrain: target_column {target!r} is also in feature_columns — data leakage."
-                    )
+                    raise ValueError(f"mlTrain: target_column {target!r} is also in feature_columns — data leakage.")
         if config.get("cross_validate"):
             folds = config.get("cv_folds", 5)
             if not isinstance(folds, int) or isinstance(folds, bool) or folds < 2:
@@ -91,12 +91,12 @@ class MLTrainTransformation(MetadataMLTransformation):
         import pandas as pd
 
         spec = get_model_spec(config["model_type"])
-        # During preview we must not fit a model or create an MLflow run: pass the
-        # training frame through and hand downstream a placeholder model reference.
+        # During preview we must not fit a model or create an MLflow run: hand
+        # downstream a placeholder model reference so the graph still resolves.
         if in_preview():
             placeholder = pd.DataFrame([{"mlflow_run_id": None, "model_uri": None, "task_type": spec.task}])
             return (
-                {"out": inputs["in"], "model": engine.from_pandas(placeholder)},
+                {"model": engine.from_pandas(placeholder)},
                 NodeMetadata(task_type=spec.task),
             )
 
@@ -108,9 +108,7 @@ class MLTrainTransformation(MetadataMLTransformation):
         if n < MIN_TRAIN_ROWS:
             raise ValueError(f"mlTrain: need at least {MIN_TRAIN_ROWS} rows to train (got {n}).")
         if n > settings.ML_MAX_TRAINING_ROWS:
-            raise ValueError(
-                f"mlTrain: {n} rows exceeds ML_MAX_TRAINING_ROWS ({settings.ML_MAX_TRAINING_ROWS})."
-            )
+            raise ValueError(f"mlTrain: {n} rows exceeds ML_MAX_TRAINING_ROWS ({settings.ML_MAX_TRAINING_ROWS}).")
         if n < SMALL_TRAIN_ROWS:
             logger.warning("mlTrain: training on only %d rows — results may be unreliable.", n)
 
@@ -151,9 +149,7 @@ class MLTrainTransformation(MetadataMLTransformation):
 
         run_id, model_uri = self._log_to_mlflow(config, pipeline, features, metrics, n, seed, x)
 
-        model_ref = pd.DataFrame(
-            [{"mlflow_run_id": run_id, "model_uri": model_uri, "task_type": spec.task}]
-        )
+        model_ref = pd.DataFrame([{"mlflow_run_id": run_id, "model_uri": model_uri, "task_type": spec.task}])
         meta = NodeMetadata(
             ml_metrics=metrics,
             mlflow_run_id=run_id,
@@ -161,7 +157,7 @@ class MLTrainTransformation(MetadataMLTransformation):
             task_type=spec.task,
             cv_scores=cv_scores,
         )
-        return {"out": engine.from_pandas(pdf), "model": engine.from_pandas(model_ref)}, meta
+        return {"model": engine.from_pandas(model_ref)}, meta
 
     # -- helpers -------------------------------------------------------------
 
@@ -176,13 +172,9 @@ class MLTrainTransformation(MetadataMLTransformation):
     def _warn_id_leakage(self, pdf: Any, features: list[str]) -> None:
         for col in features:
             if pdf[col].nunique(dropna=False) == len(pdf) and len(pdf) > 1:
-                logger.warning(
-                    "mlTrain: column %r has a unique value per row — possible ID leakage.", col
-                )
+                logger.warning("mlTrain: column %r has a unique value per row — possible ID leakage.", col)
 
-    def _build_pipeline(
-        self, config: dict[str, Any], features: list[str], pdf: Any, spec: Any, seed: int
-    ) -> Any:
+    def _build_pipeline(self, config: dict[str, Any], features: list[str], pdf: Any, spec: Any, seed: int) -> Any:
         from sklearn.pipeline import Pipeline
 
         estimator = build_estimator(config["model_type"], config.get("hyperparameters"), seed)
@@ -281,8 +273,7 @@ class MLTrainTransformation(MetadataMLTransformation):
         size_mb = buf.tell() / 1_000_000
         if size_mb > max_mb:
             raise ValueError(
-                f"mlTrain: trained model is {size_mb:.1f} MB, over the "
-                f"{max_mb} MB limit (ML_MAX_MODEL_SIZE_MB)."
+                f"mlTrain: trained model is {size_mb:.1f} MB, over the {max_mb} MB limit (ML_MAX_MODEL_SIZE_MB)."
             )
 
     def _log_to_mlflow(
@@ -405,11 +396,8 @@ class MLTrainTransformation(MetadataMLTransformation):
 
     # -- code export ---------------------------------------------------------
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src = input_vars["in"]
-        out = output_vars.get("out", "df_out")
         model_var = output_vars.get("model", "model")
         target = config.get("target_column")
         features = config.get("feature_columns")
@@ -438,7 +426,6 @@ class MLTrainTransformation(MetadataMLTransformation):
                 f"{model_var} = {pipeline_expr}",
                 f"{model_var}.fit(X)",
             ]
-        lines.append(f"{out} = {src}")
         return "\n".join(lines)
 
     _SCALER_CLASSES = {
