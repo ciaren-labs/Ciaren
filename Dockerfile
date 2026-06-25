@@ -31,7 +31,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # ── Install Python dependencies (layer cached until lockfile changes) ──────────
-COPY backend/pyproject.toml backend/uv.lock ./
+# hatch_build.py is referenced by the wheel build hook in pyproject.toml;
+# hatchling loads it when the project is installed below (even in editable mode),
+# so it must be present in the build context.
+COPY backend/pyproject.toml backend/uv.lock backend/hatch_build.py ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     extra_flags=""; \

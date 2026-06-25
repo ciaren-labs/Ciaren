@@ -6,6 +6,7 @@ must be a supported, non-pickle format. MLflow URIs are resolved by the MLflow
 client (returns the logged sklearn Pipeline); local ``.joblib`` files load with
 joblib. Pickles are refused before any code can run.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,7 +29,7 @@ def load_model(uri: str) -> Any:
         from app.ml.tracking import configure_mlflow
 
         mlflow = configure_mlflow()
-        import mlflow.sklearn  # noqa: F811 - load the submodule onto the configured client
+        import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
 
         return mlflow.sklearn.load_model(safe)
 
