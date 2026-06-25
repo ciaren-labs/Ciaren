@@ -13,6 +13,27 @@ an order history. This shows off **Join**, **Group by + Aggregate**, and
 **You'll use:** two CSV Inputs → Group by + Aggregate → Rename → Join → Bin Column
 → Sort → CSV Output.
 
+The key pattern here is a **fork-join**: two separate CSV inputs feed into a single
+Join node. The left branch aggregates orders first; the right branch is the raw
+customer list.
+
+<ForkJoin
+  :left='[
+    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"transform","label":"Group By + Aggregate","detail":"sum amount, count orders per customer"},
+    {"type":"clean","label":"Rename Columns","detail":"amount→total_spent · order_id→num_orders"}
+  ]'
+  :right='[
+    {"type":"input","label":"CSV Input","detail":"customers.csv"}
+  ]'
+  :join='{"label":"Join","detail":"on: customer_id · how: left"}'
+  :after='[
+    {"type":"transform","label":"Bin Column","detail":"total_spent → tier (Bronze/Silver/Gold)"},
+    {"type":"clean","label":"Sort Rows","detail":"total_spent desc"},
+    {"type":"output","label":"CSV Output","detail":"segments.csv"}
+  ]'
+/>
+
 ## Sample data
 
 `customers.csv`:
@@ -72,12 +93,28 @@ df_7.to_csv("segments.csv", index=False)
 
 ## Result
 
-| customer_id | total_spent | num_orders | name | country | tier |
-| --- | --- | --- | --- | --- | --- |
-| 2 | 500.00 | 1 | Grace | US | Gold |
-| 4 | 250.00 | 2 | Margaret | US | Silver |
-| 1 | 100.00 | 2 | Ada | UK | Bronze |
-| 3 | 15.00 | 1 | Linus | FI | Bronze |
+Each customer now has their total spend, order count, and assigned tier.
+
+<DataTransform
+  transform="Full pipeline"
+  :before='{
+    "columns":["order_id","customer_id","amount"],
+    "rows":[
+      [5001,1,40.00],[5002,1,60.00],[5003,2,500.00],
+      [5004,3,15.00],[5005,4,220.00],[5006,4,30.00]
+    ]
+  }'
+  :after='{
+    "columns":["customer_id","name","country","total_spent","num_orders","tier"],
+    "rows":[
+      [2,"Grace","US",500.00,1,"Gold"],
+      [4,"Margaret","US",250.00,2,"Silver"],
+      [1,"Ada","UK",100.00,2,"Bronze"],
+      [3,"Linus","FI",15.00,1,"Bronze"]
+    ]
+  }'
+  :highlight='["total_spent","num_orders","tier"]'
+/>
 
 ## Tips
 
