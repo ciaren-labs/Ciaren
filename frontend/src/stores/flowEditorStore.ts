@@ -41,6 +41,7 @@ interface FlowEditorState {
   setSidebarOpen: (open: boolean) => void;
   setPreviewOpen: (open: boolean) => void;
   markClean: () => void;
+  markDirty: () => void;
   reset: () => void;
 }
 
@@ -133,6 +134,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPreviewOpen: (open) => set({ previewOpen: open }),
   markClean: () => set({ dirty: false }),
+  markDirty: () => set({ dirty: true }),
   reset: () =>
     set({
       nodes: [],
