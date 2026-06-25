@@ -5,6 +5,7 @@ import { useDatasets } from "@/features/datasets/hooks";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
 import { cleanStaleColumnRefs, computeNodeColumns, getDownstreamNodeIds, isInputType } from "@/lib/flowGraph";
+import { referencedParameters } from "@/lib/parameters";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export function NodeSidebar() {
   const removeNode = useFlowEditorStore((s) => s.removeNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
+  const parameters = useFlowEditorStore((s) => s.parameters);
   const { data: datasets } = useDatasets(flowProjectId ?? undefined);
   const [hasErrors, setHasErrors] = useState(false);
   const [schemaWarning, setSchemaWarning] = useState(0);
@@ -54,6 +56,11 @@ export function NodeSidebar() {
   const theme = CATEGORY_THEME[def?.category ?? "clean"];
   const Icon = getNodeIcon(node.type);
   const columns = columnsByNode.get(node.id)?.input ?? [];
+
+  // Flow parameters the user can drop into config fields with {{ name }}, plus
+  // any reference in this node's config that doesn't match a declared parameter.
+  const paramNames = new Set(parameters.map((p) => p.name));
+  const unknownRefs = [...referencedParameters(node.data.config)].filter((r) => !paramNames.has(r));
 
   const handleConfigChange = (newConfig: Record<string, unknown>) => {
     // When a file-input node's dataset changes, scan downstream nodes for
@@ -135,6 +142,35 @@ export function NodeSidebar() {
               onErrors={setHasErrors}
             />
           </div>
+
+          {parameters.length > 0 && (
+            <div className="rounded-md bg-muted/50 px-2.5 py-2 text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground">Flow parameters</span> — insert into any
+              field with <code className="rounded bg-background px-1">{"{{ name }}"}</code>:
+              <div className="mt-1 flex flex-wrap gap-1">
+                {parameters.map((p) => (
+                  <code
+                    key={p.name}
+                    className="rounded border border-border bg-background px-1 py-0.5"
+                    title={`${p.type}${p.description ? ` — ${p.description}` : ""}`}
+                  >
+                    {`{{ ${p.name} }}`}
+                  </code>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {unknownRefs.length > 0 && (
+            <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                References unknown parameter{unknownRefs.length > 1 ? "s" : ""}{" "}
+                <span className="font-medium">{unknownRefs.join(", ")}</span> — declare{" "}
+                {unknownRefs.length > 1 ? "them" : "it"} in Parameters, or fix the reference.
+              </span>
+            </p>
+          )}
 
           {schemaWarning > 0 && (
             <div className="flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700 border border-amber-200">

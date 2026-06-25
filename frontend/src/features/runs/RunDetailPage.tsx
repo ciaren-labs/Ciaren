@@ -13,7 +13,7 @@ import { formatDuration } from "@/lib/format";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
-import type { InputDatasetRef, NodeResult } from "@/lib/types";
+import type { InputDatasetRef, NodeResult, ParameterValues } from "@/lib/types";
 
 const OUTPUT_NODE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
 
@@ -131,7 +131,12 @@ export function RunDetailPage() {
           {selected ? (
             <NodeInspector result={selected} runId={runId ?? ""} />
           ) : (
-            <RunSummary results={results} inputs={inputs} datasetName={datasetName} />
+            <RunSummary
+              results={results}
+              inputs={inputs}
+              datasetName={datasetName}
+              parameters={run.parameters}
+            />
           )}
         </aside>
       </div>
@@ -143,11 +148,14 @@ function RunSummary({
   results,
   inputs,
   datasetName,
+  parameters,
 }: {
   results: NodeResult[];
   inputs: InputDatasetRef[];
   datasetName: Map<string, string>;
+  parameters: ParameterValues | null;
 }) {
+  const paramEntries = Object.entries(parameters ?? {});
   const counts = results.reduce(
     (acc, r) => ({ ...acc, [r.status]: (acc[r.status] ?? 0) + 1 }),
     {} as Record<string, number>,
@@ -173,6 +181,24 @@ function RunSummary({
                 {d.version_number != null && (
                   <span className="text-muted-foreground">v{d.version_number}</span>
                 )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {paramEntries.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Parameters
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {paramEntries.map(([name, value]) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs shadow-sm"
+              >
+                <code className="font-medium">{name}</code>
+                <span className="text-muted-foreground">{JSON.stringify(value)}</span>
               </span>
             ))}
           </div>
