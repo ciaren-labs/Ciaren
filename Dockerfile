@@ -30,6 +30,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# xgboost / lightgbm (the ml extra) link against the GNU OpenMP runtime, which the
+# slim base image doesn't ship. Install it only when an ml build is requested.
+RUN if echo "$EXTRAS" | tr ',' ' ' | grep -qw ml; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends libgomp1 && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # ── Install Python dependencies (layer cached until lockfile changes) ──────────
 # hatch_build.py is referenced by the wheel build hook in pyproject.toml;
 # hatchling loads it when the project is installed below (even in editable mode),
