@@ -47,8 +47,16 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
 | `catch_up` | `false` | Run slots missed while the server was down |
 | `max_retries` | `0` | Retries for a failed run before giving up to the next slot |
 | `retry_delay_seconds` | `60` | Base backoff between retries |
+| `parameters` | null | [Flow-parameter](./parameters.md) overrides applied to every run this schedule fires |
 
 The UI includes a cron builder so you don't have to hand-write expressions.
+
+::: tip Parameterized flows
+If the flow declares [parameters](./parameters.md), the schedule form shows a
+**Parameter values** section. Values you set there apply to every run this
+schedule fires; blanks fall back to each parameter's default — so one flow can
+back several schedules that differ only by their parameter values.
+:::
 
 ## How it decides what to run
 
