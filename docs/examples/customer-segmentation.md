@@ -73,7 +73,7 @@ df_7.to_csv("segments.csv", index=False)
 ## Result
 
 | customer_id | total_spent | num_orders | name | country | tier |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 2 | 500.00 | 1 | Grace | US | Gold |
 | 4 | 250.00 | 2 | Margaret | US | Silver |
 | 1 | 100.00 | 2 | Ada | UK | Bronze |

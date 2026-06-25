@@ -17,7 +17,7 @@ Keep a slice of rows.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `n` | int | Yes | Number of rows to keep (≥ 1) |
 | `offset` | int | No | Skip this many rows first (default 0) |
 

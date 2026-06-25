@@ -17,7 +17,7 @@ capture groups.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Text column to split |
 | `mode` | string | No | `delimiter` (default) or `regex` |
 | `delimiter` | string | Conditional | Delimiter to split on (required for `delimiter` mode) |

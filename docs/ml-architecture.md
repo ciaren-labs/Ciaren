@@ -113,7 +113,7 @@ handle missing drivers today (`ConnectionCard` disabled state with pip hint).
 ### Why these specific libraries
 
 | Library | Rationale |
-|---|---|
+| --- | --- |
 | **scikit-learn** | Unified API (`fit`/`predict`/`transform`), Pipeline-compatible, every algorithm documented |
 | **XGBoost** | Best single-model performance on tabular data; sklearn-compatible API |
 | **LightGBM** | Faster than XGBoost on large datasets; handles categoricals natively |
@@ -143,7 +143,7 @@ These are pure dataframe → dataframe transforms. They fit the current `BaseTra
 contract with zero executor changes. Register in `app/engine/registry.py`.
 
 | Node type | Operation | Key config fields |
-|---|---|---|
+| --- | --- | --- |
 | `scaleFeatures` | StandardScaler / MinMaxScaler / RobustScaler | `method`, `columns` |
 | `encodeCategories` | OneHotEncoder / OrdinalEncoder / TargetEncoder | `method`, `columns`, `drop_first` |
 | `selectFeatures` | Variance threshold, SelectKBest, correlation filter | `method`, `k`, `threshold` |
@@ -224,7 +224,7 @@ Config:
 **Supported model types (v1):**
 
 | Task | Model type string | Library |
-|---|---|---|
+| --- | --- | --- |
 | Binary classification | `logistic_regression`, `random_forest_classifier`, `xgboost_classifier`, `lightgbm_classifier`, `svm_classifier`, `knn_classifier` | sklearn / xgboost / lgbm |
 | Multiclass | Same strings — task inferred from target cardinality | |
 | Regression | `linear_regression`, `ridge`, `lasso`, `random_forest_regressor`, `xgboost_regressor`, `lightgbm_regressor`, `svr` | sklearn / xgboost / lgbm |
@@ -722,7 +722,7 @@ A FlowFrame ML run is reproducible if you can reproduce the same model from the 
 The following are recorded on every ML training run:
 
 | What | Where stored | How used |
-|---|---|---|
+| --- | --- | --- |
 | `graph_json` snapshot | `FlowRun.graph_snapshot_json` (NEW FIELD) | Re-run exact same graph |
 | `DatasetVersion.id` | `FlowRun.input_datasets_json` (existing) | Exact data snapshot |
 | `seed` | `mlTrain` config + MLflow param | Deterministic split + model |
@@ -916,7 +916,7 @@ glance: blue = data flow, purple = model flow.
 Covers cases that are not obvious and would otherwise produce silent failures or confusing errors:
 
 | Situation | Behavior |
-|---|---|
+| --- | --- |
 | `feature_columns` contains a column dropped upstream | `ValidationError` at graph validation time (column schema propagated through nodes) |
 | Training set has only one class after split | `ValidationError`: `"Training set has only 1 class for 'churn'. Use stratify or increase train_size."` |
 | Model fit raises `ConvergenceWarning` | Captured as `NodeResult.warning`; run still succeeds |

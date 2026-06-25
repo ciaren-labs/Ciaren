@@ -76,9 +76,9 @@ FlowFrame also generates the **polars** equivalent — pick whichever you prefer
 ## Result
 
 | region | total_sales | num_orders |
-|--------|-------------|------------|
-| North  | 330.50      | 2          |
-| South  | 89.00       | 1          |
+| -------- | ------------- | ------------ |
+| North | 330.50 | 2 |
+| South | 89.00 | 1 |
 
 (The refund and the missing-amount rows were filtered out; the row with no region
 became `Unknown`.)

@@ -21,7 +21,7 @@ running or scheduling, and what the exported Python looks like.
 In the flow editor, click **Parameters** in the top bar. Each parameter has:
 
 | Field | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | **Name** | Yes | An identifier (letters, digits, underscores; can't start with a digit). Used as `{{ name }}` and as the variable name in exported code. |
 | **Type** | Yes | `string`, `integer`, `number`, or `boolean`. Controls how values are coerced. |
 | **Default** | No | Used when no value is supplied. **Leave blank to make the parameter required** at run time. |

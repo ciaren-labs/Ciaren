@@ -50,7 +50,7 @@ this connection, so changing it re-points MLflow everywhere — no restart neede
 Open a flow and expand **Machine Learning** in the node palette:
 
 | Node | What it does |
-|---|---|
+| --- | --- |
 | **Train / Test Split** | Splits rows into `train` and `test` outputs (seed required). |
 | **Scale Features** | Standardize / normalize numeric columns. |
 | **Encode Categories** | One-hot or ordinal encoding for text columns. |

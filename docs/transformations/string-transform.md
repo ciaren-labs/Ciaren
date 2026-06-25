@@ -17,7 +17,7 @@ Apply a string operation to a column.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Column to transform |
 | `operation` | string | Yes | `lower`, `upper`, `strip`, `title`, `capitalize`, `len`, `replace`, `pad` |
 | `find` | string | Conditional | Required for `replace` |

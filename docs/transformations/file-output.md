@@ -17,7 +17,7 @@ Write the upstream frame to a file. This is usually the last node in a pipeline.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `dataset_name` | string | Yes | Name for the produced dataset/file |
 
 The result is written to the run's output location and registered as a dataset

@@ -16,7 +16,7 @@ Round numeric columns to a number of decimals.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Numeric columns to round |
 | `decimals` | int | No | Decimal places (default 0) |
 

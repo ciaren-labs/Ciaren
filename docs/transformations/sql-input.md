@@ -19,7 +19,7 @@ scheduled flows always process **fresh data**.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `connection_id` | string | Yes | The connection to read from |
 | `mode` | string | No | `table` (default) or `query` |
 | `table` | string | Conditional | Table name (required in `table` mode) |

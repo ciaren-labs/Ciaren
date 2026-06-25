@@ -16,7 +16,7 @@ Remove rows with missing values.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `how` | string | No | `any` (default) drops a row with any null; `all` only if every value is null |
 | `subset` | string[] | No | Only consider these columns |
 

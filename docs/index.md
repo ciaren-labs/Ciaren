@@ -120,7 +120,7 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 ## Why FlowFrame?
 
 | Feature | Details |
-|---------|---------|
+| --------- | --------- |
 | **Visual Editor** | Build pipelines by connecting nodes — no code required |
 | **Code Export** | Every flow generates a readable, standalone Python script |
 | **Local-First** | Runs entirely on your machine — no accounts, no cloud |

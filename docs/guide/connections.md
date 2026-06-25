@@ -38,7 +38,7 @@ scrubbed from driver error messages.
 ## Supported databases
 
 | Provider | Driver (optional) | Install |
-|----------|-------------------|---------|
+| ---------- | ------------------- | --------- |
 | PostgreSQL | `psycopg` | `pip install flowframe[postgres]` |
 | MySQL / MariaDB | `pymysql` | `pip install flowframe[mysql]` |
 | SQLite | built-in | — |
