@@ -19,7 +19,7 @@ the other way: datetime → parts).
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Text columns to parse |
 | `format` | string | No | strptime format (e.g. `%d-%m-%Y`); empty = auto-detect |
 | `errors` | string | No | `coerce` (default, bad values → null) or `raise` |

@@ -68,7 +68,7 @@ df_8.to_csv("contacts_clean.csv", index=False)
 ## Result
 
 | name | email | age |
-|------|-------|-----|
+| ------ | ------- | ----- |
 | Ada Lovelace | `ada@example.com` | 36 |
 | Grace Hopper | `grace@example.com` | 85 |
 

@@ -21,7 +21,7 @@ Splits incoming rows into a training set and a test set. **Two outputs:** `train
 and `test` — wire each to the right place.
 
 | Field | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Test size | number (0–1) | Fraction held out for testing. |
 | Stratify by | column | Optional. Preserves class balance across splits. |
 | Random seed | integer | **Required** — the same seed reproduces the split. |
@@ -62,7 +62,7 @@ and the MLflow experiment name.
 Supported models:
 
 | Task | Models |
-|---|---|
+| --- | --- |
 | Classification | Logistic Regression, Random Forest, XGBoost, LightGBM, SVM, KNN |
 | Regression | Linear, Ridge, Lasso, Random Forest, SVR, XGBoost, LightGBM |
 | Clustering | K-Means, DBSCAN, Agglomerative |
@@ -76,7 +76,7 @@ and row/feature/model-size limits are enforced before training starts.
 Scores rows with a trained model, adding a prediction column.
 
 | Field | Notes |
-|---|---|
+| --- | --- |
 | Model URI | Optional. By alias `models:/churn@production` or version `models:/churn/1` (MLflow 3 uses `@alias`, not `/Stage`). Leave empty to use the wired model. |
 | Prediction column | Name of the new output column (default `prediction`). |
 | Probability columns | Optional, classifiers — one name per class. |

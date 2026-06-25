@@ -18,7 +18,7 @@ Convert column data types.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `casts` | object | Yes | `{ "col": "dtype" }` — dtype is `integer`, `float`, `boolean`, `string`, or `datetime` |
 | `format` | string | No | datetime parse format (e.g. `%Y-%m-%d`) |
 | `errors` | string | No | `raise` (default) or `coerce` (invalid → null) |

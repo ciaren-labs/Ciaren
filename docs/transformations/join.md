@@ -18,7 +18,7 @@ nodes — connect one upstream node to its **left** handle and another to its
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `on` | string \| string[] | Conditional | Key(s) present in both frames |
 | `left_on` / `right_on` | string \| string[] | Conditional | Use when key names differ (supply both) |
 | `how` | string | No | `inner` (default), `left`, `right`, `outer` |

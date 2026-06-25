@@ -19,7 +19,7 @@ new column.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `function` | string | Yes | `row_number`, `rank`, `dense_rank`, `cumcount`, `cumsum`, `cummax`, `cummin`, `lag`, `lead` |
 | `new_column` | string | Yes | Name of the column to add |
 | `partition_by` | string[] | No | Restart the window within each group (empty = whole table) |

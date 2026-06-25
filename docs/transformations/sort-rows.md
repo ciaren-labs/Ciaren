@@ -17,7 +17,7 @@ Sort by one or more columns.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Sort keys (in priority order) |
 | `ascending` | bool \| bool[] | No | Default `true`; pass a list for per-column direction |
 | `na_position` | string | No | `last` (default) or `first` |

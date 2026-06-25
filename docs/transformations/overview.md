@@ -33,7 +33,7 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 ## Quick overview
 
 | Category | Nodes |
-|----------|-------|
+| ---------- | ------- |
 | **Input** | [File (CSV/Excel/Parquet)](./file-input.md), [SQL](./sql-input.md) |
 | **Columns** | [Drop](./drop-columns.md), [Rename](./rename-columns.md), [Select](./select-columns.md), [Cast types](./cast-types.md) |
 | **Nulls** | [Drop nulls](./drop-nulls.md), [Fill nulls](./fill-nulls.md) |
@@ -47,7 +47,7 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 ## Choosing the right node
 
 | I want to... | Use |
-|--------------|-----|
+| -------------- | ----- |
 | Remove columns | [Drop columns](./drop-columns.md) |
 | Fix column names | [Rename columns](./rename-columns.md) |
 | Keep only some columns | [Select columns](./select-columns.md) |
@@ -80,7 +80,7 @@ are kept at parity by a test suite that runs each node on both.
 ## Current limitations
 
 | Limitation | Workaround |
-|-----------|-----------|
+| ----------- | ----------- |
 | Join takes two inputs at a time | Chain multiple join nodes |
 | `rank`/`dense_rank` rank by a single order column | Pre-sort, or use a calculated key |
 | `calculatedColumn` evaluates arithmetic expressions | For complex logic, use [Conditional column](./conditional-column.md), or export and edit the Python |

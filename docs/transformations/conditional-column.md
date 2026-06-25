@@ -19,7 +19,7 @@ conditions with **match ALL** (AND) or **match ANY** (OR).
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `new_column` | string | Yes | Name of the column to add |
 | `rules` | object[] | Yes | Ordered rules: `{ match, conditions, result }` |
 | `default` | any | No | Value when no rule matches |

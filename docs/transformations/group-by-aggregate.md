@@ -16,7 +16,7 @@ Group rows and compute aggregates.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `group_by` | string[] | Yes | Grouping columns |
 | `aggregations` | object | Yes | `{ "col": "func" }` |
 
