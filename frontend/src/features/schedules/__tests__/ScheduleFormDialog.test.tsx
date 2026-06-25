@@ -63,6 +63,33 @@ describe("ScheduleFormDialog parameter overrides", () => {
     expect(screen.getByRole("button", { name: /create schedule/i })).toBeDisabled();
   });
 
+  it("uses live parameterSpecs (editor) even when the saved flow has none", async () => {
+    // Saved flow has no parameters; the editor passes just-declared specs.
+    const noParamFlow = { ...FLOW, graph_json: { nodes: [], edges: [] } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const body = String(url).includes("/api/flows") ? [noParamFlow] : [];
+        return { ok: true, status: 200, json: async () => body };
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ScheduleFormDialog
+          open
+          onOpenChange={() => {}}
+          lockedFlowId="f1"
+          parameterSpecs={[{ name: "keep", type: "integer", default: 2 }]}
+          submitting={false}
+          error={null}
+          onSubmit={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByLabelText("value-keep")).toHaveValue("2");
+  });
+
   it("submits coerced parameter overrides", async () => {
     const user = userEvent.setup();
     const onSubmit = renderForm();
