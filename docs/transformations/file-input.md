@@ -68,6 +68,6 @@ df_1 = pd.read_csv("log.txt", sep="\n", header=None, names=["text"], engine="pyt
 ## See also
 
 - [SQL input](./sql-input.md) — read live from a database instead of a file
-- [Storage input](./storage-input.md) — read files from S3, GCS, Azure Blob, or a local folder
+- [Database Connections](/guide/connections) — read files from S3, GCS, Azure Blob, or a local folder via a storage connection
 - [Projects & Runs](/guide/projects-and-runs) — datasets, versions, and runs
 - [Datasets API](/api/datasets)
