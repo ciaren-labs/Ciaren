@@ -565,7 +565,7 @@ function UploadDropzone({
 }: {
   dragging: boolean;
   upload: ReturnType<typeof useUploadDataset>;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDrop: (e: React.DragEvent) => void;
   setDragging: (v: boolean) => void;
