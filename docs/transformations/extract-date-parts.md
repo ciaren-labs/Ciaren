@@ -16,7 +16,7 @@ Add columns for parts of a date/datetime column.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Date/datetime column |
 | `parts` | string[] | Yes | Any of `year`, `month`, `day`, `weekday`, `hour` |
 

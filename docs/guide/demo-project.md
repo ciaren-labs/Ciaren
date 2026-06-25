@@ -35,7 +35,7 @@ duplicates, inconsistent casing, and dates stored as text — so the example flo
 have something realistic to clean.
 
 | Dataset | Rows | Columns | What's messy |
-|---------|------|---------|--------------|
+| --------- | ------ | --------- | -------------- |
 | `customers.csv` | 60 | `id, name, email, signup_date, country, age` | `signup_date` is **text**; `country` casing is inconsistent (`usa`/`USA`/`Usa`); `age` has nulls and two absurd outliers (199, 0) |
 | `orders.csv` | 123 | `order_id, customer_id, order_date, amount, status` | `order_date` is **text**; `amount` has two huge outliers; **3 duplicate rows** |
 | `products.csv` | 12 | `product_id, category, price, rating` | `price` has nulls |

@@ -16,7 +16,7 @@ Reshape wide → long (pandas `melt`).
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `id_vars` | string[] | Yes | Columns to keep as identifiers |
 | `value_vars` | string[] | No | Columns to unpivot (defaults to the rest) |
 | `var_name` | string | No | Name for the variable column (default `variable`) |

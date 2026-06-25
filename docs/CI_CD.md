@@ -62,7 +62,7 @@ Runs on every pull request and push to `main` that touches `Dockerfile`,
 #### Jobs
 
 | Job | When | What it tests |
-|-----|------|---------------|
+| ----- | ------ | --------------- |
 | `build` | PRs + push to main | Base image (no extras) |
 | `build-ml` | Push to main only | Image with `EXTRAS=ml` |
 | `summary` | Always | Gate check |

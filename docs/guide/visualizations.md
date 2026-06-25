@@ -23,7 +23,7 @@ it re-draws from the data already loaded, so there's no waiting.
 ## Chart types
 
 | Type | What it shows | Inputs |
-|------|---------------|--------|
+| ------ | --------------- | -------- |
 | **Histogram** | Distribution of a numeric column | column, bin count |
 | **Value counts** | Frequency of each distinct value | column |
 | **Bar** | A value aggregated by category | category (x), value (y), aggregate |

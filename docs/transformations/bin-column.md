@@ -16,7 +16,7 @@ Bucket a numeric column into labeled bins (a new column).
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Numeric column to bin |
 | `new_column` | string | Yes | Name of the new bin column |
 | `bins` | int | No | Number of bins (≥ 2, default 4) |

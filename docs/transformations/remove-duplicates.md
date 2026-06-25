@@ -16,7 +16,7 @@ Drop duplicate rows.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `subset` | string[] | No | Only consider these columns when deciding duplicates |
 | `keep` | string \| false | No | `first` (default), `last`, or `false` (drop all duplicates) |
 

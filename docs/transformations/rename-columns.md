@@ -17,7 +17,7 @@ Rename columns via an old → new mapping.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `mapping` | object | Yes | `{ "old_name": "new_name" }` |
 
 ## Generated Python code

@@ -16,7 +16,7 @@ Take a random sample.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `n` | int | Conditional | Number of rows (use this **or** `frac`) |
 | `frac` | float | Conditional | Fraction in `(0, 1]` |
 | `seed` | int | No | Random seed for reproducibility |

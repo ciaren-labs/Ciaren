@@ -17,7 +17,7 @@ Keep rows matching a condition.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Column to test |
 | `operator` | string | Yes | See operators below |
 | `value` | any | Conditional | Required except for `isnull` / `notnull` |

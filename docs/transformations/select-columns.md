@@ -16,7 +16,7 @@ Keep only the listed columns (and reorder them).
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Columns to keep, in order |
 
 ## Generated Python code

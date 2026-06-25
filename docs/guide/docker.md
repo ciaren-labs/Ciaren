@@ -39,7 +39,7 @@ the server starts, so the initial boot takes a few extra seconds.
 ## Image layout
 
 | Path inside container | Purpose |
-|-----------------------|---------|
+| ----------------------- | --------- |
 | `/app/` | FlowFrame source + virtual environment (`/app/.venv/`) |
 | `/app/app/web/` | Built React frontend (served by FastAPI at runtime) |
 | `/data/` | **Persistent volume** — SQLite DB, uploads, run outputs, MLflow |
@@ -80,7 +80,7 @@ Extras are installed at **build time** via the `EXTRAS` build argument. Pass a
 comma-separated list:
 
 | Extra | Adds |
-|-------|------|
+| ------- | ------ |
 | `ml` | scikit-learn, XGBoost, LightGBM, MLflow — enables ML nodes |
 | `postgres` | asyncpg + psycopg — PostgreSQL support |
 | `mysql` | pymysql — MySQL support |

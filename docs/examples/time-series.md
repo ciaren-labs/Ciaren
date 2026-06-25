@@ -68,7 +68,7 @@ df_6.to_csv("monthly_summary.csv", index=False)
 ## Result
 
 | occurred_at_year | occurred_at_month | total_value | num_events |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 2024 | 1 | 24.0 | 2 |
 | 2024 | 2 | 30.0 | 2 |
 | 2024 | 3 | 30.0 | 2 |

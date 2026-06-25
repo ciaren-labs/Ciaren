@@ -16,7 +16,7 @@ Substitute values in a column.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Column to edit |
 | `to_replace` | any | Yes | Value (or regex pattern) to find |
 | `value` | any | Yes | Replacement value |
