@@ -292,7 +292,7 @@ class MLTrainTransformation(MetadataMLTransformation):
             from app.ml.tracking import configure_mlflow
 
             mlflow = configure_mlflow()
-            import mlflow.sklearn  # noqa: F811 - load the submodule onto the configured client
+            import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
 
             mlflow.set_experiment(config.get("mlflow_experiment") or "flowframe")
             params = {

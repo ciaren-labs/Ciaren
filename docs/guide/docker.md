@@ -14,7 +14,7 @@ data persistence, and zero Node.js or Python tooling required on the host.
 ## Prerequisites
 
 - [Docker Desktop](https://docs.docker.com/get-docker/) 24+ (or Docker Engine
-  + Docker Compose v2)
+  - Docker Compose v2)
 - No other dependencies — the image includes Python 3.13, all backend packages,
   and the pre-built frontend
 
@@ -134,11 +134,13 @@ services:
 ## Using PostgreSQL
 
 1. Rebuild with the `postgres` extra:
+
    ```bash
    EXTRAS=postgres docker compose build
    ```
 
 2. Set the database URL at runtime:
+
    ```bash
    FLOWFRAME_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/flowframe \
      docker compose up

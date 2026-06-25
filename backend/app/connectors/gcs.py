@@ -9,6 +9,7 @@ Security:
 - google-sdk debug logging is silenced.
 - All errors are scrubbed of the key path before propagation.
 """
+
 from __future__ import annotations
 
 import io
@@ -29,9 +30,7 @@ def _client(spec: StorageSpec) -> Any:
     try:
         from google.cloud import storage as gcs
     except ImportError as exc:
-        raise ConnectorError(
-            "google-cloud-storage is not installed. Run: pip install flowframe[gcs]"
-        ) from exc
+        raise ConnectorError("google-cloud-storage is not installed. Run: pip install flowframe[gcs]") from exc
 
     project = spec.extra.get("project_id") or None
     credentials_path = spec.secret  # env var resolves to a local file path
@@ -40,14 +39,12 @@ def _client(spec: StorageSpec) -> Any:
         try:
             from google.oauth2 import service_account
 
-            creds = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call]
+            creds = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call, unused-ignore]
                 credentials_path,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
         except Exception as exc:
-            raise ConnectorError(
-                f"Failed to load GCS service-account key from {credentials_path!r}: {exc}"
-            ) from None
+            raise ConnectorError(f"Failed to load GCS service-account key from {credentials_path!r}: {exc}") from None
         return gcs.Client(credentials=creds, project=project)
 
     # Fall back to Application Default Credentials (no explicit key file).
@@ -98,13 +95,9 @@ class GCSConnector:
         except ConnectorError:
             raise
         except Exception as exc:
-            raise ConnectorError(
-                f"Failed to parse gs://{spec.bucket}/{path} as {fmt}: {exc}"
-            ) from None
+            raise ConnectorError(f"Failed to parse gs://{spec.bucket}/{path} as {fmt}: {exc}") from None
 
-    def write_file(
-        self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str
-    ) -> None:
+    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         client = _client(spec)
         blob = client.bucket(spec.bucket).blob(path)
 

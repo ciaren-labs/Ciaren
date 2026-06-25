@@ -79,6 +79,7 @@ Runs on every pull request and push to `main` that touches `Dockerfile`,
 #### `build-ml` job (ML extras, push only)
 
 Rebuilds with `--build-arg EXTRAS=ml` and verifies:
+
 - `scikit-learn`, `xgboost`, `lightgbm`, `mlflow` are importable
 - `flowframe check` passes with ML enabled
 
