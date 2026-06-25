@@ -1,5 +1,6 @@
 """Regression tests for audit fixes: preview short-circuits ML nodes (no fit/log),
 train-only flows validate, and featureImportance uses the default 'in' handle."""
+
 import pytest
 
 from app.engine.backends import get_engine
@@ -26,8 +27,8 @@ def test_mltrain_preview_does_not_fit_or_log(ml_env):
     config = {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1}
     with preview_mode():
         out, meta = MLTrainTransformation().execute_with_metadata(engine, {"in": engine.from_pandas(df)}, config)
-    # passthrough training data on "out", placeholder model ref, no MLflow run
-    assert engine.row_count(out["out"]) == len(df)
+    # single "model" output: a placeholder reference, no MLflow run
+    assert set(out) == {"model"}
     model_ref = engine.to_pandas(out["model"])
     assert model_ref.loc[0, "model_uri"] is None
     assert meta.mlflow_run_id is None
@@ -43,15 +44,18 @@ def test_preview_mode_skips_training_in_full_flow(ml_env, tmp_path):
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1}},
+            },
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
     }
     paths = {dataset_ref_key("ds1", None): csv}
     with preview_mode():
         frames = FlowExecutor().compute_frames(graph, paths, get_engine("pandas"), require_output=False)
-    # mlTrain's primary "out" handle = passthrough training data
+    # mlTrain's single "model" output resolves to a placeholder model reference
     assert "tr" in frames
 
 
@@ -63,8 +67,11 @@ def test_train_only_flow_is_valid():
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "ridge", "target_column": "y", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "ridge", "target_column": "y", "seed": 1}},
+            },
         ],
         "edges": [
             {"id": "e1", "source": "in1", "target": "sp"},
@@ -94,8 +101,11 @@ def test_train_only_flow_runs_and_logs(ml_env, tmp_path):
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "logistic_regression", "target_column": "target", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "logistic_regression", "target_column": "target", "seed": 1}},
+            },
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
     }
@@ -107,34 +117,38 @@ def test_train_only_flow_runs_and_logs(ml_env, tmp_path):
     assert by_id["tr"].model_uri  # model was trained + logged
 
 
-# -- featureImportance uses the default 'in' handle -------------------------
+# -- featureImportance consumes the model on its "model" handle -------------
 
 
-def test_feature_importance_uses_in_handle(ml_env):
+def test_feature_importance_uses_model_handle(ml_env):
     engine = get_engine("pandas")
     df = classification_df()
     out, _ = MLTrainTransformation().execute_with_metadata(
-        engine, {"in": engine.from_pandas(df)},
+        engine,
+        {"in": engine.from_pandas(df)},
         {"model_type": "random_forest_classifier", "target_column": "target", "seed": 0},
     )
-    result, _ = FeatureImportanceTransformation().execute_with_metadata(engine, {"in": out["model"]}, {})
+    result, _ = FeatureImportanceTransformation().execute_with_metadata(engine, {"model": out["model"]}, {})
     assert set(engine.to_pandas(result["out"])["feature_name"]) == {"x1", "x2"}
-    assert FeatureImportanceTransformation().input_handles == ("in",)
+    assert FeatureImportanceTransformation().input_handles == ("model",)
 
 
 def test_feature_importance_graph_wiring_validates():
-    # mlTrain "model" -> featureImportance "in" (default handle), then to an output.
+    # mlTrain (single model output) -> featureImportance "model" handle -> output.
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "ridge", "target_column": "y", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "ridge", "target_column": "y", "seed": 1}},
+            },
             {"id": "fi", "type": "featureImportance", "data": {"config": {}}},
             {"id": "out", "type": "csvOutput", "data": {"config": {}}},
         ],
         "edges": [
             {"id": "e1", "source": "in1", "target": "tr"},
-            {"id": "e2", "source": "tr", "target": "fi", "sourceHandle": "model"},
+            {"id": "e2", "source": "tr", "target": "fi", "targetHandle": "model"},
             {"id": "e3", "source": "fi", "target": "out"},
         ],
     }

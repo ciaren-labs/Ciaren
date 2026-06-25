@@ -18,9 +18,9 @@ from app.engine.transformations.ml.base import MetadataMLTransformation
 
 class FeatureImportanceTransformation(MetadataMLTransformation):
     type = "featureImportance"
-    # The single input is mlTrain's "model" reference frame. Using the default
-    # "in" handle keeps edge wiring conventional (no special targetHandle needed).
-    input_handles = ("in",)
+    # The single input is a trained model, so it arrives on a dedicated "model"
+    # handle (type-checked like mlPredict's) — not a data "in" handle.
+    input_handles = ("model",)
 
     def validate_config(self, config: dict[str, Any]) -> None:
         top_n = config.get("top_n")
@@ -34,11 +34,11 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
 
         # During preview we don't load the model; pass the reference frame through.
         if in_preview():
-            return {"out": inputs["in"]}, None
+            return {"out": inputs["model"]}, None
 
         from app.ml.loader import load_model
 
-        ref = engine.to_pandas(inputs["in"])
+        ref = engine.to_pandas(inputs["model"])
         if ref.empty or "model_uri" not in ref.columns or pd.isna(ref.iloc[0]["model_uri"]):
             raise ValueError("featureImportance: the model input has no usable model_uri.")
         uri = str(ref.iloc[0]["model_uri"])
@@ -102,7 +102,7 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
-        model_var = input_vars.get("in", "model")
+        model_var = input_vars.get("model", "model")
         top_n = config.get("top_n")
         # Mirror execute(): pull importances from the inner estimator, then recover
         # *real* feature names from the fitted preprocessor (post one-hot names,

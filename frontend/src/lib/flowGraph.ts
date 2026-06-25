@@ -246,6 +246,9 @@ function outputColumns(
       return ["metric", "value"];
     case "featureImportance":
       return ["feature_name", "importance", "rank"];
+    case "mlTrain":
+      // mlTrain's single output is a model reference, not the training data.
+      return ["mlflow_run_id", "model_uri", "task_type"];
     case "reduceDimensions": {
       const cols = asStringArray(config.columns);
       const n = typeof config.n_components === "number" ? config.n_components : 0;

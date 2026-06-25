@@ -280,7 +280,7 @@ def test_polars_ml_export_runs_end_to_end(tmp_path, lazy):
             {"id": "e4", "source": "tr", "target": "pr", "sourceHandle": "model", "targetHandle": "model"},
             {"id": "e5", "source": "pr", "target": "ev"},
             {"id": "e6", "source": "ev", "target": "out"},
-            {"id": "e7", "source": "tr", "target": "fi", "sourceHandle": "model"},
+            {"id": "e7", "source": "tr", "target": "fi", "targetHandle": "model"},
             {"id": "e8", "source": "fi", "target": "out2"},
         ],
     }

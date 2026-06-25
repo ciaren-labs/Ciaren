@@ -1,5 +1,6 @@
 """mlTrain: training across tasks, MLflow logging, CV, leakage detection, the
 guardrail limits, and reproducibility. MLflow is pointed at a temp dir."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -55,7 +56,8 @@ def test_classification_trains_and_logs(ml_env, engine_name):
         {"model_type": "random_forest_classifier", "target_column": "target", "seed": 42},
         engine_name,
     )
-    assert set(out) == {"out", "model"}
+    # mlTrain emits a single "model" output (the trained model reference).
+    assert set(out) == {"model"}
     assert meta.task_type == "classification"
     # MLflow 3 returns a logged-model URI (models:/m-...); older returns runs:/...
     assert meta.model_uri and meta.model_uri.startswith(("models:/", "runs:/"))
@@ -64,8 +66,6 @@ def test_classification_trains_and_logs(ml_env, engine_name):
     # model reference frame carries the URI downstream.
     model_ref = engine.to_pandas(out["model"])
     assert model_ref.loc[0, "model_uri"] == meta.model_uri
-    # passthrough frame is unchanged row-count.
-    assert engine.row_count(out["out"]) == 120
 
 
 def test_pinned_requirements_match_installed(ml_env):
@@ -112,8 +112,13 @@ def test_regression_trains(ml_env):
 def test_cross_validation_records_scores(ml_env):
     _, _, meta = _train(
         _classification_df(),
-        {"model_type": "logistic_regression", "target_column": "target",
-         "seed": 3, "cross_validate": True, "cv_folds": 4},
+        {
+            "model_type": "logistic_regression",
+            "target_column": "target",
+            "seed": 3,
+            "cross_validate": True,
+            "cv_folds": 4,
+        },
     )
     assert meta.cv_scores is not None and len(meta.cv_scores) == 4
     assert "cv_mean" in meta.ml_metrics
@@ -132,8 +137,12 @@ def test_preprocessing_handles_categorical(ml_env):
     df["cat"] = (["a", "b", "c"] * 40)[: len(df)]
     _, _, meta = _train(
         df,
-        {"model_type": "logistic_regression", "target_column": "target", "seed": 5,
-         "feature_columns": ["x1", "x2", "cat"]},
+        {
+            "model_type": "logistic_regression",
+            "target_column": "target",
+            "seed": 5,
+            "feature_columns": ["x1", "x2", "cat"],
+        },
     )
     # onehot of the categorical column inside the pipeline -> training succeeds.
     assert "train_accuracy" in meta.ml_metrics
@@ -141,10 +150,12 @@ def test_preprocessing_handles_categorical(ml_env):
 
 def test_kmeans_clustering(ml_env):
     rng = np.random.RandomState(0)
-    df = pd.DataFrame({
-        "x": np.concatenate([rng.normal(0, 0.3, 50), rng.normal(5, 0.3, 50)]),
-        "y": np.concatenate([rng.normal(0, 0.3, 50), rng.normal(5, 0.3, 50)]),
-    })
+    df = pd.DataFrame(
+        {
+            "x": np.concatenate([rng.normal(0, 0.3, 50), rng.normal(5, 0.3, 50)]),
+            "y": np.concatenate([rng.normal(0, 0.3, 50), rng.normal(5, 0.3, 50)]),
+        }
+    )
     _, _, meta = _train(df, {"model_type": "kmeans", "seed": 0, "hyperparameters": {"n_clusters": 2}})
     assert meta.task_type == "clustering"
     assert meta.model_uri
@@ -174,10 +185,14 @@ def test_unknown_model_type_rejected():
 
 def test_target_in_features_is_leakage():
     with pytest.raises(ValueError, match="leakage"):
-        NODE.validate_config({
-            "model_type": "ridge", "target_column": "y", "seed": 1,
-            "feature_columns": ["a", "y"],
-        })
+        NODE.validate_config(
+            {
+                "model_type": "ridge",
+                "target_column": "y",
+                "seed": 1,
+                "feature_columns": ["a", "y"],
+            }
+        )
 
 
 def test_supervised_requires_target():
@@ -194,16 +209,23 @@ def test_too_few_rows_rejected(ml_env):
 def test_cv_folds_exceeding_rows_rejected(ml_env):
     df = _classification_df(n=12)
     with pytest.raises(ValueError, match="CV"):
-        _train(df, {"model_type": "logistic_regression", "target_column": "target",
-                    "seed": 1, "cross_validate": True, "cv_folds": 20})
+        _train(
+            df,
+            {
+                "model_type": "logistic_regression",
+                "target_column": "target",
+                "seed": 1,
+                "cross_validate": True,
+                "cv_folds": 20,
+            },
+        )
 
 
 def test_model_size_limit_enforced(ml_env, monkeypatch):
     monkeypatch.setenv("FLOWFRAME_ML_MAX_MODEL_SIZE_MB", "0")
     get_settings.cache_clear()
     with pytest.raises(ValueError, match="MB limit"):
-        _train(_classification_df(),
-               {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1})
+        _train(_classification_df(), {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1})
 
 
 def test_feature_column_limit_via_schema(monkeypatch):
@@ -211,9 +233,7 @@ def test_feature_column_limit_via_schema(monkeypatch):
     get_settings.cache_clear()
     schema = MLSchema(columns=["a", "b", "c", "target"], row_count=100)
     with pytest.raises(ValueError, match="ML_MAX_FEATURE_COLUMNS"):
-        NODE.validate_with_schema(
-            {"model_type": "ridge", "target_column": "target", "seed": 1}, schema
-        )
+        NODE.validate_with_schema({"model_type": "ridge", "target_column": "target", "seed": 1}, schema)
     get_settings.cache_clear()
 
 
@@ -222,17 +242,14 @@ def test_training_row_limit_via_schema(monkeypatch):
     get_settings.cache_clear()
     schema = MLSchema(columns=["a", "target"], row_count=100)
     with pytest.raises(ValueError, match="ML_MAX_TRAINING_ROWS"):
-        NODE.validate_with_schema(
-            {"model_type": "ridge", "target_column": "target", "seed": 1}, schema
-        )
+        NODE.validate_with_schema({"model_type": "ridge", "target_column": "target", "seed": 1}, schema)
     get_settings.cache_clear()
 
 
 def test_missing_feature_column_rejected(ml_env):
     df = _classification_df()
     with pytest.raises(ValueError, match="not found"):
-        _train(df, {"model_type": "ridge", "target_column": "target", "seed": 1,
-                    "feature_columns": ["x1", "ghost"]})
+        _train(df, {"model_type": "ridge", "target_column": "target", "seed": 1, "feature_columns": ["x1", "ghost"]})
 
 
 # -- through the executor ----------------------------------------------------
@@ -243,16 +260,19 @@ def test_executor_runs_train_and_attaches_metadata(ml_env, tmp_path):
     _classification_df().to_csv(csv, index=False)
     out_dir = tmp_path / "out"
     out_dir.mkdir()
+    # mlTrain is a valid terminal (it persists the model to MLflow), so this is a
+    # complete train-only flow — no file-output node needed.
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target", "seed": 42}}},
-            {"id": "o", "type": "csvOutput", "data": {"config": {}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 42}},
+            },
         ],
         "edges": [
             {"id": "e1", "source": "in1", "target": "tr"},
-            {"id": "e2", "source": "tr", "target": "o", "sourceHandle": "out"},
         ],
     }
     paths = {dataset_ref_key("ds1", None): csv}
