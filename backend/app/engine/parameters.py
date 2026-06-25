@@ -22,6 +22,7 @@ Reference syntax inside a string config value:
 from __future__ import annotations
 
 import copy
+import keyword
 import re
 from typing import Any
 
@@ -32,6 +33,10 @@ from app.core.enums import ParameterType
 _REF = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _FULL_REF = re.compile(r"^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$")
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Names that would collide with the exported scripts' own identifiers (a parameter
+# becomes a top-level variable), producing broken or wrong Python. Python keywords
+# would be a SyntaxError; the module aliases would shadow `import pandas as pd` etc.
+_RESERVED_PARAM_NAMES = frozenset({"pd", "pl", "np", "os", "df"})
 
 
 class ParameterError(ValueError):
@@ -145,6 +150,12 @@ def _build_specs_by_name(specs: list[dict[str, Any]]) -> dict[str, dict[str, Any
             raise ParameterError(
                 f"Invalid parameter name {name!r}: must start with a letter or underscore "
                 "and contain only letters, digits and underscores."
+            )
+        if keyword.iskeyword(name) or keyword.issoftkeyword(name):
+            raise ParameterError(f"Parameter name {name!r} is a Python keyword — choose another.")
+        if name in _RESERVED_PARAM_NAMES:
+            raise ParameterError(
+                f"Parameter name {name!r} is reserved (it would clash with the exported code) — choose another."
             )
         if name in specs_by_name:
             raise ParameterError(f"Duplicate parameter name {name!r}.")

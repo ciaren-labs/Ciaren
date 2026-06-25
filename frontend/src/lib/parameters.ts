@@ -41,7 +41,11 @@ export function coerceDefault(
       return { ok: true, value: text };
     case "integer": {
       if (!/^[+-]?\d+$/.test(trimmed)) return { ok: false };
-      return { ok: true, value: Number(trimmed) };
+      const n = Number(trimmed);
+      // Reject values past 2^53 — JS loses integer precision, so the number sent
+      // to the backend would silently differ from what was typed.
+      if (!Number.isSafeInteger(n)) return { ok: false };
+      return { ok: true, value: n };
     }
     case "number": {
       const n = Number(trimmed);

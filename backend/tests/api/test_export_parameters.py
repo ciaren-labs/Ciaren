@@ -59,6 +59,50 @@ async def test_export_renders_parameters_as_variables(client: AsyncClient) -> No
         compile(script, "<export>", "exec")
 
 
+async def test_numeric_node_parameter_renders_as_variable_not_fallback(client: AsyncClient) -> None:
+    # roundNumbers' codegen used to coerce decimals with int(), raising on a
+    # parameter reference and silently stripping ALL parameterization from the
+    # script. It must now render the reference as a variable and keep the block.
+    ds = await _upload(client)
+    graph = {
+        "parameters": [
+            {"name": "keep", "type": "integer", "default": 2},
+            {"name": "ndp", "type": "integer", "default": 1},
+        ],
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "lim", "type": "limitRows", "data": {"config": {"n": "{{ keep }}"}}},
+            {"id": "rnd", "type": "roundNumbers", "data": {"config": {"columns": ["v"], "decimals": "{{ ndp }}"}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "lim"},
+            {"id": "e2", "source": "lim", "target": "rnd"},
+            {"id": "e3", "source": "rnd", "target": "out1"},
+        ],
+    }
+    flow = await _create_flow(client, graph)
+    body = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()
+
+    for script in (body["code"], body["polars"], body["polars_lazy"]):
+        assert "# Flow parameters" in script  # not stripped by a fallback
+        assert "ndp = 1" in script
+        assert "keep = 2" in script
+        assert ".round(ndp)" in script  # the parameter reference, not the literal 1
+        assert ".head(keep)" in script
+        compile(script, "<export>", "exec")
+
+
+async def test_keyword_parameter_name_rejected_at_save(client: AsyncClient) -> None:
+    graph = {
+        "parameters": [{"name": "class", "type": "integer", "default": 1}],
+        "nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}],
+        "edges": [],
+    }
+    r = await client.post("/api/flows", json={"name": "kw", "graph_json": graph})
+    assert r.status_code == 400, r.text
+
+
 async def test_malformed_parameters_rejected_at_save(client: AsyncClient) -> None:
     # Duplicate parameter name.
     graph = {

@@ -256,7 +256,10 @@ export function FlowEditorPage() {
                 <div className="flex items-center overflow-hidden rounded-md border border-input">
                   <select
                     value={engine}
-                    onChange={(e) => setEngine(e.target.value as "pandas" | "polars")}
+                    onChange={(e) => {
+                      setEngine(e.target.value as "pandas" | "polars");
+                      markDirty();
+                    }}
                     title="Execution engine"
                     className="h-9 border-r border-input bg-background px-2 text-xs font-medium focus-visible:outline-none"
                   >
@@ -381,6 +384,7 @@ export function FlowEditorPage() {
         open={scheduleOpen}
         onOpenChange={setScheduleOpen}
         lockedFlowId={flow.id}
+        parameterSpecs={parameters}
         submitting={createSchedule.isPending}
         error={createSchedule.error}
         onSubmit={(flowId, body) =>
