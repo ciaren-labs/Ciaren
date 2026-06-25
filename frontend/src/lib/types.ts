@@ -201,6 +201,8 @@ export interface FlowRun {
   error_message: string | null;
   logs_json: unknown;
   node_results: NodeResult[] | null;
+  /** Resolved flow-parameter values this run executed with (null if none). */
+  parameters: ParameterValues | null;
   created_at: string;
 }
 
@@ -263,6 +265,8 @@ export interface Schedule {
   retry_count: number;
   /** Set when the scheduler auto-disabled a chronically failing schedule. */
   disabled_reason: string | null;
+  /** Flow-parameter overrides applied to every run this schedule fires. */
+  parameters: ParameterValues | null;
   created_at: string;
   updated_at: string;
 }
@@ -277,6 +281,7 @@ export interface ScheduleCreate {
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;
+  parameters?: ParameterValues | null;
 }
 
 export interface ScheduleUpdate {
@@ -289,7 +294,32 @@ export interface ScheduleUpdate {
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;
+  parameters?: ParameterValues | null;
 }
+
+// ---- Flow parameters -------------------------------------------------------
+
+/** Declared type of a flow parameter (mirrors the backend ParameterType enum). */
+export type ParameterType = "string" | "integer" | "number" | "boolean";
+export const PARAMETER_TYPES: readonly ParameterType[] = [
+  "string",
+  "integer",
+  "number",
+  "boolean",
+];
+
+/** A parameter declared on a flow, stored in graph_json.parameters. Node configs
+ *  reference it via `{{ name }}`; values resolve at run/preview/schedule time. */
+export interface ParameterSpec {
+  name: string;
+  type: ParameterType;
+  /** Default value (already typed). Absent/null means the parameter is required. */
+  default?: unknown;
+  description?: string | null;
+}
+
+/** Resolved or override parameter values keyed by name. */
+export type ParameterValues = Record<string, unknown>;
 
 // React Flow compatible graph stored in flow.graph_json.
 export interface GraphNodeData {
@@ -318,6 +348,8 @@ export interface GraphJson {
   edges: GraphEdge[];
   /** Engine persisted with the graph so the editor restores the last choice. */
   engine?: "pandas" | "polars";
+  /** Parameters declared on the flow (referenced by node configs via {{ name }}). */
+  parameters?: ParameterSpec[];
 }
 
 export interface Flow {
@@ -421,6 +453,8 @@ export interface FlowPreviewRequest {
   node_id?: string;
   limit?: number;
   profile?: boolean;
+  /** Flow-parameter overrides so the preview reflects the values a run would use. */
+  parameters?: ParameterValues | null;
 }
 
 export interface TransformationPreviewRequest {
