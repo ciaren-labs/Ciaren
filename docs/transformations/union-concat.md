@@ -15,6 +15,28 @@ order.
 - Combine monthly files into one dataset.
 - Append a new batch to an existing one before further cleaning.
 
+## What it does
+
+Stacks all connected inputs row-wise in connection order. Column alignment happens
+by name: inputs with different schemas produce null for missing columns.
+
+<DataTransform
+  transform="Union / Concat (Input A + Input B stacked)"
+  :before='{
+    "columns":["region","amount"],
+    "rows":[["North",100],["South",80]]
+  }'
+  :after='{
+    "columns":["region","amount"],
+    "rows":[["North",100],["South",80],["East",150],["West",90]]
+  }'
+/>
+
+:::tip
+The **Before** pane above shows Input A; the **After** pane shows the stacked result
+after appending Input B (`East/150`, `West/90`). Connect as many inputs as you need.
+:::
+
 ## Configuration
 
 This node has **no configuration** — it stacks whatever inputs are connected.

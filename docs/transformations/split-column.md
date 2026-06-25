@@ -14,6 +14,28 @@ capture groups.
 - Split a full name into `first` / `last`.
 - Break a code like `A-100` into its parts with a regex.
 
+## What it does
+
+Splits the source column on the delimiter (or regex capture groups) and writes
+one new column per name in `into`. Rows with fewer parts leave trailing columns null.
+
+<DataTransform
+  transform="Split column (column=full_name, delimiter=space, into=[first, last])"
+  :before='{
+    "columns":["id","full_name"],
+    "rows":[[1,"Ada Lovelace"],[2,"Grace Hopper"],[3,"Linus Torvalds"]]
+  }'
+  :after='{
+    "columns":["id","full_name","first","last"],
+    "rows":[
+      [1,"Ada Lovelace","Ada","Lovelace"],
+      [2,"Grace Hopper","Grace","Hopper"],
+      [3,"Linus Torvalds","Linus","Torvalds"]
+    ]
+  }'
+  :highlight='["first","last"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
