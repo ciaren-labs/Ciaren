@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRunValues,
   coerceDefault,
+  defaultText,
+  isRequired,
   referencedParameters,
   specToRow,
   validateRows,
   type ParamRow,
 } from "@/lib/parameters";
+import type { ParameterSpec } from "@/lib/types";
 
 const row = (over: Partial<ParamRow> = {}): ParamRow => ({
   name: "p",
@@ -87,6 +91,49 @@ describe("specToRow", () => {
     expect(specToRow({ name: "n", type: "integer", default: 5 })).toMatchObject({ defaultText: "5" });
     expect(specToRow({ name: "n", type: "string", default: null })).toMatchObject({ defaultText: "" });
     expect(specToRow({ name: "n", type: "string" })).toMatchObject({ defaultText: "" });
+  });
+});
+
+describe("isRequired / defaultText", () => {
+  it("treats absent or null default as required", () => {
+    expect(isRequired({ name: "n", type: "string" })).toBe(true);
+    expect(isRequired({ name: "n", type: "string", default: null })).toBe(true);
+    expect(isRequired({ name: "n", type: "integer", default: 0 })).toBe(false);
+  });
+
+  it("renders defaultText, including falsy defaults", () => {
+    expect(defaultText({ name: "n", type: "integer", default: 0 })).toBe("0");
+    expect(defaultText({ name: "b", type: "boolean", default: false })).toBe("false");
+    expect(defaultText({ name: "n", type: "string" })).toBe("");
+  });
+});
+
+describe("buildRunValues", () => {
+  const specs: ParameterSpec[] = [
+    { name: "keep", type: "integer", default: 2 },
+    { name: "label", type: "string" }, // required
+  ];
+
+  it("coerces supplied values and errors on missing required", () => {
+    const { errors, values } = buildRunValues(specs, { keep: "5" });
+    expect(values).toBeNull();
+    expect(errors.get("label")).toMatch(/required/i);
+  });
+
+  it("omits blank optional fields so defaults apply", () => {
+    const { values } = buildRunValues(specs, { keep: "", label: "x" });
+    expect(values).toEqual({ label: "x" });
+  });
+
+  it("errors on an invalid typed override", () => {
+    const { errors, values } = buildRunValues(specs, { keep: "abc", label: "x" });
+    expect(values).toBeNull();
+    expect(errors.get("keep")).toMatch(/valid integer/i);
+  });
+
+  it("returns an empty object when everything falls back to defaults", () => {
+    const { values } = buildRunValues([{ name: "keep", type: "integer", default: 2 }], {});
+    expect(values).toEqual({});
   });
 });
 

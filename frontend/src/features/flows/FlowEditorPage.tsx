@@ -34,6 +34,7 @@ import { PreviewPanel } from "@/components/flow/PreviewPanel";
 import { ValidationSummary } from "@/components/flow/ValidationSummary";
 import { ExportCodeDialog } from "./ExportCodeDialog";
 import { ParametersDialog } from "./ParametersDialog";
+import { RunParametersDialog } from "./RunParametersDialog";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -66,6 +67,7 @@ export function FlowEditorPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [runParamsOpen, setRunParamsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   // Height of the bottom preview pane, drag-resizable and remembered locally.
   const [previewHeight, setPreviewHeight] = useState(() => {
@@ -263,7 +265,9 @@ export function FlowEditorPage() {
                   <GatedButton
                     disabled={!validation.canRun || createRun.isPending}
                     reason={runReason}
-                    onClick={() => handleRun()}
+                    onClick={() =>
+                      parameters.length > 0 ? setRunParamsOpen(true) : handleRun()
+                    }
                     className="rounded-none border-0"
                   >
                     {createRun.isPending ? (
@@ -358,6 +362,17 @@ export function FlowEditorPage() {
         onChange={(specs) => {
           setParameters(specs);
           markDirty();
+        }}
+      />
+
+      <RunParametersDialog
+        open={runParamsOpen}
+        onOpenChange={setRunParamsOpen}
+        specs={parameters}
+        submitting={updateFlow.isPending || createRun.isPending}
+        onSubmit={(values) => {
+          setRunParamsOpen(false);
+          handleRun(values);
         }}
       />
 
