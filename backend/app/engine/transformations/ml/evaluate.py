@@ -4,6 +4,7 @@ Returns a long-format frame (one row per metric) so it feeds a csvOutput or show
 in the node inspector, and surfaces the same scalars onto the NodeResult metadata
 for the run's ML view.
 """
+
 from __future__ import annotations
 
 import logging
@@ -61,9 +62,7 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         else:
             metrics = self._clustering(pdf, config, wanted)
 
-        long_df = pd.DataFrame(
-            [{"metric": k, "value": v} for k, v in metrics.items()]
-        )
+        long_df = pd.DataFrame([{"metric": k, "value": v} for k, v in metrics.items()])
         meta = NodeMetadata(ml_metrics=metrics, task_type=task)
         return {"out": engine.from_pandas(long_df)}, meta
 
@@ -156,7 +155,8 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         if n_labels < 2 or n_labels >= len(labels):
             logger.warning(
                 "mlEvaluate: clustering metrics need 2..n-1 clusters (got %d for %d rows).",
-                n_labels, len(labels),
+                n_labels,
+                len(labels),
             )
             return {}
         computed = {
@@ -189,9 +189,7 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         task = str(config.get("task_type") or "")
         return config.get("metrics") or _DEFAULT_METRICS.get(task, [])
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         task = config.get("task_type")
         target = config.get("target_column")
@@ -202,7 +200,12 @@ class MLEvaluateTransformation(MetadataMLTransformation):
 
         if task == "clustering":
             cols = config.get("feature_columns")
-            features_expr = repr(cols) if cols else f"list({src}.select_dtypes(include='number').columns)"
+            # Mirror execute(): when features aren't pinned, use the numeric columns
+            # *excluding the label column* — including it would feed the cluster id in
+            # as a feature and silently produce different metric values than the run.
+            features_expr = (
+                repr(cols) if cols else f"[c for c in {src}.select_dtypes(include='number').columns if c != {pred!r}]"
+            )
             pre.append(f"_features = {features_expr}")
             for m in wanted:
                 fn = self._CLU_METRICS.get(m)
@@ -215,13 +218,35 @@ class MLEvaluateTransformation(MetadataMLTransformation):
                 if spec:
                     fn, extra = spec
                     entries.append(f"    {m!r}: {fn}({src}[{target!r}], {src}[{pred!r}]{extra}),")
+                # residual_std isn't an sklearn metric (it's the std of the residuals);
+                # emit it explicitly so the export matches execute() when it's selected.
+                elif m == "residual_std" and task == "regression":
+                    entries.append(f"    'residual_std': float(np.std({src}[{target!r}] - {src}[{pred!r}])),")
+
+        # roc_auc / confusion_matrix (and any unknown metric) aren't reproduced in the
+        # export; call that out so the user isn't surprised by a shorter metrics frame
+        # than the run produced.
+        reproduced = self._reproducible_metrics(task)
+        skipped = [m for m in wanted if m not in reproduced]
+        note = [f"# note: {', '.join(skipped)} computed at run time but omitted from this export"] if skipped else []
 
         if not entries:  # nothing reproducible — emit an empty metrics frame
             entries.append("")
         body = "\n".join(entries)
-        lines = [*pre, "_metrics = {", body, "}"] if body else [*pre, "_metrics = {}"]
+        lines = [*note, *pre, "_metrics = {", body, "}"] if body else [*note, *pre, "_metrics = {}"]
         lines.append(f"{dst} = pd.DataFrame([{{'metric': k, 'value': v}} for k, v in _metrics.items()])")
         return "\n".join(lines)
+
+    def _reproducible_metrics(self, task: str | None) -> set[str]:
+        """The metric names the export can emit for ``task`` (everything else is
+        computed only at run time, e.g. roc_auc / confusion_matrix)."""
+        if task == "clustering":
+            return set(self._CLU_METRICS)
+        if task == "regression":
+            return set(self._REG_METRICS) | {"residual_std"}
+        if task == "classification":
+            return set(self._CLS_METRICS)
+        return set()
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         task = config.get("task_type")
@@ -235,4 +260,8 @@ class MLEvaluateTransformation(MetadataMLTransformation):
         if not names:  # keep a valid import even if no scalar metric is reproducible
             names = ["accuracy_score"]
         unique = sorted(set(names))
-        return [f"from sklearn.metrics import {', '.join(unique)}"]
+        imps = [f"from sklearn.metrics import {', '.join(unique)}"]
+        # residual_std is computed with numpy, not sklearn.
+        if task == "regression" and "residual_std" in wanted:
+            imps.append("import numpy as np")
+        return imps

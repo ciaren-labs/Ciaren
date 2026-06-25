@@ -9,6 +9,7 @@ ML node can sit inside a polars flow and still return a frame of the active engi
 metrics / a model URI (mlTrain, mlEvaluate, featureImportance) onto their
 ``NodeResult`` — see :class:`app.engine.transformations.base.EmitsNodeMetadata`.
 """
+
 from __future__ import annotations
 
 from abc import abstractmethod
@@ -24,9 +25,9 @@ from app.engine.transformations.base import (
 
 class MLSchema:
     """The minimal, data-free description an ML node's ``validate_with_schema`` sees
-    at run start: column names and an optional row count (from the upstream
-    ``DatasetVersion`` or propagated node schema). Kept tiny on purpose — full data
-    is not loaded just to validate config."""
+    during preview: column names and an optional row count (from the previewed
+    dataset). Kept tiny on purpose — full data is not loaded just to validate
+    config."""
 
     def __init__(self, columns: list[str], row_count: int | None = None) -> None:
         self.columns = columns
@@ -42,16 +43,21 @@ class MLTransformation(BaseTransformation):
     # must materialize around them.
     polars_lazy_safe = False
 
+    # to_polars_code emits pandas (scikit-learn speaks pandas/numpy), so the polars
+    # code generator converts frames to/from pandas around these nodes and collects
+    # their sklearn imports — see BaseTransformation.emits_pandas_code.
+    emits_pandas_code = True
+
     def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
-        """Optional data-aware validation run at run start (and on save), once the
-        upstream column names / row count are known. Cheap, config-only checks stay
-        in :meth:`validate_config` so preview and the frontend surface them instantly.
-        Default: no extra checks."""
+        """Optional data-aware validation run during node preview, once the upstream
+        column names / row count are known (see
+        :meth:`app.services.preview_service.PreviewService.preview_transformation`).
+        Cheap, config-only checks stay in :meth:`validate_config` so they surface
+        without a dataset; :meth:`execute` re-enforces the same guardrails at run
+        time (preview is best-effort, not the only gate). Default: no extra checks."""
         return None
 
-    def to_polars_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         """ML steps use scikit-learn (pandas/numpy); there is no native polars
         equivalent, so emit the same pandas body on either engine. The polars code
         generator materializes around it (``polars_lazy_safe = False``)."""

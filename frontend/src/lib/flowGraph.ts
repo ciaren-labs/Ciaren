@@ -2,6 +2,7 @@
 // column-schema propagation. These have no React/xyflow dependencies so they
 // can be unit-tested in isolation and reused by the validation layer.
 
+import { getNodeTypeDef, isModelInputHandle } from "./nodeCatalog";
 import type { Dataset, DatasetSourceType } from "./types";
 
 /** Minimal structural shapes — the zustand store's nodes/edges satisfy these. */
@@ -246,6 +247,9 @@ function outputColumns(
       return ["metric", "value"];
     case "featureImportance":
       return ["feature_name", "importance", "rank"];
+    case "mlTrain":
+      // mlTrain's single output is a model reference, not the training data.
+      return ["mlflow_run_id", "model_uri", "task_type"];
     case "reduceDimensions": {
       const cols = asStringArray(config.columns);
       const n = typeof config.n_components === "number" ? config.n_components : 0;
@@ -443,8 +447,13 @@ export function computeNodeColumns(
     }
 
     const sources = incoming.get(id) ?? [];
+    const def = getNodeTypeDef(node.type ?? "");
     const inputSet = new Set<string>();
-    for (const { source } of sources) {
+    for (const { source, handle } of sources) {
+      // A "model" wire (mlTrain -> mlPredict/featureImportance) carries a trained
+      // model, not a dataframe — its columns (mlflow_run_id, model_uri, …) must
+      // not pollute the downstream data schema / column pickers.
+      if (def && isModelInputHandle(def, handle)) continue;
       for (const c of result.get(source)?.output ?? []) inputSet.add(c);
     }
     const input = Array.from(inputSet);

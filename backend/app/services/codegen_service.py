@@ -8,8 +8,10 @@ from app.db.models.connection import Connection
 from app.db.models.dataset import Dataset
 from app.db.models.flow import Flow
 from app.engine.codegen import CodeGenerator
+from app.engine.codegen_params import parameter_block_lines, substitute_for_codegen
 from app.engine.graph import GraphValidationError
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _FILE_INPUT_TYPES
+from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.polars_codegen import PolarsCodeGenerator
 from app.engine.sql_codegen import SQL_NODE_TYPES
 from app.schemas.flow import FlowDocument
@@ -33,20 +35,48 @@ class CodegenService:
         graph = flow.graph_json
         # Use readable dataset filenames rather than absolute local paths so the
         # exported script is portable and we don't leak the server filesystem.
+        # dataset_id / connection_id bindings are never parameterized, so the raw
+        # graph is fine for resolving those names.
         dataset_names = await self._dataset_filenames(graph)
         connections = await self._connection_meta(graph)
+
+        # Flow parameters render as real variables: a `name = default` prelude plus
+        # `{{ name }}` references rewritten to CodeRefs. If a node's code generator
+        # can't handle a substituted value, fall back to inlining resolved defaults
+        # so export never fails on a parameterized flow.
+        try:
+            param_lines = parameter_block_lines(graph)
+            code_graph = substitute_for_codegen(graph)
+            fallback_graph, _ = apply_parameters(graph, {})
+        except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        def safe(generate: Any) -> str:
+            try:
+                return str(generate(code_graph, param_lines))
+            except (GraphValidationError, KeyError):
+                raise
+            except Exception:  # noqa: BLE001 - a CodeRef a node can't handle; inline defaults
+                return str(generate(fallback_graph, []))
+
         try:
             return {
-                "pandas": CodeGenerator().generate(
-                    graph, dataset_names, connections, free_intermediates=free_intermediates
+                "pandas": safe(
+                    lambda g, p: CodeGenerator().generate(
+                        g, dataset_names, connections, free_intermediates=free_intermediates, parameter_lines=p
+                    )
                 ),
-                "polars": PolarsCodeGenerator().generate(
-                    graph, dataset_names, connections, free_intermediates=free_intermediates
+                "polars": safe(
+                    lambda g, p: PolarsCodeGenerator().generate(
+                        g, dataset_names, connections, free_intermediates=free_intermediates, parameter_lines=p
+                    )
                 ),
-                "polars_lazy": PolarsCodeGenerator().generate(graph, dataset_names, connections, lazy=True),
-                "flow_document": FlowDocument(
-                    name=flow.name, description=flow.description, graph_json=graph
+                "polars_lazy": safe(
+                    lambda g, p: PolarsCodeGenerator().generate(
+                        g, dataset_names, connections, lazy=True, parameter_lines=p
+                    )
                 ),
+                "flow_document": FlowDocument(name=flow.name, description=flow.description, graph_json=graph),
             }
         except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
@@ -60,8 +90,7 @@ class CodegenService:
         dataset_ids = {
             ds_id
             for n in graph.get("nodes", [])
-            if n.get("type") in _FILE_INPUT_TYPES
-            and (ds_id := n.get("data", {}).get("config", {}).get("dataset_id"))
+            if n.get("type") in _FILE_INPUT_TYPES and (ds_id := n.get("data", {}).get("config", {}).get("dataset_id"))
         }
         if not dataset_ids:
             return {}

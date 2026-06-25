@@ -1,9 +1,18 @@
 """Numeric cleaning/shaping nodes: outlier handling, rounding, binning."""
 
-from typing import Any
+from typing import Any, Callable
 
 from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.transformations.base import BaseTransformation
+
+
+def _codegen_num(value: Any, cast: Callable[[Any], Any]) -> Any:
+    """Coerce a numeric config value for code generation, but pass a flow-parameter
+    reference (a ``CodeRef`` injected by the code generator) through untouched so it
+    renders as a variable. Plain values and legacy strings are coerced as before."""
+    if isinstance(value, (int, float, str)):
+        return cast(value)
+    return value
 
 
 class RemoveOutliersTransformation(BaseTransformation):
@@ -48,7 +57,11 @@ class RemoveOutliersTransformation(BaseTransformation):
     def _bounds_lines(self, config: dict[str, Any], series: str) -> str:
         """Lines (indented one loop-body level) that set ``lo, hi`` from ``series``."""
         method = config.get("method", "iqr")
-        factor, threshold, lower, upper = self._params(config)
+        # Code generation only: pass parameter references through as variables.
+        factor = _codegen_num(config.get("factor", 1.5), float)
+        threshold = _codegen_num(config.get("threshold", 3.0), float)
+        lower = _codegen_num(config.get("lower", 1.0), float)
+        upper = _codegen_num(config.get("upper", 99.0), float)
         if method == "iqr":
             return (
                 f"q1, q3 = {series}.quantile(0.25), {series}.quantile(0.75)\n"
@@ -98,12 +111,12 @@ class RoundNumbersTransformation(BaseTransformation):
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        decimals = int(config.get("decimals", 0))
+        decimals = _codegen_num(config.get("decimals", 0), int)
         return f"{dst} = {src}.assign(**{{c: {src}[c].round({decimals!r}) for c in {config['columns']!r}}})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        decimals = int(config.get("decimals", 0))
+        decimals = _codegen_num(config.get("decimals", 0), int)
         return f"{dst} = {src}.with_columns([pl.col(c).round({decimals!r}) for c in {config['columns']!r}])"
 
 
@@ -140,7 +153,7 @@ class BinColumnTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, new = config["column"], config["new_column"]
-        bins = int(config.get("bins", 4))
+        bins = _codegen_num(config.get("bins", 4), int)
         labels = config.get("labels") or None
         if config.get("method", "equalwidth") == "quantile":
             binned = f"pd.qcut({src}[{col!r}], q={bins!r}, labels={labels!r}, duplicates='drop')"
@@ -151,7 +164,7 @@ class BinColumnTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, new = config["column"], config["new_column"]
-        bins = int(config.get("bins", 4))
+        bins = _codegen_num(config.get("bins", 4), int)
         labels = config.get("labels") or None
         if config.get("method", "equalwidth") == "quantile":
             quantiles = f"[i / {bins!r} for i in range(1, {bins!r})]"

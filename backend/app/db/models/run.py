@@ -36,8 +36,13 @@ class FlowRun(Base):
     node_results_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     # The flow graph captured at trigger time. Flow.graph_json can be edited after a
     # run, so this snapshot is what makes a run (especially an ML training run)
-    # reproducible. Nullable for runs created before this column existed.
+    # reproducible. Nullable for runs created before this column existed. This holds
+    # the *resolved* graph (flow parameters already substituted), i.e. exactly what
+    # executed.
     graph_snapshot_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # The resolved flow-parameter values this run executed with (name -> value).
+    # None for flows without parameters or runs created before this column existed.
+    parameters_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     # Python-side default keeps microsecond precision (SQLite CURRENT_TIMESTAMP
     # only has second resolution, which breaks ORDER BY created_at tests).
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

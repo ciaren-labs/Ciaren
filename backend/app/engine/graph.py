@@ -4,10 +4,13 @@ from typing import Any
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import (
     ML_OUTPUT_NODES,
+    MODEL_INPUT_HANDLES,
     MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
     STORAGE_INPUT_TYPE,
+    edge_carries_model,
+    is_model_input_handle,
 )
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 
@@ -47,6 +50,7 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
 
     _validate_source_handles(nodes, edges)
     _validate_connections(nodes, edges)
+    _validate_model_handles(nodes, edges)
 
 
 def _validate_source_handles(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
@@ -67,13 +71,10 @@ def _validate_source_handles(nodes: list[dict[str, Any]], edges: list[dict[str, 
         source_handle = edge.get("sourceHandle")
         if source_handle is None:
             raise GraphValidationError(
-                f"{label}: this node has multiple outputs {list(handles)}; "
-                f"each outgoing connection must choose one."
+                f"{label}: this node has multiple outputs {list(handles)}; each outgoing connection must choose one."
             )
         if source_handle not in handles:
-            raise GraphValidationError(
-                f"{label}: unknown output {source_handle!r} (expected one of {list(handles)})."
-            )
+            raise GraphValidationError(f"{label}: unknown output {source_handle!r} (expected one of {list(handles)}).")
 
 
 def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
@@ -145,6 +146,38 @@ def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any
         for handle in optional:
             if by_handle[handle] > 1:
                 raise GraphValidationError(f"{label}: the {handle!r} input accepts only one connection.")
+
+
+def _validate_model_handles(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
+    """Enforce that a model wire only ever connects a model output to a model input.
+
+    A "model" connection (mlTrain's output) carries a trained model, not a frame.
+    Catching the two miswirings here gives a clear error instead of a confusing
+    runtime failure:
+    - a model fed into a *data* input (e.g. mlTrain -> a cleaning node or a file
+      output, which would try to treat the model as a dataframe), and
+    - a *data* frame fed into a node's ``model`` input (e.g. raw rows into
+      mlPredict's model handle instead of a trained model).
+    """
+    types_by_id = {n["id"]: n["type"] for n in nodes}
+    labels_by_id = {n["id"]: (n.get("data", {}).get("label") or n["type"]) for n in nodes}
+    for edge in edges:
+        source_type = types_by_id.get(edge["source"], "")
+        target_type = types_by_id.get(edge["target"], "")
+        target_handle = edge.get("targetHandle") or "in"
+        carries_model = edge_carries_model(source_type, edge.get("sourceHandle"))
+        wants_model = is_model_input_handle(target_type, target_handle)
+        if carries_model and not wants_model:
+            raise GraphValidationError(
+                f"{labels_by_id[edge['target']]}: a trained model can only connect to a "
+                f"model input, not {target_handle!r}."
+            )
+        if wants_model and not carries_model:
+            expected = ", ".join(sorted(MODEL_INPUT_HANDLES.get(target_type, frozenset())))
+            raise GraphValidationError(
+                f"{labels_by_id[edge['target']]}: the {expected!r} input needs a trained "
+                f"model — connect a Train Model node's output."
+            )
 
 
 def _validate_storage_input(label: str, config: dict[str, Any]) -> None:

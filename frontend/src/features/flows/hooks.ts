@@ -110,8 +110,11 @@ export function useRunFlow() {
 export function useCreateRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (options?: { inputDatasetId?: string; engine?: string }) =>
-      flowsApi.createRun(id, options ?? {}),
+    mutationFn: (options?: {
+      inputDatasetId?: string;
+      engine?: string;
+      parameters?: Record<string, unknown> | null;
+    }) => flowsApi.createRun(id, options ?? {}),
     // Invalidate every run query (lists + details) so history refreshes, and the
     // flows list so the flow's "last run" updates.
     onSuccess: () => {

@@ -10,6 +10,7 @@ from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
 from app.engine.executor import FlowExecutor
 from app.engine.graph import topological_sort
+from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
 from app.engine.registry import get_transformation
@@ -43,6 +44,10 @@ class PreviewService:
         # Transformation preview always reads the dataset's latest version.
         version = await resolve_version(self.db, req.dataset_id, None)
         df = self.engine.read(version.location, version.dataset.source_type)
+        # ML nodes expose a data-aware validation hook (column presence, row/feature
+        # limits) that needs the upstream schema. Preview has the real dataset in
+        # hand, so run it here to surface those errors in the node config UI.
+        self._validate_with_schema(transformation, req.config, df)
         # preview_mode keeps ML nodes from fitting/logging during a preview.
         with preview_mode():
             result = transformation.execute(self.engine, {"in": df}, req.config)
@@ -51,7 +56,11 @@ class PreviewService:
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
-        graph = flow.graph_json
+        # Resolve flow parameters so the preview reflects the values a run would use.
+        try:
+            graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
+        except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
         # SQL and storage inputs are materialized into parquet snapshots in a temp
@@ -83,6 +92,24 @@ class PreviewService:
             return self._to_response(frames[node_id], req.limit, req.profile)
 
     # -- Internals ------------------------------------------------------
+
+    def _validate_with_schema(self, transformation: BaseTransformation, config: dict[str, Any], df: AnyFrame) -> None:
+        """Run an ML node's schema-aware validation against the previewed dataset.
+
+        Non-ML transformations don't have this hook, so this is a no-op for them.
+        """
+        from app.engine.transformations.ml.base import MLSchema, MLTransformation
+
+        if not isinstance(transformation, MLTransformation):
+            return
+        schema = MLSchema(
+            columns=[str(c) for c in df.columns],
+            row_count=int(self.engine.row_count(df)),
+        )
+        try:
+            transformation.validate_with_schema(config, schema)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
     def _get_transformation(self, node_type: str) -> BaseTransformation:
         try:
