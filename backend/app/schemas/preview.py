@@ -20,6 +20,9 @@ class FlowPreviewRequest(BaseModel):
     node_id: str | None = None
     limit: int = Field(default=50, ge=1, le=1000)
     profile: bool = False
+    # Flow-parameter overrides applied before previewing (name -> value), so the
+    # preview reflects the values a run would use. Defaults fill in the rest.
+    parameters: dict[str, Any] | None = None
 
 
 class PreviewResponse(BaseModel):

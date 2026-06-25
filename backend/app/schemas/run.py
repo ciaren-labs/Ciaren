@@ -15,6 +15,9 @@ class FlowRunCreate(BaseModel):
     # schedule's run_timeout_seconds (for scheduled runs) then RUN_TIMEOUT_SECONDS.
     # ML training can far outlast typical ETL, so a caller can grant more time.
     timeout_seconds: int | None = Field(default=None, ge=0)
+    # Flow-parameter overrides for this run (name -> value), overlaid on the
+    # flow's declared defaults. Unknown names or bad types yield a friendly 400.
+    parameters: dict[str, Any] | None = None
 
 
 class MLRegisterRequest(BaseModel):
@@ -102,6 +105,9 @@ class FlowRunRead(BaseModel):
     node_results: list[NodeResultRead] | None = Field(None, validation_alias="node_results_json")
     # The graph captured at trigger time (reproducibility); None for older runs.
     graph_snapshot: dict[str, Any] | None = Field(None, validation_alias="graph_snapshot_json")
+    # The resolved flow-parameter values this run executed with; None when the
+    # flow has no parameters (or for runs created before this existed).
+    parameters: dict[str, Any] | None = Field(None, validation_alias="parameters_json")
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}

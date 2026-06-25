@@ -10,6 +10,7 @@ from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
 from app.engine.executor import FlowExecutor
 from app.engine.graph import topological_sort
+from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
 from app.engine.registry import get_transformation
@@ -55,7 +56,11 @@ class PreviewService:
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
-        graph = flow.graph_json
+        # Resolve flow parameters so the preview reflects the values a run would use.
+        try:
+            graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
+        except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
         # SQL and storage inputs are materialized into parquet snapshots in a temp

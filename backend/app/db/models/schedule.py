@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -40,6 +41,10 @@ class Schedule(Base):
     # RUN_TIMEOUT_SECONDS. ML retraining can far outlast typical ETL runs, so a
     # schedule can grant its runs more (or less) time without changing the default.
     run_timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Flow-parameter overrides applied to every run this schedule fires (name ->
+    # value). NULL means "use each parameter's declared default". Lets one flow
+    # back several schedules that differ only by parameter values.
+    parameters_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     # -- Runtime / observability state ---------------------------------
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
