@@ -9,6 +9,7 @@ Security:
 - All errors are scrubbed of the secret before propagation.
 - azure-sdk debug logging is silenced to prevent credential material in logs.
 """
+
 from __future__ import annotations
 
 import io
@@ -28,25 +29,22 @@ def _service_client(spec: StorageSpec) -> Any:
     try:
         from azure.storage.blob import BlobServiceClient
     except ImportError as exc:
-        raise ConnectorError(
-            "azure-storage-blob is not installed. Run: pip install flowframe[azure]"
-        ) from exc
+        raise ConnectorError("azure-storage-blob is not installed. Run: pip install flowframe[azure]") from exc
 
     account_name = spec.access_key
     account_key = spec.secret
     if not account_name:
-        raise ConnectorError(
-            "Azure connection requires a storage account name (set in the 'Username' field)."
-        )
+        raise ConnectorError("Azure connection requires a storage account name (set in the 'Username' field).")
     if not account_key:
         raise ConnectorError(
             "Azure connection requires an account key env var"
             " (set 'Password env var' to the name of the variable holding the key)."
         )
-    return BlobServiceClient(
-        account_url=f"https://{account_name}.blob.core.windows.net",
-        credential=account_key,
-    )
+    # A custom endpoint targets Azure-compatible stores: sovereign/government
+    # clouds (e.g. *.blob.core.usgovcloudapi.net) and the Azurite emulator. When
+    # absent, default to the public-cloud URL derived from the account name.
+    account_url = spec.endpoint_url or f"https://{account_name}.blob.core.windows.net"
+    return BlobServiceClient(account_url=account_url, credential=account_key)
 
 
 def _guard(exc: Exception, secret: str | None) -> ConnectorError:
@@ -95,20 +93,15 @@ class AzureBlobConnector:
         except ConnectorError:
             raise
         except Exception as exc:
-            raise ConnectorError(
-                f"Failed to parse {spec.bucket}/{path} as {fmt}: {exc}"
-            ) from None
+            raise ConnectorError(f"Failed to parse {spec.bucket}/{path} as {fmt}: {exc}") from None
 
-    def write_file(
-        self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str
-    ) -> None:
+    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         client = _service_client(spec)
         if if_exists == "error":
             try:
                 client.get_blob_client(container=spec.bucket, blob=path).get_blob_properties()
                 raise ConnectorError(
-                    f"Blob {spec.bucket}/{path} already exists."
-                    " Set 'if_exists' to 'overwrite' to replace it."
+                    f"Blob {spec.bucket}/{path} already exists. Set 'if_exists' to 'overwrite' to replace it."
                 )
             except ConnectorError:
                 raise
