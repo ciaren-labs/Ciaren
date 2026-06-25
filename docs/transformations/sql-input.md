@@ -10,6 +10,15 @@ Read rows **live** from a database at run time, via a reusable
 [Connection](/guide/connections). Because the read happens on every run,
 scheduled flows always process **fresh data**.
 
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"SQL Input","detail":"orders table — live DB"},
+    {"type":"clean","label":"Filter Rows","detail":"status = shipped"},
+    {"type":"transform","label":"Group By","detail":"revenue by region"},
+    {"type":"output","label":"CSV Output","detail":"daily report"}
+  ]'
+/>
+
 ## Use cases
 
 - Run a flow against the current contents of a production table on a schedule.
