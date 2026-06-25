@@ -12,6 +12,15 @@ Input** and **SQL Output** nodes. You define a connection to a database **once**
 on the Connections page, then reuse it across as many flows and nodes as you like
 — each node just picks a table (or writes a query).
 
+<FlowPipeline :nodes='[
+  {"type":"input","label":"Database","detail":"PostgreSQL · MySQL · SQLite · SQL Server · MongoDB"},
+  {"type":"input","label":"Connection","detail":"host · port · user · password_env (never stored)"},
+  {"type":"input","label":"SQL Input node","detail":"picks a table or runs a custom query"},
+  {"type":"transform","label":"Transformation nodes","detail":"clean, reshape, combine"},
+  {"type":"output","label":"SQL Output node","detail":"replace · append · fail if exists"},
+  {"type":"output","label":"Database","detail":"result written back"}
+]' />
+
 ## Security model
 
 > **FlowFrame never stores your database password.**
