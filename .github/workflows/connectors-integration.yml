@@ -1,10 +1,10 @@
 name: Connectors Integration
 
 # Exercises the real I/O paths of the data-source connectors against ephemeral
-# containers (MinIO for S3, MongoDB for the Mongo connector). The default Backend
-# Tests suite stays infra-free; these tests self-skip there and run only here,
-# where the service endpoints are provided via env vars. Linux-only — the goal is
-# to cover the connector code paths, not the OS matrix.
+# containers (MinIO for S3, MongoDB, Azurite for Azure Blob, fake-gcs-server for
+# GCS). The default Backend Tests suite stays infra-free; these tests self-skip
+# there and run only here, where the service endpoints are provided via env vars.
+# Linux-only — the goal is to cover the connector code paths, not the OS matrix.
 
 on:
   push:
@@ -163,3 +163,136 @@ jobs:
           flags: connectors-integration
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  azure:
+    name: Azure Blob connector (Azurite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Consumed by tests/integration/test_azure_connector.py (it self-skips without this).
+      FLOWFRAME_TEST_AZURE_ENDPOINT: http://127.0.0.1:10000/devstoreaccount1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Azurite needs --skipApiVersionCheck (the SDK speaks a newer API version
+      # than the emulator pins) and --blobHost 0.0.0.0 to be reachable through the
+      # port mapping; GitHub `services:` can't pass those, so run it directly.
+      - name: Start Azurite
+        run: |
+          docker run -d --name azurite -p 10000:10000 \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+
+      - name: Wait for Azurite to be ready
+        run: |
+          for i in $(seq 1 30); do
+            # Any HTTP response (403 auth challenge included) means it's listening;
+            # only a refused connection yields curl's 000.
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:10000/devstoreaccount1?comp=list" || true)
+            if [ -n "$code" ] && [ "$code" != "000" ]; then
+              echo "Azurite ready ($code)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Azurite did not become ready in time"
+          docker logs azurite || true
+          exit 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-groups --extra azure
+
+      - name: Run connector integration tests
+        working-directory: backend
+        run: >-
+          uv run pytest tests -m connectors
+          --cov=app/connectors --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./backend/coverage.xml
+          flags: connectors-integration
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Stop Azurite
+        if: always()
+        run: docker rm -f azurite || true
+
+  gcs:
+    name: GCS connector (fake-gcs-server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # The google-cloud-storage client honours STORAGE_EMULATOR_HOST (anonymous
+      # creds); the connector and tests both rely on it being set.
+      STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
+      FLOWFRAME_TEST_GCS_PROJECT: test-project
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # fake-gcs-server needs -scheme http to serve plain HTTP; GitHub `services:`
+      # can't pass that argument, so run it directly.
+      - name: Start fake-gcs-server
+        run: |
+          docker run -d --name fake-gcs -p 4443:4443 \
+            fsouza/fake-gcs-server -scheme http -port 4443 -public-host 127.0.0.1:4443
+
+      - name: Wait for fake-gcs-server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4443/storage/v1/b >/dev/null; then
+              echo "fake-gcs-server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "fake-gcs-server did not become ready in time"
+          docker logs fake-gcs || true
+          exit 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --all-groups --extra gcs
+
+      - name: Run connector integration tests
+        working-directory: backend
+        run: >-
+          uv run pytest tests -m connectors
+          --cov=app/connectors --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./backend/coverage.xml
+          flags: connectors-integration
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Stop fake-gcs-server
+        if: always()
+        run: docker rm -f fake-gcs || true

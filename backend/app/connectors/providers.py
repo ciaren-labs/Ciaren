@@ -2,6 +2,7 @@
 detection. The frontend uses this to disable providers whose driver isn't
 installed (with a clear install hint).
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -28,11 +29,11 @@ class Provider:
     extra: str | None
     default_port: int | None
     needs_host: bool
-    needs_auth: bool       # username + password env var
-    supports_query: bool   # custom SQL / query mode
+    needs_auth: bool  # username + password env var
+    supports_query: bool  # custom SQL / query mode
     # Storage-specific flags (all False for SQL/Mongo providers)
-    needs_bucket: bool = False   # bucket / container / folder path
-    needs_region: bool = False   # cloud region selector
+    needs_bucket: bool = False  # bucket / container / folder path
+    needs_region: bool = False  # cloud region selector
     needs_endpoint: bool = False  # custom endpoint URL (S3-compatible stores)
 
 
@@ -48,24 +49,61 @@ PROVIDERS: dict[str, Provider] = {
     "mongodb": Provider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, True, True, False),
     # ── Object / file storage ──────────────────────────────────────────────
     "local": Provider(
-        "local", "Local Folder", "storage", None, None, None,
-        needs_host=False, needs_auth=False, supports_query=False,
-        needs_bucket=True, needs_region=False, needs_endpoint=False,
+        "local",
+        "Local Folder",
+        "storage",
+        None,
+        None,
+        None,
+        needs_host=False,
+        needs_auth=False,
+        supports_query=False,
+        needs_bucket=True,
+        needs_region=False,
+        needs_endpoint=False,
     ),
     "s3": Provider(
-        "s3", "AWS S3", "storage", "boto3", "s3", None,
-        needs_host=False, needs_auth=True, supports_query=False,
-        needs_bucket=True, needs_region=True, needs_endpoint=True,
+        "s3",
+        "AWS S3",
+        "storage",
+        "boto3",
+        "s3",
+        None,
+        needs_host=False,
+        needs_auth=True,
+        supports_query=False,
+        needs_bucket=True,
+        needs_region=True,
+        needs_endpoint=True,
     ),
     "azure_blob": Provider(
-        "azure_blob", "Azure Blob Storage", "storage", "azure.storage.blob", "azure", None,
-        needs_host=False, needs_auth=True, supports_query=False,
-        needs_bucket=True, needs_region=False, needs_endpoint=False,
+        "azure_blob",
+        "Azure Blob Storage",
+        "storage",
+        "azure.storage.blob",
+        "azure",
+        None,
+        needs_host=False,
+        needs_auth=True,
+        supports_query=False,
+        # Optional custom endpoint: sovereign clouds / Azurite emulator.
+        needs_bucket=True,
+        needs_region=False,
+        needs_endpoint=True,
     ),
     "gcs": Provider(
-        "gcs", "Google Cloud Storage", "storage", "google.cloud.storage", "gcs", None,
-        needs_host=False, needs_auth=False, supports_query=False,
-        needs_bucket=True, needs_region=False, needs_endpoint=False,
+        "gcs",
+        "Google Cloud Storage",
+        "storage",
+        "google.cloud.storage",
+        "gcs",
+        None,
+        needs_host=False,
+        needs_auth=False,
+        supports_query=False,
+        needs_bucket=True,
+        needs_region=False,
+        needs_endpoint=False,
     ),
     # ── Experiment tracking ────────────────────────────────────────────────
     # MLflow is not a data source: it stores its tracking URI in `database`
@@ -73,8 +111,15 @@ PROVIDERS: dict[str, Provider] = {
     # databricks). It's tested and resolved through app/ml/tracking.py, not a
     # DataConnector/StorageConnector.
     "mlflow": Provider(
-        "mlflow", "MLflow Tracking", "mlflow", "mlflow", "ml", None,
-        needs_host=False, needs_auth=False, supports_query=False,
+        "mlflow",
+        "MLflow Tracking",
+        "mlflow",
+        "mlflow",
+        "ml",
+        None,
+        needs_host=False,
+        needs_auth=False,
+        supports_query=False,
     ),
 }
 
@@ -82,18 +127,25 @@ _SQL_CONNECTOR = SqlConnector()
 _MONGO_CONNECTOR = MongoConnector()
 _LOCAL_CONNECTOR = LocalStorageConnector()
 
+
 # Lazy imports for optional cloud storage connectors.
 def _get_s3_connector() -> StorageConnector:
     from app.connectors.s3 import S3Connector
+
     return S3Connector()
+
 
 def _get_azure_connector() -> StorageConnector:
     from app.connectors.azure_blob import AzureBlobConnector
+
     return AzureBlobConnector()
+
 
 def _get_gcs_connector() -> StorageConnector:
     from app.connectors.gcs import GCSConnector
+
     return GCSConnector()
+
 
 _STORAGE_CONNECTOR_FACTORIES: dict[str, Callable[[], StorageConnector]] = {
     "local": lambda: _LOCAL_CONNECTOR,
