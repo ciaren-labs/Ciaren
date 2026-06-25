@@ -1,4 +1,5 @@
 """graph_snapshot_json capture + run-timeout precedence (per-run > schedule > global)."""
+
 import io
 
 import pandas as pd
@@ -68,9 +69,7 @@ async def test_schedule_run_timeout_round_trips(client: AsyncClient) -> None:
     assert created.status_code == 201, created.text
     assert created.json()["run_timeout_seconds"] == 7200
     # update clears it back to the global default
-    updated = await client.patch(
-        f"/api/schedules/{created.json()['id']}", json={"run_timeout_seconds": None}
-    )
+    updated = await client.patch(f"/api/schedules/{created.json()['id']}", json={"run_timeout_seconds": None})
     assert updated.json()["run_timeout_seconds"] is None
 
 
@@ -93,7 +92,6 @@ async def test_effective_timeout_precedence(db_session, monkeypatch) -> None:
         # schedule override applies when no per-run value
         from app.db.models.flow import Flow
         from app.db.models.schedule import Schedule
-
         from app.services.project_service import ProjectService
 
         pid = (await ProjectService(db_session).ensure_default()).id
