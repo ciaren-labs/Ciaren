@@ -9,6 +9,8 @@ search: projects runs dataset versioning history run detail node results lineage
 Beyond the editor, FlowFrame helps you **organize** work and **monitor** what
 happened when a flow ran.
 
+<DomainModel />
+
 ## Projects
 
 A **project** is a lightweight workspace that groups related datasets and flows.
