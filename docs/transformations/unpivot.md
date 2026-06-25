@@ -13,6 +13,30 @@ Reshape wide → long (pandas `melt`).
 - Turn `Jan`/`Feb`/… columns back into `month` + `value` rows.
 - Normalize a wide spreadsheet into a tidy, tall format for grouping.
 
+## What it does
+
+Unpivot is the inverse of Pivot: it collapses multiple columns into two columns —
+one naming the original column (`var_name`) and one holding the value (`value_name`).
+
+<DataTransform
+  transform="Unpivot (id_vars=region, value_vars=[Jan,Feb], var_name=month, value_name=amount)"
+  :before='{
+    "columns":["region","Jan","Feb"],
+    "rows":[
+      ["North",100,150],
+      ["South",80,200]
+    ]
+  }'
+  :after='{
+    "columns":["region","month","amount"],
+    "rows":[
+      ["North","Jan",100],["North","Feb",150],
+      ["South","Jan",80],["South","Feb",200]
+    ]
+  }'
+  :highlight='["month","amount"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
