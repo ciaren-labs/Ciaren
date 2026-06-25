@@ -142,10 +142,16 @@ Known limitations (deferred, low real-world risk — UI never produces them):
   whose specs changed records no run row but still counts toward auto-disable.
 - `number` params accept `nan` / `inf`.
 
-### Phase 4 — Docs (next)
+### Phase 4 — Docs ✅
 
-- [ ] `docs/guide/` page on flow parameters; update `docs/api/runs.md` and
-      `docs/api/schedules.md`; update `CLAUDE.md` domain model notes.
+- [x] New `docs/guide/parameters.md` (declare/reference/override, preview, export,
+      tips) + sidebar entry in `.vitepress/config.ts`.
+- [x] Cross-linked & updated `docs/api/runs.md`, `docs/api/schedules.md`, and
+      `docs/guide/scheduling.md` (parameters field + tip).
+- [x] `CLAUDE.md` domain model note (Flow Parameter) and `docs/CLAUDE.md` tree.
+- [x] Verified: `markdownlint` clean, `vitepress build` succeeds, link checker
+      clean for the new pages (one unrelated pre-existing broken link remains in
+      `transformations/file-input.md`).
 
 ## Risks / notes
 

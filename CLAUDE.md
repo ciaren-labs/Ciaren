@@ -78,6 +78,14 @@ Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 - **Dataset** — source/uploaded file: `id, name, source_type, location, schema_json, sample_json, timestamps`.
 - **FlowRun** — one execution: `id, flow_id, status, input_dataset_id, output_location, started_at, finished_at, error_message, logs_json`.
 - **Transformation Node** — graph node: `id, type, label, config, position, input_handles, output_handles`.
+- **Flow Parameter** — typed, named value declared on a flow (stored in
+  `graph_json.parameters`, like `graph_json.engine`); node configs reference it
+  via `{{ name }}`. `app/engine/parameters.py` resolves values (precedence:
+  per-run override > per-schedule override > default), coerces to type, and
+  substitutes into node configs before execution/preview/codegen. A run records
+  the resolved values (`FlowRun.parameters_json`); a schedule stores overrides
+  (`Schedule.parameters_json`). Exported code renders them as variables
+  (`app/engine/codegen_params.py`).
 
 ## Node Types
 
