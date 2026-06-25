@@ -40,6 +40,9 @@ export function RunParametersDialog({
 }: RunParametersDialogProps) {
   const [texts, setTexts] = useState<Record<string, string>>({});
 
+  // Seed once per open keyed on the parameter names (not the array identity), so a
+  // background store update that re-creates the specs array can't clobber edits.
+  const specKey = specs.map((s) => s.name).join(",");
   useEffect(() => {
     if (!open) return;
     const seed: Record<string, string> = {};
@@ -49,7 +52,8 @@ export function RunParametersDialog({
         override !== undefined && override !== null ? String(override) : defaultText(spec);
     }
     setTexts(seed);
-  }, [open, specs, initialValues]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, specKey]);
 
   const { errors, values } = useMemo(() => buildRunValues(specs, texts), [specs, texts]);
 

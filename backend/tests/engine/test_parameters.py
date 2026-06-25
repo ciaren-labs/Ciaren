@@ -77,6 +77,19 @@ def test_unknown_type_raises():
         resolve_values([{"name": "n", "type": "date", "default": "x"}], {})
 
 
+@pytest.mark.parametrize("kw", ["class", "lambda", "for", "import", "def", "return", "match"])
+def test_python_keyword_names_rejected(kw):
+    # A keyword name would be a SyntaxError once emitted as a variable in export.
+    with pytest.raises(ParameterError, match="keyword"):
+        resolve_values([{"name": kw, "default": 1}], {})
+
+
+@pytest.mark.parametrize("name", ["pd", "pl", "np", "os", "df"])
+def test_reserved_codegen_names_rejected(name):
+    with pytest.raises(ParameterError, match="reserved"):
+        resolve_values([{"name": name, "default": 1}], {})
+
+
 # -- coercion ----------------------------------------------------------------
 
 

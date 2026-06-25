@@ -36,6 +36,15 @@ describe("coerceDefault", () => {
     expect(coerceDefault("integer", "abc")).toEqual({ ok: false });
   });
 
+  it("rejects integers past JS safe-integer precision", () => {
+    // Would silently round to 1e20 and send a different number to the backend.
+    expect(coerceDefault("integer", "99999999999999999999")).toEqual({ ok: false });
+    expect(coerceDefault("integer", String(Number.MAX_SAFE_INTEGER))).toEqual({
+      ok: true,
+      value: Number.MAX_SAFE_INTEGER,
+    });
+  });
+
   it("parses numbers and rejects garbage", () => {
     expect(coerceDefault("number", "2.5")).toEqual({ ok: true, value: 2.5 });
     expect(coerceDefault("number", "nope")).toEqual({ ok: false });

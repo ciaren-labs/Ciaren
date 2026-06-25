@@ -103,19 +103,46 @@ Run with overrides: `POST /api/flows/{id}/runs` body
       `tests/api/test_export_parameters.py` (variables rendered, scripts compile,
       save-time 400s).
 
-### Phase 3 — Frontend (next)
+### Phase 3 — Frontend ✅
 
-- [ ] Parameters panel in the flow editor (`frontend/src/features/flows`): list /
-      add / edit / remove specs (name, type, default, description), persisted into
-      `graph_json.parameters`.
-- [ ] `{{ name }}` reference affordance in config forms (autocomplete of declared
-      params; validation that referenced names exist).
-- [ ] "Run with parameters" dialog on manual run; parameter overrides on the
-      schedule create/edit form.
-- [ ] Show the resolved parameter values on the run detail page.
-- [ ] `lib/api.ts` / `lib/types.ts` — carry `parameters` on run + schedule.
+- [x] `lib/types.ts` / `lib/api.ts` — `ParameterSpec`, `graph_json.parameters`,
+      and `parameters` on run / schedule / preview; `createRun` posts overrides.
+- [x] Parameters panel (`ParametersDialog`): add / edit / remove typed specs with
+      per-type default control + live validation; persisted into
+      `graph_json.parameters` (kept in the editor store, re-attached on save/run).
+- [x] "Run with parameters" dialog (`RunParametersDialog`) on manual run, and
+      per-schedule overrides in `ScheduleFormDialog` (shared `ParameterValueFields`).
+- [x] Resolved parameter values shown on the run detail page.
+- [x] `{{ name }}` affordance in the node sidebar (insertable chips + unknown-ref
+      warning); `lib/parameters.ts` mirrors backend coerce/validate rules.
+- [x] Tests: parameters lib, ParametersDialog, RunParametersDialog,
+      ScheduleFormDialog overrides, NodeSidebar affordance.
 
-### Phase 4 — Docs
+### Phase 3.5 — Adversarial review (✅ fixed) and known limitations
+
+Two subagents tried to break the feature. Fixed:
+- **Param names that are Python keywords / module aliases** (`pd`, `pl`, `np`,
+  `os`, `df`) would emit broken or shadowing exported code → now rejected at
+  save/run (`parameters._build_specs_by_name`).
+- **Numeric nodes (`roundNumbers`, `binColumn`, `removeOutliers`) raised on a
+  parameter reference during codegen**, which silently stripped *all*
+  parameterization from the whole exported script → codegen now passes refs
+  through as variables (`numeric._codegen_num`).
+- **Schedule created from the editor missed just-declared (unsaved) parameters** →
+  `ScheduleFormDialog` accepts live `parameterSpecs` from the editor.
+- **Integer overrides past 2^53** were silently rounded before POST → rejected
+  client-side (`coerceDefault`).
+- **Engine `<select>` didn't mark the flow dirty**; **run dialog reseed could
+  clobber edits** → both fixed.
+
+Known limitations (deferred, low real-world risk — UI never produces them):
+- Referencing a parameter in a `dataset_id` / `connection_id` binding runs but
+  fails code export (codegen reads raw bindings). Don't parameterize bindings.
+- `retry` of a run whose flow's parameter specs changed can 400; a scheduled run
+  whose specs changed records no run row but still counts toward auto-disable.
+- `number` params accept `nan` / `inf`.
+
+### Phase 4 — Docs (next)
 
 - [ ] `docs/guide/` page on flow parameters; update `docs/api/runs.md` and
       `docs/api/schedules.md`; update `CLAUDE.md` domain model notes.

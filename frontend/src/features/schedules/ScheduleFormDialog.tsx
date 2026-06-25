@@ -19,7 +19,7 @@ import { ApiError } from "@/lib/api";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
 import { buildRunValues, defaultText } from "@/lib/parameters";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
-import type { Schedule, ScheduleCreate } from "@/lib/types";
+import type { ParameterSpec, Schedule, ScheduleCreate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ENGINES = [
@@ -37,6 +37,9 @@ interface ScheduleFormDialogProps {
   schedule?: Schedule | null;
   /** Pre-select (and lock) a flow when creating from the flows page. */
   lockedFlowId?: string;
+  /** Live parameter specs to use instead of the saved flow's (editor context),
+   *  so just-declared (and unsaved) parameters still get override fields. */
+  parameterSpecs?: ParameterSpec[];
   submitting: boolean;
   error: unknown;
   onSubmit: (flowId: string, body: ScheduleCreate) => void;
@@ -47,6 +50,7 @@ export function ScheduleFormDialog({
   onOpenChange,
   schedule,
   lockedFlowId,
+  parameterSpecs,
   submitting,
   error,
   onSubmit,
@@ -70,9 +74,10 @@ export function ScheduleFormDialog({
   // Override values for the selected flow's parameters (raw text per name).
   const [paramTexts, setParamTexts] = useState<Record<string, string>>({});
 
-  // Parameter specs declared on the selected flow (drives the overrides section).
+  // Parameter specs that drive the overrides section. Prefer live editor specs
+  // (so unsaved, just-declared parameters appear); otherwise read the saved flow.
   const selectedFlow = (flows ?? []).find((f) => f.id === flowId);
-  const paramSpecs = selectedFlow?.graph_json?.parameters ?? [];
+  const paramSpecs = parameterSpecs ?? selectedFlow?.graph_json?.parameters ?? [];
 
   // Reset the form each time the dialog opens (create or a specific schedule).
   useEffect(() => {
