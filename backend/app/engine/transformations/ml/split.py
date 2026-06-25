@@ -4,6 +4,7 @@ A two-output node: ``{"train": ..., "test": ...}``. The seed is **required** (no
 default) so a run is reproducible; allowing a silent random split would quietly
 break the reproducibility contract every ML run depends on.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,8 +28,7 @@ class TrainTestSplitTransformation(MLTransformation):
         # bool is an int subclass — reject True/False masquerading as a seed.
         if not isinstance(seed, int) or isinstance(seed, bool):
             raise ValueError(
-                "trainTestSplit requires an integer 'seed' for reproducibility "
-                "(random splits are not allowed)."
+                "trainTestSplit requires an integer 'seed' for reproducibility (random splits are not allowed)."
             )
         test_size = config.get("test_size", 0.2)
         if not isinstance(test_size, (int, float)) or isinstance(test_size, bool) or not (0.0 < test_size < 1.0):
@@ -41,8 +41,7 @@ class TrainTestSplitTransformation(MLTransformation):
         stratify = config.get("stratify_column")
         if stratify is not None and stratify not in schema.columns:
             raise ValueError(
-                f"trainTestSplit: stratify column {stratify!r} is not in the input "
-                f"columns {schema.columns}."
+                f"trainTestSplit: stratify column {stratify!r} is not in the input columns {schema.columns}."
             )
         # Reject obviously-too-small inputs before any compute.
         test_size = config.get("test_size", 0.2)
@@ -68,15 +67,12 @@ class TrainTestSplitTransformation(MLTransformation):
         if stratify_col:
             if stratify_col not in pdf.columns:
                 raise ValueError(
-                    f"trainTestSplit: stratify column {stratify_col!r} is not in the "
-                    f"input columns {list(pdf.columns)}."
+                    f"trainTestSplit: stratify column {stratify_col!r} is not in the input columns {list(pdf.columns)}."
                 )
             stratify = pdf[stratify_col]
             self._check_stratifiable(stratify, stratify_col)
 
-        train_df, test_df = train_test_split(
-            pdf, test_size=test_size, random_state=seed, stratify=stratify
-        )
+        train_df, test_df = train_test_split(pdf, test_size=test_size, random_state=seed, stratify=stratify)
 
         if len(train_df) < MIN_TRAIN_ROWS:
             raise ValueError(
@@ -111,18 +107,20 @@ class TrainTestSplitTransformation(MLTransformation):
                 f"merge rare classes, or remove the stratify column."
             )
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src = input_vars["in"]
         train, test = output_vars["train"], output_vars["test"]
         test_size = config.get("test_size", 0.2)
         seed = config["seed"]
         stratify_col = config.get("stratify_column")
         stratify = f", stratify={src}[{stratify_col!r}]" if stratify_col else ""
+        # reset_index mirrors execute(): the two splits get a fresh 0..n index so
+        # downstream index-based ops (concat, .loc) behave the same as in the run.
         return (
             f"{train}, {test} = train_test_split("
-            f"{src}, test_size={test_size!r}, random_state={seed!r}{stratify})"
+            f"{src}, test_size={test_size!r}, random_state={seed!r}{stratify})\n"
+            f"{train} = {train}.reset_index(drop=True)\n"
+            f"{test} = {test}.reset_index(drop=True)"
         )
 
     def imports(self, config: dict[str, Any]) -> list[str]:

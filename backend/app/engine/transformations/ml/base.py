@@ -43,6 +43,11 @@ class MLTransformation(BaseTransformation):
     # must materialize around them.
     polars_lazy_safe = False
 
+    # to_polars_code emits pandas (scikit-learn speaks pandas/numpy), so the polars
+    # code generator converts frames to/from pandas around these nodes and collects
+    # their sklearn imports — see BaseTransformation.emits_pandas_code.
+    emits_pandas_code = True
+
     def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
         """Optional data-aware validation run during node preview, once the upstream
         column names / row count are known (see

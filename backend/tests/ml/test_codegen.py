@@ -1,9 +1,12 @@
 """ML code export: the CodeGenerator wires multi-output handle variables and
 collects per-node sklearn imports; the exported script compiles."""
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from app.engine.codegen import CodeGenerator
+from app.engine.polars_codegen import PolarsCodeGenerator
 
 
 def _paths():
@@ -28,7 +31,7 @@ def test_train_test_split_export_uses_two_vars():
     assert "from sklearn.model_selection import train_test_split" in code
     assert "train_test_split(" in code
     # two distinct output vars are produced and written to the two files
-    assert 'train.csv' in code and 'test.csv' in code
+    assert "train.csv" in code and "test.csv" in code
     compile(code, "<gen>", "exec")
 
 
@@ -37,11 +40,23 @@ def test_full_ml_pipeline_export_compiles():
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1}},
+            },
             {"id": "pr", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
-            {"id": "ev", "type": "mlEvaluate", "data": {"config": {
-                "task_type": "classification", "target_column": "target", "prediction_column": "prediction"}}},
+            {
+                "id": "ev",
+                "type": "mlEvaluate",
+                "data": {
+                    "config": {
+                        "task_type": "classification",
+                        "target_column": "target",
+                        "prediction_column": "prediction",
+                    }
+                },
+            },
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": "metrics.csv"}}},
         ],
         "edges": [
@@ -91,12 +106,14 @@ def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
     data = tmp_path / "data.csv"
     rng = np.random.default_rng(0)
     n = 120
-    df = pd.DataFrame({
-        "num1": rng.normal(size=n),
-        "num2": rng.normal(size=n),
-        "color": rng.choice(["r", "g", "b"], size=n),
-        "target": rng.integers(0, 2, size=n),
-    })
+    df = pd.DataFrame(
+        {
+            "num1": rng.normal(size=n),
+            "num2": rng.normal(size=n),
+            "color": rng.choice(["r", "g", "b"], size=n),
+            "target": rng.integers(0, 2, size=n),
+        }
+    )
     df.loc[0:5, "num1"] = np.nan  # nulls force the imputer to be present
     df.to_csv(data, index=False)
     pred_out = tmp_path / "pred.csv"
@@ -105,9 +122,18 @@ def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 42, "test_size": 0.25}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target",
-                "feature_columns": ["num1", "num2", "color"], "seed": 42}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {
+                    "config": {
+                        "model_type": "random_forest_classifier",
+                        "target_column": "target",
+                        "feature_columns": ["num1", "num2", "color"],
+                        "seed": 42,
+                    }
+                },
+            },
             {"id": "pr", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": pred_out.as_posix()}}},
         ],
@@ -132,26 +158,48 @@ def test_exported_evaluate_and_proba_run_with_all_metrics(tmp_path):
     data = tmp_path / "data.csv"
     rng = np.random.default_rng(1)
     n = 120
-    pd.DataFrame({
-        "num1": rng.normal(size=n),
-        "num2": rng.normal(size=n),
-        "target": rng.integers(0, 2, size=n),
-    }).to_csv(data, index=False)
+    pd.DataFrame(
+        {
+            "num1": rng.normal(size=n),
+            "num2": rng.normal(size=n),
+            "target": rng.integers(0, 2, size=n),
+        }
+    ).to_csv(data, index=False)
     out = tmp_path / "metrics.csv"
 
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 7, "test_size": 0.25}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target",
-                "feature_columns": ["num1", "num2"], "seed": 7}}},
-            {"id": "pr", "type": "mlPredict", "data": {"config": {
-                "output_column": "prediction", "output_proba_columns": ["p0", "p1"]}}},
-            {"id": "ev", "type": "mlEvaluate", "data": {"config": {
-                "task_type": "classification", "target_column": "target",
-                "prediction_column": "prediction",
-                "metrics": ["accuracy", "precision", "recall", "f1"]}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {
+                    "config": {
+                        "model_type": "random_forest_classifier",
+                        "target_column": "target",
+                        "feature_columns": ["num1", "num2"],
+                        "seed": 7,
+                    }
+                },
+            },
+            {
+                "id": "pr",
+                "type": "mlPredict",
+                "data": {"config": {"output_column": "prediction", "output_proba_columns": ["p0", "p1"]}},
+            },
+            {
+                "id": "ev",
+                "type": "mlEvaluate",
+                "data": {
+                    "config": {
+                        "task_type": "classification",
+                        "target_column": "target",
+                        "prediction_column": "prediction",
+                        "metrics": ["accuracy", "precision", "recall", "f1"],
+                    }
+                },
+            },
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": out.as_posix()}}},
         ],
         "edges": [
@@ -167,6 +215,84 @@ def test_exported_evaluate_and_proba_run_with_all_metrics(tmp_path):
     exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
     metrics = pd.read_csv(out)
     assert set(metrics["metric"]) == {"accuracy", "precision", "recall", "f1"}
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_polars_ml_export_runs_end_to_end(tmp_path, lazy):
+    """A polars (eager + lazy) export of an ML flow must *run*, not just compile:
+    ML nodes emit pandas/sklearn code, so the polars generator has to import pandas,
+    bridge frames to/from pandas, and keep the model reference as a plain object.
+    Regression: the polars script used to omit those imports and call pandas APIs on
+    polars frames, so every ML flow's polars export was broken."""
+    data = tmp_path / "data.csv"
+    rng = np.random.default_rng(0)
+    n = 140
+    df = pd.DataFrame(
+        {
+            "num1": rng.normal(size=n),
+            "num2": rng.normal(size=n),
+            "color": rng.choice(["r", "g", "b"], size=n),
+            "target": rng.integers(0, 2, size=n),
+        }
+    )
+    df.loc[0:5, "num1"] = np.nan
+    df.to_csv(data, index=False)
+    metrics_out = tmp_path / "metrics.csv"
+    fi_out = tmp_path / "fi.csv"
+
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 42, "test_size": 0.25}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {
+                    "config": {
+                        "model_type": "random_forest_classifier",
+                        "target_column": "target",
+                        "feature_columns": ["num1", "num2", "color"],
+                        "seed": 42,
+                    }
+                },
+            },
+            {"id": "pr", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
+            {"id": "fi", "type": "featureImportance", "data": {"config": {}}},
+            {
+                "id": "ev",
+                "type": "mlEvaluate",
+                "data": {
+                    "config": {
+                        "task_type": "classification",
+                        "target_column": "target",
+                        "prediction_column": "prediction",
+                        "metrics": ["accuracy", "f1"],
+                    }
+                },
+            },
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": metrics_out.as_posix()}}},
+            {"id": "out2", "type": "csvOutput", "data": {"config": {"path": fi_out.as_posix()}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "sp"},
+            {"id": "e2", "source": "sp", "target": "tr", "sourceHandle": "train"},
+            {"id": "e3", "source": "sp", "target": "pr", "sourceHandle": "test"},
+            {"id": "e4", "source": "tr", "target": "pr", "sourceHandle": "model", "targetHandle": "model"},
+            {"id": "e5", "source": "pr", "target": "ev"},
+            {"id": "e6", "source": "ev", "target": "out"},
+            {"id": "e7", "source": "tr", "target": "fi", "sourceHandle": "model"},
+            {"id": "e8", "source": "fi", "target": "out2"},
+        ],
+    }
+    code = PolarsCodeGenerator().generate(graph, {"ds1": data.as_posix()}, lazy=lazy)
+    exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
+
+    metrics = pd.read_csv(metrics_out)
+    assert set(metrics["metric"]) == {"accuracy", "f1"}
+    fi = pd.read_csv(fi_out)
+    assert list(fi.columns) == ["feature_name", "importance", "rank"]
+    # categorical one-hot names survived the polars<->pandas bridge (not integers)
+    assert "color_r" in set(fi["feature_name"])
 
 
 def test_imports_are_deduplicated():
