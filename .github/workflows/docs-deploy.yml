@@ -1,20 +1,16 @@
 name: Deploy Documentation
 
 on:
-  # Docs CI/deploy is paused: GitHub Pages is not enabled for this repo yet, so the
-  # "Deploy to GitHub Pages" job fails with a 404. The workflow is kept intact and
-  # can still be run manually (workflow_dispatch). To fully re-enable, turn on Pages
-  # in repo Settings → Pages and uncomment the push/pull_request triggers below.
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - .github/workflows/docs-deploy.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - docs/**
   workflow_dispatch:
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - docs/**
-  #     - .github/workflows/docs-deploy.yml
-  # pull_request:
-  #   branches: [main]
-  #   paths:
-  #     - docs/**
 
 permissions:
   contents: read
