@@ -234,3 +234,8 @@ backend/mlartifacts/
 
 # Web UI bundled into the wheel at build time (generated from frontend/dist)
 backend/app/web/
+
+# Node (frontend/ and docs/ have their own ignores; this covers any root-level
+# node_modules created by running npm/vitest from the repo root)
+node_modules/
+.vite/
