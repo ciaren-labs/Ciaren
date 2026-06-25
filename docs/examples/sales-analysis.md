@@ -13,6 +13,20 @@ aggregates it.
 **You'll use:** CSV Input → Drop Columns → Cast Types → Drop Nulls → Filter Rows →
 Fill Nulls → Group by + Aggregate → Rename → Sort → CSV Output.
 
+<FlowPipeline :nodes='[
+  {"type":"input","label":"CSV Input","detail":"sales.csv"},
+  {"type":"clean","label":"Drop Columns","detail":"remove internal_note"},
+  {"type":"clean","label":"Cast Types","detail":"amount→float · ordered_at→datetime"},
+  {"type":"clean","label":"Drop Nulls","detail":"subset: amount"},
+  {"type":"clean","label":"Filter Rows","detail":"amount > 0 (remove refunds)"},
+  {"type":"clean","label":"Replace Values","detail":"normalise region casing"},
+  {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},
+  {"type":"transform","label":"Group By + Aggregate","detail":"region · sum(amount) · count(order_id)"},
+  {"type":"clean","label":"Rename Columns","detail":"amount→total_sales · order_id→num_orders"},
+  {"type":"clean","label":"Sort Rows","detail":"total_sales desc"},
+  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+]' :vertical="true" />
+
 ## Sample data
 
 Save this as `sales.csv` and upload it on the **Datasets** page:
@@ -75,13 +89,34 @@ FlowFrame also generates the **polars** equivalent — pick whichever you prefer
 
 ## Result
 
-| region | total_sales | num_orders |
-| -------- | ------------- | ------------ |
-| North | 330.50 | 2 |
-| South | 89.00 | 1 |
+The pipeline transforms the raw messy CSV into a clean revenue summary.
 
-(The refund and the missing-amount rows were filtered out; the row with no region
-became `Unknown`.)
+<DataTransform
+  transform="Full pipeline"
+  :before='{
+    "columns":["order_id","region","amount","ordered_at","internal_note"],
+    "rows":[
+      [1001,"North",120.50,"2024-01-03","batch-a"],
+      [1002,"south",89.00,"2024-01-03","batch-a"],
+      [1003,"North",null,"2024-01-04","batch-b"],
+      [1004,"South",-5.00,"2024-01-04","refund"],
+      [1005,null,42.25,"2024-01-05","batch-b"],
+      [1006,"north",210.00,"2024-01-06","batch-c"]
+    ]
+  }'
+  :after='{
+    "columns":["region","total_sales","num_orders"],
+    "rows":[
+      ["North",330.50,2],
+      ["South",89.00,1],
+      ["Unknown",42.25,1]
+    ]
+  }'
+  :highlight='["total_sales","num_orders"]'
+/>
+
+The refund row (`amount = -5`) and the missing-amount row were filtered out; the
+row with no region became `Unknown`.
 
 ## Variations
 
