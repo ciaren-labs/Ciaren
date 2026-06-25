@@ -33,7 +33,10 @@ FlowFrame is organized around a few pages, reachable from the navigation:
 ## The flow editor
 
 Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
-[React Flow](https://reactflow.dev/):
+[React Flow](https://reactflow.dev/). The layout has three main regions:
+
+<EditorLayout />
+
 
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input

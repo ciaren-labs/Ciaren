@@ -15,6 +15,32 @@ All ML nodes run on scikit-learn (with optional XGBoost / LightGBM) and convert
 to pandas at the model boundary, so they work whether the flow's engine is polars
 or pandas.
 
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"dataset with target"},
+    {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
+    {"type":"ml","label":"Scale Features","detail":"normalize numerics"},
+    {"type":"ml","label":"Train Model","detail":"model → MLflow"},
+    {"type":"ml","label":"Predict","detail":"test data + model wire"},
+    {"type":"ml","label":"Evaluate","detail":"accuracy · AUC · F1"},
+    {"type":"output","label":"CSV Output","detail":"metrics table"}
+  ]'
+/>
+
+### What Evaluate produces
+
+<DataTransform
+  transform="Evaluate (task=classification, prediction_column=prediction)"
+  :before='{
+    "columns":["customer_id","churn","prediction"],
+    "rows":[[1,1,1],[2,0,0],[3,0,1]]
+  }'
+  :after='{
+    "columns":["metric","value"],
+    "rows":[["accuracy",0.6667],["precision",0.5],["recall",1.0],["f1",0.6667]]
+  }'
+/>
+
 ## Train / Test Split
 
 Splits incoming rows into a training set and a test set. **Two outputs:** `train`

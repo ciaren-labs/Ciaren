@@ -14,6 +14,23 @@ Apply a string operation to a column.
   (`strip`).
 - Replace a substring, measure length (`len`), or zero-pad codes (`pad`).
 
+## What it does
+
+Applies the chosen operation to every value in the target column in place.
+Chain multiple String transform nodes (one per operation) for multi-step cleaning.
+
+<DataTransform
+  transform="String transform: lower(email), then strip(name)"
+  :before='{
+    "columns":["name","email"],
+    "rows":[["  Ada L ","ADA@EXAMPLE.COM"],["Grace H","GRACE@EXAMPLE.COM"]]
+  }'
+  :after='{
+    "columns":["name","email"],
+    "rows":[["Ada L","ada@example.com"],["Grace H","grace@example.com"]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

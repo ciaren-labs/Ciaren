@@ -58,6 +58,10 @@ schedule fires; blanks fall back to each parameter's default — so one flow can
 back several schedules that differ only by their parameter values.
 :::
 
+## Lifecycle overview
+
+<ScheduleCycle />
+
 ## How it decides what to run
 
 `Schedule.next_run_at` (a naive-UTC timestamp) is the **single source of truth**.

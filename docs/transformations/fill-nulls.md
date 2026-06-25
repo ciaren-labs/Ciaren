@@ -14,6 +14,27 @@ Replace missing values using a strategy.
 - Impute a numeric column with its mean/median so rows aren't lost.
 - Carry the last known value forward (`ffill`) in a time series.
 
+## What it does
+
+Replaces nulls in the target columns without removing rows — unlike
+[Drop nulls](./drop-nulls.md), every row survives.
+
+<DataTransform
+  transform="Fill nulls (strategy=constant, value=Unknown, columns=[region])"
+  :before='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1002,null,89.0],[1003,"South",null],[1004,null,42.25]
+    ]
+  }'
+  :after='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1002,"Unknown",89.0],[1003,"South",null],[1004,"Unknown",42.25]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
