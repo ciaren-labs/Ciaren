@@ -69,15 +69,19 @@ describe("ML node catalog", () => {
     expect(CATEGORY_ORDER.indexOf("ml")).toBeLessThan(CATEGORY_ORDER.indexOf("output"));
   });
 
-  it("declares multi-output handles for split and train", () => {
+  it("declares handles for split (two frames) and train (single model output)", () => {
     expect(getOutputHandles(getNodeTypeDef("trainTestSplit")!)).toEqual(["train", "test"]);
-    expect(getOutputHandles(getNodeTypeDef("mlTrain")!)).toEqual(["out", "model"]);
+    expect(getOutputHandles(getNodeTypeDef("mlTrain")!)).toEqual(["model"]);
     expect(getOutputHandles(getNodeTypeDef("scaleFeatures")!)).toEqual(["out"]);
   });
 
-  it("marks mlTrain as a model sink and mlPredict's model input optional", () => {
+  it("marks model handles: mlTrain emits one, predict/importance consume one", () => {
     expect(getNodeTypeDef("mlTrain")!.isModelSink).toBe(true);
+    expect(getNodeTypeDef("mlTrain")!.modelOutputHandles).toEqual(["model"]);
     expect(getNodeTypeDef("mlPredict")!.optionalInputHandles).toEqual(["model"]);
+    expect(getNodeTypeDef("mlPredict")!.modelInputHandles).toEqual(["model"]);
+    expect(getNodeTypeDef("featureImportance")!.inputHandles).toEqual(["model"]);
+    expect(getNodeTypeDef("featureImportance")!.modelInputHandles).toEqual(["model"]);
   });
 });
 

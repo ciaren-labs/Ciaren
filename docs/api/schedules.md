@@ -11,6 +11,10 @@ expression, a `timezone`, an optional `engine`, and reliability settings
 (`max_retries`, `retry_delay_seconds`, `catch_up`). See
 [Scheduling](/guide/scheduling) for the behavior.
 
+A schedule for a parameterized flow may also carry a `parameters` object —
+[flow-parameter](/guide/parameters) overrides applied to every run it fires.
+Blank/omitted values fall back to each parameter's declared default.
+
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/flows/{flow_id}/schedules` | List a flow's schedules |
@@ -27,4 +31,4 @@ one-off execution.
 
 ## See also
 
-- [Scheduling](/guide/scheduling) · [Runs API](./runs.md)
+- [Scheduling](/guide/scheduling) · [Runs API](./runs.md) · [Flow Parameters](/guide/parameters)

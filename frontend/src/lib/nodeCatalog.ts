@@ -27,6 +27,12 @@ export interface NodeTypeDef {
   /** Output handle ids. Empty for output nodes (they still flow downstream).
    *  Single-output nodes omit this and use the implicit "out" handle. */
   outputHandles?: string[];
+  /** Input handles that carry a trained model rather than a dataframe. A model
+   *  handle may only connect to another model handle (enforced by the backend),
+   *  and the editor renders it distinctly. */
+  modelInputHandles?: string[];
+  /** Output handles that emit a trained model rather than a dataframe. */
+  modelOutputHandles?: string[];
   /** Whether the node emits anything downstream (renders a source handle). */
   hasOutput: boolean;
   /** A terminal that persists a result without a file-output node (mlTrain logs a
@@ -454,7 +460,8 @@ export const NODE_TYPES: NodeTypeDef[] = [
       seed: 42,
     },
     inputHandles: ["in"],
-    outputHandles: ["out", "model"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
     hasOutput: true,
     isModelSink: true,
     description: "Fit a model and log it to MLflow (classification, regression, clustering).",
@@ -467,6 +474,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { model_uri: "", output_column: "prediction", output_proba_columns: [], batch_size: null },
     inputHandles: ["in"],
     optionalInputHandles: ["model"],
+    modelInputHandles: ["model"],
     hasOutput: true,
     description: "Score rows with a trained model (from the model wire or a registry URI).",
   },
@@ -492,7 +500,8 @@ export const NODE_TYPES: NodeTypeDef[] = [
     category: "ml",
     requiresMl: true,
     defaultConfig: { top_n: null },
-    inputHandles: ["in"],
+    inputHandles: ["model"],
+    modelInputHandles: ["model"],
     hasOutput: true,
     description: "Rank which features a trained model relied on most.",
   },
@@ -576,4 +585,27 @@ export const CATEGORY_ORDER: NodeCategory[] = [
 export function getOutputHandles(def: NodeTypeDef): string[] {
   if (def.outputHandles) return def.outputHandles;
   return def.hasOutput ? ["out"] : [];
+}
+
+/** Whether an output handle carries a trained model rather than a dataframe.
+ *  For a single-output model node (mlTrain) the edge has no sourceHandle, so it
+ *  resolves to the node's sole output handle. */
+export function isModelOutputHandle(
+  def: NodeTypeDef,
+  handle: string | null | undefined,
+): boolean {
+  const handles = def.modelOutputHandles;
+  if (!handles || handles.length === 0) return false;
+  const resolved = handle ?? getOutputHandles(def)[0];
+  return resolved != null && handles.includes(resolved);
+}
+
+/** Whether an input handle expects a trained model rather than a dataframe. */
+export function isModelInputHandle(
+  def: NodeTypeDef,
+  handle: string | null | undefined,
+): boolean {
+  const handles = def.modelInputHandles;
+  if (!handles || handles.length === 0) return false;
+  return handles.includes(handle ?? "in");
 }

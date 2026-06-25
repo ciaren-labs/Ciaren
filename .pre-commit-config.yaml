@@ -12,7 +12,10 @@ repos:
     hooks:
       - id: mypy
         name: mypy (backend)
-        entry: bash -c 'cd backend && uv run mypy app'
+        # --no-sync: type-check with the already-installed env; never re-lock
+        # (a plain `uv run` rewrites uv.lock, which pre-commit then flags as a
+        # hook-modified file and aborts the commit).
+        entry: bash -c 'cd backend && uv run --no-sync mypy app'
         language: system
         pass_filenames: false
         files: ^backend/.*\.py$

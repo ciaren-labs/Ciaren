@@ -10,6 +10,7 @@ and preview. For training, the fitted state must travel with the model — mlTra
 bundles equivalent preprocessing into the sklearn Pipeline so the exact same
 transform is reapplied at predict time (see docs/ml-architecture.md §3.2 / §3.4).
 """
+
 from __future__ import annotations
 
 import logging
@@ -68,9 +69,7 @@ class ScaleFeaturesTransformation(MLTransformation):
         pdf[columns] = scaler.fit_transform(pdf[columns])
         return {"out": engine.from_pandas(pdf)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         cols = config["columns"]
         _, ctor = _SCALERS[config.get("method", "standard")]
@@ -114,9 +113,7 @@ class EncodeCategoriesTransformation(MLTransformation):
             result[columns] = enc.fit_transform(result[columns].astype(str))
         return {"out": engine.from_pandas(result)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         cols = config["columns"]
         if config.get("method", "onehot") == "onehot":
@@ -212,15 +209,17 @@ class SelectFeaturesTransformation(MLTransformation):
         keep_set = set(kept) | {target} | (set(pdf.columns) - set(features))
         return pdf[[c for c in pdf.columns if c in keep_set]]
 
-    @staticmethod
-    def _is_regression(y: Any) -> bool:
+    # A numeric target with more distinct values than this is treated as a
+    # regression target (f_regression); otherwise classification (f_classif).
+    _REGRESSION_NUNIQUE_THRESHOLD = 20
+
+    @classmethod
+    def _is_regression(cls, y: Any) -> bool:
         import pandas as pd
 
-        return bool(pd.api.types.is_numeric_dtype(y) and y.nunique() > 20)
+        return bool(pd.api.types.is_numeric_dtype(y) and y.nunique() > cls._REGRESSION_NUNIQUE_THRESHOLD)
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         method = config.get("method", "variance")
         if method == "variance":
@@ -241,11 +240,17 @@ class SelectFeaturesTransformation(MLTransformation):
                 f"{dst} = {src}.drop(columns=_drop)"
             )
         target, k = config["target_column"], int(config["k"])
+        thresh = self._REGRESSION_NUNIQUE_THRESHOLD
+        # Mirror execute(): pick the scorer by target dtype, and keep every
+        # non-feature column (ids, strings, the target) — only the unselected
+        # numeric features are dropped.
         return (
             f"_features = [c for c in {src}.select_dtypes(include='number').columns if c != {target!r}]\n"
-            f"_sel = SelectKBest(f_classif, k=min({k!r}, len(_features))).fit({src}[_features], {src}[{target!r}])\n"
+            f"_scorer = f_regression if (pd.api.types.is_numeric_dtype({src}[{target!r}]) "
+            f"and {src}[{target!r}].nunique() > {thresh}) else f_classif\n"
+            f"_sel = SelectKBest(_scorer, k=min({k!r}, len(_features))).fit({src}[_features], {src}[{target!r}])\n"
             f"_kept = [c for c, kp in zip(_features, _sel.get_support()) if kp]\n"
-            f"{dst} = {src}[[c for c in {src}.columns if c in set(_kept) | {{{target!r}}}]]"
+            f"{dst} = {src}.drop(columns=[c for c in _features if c not in _kept])"
         )
 
     def imports(self, config: dict[str, Any]) -> list[str]:
@@ -254,7 +259,7 @@ class SelectFeaturesTransformation(MLTransformation):
             return ["from sklearn.feature_selection import VarianceThreshold"]
         if method == "correlation":
             return ["import numpy as np"]
-        return ["from sklearn.feature_selection import SelectKBest, f_classif"]
+        return ["from sklearn.feature_selection import SelectKBest, f_classif, f_regression"]
 
 
 # -- reduceDimensions (PCA transform) ---------------------------------------
@@ -300,19 +305,20 @@ class ReduceDimensionsTransformation(MLTransformation):
         result = pd.concat([others, comp_df], axis=1)
         return {"out": engine.from_pandas(result)}
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         prefix = config.get("prefix", "pc")
         n = config["n_components"]
         cols_expr = (
-            repr(config["columns"]) if config.get("columns")
-            else f"list({src}.select_dtypes(include='number').columns)"
+            repr(config["columns"]) if config.get("columns") else f"list({src}.select_dtypes(include='number').columns)"
         )
+        # Mirror execute(): an integer component count is capped to the number of
+        # features and rows so the exported script doesn't crash when n_components
+        # exceeds them (a variance fraction in (0, 1) is passed through untouched).
+        n_expr = f"min({n!r}, len(_cols), len({src}))" if isinstance(n, int) else f"{n!r}"
         return (
             f"_cols = {cols_expr}\n"
-            f"_pca = PCA(n_components={n!r}, random_state={config.get('seed')!r})\n"
+            f"_pca = PCA(n_components={n_expr}, random_state={config.get('seed')!r})\n"
             f"_comp = _pca.fit_transform({src}[_cols])\n"
             f"_names = [f'{prefix}_{{i + 1}}' for i in range(_comp.shape[1])]\n"
             f"{dst} = pd.concat([{src}.drop(columns=_cols), "

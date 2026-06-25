@@ -140,13 +140,23 @@ export const flowsApi = {
     ),
   createRun: (
     id: string,
-    options: { inputDatasetId?: string; engine?: string } = {},
+    options: {
+      inputDatasetId?: string;
+      engine?: string;
+      parameters?: Record<string, unknown> | null;
+    } = {},
   ) =>
     request<FlowRun>(`/flows/${id}/runs`, {
       method: "POST",
       body: JSON.stringify({
         input_dataset_id: options.inputDatasetId,
         engine: options.engine ?? "pandas",
+        // Only send when there are overrides, so flows without parameters keep
+        // posting a minimal body.
+        parameters:
+          options.parameters && Object.keys(options.parameters).length > 0
+            ? options.parameters
+            : undefined,
       }),
     }),
 };
