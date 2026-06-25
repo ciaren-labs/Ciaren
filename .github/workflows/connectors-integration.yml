@@ -1,10 +1,10 @@
 name: Connectors Integration
 
-# Exercises the real I/O paths of the cloud/storage connectors against ephemeral
-# containers (MinIO for the S3 connector today). The default Backend Tests suite
-# stays infra-free; these tests self-skip there and run only here, where the
-# service endpoints are provided via env vars. Linux-only — the goal is to cover
-# the connector code paths, not the OS matrix.
+# Exercises the real I/O paths of the data-source connectors against ephemeral
+# containers (MinIO for S3, MongoDB for the Mongo connector). The default Backend
+# Tests suite stays infra-free; these tests self-skip there and run only here,
+# where the service endpoints are provided via env vars. Linux-only — the goal is
+# to cover the connector code paths, not the OS matrix.
 
 on:
   push:
@@ -97,3 +97,69 @@ jobs:
       - name: Stop MinIO
         if: always()
         run: docker rm -f minio || true
+
+  mongo:
+    name: Mongo connector (MongoDB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The official mongo image runs mongod under its default entrypoint, so it
+    # works as a service container (no command override needed, unlike MinIO).
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    env:
+      # Consumed by tests/integration/test_mongo_connector.py (it self-skips without these).
+      FLOWFRAME_TEST_MONGO_HOST: 127.0.0.1
+      FLOWFRAME_TEST_MONGO_PORT: "27017"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        # dev group (pytest/cov/asyncio/httpx) + the mongo extra (pymongo).
+        run: uv sync --all-groups --extra mongo
+
+      # Service containers report "started" before mongod finishes initializing;
+      # poll with the same driver the tests use rather than a brittle health-cmd.
+      - name: Wait for MongoDB to be ready
+        working-directory: backend
+        run: |
+          for i in $(seq 1 30); do
+            if uv run python -c "from pymongo import MongoClient; MongoClient('127.0.0.1', 27017, serverSelectionTimeoutMS=1500).admin.command('ping')"; then
+              echo "MongoDB ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MongoDB did not become ready in time"
+          exit 1
+
+      - name: Run connector integration tests
+        working-directory: backend
+        # Mirrors the s3 job: only `connectors`-marked tests, no --cov-fail-under,
+        # coverage uploaded under the shared flag so Codecov merges both jobs.
+        run: >-
+          uv run pytest tests -m connectors
+          --cov=app/connectors --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./backend/coverage.xml
+          flags: connectors-integration
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
