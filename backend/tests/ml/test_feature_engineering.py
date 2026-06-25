@@ -217,6 +217,23 @@ def test_pca_caps_components_to_feature_count():
     assert sum(c.startswith("pc_") for c in out.columns) == 2
 
 
+def test_reduce_export_caps_n_components_like_execute():
+    # n_components (5) exceeds the feature count (2): execute caps it, and the
+    # exported code must cap it too instead of crashing inside PCA.
+    from sklearn.decomposition import PCA  # noqa: F401 - used by exec'd code
+
+    df = pd.DataFrame({"a": np.random.RandomState(0).rand(8), "b": np.random.RandomState(1).rand(8)})
+    node, config = ReduceDimensionsTransformation(), {"n_components": 5, "columns": ["a", "b"], "seed": 0}
+    engine, frame = _frame("pandas", df)
+    executed = _run(node, engine, frame, config)
+    ns = {"pd": pd, "np": np, "df": df.copy(), "PCA": PCA}
+    exec(node.to_python_code({"in": "df"}, {"out": "res"}, config), ns)  # noqa: S102
+    exported = ns["res"]
+    exec_pc = sorted(c for c in executed.columns if c.startswith("pc_"))
+    export_pc = sorted(c for c in exported.columns if c.startswith("pc_"))
+    assert exec_pc == export_pc == ["pc_1", "pc_2"]
+
+
 def test_reduce_validate_rejects_bad_n_components():
     node = ReduceDimensionsTransformation()
     with pytest.raises(ValueError, match="n_components"):
