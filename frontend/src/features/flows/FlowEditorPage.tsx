@@ -12,6 +12,7 @@ import {
   Play,
   Power,
   Save,
+  Variable,
 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
@@ -21,6 +22,7 @@ import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
+import type { ParameterSpec } from "@/lib/types";
 import { type NodeTypeDef } from "@/lib/nodeCatalog";
 import { createFlowNode } from "@/lib/createNode";
 import { hasReadyInput } from "@/lib/flowGraph";
@@ -31,6 +33,7 @@ import { NodeSidebar } from "@/components/flow/NodeSidebar";
 import { PreviewPanel } from "@/components/flow/PreviewPanel";
 import { ValidationSummary } from "@/components/flow/ValidationSummary";
 import { ExportCodeDialog } from "./ExportCodeDialog";
+import { ParametersDialog } from "./ParametersDialog";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -53,6 +56,7 @@ export function FlowEditorPage() {
   const reset = useFlowEditorStore((s) => s.reset);
   const dirty = useFlowEditorStore((s) => s.dirty);
   const markClean = useFlowEditorStore((s) => s.markClean);
+  const markDirty = useFlowEditorStore((s) => s.markDirty);
   const previewOpen = useFlowEditorStore((s) => s.previewOpen);
   const setPreviewOpen = useFlowEditorStore((s) => s.setPreviewOpen);
   const setInvalidNodeIds = useFlowEditorStore((s) => s.setInvalidNodeIds);
@@ -61,6 +65,7 @@ export function FlowEditorPage() {
   const projectName = (projects ?? []).find((p) => p.id === flowProjectId)?.name ?? null;
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [paramsOpen, setParamsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   // Height of the bottom preview pane, drag-resizable and remembered locally.
   const [previewHeight, setPreviewHeight] = useState(() => {
@@ -91,6 +96,9 @@ export function FlowEditorPage() {
   };
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [engine, setEngine] = useState<"pandas" | "polars">("pandas");
+  // Parameter specs declared on the flow. Held here (like `engine`) and re-attached
+  // to graph_json on save/run, since storeToGraph only carries nodes + edges.
+  const [parameters, setParameters] = useState<ParameterSpec[]>([]);
   const createRun = useCreateRun(flowId ?? "");
   const createSchedule = useCreateSchedule();
   const toggleFlow = useToggleFlow();
@@ -111,9 +119,11 @@ export function FlowEditorPage() {
       const { nodes, edges } = graphToStore(flow.graph_json);
       setGraph(nodes, edges);
       setEngine(flow.graph_json.engine ?? "pandas");
+      setParameters(flow.graph_json.parameters ?? []);
     } else if (flow) {
       setGraph([], []);
       setEngine("pandas");
+      setParameters([]);
     }
     setFlowProjectId(flow?.project_id ?? null);
     return () => reset();
@@ -125,15 +135,22 @@ export function FlowEditorPage() {
   // Gate: the first step must be an input node with a dataset chosen.
   const inputReady = hasReadyInput(nodes);
 
-  const handleSave = () => {
-    if (!flowId) return;
+  // Build the persisted graph from the live editor state plus the engine and
+  // parameter specs (which storeToGraph does not carry).
+  const buildGraph = () => {
     const graph = storeToGraph(
       useFlowEditorStore.getState().nodes,
       useFlowEditorStore.getState().edges,
     );
     graph.engine = engine;
+    if (parameters.length > 0) graph.parameters = parameters;
+    return graph;
+  };
+
+  const handleSave = () => {
+    if (!flowId) return;
     updateFlow.mutate(
-      { id: flowId, body: { graph_json: graph } },
+      { id: flowId, body: { graph_json: buildGraph() } },
       { onSuccess: () => markClean() },
     );
   };
@@ -159,20 +176,15 @@ export function FlowEditorPage() {
 
   // Inputs already pin their datasets, so running just executes the saved graph
   // (on the chosen engine) and takes you to the run's results.
-  const handleRun = () => {
+  const handleRun = (paramValues?: Record<string, unknown>) => {
     if (!flowId) return;
-    const graph = storeToGraph(
-      useFlowEditorStore.getState().nodes,
-      useFlowEditorStore.getState().edges,
-    );
-    graph.engine = engine;
     updateFlow.mutate(
-      { id: flowId, body: { graph_json: graph } },
+      { id: flowId, body: { graph_json: buildGraph() } },
       {
         onSuccess: () => {
           markClean();
           createRun.mutate(
-            { engine },
+            { engine, parameters: paramValues },
             { onSuccess: (run) => navigate(`/runs/${run.id}`) },
           );
         },
@@ -251,7 +263,7 @@ export function FlowEditorPage() {
                   <GatedButton
                     disabled={!validation.canRun || createRun.isPending}
                     reason={runReason}
-                    onClick={handleRun}
+                    onClick={() => handleRun()}
                     className="rounded-none border-0"
                   >
                     {createRun.isPending ? (
@@ -270,6 +282,14 @@ export function FlowEditorPage() {
                 >
                   <Code2 className="h-4 w-4" /> Export
                 </GatedButton>
+                <Button size="sm" variant="outline" onClick={() => setParamsOpen(true)}>
+                  <Variable className="h-4 w-4" /> Parameters
+                  {parameters.length > 0 && (
+                    <span className="ml-1 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-700">
+                      {parameters.length}
+                    </span>
+                  )}
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setScheduleOpen(true)}>
                   <CalendarClock className="h-4 w-4" /> Schedule
                 </Button>
@@ -329,6 +349,16 @@ export function FlowEditorPage() {
         flowId={flow.id}
         open={exportOpen}
         onOpenChange={setExportOpen}
+      />
+
+      <ParametersDialog
+        open={paramsOpen}
+        onOpenChange={setParamsOpen}
+        value={parameters}
+        onChange={(specs) => {
+          setParameters(specs);
+          markDirty();
+        }}
       />
 
       <ScheduleFormDialog
