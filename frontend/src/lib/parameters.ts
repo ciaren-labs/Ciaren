@@ -2,7 +2,7 @@
 // everything (app/engine/parameters.py); this mirrors the rules for fast editor
 // feedback and to coerce default values to their declared type before saving.
 
-import type { ParameterSpec, ParameterType } from "@/lib/types";
+import type { ParameterSpec, ParameterType, ParameterValues } from "@/lib/types";
 
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -99,6 +99,49 @@ export function validateRows(rows: ParamRow[]): ParamValidation {
   });
 
   return { errors, specs: errors.size === 0 ? specs : null };
+}
+
+/** A parameter with neither a default nor a (later) override must be supplied. */
+export function isRequired(spec: ParameterSpec): boolean {
+  return spec.default === undefined || spec.default === null;
+}
+
+/** The default rendered as input text (empty when the parameter is required). */
+export function defaultText(spec: ParameterSpec): string {
+  return isRequired(spec) ? "" : String(spec.default);
+}
+
+export interface RunValues {
+  /** Parameter name → message for the first problem with its value. */
+  errors: Map<string, string>;
+  /** Coerced override values (only fields the user supplied), or null on error.
+   *  A field left blank falls back to its default and is omitted here. */
+  values: ParameterValues | null;
+}
+
+/** Validate run/schedule override text per spec and coerce to typed values. */
+export function buildRunValues(
+  specs: ParameterSpec[],
+  texts: Record<string, string>,
+): RunValues {
+  const errors = new Map<string, string>();
+  const values: ParameterValues = {};
+
+  for (const spec of specs) {
+    const raw = texts[spec.name] ?? "";
+    if (raw.trim() === "") {
+      if (isRequired(spec)) errors.set(spec.name, "This parameter is required.");
+      continue; // blank + has default → use the default (omit the override)
+    }
+    const coerced = coerceDefault(spec.type, raw);
+    if (!coerced.ok) {
+      errors.set(spec.name, `Enter a valid ${spec.type}.`);
+      continue;
+    }
+    values[spec.name] = coerced.value;
+  }
+
+  return { errors, values: errors.size === 0 ? values : null };
 }
 
 /** Find the `{{ name }}` references used anywhere in a node-config tree. */
