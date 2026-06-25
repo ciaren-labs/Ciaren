@@ -358,7 +358,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   },
   mlTrain: {
     summary:
-      "Fits a model and logs it to MLflow. Preprocessing is bundled into the model so the exact same steps run at prediction time. Outputs the data (out) and a model reference (model).",
+      "Fits a model and logs it to MLflow. Preprocessing is bundled into the model so the exact same steps run at prediction time. Its single output is a model reference — wire it into Predict or Feature Importance.",
     fields: [
       { name: "Model", desc: "Pick an algorithm grouped by task (classification, regression, clustering)." },
       { name: "Target", desc: "The column to predict (supervised models only)." },

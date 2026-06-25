@@ -166,15 +166,20 @@ export function FlowCanvas() {
 
   // Edges leaving a "model" output (mlTrain → mlPredict/featureImportance) carry a
   // model reference, not data — draw them purple and non-animated to read at a
-  // glance: blue = data flow, purple = model flow.
+  // glance: blue = data flow, purple = model flow. Resolve via the source node's
+  // def so a single-output model edge (no explicit sourceHandle, e.g. seeded or
+  // imported flows) is still recognised as a model wire.
   const styledEdges = useMemo(
     () =>
-      edges.map((e) =>
-        e.sourceHandle === "model"
+      edges.map((e) => {
+        const sourceDef = getNodeTypeDef(
+          nodes.find((n) => n.id === e.source)?.type ?? "",
+        );
+        return sourceDef && isModelOutputHandle(sourceDef, e.sourceHandle)
           ? { ...e, animated: false, style: { ...e.style, stroke: "#a855f7", strokeWidth: 2 } }
-          : e,
-      ),
-    [edges],
+          : e;
+      }),
+    [edges, nodes],
   );
 
   return (

@@ -194,6 +194,42 @@ describe("computeNodeColumns", () => {
     const cols = computeNodeColumns(nodes, edges, ds);
     expect(cols.get("j")?.input.sort()).toEqual(["amount", "id", "name"]);
   });
+
+  it("does not let a model wire pollute mlPredict's data columns", () => {
+    // mlTrain's output frame is a model reference (mlflow_run_id, model_uri,
+    // task_type). Wired into mlPredict's "model" input it must NOT contribute
+    // those columns to the data schema — only the data "in" wire does.
+    const ds = [dataset("d1", ["x1", "x2", "target"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("tr", "mlTrain", { model_type: "random_forest_classifier", target_column: "target" }),
+      node("pr", "mlPredict", { output_column: "prediction" }),
+    ];
+    const edges = [
+      edge("in", "tr"), // data -> train
+      edge("in", "pr"), // data -> predict.in
+      edge("tr", "pr", "model"), // model -> predict.model
+    ];
+    const cols = computeNodeColumns(nodes, edges, ds);
+    // Input is the data columns only — no model-reference columns.
+    expect(cols.get("pr")?.input.sort()).toEqual(["target", "x1", "x2"]);
+    expect(cols.get("pr")?.output).not.toContain("model_uri");
+    expect(cols.get("pr")?.output).not.toContain("mlflow_run_id");
+    expect(cols.get("pr")?.output).toContain("prediction");
+  });
+
+  it("gives featureImportance no data columns from its model wire", () => {
+    const ds = [dataset("d1", ["x1", "x2", "target"])];
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "d1" }),
+      node("tr", "mlTrain", { model_type: "random_forest_classifier", target_column: "target" }),
+      node("fi", "featureImportance", {}),
+    ];
+    const edges = [edge("in", "tr"), edge("tr", "fi", "model")];
+    const cols = computeNodeColumns(nodes, edges, ds);
+    expect(cols.get("fi")?.input).toEqual([]); // model wire carries no data columns
+    expect(cols.get("fi")?.output).toEqual(["feature_name", "importance", "rank"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
