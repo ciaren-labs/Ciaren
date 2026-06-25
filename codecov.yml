@@ -1,0 +1,40 @@
+# Codecov merges coverage from every upload into one project report:
+#   * the Backend Tests matrix (infra-free suite; backend-<os>-py<ver> flags)
+#   * the Connectors Integration workflow (connectors-integration flag), which
+#     exercises the S3 / Mongo / Azure / GCS connector I/O paths against
+#     emulators (MinIO, MongoDB, Azurite, fake-gcs-server).
+#
+# The merged number therefore reflects connector coverage that the per-job
+# `--cov-fail-under` gate in backend-tests.yml (infra-free only) cannot see.
+# This is the gate that "banks" the connector integration tests.
+
+codecov:
+  # Two workflows upload coverage for one commit; wait for all of them before
+  # computing the status so the connectors-integration coverage is included.
+  notify:
+    wait_for_ci: true
+
+coverage:
+  status:
+    project:
+      default:
+        # Infra-free suite is ~88%; the connector flags lift the merged total
+        # above that. 1% threshold tolerates normal per-run fluctuation.
+        target: 88%
+        threshold: 1%
+    patch:
+      default:
+        # New / changed lines should be well covered.
+        target: 80%
+        threshold: 0%
+
+flags:
+  # The connectors-integration workflow only runs on backend changes; carry its
+  # coverage forward to commits where it didn't run so the merged report doesn't
+  # drop the connector lines to zero.
+  connectors-integration:
+    carryforward: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true
