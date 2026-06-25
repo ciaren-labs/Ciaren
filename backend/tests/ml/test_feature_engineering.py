@@ -186,6 +186,15 @@ def test_kbest_export_matches_execute_regression():
     assert list(executed.columns) == list(exported.columns)
 
 
+def test_kbest_is_regression_threshold_boundary():
+    # A numeric target with > 20 distinct values is treated as regression
+    # (f_regression); exactly 20 (or fewer), or any non-numeric, is classification.
+    node = SelectFeaturesTransformation()
+    assert node._is_regression(pd.Series(range(20))) is False  # 20 distinct -> classification
+    assert node._is_regression(pd.Series(range(21))) is True  # 21 distinct -> regression
+    assert node._is_regression(pd.Series([f"c{i}" for i in range(50)])) is False  # non-numeric
+
+
 def test_select_validate_kbest_requires_target_and_k():
     node = SelectFeaturesTransformation()
     with pytest.raises(ValueError, match="target_column"):
@@ -232,6 +241,23 @@ def test_reduce_export_caps_n_components_like_execute():
     exec_pc = sorted(c for c in executed.columns if c.startswith("pc_"))
     export_pc = sorted(c for c in exported.columns if c.startswith("pc_"))
     assert exec_pc == export_pc == ["pc_1", "pc_2"]
+
+
+def test_reduce_export_caps_n_components_to_row_count():
+    # Fewer rows than requested components: PCA is bounded by min(n_features, n_rows).
+    # 3 rows, 4 numeric columns, n_components=5 -> both execute and export cap to 3.
+    from sklearn.decomposition import PCA  # noqa: F401 - used by exec'd code
+
+    df = pd.DataFrame(np.random.RandomState(0).rand(3, 4), columns=["a", "b", "c", "d"])
+    node = ReduceDimensionsTransformation()
+    config = {"n_components": 5, "columns": ["a", "b", "c", "d"], "seed": 0}
+    engine, frame = _frame("pandas", df)
+    executed = _run(node, engine, frame, config)
+    ns = {"pd": pd, "np": np, "df": df.copy(), "PCA": PCA}
+    exec(node.to_python_code({"in": "df"}, {"out": "res"}, config), ns)  # noqa: S102
+    exec_pc = sorted(c for c in executed.columns if c.startswith("pc_"))
+    export_pc = sorted(c for c in ns["res"].columns if c.startswith("pc_"))
+    assert exec_pc == export_pc == ["pc_1", "pc_2", "pc_3"]
 
 
 def test_reduce_validate_rejects_bad_n_components():

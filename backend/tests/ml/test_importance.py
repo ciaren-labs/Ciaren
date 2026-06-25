@@ -127,6 +127,43 @@ def test_export_recovers_real_feature_names_and_rank(ml_env):
     assert exported.reset_index(drop=True).equals(executed.reset_index(drop=True))
 
 
+def test_export_multiclass_linear_matches_execute(ml_env):
+    # A 3-class logistic regression has a 2-D coef_ (n_classes x n_features); both
+    # execute and export must reduce it the same way (mean of |coef| over classes).
+    import numpy as np
+    import pandas as pd
+
+    from app.ml.loader import load_model
+
+    engine = get_engine("pandas")
+    rng = np.random.RandomState(0)
+    n = 150
+    df = pd.DataFrame(
+        {
+            "age": rng.randint(20, 70, n).astype(float),
+            "color": rng.choice(["red", "green", "blue"], n),
+            "target": rng.randint(0, 3, n),  # 3 classes -> coef_.ndim == 2
+        }
+    )
+    out, _ = MLTrainTransformation().execute_with_metadata(
+        engine,
+        {"in": engine.from_pandas(df)},
+        {
+            "model_type": "logistic_regression",
+            "target_column": "target",
+            "feature_columns": ["age", "color"],
+            "seed": 0,
+        },
+    )
+    executed = engine.to_pandas(NODE.execute_with_metadata(engine, {"model": out["model"]}, {})[0]["out"])
+    pipe = load_model(engine.to_pandas(out["model"]).iloc[0]["model_uri"])
+    ns = {"pd": pd, "model": pipe}
+    exec(NODE.to_python_code({"model": "model"}, {"out": "res"}, {}), ns)  # noqa: S102
+    exported = ns["res"]
+    assert list(exported["feature_name"]) == list(executed["feature_name"])
+    assert np.allclose(exported["importance"].to_numpy(), executed["importance"].to_numpy())
+
+
 def test_export_honours_top_n(ml_env):
     import pandas as pd
 
