@@ -13,6 +13,30 @@ Add columns for parts of a date/datetime column.
 - Add `year`/`month` columns to group sales by period.
 - Pull `weekday` or `hour` for time-of-week analysis.
 
+## What it does
+
+Adds one new column per requested part, named `<column>_<part>`. All original
+columns are preserved.
+
+<DataTransform
+  transform="Extract date parts (column=occurred_at, parts=[year, month])"
+  :before='{
+    "columns":["event_id","occurred_at","value"],
+    "rows":[
+      [1,"2024-01-05",10],[2,"2024-02-18",21],[3,"2024-03-01",17]
+    ]
+  }'
+  :after='{
+    "columns":["event_id","occurred_at","value","occurred_at_year","occurred_at_month"],
+    "rows":[
+      [1,"2024-01-05",10,2024,1],
+      [2,"2024-02-18",21,2024,2],
+      [3,"2024-03-01",17,2024,3]
+    ]
+  }'
+  :highlight='["occurred_at_year","occurred_at_month"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
