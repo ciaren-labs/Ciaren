@@ -39,6 +39,11 @@ postgres = ["asyncpg>=0.30", "psycopg[binary]>=3.1"]
 mysql = ["pymysql>=1.1"]
 mssql = ["pyodbc>=5.3.0"]
 mongo = ["pymongo>=4.6"]
+# Object / file storage drivers. The install hints surfaced by the connectors
+# (s3.py / providers.py) point users at these extras.
+s3 = ["boto3>=1.34"]
+gcs = ["google-cloud-storage>=2.16"]
+azure = ["azure-storage-blob>=12.19"]
 # Tabular ML extension (scikit-learn, gradient boosting, MLflow tracking/registry).
 # The base install never imports these; ML nodes are gated on ML_ENABLED + availability.
 ml = [
@@ -49,8 +54,8 @@ ml = [
     "joblib>=1.3",
 ]
 # Every optional driver in one shot. `all-connectors` is kept as an alias.
-all = ["asyncpg>=0.30", "psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.3.0", "pymongo>=4.6"]
-all-connectors = ["psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.3.0", "pymongo>=4.6"]
+all = ["asyncpg>=0.30", "psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.3.0", "pymongo>=4.6", "boto3>=1.34", "google-cloud-storage>=2.16", "azure-storage-blob>=12.19"]
+all-connectors = ["psycopg[binary]>=3.1", "pymysql>=1.1", "pyodbc>=5.3.0", "pymongo>=4.6", "boto3>=1.34", "google-cloud-storage>=2.16", "azure-storage-blob>=12.19"]
 
 [project.scripts]
 flowframe = "app.cli:main"
@@ -109,6 +114,13 @@ exclude = ["app/migrations/versions/"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+markers = [
+    # Tests that need a live external service (object storage, a database) — they
+    # self-skip when the service's connection env vars are unset, so the default
+    # suite stays infra-free. The connectors-integration CI job runs them against
+    # ephemeral containers (e.g. MinIO for S3).
+    "connectors: requires a live external service (object storage / database)",
+]
 
 [tool.coverage.run]
 source = ["app"]
