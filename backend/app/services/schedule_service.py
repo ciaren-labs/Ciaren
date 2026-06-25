@@ -44,6 +44,7 @@ class ScheduleService:
             max_retries=data.max_retries,
             retry_delay_seconds=data.retry_delay_seconds,
             run_timeout_seconds=data.run_timeout_seconds,
+            parameters_json=data.parameters,
             next_run_at=(compute_next_run(data.cron, now, data.timezone) if data.enabled else None),
         )
         self.db.add(schedule)
@@ -69,6 +70,10 @@ class ScheduleService:
         timezone = updates.get("timezone", schedule.timezone)
         engine = updates.get("engine", schedule.engine)
         self._validate(cron, timezone, engine)
+
+        # The request field `parameters` maps to the `parameters_json` column.
+        if "parameters" in updates:
+            schedule.parameters_json = updates.pop("parameters")
 
         for field, value in updates.items():
             setattr(schedule, field, value)
@@ -103,7 +108,7 @@ class ScheduleService:
         schedule = await self._get_or_raise(schedule_id)
         run = await ExecutionService(self.db).run(
             schedule.flow_id,
-            FlowRunCreate(engine=schedule.engine),
+            FlowRunCreate(engine=schedule.engine, parameters=schedule.parameters_json),
             schedule_id=schedule.id,
             trigger="schedule",
         )

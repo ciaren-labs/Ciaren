@@ -6,6 +6,7 @@ them once as :class:`StrEnum`s gives a single source of truth, request/response
 validation, OpenAPI ``enum`` docs, and IDE autocomplete — while still behaving as
 plain strings at the DB / sklearn / polars boundaries (``StrEnum`` *is* ``str``).
 """
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -85,3 +86,12 @@ class TransformationCategory(StrEnum):
 
     ML = "ml"
     ETL = "etl"
+
+
+class ParameterType(StrEnum):
+    """Declared type of a flow parameter (controls coercion of its value)."""
+
+    STRING = "string"
+    INTEGER = "integer"
+    NUMBER = "number"
+    BOOLEAN = "boolean"

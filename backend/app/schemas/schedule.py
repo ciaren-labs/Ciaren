@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,8 @@ class ScheduleCreate(BaseModel):
     retry_delay_seconds: int = Field(60, ge=1)
     # Per-schedule run timeout (seconds, 0 = no limit). None uses RUN_TIMEOUT_SECONDS.
     run_timeout_seconds: int | None = Field(None, ge=0)
+    # Flow-parameter overrides applied to every run this schedule fires.
+    parameters: dict[str, Any] | None = None
 
 
 class ScheduleUpdate(BaseModel):
@@ -29,6 +32,7 @@ class ScheduleUpdate(BaseModel):
     max_retries: int | None = Field(None, ge=0, le=10)
     retry_delay_seconds: int | None = Field(None, ge=1)
     run_timeout_seconds: int | None = Field(None, ge=0)
+    parameters: dict[str, Any] | None = None
 
 
 class ScheduleRead(BaseModel):
@@ -44,6 +48,7 @@ class ScheduleRead(BaseModel):
     max_retries: int
     retry_delay_seconds: int
     run_timeout_seconds: int | None
+    parameters: dict[str, Any] | None = Field(None, validation_alias="parameters_json")
     next_run_at: datetime | None
     last_fired_at: datetime | None
     last_run_id: str | None
@@ -54,4 +59,4 @@ class ScheduleRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
