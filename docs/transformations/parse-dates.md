@@ -16,6 +16,24 @@ the other way: datetime → parts).
   month.
 - Clean a messy date column, sending unparseable values to null.
 
+## What it does
+
+Converts each matching text value to a `datetime`. Unparseable strings become `null`
+when `errors=coerce` (the default).
+
+<DataTransform
+  transform="Parse dates (columns=[ordered_at], errors=coerce)"
+  :before='{
+    "columns":["id","ordered_at"],
+    "rows":[[1,"2024-01-15"],[2,"2024-02-20"],[3,"bad date"]]
+  }'
+  :after='{
+    "columns":["id","ordered_at"],
+    "rows":[[1,"2024-01-15 00:00:00"],[2,"2024-02-20 00:00:00"],[3,null]]
+  }'
+  :highlight='["ordered_at"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

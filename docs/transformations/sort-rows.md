@@ -14,6 +14,23 @@ Sort by one or more columns.
 - Set up row order before [Limit rows](./limit-rows.md) (top-N) or a
   [Window function](./window-function.md).
 
+## What it does
+
+Reorders rows by the chosen keys. Multiple keys resolve ties: the first column
+is primary, subsequent ones are tie-breakers.
+
+<DataTransform
+  transform="Sort rows (columns=[amount], ascending=false)"
+  :before='{
+    "columns":["region","amount"],
+    "rows":[["North",80],["South",150],["East",30],["West",120]]
+  }'
+  :after='{
+    "columns":["region","amount"],
+    "rows":[["South",150],["West",120],["North",80],["East",30]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
