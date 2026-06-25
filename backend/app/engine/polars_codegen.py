@@ -63,6 +63,7 @@ class PolarsCodeGenerator:
         *,
         lazy: bool = False,
         free_intermediates: bool = False,
+        parameter_lines: list[str] | None = None,
     ) -> str:
         validate_graph(graph)
         order = topological_sort(graph)
@@ -291,4 +292,5 @@ class PolarsCodeGenerator:
         plain = sorted(i for i in extra_imports if i.startswith("import "))
         froms = sorted(i for i in extra_imports if not i.startswith("import "))
         header = [*base_header, *plain, *froms]
-        return "\n".join([*header, "", *lines]) + "\n"
+        prelude = [*parameter_lines, ""] if parameter_lines else []
+        return "\n".join([*header, "", *prelude, *lines]) + "\n"

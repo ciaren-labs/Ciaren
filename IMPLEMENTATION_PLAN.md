@@ -85,17 +85,25 @@ Run with overrides: `POST /api/flows/{id}/runs` body
       `schedules.parameters_json`.
 - [x] Tests: parameters unit module + parameterized run + schedule override.
 
-### Phase 2 — Code export as real variables (next)
+### Phase 2 — Code export as real variables ✅
 
-- [ ] Emit a `# Parameters` block at the top of generated pandas/polars scripts
-      (`name = default`) and reference the variables in node code, instead of
-      inlining resolved literals. Requires threading param refs through
-      `CodeGenerator` / `PolarsCodeGenerator`. Until then, export resolves params
-      to their defaults so scripts stay runnable.
-- [ ] Save-time spec validation in `FlowService` create/update (fail fast on a
-      malformed `parameters` list rather than at run time).
+- [x] Emit a `# Flow parameters` block at the top of the generated pandas /
+      eager-polars / lazy-polars scripts (`name = default`) and reference the
+      variables in node code instead of inlining literals. Implemented via
+      `app/engine/codegen_params.py`: a `CodeRef` whose `repr` is the Python
+      expression (`{{ name }}` → bare variable; `data/{{ x }}.csv` →
+      `'data/{}.csv'.format(x)`), substituted into node configs which the
+      generators already render with `{value!r}`. `CodegenService` falls back to
+      inlining resolved defaults if a node can't handle a substituted value, so
+      export never fails.
+- [x] Save-time spec validation in `FlowService` create/update
+      (`validate_parameter_specs`): malformed `parameters` lists (bad name,
+      duplicate, unknown type, uncoercible default) are a clean 400.
+- [x] Tests: `tests/engine/test_codegen_params.py` (unit) +
+      `tests/api/test_export_parameters.py` (variables rendered, scripts compile,
+      save-time 400s).
 
-### Phase 3 — Frontend
+### Phase 3 — Frontend (next)
 
 - [ ] Parameters panel in the flow editor (`frontend/src/features/flows`): list /
       add / edit / remove specs (name, type, default, description), persisted into

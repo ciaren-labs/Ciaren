@@ -68,13 +68,16 @@ class CodeGenerator:
         connections: dict[str, dict[str, Any]] | None = None,
         *,
         free_intermediates: bool = False,
+        parameter_lines: list[str] | None = None,
     ) -> str:
         """Return the pandas script for ``graph`` as a single string.
 
         ``dataset_paths`` maps each input node's ``dataset_id`` to the path/filename
         to read; ``connections`` carries SQL connection metadata (never secrets).
         Set ``free_intermediates`` to emit ``del`` statements that free each
-        intermediate dataframe after its last use.
+        intermediate dataframe after its last use. ``parameter_lines`` is an
+        optional ``name = default`` prelude (flow parameters) inserted after the
+        imports.
         """
         validate_graph(graph)
         order = topological_sort(graph)
@@ -159,7 +162,7 @@ class CodeGenerator:
                     body.append(f"{var} = {func}({path!r})")
                 elif node_type == "textInput":
                     body.append(
-                        f"{var} = pd.read_csv({path!r}, sep=\"\\n\", header=None, "
+                        f'{var} = pd.read_csv({path!r}, sep="\\n", header=None, '
                         f'names=["text"], engine="python", dtype=str)'
                     )
                 else:
@@ -192,4 +195,5 @@ class CodeGenerator:
                     body.append(f"del {dead}")
 
         header = base_header + _ordered_imports(extra_imports)
-        return "\n".join([*header, "", *body]) + "\n"
+        prelude = [*parameter_lines, ""] if parameter_lines else []
+        return "\n".join([*header, "", *prelude, *body]) + "\n"

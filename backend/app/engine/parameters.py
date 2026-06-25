@@ -54,29 +54,26 @@ def read_parameter_specs(graph: dict[str, Any] | None) -> list[dict[str, Any]]:
     return specs
 
 
+def validate_parameter_specs(graph: dict[str, Any] | None) -> None:
+    """Validate a flow's parameter spec list without requiring values (save-time).
+
+    Checks names, uniqueness and types, and that any declared default coerces to
+    its type. Does *not* require every parameter to have a value (a parameter may
+    be required and supplied only at run time). Raises :class:`ParameterError`.
+    """
+    by_name = _build_specs_by_name(read_parameter_specs(graph))
+    for name, spec in by_name.items():
+        if spec.get("default") is not None:
+            _coerce(name, ParameterType(spec.get("type", ParameterType.STRING)), spec["default"])
+
+
 def resolve_values(specs: list[dict[str, Any]], overrides: dict[str, Any]) -> dict[str, Any]:
     """Compute the effective, type-coerced value for every declared parameter.
 
     Overrides win over a spec's default; a parameter with neither is required.
     Unknown override keys (typos) and bad types raise :class:`ParameterError`.
     """
-    specs_by_name: dict[str, dict[str, Any]] = {}
-    for spec in specs:
-        if not isinstance(spec, dict):
-            raise ParameterError("Each flow parameter must be an object.")
-        name = spec.get("name")
-        if not isinstance(name, str) or not _NAME_RE.match(name):
-            raise ParameterError(
-                f"Invalid parameter name {name!r}: must start with a letter or underscore "
-                "and contain only letters, digits and underscores."
-            )
-        if name in specs_by_name:
-            raise ParameterError(f"Duplicate parameter name {name!r}.")
-        type_ = spec.get("type", ParameterType.STRING)
-        if type_ not in tuple(ParameterType):
-            allowed = ", ".join(ParameterType)
-            raise ParameterError(f"Parameter {name!r} has unknown type {type_!r} (allowed: {allowed}).")
-        specs_by_name[name] = spec
+    specs_by_name = _build_specs_by_name(specs)
 
     unknown = set(overrides) - set(specs_by_name)
     if unknown:
@@ -135,6 +132,28 @@ def apply_parameters(
 
 
 # -- internals ----------------------------------------------------------------
+
+
+def _build_specs_by_name(specs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Validate spec structure (name, uniqueness, type) and index by name."""
+    specs_by_name: dict[str, dict[str, Any]] = {}
+    for spec in specs:
+        if not isinstance(spec, dict):
+            raise ParameterError("Each flow parameter must be an object.")
+        name = spec.get("name")
+        if not isinstance(name, str) or not _NAME_RE.match(name):
+            raise ParameterError(
+                f"Invalid parameter name {name!r}: must start with a letter or underscore "
+                "and contain only letters, digits and underscores."
+            )
+        if name in specs_by_name:
+            raise ParameterError(f"Duplicate parameter name {name!r}.")
+        type_ = spec.get("type", ParameterType.STRING)
+        if type_ not in tuple(ParameterType):
+            allowed = ", ".join(ParameterType)
+            raise ParameterError(f"Parameter {name!r} has unknown type {type_!r} (allowed: {allowed}).")
+        specs_by_name[name] = spec
+    return specs_by_name
 
 
 def _substitute_str(value: str, values: dict[str, Any]) -> Any:
