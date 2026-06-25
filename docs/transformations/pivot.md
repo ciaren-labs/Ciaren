@@ -16,7 +16,7 @@ Reshape long → wide.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `index` | string \| string[] | Yes | Row key(s) |
 | `columns` | string | Yes | Column whose values become new columns |
 | `values` | string | Yes | Column to aggregate into the cells |

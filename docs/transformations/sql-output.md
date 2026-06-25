@@ -17,7 +17,7 @@ Write the result to a database table via a reusable
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `connection_id` | string | Yes | The connection to write to |
 | `table` | string | Yes | Target table |
 | `schema` | string | No | Schema to write into |

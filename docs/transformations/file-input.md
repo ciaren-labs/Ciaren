@@ -10,7 +10,7 @@ Load data from a dataset you've uploaded into the flow. This is usually the firs
 node in a pipeline. There is one node type per file format:
 
 | Node type | Format | Reads |
-|---|---|---|
+| --- | --- | --- |
 | `csvInput` | CSV | Comma-separated values |
 | `excelInput` | Excel | `.xlsx` / `.xls` workbooks |
 | `parquetInput` | Parquet | Columnar binary format |
@@ -26,7 +26,7 @@ node in a pipeline. There is one node type per file format:
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `dataset_id` | string | Yes | The dataset to read |
 | `dataset_version` | int | No | Pin a specific version (defaults to latest) |
 

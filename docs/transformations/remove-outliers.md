@@ -16,7 +16,7 @@ Drop or clip outliers in numeric columns.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Numeric columns to scan |
 | `method` | string | No | `iqr` (default), `zscore`, or `percentile` |
 | `action` | string | No | `drop` (default) or `clip` to the bounds |

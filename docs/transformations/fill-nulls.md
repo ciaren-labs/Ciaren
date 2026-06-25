@@ -17,7 +17,7 @@ Replace missing values using a strategy.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `strategy` | string | No | `constant` (default), `mean`, `median`, `mode`, `min`, `max`, `zero`, `ffill`, `bfill` |
 | `value` | any | Conditional | Required when `strategy` is `constant` |
 | `columns` | string[] | No | Limit to these columns (otherwise all) |

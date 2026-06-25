@@ -30,7 +30,7 @@ Scaffold a commented file with `flowframe init`, confirm the resolved values wit
 All settings use the `FLOWFRAME_` prefix.
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `FLOWFRAME_APP_NAME` | `FlowFrame` | Display name |
 | `FLOWFRAME_ENVIRONMENT` | `development` | Environment label (`development`, `production`, …) |
 | `FLOWFRAME_DEBUG` | `false` | Extra debug behavior |
@@ -53,7 +53,7 @@ Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
 FlowFrame uses **async SQLAlchemy**, so the URL must use an async driver.
 
 | Database | URL form | Driver to install |
-|---|---|---|
+| --- | --- | --- |
 | SQLite (default) | `sqlite+aiosqlite:///./flowframe.db` | bundled |
 | PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/dbname` | `pip install asyncpg` |
 | MySQL / MariaDB | `mysql+aiomysql://user:pass@host:3306/dbname` | `pip install aiomysql` |

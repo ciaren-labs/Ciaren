@@ -38,7 +38,7 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
 ```
 
 | Field | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `cron` | — (required) | Standard 5-field cron expression |
 | `timezone` | `UTC` | IANA timezone used to interpret the cron |
 | `name` / `description` | null | Optional labels |
@@ -93,7 +93,7 @@ Scheduled runs are recorded like any other run, tagged with their
 ## Configuration
 
 | Setting | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `FLOWFRAME_SCHEDULER_ENABLED` | `true` | Master on/off switch |
 | `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the poller wakes |
 | `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |

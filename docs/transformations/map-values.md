@@ -17,7 +17,7 @@ default for unmapped values.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column` | string | Yes | Column whose values are mapped |
 | `mapping` | object | Yes | `{ "value": "becomes" }` |
 | `new_column` | string | No | Write to a new column (empty = overwrite `column`) |

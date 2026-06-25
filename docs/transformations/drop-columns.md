@@ -16,7 +16,7 @@ Remove one or more columns.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `columns` | string[] | Yes | Columns to remove |
 
 ## Generated Python code

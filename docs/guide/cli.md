@@ -28,7 +28,7 @@ flowframe serve --no-scheduler
 ```
 
 | Flag | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `--host` | `127.0.0.1` | Bind host |
 | `--port` | `8055` | Bind port |
 | `--reload` | off | Auto-reload on code changes (development only) |
@@ -137,7 +137,7 @@ flowframe db reset --yes        # DROP every table and rebuild from migrations
 ```
 
 | Subcommand | Description |
-|---|---|
+| --- | --- |
 | `upgrade` | Apply migrations up to `--revision` (default `head`). Safe to re-run. |
 | `current` | Print the revision the database is currently at. |
 | `reset` | **Destructive.** Drop all tables and rebuild. Requires `--yes`; refuses when `FLOWFRAME_ENVIRONMENT=production` unless `--force`. |
@@ -188,7 +188,7 @@ All settings use the `FLOWFRAME_` prefix and can be set via the environment or a
 `.env` file in the backend directory.
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `FLOWFRAME_DATABASE_URL` | `sqlite+aiosqlite:///./flowframe.db` | Async database URL |
 | `FLOWFRAME_DATA_DIR` | `.data` | Where uploads, outputs, and previews are written |
 | `FLOWFRAME_DEFAULT_ENGINE` | `polars` | Default engine for runs (`polars` \| `pandas`) |

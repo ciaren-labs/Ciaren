@@ -16,7 +16,7 @@ Add a column computed from an expression over existing columns.
 ## Configuration
 
 | Config key | Type | Required | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `column_name` | string | Yes | New column name |
 | `expression` | string | Yes | Arithmetic expression, e.g. `price * quantity` |
 
