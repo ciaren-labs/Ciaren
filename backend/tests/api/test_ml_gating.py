@@ -1,5 +1,6 @@
 """ML feature gating at the API layer: the transformations list hides ML nodes
 unless ML is enabled; ?category filters; previewing an ML node while disabled 501s."""
+
 import io
 
 import pandas as pd
@@ -72,6 +73,28 @@ async def test_category_ml_lists_ml_nodes_when_enabled(client: AsyncClient, monk
         get_settings.cache_clear()
 
 
+async def test_preview_ml_node_runs_schema_validation(client: AsyncClient, monkeypatch) -> None:
+    # With ML enabled, previewing an ML node runs its data-aware validation against
+    # the real dataset schema, so a bad column is a clean 400 (not a 500 from execute).
+    _enable_ml(monkeypatch)
+    try:
+        buf = io.BytesIO()
+        pd.DataFrame({"x": list(range(20)), "y": [0, 1] * 10}).to_csv(buf, index=False)
+        ds = (await client.post("/api/datasets/upload", files={"file": ("d.csv", buf.getvalue(), "text/csv")})).json()
+        r = await client.post(
+            "/api/transformations/preview",
+            json={
+                "type": "trainTestSplit",
+                "dataset_id": ds["id"],
+                "config": {"seed": 1, "stratify_column": "missing"},
+            },
+        )
+        assert r.status_code == 400, r.text
+        assert "stratify column 'missing'" in r.json()["detail"]
+    finally:
+        get_settings.cache_clear()
+
+
 async def test_running_an_ml_flow_is_blocked_when_disabled(client: AsyncClient) -> None:
     # ML disabled (default in tests). A crafted graph with an ML node must not run.
     buf = io.BytesIO()
@@ -80,8 +103,11 @@ async def test_running_an_ml_flow_is_blocked_when_disabled(client: AsyncClient) 
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "logistic_regression", "target_column": "y", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrain",
+                "data": {"config": {"model_type": "logistic_regression", "target_column": "y", "seed": 1}},
+            },
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
     }
