@@ -13,6 +13,23 @@ Round numeric columns to a number of decimals.
 - Tidy currency to 2 decimals before export.
 - Reduce noisy precision for display.
 
+## What it does
+
+Rounds each value in the target columns to `decimals` decimal places in place.
+
+<DataTransform
+  transform="Round numbers (columns=[price, tax], decimals=2)"
+  :before='{
+    "columns":["item","price","tax"],
+    "rows":[["Widget",12.34567,1.23456],["Gadget",7.89012,0.78901]]
+  }'
+  :after='{
+    "columns":["item","price","tax"],
+    "rows":[["Widget",12.35,1.23],["Gadget",7.89,0.79]]
+  }'
+  :highlight='["price","tax"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

@@ -15,6 +15,36 @@ nodes — connect one upstream node to its **left** handle and another to its
 - Enrich transactions with customer attributes.
 - Look up reference data (region names, prices) by key.
 
+## What it does
+
+Join combines the **left** and **right** inputs on a shared key. The `how` parameter
+controls which rows survive — `inner` keeps only matches, `left` keeps all rows from
+the left input (filling nulls for unmatched right-side columns).
+
+<ForkJoin
+  :left='[{"type":"transform","label":"Left input","detail":"orders aggregated by customer_id"}]'
+  :right='[{"type":"input","label":"Right input","detail":"customers.csv"}]'
+  :join='{"label":"Join","detail":"on: customer_id · how: left"}'
+  :after='[{"type":"transform","label":"Enriched result","detail":"transactions + customer name/country"}]'
+/>
+
+<DataTransform
+  transform="Join (on=customer_id, how=left)"
+  :before='{
+    "columns":["customer_id","total_spent"],
+    "rows":[[1,100],[2,500],[3,15]]
+  }'
+  :after='{
+    "columns":["customer_id","total_spent","name","country"],
+    "rows":[
+      [1,100,"Ada","UK"],
+      [2,500,"Grace","US"],
+      [3,15,"Linus","FI"]
+    ]
+  }'
+  :highlight='["name","country"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

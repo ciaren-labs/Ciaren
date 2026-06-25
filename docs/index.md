@@ -71,7 +71,17 @@ change between releases. Use it for experimentation — not production pipelines
 
 ## No Code, All Power
 
-FlowFrame supports 28 transformation nodes plus file and SQL input/output out of the box:
+FlowFrame supports 28 transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV / SQL / S3 Input","detail":"upload or live query"},
+    {"type":"clean","label":"Clean","detail":"nulls · types · dedupe · rename"},
+    {"type":"transform","label":"Transform","detail":"join · group · pivot · calculate"},
+    {"type":"ml","label":"ML (optional)","detail":"split · train · predict · evaluate"},
+    {"type":"output","label":"CSV / SQL / Parquet Output","detail":"export or write to DB"}
+  ]'
+/>
 
 - **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
 - **Transform:** Filter, aggregate, join, calculated columns, replace/round values

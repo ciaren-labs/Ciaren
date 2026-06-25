@@ -16,6 +16,38 @@ new column.
 - Running totals, cumulative max/min over an ordered key.
 - Compare a row to the previous/next one with `lag`/`lead`.
 
+## What it does
+
+A window function adds a **new column** computed from a window of rows — scoped to a
+partition (group) and ordered within it. The original row order is preserved; the
+calculation happens internally and the result is added alongside the existing columns.
+
+Below: `cumsum` partitioned by `region` and ordered by `date` adds a per-region
+running total without collapsing rows.
+
+<DataTransform
+  transform="Window: cumsum (partition_by=region, order_by=date, target=amount) → running_total"
+  :before='{
+    "columns":["region","date","amount"],
+    "rows":[
+      ["North","2024-01-01",100],
+      ["North","2024-01-02",150],
+      ["South","2024-01-01",80],
+      ["South","2024-01-02",200]
+    ]
+  }'
+  :after='{
+    "columns":["region","date","amount","running_total"],
+    "rows":[
+      ["North","2024-01-01",100,100],
+      ["North","2024-01-02",150,250],
+      ["South","2024-01-01",80,80],
+      ["South","2024-01-02",200,280]
+    ]
+  }'
+  :highlight='["running_total"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

@@ -14,6 +14,27 @@ Keep rows matching a condition.
 - Drop rows where a key column is null (`isnull`/`notnull`).
 - Text matching: `contains`, `startswith`, `endswith`.
 
+## What it does
+
+Rows that **match** the condition are kept; everything else is dropped. The number
+of columns does not change.
+
+<DataTransform
+  transform="Filter rows (amount > 0)"
+  :before='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1002,"South",-5.0],[1003,"North",89.0],[1004,"South",0.0]
+    ]
+  }'
+  :after='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1003,"North",89.0]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

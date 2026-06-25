@@ -13,6 +13,23 @@ Substitute values in a column.
 - Standardize codes (`N` → `North`, `Y`/`N` → `Yes`/`No`).
 - Clean stray characters with a regex pattern.
 
+## What it does
+
+Replaces each exact match of `to_replace` in the column with `value`. Non-matching
+values pass through unchanged.
+
+<DataTransform
+  transform="Replace values (column=region, to_replace=N, value=North)"
+  :before='{
+    "columns":["order_id","region"],
+    "rows":[[1001,"N"],[1002,"S"],[1003,"N"],[1004,"E"]]
+  }'
+  :after='{
+    "columns":["order_id","region"],
+    "rows":[[1001,"North"],[1002,"S"],[1003,"North"],[1004,"E"]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

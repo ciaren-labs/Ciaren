@@ -14,6 +14,23 @@ Keep a slice of rows.
 - Page through data with `offset` + `n`.
 - Trim a preview to a manageable size.
 
+## What it does
+
+Returns the first `n` rows from the current row order. Combine with
+[Sort rows](./sort-rows.md) before limiting to get a meaningful "top N".
+
+<DataTransform
+  transform="Limit rows (n=3)"
+  :before='{
+    "columns":["region","amount"],
+    "rows":[["South",150],["West",120],["North",80],["East",30],["Central",10]]
+  }'
+  :after='{
+    "columns":["region","amount"],
+    "rows":[["South",150],["West",120],["North",80]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

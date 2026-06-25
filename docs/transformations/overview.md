@@ -22,6 +22,10 @@ Each node's `type` (shown on its page) is the value stored in the flow graph at
 `node.type`; its settings live at `node.data.config`.
 :::
 
+## Node categories
+
+<NodeCategoryGrid />
+
 ## How nodes connect
 
 A flow is a graph of `nodes` and `edges` (React Flow-compatible). Most nodes have
@@ -30,19 +34,16 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 - **[Join](./join.md)** has two inputs: `left` and `right`.
 - **[Union / Concat](./union-concat.md)** accepts any number of inputs.
 
-## Quick overview
+A minimal complete pipeline always starts with at least one **Input** node and
+ends with at least one **Output** node. Everything in between is optional cleaning
+and transformation.
 
-| Category | Nodes |
-| ---------- | ------- |
-| **Input** | [File (CSV/Excel/Parquet)](./file-input.md), [SQL](./sql-input.md) |
-| **Columns** | [Drop](./drop-columns.md), [Rename](./rename-columns.md), [Select](./select-columns.md), [Cast types](./cast-types.md) |
-| **Nulls** | [Drop nulls](./drop-nulls.md), [Fill nulls](./fill-nulls.md) |
-| **Rows** | [Filter](./filter-rows.md), [Sort](./sort-rows.md), [Limit](./limit-rows.md), [Sample](./sample-rows.md), [Remove duplicates](./remove-duplicates.md) |
-| **Text** | [Replace values](./replace-values.md), [String transform](./string-transform.md), [Split column](./split-column.md), [Map values](./map-values.md) |
-| **Numeric** | [Round](./round-numbers.md), [Remove outliers](./remove-outliers.md), [Bin column](./bin-column.md) |
-| **Reshape & combine** | [Calculated column](./calculated-column.md), [Group by + aggregate](./group-by-aggregate.md), [Join](./join.md), [Union/Concat](./union-concat.md), [Pivot](./pivot.md), [Unpivot](./unpivot.md), [Extract date parts](./extract-date-parts.md), [Parse dates](./parse-dates.md) |
-| **Analytics** | [Window function](./window-function.md), [Conditional column](./conditional-column.md) |
-| **Output** | [File (CSV/Excel/Parquet)](./file-output.md), [SQL](./sql-output.md) |
+<FlowPipeline :nodes='[
+  {"type":"input","label":"Input node","detail":"CSV · Excel · Parquet · SQL · Storage"},
+  {"type":"clean","label":"Clean nodes","detail":"columns · nulls · rows · text · numeric"},
+  {"type":"transform","label":"Transform nodes","detail":"reshape · combine · analytics"},
+  {"type":"output","label":"Output node","detail":"CSV · Excel · Parquet · SQL · Storage"}
+]' />
 
 ## Choosing the right node
 

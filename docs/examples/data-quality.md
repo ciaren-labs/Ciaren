@@ -13,6 +13,17 @@ contact list and drops the rows that can't be trusted.
 **You'll use:** CSV Input → String Transform → Cast Types → Drop Nulls →
 Remove Duplicates → Filter Rows → CSV Output.
 
+<FlowPipeline :nodes='[
+  {"type":"input","label":"CSV Input","detail":"contacts.csv"},
+  {"type":"clean","label":"String Transform","detail":"strip whitespace from name"},
+  {"type":"clean","label":"String Transform","detail":"strip + lowercase email"},
+  {"type":"clean","label":"Cast Types","detail":"age→integer, errors=coerce → nulls"},
+  {"type":"clean","label":"Drop Nulls","detail":"subset: name, age"},
+  {"type":"clean","label":"Remove Duplicates","detail":"subset: email · keep: first"},
+  {"type":"clean","label":"Filter Rows","detail":"0 ≤ age ≤ 120"},
+  {"type":"output","label":"CSV Output","detail":"contacts_clean.csv"}
+]' />
+
 ## Sample data
 
 `contacts.csv`:
@@ -67,13 +78,33 @@ df_8.to_csv("contacts_clean.csv", index=False)
 
 ## Result
 
-| name | email | age |
-| ------ | ------- | ----- |
-| Ada Lovelace | `ada@example.com` | 36 |
-| Grace Hopper | `grace@example.com` | 85 |
+Starting from 5 raw rows with 5 distinct quality issues, the pipeline reduces
+to 2 clean, trustworthy records.
 
-Ada and Grace survive; the unparseable age, the no-name row, the duplicate, and
-the age-250 row are all gone.
+<DataTransform
+  transform="Full pipeline"
+  :before='{
+    "columns":["name","email","age"],
+    "rows":[
+      ["  Ada Lovelace ","ADA@EXAMPLE.COM",36],
+      ["Grace Hopper","grace@example.com","unknown"],
+      ["Grace Hopper","GRACE@EXAMPLE.COM",85],
+      ["Linus T","linus@example.com ",250],
+      [null,"bad-row@example.com",40]
+    ]
+  }'
+  :after='{
+    "columns":["name","email","age"],
+    "rows":[
+      ["Ada Lovelace","ada@example.com",36],
+      ["Grace Hopper","grace@example.com",85]
+    ]
+  }'
+/>
+
+Ada and Grace survive. Dropped: the unparseable age (`unknown` → null), the
+no-name row, the duplicate Grace (same normalised email), and the impossible age
+of 250.
 
 ## Going further
 
