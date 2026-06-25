@@ -80,10 +80,12 @@ jobs:
       # so no external database service is needed here.
       - name: Run tests with coverage
         working-directory: backend
-        # Gate set to 85%: the cloud/SQL connectors (S3/GCS/Azure/Mongo) have no
-        # infra-free tests, capping achievable coverage at ~88%. Raise this as
-        # connector coverage improves.
-        run: uv run pytest tests --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+        # This job runs the infra-free suite only (the cloud/SQL connector
+        # integration tests self-skip here and run in the connectors-integration
+        # workflow). That suite measures ~88%, so the gate is 87% — a ~1pt buffer
+        # for cross-platform/Python fluctuation. The connector I/O paths are gated
+        # separately on the *merged* Codecov report (see codecov.yml).
+        run: uv run pytest tests --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=87
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
