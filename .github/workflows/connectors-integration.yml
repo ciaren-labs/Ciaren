@@ -1,0 +1,99 @@
+name: Connectors Integration
+
+# Exercises the real I/O paths of the cloud/storage connectors against ephemeral
+# containers (MinIO for the S3 connector today). The default Backend Tests suite
+# stays infra-free; these tests self-skip there and run only here, where the
+# service endpoints are provided via env vars. Linux-only — the goal is to cover
+# the connector code paths, not the OS matrix.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - .github/workflows/connectors-integration.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/**
+      - .github/workflows/connectors-integration.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  s3:
+    name: S3 connector (MinIO)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Consumed by tests/integration/test_s3_connector.py (it self-skips without these).
+      FLOWFRAME_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      FLOWFRAME_TEST_S3_ACCESS_KEY: minioadmin
+      FLOWFRAME_TEST_S3_SECRET_KEY: minioadmin
+      FLOWFRAME_TEST_S3_REGION: us-east-1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # MinIO needs the `server /data` argument, which GitHub `services:` cannot
+      # supply (service containers run the image's default entrypoint only), so
+      # start it as a plain container instead.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            minio/minio:latest server /data
+
+      - name: Wait for MinIO to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9000/minio/health/ready; then
+              echo "MinIO ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready in time"
+          docker logs minio || true
+          exit 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        # dev group (pytest/cov/asyncio/httpx) + the s3 extra (boto3).
+        run: uv sync --all-groups --extra s3
+
+      - name: Run connector integration tests
+        working-directory: backend
+        # Only the `connectors`-marked tests; no --cov-fail-under here since this
+        # subset can't reach the project gate on its own. Coverage is uploaded
+        # under a distinct flag so Codecov merges it with the main suite's report.
+        run: >-
+          uv run pytest tests -m connectors
+          --cov=app/connectors --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./backend/coverage.xml
+          flags: connectors-integration
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Stop MinIO
+        if: always()
+        run: docker rm -f minio || true
