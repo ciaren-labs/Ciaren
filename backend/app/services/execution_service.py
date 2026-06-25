@@ -14,6 +14,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor, RunResult
+from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.process_pool import (
     get_process_pool,
     recycle_process_pool,
@@ -64,6 +65,15 @@ class ExecutionService:
         if execution_mode not in _EXECUTION_MODES:
             raise ValidationError(f"Unknown execution mode '{execution_mode}'. Allowed: {', '.join(_EXECUTION_MODES)}.")
 
+        # Resolve flow parameters into a concrete graph *before* creating the run,
+        # so a bad override (unknown name, wrong type) is a clean 400 rather than a
+        # failed run. Everything downstream — materialization, the executor, code
+        # registration — runs on `graph`, the fully-substituted copy.
+        try:
+            graph, param_values = apply_parameters(flow.graph_json, data.parameters or {})
+        except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
+
         run = FlowRun(
             flow_id=flow_id,
             input_dataset_id=data.input_dataset_id,
@@ -73,8 +83,10 @@ class ExecutionService:
             status="running",
             started_at=datetime.now(UTC).replace(tzinfo=None),
             # Snapshot the graph at trigger time: the flow can be edited later, but a
-            # run (especially an ML training run) must stay reproducible.
-            graph_snapshot_json=flow.graph_json,
+            # run (especially an ML training run) must stay reproducible. This is the
+            # *resolved* graph (parameters substituted) — exactly what executed.
+            graph_snapshot_json=graph,
+            parameters_json=param_values or None,
         )
         self.db.add(run)
         await self.db.flush()  # assign run.id without committing
@@ -82,7 +94,7 @@ class ExecutionService:
         timeout = await self._effective_timeout(data, schedule_id)
 
         try:
-            dataset_paths, resolved_versions = await build_dataset_paths(self.db, flow.graph_json)
+            dataset_paths, resolved_versions = await build_dataset_paths(self.db, graph)
             # Record every resolved input so the run view can list them all.
             run.input_datasets_json = resolved_versions
             # Default the run's dataset to the first input so runs are filterable
@@ -95,8 +107,8 @@ class ExecutionService:
             # Read any SQL inputs live (in this async parent, which holds the DB
             # session + secrets) and snapshot them to parquet, so the off-loop
             # executor only ever touches plain files.
-            sql_input_paths = await materialize_sql_inputs(self.db, flow.graph_json, output_dir)
-            storage_input_paths = await materialize_storage_inputs(self.db, flow.graph_json, output_dir)
+            sql_input_paths = await materialize_sql_inputs(self.db, graph, output_dir)
+            storage_input_paths = await materialize_storage_inputs(self.db, graph, output_dir)
             # The executor is synchronous (pandas/polars compute); offload it off
             # the event loop so it never blocks — keeping the API responsive while
             # a manual or scheduled run is in flight. It takes no DB session, so
@@ -121,7 +133,7 @@ class ExecutionService:
                 compute = loop.run_in_executor(
                     get_process_pool(),
                     run_graph_in_process,
-                    flow.graph_json,
+                    graph,
                     dataset_paths,
                     output_dir,
                     engine,
@@ -132,7 +144,7 @@ class ExecutionService:
             else:
                 compute = asyncio.to_thread(
                     FlowExecutor().run_with_results,
-                    flow.graph_json,
+                    graph,
                     dataset_paths,
                     output_dir,
                     engine_name=engine,
@@ -142,9 +154,7 @@ class ExecutionService:
 
             # to_thread copies this context into the worker thread (thread mode);
             # process mode re-establishes it from ctx_data inside the worker.
-            with run_context(
-                flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri
-            ):
+            with run_context(flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri):
                 if timeout > 0:
                     result = await asyncio.wait_for(compute, timeout=timeout)
                 else:
@@ -154,8 +164,8 @@ class ExecutionService:
             if result.error is None:
                 # Deliver SQL sinks before declaring success — a write failure
                 # must fail the run (the output never reached the database).
-                await push_sql_outputs(self.db, flow.graph_json, result.output_paths)
-                await push_storage_outputs(self.db, flow.graph_json, result.output_paths)
+                await push_sql_outputs(self.db, graph, result.output_paths)
+                await push_storage_outputs(self.db, graph, result.output_paths)
                 run.status = "success"
                 # Store a path relative to the outputs dir so we never leak the
                 # absolute server filesystem layout in API responses.
@@ -181,7 +191,7 @@ class ExecutionService:
                 # Register named output nodes as reusable output datasets (best-effort).
                 if result.output_paths:
                     dataset_service = DatasetService(self.db)
-                    graph_nodes = (flow.graph_json or {}).get("nodes", [])
+                    graph_nodes = (graph or {}).get("nodes", [])
                     for node_id, out_path in result.output_paths.items():
                         node = next((n for n in graph_nodes if n["id"] == node_id), None)
                         if node:
@@ -238,7 +248,11 @@ class ExecutionService:
         original = result.scalar_one_or_none()
         if original is None:
             raise NotFoundError("FlowRun", run_id)
-        body = FlowRunCreate(engine=original.engine, input_dataset_id=original.input_dataset_id)
+        body = FlowRunCreate(
+            engine=original.engine,
+            input_dataset_id=original.input_dataset_id,
+            parameters=original.parameters_json,
+        )
         return await self.run(original.flow_id, body, trigger="retry")
 
     _SORT_FIELDS = {
@@ -350,9 +364,7 @@ class ExecutionService:
         if schedule_id is not None:
             from app.db.models.schedule import Schedule
 
-            result = await self.db.execute(
-                select(Schedule.run_timeout_seconds).where(Schedule.id == schedule_id)
-            )
+            result = await self.db.execute(select(Schedule.run_timeout_seconds).where(Schedule.id == schedule_id))
             schedule_timeout = result.scalar_one_or_none()
             if schedule_timeout is not None:
                 return schedule_timeout

@@ -12,12 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { CronBuilder } from "@/components/schedules/CronBuilder";
+import { ParameterValueFields } from "@/components/parameters/ParameterValueFields";
 import { useFlows } from "@/features/flows/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { ApiError } from "@/lib/api";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
+import { buildRunValues, defaultText } from "@/lib/parameters";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
-import type { Schedule, ScheduleCreate } from "@/lib/types";
+import type { ParameterSpec, Schedule, ScheduleCreate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ENGINES = [
@@ -35,6 +37,9 @@ interface ScheduleFormDialogProps {
   schedule?: Schedule | null;
   /** Pre-select (and lock) a flow when creating from the flows page. */
   lockedFlowId?: string;
+  /** Live parameter specs to use instead of the saved flow's (editor context),
+   *  so just-declared (and unsaved) parameters still get override fields. */
+  parameterSpecs?: ParameterSpec[];
   submitting: boolean;
   error: unknown;
   onSubmit: (flowId: string, body: ScheduleCreate) => void;
@@ -45,6 +50,7 @@ export function ScheduleFormDialog({
   onOpenChange,
   schedule,
   lockedFlowId,
+  parameterSpecs,
   submitting,
   error,
   onSubmit,
@@ -65,6 +71,13 @@ export function ScheduleFormDialog({
   const [maxRetries, setMaxRetries] = useState(0);
   const [retryDelay, setRetryDelay] = useState(60);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Override values for the selected flow's parameters (raw text per name).
+  const [paramTexts, setParamTexts] = useState<Record<string, string>>({});
+
+  // Parameter specs that drive the overrides section. Prefer live editor specs
+  // (so unsaved, just-declared parameters appear); otherwise read the saved flow.
+  const selectedFlow = (flows ?? []).find((f) => f.id === flowId);
+  const paramSpecs = parameterSpecs ?? selectedFlow?.graph_json?.parameters ?? [];
 
   // Reset the form each time the dialog opens (create or a specific schedule).
   useEffect(() => {
@@ -85,9 +98,28 @@ export function ScheduleFormDialog({
     setShowAdvanced(!!schedule && (schedule.catch_up || schedule.max_retries > 0));
   }, [open, schedule, lockedFlowId]);
 
+  // Seed parameter overrides from the schedule's saved values (edit) or the
+  // flow's declared defaults. Re-runs when the flow or its parameter set changes,
+  // but a steady spec list (e.g. a background flows refetch) won't clobber edits.
+  const specKey = paramSpecs.map((s) => s.name).join(",");
+  useEffect(() => {
+    if (!open) return;
+    const seed: Record<string, string> = {};
+    for (const spec of paramSpecs) {
+      const override = schedule?.parameters?.[spec.name];
+      seed[spec.name] =
+        override !== undefined && override !== null ? String(override) : defaultText(spec);
+    }
+    setParamTexts(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, flowId, schedule?.id, specKey]);
+
+  const { errors: paramErrors, values: paramValues } = buildRunValues(paramSpecs, paramTexts);
+
   const cron = buildCron(cronModel);
   const cronOk = isValidCron(cron);
-  const canSubmit = !!flowId && cronOk && !submitting;
+  const canSubmit =
+    !!flowId && cronOk && !submitting && (paramSpecs.length === 0 || paramValues !== null);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +134,14 @@ export function ScheduleFormDialog({
       catch_up: catchUp,
       max_retries: maxRetries,
       retry_delay_seconds: retryDelay,
+      // Send overrides only when the flow has parameters; an empty set clears
+      // them (null) so fired runs fall back to the declared defaults.
+      parameters:
+        paramSpecs.length === 0
+          ? undefined
+          : paramValues && Object.keys(paramValues).length > 0
+            ? paramValues
+            : null,
     });
   };
 
@@ -220,6 +260,24 @@ export function ScheduleFormDialog({
               ))}
             </div>
           </div>
+
+          {/* Parameter overrides (only when the selected flow declares parameters) */}
+          {paramSpecs.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Parameter values</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Applied to every run this schedule fires. Leave blank to use a parameter's default.
+                </p>
+              </div>
+              <ParameterValueFields
+                specs={paramSpecs}
+                texts={paramTexts}
+                errors={paramErrors}
+                onChange={(name, value) => setParamTexts((t) => ({ ...t, [name]: value }))}
+              />
+            </div>
+          )}
 
           {/* Enabled */}
           <label className="flex items-center justify-between rounded-md border border-input px-3 py-2.5">

@@ -10,6 +10,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
+from app.engine.parameters import ParameterError, validate_parameter_specs
 from app.engine.registry import list_transformation_types
 from app.schemas.flow import FlowCreate, FlowImport, FlowRead, FlowUpdate
 from app.services.project_service import ProjectService
@@ -66,6 +67,7 @@ class FlowService:
         return reads
 
     async def create(self, data: FlowCreate) -> FlowRead:
+        self._validate_parameters(data.graph_json)
         project_id = await ProjectService(self.db).resolve_id(data.project_id)
         flow = Flow(
             name=data.name,
@@ -148,6 +150,8 @@ class FlowService:
     async def update(self, flow_id: str, data: FlowUpdate) -> FlowRead:
         flow = await self._get_or_raise(flow_id)
         updates = data.model_dump(exclude_unset=True)
+        if "graph_json" in updates:
+            self._validate_parameters(updates["graph_json"])
         for field, value in updates.items():
             setattr(flow, field, value)
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
@@ -172,6 +176,16 @@ class FlowService:
                 changed = True
         if changed:
             await self.db.commit()
+
+    def _validate_parameters(self, graph: Any) -> None:
+        """Reject a malformed ``parameters`` list at save time (clear 400) instead
+        of letting it surface only when the flow is run."""
+        if not isinstance(graph, dict):
+            return
+        try:
+            validate_parameter_specs(graph)
+        except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
 
     async def _get_or_raise(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

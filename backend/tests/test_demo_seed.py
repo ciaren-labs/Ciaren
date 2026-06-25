@@ -194,7 +194,10 @@ async def test_ml_demo_flows_execute_end_to_end(ml_demo_db: AsyncSession, tmp_pa
         engine = flow.graph_json.get("engine", "pandas")
         run = FlowExecutor().run_with_results(flow.graph_json, dataset_paths, out_dir, engine_name=engine)
         assert run.error is None, f"{flow.name} failed: {run.error}"
-        assert run.output_paths, f"{flow.name} produced no output"
+        # Every ML demo produces a result: either a file output or a trained model
+        # (a train-only flow like "Quick Classifier" persists a model, no file).
+        trained = any(r.model_uri for r in run.node_results)
+        assert run.output_paths or trained, f"{flow.name} produced no output"
 
 
 async def test_seed_run_creates_runs_with_seed_trigger(demo_db: AsyncSession) -> None:

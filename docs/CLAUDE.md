@@ -50,6 +50,7 @@ docs/
 │   ├── interface.md             # Editor / UI tour
 │   ├── projects-and-runs.md     # Projects, dataset versioning, runs
 │   ├── engines.md               # polars vs pandas, export, exec mode
+│   ├── parameters.md            # Flow parameters ({{ name }}, run/schedule/export)
 │   ├── scheduling.md            # Built-in cron scheduler
 │   ├── cli.md                   # flowframe serve/init/info/check
 │   ├── design-system.md         # Visual language / tokens
@@ -412,5 +413,6 @@ Before publishing:
 
 ---
 
-**Last Updated:** 2026-06-22 — split transformations and REST API into
-per-node / per-resource pages; added the Connections API page.
+**Last Updated:** 2026-06-25 — added the Flow Parameters guide page (`{{ name }}`
+references, run/schedule overrides, exported variables) and cross-links from the
+Runs/Schedules API and Scheduling pages.

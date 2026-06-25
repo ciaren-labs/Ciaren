@@ -73,6 +73,7 @@ export default defineConfig({
             { text: 'Machine Learning', link: '/guide/ml-quickstart' },
             { text: 'Visualizations', link: '/guide/visualizations' },
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
+            { text: 'Flow Parameters', link: '/guide/parameters' },
             { text: 'Scheduling', link: '/guide/scheduling' },
             { text: 'CLI Reference', link: '/guide/cli' },
           ],

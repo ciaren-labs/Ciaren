@@ -1,4 +1,5 @@
 """mlEvaluate: classification / regression / clustering metrics in long format."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -29,8 +30,12 @@ def test_confusion_matrix_flattened():
     df = pd.DataFrame({"y": [0, 0, 1, 1], "pred": [0, 1, 1, 1]})
     metrics, _ = _metrics(
         df,
-        {"task_type": "classification", "target_column": "y", "prediction_column": "pred",
-         "metrics": ["accuracy", "confusion_matrix"]},
+        {
+            "task_type": "classification",
+            "target_column": "y",
+            "prediction_column": "pred",
+            "metrics": ["accuracy", "confusion_matrix"],
+        },
     )
     # 2x2 matrix -> 4 flattened cells
     assert metrics["cm_true0_pred0"] == 1.0
@@ -38,16 +43,23 @@ def test_confusion_matrix_flattened():
 
 
 def test_roc_auc_with_proba():
-    df = pd.DataFrame({
-        "y": [0, 0, 1, 1],
-        "pred": [0, 0, 1, 1],
-        "p0": [0.9, 0.8, 0.2, 0.1],
-        "p1": [0.1, 0.2, 0.8, 0.9],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [0, 0, 1, 1],
+            "pred": [0, 0, 1, 1],
+            "p0": [0.9, 0.8, 0.2, 0.1],
+            "p1": [0.1, 0.2, 0.8, 0.9],
+        }
+    )
     metrics, _ = _metrics(
         df,
-        {"task_type": "classification", "target_column": "y", "prediction_column": "pred",
-         "metrics": ["roc_auc"], "proba_columns": ["p0", "p1"]},
+        {
+            "task_type": "classification",
+            "target_column": "y",
+            "prediction_column": "pred",
+            "metrics": ["roc_auc"],
+            "proba_columns": ["p0", "p1"],
+        },
     )
     assert metrics["roc_auc"] == pytest.approx(1.0)
 
@@ -63,11 +75,13 @@ def test_regression_metrics():
 
 def test_clustering_metrics():
     rng = np.random.RandomState(0)
-    df = pd.DataFrame({
-        "x": np.concatenate([rng.normal(0, 0.2, 30), rng.normal(5, 0.2, 30)]),
-        "y": np.concatenate([rng.normal(0, 0.2, 30), rng.normal(5, 0.2, 30)]),
-        "cluster": [0] * 30 + [1] * 30,
-    })
+    df = pd.DataFrame(
+        {
+            "x": np.concatenate([rng.normal(0, 0.2, 30), rng.normal(5, 0.2, 30)]),
+            "y": np.concatenate([rng.normal(0, 0.2, 30), rng.normal(5, 0.2, 30)]),
+            "cluster": [0] * 30 + [1] * 30,
+        }
+    )
     metrics, meta = _metrics(df, {"task_type": "clustering", "prediction_column": "cluster"})
     assert metrics["silhouette"] > 0.5
     assert "davies_bouldin" in metrics
@@ -87,3 +101,57 @@ def test_missing_columns_raise():
     df = pd.DataFrame({"y": [0, 1], "pred": [0, 1]})
     with pytest.raises(ValueError, match="not found"):
         _metrics(df, {"task_type": "classification", "target_column": "ghost", "prediction_column": "pred"})
+
+
+# -- export fidelity: the generated code must reproduce execute()'s metrics ------
+
+
+def _run_export(df, config):
+    code = NODE.to_python_code({"in": "df"}, {"out": "res"}, config)
+    ns = {"pd": pd, "np": np, "df": df.copy()}
+    for imp in NODE.imports(config):
+        exec(imp, ns)  # noqa: S102
+    exec(code, ns)  # noqa: S102
+    res = ns["res"]
+    return dict(zip(res["metric"], res["value"]))
+
+
+def test_export_regression_includes_residual_std():
+    rng = np.random.RandomState(0)
+    df = pd.DataFrame({"y": rng.rand(80) * 10, "pred": rng.rand(80) * 10})
+    config = {
+        "task_type": "regression",
+        "target_column": "y",
+        "prediction_column": "pred",
+        "metrics": ["rmse", "mae", "r2", "mape", "residual_std"],
+    }
+    executed, _ = _metrics(df, config)
+    exported = _run_export(df, config)
+    assert set(exported) == set(executed)  # residual_std was previously dropped
+    for k in executed:
+        assert exported[k] == pytest.approx(executed[k])
+
+
+def test_export_clustering_excludes_label_from_features():
+    # The label column must not be used as a feature, or silhouette/davies-bouldin
+    # come out completely different from the run.
+    rng = np.random.RandomState(0)
+    df = pd.DataFrame({"f1": rng.rand(60), "f2": rng.rand(60), "cluster": rng.randint(0, 3, 60)})
+    config = {"task_type": "clustering", "prediction_column": "cluster", "metrics": ["silhouette", "davies_bouldin"]}
+    executed, _ = _metrics(df, config)
+    exported = _run_export(df, config)
+    for k in executed:
+        assert exported[k] == pytest.approx(executed[k])
+
+
+def test_export_notes_skipped_metrics():
+    config = {
+        "task_type": "classification",
+        "target_column": "y",
+        "prediction_column": "pred",
+        "metrics": ["accuracy", "roc_auc", "confusion_matrix"],
+        "proba_columns": ["p0", "p1"],
+    }
+    code = NODE.to_python_code({"in": "df"}, {"out": "res"}, config)
+    assert "# note:" in code
+    assert "roc_auc" in code and "confusion_matrix" in code
