@@ -3,6 +3,7 @@
 Each node converts at the engine boundary (to_pandas/from_pandas), so the core
 behaviour is exercised on both engines; sklearn-specific assertions use pandas.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -73,8 +74,9 @@ def test_onehot_expands_columns(engine_name):
 
 def test_onehot_drop_first():
     engine, frame = _frame("pandas", pd.DataFrame({"color": ["r", "g", "b"]}))
-    out = _run(EncodeCategoriesTransformation(), engine, frame,
-               {"method": "onehot", "columns": ["color"], "drop_first": True})
+    out = _run(
+        EncodeCategoriesTransformation(), engine, frame, {"method": "onehot", "columns": ["color"], "drop_first": True}
+    )
     # one category dropped -> 2 dummy columns, not 3
     assert sum(c.startswith("color_") for c in out.columns) == 2
 
@@ -110,17 +112,78 @@ def test_correlation_filter_drops_collinear():
 def test_kbest_keeps_k_plus_target():
     rng = np.random.RandomState(0)
     y = rng.randint(0, 2, size=100)
-    df = pd.DataFrame({
-        "good": y + rng.normal(0, 0.01, 100),   # strongly predictive
-        "noise1": rng.normal(0, 1, 100),
-        "noise2": rng.normal(0, 1, 100),
-        "target": y,
-    })
+    df = pd.DataFrame(
+        {
+            "good": y + rng.normal(0, 0.01, 100),  # strongly predictive
+            "noise1": rng.normal(0, 1, 100),
+            "noise2": rng.normal(0, 1, 100),
+            "target": y,
+        }
+    )
     engine, frame = _frame("pandas", df)
     out = _run(SelectFeaturesTransformation(), engine, frame, {"method": "kbest", "k": 1, "target_column": "target"})
     assert "good" in out.columns
     assert "target" in out.columns
     assert out.shape[1] == 2  # 1 best feature + target
+
+
+def _exec_exported(node, config, df):
+    """Run a node's exported code in a namespace and return the result frame."""
+    from sklearn.feature_selection import (  # noqa: F401 - used by exec'd code
+        SelectKBest,
+        f_classif,
+        f_regression,
+    )
+
+    code = node.to_python_code({"in": "df"}, {"out": "res"}, config)
+    ns = {
+        "pd": pd,
+        "np": np,
+        "df": df,
+        "SelectKBest": SelectKBest,
+        "f_classif": f_classif,
+        "f_regression": f_regression,
+    }
+    exec(code, ns)  # noqa: S102 - exercising generated code on purpose
+    return ns["res"]
+
+
+def test_kbest_export_matches_execute_classification():
+    rng = np.random.RandomState(0)
+    y = rng.randint(0, 2, size=60)
+    df = pd.DataFrame(
+        {
+            "id": [f"r{i}" for i in range(60)],  # non-numeric passthrough
+            "good": y + rng.normal(0, 0.01, 60),
+            "noise": rng.normal(0, 1, 60),
+            "target": y,
+        }
+    )
+    node, config = SelectFeaturesTransformation(), {"method": "kbest", "k": 1, "target_column": "target"}
+    engine, frame = _frame("pandas", df)
+    executed = _run(node, engine, frame, config)
+    exported = _exec_exported(node, config, df)
+    # The non-numeric 'id' column must survive in both (a regression earlier dropped it).
+    assert "id" in executed.columns
+    assert list(executed.columns) == list(exported.columns)
+
+
+def test_kbest_export_matches_execute_regression():
+    rng = np.random.RandomState(1)
+    df = pd.DataFrame(
+        {
+            "id": [f"r{i}" for i in range(60)],
+            "a": rng.rand(60),
+            "b": rng.rand(60),
+            "c": rng.rand(60),
+            "target": rng.rand(60) * 100,  # continuous -> f_regression
+        }
+    )
+    node, config = SelectFeaturesTransformation(), {"method": "kbest", "k": 2, "target_column": "target"}
+    engine, frame = _frame("pandas", df)
+    executed = _run(node, engine, frame, config)
+    exported = _exec_exported(node, config, df)
+    assert list(executed.columns) == list(exported.columns)
 
 
 def test_select_validate_kbest_requires_target_and_k():
@@ -167,15 +230,18 @@ def test_reduce_validate_rejects_bad_n_components():
 # -- generated code compiles ------------------------------------------------
 
 
-@pytest.mark.parametrize("node,config", [
-    (ScaleFeaturesTransformation(), {"method": "robust", "columns": ["a"]}),
-    (EncodeCategoriesTransformation(), {"method": "onehot", "columns": ["a"]}),
-    (EncodeCategoriesTransformation(), {"method": "ordinal", "columns": ["a"]}),
-    (SelectFeaturesTransformation(), {"method": "variance", "threshold": 0.0}),
-    (SelectFeaturesTransformation(), {"method": "correlation", "threshold": 0.9}),
-    (SelectFeaturesTransformation(), {"method": "kbest", "k": 1, "target_column": "t"}),
-    (ReduceDimensionsTransformation(), {"n_components": 2}),
-])
+@pytest.mark.parametrize(
+    "node,config",
+    [
+        (ScaleFeaturesTransformation(), {"method": "robust", "columns": ["a"]}),
+        (EncodeCategoriesTransformation(), {"method": "onehot", "columns": ["a"]}),
+        (EncodeCategoriesTransformation(), {"method": "ordinal", "columns": ["a"]}),
+        (SelectFeaturesTransformation(), {"method": "variance", "threshold": 0.0}),
+        (SelectFeaturesTransformation(), {"method": "correlation", "threshold": 0.9}),
+        (SelectFeaturesTransformation(), {"method": "kbest", "k": 1, "target_column": "t"}),
+        (ReduceDimensionsTransformation(), {"n_components": 2}),
+    ],
+)
 def test_generated_code_compiles(node, config):
     code = node.to_python_code({"in": "df_0"}, {"out": "df_1"}, config)
     snippet = "\n".join(["import pandas as pd", *node.imports(config), code])
