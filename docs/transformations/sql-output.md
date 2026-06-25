@@ -9,6 +9,15 @@ description: Write the result of a flow to a database table via a reusable conne
 Write the result to a database table via a reusable
 [Connection](/guide/connections).
 
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"SQL Input","detail":"raw orders"},
+    {"type":"clean","label":"Drop Nulls"},
+    {"type":"transform","label":"Calculated Column","detail":"total = price × qty"},
+    {"type":"output","label":"SQL Output","detail":"cleaned_orders — append"}
+  ]'
+/>
+
 ## Use cases
 
 - Land a cleaned dataset into an analytics table on a schedule.

@@ -6,7 +6,18 @@ search: output csv excel parquet write save result dataset
 
 # File output
 
-Write the upstream frame to a file. This is usually the last node in a pipeline.
+Write the upstream frame to a file. This is usually the last node in a pipeline —
+the terminal step that produces a downloadable, versionable dataset.
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input"},
+    {"type":"clean","label":"Fill Nulls"},
+    {"type":"transform","label":"Calculated Column"},
+    {"type":"output","label":"CSV Output","detail":"registered as dataset"}
+  ]'
+/>
+
 `type`: `csvOutput`, `excelOutput`, `parquetOutput` — one per format.
 
 ## Use cases

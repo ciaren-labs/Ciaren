@@ -70,7 +70,10 @@ No! FlowFrame is designed for non-programmers. The visual editor guides you thro
 
 ### Can I load data from a database?
 
-FlowFrame currently supports CSV, Excel, and Parquet files. Loading from a database is not supported.
+Yes — via the **SQL input** node and a reusable [Connection](/guide/connections).
+PostgreSQL, MySQL, SQLite, and MongoDB are supported. S3, Azure Blob, and GCS are
+also available as storage input/output nodes. Plain file formats (CSV, Excel, Parquet,
+JSON, text) are supported via file input nodes.
 
 ### What's the maximum dataset size?
 

@@ -25,6 +25,19 @@ the bottom.
   3,,80,
   ```
 
+## What you'll build
+
+By the end of this walkthrough you will have a running pipeline that cleans,
+aggregates, and outputs a summary CSV — plus the equivalent Python script.
+
+<FlowPipeline :nodes='[
+  {"type":"input","label":"CSV Input","detail":"upload sales.csv"},
+  {"type":"clean","label":"Drop Nulls","detail":"remove rows missing amount"},
+  {"type":"clean","label":"Remove Duplicates","detail":"deduplicate rows"},
+  {"type":"transform","label":"Group By + Aggregate","detail":"sum amount by region"},
+  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+]' />
+
 ## 1. Upload a dataset
 
 1. Open `http://localhost:5173` and go to **Datasets**.

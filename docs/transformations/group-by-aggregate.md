@@ -13,6 +13,29 @@ Group rows and compute aggregates.
 - Total sales per region, average order value per customer.
 - Count distinct products per category (`nunique`).
 
+## What it does
+
+Collapses multiple rows that share the same group key(s) into a single summary row.
+All non-grouped, non-aggregated columns are dropped from the result.
+
+<DataTransform
+  transform="Group By + Aggregate (group_by=region, sum amount, count order_id)"
+  :before='{
+    "columns":["region","amount","order_id"],
+    "rows":[
+      ["North",120,1001],["South",89,1002],
+      ["North",210,1003],["South",42,1004]
+    ]
+  }'
+  :after='{
+    "columns":["region","amount","order_id"],
+    "rows":[
+      ["North",330,2],
+      ["South",131,2]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

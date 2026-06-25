@@ -13,6 +13,32 @@ Drop duplicate rows.
 - Collapse exact duplicate records.
 - Keep one row per key (e.g. one row per `customer_id`) by choosing a `subset`.
 
+## What it does
+
+With `subset: ["email"]`, any two rows sharing the same email are considered
+duplicates and only the first is kept.
+
+<DataTransform
+  transform="Remove duplicates (subset=email, keep=first)"
+  :before='{
+    "columns":["email","name","score"],
+    "rows":[
+      ["grace@example.com","Grace H",92],
+      ["ada@example.com","Ada L",88],
+      ["grace@example.com","Grace Hop",95],
+      ["linus@example.com","Linus T",74]
+    ]
+  }'
+  :after='{
+    "columns":["email","name","score"],
+    "rows":[
+      ["grace@example.com","Grace H",92],
+      ["ada@example.com","Ada L",88],
+      ["linus@example.com","Linus T",74]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
