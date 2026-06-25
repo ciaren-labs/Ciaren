@@ -12,6 +12,7 @@ import DataTransform from './components/DataTransform.vue'
 import ForkJoin from './components/ForkJoin.vue'
 import ScheduleCycle from './components/ScheduleCycle.vue'
 import ParamFlow from './components/ParamFlow.vue'
+import DomainModel from './components/DomainModel.vue'
 
 export default {
   extends: DefaultTheme,
@@ -26,5 +27,6 @@ export default {
     app.component('ForkJoin', ForkJoin)
     app.component('ScheduleCycle', ScheduleCycle)
     app.component('ParamFlow', ParamFlow)
+    app.component('DomainModel', DomainModel)
   },
 } satisfies Theme

@@ -13,6 +13,30 @@ Bucket a numeric column into labeled bins (a new column).
 - Turn ages or amounts into bands (`0–18`, `19–35`, …).
 - Create quantile buckets (quartiles, deciles) for segmentation.
 
+## What it does
+
+Reads a numeric column and writes a new text column whose values are the bin labels.
+`equalwidth` makes bins of equal numeric span; `quantile` makes bins with roughly
+equal row counts.
+
+<DataTransform
+  transform="Bin column (column=total_spent, bins=3, method=quantile, labels=[Bronze,Silver,Gold])"
+  :before='{
+    "columns":["name","total_spent"],
+    "rows":[
+      ["Grace",500],["Margaret",250],["Ada",100],["Linus",15]
+    ]
+  }'
+  :after='{
+    "columns":["name","total_spent","tier"],
+    "rows":[
+      ["Grace",500,"Gold"],["Margaret",250,"Silver"],
+      ["Ada",100,"Bronze"],["Linus",15,"Bronze"]
+    ]
+  }'
+  :highlight='["tier"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
