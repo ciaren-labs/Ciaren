@@ -159,6 +159,76 @@ pytest --cov=app
 - Test graph validation and topological sorting
 - Aim for >80% coverage on critical paths
 
+### Connector Integration Tests
+
+The default `pytest` run is **infra-free**: the cloud/database connector tests
+self-skip unless their service is reachable, so a normal test run never needs
+Docker. They live in `backend/tests/integration/` under the `connectors` marker
+and exercise the real driver I/O paths against local emulators. CI runs them in
+the **Connectors Integration** workflow
+(`.github/workflows/connectors-integration.yml`).
+
+To run one locally: start its emulator, install the matching extra, set the
+service's env var(s), then run the marked tests.
+
+| Connector  | Emulator        | Extra   | Activating env var             |
+|------------|-----------------|---------|--------------------------------|
+| S3         | MinIO           | `s3`    | `FLOWFRAME_TEST_S3_ENDPOINT`   |
+| MongoDB    | `mongo`         | `mongo` | `FLOWFRAME_TEST_MONGO_HOST`    |
+| Azure Blob | Azurite         | `azure` | `FLOWFRAME_TEST_AZURE_ENDPOINT`|
+| GCS        | fake-gcs-server | `gcs`   | `STORAGE_EMULATOR_HOST`        |
+
+```bash
+cd backend
+pip install -e ".[dev,s3,mongo,azure,gcs]"   # or just the extra you need
+```
+
+**S3 (MinIO):**
+
+```bash
+docker run -d -p 9000:9000 -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
+FLOWFRAME_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \
+FLOWFRAME_TEST_S3_ACCESS_KEY=minioadmin \
+FLOWFRAME_TEST_S3_SECRET_KEY=minioadmin \
+  pytest tests/integration/test_s3_connector.py -m connectors
+```
+
+**MongoDB:**
+
+```bash
+docker run -d -p 27017:27017 mongo:7
+FLOWFRAME_TEST_MONGO_HOST=127.0.0.1 \
+  pytest tests/integration/test_mongo_connector.py -m connectors
+```
+
+**Azure Blob (Azurite):**
+
+```bash
+docker run -d -p 10000:10000 mcr.microsoft.com/azure-storage/azurite \
+  azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+FLOWFRAME_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \
+  pytest tests/integration/test_azure_connector.py -m connectors
+```
+
+**GCS (fake-gcs-server):**
+
+```bash
+docker run -d -p 4443:4443 fsouza/fake-gcs-server \
+  -scheme http -port 4443 -public-host 127.0.0.1:4443
+STORAGE_EMULATOR_HOST=http://127.0.0.1:4443 \
+  pytest tests/integration/test_gcs_connector.py -m connectors
+```
+
+To run every suite at once, start all four emulators, export all the env vars,
+then `pytest -m connectors`.
+
+**Notes:**
+- Azurite needs `--skipApiVersionCheck` — the SDK speaks a newer API version than the emulator pins.
+- The endpoints and Azurite credentials shown are the emulators' well-known defaults, not secrets.
+- On **Windows PowerShell**, the inline `VAR=value cmd` prefix doesn't work — set each variable first with `$env:VAR = "value"`, then run `pytest`.
+- Coverage from these tests lands in the merged Codecov report (the `connectors-integration` flag), not the infra-free `--cov-fail-under` gate.
+
 ### Frontend Tests
 
 ```bash
