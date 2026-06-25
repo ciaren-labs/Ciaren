@@ -8,6 +8,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { RunDagNode, type RunDagNodeType } from "./RunDagNode";
+import { getNodeTypeDef, isModelOutputHandle } from "@/lib/nodeCatalog";
 import type { GraphJson, NodeResult } from "@/lib/types";
 
 const nodeTypes = { runNode: RunDagNode };
@@ -49,22 +50,31 @@ export function RunDag({ graph, results, selectedNodeId, onSelectNode }: RunDagP
     [graph.nodes, resultsById, selectedNodeId],
   );
 
+  const typeById = useMemo(
+    () => new Map(graph.nodes.map((n) => [n.id, n.type])),
+    [graph.nodes],
+  );
+
   const edges: Edge[] = useMemo(
     () =>
-      graph.edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle ?? undefined,
-        targetHandle: e.targetHandle ?? undefined,
-        type: "smoothstep",
-        animated: false,
-        // Model-reference edges read purple, matching the editor canvas.
-        ...(e.sourceHandle === "model"
-          ? { style: { stroke: "#a855f7", strokeWidth: 2 } }
-          : {}),
-      })),
-    [graph.edges],
+      graph.edges.map((e) => {
+        // Model-reference edges read purple, matching the editor canvas. Resolve
+        // via the source node's def so a single-output model edge (no explicit
+        // sourceHandle, e.g. seeded/imported flows) is still recognised.
+        const sourceDef = getNodeTypeDef(typeById.get(e.source) ?? "");
+        const isModel = !!sourceDef && isModelOutputHandle(sourceDef, e.sourceHandle);
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle ?? undefined,
+          targetHandle: e.targetHandle ?? undefined,
+          type: "smoothstep",
+          animated: false,
+          ...(isModel ? { style: { stroke: "#a855f7", strokeWidth: 2 } } : {}),
+        };
+      }),
+    [graph.edges, typeById],
   );
 
   return (
