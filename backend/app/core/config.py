@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
 
+    # -- Webhook trigger -------------------------------------------------------
+    # When set, POST /api/flows/{id}/trigger is enabled and the caller must
+    # provide this value in the X-FlowFrame-Secret header. Uses constant-time
+    # comparison (hmac.compare_digest) to prevent timing attacks. Unset by
+    # default so the endpoint is disabled on fresh installs (no secret = 404).
+    WEBHOOK_SECRET: str | None = None
+
     # -- Machine learning (optional extension; see docs/ml-architecture.md) ----
     # Feature flag. ML nodes/routes only activate when this is true AND the ``[ml]``
     # extra is installed — so this default is safe for the lean base install (no
