@@ -108,8 +108,11 @@ a model reference; blue wires are data.
 
 ## Run it and read the results
 
-Run the flow, then open the run. Click the **Train Model** node to see its
-**Machine learning** panel:
+Run the flow, then open the run. The run detail page shows the full DAG with green checkmarks on every node and row counts at each step:
+
+![Run detail for an ML flow — csvInput, scaleFeatures, trainTestSplit, mlTrain, featureImportance, mlPredict, mlEvaluate, and two csvOutput nodes all succeeded](/screenshots/run-detail.png)
+
+Click the **Train Model** node to see its **Machine learning** panel:
 
 - training metrics and cross-validation folds,
 - a confusion-matrix heatmap (classification),
