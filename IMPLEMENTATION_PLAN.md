@@ -64,16 +64,15 @@ result; `"warn"` continues execution while `"error"` stops it.
 
 ### Phases
 
-#### Phase 1 — Backend core
+#### Phase 1 — Backend core ✅
 
-- [ ] `app/engine/transformations/quality.py` — `AssertionViolationError`,
-      base `AssertionResult` dataclass, and all 5 node classes.
-- [ ] `app/engine/registry.py` — register the 5 new types.
-- [ ] `app/engine/executor.py` (or execution service) — thread assertion results
-      through `node_results`; handle `AssertionViolationError` for `error` mode;
-      log structured warning for `warn` mode.
-- [ ] Tests: one test per node type (pass + fail + warn); engine-matrix tests
-      (polars and pandas).
+- [x] `app/engine/transformations/quality.py` — `AssertionViolationError`,
+      `_CheckResult` dataclass, `_BaseAssertion` mixin, and all 5 node classes.
+- [x] `app/engine/registry.py` — register the 5 new types.
+- [x] `NodeMetadata` / `NodeResult` — `assertion_passed`, `assertion_violation_count`,
+      `assertion_violating_sample` fields; `apply_metadata` and `as_dict` updated.
+- [x] Tests: 61 tests covering pass / error-mode fail / warn-mode continue /
+      validate_config errors / pandas codegen on both polars and pandas engines.
 
 #### Phase 2 — Code export
 
