@@ -80,6 +80,10 @@ schedule — see [Scheduling](/guide/scheduling).
 
 ## Quick Preview
 
+Here's what FlowFrame looks like in action — a flow with real data loaded in the preview panel:
+
+![FlowFrame editor with data preview — canvas, node palette, and 116-row preview table](/screenshots/editor-data-preview.png)
+
 Here is what a typical sales-summary pipeline looks like in FlowFrame. Each colored
 card is one node; you drag them from the palette and connect them on the canvas.
 
@@ -113,7 +117,7 @@ FlowFrame runs entirely locally on your machine. No data is sent anywhere. (No S
 
 ### Can I use my own database?
 
-Not currently. FlowFrame works with files (CSV, Excel, Parquet).
+Yes! Use a **SQL Input** or **SQL Output** node with a saved [Connection](/guide/connections). PostgreSQL, MySQL, SQLite, SQL Server, and MongoDB are supported.
 
 ## Still Have Questions?
 

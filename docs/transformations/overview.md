@@ -24,6 +24,10 @@ Each node's `type` (shown on its page) is the value stored in the flow graph at
 
 ## Node categories
 
+The node palette (left panel in the editor) groups all nodes into color-coded categories. Click a category to expand it, then drag a node onto the canvas or click to place it.
+
+![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
+
 <NodeCategoryGrid />
 
 ## How nodes connect
