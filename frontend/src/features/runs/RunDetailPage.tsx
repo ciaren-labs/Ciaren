@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import { AlertCircle, ArrowLeft, Download, Loader2, RotateCcw } from "lucide-react";
+import { AlertCircle, ArrowLeft, Download, Loader2, RotateCcw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { useRetryRun, useRun } from "./hooks";
 import { MlMetricsPanel } from "./MlMetricsPanel";
 import { useFlow } from "@/features/flows/hooks";
@@ -233,6 +233,70 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
   );
 }
 
+function AssertionBadgePanel({ result }: { result: NodeResult }) {
+  const passed = result.assertion_passed;
+  const count = result.assertion_violation_count;
+  const sample = result.assertion_violating_sample ?? [];
+
+  if (passed == null) return null;
+
+  const Icon = passed ? ShieldCheck : result.status === "failed" ? ShieldX : ShieldAlert;
+  const tone = passed
+    ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+    : result.status === "failed"
+      ? "text-red-600 bg-red-50 border-red-200"
+      : "text-amber-600 bg-amber-50 border-amber-200";
+
+  return (
+    <div className="border-b border-border px-4 py-3">
+      <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${tone}`}>
+        <Icon className="h-4 w-4 shrink-0" />
+        <div className="flex-1 text-xs font-medium">
+          {passed ? (
+            "All rows passed the assertion"
+          ) : (
+            <>
+              {count} row{count !== 1 ? "s" : ""} violated the assertion
+              {result.status === "failed" ? " (run stopped)" : " (continued with warning)"}
+            </>
+          )}
+        </div>
+      </div>
+      {!passed && sample.length > 0 && (
+        <div className="mt-2">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Violating rows (up to 5)
+          </div>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  {Object.keys(sample[0]).map((col) => (
+                    <th key={col} className="px-2.5 py-1.5 text-left font-medium text-muted-foreground">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sample.map((row, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    {Object.values(row).map((val, j) => (
+                      <td key={j} className="px-2.5 py-1.5 font-mono text-slate-700">
+                        {val == null ? <span className="text-muted-foreground">null</span> : String(val)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NodeInspector({ result, runId }: { result: NodeResult; runId: string }) {
   const Icon = getNodeIcon(result.type);
   return (
@@ -252,6 +316,10 @@ function NodeInspector({ result, runId }: { result: NodeResult; runId: string })
       </div>
 
       {result.status === "success" && <MlMetricsPanel result={result} runId={runId} />}
+
+      {result.assertion_passed != null && (
+        <AssertionBadgePanel result={result} />
+      )}
 
       {OUTPUT_NODE_TYPES.has(result.type) && result.status === "success" && (
         <div className="border-b border-border px-4 py-2">
