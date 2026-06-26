@@ -48,6 +48,8 @@ the preview to **Chart → Histogram** on `amount` to *see* the outliers, or to
 [Visualizations](./visualizations.md).)
 :::
 
+![Flows list showing the Demo project — 9 flows including Clean Customers, ML flows, and the Full Sales Mart](/screenshots/flows.png)
+
 ---
 
 ## Tutorial 1 — Clean Customers (linear)
@@ -148,6 +150,8 @@ meeting at a **Join**.
     {"type":"output","label":"CSV Output"}
   ]'
 />
+
+![Customer Orders Join canvas — two input branches meeting at a join node, followed by calculatedColumn and csvOutput](/screenshots/editor-node-selected.png)
 
 ### Customer branch
 
