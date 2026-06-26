@@ -20,6 +20,8 @@ the API without it using `flowframe serve --no-scheduler` (or
 
 ## Creating a schedule
 
+![Schedules page — list of saved schedules with cron expressions, next run times, and status](/screenshots/schedules.png)
+
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
 expression and timezone. Over the API:
 

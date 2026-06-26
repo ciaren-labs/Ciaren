@@ -66,6 +66,8 @@ SQLite needs no driver and is great for trying things out.
 
 ## Creating a connection
 
+![Connections page — list of saved database connections with test/edit actions](/screenshots/connections.png)
+
 1. Go to **Connections → Add connection**.
 2. Pick a **provider**. SQLite asks only for a file path; the others ask for
    host, port, database, username, and the **password env-var name**.
