@@ -7,15 +7,23 @@ from app.engine.backends.base import AnyFrame, EngineBackend
 
 @dataclass
 class NodeMetadata:
-    """Non-frame outcomes a node surfaces onto its ``NodeResult`` (ML metrics, the
-    MLflow run id / model URI it produced, the inferred task type, CV scores). All
-    fields are ``None`` for ETL nodes, which never emit metadata."""
+    """Non-frame outcomes a node surfaces onto its ``NodeResult``.
 
+    ML nodes populate the ml_* fields. Assertion nodes populate the
+    assertion_* fields. All fields are ``None`` for plain ETL nodes.
+    """
+
+    # ML node fields
     ml_metrics: dict[str, float] | None = None
     mlflow_run_id: str | None = None
     model_uri: str | None = None
     task_type: str | None = None
     cv_scores: list[float] | None = None
+
+    # Assertion node fields
+    assertion_passed: bool | None = None
+    assertion_violation_count: int | None = None
+    assertion_violating_sample: list[dict[str, Any]] | None = None
 
 
 class BaseTransformation(ABC):
