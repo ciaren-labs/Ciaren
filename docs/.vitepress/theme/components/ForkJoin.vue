@@ -190,7 +190,7 @@ function icon(type: string) { return icons[type] ?? '⚙️' }
   border: 2px solid #7c3aed;
   background: var(--vp-c-bg);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  flex-shrink: 0;
+  min-width: 120px;
 }
 
 /* ── Individual nodes ──────────────────────────────────── */
@@ -203,7 +203,7 @@ function icon(type: string) { return icons[type] ?? '⚙️' }
   border-left: 3px solid transparent;
   background: var(--vp-c-bg);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  white-space: nowrap;
+  min-width: 0;
 }
 
 .fj-node--input    { border-left-color: #059669; }
@@ -223,7 +223,10 @@ function icon(type: string) { return icons[type] ?? '⚙️' }
   flex-shrink: 0;
 }
 
-.fj-node__body { min-width: 0; }
+.fj-node__body {
+  min-width: 0;
+  flex: 1;
+}
 
 .fj-node__label {
   font-size: 12px;
@@ -235,8 +238,8 @@ function icon(type: string) { return icons[type] ?? '⚙️' }
 .fj-node__detail {
   font-size: 10px;
   color: var(--vp-c-text-2);
-  margin-top: 1px;
-  line-height: 1.3;
+  margin-top: 2px;
+  line-height: 1.4;
 }
 
 /* ── Arrow ─────────────────────────────────────────────── */
