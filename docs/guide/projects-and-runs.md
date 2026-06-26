@@ -66,6 +66,8 @@ what a file feeds into before changing or removing it.
 
 ## Runs
 
+![Runs list — all executions with status badges, engine, trigger, and timestamps](/screenshots/runs.png)
+
 Every execution creates a **run** with its status, timestamps, logs, the engine
 used, and the resolved dataset versions. Browse them on the **Runs** page.
 
