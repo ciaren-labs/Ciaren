@@ -25,6 +25,31 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 
 ---
 
+## 🌿 Branching Strategy
+
+FlowFrame uses a three-tier model to keep `main` stable and CI costs low:
+
+```
+main          ← stable, released code only
+  └── development  ← integration branch; all features land here first
+        └── feature/your-feature   ← your work
+```
+
+| Branch | Purpose | Who pushes |
+|---|---|---|
+| `main` | Stable releases; what users install | Merged from `development` only |
+| `development` | Integration of completed features | Merged from feature branches |
+| `feature/*`, `fix/*`, `docs/*` | Your daily work | You (freely) |
+
+**The flow:**
+1. Branch off `development` (not `main`)
+2. Open a PR targeting `development` — a lightweight CI check runs (single OS, no cloud infra)
+3. Once `development` accumulates a set of stable changes, a maintainer opens a `development → main` PR, which runs the full CI suite (cross-platform matrix, Docker, connector integration tests)
+
+**Why not branch from `main`?** It keeps your feature branch current with other in-progress work and avoids surprises when your PR merges into `development`.
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Fork & Clone
@@ -75,7 +100,11 @@ npm run build
 
 ### 3. Create a Branch
 
+Always branch from `development`, not `main`:
+
 ```bash
+git checkout development
+git pull origin development
 git checkout -b feature/your-feature-name
 ```
 
@@ -280,7 +309,7 @@ Format:
 ### Create the PR
 
 1. Push your branch to your fork
-2. Open a PR against `main`
+2. Open a PR targeting **`development`** (not `main`)
 3. Fill out the PR template (auto-generated)
 4. Reference any related issues
 
