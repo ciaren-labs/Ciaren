@@ -61,6 +61,10 @@ change between releases. Use it for experimentation — not production pipelines
 4. **Run** the full pipeline
 5. **Export** as Python code
 
+## What It Looks Like
+
+![FlowFrame editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
+
 ## Who Uses FlowFrame?
 
 - **Data Analysts** — Clean and explore data visually
