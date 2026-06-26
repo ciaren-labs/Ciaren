@@ -45,7 +45,10 @@ can see which engine produced a given output.
 
 `POST /api/flows/{flow_id}/export/python` returns **three** versions of the flow's
 code, all generated from the same graph. In the editor's **Generated code** dialog
-they appear as three tabs. All three are standalone and readable — use whichever
+they appear as three tabs (click **Export** in the toolbar):
+
+![Generated code dialog — pandas/polars/polars-lazy/Flow JSON tabs with syntax-highlighted code and Free intermediate tables option](/screenshots/export-dialog.png)
+ All three are standalone and readable — use whichever
 your downstream code prefers.
 
 :::code-group

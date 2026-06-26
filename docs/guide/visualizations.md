@@ -17,6 +17,8 @@ add nothing to the graph and are never written to a file.
 2. Open the **Data Preview** panel at the bottom and click **Chart**.
 3. Pick a **chart type** and the **column(s)** to plot.
 
+![Editor chart panel — histogram of pc_1 PCA column with 150 rows, showing bimodal distribution](/screenshots/editor-chart.png)
+
 The chart renders instantly. Switching chart type or columns is immediate —
 it re-draws from the data already loaded, so there's no waiting.
 
