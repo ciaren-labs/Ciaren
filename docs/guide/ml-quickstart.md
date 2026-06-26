@@ -136,6 +136,8 @@ no flow edits needed.
 The **Models** page (in the top nav, shown only when ML is enabled) is a
 dedicated view over everything MLflow tracked:
 
+![ML Models page — registered models with version cards, key metrics, production/staging aliases, and Flow+Run lineage links](/screenshots/models.png)
+
 - **Registered Models** — every registered model with its versions, aliases
   (e.g. `@production`), key metrics, and **lineage links back to the FlowFrame
   flow and run** that produced each version.

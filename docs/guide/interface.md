@@ -29,6 +29,9 @@ FlowFrame is organized around a few pages, reachable from the navigation bar at 
   are read from environment variables, never stored. See
   [Database Connections](/guide/connections).
 - **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
+- **Models** (`/models`) — MLflow-tracked model registry: registered models with
+  metrics, aliases (`@production`, `@staging`), and lineage back to the flow and
+  run that produced each version. Only visible when the `[ml]` extra is installed.
 - **Runs** (`/runs`) — execution history; open a run for status, logs, and
   per-node results.
 - **Schedules** (`/schedules`) — automated flows; see [Scheduling](/guide/scheduling).
