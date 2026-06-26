@@ -6,10 +6,10 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-FlowFrame ships with file input/output nodes plus **28 transformation nodes** for
-cleaning, reshaping, and combining data. Each node maps to one clear dataframe
-operation and contributes to the exported Python — both the **pandas** and the
-**polars** version.
+FlowFrame ships with file input/output nodes plus **34 transformation nodes** for
+cleaning, reshaping, combining, validating, and scripting data. Each node maps to
+one clear dataframe operation and contributes to the exported Python — both the
+**pandas** and the **polars** version.
 
 This page is the map. **Each node also has its own reference page** with use
 cases, full configuration, generated code, and tips — follow the links below or
@@ -26,7 +26,7 @@ Each node's `type` (shown on its page) is the value stored in the flow graph at
 
 The node palette (left panel in the editor) groups all nodes into color-coded categories. Click a category to expand it, then drag a node onto the canvas or click to place it.
 
-![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
+![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Quality, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
 
 <NodeCategoryGrid />
 
@@ -46,6 +46,7 @@ and transformation.
   {"type":"input","label":"Input node","detail":"CSV · Excel · Parquet · SQL · Storage"},
   {"type":"clean","label":"Clean nodes","detail":"columns · nulls · rows · text · numeric"},
   {"type":"transform","label":"Transform nodes","detail":"reshape · combine · analytics"},
+  {"type":"quality","label":"Quality nodes","detail":"assert contracts on your data"},
   {"type":"output","label":"Output node","detail":"CSV · Excel · Parquet · SQL · Storage"}
 ]' />
 
@@ -76,6 +77,12 @@ and transformation.
 | Recode values (A→Pass, B→Pass…) | [Map values](./map-values.md) |
 | Rank, running total, lag/lead | [Window function](./window-function.md) |
 | Bucket with custom if/else logic | [Conditional column](./conditional-column.md) |
+| Assert a column has no nulls | [Assert not null](./assert-not-null.md) |
+| Assert no duplicate rows | [Assert unique](./assert-unique.md) |
+| Assert values are within a range | [Assert value range](./assert-value-range.md) |
+| Assert a boolean expression | [Assert expression](./assert-expression.md) |
+| Assert row count in bounds | [Assert row count](./assert-row-count.md) |
+| Run arbitrary Python on a frame | [Python transform](./python-transform.md) |
 
 ## Generated code: pandas and polars
 
@@ -91,13 +98,16 @@ are kept at parity by a test suite that runs each node on both.
 | ----------- | ----------- |
 | Join takes two inputs at a time | Chain multiple join nodes |
 | `rank`/`dense_rank` rank by a single order column | Pre-sort, or use a calculated key |
-| `calculatedColumn` evaluates arithmetic expressions | For complex logic, use [Conditional column](./conditional-column.md), or export and edit the Python |
+| `calculatedColumn` evaluates arithmetic expressions | For complex logic, use [Conditional column](./conditional-column.md), [Python transform](./python-transform.md), or export and edit the Python |
+| `pythonTransform` scripts run without sandboxing | FlowFrame is local-first — only run scripts from sources you trust |
 
 ## Custom transformations
 
-Need a node that isn't built in?
-[Open an issue](https://github.com/rodrigo-arenas/FlowFrame/issues) or
-[contribute one](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
+Need a node that isn't built in? Use [Python transform](./python-transform.md)
+as an escape hatch for one-off scripts, or
+[open an issue](https://github.com/rodrigo-arenas/FlowFrame/issues) /
+[contribute one](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+to add it to the registry permanently.
 Each transformation implements `validate_config`, `execute`, `to_python_code`,
 and `to_polars_code`, and is registered in `app/engine/registry.py` with tests.
 
