@@ -238,6 +238,15 @@ CRUD, and at least one full CSV-pipeline integration test. Run with `pytest`
 4. Add tests when adding transformations.
 5. Update docs when architecture changes — and only document what is implemented.
 6. Ask before adding large dependencies.
+7. **When implementing a new feature or changing existing UI/UX**, check whether the
+   docs need new or updated screenshots. Specifically:
+   - Scan `docs/public/screenshots/` for existing screenshots that may be stale.
+   - Check the relevant doc pages (`docs/guide/`, `docs/transformations/`) for
+     `![…](/screenshots/…)` references that need refreshing.
+   - If a new page or major UI change has no screenshot yet, note which page(s)
+     would benefit from one and propose taking them (screenshots are captured with
+     Python Playwright via the `mcp__claude-in-chrome__*` browser tools or the
+     script in `docs/scripts/` if it exists).
 
 <!-- rtk-instructions v2 -->
 # RTK (Rust Token Killer) - Token-Optimized Commands
