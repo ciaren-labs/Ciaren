@@ -16,9 +16,28 @@ How to declare parameters, reference them in node config, override them when
 running or scheduling, and what the exported Python looks like.
 :::
 
+## How parameters work
+
+<ParamFlow
+  :params='[
+    {"name":"input_path","type":"string","default":"data/sales.csv","description":"Source CSV file"},
+    {"name":"keep","type":"integer","default":"100","description":"Max rows to keep"}
+  ]'
+  :nodeExample='{"label":"Limit Rows","field":"Number of rows","ref":"keep"}'
+  :overrides='[
+    {"source":"run","label":"Per-run override","value":"highest priority"},
+    {"source":"schedule","label":"Per-schedule override","value":"if no run value"},
+    {"source":"default","label":"Declared default","value":"fallback"}
+  ]'
+/>
+
 ## Declaring parameters
 
-In the flow editor, click **Parameters** in the top bar. Each parameter has:
+In the flow editor, click **Parameters** in the top bar to open the parameter editor:
+
+![Flow parameters dialog — empty state with "Add parameter" button and the {{ name }} syntax hint](/screenshots/parameters-dialog.png)
+
+Each parameter has:
 
 | Field | Required | Description |
 | --- | --- | --- |

@@ -15,6 +15,27 @@ Convert column data types.
   [Extract date parts](./extract-date-parts.md) work.
 - Coerce a dirty column, sending unparseable values to null instead of failing.
 
+## What it does
+
+Rewrites the column values to the target type. With `errors: coerce`, rows with
+unparseable values become null rather than crashing the run.
+
+<DataTransform
+  transform="Cast types (amount→float errors=coerce, ordered_at→datetime)"
+  :before='{
+    "columns":["order_id","amount","ordered_at"],
+    "rows":[
+      [1001,"120.5","2024-01-03"],[1002,"bad","2024-01-04"],[1003,"89.0","2024-01-05"]
+    ]
+  }'
+  :after='{
+    "columns":["order_id","amount","ordered_at"],
+    "rows":[
+      [1001,120.5,"2024-01-03"],[1002,null,"2024-01-04"],[1003,89.0,"2024-01-05"]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

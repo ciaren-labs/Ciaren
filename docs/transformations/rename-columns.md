@@ -14,6 +14,22 @@ Rename columns via an old → new mapping.
 - Align column names across two datasets before a [Join](./join.md) or
   [Union/Concat](./union-concat.md).
 
+## What it does
+
+Only the listed columns change; all others pass through untouched.
+
+<DataTransform
+  transform="Rename columns (amt→amount, Cust ID→customer_id, ord_dt→ordered_at)"
+  :before='{
+    "columns":["amt","Cust ID","ord_dt"],
+    "rows":[[120.5,1001,"2024-01-01"],[89.0,1002,"2024-01-02"]]
+  }'
+  :after='{
+    "columns":["amount","customer_id","ordered_at"],
+    "rows":[[120.5,1001,"2024-01-01"],[89.0,1002,"2024-01-02"]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

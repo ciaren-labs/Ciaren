@@ -13,6 +13,23 @@ Drop or clip outliers in numeric columns.
 - Strip data-entry spikes before averaging.
 - Winsorize (clip) extreme values to a sane range instead of deleting rows.
 
+## What it does
+
+Computes per-column bounds (IQR, z-score, or percentile), then either **drops** rows
+that fall outside the bounds or **clips** their values to the boundary.
+
+<DataTransform
+  transform="Remove outliers (columns=[age], method=iqr, action=drop, factor=1.5)"
+  :before='{
+    "columns":["name","age"],
+    "rows":[["Alice",28],["Bob",250],["Carol",35],["Dave",-5],["Eve",42]]
+  }'
+  :after='{
+    "columns":["name","age"],
+    "rows":[["Alice",28],["Carol",35],["Eve",42]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

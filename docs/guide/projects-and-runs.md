@@ -9,7 +9,11 @@ search: projects runs dataset versioning history run detail node results lineage
 Beyond the editor, FlowFrame helps you **organize** work and **monitor** what
 happened when a flow ran.
 
+<DomainModel />
+
 ## Projects
+
+![Projects page — card grid showing Default and Demo workspaces with dataset and flow counts](/screenshots/projects.png)
 
 A **project** is a lightweight workspace that groups related datasets and flows.
 
@@ -31,12 +35,18 @@ You can scope dataset and flow listings to a project with `?project_id=...`.
 
 ## Datasets
 
+![Dataset detail dialog — Preview tab showing column data, with Profile / Versions / Used by tabs](/screenshots/dataset-detail.png)
+
 Upload CSV, Excel, or Parquet files on the **Datasets** page. FlowFrame infers a
 column schema and stores a small sample for previews.
 
 ```bash
 curl -F "file=@sales.csv" "http://localhost:8055/api/datasets/upload?project_id={id}"
 ```
+
+The **Profile** tab shows per-column statistics computed at upload time:
+
+![Dataset Profile tab — per-column null counts, distinct values, type badges, and numeric ranges](/screenshots/dataset-profile.png)
 
 ### Dataset versioning
 
@@ -56,6 +66,8 @@ what a file feeds into before changing or removing it.
 
 ## Runs
 
+![Runs list — all executions with status badges, engine, trigger, and timestamps](/screenshots/runs.png)
+
 Every execution creates a **run** with its status, timestamps, logs, the engine
 used, and the resolved dataset versions. Browse them on the **Runs** page.
 
@@ -71,6 +83,8 @@ curl http://localhost:8055/api/runs/{run_id}
 `schedule_id`, and date range.
 
 ### Run detail & per-node results
+
+![Run detail — read-only DAG with per-node status, row counts, and a summary sidebar](/screenshots/run-detail.png)
 
 Opening a run (`/runs/:runId`) shows the flow as a read-only DAG. For each node
 it reports:

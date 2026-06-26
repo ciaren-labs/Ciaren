@@ -7,7 +7,18 @@ search: input csv excel parquet json text read dataset version source
 # File input
 
 Load data from a dataset you've uploaded into the flow. This is usually the first
-node in a pipeline. There is one node type per file format:
+node in a pipeline — the entry point for a file-based ETL flow.
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"uploaded dataset"},
+    {"type":"clean","label":"Drop Nulls","detail":"remove bad rows"},
+    {"type":"transform","label":"Group By","detail":"aggregate"},
+    {"type":"output","label":"Parquet Output","detail":"efficient export"}
+  ]'
+/>
+
+There is one node type per file format:
 
 | Node type | Format | Reads |
 | --- | --- | --- |

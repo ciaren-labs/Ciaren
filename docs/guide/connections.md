@@ -12,6 +12,15 @@ Input** and **SQL Output** nodes. You define a connection to a database **once**
 on the Connections page, then reuse it across as many flows and nodes as you like
 — each node just picks a table (or writes a query).
 
+<FlowPipeline :nodes='[
+  {"type":"input","label":"Database","detail":"PostgreSQL · MySQL · SQLite · SQL Server · MongoDB"},
+  {"type":"input","label":"Connection","detail":"host · port · user · password_env (never stored)"},
+  {"type":"input","label":"SQL Input node","detail":"picks a table or runs a custom query"},
+  {"type":"transform","label":"Transformation nodes","detail":"clean, reshape, combine"},
+  {"type":"output","label":"SQL Output node","detail":"replace · append · fail if exists"},
+  {"type":"output","label":"Database","detail":"result written back"}
+]' />
+
 ## Security model
 
 > **FlowFrame never stores your database password.**
@@ -57,9 +66,18 @@ SQLite needs no driver and is great for trying things out.
 
 ## Creating a connection
 
-1. Go to **Connections → Add connection**.
-2. Pick a **provider**. SQLite asks only for a file path; the others ask for
-   host, port, database, username, and the **password env-var name**.
+![Connections page — list of saved database connections with test/edit actions](/screenshots/connections.png)
+
+1. Go to **Connections → Add connection**. A provider picker appears:
+
+![Add connection dialog — grid of database and storage providers: PostgreSQL, MySQL/MariaDB, SQLite, DuckDB, SQL Server, Snowflake, MongoDB, Local Folder, AWS S3, Azure Blob Storage, Google Cloud Storage](/screenshots/connection-add-dialog.png)
+
+2. Pick a **provider**. After selecting one (e.g. PostgreSQL) the connection form appears:
+
+![Configure connection form — name, host, port, database, username, and Password env var fields with "PG_PASSWORD" hint](/screenshots/connection-form-postgres.png)
+
+   SQLite asks only for a file path; the others ask for host, port, database,
+   username, and the **password env-var name** (the actual secret is never stored).
 3. Save, then click **Test** to verify connectivity.
 
 ## Using SQL nodes in a flow
@@ -82,5 +100,6 @@ it processed even though the source is live.
 
 ## Next steps
 
-- [Transformations reference](/transformations/overview) — the SQL Input/Output nodes
+- [SQL input](../transformations/sql-input.md) / [SQL output](../transformations/sql-output.md) — database I/O nodes
+- [Storage input](../transformations/storage-input.md) / [Storage output](../transformations/storage-output.md) — S3/GCS/Azure Blob I/O nodes
 - [Scheduling](/guide/scheduling) — automate flows that pull fresh data

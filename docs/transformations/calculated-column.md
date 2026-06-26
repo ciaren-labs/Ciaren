@@ -13,6 +13,28 @@ Add a column computed from an expression over existing columns.
 - Derive `total = price * quantity` or `margin = revenue - cost`.
 - Build a ratio or percentage from two columns.
 
+## What it does
+
+Evaluates a column-based arithmetic expression and appends the result as a new
+column. All original columns are preserved unchanged.
+
+<DataTransform
+  transform="Calculated column (expression: price * quantity → total)"
+  :before='{
+    "columns":["product","price","quantity"],
+    "rows":[
+      ["Widget",9.99,10],["Gadget",24.99,3],["Doohickey",4.99,25]
+    ]
+  }'
+  :after='{
+    "columns":["product","price","quantity","total"],
+    "rows":[
+      ["Widget",9.99,10,99.9],["Gadget",24.99,3,74.97],["Doohickey",4.99,25,124.75]
+    ]
+  }'
+  :highlight='["total"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

@@ -45,6 +45,27 @@ server (`http://host:5000`), a SQLite store (`sqlite:///mlflow.db`), or another
 folder. Every training run and the **ML Models** page read the tracking URI from
 this connection, so changing it re-points MLflow everywhere — no restart needed.
 
+## ML pipeline at a glance
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"churn dataset"},
+    {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
+    {"type":"ml","label":"Scale Features","detail":"normalize numeric cols"},
+    {"type":"ml","label":"Train Model","detail":"Random Forest → MLflow"},
+    {"type":"ml","label":"Predict","detail":"test output + model wire"},
+    {"type":"ml","label":"Evaluate","detail":"accuracy, AUC, F1"},
+    {"type":"output","label":"CSV Output","detail":"save metrics"}
+  ]'
+/>
+
+:::tip Purple model wire
+**Train/Test Split** has two output handles: `train` and `test`. The train handle
+feeds **Scale Features** and then **Train Model**. The test handle feeds the data
+input of **Predict** directly. **Train Model** has a second output — the **model**
+handle — which connects via a purple wire to **Predict**'s model input.
+:::
+
 ## The nodes
 
 Open a flow and expand **Machine Learning** in the node palette:
@@ -87,8 +108,11 @@ a model reference; blue wires are data.
 
 ## Run it and read the results
 
-Run the flow, then open the run. Click the **Train Model** node to see its
-**Machine learning** panel:
+Run the flow, then open the run. The run detail page shows the full DAG with green checkmarks on every node and row counts at each step:
+
+![Run detail for an ML flow — csvInput, scaleFeatures, trainTestSplit, mlTrain, featureImportance, mlPredict, mlEvaluate, and two csvOutput nodes all succeeded](/screenshots/run-detail.png)
+
+Click the **Train Model** node to see its **Machine learning** panel:
 
 - training metrics and cross-validation folds,
 - a confusion-matrix heatmap (classification),
@@ -112,12 +136,16 @@ no flow edits needed.
 The **Models** page (in the top nav, shown only when ML is enabled) is a
 dedicated view over everything MLflow tracked:
 
+![ML Models page — registered models with version cards, key metrics, production/staging aliases, and Flow+Run lineage links](/screenshots/models.png)
+
 - **Registered Models** — every registered model with its versions, aliases
   (e.g. `@production`), key metrics, and **lineage links back to the FlowFrame
   flow and run** that produced each version.
 - **Experiments** — a leaderboard of training runs per experiment, with the
   best value in each metric column highlighted (RMSE/MAE treated as
-  lower-is-better) so you can compare runs at a glance.
+  lower-is-better) so you can compare runs at a glance:
+
+![ML Models → Experiments tab — leaderboard of training runs ranked by metric, with the champion run highlighted by a trophy icon](/screenshots/models-experiments.png)
 
 ## Try the demo flows
 
