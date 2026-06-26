@@ -16,6 +16,13 @@ from app.engine.transformations.numeric import (
     RemoveOutliersTransformation,
     RoundNumbersTransformation,
 )
+from app.engine.transformations.quality import (
+    AssertExpressionTransformation,
+    AssertNotNullTransformation,
+    AssertRowCountTransformation,
+    AssertUniqueTransformation,
+    AssertValueRangeTransformation,
+)
 from app.engine.transformations.reshape import (
     ConcatRowsTransformation,
     CreateCalculatedColumnTransformation,
@@ -77,6 +84,11 @@ _register(
     MapValuesTransformation(),
     WindowFunctionTransformation(),
     ConditionalColumnTransformation(),
+    AssertNotNullTransformation(),
+    AssertUniqueTransformation(),
+    AssertValueRangeTransformation(),
+    AssertExpressionTransformation(),
+    AssertRowCountTransformation(),
 )
 
 

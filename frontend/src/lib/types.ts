@@ -111,6 +111,10 @@ export interface NodeResult {
   model_uri?: string | null;
   task_type?: string | null;
   cv_scores?: number[] | null;
+  // Assertion node fields — null for non-assertion nodes.
+  assertion_passed?: boolean | null;
+  assertion_violation_count?: number | null;
+  assertion_violating_sample?: Record<string, unknown>[] | null;
 }
 
 /** Per-node ML results returned by GET /runs/{id}/ml/metrics. */
