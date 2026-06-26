@@ -18,6 +18,7 @@ from app.api.routes import (
     runs,
     schedules,
     transformations,
+    webhooks,
 )
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal, init_db
@@ -45,9 +46,7 @@ async def _seed_local_storage_safe(data_dir: str) -> None:
         async with AsyncSessionLocal() as session:
             # Use first() (not scalar_one_or_none): tolerate pre-existing duplicate
             # rows from older builds instead of crashing startup seeding.
-            result = await session.execute(
-                select(Connection).where(Connection.provider == "local").limit(1)
-            )
+            result = await session.execute(select(Connection).where(Connection.provider == "local").limit(1))
             if result.scalars().first() is None:
                 conn = Connection(name="Local Storage", provider="local", database=data_dir)
                 session.add(conn)
@@ -68,9 +67,7 @@ async def _seed_mlflow_connection_safe(tracking_uri: str) -> None:
         from app.db.models.connection import Connection
 
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(Connection).where(Connection.provider == "mlflow").limit(1)
-            )
+            result = await session.execute(select(Connection).where(Connection.provider == "mlflow").limit(1))
             if result.scalars().first() is None:
                 conn = Connection(name="Local MLflow", provider="mlflow", database=tracking_uri)
                 session.add(conn)
@@ -180,7 +177,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Accept"],
+        allow_headers=["Content-Type", "Authorization", "Accept", "X-FlowFrame-Secret"],
     )
     # Compress responses (the served JS/CSS bundle and large JSON payloads).
     app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -229,6 +226,7 @@ def create_app() -> FastAPI:
     app.include_router(ml.router, prefix="/api", tags=["ml"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
+    app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
