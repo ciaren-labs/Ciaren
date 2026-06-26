@@ -49,7 +49,9 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
   output = amber). See the [Transformations Reference](/transformations/overview).
 - **Config panel** — per-node settings (column selection, operators, target
   types, aggregations). Forms are validated as you type for fast feedback; the
-  backend re-validates on run.
+  backend re-validates on run. Click any node to open its config:
+
+  ![Config panel — Fill Nulls node selected, showing Strategy dropdown and column chip selector](/screenshots/editor-node-config.png)
 - **Live preview** — open with the **Preview** button, then click **Run preview**
   to fetch a sample of the output (whole-flow or the selected node). Backed by
   `POST /api/flows/{id}/preview` and `POST /api/transformations/preview`.
