@@ -80,18 +80,21 @@ export default defineConfig({
         },
         {
           text: 'Deployment',
+          collapsed: true,
           items: [
             { text: 'Docker', link: '/guide/docker' },
           ],
         },
         {
           text: 'Reference',
+          collapsed: true,
           items: [
             { text: 'Design System', link: '/guide/design-system' },
           ],
         },
         {
           text: 'Help',
+          collapsed: true,
           items: [
             { text: 'Troubleshooting', link: '/guide/troubleshooting' },
             { text: 'FAQ', link: '/faq' },
@@ -141,6 +144,7 @@ export default defineConfig({
         },
         {
           text: 'Text',
+          collapsed: true,
           items: [
             { text: 'Replace values', link: '/transformations/replace-values' },
             { text: 'String transform', link: '/transformations/string-transform' },
@@ -150,6 +154,7 @@ export default defineConfig({
         },
         {
           text: 'Numeric',
+          collapsed: true,
           items: [
             { text: 'Round numbers', link: '/transformations/round-numbers' },
             { text: 'Remove outliers', link: '/transformations/remove-outliers' },
@@ -158,6 +163,7 @@ export default defineConfig({
         },
         {
           text: 'Reshape & combine',
+          collapsed: true,
           items: [
             { text: 'Calculated column', link: '/transformations/calculated-column' },
             { text: 'Group by + aggregate', link: '/transformations/group-by-aggregate' },
@@ -171,6 +177,7 @@ export default defineConfig({
         },
         {
           text: 'Analytics',
+          collapsed: true,
           items: [
             { text: 'Window function', link: '/transformations/window-function' },
             { text: 'Conditional column', link: '/transformations/conditional-column' },
@@ -178,6 +185,7 @@ export default defineConfig({
         },
         {
           text: 'Machine Learning',
+          collapsed: true,
           items: [
             { text: 'ML nodes', link: '/transformations/machine-learning' },
           ],
