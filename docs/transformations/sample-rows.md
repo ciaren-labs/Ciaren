@@ -8,6 +8,26 @@ description: Take a random sample of rows, by count or fraction
 
 Take a random sample.
 
+<DataTransform
+  :before='[
+    ["id","name","score"],
+    [1,"Alice",88],
+    [2,"Bob",72],
+    [3,"Carol",95],
+    [4,"Dave",61],
+    [5,"Eve",79],
+    [6,"Frank",84],
+    [7,"Grace",91]
+  ]'
+  config="frac=0.4  seed=42"
+  :after='[
+    ["id","name","score"],
+    [3,"Carol",95],
+    [6,"Frank",84],
+    [1,"Alice",88]
+  ]'
+/>
+
 ## Use cases
 
 - Build a small, representative subset for quick iteration.

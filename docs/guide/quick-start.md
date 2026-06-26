@@ -57,6 +57,8 @@ than overwriting the old one, so existing flows stay reproducible.
    - **Group by & Aggregate** — group by `region`, sum `amount`.
 4. Add a **CSV Output** node at the end and connect it.
 
+![Flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
+
 Each node has a config panel on the side. As you edit a node, the **live
 preview** updates on a sample of your data, so you can confirm each step before
 running anything. See the [Interface Tour](/guide/interface) for the full layout
