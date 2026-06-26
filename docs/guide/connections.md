@@ -68,9 +68,16 @@ SQLite needs no driver and is great for trying things out.
 
 ![Connections page — list of saved database connections with test/edit actions](/screenshots/connections.png)
 
-1. Go to **Connections → Add connection**.
-2. Pick a **provider**. SQLite asks only for a file path; the others ask for
-   host, port, database, username, and the **password env-var name**.
+1. Go to **Connections → Add connection**. A provider picker appears:
+
+![Add connection dialog — grid of database and storage providers: PostgreSQL, MySQL/MariaDB, SQLite, DuckDB, SQL Server, Snowflake, MongoDB, Local Folder, AWS S3, Azure Blob Storage, Google Cloud Storage](/screenshots/connection-add-dialog.png)
+
+2. Pick a **provider**. After selecting one (e.g. PostgreSQL) the connection form appears:
+
+![Configure connection form — name, host, port, database, username, and Password env var fields with "PG_PASSWORD" hint](/screenshots/connection-form-postgres.png)
+
+   SQLite asks only for a file path; the others ask for host, port, database,
+   username, and the **password env-var name** (the actual secret is never stored).
 3. Save, then click **Test** to verify connectivity.
 
 ## Using SQL nodes in a flow
