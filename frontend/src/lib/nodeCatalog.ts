@@ -8,6 +8,7 @@ export type NodeCategory =
   | "columns"
   | "reshape"
   | "analytics"
+  | "quality"
   | "ml"
   | "output";
 
@@ -393,6 +394,52 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Build a column from if/elif/else rules (CASE-WHEN).",
   },
+  // ----- Data Quality -----
+  {
+    type: "assertNotNull",
+    label: "Assert Not Null",
+    category: "quality",
+    defaultConfig: { columns: [], mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when any specified column contains null values.",
+  },
+  {
+    type: "assertUnique",
+    label: "Assert Unique",
+    category: "quality",
+    defaultConfig: { columns: [], mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when duplicate rows exist across the specified columns.",
+  },
+  {
+    type: "assertValueRange",
+    label: "Assert Value Range",
+    category: "quality",
+    defaultConfig: { column: "", min: null, max: null, inclusive: true, mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when column values fall outside a numeric range.",
+  },
+  {
+    type: "assertExpression",
+    label: "Assert Expression",
+    category: "quality",
+    defaultConfig: { expression: "", mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when a boolean expression is false for any row.",
+  },
+  {
+    type: "assertRowCount",
+    label: "Assert Row Count",
+    category: "quality",
+    defaultConfig: { min_rows: null, max_rows: null, mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when the row count falls outside declared bounds.",
+  },
   // ----- Machine Learning -----
   {
     type: "trainTestSplit",
@@ -567,6 +614,7 @@ export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   columns: "Columns",
   reshape: "Reshape",
   analytics: "Analytics",
+  quality: "Data Quality",
   ml: "Machine Learning",
   output: "Outputs",
 };
@@ -577,6 +625,7 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "columns",
   "reshape",
   "analytics",
+  "quality",
   "ml",
   "output",
 ];
