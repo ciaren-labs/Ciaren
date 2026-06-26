@@ -33,7 +33,11 @@ running or scheduling, and what the exported Python looks like.
 
 ## Declaring parameters
 
-In the flow editor, click **Parameters** in the top bar. Each parameter has:
+In the flow editor, click **Parameters** in the top bar to open the parameter editor:
+
+![Flow parameters dialog — empty state with "Add parameter" button and the {{ name }} syntax hint](/screenshots/parameters-dialog.png)
+
+Each parameter has:
 
 | Field | Required | Description |
 | --- | --- | --- |
