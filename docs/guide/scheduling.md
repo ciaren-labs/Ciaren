@@ -20,6 +20,10 @@ the API without it using `flowframe serve --no-scheduler` (or
 
 ## Creating a schedule
 
+Click **Schedule** in the flow editor toolbar (or go to the **Schedules** page) to open the schedule builder:
+
+![New schedule dialog — frequency picker (Hourly/Daily/Weekly/Monthly/Custom cron), time of day, timezone, engine, and Enabled toggle](/screenshots/schedule-create.png)
+
 ![Schedules page — list of saved schedules with cron expressions, next run times, and status](/screenshots/schedules.png)
 
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
