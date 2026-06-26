@@ -577,6 +577,47 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   featureImportance: z.object({
     top_n: z.coerce.number().int().min(1).nullable().optional(),
   }),
+
+  // ----- Data Quality -----
+  assertNotNull: z.object({
+    columns: stringArray.optional(),
+    mode: z.enum(["error", "warn"]).optional(),
+  }),
+  assertUnique: z.object({
+    columns: stringArray.optional(),
+    mode: z.enum(["error", "warn"]).optional(),
+  }),
+  assertValueRange: z
+    .object({
+      column: z.string().min(1, "Select a column"),
+      min: z.coerce.number().nullable().optional(),
+      max: z.coerce.number().nullable().optional(),
+      inclusive: z.boolean().optional(),
+      mode: z.enum(["error", "warn"]).optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.min == null && cfg.max == null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["min"], message: "Set at least one of min or max" });
+      }
+    }),
+  assertExpression: z.object({
+    expression: z.string().min(1, "Expression is required"),
+    mode: z.enum(["error", "warn"]).optional(),
+  }),
+  assertRowCount: z
+    .object({
+      min_rows: z.coerce.number().int().nonnegative().nullable().optional(),
+      max_rows: z.coerce.number().int().nonnegative().nullable().optional(),
+      mode: z.enum(["error", "warn"]).optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.min_rows == null && cfg.max_rows == null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["min_rows"], message: "Set at least one of min or max rows" });
+      }
+      if (cfg.min_rows != null && cfg.max_rows != null && cfg.min_rows > cfg.max_rows) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["min_rows"], message: "Min rows must be ≤ max rows" });
+      }
+    }),
 };
 
 export function getConfigSchema(type: string): z.ZodTypeAny {
