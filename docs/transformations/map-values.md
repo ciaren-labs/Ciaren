@@ -14,6 +14,24 @@ default for unmapped values.
 - Recode grades to outcomes (`A`/`B` → `Pass`).
 - Translate codes to labels, sending anything unmapped to a default.
 
+## What it does
+
+Looks up each value in the mapping table and replaces it. With `use_default: true`,
+anything not in the mapping gets the `default` value.
+
+<DataTransform
+  transform="Map values (mapping: A→Pass, B→Pass; default=Fail; new_column=result)"
+  :before='{
+    "columns":["student","grade"],
+    "rows":[["Alice","A"],["Bob","C"],["Carol","B"],["Dave","F"]]
+  }'
+  :after='{
+    "columns":["student","grade","result"],
+    "rows":[["Alice","A","Pass"],["Bob","C","Fail"],["Carol","B","Pass"],["Dave","F","Fail"]]
+  }'
+  :highlight='["result"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

@@ -13,6 +13,27 @@ Remove rows with missing values.
 - Discard records that are missing a required field (e.g. no `amount`).
 - Drop fully-empty rows while keeping partially-populated ones.
 
+## What it does
+
+Drops rows where the target column(s) are null. With `subset: ["amount"]` only
+rows missing an `amount` are removed — rows with other nulls (like `region`) survive.
+
+<DataTransform
+  transform="Drop nulls (subset=amount)"
+  :before='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1002,"South",null],[1003,null,89.0],[1004,"South",42.25]
+    ]
+  }'
+  :after='{
+    "columns":["order_id","region","amount"],
+    "rows":[
+      [1001,"North",120.5],[1003,null,89.0],[1004,"South",42.25]
+    ]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

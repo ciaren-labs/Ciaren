@@ -13,6 +13,22 @@ Keep only the listed columns (and reorder them).
 - Produce a tidy output with just the columns that matter, in a chosen order.
 - Reduce a wide frame to the few columns a downstream step needs.
 
+## What it does
+
+Drops every column not listed and reorders the survivors to match your list.
+
+<DataTransform
+  transform="Select columns (columns=[amount, region, id])"
+  :before='{
+    "columns":["id","name","region","amount","notes","created_at"],
+    "rows":[[1,"Alice","North",120.5,"vip","2024-01"],[2,"Bob","South",89.0,"","2024-01"]]
+  }'
+  :after='{
+    "columns":["amount","region","id"],
+    "rows":[[120.5,"North",1],[89.0,"South",2]]
+  }'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

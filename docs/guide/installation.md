@@ -87,6 +87,8 @@ backend on port `8055`.
 Visit `http://localhost:5173` and start building flows. (During development this
 is the URL to open — **not** the backend's `:8055`, which serves the API.)
 
+![Projects page — the first screen you see after installation, with the Demo project ready to explore](/screenshots/projects.png)
+
 :::tip One-command app (no separate frontend server)
 Build the frontend once and `flowframe serve` will serve the web UI too, so the
 whole app lives at a single URL:

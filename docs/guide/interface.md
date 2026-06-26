@@ -11,7 +11,10 @@ purple-based, minimalist layout. This page walks through the main screens.
 
 ## Top-level pages
 
-FlowFrame is organized around a few pages, reachable from the navigation:
+FlowFrame is organized around a few pages, reachable from the navigation bar at the top:
+
+![Datasets page — card grid showing uploaded CSV/Parquet files with column counts and version labels](/screenshots/datasets.png)
+
 
 - **Landing** (`/`) — the marketing/start page.
 - **Projects** (`/projects`) — lightweight workspaces that group related datasets
@@ -26,6 +29,9 @@ FlowFrame is organized around a few pages, reachable from the navigation:
   are read from environment variables, never stored. See
   [Database Connections](/guide/connections).
 - **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
+- **Models** (`/models`) — MLflow-tracked model registry: registered models with
+  metrics, aliases (`@production`, `@staging`), and lineage back to the flow and
+  run that produced each version. Only visible when the `[ml]` extra is installed.
 - **Runs** (`/runs`) — execution history; open a run for status, logs, and
   per-node results.
 - **Schedules** (`/schedules`) — automated flows; see [Scheduling](/guide/scheduling).
@@ -33,7 +39,10 @@ FlowFrame is organized around a few pages, reachable from the navigation:
 ## The flow editor
 
 Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
-[React Flow](https://reactflow.dev/):
+[React Flow](https://reactflow.dev/). The layout has three main regions:
+
+![FlowFrame flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
+
 
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input
@@ -43,10 +52,14 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
   output = amber). See the [Transformations Reference](/transformations/overview).
 - **Config panel** — per-node settings (column selection, operators, target
   types, aggregations). Forms are validated as you type for fast feedback; the
-  backend re-validates on run.
-- **Live preview** — a sample of the selected node's output, updated as you edit,
-  backed by `POST /api/flows/{id}/preview` and
-  `POST /api/transformations/preview`.
+  backend re-validates on run. Click any node to open its config:
+
+  ![Config panel — Fill Nulls node selected, showing Strategy dropdown and column chip selector](/screenshots/editor-node-config.png)
+- **Live preview** — open with the **Preview** button, then click **Run preview**
+  to fetch a sample of the output (whole-flow or the selected node). Backed by
+  `POST /api/flows/{id}/preview` and `POST /api/transformations/preview`.
+
+  ![Data Preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
 - **Profile** — alongside the preview, a one-click **Profile** view shows
   per-column statistics for the selected node's output: null count and
   percentage, distinct count, numeric min/mean/max, datetime range, and the top
@@ -67,7 +80,10 @@ Two nodes are different:
 
 ## Runs view
 
-A run's detail page (`/runs/:runId`) shows the flow as a read-only DAG. Each node
+A run's detail page (`/runs/:runId`) shows the flow as a read-only DAG.
+
+![Run detail page — DAG with per-node success status and row counts, summary panel on the right](/screenshots/run-detail.png)
+ Each node
 reports its status (`success` / `failed` / `skipped`), row and column counts, a
 small sample of its output, and a `duration_ms` for performance insight. The run
 also records which engine it used and the resolved dataset versions, so it is

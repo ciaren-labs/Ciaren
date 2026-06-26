@@ -2,6 +2,52 @@
  * Custom styles for FlowFrame documentation
  */
 
+/* ── Layout: narrower sidebars, wider content ──────────────── */
+:root {
+  --vp-sidebar-width: 240px;
+}
+
+/* Give content a bit more room when the aside is present */
+@media (min-width: 1280px) {
+  .VPDoc.has-aside .content-container {
+    max-width: 720px;
+  }
+}
+
+/* ── Left nav panel transition ─────────────────────────────── */
+@media (min-width: 960px) {
+  .VPSidebar {
+    transition: transform 0.25s ease;
+  }
+}
+
+/* ── Left nav collapse (ff-sidebar-collapsed on <html>) ─────── */
+@media (min-width: 960px) {
+  html.ff-sidebar-collapsed .VPSidebar {
+    transform: translateX(-100%);
+    box-shadow: none !important;
+  }
+
+  html.ff-sidebar-collapsed .VPContent {
+    padding-left: 32px !important;
+  }
+}
+
+/* ── Right aside collapse (ff-aside-collapsed on <html>) ────── */
+@media (min-width: 1280px) {
+  html.ff-aside-collapsed .VPDoc.has-aside .container {
+    grid-template-columns: 1fr !important;
+  }
+
+  html.ff-aside-collapsed .VPDoc .aside {
+    display: none !important;
+  }
+
+  html.ff-aside-collapsed .VPDoc.has-aside .content-container {
+    max-width: 800px;
+  }
+}
+
 :root {
   /* Custom brand colors — purple (see guide/design-system.md) */
   --ff-primary: hsl(262 83% 58%); /* brand-600 */

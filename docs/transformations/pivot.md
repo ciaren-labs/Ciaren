@@ -13,6 +13,30 @@ Reshape long → wide.
 - Turn `month` rows into `Jan`/`Feb`/… columns of totals.
 - Build a cross-tab of category × metric.
 
+## What it does
+
+Pivot spreads the **unique values** of one column (`columns`) out into new columns,
+filling each cell by aggregating the `values` column for that row key.
+
+<DataTransform
+  transform="Pivot (index=region, columns=month, values=amount, aggfunc=sum)"
+  :before='{
+    "columns":["region","month","amount"],
+    "rows":[
+      ["North","Jan",100],["North","Feb",150],
+      ["South","Jan",80],["South","Feb",200]
+    ]
+  }'
+  :after='{
+    "columns":["region","Jan","Feb"],
+    "rows":[
+      ["North",100,150],
+      ["South",80,200]
+    ]
+  }'
+  :highlight='["Jan","Feb"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |
