@@ -63,6 +63,9 @@ and transformation.
 | Keep rows matching a condition | [Filter rows](./filter-rows.md) |
 | Create a new computed column | [Calculated column](./calculated-column.md) |
 | Sum / count / average by group | [Group by + aggregate](./group-by-aggregate.md) |
+| Read from S3 / GCS / Azure Blob | [Storage input](./storage-input.md) |
+| Write to S3 / GCS / Azure Blob | [Storage output](./storage-output.md) |
+| Read from a database | [SQL input](./sql-input.md) |
 | Combine two datasets on a key | [Join](./join.md) |
 | Stack datasets row-wise | [Union / Concat](./union-concat.md) |
 | Reshape long ↔ wide | [Pivot](./pivot.md) / [Unpivot](./unpivot.md) |
