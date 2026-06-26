@@ -63,7 +63,6 @@ FlowFrame is designed for **local, single-machine data transformation**. It is
 - Distributed computing (Spark, Dask)
 - Real-time streaming pipelines
 - 100GB+ datasets
-- Reading/writing directly to databases (it works with files)
 - Cross-flow DAG dependencies or complex orchestration
 - Multi-user collaboration and enterprise permissions
 
@@ -109,7 +108,7 @@ Yes! Flows are saved to a database and can be run again anytime.
 
 ### Can I export as Python code?
 
-Yes! Every flow generates readable pandas code you can use in scripts or Jupyter notebooks.
+Yes! Every flow generates readable **polars and pandas** code you can use in scripts or Jupyter notebooks.
 
 ### Is my data secure?
 
