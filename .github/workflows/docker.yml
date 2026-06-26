@@ -11,7 +11,8 @@ on:
       - frontend/**
       - .github/workflows/docker.yml
   pull_request:
-    branches: [main]
+    # Run on PRs to both branches; the expensive ML build is skipped for development PRs below.
+    branches: [main, development]
     paths:
       - Dockerfile
       - .dockerignore
@@ -107,8 +108,8 @@ jobs:
     name: Build with ML extras
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # ML build is slow (~1 GB of packages) — run only on push, not every PR.
-    if: github.event_name == 'push'
+    # ML build is slow (~1 GB of packages) — only on push to main or PRs targeting main.
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
 
     steps:
       - name: Checkout code

@@ -7,7 +7,8 @@ on:
       - docs/**
       - .github/workflows/docs-deploy.yml
   pull_request:
-    branches: [main]
+    # Lint + build runs for PRs to both branches; deploy job is gated to push on main below.
+    branches: [main, development]
     paths:
       - docs/**
   workflow_dispatch:
