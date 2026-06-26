@@ -100,5 +100,6 @@ it processed even though the source is live.
 
 ## Next steps
 
-- [Transformations reference](/transformations/overview) — the SQL Input/Output nodes
+- [SQL input](../transformations/sql-input.md) / [SQL output](../transformations/sql-output.md) — database I/O nodes
+- [Storage input](../transformations/storage-input.md) / [Storage output](../transformations/storage-output.md) — S3/GCS/Azure Blob I/O nodes
 - [Scheduling](/guide/scheduling) — automate flows that pull fresh data
