@@ -103,7 +103,7 @@ result; `"warn"` continues execution while `"error"` stops it.
 
 ## 2. Custom Python Transform
 
-> Status: **planned**
+> Status: **in progress** · Branch: `feature/custom-python-transform`
 
 ### Goal
 
@@ -132,20 +132,21 @@ pre-processing step outside the graph.
 
 ### Phases
 
-#### Phase 1 — Backend core
+#### Phase 1 — Backend core ✅
 
-- [ ] `app/engine/transformations/script.py` — `PythonTransformTransformation`;
-      `validate_config` (syntax check); `execute` (wrap + call); `to_python_code`.
-- [ ] `app/engine/registry.py` — register `pythonTransform`.
-- [ ] Tests: valid script, syntax error caught, wrong return type caught,
-      engine-matrix (script uses `pl` / `pd` correctly).
+- [x] `app/engine/transformations/script.py` — `PythonTransformTransformation`;
+      `validate_config` (syntax check wrapping script in function body);
+      `execute` (wrap + call with engine-aware namespace); `to_python_code` +
+      `to_polars_code`.
+- [x] `app/engine/registry.py` — register `pythonTransform`.
+- [x] 32 tests: syntax errors, pd/pl namespace, None-return error, multiline
+      scripts, stdlib import, codegen (pandas + polars), executor integration.
 
-#### Phase 2 — Frontend
+#### Phase 2 — Frontend ✅
 
-- [ ] Node palette entry under "Transform" (or new "Advanced" section).
-- [ ] Config sidebar: code editor (Monaco or a `<textarea>` with monospace font),
-      engine-aware placeholder snippet, error display.
-- [ ] Tests: editor renders, error message surfaced on save.
+- [x] Node catalog: `pythonTransform` in "analytics" category with Code2 icon.
+- [x] Config sidebar: monospace 10-row textarea with engine-aware placeholder.
+- [x] validators.ts: `script` required string schema.
 
 #### Phase 3 — Docs
 
