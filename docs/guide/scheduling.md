@@ -20,6 +20,12 @@ the API without it using `flowframe serve --no-scheduler` (or
 
 ## Creating a schedule
 
+Click **Schedule** in the flow editor toolbar (or go to the **Schedules** page) to open the schedule builder:
+
+![New schedule dialog — frequency picker (Hourly/Daily/Weekly/Monthly/Custom cron), time of day, timezone, engine, and Enabled toggle](/screenshots/schedule-create.png)
+
+![Schedules page — list of saved schedules with cron expressions, next run times, and status](/screenshots/schedules.png)
+
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
 expression and timezone. Over the API:
 
@@ -57,6 +63,10 @@ If the flow declares [parameters](./parameters.md), the schedule form shows a
 schedule fires; blanks fall back to each parameter's default — so one flow can
 back several schedules that differ only by their parameter values.
 :::
+
+## Lifecycle overview
+
+<ScheduleCycle />
 
 ## How it decides what to run
 

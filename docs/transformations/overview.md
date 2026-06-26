@@ -22,6 +22,14 @@ Each node's `type` (shown on its page) is the value stored in the flow graph at
 `node.type`; its settings live at `node.data.config`.
 :::
 
+## Node categories
+
+The node palette (left panel in the editor) groups all nodes into color-coded categories. Click a category to expand it, then drag a node onto the canvas or click to place it.
+
+![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
+
+<NodeCategoryGrid />
+
 ## How nodes connect
 
 A flow is a graph of `nodes` and `edges` (React Flow-compatible). Most nodes have
@@ -30,19 +38,16 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 - **[Join](./join.md)** has two inputs: `left` and `right`.
 - **[Union / Concat](./union-concat.md)** accepts any number of inputs.
 
-## Quick overview
+A minimal complete pipeline always starts with at least one **Input** node and
+ends with at least one **Output** node. Everything in between is optional cleaning
+and transformation.
 
-| Category | Nodes |
-| ---------- | ------- |
-| **Input** | [File (CSV/Excel/Parquet)](./file-input.md), [SQL](./sql-input.md) |
-| **Columns** | [Drop](./drop-columns.md), [Rename](./rename-columns.md), [Select](./select-columns.md), [Cast types](./cast-types.md) |
-| **Nulls** | [Drop nulls](./drop-nulls.md), [Fill nulls](./fill-nulls.md) |
-| **Rows** | [Filter](./filter-rows.md), [Sort](./sort-rows.md), [Limit](./limit-rows.md), [Sample](./sample-rows.md), [Remove duplicates](./remove-duplicates.md) |
-| **Text** | [Replace values](./replace-values.md), [String transform](./string-transform.md), [Split column](./split-column.md), [Map values](./map-values.md) |
-| **Numeric** | [Round](./round-numbers.md), [Remove outliers](./remove-outliers.md), [Bin column](./bin-column.md) |
-| **Reshape & combine** | [Calculated column](./calculated-column.md), [Group by + aggregate](./group-by-aggregate.md), [Join](./join.md), [Union/Concat](./union-concat.md), [Pivot](./pivot.md), [Unpivot](./unpivot.md), [Extract date parts](./extract-date-parts.md), [Parse dates](./parse-dates.md) |
-| **Analytics** | [Window function](./window-function.md), [Conditional column](./conditional-column.md) |
-| **Output** | [File (CSV/Excel/Parquet)](./file-output.md), [SQL](./sql-output.md) |
+<FlowPipeline :nodes='[
+  {"type":"input","label":"Input node","detail":"CSV · Excel · Parquet · SQL · Storage"},
+  {"type":"clean","label":"Clean nodes","detail":"columns · nulls · rows · text · numeric"},
+  {"type":"transform","label":"Transform nodes","detail":"reshape · combine · analytics"},
+  {"type":"output","label":"Output node","detail":"CSV · Excel · Parquet · SQL · Storage"}
+]' />
 
 ## Choosing the right node
 
@@ -58,6 +63,9 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 | Keep rows matching a condition | [Filter rows](./filter-rows.md) |
 | Create a new computed column | [Calculated column](./calculated-column.md) |
 | Sum / count / average by group | [Group by + aggregate](./group-by-aggregate.md) |
+| Read from S3 / GCS / Azure Blob | [Storage input](./storage-input.md) |
+| Write to S3 / GCS / Azure Blob | [Storage output](./storage-output.md) |
+| Read from a database | [SQL input](./sql-input.md) |
 | Combine two datasets on a key | [Join](./join.md) |
 | Stack datasets row-wise | [Union / Concat](./union-concat.md) |
 | Reshape long ↔ wide | [Pivot](./pivot.md) / [Unpivot](./unpivot.md) |

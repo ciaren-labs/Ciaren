@@ -16,6 +16,30 @@ conditions with **match ALL** (AND) or **match ANY** (OR).
 - Segment customers on multiple criteria (`age >= 18 AND country == US → us_adult`).
 - Flag rows that satisfy *any* of several conditions.
 
+## What it does
+
+Rules are evaluated top to bottom; the **first** match assigns the result. Rows
+matching no rule receive the `default` value (or null if none is set).
+
+<DataTransform
+  transform="Conditional column: age ≥ 18 AND country = US → us_adult; else → other"
+  :before='{
+    "columns":["name","age","country"],
+    "rows":[
+      ["Alice",25,"US"],["Bob",16,"US"],["Carol",30,"UK"]
+    ]
+  }'
+  :after='{
+    "columns":["name","age","country","segment"],
+    "rows":[
+      ["Alice",25,"US","us_adult"],
+      ["Bob",16,"US","other"],
+      ["Carol",30,"UK","other"]
+    ]
+  }'
+  :highlight='["segment"]'
+/>
+
 ## Configuration
 
 | Config key | Type | Required | Description |

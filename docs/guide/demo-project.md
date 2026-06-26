@@ -48,6 +48,8 @@ the preview to **Chart → Histogram** on `amount` to *see* the outliers, or to
 [Visualizations](./visualizations.md).)
 :::
 
+![Flows list showing the Demo project — 9 flows including Clean Customers, ML flows, and the Full Sales Mart](/screenshots/flows.png)
+
 ---
 
 ## Tutorial 1 — Clean Customers (linear)
@@ -57,6 +59,16 @@ table — fill missing ages, normalize country casing, and make the signup date 
 real date.
 
 This is the simplest shape: a straight line from input to output.
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"customers.csv"},
+    {"type":"clean","label":"Fill Nulls","detail":"age → median"},
+    {"type":"clean","label":"String Transform","detail":"country → upper"},
+    {"type":"clean","label":"Parse Dates","detail":"signup_date → datetime"},
+    {"type":"output","label":"CSV Output"}
+  ]'
+/>
 
 1. **CSV Input** → `customers.csv`.
 2. **Fill Nulls** — column `age`, strategy **median**. (Some ages are blank;
@@ -83,6 +95,18 @@ month, in chronological order.
 
 This adds date-part extraction and grouping.
 
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"clean","label":"Parse Dates","detail":"order_date → datetime"},
+    {"type":"clean","label":"Extract Date Parts","detail":"year + month cols"},
+    {"type":"clean","label":"Filter Rows","detail":"status = completed"},
+    {"type":"transform","label":"Group By","detail":"sum amount by month"},
+    {"type":"clean","label":"Sort Rows","detail":"year → month asc"},
+    {"type":"output","label":"CSV Output"}
+  ]'
+/>
+
 1. **CSV Input** → `orders.csv`.
 2. **Parse Dates** — column `order_date` (it's text).
 3. **Extract Date Parts** — column `order_date`, parts **year**, **month**.
@@ -108,6 +132,26 @@ year/month columns, then after **Group By Aggregate** to see one row per month.
 
 This is the first branched flow: two inputs, each with its own cleaning chain,
 meeting at a **Join**.
+
+<ForkJoin
+  :left='[
+    {"type":"input","label":"CSV Input","detail":"customers.csv"},
+    {"type":"clean","label":"Fill Nulls","detail":"age → median"},
+    {"type":"clean","label":"String Transform","detail":"country → upper"}
+  ]'
+  :right='[
+    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"clean","label":"Remove Duplicates"},
+    {"type":"clean","label":"Remove Outliers","detail":"IQR drop"}
+  ]'
+  :join='{"label":"Join","detail":"on customer_id — inner"}'
+  :after='[
+    {"type":"transform","label":"Calculated Column","detail":"net_amount = amount × 0.9"},
+    {"type":"output","label":"CSV Output"}
+  ]'
+/>
+
+![Customer Orders Join canvas — two input branches meeting at a join node, followed by calculatedColumn and csvOutput](/screenshots/editor-node-selected.png)
 
 ### Customer branch
 
@@ -145,6 +189,20 @@ join direction explicit.
 three datasets, then label each category by revenue tier.
 
 This is the most complex flow — three inputs and two chained joins.
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"order_items.csv","detail":"Calculated Column: line_total"},
+    {"type":"input","label":"products.csv","detail":"Fill Nulls: price → mean"},
+    {"type":"transform","label":"Join","detail":"items + products on product_id"},
+    {"type":"input","label":"orders.csv","detail":"Remove Duplicates"},
+    {"type":"transform","label":"Join","detail":"+ orders on order_id"},
+    {"type":"transform","label":"Group By","detail":"sum line_total by category"},
+    {"type":"transform","label":"Conditional Column","detail":"revenue_tier label"},
+    {"type":"output","label":"CSV Output"}
+  ]'
+  :vertical="true"
+/>
 
 ### Order items branch
 
