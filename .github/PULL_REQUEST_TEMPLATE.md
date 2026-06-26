@@ -38,6 +38,7 @@ How was this tested?
 
 ## Checklist
 
+- [ ] PR targets `development` (not `main`) — see [branching strategy](../CONTRIBUTING.md#-branching-strategy)
 - [ ] Code follows [CONTRIBUTING.md](../CONTRIBUTING.md) standards
 - [ ] Type hints on all functions
 - [ ] No breaking changes (or discussed in issue)
