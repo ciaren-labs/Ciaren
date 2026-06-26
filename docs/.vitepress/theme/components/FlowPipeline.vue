@@ -53,7 +53,7 @@ function iconFor(type: string): string {
 .flow-pipeline {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   gap: 6px;
   flex-wrap: wrap;
   margin: 24px 0;
@@ -66,7 +66,7 @@ function iconFor(type: string): string {
 
 .flow-pipeline--vertical {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 /* ── Node card ────────────────────────────────────────── */
@@ -79,7 +79,7 @@ function iconFor(type: string): string {
   border-left: 4px solid transparent;
   background: var(--vp-c-bg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  min-width: 160px;
+  flex: 1 0 140px;
   position: relative;
 }
 
@@ -119,19 +119,13 @@ function iconFor(type: string): string {
   font-weight: 600;
   color: var(--vp-c-text-1);
   line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pipeline-node__detail {
   font-size: 11px;
   color: var(--vp-c-text-2);
   margin-top: 2px;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .pipeline-node__badge {
@@ -150,13 +144,14 @@ function iconFor(type: string): string {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  align-self: center;
 }
 
 /* ── Responsive: force vertical on small screens ─────── */
 @media (max-width: 640px) {
   .flow-pipeline {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
   .pipeline-arrow svg {
     transform: rotate(90deg);
