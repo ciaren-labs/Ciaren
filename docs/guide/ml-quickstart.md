@@ -143,7 +143,9 @@ dedicated view over everything MLflow tracked:
   flow and run** that produced each version.
 - **Experiments** — a leaderboard of training runs per experiment, with the
   best value in each metric column highlighted (RMSE/MAE treated as
-  lower-is-better) so you can compare runs at a glance.
+  lower-is-better) so you can compare runs at a glance:
+
+![ML Models → Experiments tab — leaderboard of training runs ranked by metric, with the champion run highlighted by a trophy icon](/screenshots/models-experiments.png)
 
 ## Try the demo flows
 
