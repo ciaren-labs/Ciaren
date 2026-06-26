@@ -36,6 +36,10 @@ class NodeResult:
     model_uri: str | None = None
     task_type: str | None = None
     cv_scores: list[float] | None = None
+    # Assertion node metadata — None for non-assertion nodes.
+    assertion_passed: bool | None = None
+    assertion_violation_count: int | None = None
+    assertion_violating_sample: list[dict[str, Any]] | None = None
 
     def apply_metadata(self, meta: NodeMetadata | None) -> None:
         if meta is None:
@@ -45,6 +49,9 @@ class NodeResult:
         self.model_uri = meta.model_uri
         self.task_type = meta.task_type
         self.cv_scores = meta.cv_scores
+        self.assertion_passed = meta.assertion_passed
+        self.assertion_violation_count = meta.assertion_violation_count
+        self.assertion_violating_sample = meta.assertion_violating_sample
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +69,9 @@ class NodeResult:
             "model_uri": self.model_uri,
             "task_type": self.task_type,
             "cv_scores": self.cv_scores,
+            "assertion_passed": self.assertion_passed,
+            "assertion_violation_count": self.assertion_violation_count,
+            "assertion_violating_sample": self.assertion_violating_sample,
         }
 
 
@@ -93,8 +103,7 @@ def _resolve_source(outputs: dict[str, NodeOutputs], edge: dict[str, Any]) -> An
     if handle is not None:
         if handle not in src:
             raise GraphValidationError(
-                f"Edge from {edge['source']!r} names output {handle!r}, "
-                f"but that node emits {sorted(src)}."
+                f"Edge from {edge['source']!r} names output {handle!r}, but that node emits {sorted(src)}."
             )
         return src[handle]
     if len(src) == 1:
@@ -184,7 +193,9 @@ class FlowExecutor:
         handle via :meth:`_compute_all_outputs`.
         """
         outputs = self._compute_all_outputs(
-            graph, dataset_paths, engine,
+            graph,
+            dataset_paths,
+            engine,
             require_output=require_output,
             sql_input_paths=sql_input_paths,
             storage_input_paths=storage_input_paths,
@@ -226,7 +237,9 @@ class FlowExecutor:
     ) -> dict[str, Path]:
         engine = get_engine(engine_name)
         outputs = self._compute_all_outputs(
-            graph, dataset_paths, engine,
+            graph,
+            dataset_paths,
+            engine,
             sql_input_paths=sql_input_paths,
             storage_input_paths=storage_input_paths,
         )
@@ -281,9 +294,7 @@ class FlowExecutor:
                 continue
             started = time.perf_counter()
             try:
-                node_outputs, meta = self._node_outputs(
-                    engine, node, incoming, outputs, dataset_paths, pre_paths
-                )
+                node_outputs, meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
                 outputs[node_id] = node_outputs
                 frame = _primary_frame(node["type"], node_outputs)
                 pdf = engine.to_pandas(frame)
