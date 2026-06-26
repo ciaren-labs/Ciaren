@@ -71,23 +71,26 @@ result; `"warn"` continues execution while `"error"` stops it.
 - [x] `app/engine/registry.py` — register the 5 new types.
 - [x] `NodeMetadata` / `NodeResult` — `assertion_passed`, `assertion_violation_count`,
       `assertion_violating_sample` fields; `apply_metadata` and `as_dict` updated.
-- [x] Tests: 61 tests covering pass / error-mode fail / warn-mode continue /
-      validate_config errors / pandas codegen on both polars and pandas engines.
+- [x] Tests: 166 tests covering pass / error-mode fail / warn-mode continue /
+      validate_config errors / edge cases (empty frames, boundary values,
+      NaN, unknown columns, sample-cap) / executor integration.
 
-#### Phase 2 — Code export
+#### Phase 2 — Code export ✅
 
-- [ ] `to_python_code()` on each assertion node — generates a readable
+- [x] `to_python_code()` on each assertion node — generates a readable
       `assert`/`if not … raise` block with the violation message.
-- [ ] Tests: generated code compiles and runs correctly.
+- [x] `to_polars_code()` on each assertion node.
+- [x] Tests: generated code compiles and runs correctly (pandas + polars,
+      pass / warn / error-raises parametrized).
 
-#### Phase 3 — Frontend
+#### Phase 3 — Frontend ✅
 
-- [ ] Node palette: "Quality" section with the 5 types, amber colour scheme.
-- [ ] Config sidebar forms for each node type (column pickers, range inputs,
+- [x] Node palette: "Quality" section with 5 types, orange colour scheme.
+- [x] Config sidebar forms for each node type (column pickers, range inputs,
       expression textarea, mode toggle).
-- [ ] Run detail: per-node assertion badge (✅ pass / ⚠ warn / ❌ fail) with
-      violation count and sample rows table.
-- [ ] Tests: config form validation, badge rendering.
+- [x] Run detail: per-node assertion badge (✅ pass / ⚠ warn / ❌ fail) with
+      violation count and sample rows table (up to 5 rows).
+- [x] `NodeResult` type extended with assertion fields.
 
 #### Phase 4 — Docs
 
