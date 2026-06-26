@@ -1,7 +1,7 @@
 ---
 title: REST API Reference
 description: FlowFrame REST API — overview and conventions
-search: api rest endpoints overview conventions base url swagger
+search: api rest endpoints overview conventions base url swagger webhook trigger
 ---
 
 # REST API Reference
@@ -23,10 +23,21 @@ Each resource has its own reference page:
 - [Projects](./projects.md) — workspaces grouping datasets and flows
 - [Datasets](./datasets.md) — upload and inspect versioned source files
 - [Flows](./flows.md) — saved pipelines (graph), preview, and code export
-- [Runs](./runs.md) — execute flows and read status, logs, per-node results
+- [Runs](./runs.md) — execute flows and read status, logs, per-node results, SSE stream
 - [Transformations](./transformations.md) — list node types, preview one node
 - [Schedules](./schedules.md) — run flows automatically on a cron schedule
 - [Connections](./connections.md) — reusable database connections for SQL nodes
+
+## Webhook trigger
+
+`POST /api/flows/{id}/trigger` starts a run authenticated by a pre-shared secret
+(`FLOWFRAME_WEBHOOK_SECRET`). Designed for CI/CD pipelines and external
+orchestrators. See the [Webhook guide](/guide/webhook) for full details.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/settings/webhook` | Returns `{"configured": true/false}` (never the secret) |
+| `POST` | `/api/flows/{id}/trigger` | Trigger a run; requires `X-FlowFrame-Secret` header |
 
 ## Conventions
 
@@ -43,9 +54,12 @@ Each resource has its own reference page:
 3. `POST /api/flows/{id}/preview` — check the result on sample data.
 4. `POST /api/flows/{id}/runs` — run the full pipeline.
 5. `GET /api/runs/{run_id}` — poll status and read logs.
-6. `POST /api/flows/{id}/export/python` — get standalone code (pandas and polars).
+6. `GET /api/runs/{run_id}/logs/stream` — stream logs as SSE (optional).
+7. `POST /api/flows/{id}/export/python` — get standalone code (pandas and polars).
 
 ## See Also
 
 - [Transformations Reference](/transformations/overview) — every node and its config
+- [Webhook Trigger](/guide/webhook) — trigger runs from CI/CD or Airflow
+- [Python SDK](/guide/sdk) — typed Python client for the API
 - [Installation](/guide/installation) — get the backend running
