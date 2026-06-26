@@ -2,12 +2,12 @@ name: Backend Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml
   pull_request:
-    branches: [main]
+    branches: [main, development]
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml
@@ -25,7 +25,8 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          if [ "${{ github.event_name }}" == "push" ]; then
+          # Full matrix when landing on main (push or PR); light otherwise (development branch).
+          if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.base_ref }}" == "main" ]; then
             echo 'matrix={"os":["ubuntu-latest","windows-latest","macos-latest"],"python-version":["3.12","3.13"]}' >> $GITHUB_OUTPUT
           else
             echo 'matrix={"os":["ubuntu-latest"],"python-version":["3.12"]}' >> $GITHUB_OUTPUT
