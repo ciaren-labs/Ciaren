@@ -34,6 +34,7 @@ All settings use the `FLOWFRAME_` prefix.
 | `FLOWFRAME_APP_NAME` | `FlowFrame` | Display name |
 | `FLOWFRAME_ENVIRONMENT` | `development` | Environment label (`development`, `production`, …) |
 | `FLOWFRAME_DEBUG` | `false` | Extra debug behavior |
+| `FLOWFRAME_LOG_FORMAT` | `auto` | Log output: `auto` (color on a TTY, else plain) \| `text` \| `json` |
 | `FLOWFRAME_DATABASE_URL` | `sqlite+aiosqlite:///./flowframe.db` | Async database URL (see below) |
 | `FLOWFRAME_DATA_DIR` | `.data` | Directory for uploads, run outputs, and previews |
 | `FLOWFRAME_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) |
@@ -140,6 +141,12 @@ flowframe serve --host 0.0.0.0 --port 8055 --log-level info
 - Use a managed PostgreSQL/MySQL via `FLOWFRAME_DATABASE_URL`.
 - Put the data dir on a persistent volume.
 - Run it under a process manager (systemd, Docker, etc.).
+- Set `FLOWFRAME_LOG_FORMAT=json` to emit one JSON object per log line
+  (level, logger, message, timestamp, plus any structured fields) for a log
+  collector. The default `auto` prints human-readable lines.
+- Point your orchestrator's **liveness** probe at `/health` and its
+  **readiness** probe at `/ready` (the latter returns `503` until the database
+  is reachable). See [REST API conventions](/api/rest-api#conventions).
 
 ### Frontend
 
