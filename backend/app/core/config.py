@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
+    # Log output format. "auto" (default) prints ANSI-colored lines to a TTY and
+    # plain text when redirected; "json" emits one JSON object per line for log
+    # collectors (Docker/k8s/ELK); "text" forces plain lines regardless of TTY.
+    LOG_FORMAT: str = "auto"
+
     DATABASE_URL: str = "sqlite+aiosqlite:///./flowframe.db"
     DATA_DIR: str = ".data"
 

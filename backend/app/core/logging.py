@@ -1,12 +1,13 @@
+import json
 import logging
 import sys
 
 _RESET = "\033[0m"
 _LEVEL_COLOR: dict[int, str] = {
-    logging.DEBUG:    "\033[36m",    # cyan
-    logging.INFO:     "\033[32m",    # green
-    logging.WARNING:  "\033[33m",    # yellow
-    logging.ERROR:    "\033[31m",    # red
+    logging.DEBUG: "\033[36m",  # cyan
+    logging.INFO: "\033[32m",  # green
+    logging.WARNING: "\033[33m",  # yellow
+    logging.ERROR: "\033[31m",  # red
     logging.CRITICAL: "\033[1;31m",  # bold red
 }
 
@@ -29,13 +30,49 @@ class _ColorFormatter(logging.Formatter):
 
 _PLAIN_FMT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
 
+# LogRecord attributes that are intrinsic to every record; anything else a caller
+# attaches via `extra=` is treated as a structured field and emitted in JSON.
+_RESERVED_RECORD_KEYS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
 
-def setup_logging(environment: str = "development", debug: bool = False) -> None:
+
+class _JsonFormatter(logging.Formatter):
+    """One JSON object per line, for log collectors (Docker/k8s/ELK)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, object] = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        # Surface any caller-supplied `extra=` fields as top-level keys.
+        for key, value in record.__dict__.items():
+            if key not in _RESERVED_RECORD_KEYS and not key.startswith("_"):
+                payload[key] = value
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
+
+
+def _resolve_formatter(log_format: str) -> logging.Formatter:
+    fmt = log_format.lower()
+    if fmt == "json":
+        return _JsonFormatter()
+    if fmt == "text":
+        return logging.Formatter(_PLAIN_FMT)
+    # "auto": colorize a real terminal; pipe/redirect gets plain text.
+    return _ColorFormatter() if sys.stdout.isatty() else logging.Formatter(_PLAIN_FMT)
+
+
+def setup_logging(
+    environment: str = "development",
+    debug: bool = False,
+    log_format: str = "auto",
+) -> None:
     level = logging.DEBUG if debug else logging.INFO
 
     handler = logging.StreamHandler(sys.stdout)
-    # Colorize only when writing to a real terminal; pipe/redirect gets plain text.
-    handler.setFormatter(_ColorFormatter() if sys.stdout.isatty() else logging.Formatter(_PLAIN_FMT))
+    handler.setFormatter(_resolve_formatter(log_format))
 
     root = logging.getLogger()
     root.setLevel(level)
