@@ -354,7 +354,7 @@ export function FlowListPage() {
                       flow={flow}
                       onOpen={() => navigate(`/flows/${flow.id}`)}
                       onEdit={() => setEditingFlow(flow)}
-                      onRun={() => { setRunFlow(flow); setRunEngine("pandas"); }}
+                      onRun={() => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
                       onSchedule={() => setSchedulingFlow(flow)}
                       onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                       onDelete={() => setPendingAction({ kind: "delete", flow })}
@@ -368,7 +368,7 @@ export function FlowListPage() {
                   onSort={toggleSort}
                   onOpen={(id) => navigate(`/flows/${id}`)}
                   onEdit={(flow) => setEditingFlow(flow)}
-                  onRun={(flow) => { setRunFlow(flow); setRunEngine("pandas"); }}
+                  onRun={(flow) => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
                   onSchedule={(flow) => setSchedulingFlow(flow)}
                   onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                   onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
