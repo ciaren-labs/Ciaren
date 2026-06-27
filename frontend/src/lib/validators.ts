@@ -297,7 +297,9 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     .object({
       n: z.coerce.number().int().min(1).optional(),
       frac: z.coerce.number().gt(0).max(1).optional(),
-      seed: z.coerce.number().int().optional(),
+      // Required for reproducibility (matches the backend) — a random sample that
+      // changes every run would silently break downstream reproducibility.
+      seed: z.coerce.number().int("Seed must be a whole number"),
     })
     .superRefine((cfg, ctx) => {
       if (cfg.n == null && cfg.frac == null) {
