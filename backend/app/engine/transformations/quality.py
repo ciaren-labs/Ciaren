@@ -134,7 +134,7 @@ class AssertNotNullTransformation(_BaseAssertion):
         action = self._violation_action(mode, msg)
         return (
             f"{dst} = {src}\n"
-            f"_null_count = {dst}.select(pl.col({cols_expr}).is_null().any()).to_series().sum()\n"
+            f"_null_count = {dst}.select(pl.any_horizontal(pl.col({cols_expr}).is_null())).to_series().sum()\n"
             f"if _null_count > 0:\n"
             f"    {action}"
         )
@@ -267,7 +267,8 @@ class AssertValueRangeTransformation(_BaseAssertion):
         return (
             f"{dst} = {src}\n"
             f"_range_violations = {dst}.filter(\n"
-            f"    ~pl.col({col!r}).cast(pl.Float64, strict=False).is_between({lo!r}, {hi!r}, closed={closed!r})\n"
+            f"    ~pl.col({col!r}).cast(pl.Float64, strict=False)"
+            f".is_between({lo!r}, {hi!r}, closed={closed!r}).fill_null(False)\n"
             f").height\n"
             f"if _range_violations > 0:\n"
             f"    {action}"

@@ -292,6 +292,8 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
         # index.html must not be cached, or clients pin a stale bundle reference.
         return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
+    dist_resolved = dist.resolve()
+
     # Catch-all for client-side routes: serve real files, else the SPA shell.
     # /api, /health, /docs are matched by their routes above (registered first).
     @app.get("/{path:path}", include_in_schema=False)
@@ -299,8 +301,10 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
         if path.startswith("api/") or path in ("health", "openapi.json"):
             return JSONResponse(status_code=404, content={"detail": "Not found"})
         candidate = (dist / path).resolve()
-        # Guard against path traversal escaping the dist dir.
-        if candidate.is_file() and str(candidate).startswith(str(dist.resolve())):
+        # Guard against path traversal escaping the dist dir. is_relative_to does a
+        # real path-component containment check (str.startswith would also accept a
+        # sibling dir whose path shares the prefix, e.g. ".../web-secret").
+        if candidate.is_file() and candidate.is_relative_to(dist_resolved):
             return FileResponse(str(candidate))
         return _index()
 
