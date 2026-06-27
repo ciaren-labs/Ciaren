@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes import (
     connections,
@@ -21,7 +22,7 @@ from app.api.routes import (
     webhooks,
 )
 from app.core.config import get_settings
-from app.core.database import AsyncSessionLocal, init_db
+from app.core.database import AsyncSessionLocal, get_db, init_db
 from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
@@ -125,7 +126,7 @@ async def _run_seeded_flows_safe(project_id: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
-    setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG)
+    setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG, log_format=settings.LOG_FORMAT)
 
     for subdir in ("uploads", "outputs", "previews"):
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
@@ -230,7 +231,24 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
+        """Liveness: the process is up and serving. No dependencies are checked,
+        so a container orchestrator can restart a hung process without being
+        misled by a transient database blip."""
         return {"status": "ok"}
+
+    @app.get("/ready", tags=["health"])
+    async def ready(db: AsyncSession = Depends(get_db)) -> Response:
+        """Readiness: the process can serve real traffic — i.e. the database is
+        reachable. Returns 503 (not 500) when the DB check fails so a load
+        balancer drains this instance instead of sending it requests."""
+        from sqlalchemy import text
+
+        try:
+            await db.execute(text("SELECT 1"))
+        except Exception:  # noqa: BLE001 - any DB error means "not ready"
+            logger.warning("Readiness check failed: database unreachable.", exc_info=True)
+            return JSONResponse(status_code=503, content={"status": "unavailable", "database": "down"})
+        return JSONResponse(status_code=200, content={"status": "ok", "database": "up"})
 
     _mount_frontend(app, settings)
 
@@ -298,7 +316,7 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
     # /api, /health, /docs are matched by their routes above (registered first).
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str) -> Response:
-        if path.startswith("api/") or path in ("health", "openapi.json"):
+        if path.startswith("api/") or path in ("health", "ready", "openapi.json"):
             return JSONResponse(status_code=404, content={"detail": "Not found"})
         candidate = (dist / path).resolve()
         # Guard against path traversal escaping the dist dir. is_relative_to does a

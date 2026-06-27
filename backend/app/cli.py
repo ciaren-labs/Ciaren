@@ -43,6 +43,10 @@ _ENV_TEMPLATE = """\
 # How flow compute is offloaded off the event loop: thread | process
 # FLOWFRAME_EXECUTION_MODE=thread
 
+# Log output format: auto (color on a TTY, else plain) | text | json
+# Use "json" for structured logs when shipping to a log collector.
+# FLOWFRAME_LOG_FORMAT=auto
+
 # Background scheduler:
 # FLOWFRAME_SCHEDULER_ENABLED=true
 # FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS=30
@@ -162,9 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init", help="Write a starter .env config file.")
     init.add_argument("--path", default=".env", help="Where to write the file (default: .env).")
     init.add_argument("--force", action="store_true", help="Overwrite the file if it already exists.")
-    init.add_argument(
-        "--no-ml", action="store_true", help="Skip provisioning the default local MLflow store."
-    )
+    init.add_argument("--no-ml", action="store_true", help="Skip provisioning the default local MLflow store.")
 
     sub.add_parser(
         "info",
