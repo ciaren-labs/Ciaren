@@ -297,14 +297,16 @@ class FlowExecutor:
                 node_outputs, meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
                 outputs[node_id] = node_outputs
                 frame = _primary_frame(node["type"], node_outputs)
-                pdf = engine.to_pandas(frame)
+                # Use column_names (cheap for both engines) rather than converting
+                # the whole frame to pandas just to read its columns — that copy
+                # doubled peak memory on every node of a polars run.
                 result = NodeResult(
                     node_id=node_id,
                     type=node["type"],
                     label=label,
                     status="success",
                     rows=int(engine.row_count(frame)),
-                    columns=[str(c) for c in pdf.columns],
+                    columns=[str(c) for c in engine.column_names(frame)],
                     sample=engine.to_records(frame, sample_rows),
                     duration_ms=_elapsed_ms(started),
                 )

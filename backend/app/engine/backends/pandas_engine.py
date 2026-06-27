@@ -53,6 +53,9 @@ class PandasEngine:
     def row_count(self, df: pd.DataFrame) -> int:
         return len(df)
 
+    def column_names(self, df: pd.DataFrame) -> list[str]:
+        return [str(c) for c in df.columns]
+
     # -- Operations -----------------------------------------------------
 
     def rename_columns(self, df: pd.DataFrame, mapping: dict[str, str]) -> pd.DataFrame:
