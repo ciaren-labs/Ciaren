@@ -13,7 +13,7 @@ import hmac
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import ExecutionServiceDep
@@ -46,15 +46,13 @@ async def trigger_flow(
     service: ExecutionServiceDep,
     body: TriggerBody | None = None,
     x_flowframe_secret: Annotated[str | None, Header()] = None,
-    wait: bool = Query(default=True, description="Block until the run completes (default: true)."),
 ) -> FlowRunRead:
     """Trigger a flow run via webhook secret.
 
     Requires ``FLOWFRAME_WEBHOOK_SECRET`` to be configured. The caller must
     supply the same value in the ``X-FlowFrame-Secret`` request header.
 
-    Returns the completed ``FlowRunRead`` (always blocks in Phase 1; a
-    non-blocking ``wait=false`` dispatch mode is planned for Phase 2).
+    Blocks until the run completes and returns the resulting ``FlowRunRead``.
     """
     settings = get_settings()
     if settings.WEBHOOK_SECRET is None:

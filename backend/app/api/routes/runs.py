@@ -86,7 +86,9 @@ async def download_run_output(run_id: str, node_id: str, service: ExecutionServi
     for suffix in _OUTPUT_SUFFIXES:
         file_path = (output_dir / f"{node_id}{suffix}").resolve()
         # Guard against path traversal — both paths are already resolved above.
-        if not str(file_path).startswith(str(output_dir)):
+        # is_relative_to is a true component check; str.startswith would also pass a
+        # sibling dir sharing the prefix (e.g. ".../outputs/run1" vs ".../run1-x").
+        if not file_path.is_relative_to(output_dir):
             raise ValidationError("Invalid output path.")
         if file_path.exists():
             return FileResponse(
