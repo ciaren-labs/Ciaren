@@ -45,7 +45,12 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 - **Format:** JSON request and response bodies; `POST /api/datasets/upload` uses
   multipart form data.
 - **IDs:** path parameters like `{flow_id}` are the resource's `id`.
-- **Health check:** `GET /health` returns `{"status": "ok"}`.
+- **Health check:** `GET /health` (liveness) returns `{"status": "ok"}` — the
+  process is up, no dependencies checked.
+- **Readiness check:** `GET /ready` verifies the database is reachable. Returns
+  `200` `{"status": "ok", "database": "up"}` when ready, or `503`
+  `{"status": "unavailable", "database": "down"}` so a load balancer drains the
+  instance.
 
 ## Typical workflow
 

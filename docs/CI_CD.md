@@ -15,7 +15,7 @@ Runs on every pull request and push to `main` that touches `backend/**`.
   - Linting (Ruff)
   - Type checking (mypy)
   - Unit + API tests with pytest
-  - Coverage enforced at 95% (`--cov-fail-under=95`)
+  - Coverage enforced at 87% (`--cov-fail-under=87`)
 
 ### Database
 
@@ -41,12 +41,13 @@ uv run ruff check app tests
 uv run mypy app
 
 # Run tests with coverage
-uv run pytest tests --cov=app --cov-report=term-missing --cov-fail-under=95
+uv run pytest tests --cov=app --cov-report=term-missing --cov-fail-under=87
 ```
 
 ### Coverage
 
-- **Minimum:** 95% (`--cov-fail-under=95`)
+- **Minimum:** 87% (`--cov-fail-under=87`) for the infra-free suite; the
+  connector I/O paths are gated separately on the merged Codecov report.
 - Excluded lines are configured under `[tool.coverage.report]` in
   `backend/pyproject.toml` (e.g. `pragma: no cover`, `if TYPE_CHECKING:`).
 - Coverage is uploaded to Codecov when a `CODECOV_TOKEN` secret is set
@@ -95,6 +96,44 @@ docker compose up
 # smoke-test
 curl http://localhost:8055/health
 docker compose exec flowframe flowframe check
+```
+
+## Security Scanning
+
+### Workflow: `codeql.yml`
+
+[CodeQL](https://codeql.github.com/) static analysis for both languages, on pull
+request and push to `main`/`development`, plus a weekly scheduled scan.
+
+- **Languages:** Python (backend) and TypeScript/JavaScript (frontend), analyzed
+  in parallel with the `security-extended` query pack.
+- **Results:** appear under the repository's **Security → Code scanning** tab and
+  annotate the diff on pull requests.
+
+### Workflow: `security-audit.yml`
+
+Dependency vulnerability auditing, on changes to the lockfiles/manifests and
+weekly. Complements Dependabot: Dependabot opens scheduled version-bump PRs,
+while this **fails CI** when a currently pinned dependency has a known CVE.
+
+| Job | Tool | Scope |
+| ----- | ------ | ------- |
+| `backend` | `pip-audit` | The frozen, fully-resolved dependency set (all groups + the `ml` extra), `--strict` |
+| `frontend` | `npm audit` | `--audit-level=high` (moderate/low transitive advisories don't block PRs) |
+
+Dependabot itself is configured in `.github/dependabot.yml` (pip, npm for
+`frontend` and `docs`, and GitHub Actions — all weekly).
+
+#### Local equivalent
+
+```bash
+# backend — audit the locked dependency set
+cd backend
+uv export --frozen --all-groups --extra ml --no-emit-project --no-hashes \
+  --format requirements-txt | uvx pip-audit --requirement /dev/stdin --strict
+
+# frontend
+cd frontend && npm audit --audit-level=high
 ```
 
 ## Documentation
@@ -146,7 +185,7 @@ npm run test       # Vitest unit tests
   path separators, line endings, and temp-dir differences.
 - **Dependencies** — run `uv sync --all-groups` to match CI.
 
-### Coverage drops below 95%
+### Coverage drops below the threshold
 
 Add tests for new code (services, API routes, and engine transformations), or
 mark genuinely unreachable lines with `# pragma: no cover`.
