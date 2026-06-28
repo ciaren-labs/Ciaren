@@ -119,14 +119,13 @@ These features should remain open source because they drive adoption:
 - Local project storage
 - Basic node system
 - Basic validation
-- Python export
-- Notebook export
+- Python export (pandas / polars / polars-lazy variants today)
+- Notebook export *(not implemented yet — planned)*
 - CLI
-- CSV / Excel / Parquet support
+- CSV / Excel / Parquet / JSON / text support
 - Basic pandas nodes
 - Basic Polars nodes
-- Basic DuckDB nodes
-- Basic SQL connector
+- Basic SQL connector (DuckDB ships today as a SQL connector provider, not a dataframe engine)
 - Basic storage connectors
 - Basic scikit-learn nodes
 - Documentation
@@ -282,6 +281,15 @@ The `.flow` format should become a public, stable, versioned specification.
 This is one of the most important architectural decisions.
 
 Do not treat `.flow` as an internal JSON blob. Treat it as a product-level contract.
+
+> **Current state:** there is no `.flow` *file* yet. A flow persists in the
+> database as React Flow-compatible `graph_json` (`nodes`/`edges`, plus
+> `graph_json.parameters` and `graph_json.engine`). A portable "flow document"
+> already exists via `POST /api/flows/import` and the `flow_document` returned by
+> `POST /api/flows/{id}/export/python` — but it is unversioned and strips
+> environment-specific bindings (dataset / connection ids) on import. The work
+> below is to **formalize and version that existing document**, not to invent a
+> new one from scratch.
 
 ### Why this matters
 
@@ -585,25 +593,32 @@ Response:
 ```json
 [
   {
-    "id": "polars.filter",
+    "id": "filterRows",
     "label": "Filter Rows",
-    "category": "Transform",
+    "category": "Cleaning",
     "description": "Filter rows using an expression.",
     "provider": "flowframe.nodes.basic",
     "version": "1.0.0",
     "inputs": [
-      {"id": "data", "type": "dataframe"}
+      {"id": "in", "type": "dataframe"}
     ],
     "outputs": [
-      {"id": "data", "type": "dataframe"}
+      {"id": "out", "type": "dataframe"}
     ],
     "configSchema": {},
     "uiSchema": {},
     "permissions": [],
-    "capabilities": ["engine.polars"]
+    "capabilities": []
   }
 ]
 ```
+
+> **Note:** node ids match the registry today (`app/engine/registry.py`):
+> engine-agnostic camelCase types such as `filterRows`, `dropColumns`,
+> `groupByAggregate`. A single transformation runs on either engine, so nodes do
+> **not** carry an `engine.*` capability — the engine is selected per run
+> (`settings.DEFAULT_ENGINE`, overridable per request). Handle ids follow the
+> existing `in`/`out` convention.
 
 ### Frontend responsibility
 
@@ -636,7 +651,6 @@ storage.s3
 storage.azure_blob
 engine.pandas
 engine.polars
-engine.duckdb
 validator.quality
 exporter.python
 exporter.notebook
@@ -646,6 +660,11 @@ ai.pipeline_builder
 ai.debugger
 ai.optimizer
 ```
+
+> **Implemented today:** `engine.pandas`, `engine.polars`, `connector.sql`
+> (incl. DuckDB), `connector.mongo`, `storage.s3`/`storage.azure_blob`/`storage.gcs`,
+> `validator.quality`, and `exporter.python`. The rest are aspirational targets
+> for the marketplace, not current capabilities.
 
 ### Why capabilities matter
 
@@ -1222,7 +1241,8 @@ Pipeline Optimizer.
 Features:
 
 - detect expensive joins
-- recommend Polars lazy mode
+- recommend Polars lazy mode (note: Python export already emits a polars-lazy
+  variant today — the premium value is *analysis/recommendation*, not codegen)
 - detect unused columns
 - detect unnecessary materialization
 - estimate memory risk
