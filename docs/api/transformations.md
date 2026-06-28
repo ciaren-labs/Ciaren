@@ -16,7 +16,14 @@ search: api transformations list preview node types sample
 `POST /api/transformations/preview` runs one node's config against supplied sample
 rows — this powers the editor's live preview without saving a run.
 
+:::tip Full node metadata
+`GET /api/transformations` returns only type names. For the complete node catalog
+(labels, categories, handles, default config — including plugin-contributed
+nodes), use [`GET /api/catalog/nodes`](./catalog.md).
+:::
+
 ## See also
 
+- [Catalog & Plugins API](./catalog.md) — full node metadata + plugin introspection
 - [Transformations Reference](/transformations/overview) — every node and its config
 - [Flows API](./flows.md)
