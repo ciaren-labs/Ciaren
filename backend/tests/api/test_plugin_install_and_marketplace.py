@@ -48,6 +48,28 @@ async def test_install_plugin_via_upload(client, monkeypatch, tmp_path, hello_ff
     assert "community.hello" in {p["id"] for p in listing.json()}
 
 
+async def test_install_records_signature_outcome(client, monkeypatch, tmp_path, hello_ffplugin):
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    await client.post(
+        "/api/plugins/install",
+        files={"file": ("community.hello-0.1.0.ffplugin", hello_ffplugin.read_bytes(), "application/octet-stream")},
+    )
+    listing = await client.get("/api/plugins")
+    hello = next(p for p in listing.json() if p["id"] == "community.hello")
+    # An unsigned package surfaces its trust outcome for a UI badge.
+    assert hello["signature"] == "unsigned"
+
+
+async def test_license_endpoint_defaults_to_licensed(client):
+    # With no license provider registered (the OSS default), any plugin reports
+    # licensed so the core never gates on premium licensing.
+    resp = await client.get("/api/plugins/anything/license")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["valid"] is True
+    assert body["plugin_id"] == "anything"
+
+
 async def test_install_rejects_non_package(client, monkeypatch, tmp_path):
     _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
     resp = await client.post(

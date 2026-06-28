@@ -300,6 +300,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Where clients fetch the artifact. Defaults to the package path relative to the index file.",
     )
 
+    p_license = plugin_sub.add_parser("license", help="Issue, import, and inspect plugin license tokens.")
+    license_sub = p_license.add_subparsers(dest="license_command")
+    p_lic_issue = license_sub.add_parser("issue", help="Sign a license token (publisher).")
+    p_lic_issue.add_argument("--key", required=True, help="Hex-encoded Ed25519 private key.")
+    p_lic_issue.add_argument("--user", required=True, dest="user_id", help="Licensed user id.")
+    p_lic_issue.add_argument("--plugin", required=True, dest="plugin_id", help="Plugin id the token grants.")
+    p_lic_issue.add_argument("--type", default="pro", dest="license_type", help="License type (default: pro).")
+    p_lic_issue.add_argument("--expires", required=True, help="Expiry, ISO-8601 (e.g. 2027-01-01T00:00:00Z).")
+    p_lic_issue.add_argument("--grace", required=True, help="Offline grace end, ISO-8601.")
+    p_lic_issue.add_argument("--out", default=None, help="Write the token JSON here (default: stdout).")
+    p_lic_import = license_sub.add_parser("import", help="Cache a license token locally (user).")
+    p_lic_import.add_argument("path", help="Path to the token JSON file.")
+    p_lic_status = license_sub.add_parser("status", help="Show a cached license token's status.")
+    p_lic_status.add_argument("plugin_id", help="Plugin id to inspect.")
+    p_lic_status.add_argument("--key", default=None, help="Issuer public key (hex) to verify the signature.")
+
     p_lic = plugin_sub.add_parser(
         "licenses", help="Scan installed dependency licenses for redistribution review.", parents=[output_parent]
     )
@@ -673,12 +689,14 @@ def _plugin(args: argparse.Namespace) -> None:
         _plugin_search(args)
     elif command == "index":
         _plugin_index(args)
+    elif command == "license":
+        _plugin_license(args)
     elif command == "licenses":
         _plugin_licenses(args)
     else:
         print(
             "usage: flowframe plugin "
-            "{list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,index,licenses}"
+            "{list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,index,license,licenses}"
         )
 
 
@@ -719,6 +737,12 @@ def _plugin_install(args: argparse.Namespace) -> None:
     except (InstallError, PackageError) as exc:
         raise SystemExit(f"install failed: {exc}") from exc
     v = res.verification
+    # Persist how it verified so the app can show a trust badge later.
+    from app.plugins import get_plugin_state
+
+    state = get_plugin_state()
+    state.set_signature(res.plugin_id, v.outcome)
+    state.save()
     print(f"Installed {res.plugin_id} -> {res.location}")
     print(f"  signature: {v.outcome} ({v.reason})")
     print("Run `flowframe serve` (or restart) to load it.")
@@ -849,6 +873,70 @@ def _plugin_search(args: argparse.Namespace) -> None:
         print(f"  {m.id:<24} {m.version:<8} {m.name}{flag}")
         if m.description:
             print(f"      {m.description}")
+
+
+def _plugin_license(args: argparse.Namespace) -> None:
+    command = getattr(args, "license_command", None)
+    if command == "issue":
+        _plugin_license_issue(args)
+    elif command == "import":
+        _plugin_license_import(args)
+    elif command == "status":
+        _plugin_license_status(args)
+    else:
+        print("usage: flowframe plugin license {issue,import,status}")
+
+
+def _plugin_license_issue(args: argparse.Namespace) -> None:
+    from app.plugin_api.signing import SigningUnavailableError, sign
+    from app.plugins.licensing import LicenseToken
+
+    token = LicenseToken(
+        user_id=args.user_id,
+        plugin_id=args.plugin_id,
+        license_type=args.license_type,
+        expires_at=args.expires,
+        offline_grace_until=args.grace,
+    )
+    try:
+        token.signature = sign(args.key, token.signing_payload())
+    except SigningUnavailableError as exc:
+        raise SystemExit(str(exc)) from exc
+    payload = token.model_dump_json(by_alias=True, indent=2)
+    if args.out:
+        Path(args.out).write_text(payload, encoding="utf-8")
+        print(f"Wrote license token for {token.plugin_id} -> {args.out}")
+    else:
+        print(payload)
+
+
+def _plugin_license_import(args: argparse.Namespace) -> None:
+    from app.plugins.licensing import LicenseCache, LicenseToken
+
+    try:
+        token = LicenseToken.model_validate_json(Path(args.path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"could not read token: {exc}") from exc
+    LicenseCache().save(token)
+    print(f"Imported license for {token.plugin_id} (user {token.user_id}, expires {token.expires_at}).")
+
+
+def _plugin_license_status(args: argparse.Namespace) -> None:
+    from app.plugins.licensing import LicenseCache, evaluate_token, verify_token
+
+    token = LicenseCache().load(args.plugin_id)
+    if token is None:
+        print(f"No cached license for {args.plugin_id}.")
+        return
+    print(f"Plugin:  {token.plugin_id}")
+    print(f"User:    {token.user_id}")
+    print(f"Type:    {token.license_type}")
+    print(f"Expires: {token.expires_at}  (offline grace until {token.offline_grace_until})")
+    if args.key:
+        status = evaluate_token(token, verified=verify_token(token, args.key))
+        print(f"Status:  {'valid' if status.valid else 'invalid'} — {status.reason}")
+    else:
+        print("Status:  signature not checked (pass --key <issuer public hex> to verify)")
 
 
 def _plugin_licenses(args: argparse.Namespace) -> None:

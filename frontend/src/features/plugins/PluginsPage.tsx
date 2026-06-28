@@ -4,9 +4,11 @@ import {
   Blocks,
   Check,
   Download,
+  KeyRound,
   Loader2,
   Lock,
   Power,
+  Shield,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -25,6 +27,7 @@ import {
   useInstallPlugin,
   useMarketplace,
   usePluginDiagnostics,
+  usePluginLicense,
   useRevokePlugin,
 } from "./hooks";
 
@@ -191,6 +194,65 @@ function StatusBadge({ status }: { status: PluginStatus }) {
   );
 }
 
+// How a package verified at install time. Surfaces the provenance of an installed
+// plugin so a trusted/signed package is visibly distinct from an unsigned drop-in.
+const SIGNATURE_META: Record<string, { label: string; icon: typeof Shield; className: string }> = {
+  trusted: {
+    label: "Trusted",
+    icon: ShieldCheck,
+    className: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  },
+  untrusted: {
+    label: "Untrusted key",
+    icon: ShieldAlert,
+    className: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  },
+  unsigned: {
+    label: "Unsigned",
+    icon: Shield,
+    className: "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  },
+  invalid: {
+    label: "Invalid signature",
+    icon: ShieldX,
+    className: "border-red-300 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+  },
+};
+
+function SignatureBadge({ signature }: { signature: string }) {
+  const meta = SIGNATURE_META[signature];
+  if (!meta) return null; // "" — unknown provenance (e.g. a hand-dropped directory)
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", meta.className)}
+      title="How this package verified when it was installed"
+    >
+      <Icon className="h-3 w-3" /> {meta.label}
+    </span>
+  );
+}
+
+// Shows a license badge only when a license provider actually answers for this
+// plugin (premium plugins). Community plugins report "no license provider" with
+// no license_type, so nothing renders — keeping the common case clean.
+function LicenseBadge({ id }: { id: string }) {
+  const { data } = usePluginLicense(id);
+  if (!data || !data.license_type) return null;
+  const className = data.valid
+    ? "border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+    : "border-red-300 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300";
+  return (
+    <span
+      className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", className)}
+      title={data.reason ?? undefined}
+    >
+      <KeyRound className="h-3 w-3" />
+      {data.valid ? `Licensed · ${data.license_type}` : "License invalid"}
+    </span>
+  );
+}
+
 function PluginCard({ plugin }: { plugin: PluginInfo }) {
   const enable = useEnablePlugin();
   const disable = useDisablePlugin();
@@ -228,6 +290,8 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
             <span className="font-semibold">{plugin.name}</span>
             <span className="text-xs text-muted-foreground">v{plugin.version}</span>
             <StatusBadge status={plugin.status} />
+            <SignatureBadge signature={plugin.signature} />
+            <LicenseBadge id={plugin.id} />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {plugin.publisher && <>by {plugin.publisher} · </>}
