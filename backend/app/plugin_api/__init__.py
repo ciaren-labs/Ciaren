@@ -11,6 +11,7 @@ from app.plugin_api.manifest import (
     PluginUI,
     validate_manifest,
 )
+from app.plugin_api.node_runtime import NodeRuntime
 from app.plugin_api.providers import (
     AIProvider,
     AuthProvider,
@@ -71,4 +72,6 @@ __all__ = [
     "PluginManifest",
     "PluginUI",
     "validate_manifest",
+    # execution
+    "NodeRuntime",
 ]
