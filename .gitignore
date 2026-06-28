@@ -11,6 +11,9 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+# …but keep the committed example signed plugin artifact (reproducible demo).
+!examples/plugins/dist/
+!examples/plugins/dist/*.ffplugin
 downloads/
 eggs/
 .eggs/
