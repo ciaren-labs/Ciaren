@@ -1,4 +1,5 @@
 """The server can also serve the built web UI (single-URL `flowframe serve`)."""
+
 import httpx
 
 from app.core.config import get_settings
@@ -68,3 +69,50 @@ async def test_serves_spa_and_keeps_api_json_404(tmp_path, monkeypatch) -> None:
             assert api404.json()["detail"]
     finally:
         _clear()
+
+
+async def test_ready_reports_database_up() -> None:
+    # Override the DB dependency with a fresh in-memory engine so the check is
+    # deterministic regardless of the ambient DATABASE_URL.
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.core.database import get_db
+    from app.main import create_app
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _override_get_db():
+        async with maker() as session:
+            yield session
+
+    app = create_app()
+    app.dependency_overrides[get_db] = _override_get_db
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            resp = await c.get("/ready")
+            assert resp.status_code == 200
+            assert resp.json() == {"status": "ok", "database": "up"}
+    finally:
+        await engine.dispose()
+
+
+async def test_ready_returns_503_when_database_unreachable() -> None:
+    from app.core.database import get_db
+    from app.main import create_app
+
+    class _BrokenSession:
+        async def execute(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise RuntimeError("database unreachable")
+
+    async def _override_get_db():
+        yield _BrokenSession()
+
+    app = create_app()
+    app.dependency_overrides[get_db] = _override_get_db
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        resp = await c.get("/ready")
+        assert resp.status_code == 503
+        assert resp.json() == {"status": "unavailable", "database": "down"}

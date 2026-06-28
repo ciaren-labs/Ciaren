@@ -231,9 +231,14 @@ sync driver. Check with `flowframe check` before starting.
 
 ### Health check fails
 
-The health check at `/health` is polled every 30 seconds with a 60-second
-start period. If the server takes longer to start (e.g. due to a large
+The container health check polls `/health` (liveness) every 30 seconds with a
+60-second start period. If the server takes longer to start (e.g. due to a large
 migration), increase `start_period` in `docker-compose.yml`.
+
+For orchestrators (Kubernetes, a load balancer) use `/ready` as the **readiness**
+probe: it returns `503` until the database is reachable, so traffic is only
+routed once the instance can actually serve it. Keep `/health` as the liveness
+probe so a hung process is restarted without being masked by a transient DB blip.
 
 ### ML nodes not visible
 
