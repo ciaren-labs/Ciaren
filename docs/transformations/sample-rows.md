@@ -10,23 +10,15 @@ Take a reproducible random sample. A `seed` is **required** so the same rows are
 selected on every run — important for pipelines you preview, schedule, or export.
 
 <DataTransform
-  :before='[
-    ["id","name","score"],
-    [1,"Alice",88],
-    [2,"Bob",72],
-    [3,"Carol",95],
-    [4,"Dave",61],
-    [5,"Eve",79],
-    [6,"Frank",84],
-    [7,"Grace",91]
-  ]'
-  config="frac=0.4  seed=42"
-  :after='[
-    ["id","name","score"],
-    [3,"Carol",95],
-    [6,"Frank",84],
-    [1,"Alice",88]
-  ]'
+  transform="Sample rows (frac=0.4, seed=42)"
+  :before='{
+    "columns":["id","name","score"],
+    "rows":[[1,"Alice",88],[2,"Bob",72],[3,"Carol",95],[4,"Dave",61],[5,"Eve",79],[6,"Frank",84],[7,"Grace",91]]
+  }'
+  :after='{
+    "columns":["id","name","score"],
+    "rows":[[3,"Carol",95],[6,"Frank",84],[1,"Alice",88]]
+  }'
 />
 
 ## Use cases
