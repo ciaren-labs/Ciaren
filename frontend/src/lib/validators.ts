@@ -580,6 +580,11 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     top_n: z.coerce.number().int().min(1).nullable().optional(),
   }),
 
+  // ----- Advanced -----
+  pythonTransform: z.object({
+    script: z.string().min(1, "Script is required"),
+  }),
+
   // ----- Data Quality -----
   assertNotNull: z.object({
     columns: stringArray.optional(),
