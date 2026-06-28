@@ -15,17 +15,25 @@ releases. Use it for learning and experimentation — not production pipelines.
 
 ## What is FlowFrame?
 
-FlowFrame is a **local-first visual ETL builder**. It runs on **polars** by
-default (or pandas, per run) and lets you:
+FlowFrame is an open-source, **plugin-first, local-first platform** for building
+**Data Engineering and Machine Learning workflows** visually — and turning them
+into clean, portable Python. It runs on **polars** by default (or pandas, per run)
+and lets you:
 
-- **Upload** CSV, Excel, or Parquet files
-- **Build** data transformation pipelines visually (no coding required)
-- **Preview** results in real-time
-- **Execute** full flows with a single click
-- **Export** equivalent Python code (both polars and pandas)
+- **Ingest** from CSV, Excel, Parquet, SQL databases, and cloud storage
+- **Build** transformation pipelines visually on a drag-and-drop canvas
+- **Validate** data with built-in quality/contract checks
+- **Preview** results in real-time at every step
+- **Train** machine-learning models on the same canvas, tracked with MLflow (optional)
+- **Export** the equivalent, readable Python — pandas or polars, no lock-in
 - **Schedule** flows to run automatically with a built-in cron scheduler
+- **Extend** almost everything — nodes, connectors, engines, exporters, and more —
+  through [plugins](/plugins/overview)
 
-A drag-and-drop tool for building repeatable data cleaning and transformation workflows.
+It's more than a visual ETL tool: every node maps to one clear dataframe operation,
+so the generated code is readable and the platform stays transparent and extensible.
+Approachable enough to start without writing code — and Python-native when you want
+full control.
 
 ## How It Works
 
@@ -42,11 +50,12 @@ pipeline and export readable Python — all without writing a line of code.
 
 ## Who is FlowFrame For?
 
-- **Data Analysts** — Clean and explore data without SQL
-- **Business Users** — Build repeatable workflows (no Python knowledge needed)
-- **Python Learners** — See pandas operations visually
-- **Educators** — Teach data cleaning interactively
-- **Developers** — Quick-start Python ETL scripts
+- **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
+- **Developers** — Prototype visually, then export and version the generated Python
+- **Plugin Authors** — Extend the platform with custom nodes, connectors, and engines
+- **Data Scientists** — Go from raw data to a tracked model on one canvas
+- **Data Analysts** — Clean, join, and explore data visually
+- **Educators & Python Learners** — See pandas/polars operations come to life
 
 ## What You'll Need
 
