@@ -14,6 +14,7 @@ from app.engine.node_kinds import INPUT_SOURCE_TYPES as _FILE_INPUT_TYPES
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.polars_codegen import PolarsCodeGenerator
 from app.engine.sql_codegen import SQL_NODE_TYPES
+from app.plugin_api.events import Hook
 from app.schemas.flow import FlowDocument
 
 
@@ -33,6 +34,7 @@ class CodegenService:
         """
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
+        self._emit_export_requested(flow_id)
         # Use readable dataset filenames rather than absolute local paths so the
         # exported script is portable and we don't leak the server filesystem.
         # dataset_id / connection_id bindings are never parameterized, so the raw
@@ -124,6 +126,15 @@ class CodegenService:
             }
             for c in result.scalars().all()
         }
+
+    def _emit_export_requested(self, flow_id: str) -> None:
+        """Best-effort ``on_export_requested`` hook for plugins (lineage, audit, …)."""
+        try:
+            from app.plugins import get_registry
+
+            get_registry().events.emit(Hook.export_requested, flow_id=flow_id)
+        except Exception:  # noqa: BLE001 — plugin hooks must never break export
+            pass
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

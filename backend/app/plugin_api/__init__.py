@@ -6,6 +6,7 @@ plugin depends on this and on the public schema; it never imports private
 internals of the FlowFrame app, engine, or FastAPI layer.
 """
 
+from app.plugin_api.events import EventBus, Hook
 from app.plugin_api.manifest import (
     PluginManifest,
     PluginUI,
@@ -74,4 +75,7 @@ __all__ = [
     "validate_manifest",
     # execution
     "NodeRuntime",
+    # events
+    "EventBus",
+    "Hook",
 ]
