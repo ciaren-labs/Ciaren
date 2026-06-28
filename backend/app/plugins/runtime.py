@@ -23,6 +23,7 @@ from app.plugins.builtin import (
     BuiltinValidatorProvider,
 )
 from app.plugins.loader import LoadResult, default_plugin_dirs, load_plugins
+from app.plugins.state import PluginStateStore
 
 logger = logging.getLogger("app.plugins.runtime")
 
@@ -68,7 +69,11 @@ def get_registry() -> ServiceRegistry:
     global _registry, _load_result
     if _registry is None:
         registry = build_registry()
-        _load_result = load_plugins(registry, plugin_dirs=default_plugin_dirs())
+        _load_result = load_plugins(
+            registry,
+            plugin_dirs=default_plugin_dirs(),
+            state=PluginStateStore(),
+        )
         _bridge_plugin_nodes(registry)
         _registry = registry
     return _registry
@@ -101,3 +106,16 @@ def reset_registry() -> None:
         _bridged_types = []
     _registry = None
     _load_result = None
+
+
+def reload_plugins() -> LoadResult:
+    """Rebuild the registry from scratch (re-reading plugin state from disk) and
+    return the fresh load result. Called after the API changes enable/disable or
+    permission grants so the change takes effect live, without a restart."""
+    reset_registry()
+    return get_load_result()
+
+
+def get_plugin_state() -> PluginStateStore:
+    """A freshly-read view of the persisted plugin state (enabled + grants)."""
+    return PluginStateStore()
