@@ -7,9 +7,11 @@ architecture plan. Changes take effect live: the registry is rebuilt so a grante
 plugin's nodes appear in the catalog without a restart.
 """
 
+import os
+import tempfile
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.plugin_api import Hook, Permission
@@ -53,6 +55,17 @@ class PluginDiagnostics(BaseModel):
     loaded: list[PluginInfo]
     gated: list[PluginInfo]
     errors: list[PluginErrorInfo]
+
+
+class PluginInstallResult(BaseModel):
+    """Outcome of installing a ``.ffplugin``: the verification result plus the
+    plugin's resulting status (it usually lands ``needs_permissions`` until the
+    user approves it)."""
+
+    plugin: PluginInfo
+    #: Signature trust outcome: ``trusted`` | ``untrusted`` | ``unsigned`` | ``invalid``.
+    outcome: str
+    reason: str
 
 
 class GrantRequest(BaseModel):
@@ -114,6 +127,51 @@ async def plugin_diagnostics() -> PluginDiagnostics:
         gated=[_gated_info(g, state) for g in result.gated],
         errors=[PluginErrorInfo(source=e.source, error=e.error) for e in result.errors],
     )
+
+
+def install_package_and_report(package_path: str, *, require_trusted: bool) -> PluginInstallResult:
+    """Verify + install a local ``.ffplugin``, rebuild the registry live, and
+    report the result. Shared by the upload endpoint and the marketplace install
+    endpoint. Installation never imports plugin code — a plugin that declares
+    permissions stays gated until the user approves it."""
+    from app.plugins.install import InstallError, install_ffplugin
+    from app.plugins.package import PackageError
+
+    try:
+        result = install_ffplugin(package_path, require_trusted=require_trusted, force=True)
+    except (InstallError, PackageError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    reload_plugins()
+    return PluginInstallResult(
+        plugin=_find_info(result.plugin_id),
+        outcome=result.verification.outcome,
+        reason=result.verification.reason,
+    )
+
+
+@router.post("/install", response_model=PluginInstallResult)
+async def install_plugin(
+    file: UploadFile = File(...),
+    require_trusted: bool | None = Form(default=None),
+) -> PluginInstallResult:
+    """Install an uploaded ``.ffplugin``. Refuses tampered/invalid packages always;
+    refuses unsigned/untrusted ones when ``require_trusted`` (defaults to the
+    ``REQUIRE_TRUSTED_PLUGINS`` setting)."""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    data = await file.read()
+    if len(data) > settings.max_upload_bytes:
+        raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
+    must_trust = settings.REQUIRE_TRUSTED_PLUGINS if require_trusted is None else require_trusted
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".ffplugin", delete=False)
+    try:
+        tmp.write(data)
+        tmp.close()
+        return install_package_and_report(tmp.name, require_trusted=must_trust)
+    finally:
+        os.unlink(tmp.name)
 
 
 def _find_info(plugin_id: str) -> PluginInfo:

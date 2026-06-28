@@ -9,14 +9,23 @@ const grant = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
 const disable = vi.fn((_id: string) => Promise.resolve({}));
 const enable = vi.fn((_id: string) => Promise.resolve({}));
 const revoke = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
+const installPlugin = vi.fn((_file: File) => Promise.resolve({ plugin: { name: "X" }, outcome: "unsigned" }));
+const marketplaceList = vi.fn().mockResolvedValue({ configured: false, plugins: [] });
+const marketplaceInstall = vi.fn((_id: string) => Promise.resolve({}));
 
 vi.mock("@/lib/api", () => ({
+  ApiError: class ApiError extends Error {},
   pluginsApi: {
     diagnostics: () => diagnostics(),
     grant: (id: string, perms: string[]) => grant(id, perms),
     disable: (id: string) => disable(id),
     enable: (id: string) => enable(id),
     revoke: (id: string, perms: string[]) => revoke(id, perms),
+    install: (file: File) => installPlugin(file),
+  },
+  marketplaceApi: {
+    list: () => marketplaceList(),
+    install: (id: string) => marketplaceInstall(id),
   },
 }));
 
@@ -134,5 +143,73 @@ describe("PluginsPage", () => {
     renderPage();
     expect(await screen.findByText(/failed to load/i)).toBeInTheDocument();
     expect(screen.getByText("dir:broken")).toBeInTheDocument();
+  });
+
+  it("uploads a selected .ffplugin file via the Install button", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    renderPage();
+
+    await screen.findByText("No plugins installed");
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([new Uint8Array([1, 2, 3])], "acme.ffplugin");
+    await userEvent.upload(input, file);
+    await waitFor(() => expect(installPlugin).toHaveBeenCalledTimes(1));
+    expect(installPlugin.mock.calls[0][0].name).toBe("acme.ffplugin");
+  });
+
+  it("shows a configured catalog and installs an entry", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValueOnce({
+      configured: true,
+      plugins: [
+        {
+          id: "acme.databricks",
+          name: "Databricks Connector",
+          version: "1.0.0",
+          publisher: "acme",
+          description: "Connect to Databricks.",
+          license: "commercial",
+          trust: "verified",
+          capabilities: ["connector.databricks"],
+          permissions: ["network", "credentials"],
+          license_required: true,
+          installed: false,
+          installable: true,
+        },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("Databricks Connector")).toBeInTheDocument();
+    expect(screen.getByText("License required")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Install$/i }));
+    await waitFor(() => expect(marketplaceInstall).toHaveBeenCalledWith("acme.databricks"));
+  });
+
+  it("marks an already-installed catalog entry as Installed", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValueOnce({
+      configured: true,
+      plugins: [
+        {
+          id: "acme.x",
+          name: "Acme X",
+          version: "1.0.0",
+          publisher: "acme",
+          description: "",
+          license: "community",
+          trust: "community",
+          capabilities: [],
+          permissions: [],
+          license_required: false,
+          installed: true,
+          installable: true,
+        },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText("Installed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Install$/i })).not.toBeInTheDocument();
   });
 });

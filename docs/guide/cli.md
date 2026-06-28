@@ -224,9 +224,11 @@ flowframe plugin disable acme.myplugin
 # Publisher tooling (needs `flowframe[signing]`):
 flowframe plugin keygen                         # generate an Ed25519 keypair
 flowframe plugin pack ./src out.ffplugin        # build an unsigned package
+flowframe plugin pack ./src out.ffplugin --compile   # ship .pyc bytecode, not source
 flowframe plugin sign out.ffplugin --key <hex> --key-id acme-2026 --publisher acme
 
 flowframe plugin search databricks --index ./marketplace.json
+flowframe plugin index add out.ffplugin --index ./marketplace.json   # author the catalog
 ```
 
 | Subcommand | Description |
@@ -236,8 +238,9 @@ flowframe plugin search databricks --index ./marketplace.json
 | `uninstall` | Remove an installed plugin and forget its state. |
 | `verify` | Report a package's signature/integrity outcome (exits non-zero if `invalid`). |
 | `enable` / `disable` | Toggle whether a plugin loads. |
-| `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. |
+| `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. `pack --compile` ships `.pyc` bytecode instead of source. |
 | `search` | Search a local marketplace index file. |
+| `index add` | Add/replace a packed plugin's entry in a marketplace index (records digest + signing key id). |
 
 ## Environment variables
 
