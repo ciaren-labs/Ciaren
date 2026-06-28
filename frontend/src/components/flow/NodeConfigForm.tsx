@@ -1710,6 +1710,25 @@ export function NodeConfigForm({
         </Field>
       );
 
+    // ----- Advanced -----
+    case "pythonTransform":
+      return (
+        <Field
+          label="Script"
+          error={errors.script}
+          help="Write the body of def transform(df): … — must return a DataFrame. Use 'pd' (pandas engine) or 'pl' (polars engine) without importing them."
+        >
+          <textarea
+            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            rows={10}
+            spellCheck={false}
+            value={(c.script as string) ?? ""}
+            placeholder={"# pandas example\nreturn df[df['column'] > 0]\n\n# polars example\nreturn df.filter(pl.col('column') > 0)"}
+            onChange={(e) => set({ script: e.target.value })}
+          />
+        </Field>
+      );
+
     // ----- Data Quality -----
     case "assertNotNull":
       return (
