@@ -1,0 +1,65 @@
+"""FlowFrame plugin API — the stable extension contract.
+
+This package is intentionally self-contained (only Pydantic as a dependency) so
+it can become the independently published ``flowframe-plugin-api`` package. A
+plugin depends on this and on the public schema; it never imports private
+internals of the FlowFrame app, engine, or FastAPI layer.
+"""
+
+from app.plugin_api.providers import (
+    AIProvider,
+    AuthProvider,
+    ConnectorProvider,
+    ExecutionProvider,
+    ExporterProvider,
+    LicenseProvider,
+    NodeProvider,
+    Plugin,
+    StorageProvider,
+    ValidatorProvider,
+)
+from app.plugin_api.registry import DuplicateRegistrationError, ServiceRegistry
+from app.plugin_api.specs import (
+    AICapabilitySpec,
+    AuthMethodSpec,
+    ConnectorSpec,
+    ExecutionSpec,
+    ExporterSpec,
+    LicenseStatus,
+    NodeSpec,
+    Permission,
+    PluginMetadata,
+    PortSpec,
+    StorageSpec,
+    ValidatorSpec,
+)
+
+__all__ = [
+    # registry
+    "ServiceRegistry",
+    "DuplicateRegistrationError",
+    # providers
+    "Plugin",
+    "NodeProvider",
+    "ConnectorProvider",
+    "StorageProvider",
+    "ExecutionProvider",
+    "ExporterProvider",
+    "ValidatorProvider",
+    "AIProvider",
+    "AuthProvider",
+    "LicenseProvider",
+    # specs
+    "NodeSpec",
+    "PortSpec",
+    "ConnectorSpec",
+    "StorageSpec",
+    "ExecutionSpec",
+    "ExporterSpec",
+    "ValidatorSpec",
+    "AICapabilitySpec",
+    "AuthMethodSpec",
+    "LicenseStatus",
+    "PluginMetadata",
+    "Permission",
+]
