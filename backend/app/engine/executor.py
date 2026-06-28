@@ -6,9 +6,10 @@ from typing import Any
 from app.engine.backends import AnyFrame, EngineBackend, get_engine
 from app.engine.graph import GraphValidationError, topological_sort, validate_graph
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
-from app.engine.node_kinds import OUTPUT_SOURCE_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
+from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
+from app.engine.node_kinds import output_source_type as _output_source_type
 from app.engine.registry import get_transformation
 from app.engine.transformations.base import EmitsNodeMetadata, NodeMetadata
 from app.plugin_api.events import EventBus, Hook
@@ -258,7 +259,7 @@ class FlowExecutor:
             node_type = node["type"]
             if node_type not in _OUTPUT_TYPES:
                 continue
-            source_type = _OUTPUT_TYPES[node_type]
+            source_type = _output_source_type(node_type, node.get("data", {}).get("config", {}))
             out_path = output_dir / f"{node['id']}{_OUTPUT_SUFFIX[source_type]}"
             engine.write(outputs[node["id"]]["out"], str(out_path), source_type)
             output_paths[node["id"]] = out_path
@@ -359,7 +360,7 @@ class FlowExecutor:
                 node_type = node["type"]
                 if node_type not in _OUTPUT_TYPES:
                     continue
-                source_type = _OUTPUT_TYPES[node_type]
+                source_type = _output_source_type(node_type, node.get("data", {}).get("config", {}))
                 out_path = output_dir / f"{node['id']}{_OUTPUT_SUFFIX[source_type]}"
                 engine.write(outputs[node["id"]]["out"], str(out_path), source_type)
                 output_paths[node["id"]] = out_path

@@ -117,6 +117,7 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   assertValueRange: ShieldCheck,
   assertExpression: ShieldCheck,
   assertRowCount: Hash,
+  fileOutput: FileDown,
   csvOutput: FileDown,
   excelOutput: Sheet,
   parquetOutput: Archive,
