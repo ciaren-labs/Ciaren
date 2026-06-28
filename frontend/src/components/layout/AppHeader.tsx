@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
+  Blocks,
   BrainCircuit,
   CalendarClock,
   Database,
@@ -25,6 +26,7 @@ const NAV_BEFORE_MODELS = [
 const NAV_AFTER_MODELS = [
   { to: "/schedules", label: "Schedules", icon: CalendarClock },
   { to: "/runs", label: "Runs", icon: History },
+  { to: "/plugins", label: "Plugins", icon: Blocks },
 ];
 
 // Shown only when the ML extension is enabled (the [ml] extra is installed).

@@ -38,4 +38,6 @@ export const queryKeys = {
   connectionProviders: ["connections", "providers"] as const,
   connectionTables: (id: string) => ["connections", id, "tables"] as const,
   connectionObjects: (id: string) => ["connections", id, "objects"] as const,
+  plugins: ["plugins"] as const,
+  pluginDiagnostics: ["plugins", "diagnostics"] as const,
 };
