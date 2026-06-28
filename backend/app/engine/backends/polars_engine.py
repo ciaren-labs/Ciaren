@@ -79,6 +79,8 @@ class PolarsEngine:
             # memory needed to load a large CSV is a fraction of read_csv's. The
             # result is byte-identical to read_csv (same parser/inference).
             return pl.scan_csv(path).collect(engine="streaming")
+        if source_type == "tsv":
+            return pl.scan_csv(path, separator="\t").collect(engine="streaming")
         if source_type == "parquet":
             return pl.scan_parquet(path).collect(engine="streaming")
         if source_type == "excel":
@@ -87,6 +89,8 @@ class PolarsEngine:
             return pl.read_excel(path, engine="openpyxl")
         if source_type == "json":
             return pl.read_json(path)
+        if source_type == "jsonl":
+            return pl.read_ndjson(path)
         if source_type == "text":
             # One row per line. splitlines() is robust — newer pandas rejects sep="\n".
             from pathlib import Path
@@ -97,12 +101,16 @@ class PolarsEngine:
     def write(self, df: pl.DataFrame, path: str, source_type: str) -> None:
         if source_type == "csv":
             df.write_csv(path)
+        elif source_type == "tsv":
+            df.write_csv(path, separator="\t")
         elif source_type == "parquet":
             df.write_parquet(path)
         elif source_type == "excel":
             df.write_excel(path)
         elif source_type == "json":
             df.write_json(path)
+        elif source_type == "jsonl":
+            df.write_ndjson(path)
         elif source_type == "text":
             # One row per line; tab-separated for wider frames (mirrors text input).
             df.write_csv(path, include_header=False, separator="\t")

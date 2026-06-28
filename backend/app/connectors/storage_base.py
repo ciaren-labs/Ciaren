@@ -19,15 +19,17 @@ from app.connectors.base import ConnectorError
 
 log = logging.getLogger("app.connectors.storage")
 
-FILE_FORMATS = ("csv", "excel", "parquet", "json", "text")
+FILE_FORMATS = ("csv", "tsv", "excel", "parquet", "json", "jsonl", "text")
 STORAGE_WRITE_MODES = ("overwrite", "error")
 
 #: MIME type per file format (used when uploading to object stores).
 _CONTENT_TYPES = {
     "csv": "text/csv",
+    "tsv": "text/tab-separated-values",
     "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "parquet": "application/octet-stream",
     "json": "application/json",
+    "jsonl": "application/x-ndjson",
     "text": "text/plain",
 }
 
@@ -42,12 +44,16 @@ def serialize_dataframe(df: pd.DataFrame, fmt: str) -> tuple[bytes, str]:
     buf = io.BytesIO()
     if fmt == "csv":
         df.to_csv(buf, index=False)
+    elif fmt == "tsv":
+        df.to_csv(buf, index=False, sep="\t")
     elif fmt == "excel":
         df.to_excel(buf, index=False)
     elif fmt == "parquet":
         df.to_parquet(buf, index=False)
     elif fmt == "json":
         df.to_json(buf, orient="records", indent=2)
+    elif fmt == "jsonl":
+        df.to_json(buf, orient="records", lines=True)
     elif fmt == "text":
         df.to_csv(buf, index=False, header=False, sep="\t")
     else:
@@ -60,12 +66,16 @@ def deserialize_dataframe(data: bytes, fmt: str) -> pd.DataFrame:
     buf = io.BytesIO(data)
     if fmt == "csv":
         return pd.read_csv(buf)
+    if fmt == "tsv":
+        return pd.read_csv(buf, sep="\t")
     if fmt == "excel":
         return pd.read_excel(buf)
     if fmt == "parquet":
         return pd.read_parquet(buf)
     if fmt == "json":
         return pd.read_json(buf)
+    if fmt == "jsonl":
+        return pd.read_json(buf, lines=True)
     if fmt == "text":
         # One row per line. Robust across pandas versions (sep="\n" is rejected by
         # newer pandas) and mirrors the text input reader's single "text" column.

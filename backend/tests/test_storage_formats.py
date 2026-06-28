@@ -45,7 +45,15 @@ def test_local_connector_writes_and_reads_every_format(tmp_path, fmt):
 
     conn = LocalStorageConnector()
     spec = StorageSpec(provider="local", bucket=str(tmp_path))
-    ext = {"csv": "csv", "excel": "xlsx", "parquet": "parquet", "json": "json", "text": "txt"}[fmt]
+    ext = {
+        "csv": "csv",
+        "tsv": "tsv",
+        "excel": "xlsx",
+        "parquet": "parquet",
+        "json": "json",
+        "jsonl": "jsonl",
+        "text": "txt",
+    }[fmt]
     path = f"out.{ext}"
 
     conn.write_file(spec, _DF, path, fmt, "overwrite")

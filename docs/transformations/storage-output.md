@@ -32,7 +32,7 @@ after the rest of the flow succeeds — a write failure marks the run failed.
 | --- | --- | --- | --- |
 | `connection_id` | string | Yes | The storage connection to write to |
 | `path` | string | Yes | Destination path inside the bucket/container/folder (e.g. `reports/summary.parquet`) |
-| `format` | string | No | `parquet` (default), `csv`, `excel`, `json`, or `text` |
+| `format` | string | No | `parquet` (default), `csv`, `tsv`, `excel`, `json`, `jsonl`, or `text` |
 | `if_exists` | string | No | `overwrite` (default) or `error` |
 
 ## Generated Python code

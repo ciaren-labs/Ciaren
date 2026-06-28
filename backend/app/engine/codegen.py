@@ -41,9 +41,11 @@ _WRITE_FUNCS = {
 # fileOutput writes by its configured format. (method, kwargs, extension)
 _FILE_OUTPUT_WRITE = {
     "csv": ("to_csv", "index=False", ".csv"),
+    "tsv": ("to_csv", "index=False, sep='\\t'", ".tsv"),
     "excel": ("to_excel", "index=False", ".xlsx"),
     "parquet": ("to_parquet", "index=False", ".parquet"),
     "json": ("to_json", "orient='records', indent=2", ".json"),
+    "jsonl": ("to_json", "orient='records', lines=True", ".jsonl"),
     "text": ("to_csv", "index=False, header=False, sep='\\t'", ".txt"),
 }
 

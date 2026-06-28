@@ -29,11 +29,21 @@ def _read_json(path: Path) -> pd.DataFrame:
     return pd.read_json(path)
 
 
+def _read_jsonl(path: Path) -> pd.DataFrame:
+    return pd.read_json(path, lines=True)
+
+
+def _read_tsv(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path, sep="\t")
+
+
 _READERS: dict[str, Callable[..., pd.DataFrame]] = {
     "csv": pd.read_csv,
+    "tsv": _read_tsv,
     "excel": pd.read_excel,
     "parquet": pd.read_parquet,
     "json": _read_json,
+    "jsonl": _read_jsonl,
     "text": _read_text,
 }
 
@@ -102,12 +112,16 @@ class LocalStorageConnector:
         try:
             if fmt == "csv":
                 df.to_csv(full, index=False)
+            elif fmt == "tsv":
+                df.to_csv(full, index=False, sep="\t")
             elif fmt == "excel":
                 df.to_excel(full, index=False)
             elif fmt == "parquet":
                 df.to_parquet(full, index=False)
             elif fmt == "json":
                 df.to_json(full, orient="records", indent=2)
+            elif fmt == "jsonl":
+                df.to_json(full, orient="records", lines=True)
             elif fmt == "text":
                 df.to_csv(full, index=False, header=False, sep="\t")
             else:
