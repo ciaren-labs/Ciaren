@@ -20,6 +20,11 @@ concurrency:
 jobs:
   analyze:
     name: Analyze | ${{ matrix.language }}
+    # Code scanning (CodeQL) is free on public repos; on private repos it needs
+    # GitHub Code Security (paid) and the upload step fails with "code scanning is
+    # not enabled". Skip on private repos so CI stays green — the job starts
+    # working automatically when the repository is made public, no edit needed.
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
