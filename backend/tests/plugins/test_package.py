@@ -110,3 +110,89 @@ def test_wrong_key_signature_is_invalid(plugin_src, tmp_path):
     _, other_pub = signing.generate_keypair()
     result = package.verify_package(pkg, trusted_keys={"kid-1": other_pub})
     assert result.outcome == "invalid"
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_publisher_is_not_a_trust_fallback(plugin_src, tmp_path):
+    # Trust is keyed strictly by key_id; the attacker-controlled publisher name
+    # must NOT select a trusted key (the removed fallback).
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    priv, pub = signing.generate_keypair()
+    package.sign_package(pkg, priv, key_id="kid-1", publisher="acme")
+    # The pub key is trusted only under the publisher name, never under key_id.
+    result = package.verify_package(pkg, trusted_keys={"acme": pub})
+    assert result.outcome == "untrusted"
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_relabelling_signer_metadata_breaks_signature(plugin_src, tmp_path):
+    # The signature binds key_id/publisher, so taking a validly-signed package and
+    # relabelling who signed it (to impersonate a trusted key) is rejected.
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    priv, pub = signing.generate_keypair()
+    package.sign_package(pkg, priv, key_id="real-kid", publisher="real")
+
+    sig = package.read_signature(pkg)
+    assert sig is not None
+    forged = sig.model_copy(update={"key_id": "trusted-kid", "publisher": "official"})
+    with zipfile.ZipFile(pkg) as zf:
+        entries = {n: zf.read(n) for n in zf.namelist() if n != package.SIGNATURE_FILENAME}
+    with zipfile.ZipFile(pkg, "w") as zf:
+        for n, d in entries.items():
+            zf.writestr(n, d)
+        zf.writestr(package.SIGNATURE_FILENAME, forged.model_dump_json())
+
+    # Even though the digest still matches, the signature no longer covers the
+    # relabelled metadata, so verifying against the impersonated key fails.
+    result = package.verify_package(pkg, trusted_keys={"trusted-kid": pub})
+    assert result.outcome == "invalid"
+
+
+def test_pack_compiled_ships_bytecode_not_source(tmp_path):
+    src = tmp_path / "src"
+    pkg_dir = src / "compiled_plugin"
+    pkg_dir.mkdir(parents=True)
+    (src / "flowframe-plugin.json").write_text(
+        json.dumps({**_MANIFEST, "entrypoint": "compiled_plugin:CompiledPlugin"}), encoding="utf-8"
+    )
+    (pkg_dir / "__init__.py").write_text("from .impl import CompiledPlugin\n", encoding="utf-8")
+    (pkg_dir / "impl.py").write_text("CompiledPlugin = object\n", encoding="utf-8")
+
+    pkg = package.pack_directory(src, tmp_path / "out.ffplugin", compile_python=True)
+    with zipfile.ZipFile(pkg) as zf:
+        names = set(zf.namelist())
+    # No .py source ships; the compiled .pyc takes its place at the import path.
+    assert not any(n.endswith(".py") for n in names)
+    assert "compiled_plugin/__init__.pyc" in names
+    assert "compiled_plugin/impl.pyc" in names
+    assert "flowframe-plugin.json" in names  # non-Python assets untouched
+
+
+def test_pack_compiled_pyc_is_importable(tmp_path):
+    # Install the compiled package and confirm Python imports the bare .pyc with no
+    # source present — i.e. the loader's importlib path still works.
+    import importlib
+    import sys
+
+    src = tmp_path / "src"
+    pkg_dir = src / "byc_plugin"
+    pkg_dir.mkdir(parents=True)
+    (src / "flowframe-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
+    (pkg_dir / "__init__.py").write_text("VALUE = 41\n", encoding="utf-8")
+    (pkg_dir / "thing.py").write_text("def answer():\n    return 42\n", encoding="utf-8")
+
+    pkg = package.pack_directory(src, tmp_path / "out.ffplugin", compile_python=True)
+    install_root = tmp_path / "installed"
+    install_root.mkdir()
+    with zipfile.ZipFile(pkg) as zf:
+        zf.extractall(install_root)
+
+    sys.path.insert(0, str(install_root))
+    try:
+        mod = importlib.import_module("byc_plugin.thing")
+        assert mod.answer() == 42
+        assert importlib.import_module("byc_plugin").VALUE == 41
+    finally:
+        sys.path.remove(str(install_root))
+        for name in [n for n in sys.modules if n.startswith("byc_plugin")]:
+            del sys.modules[name]

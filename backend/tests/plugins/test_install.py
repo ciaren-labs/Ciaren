@@ -8,9 +8,11 @@ import zipfile
 import pytest
 
 from app.plugin_api import signing
+from app.plugins import install as install_mod
 from app.plugins import package
 from app.plugins.install import (
     InstallError,
+    _safe_target_name,
     install_directory,
     install_ffplugin,
     uninstall_plugin,
@@ -92,6 +94,51 @@ def test_install_rejects_absolute_path_entry(tmp_path):
         zf.writestr("/etc/cron.d/pwn", "pwned\n")
     with pytest.raises(InstallError, match="unsafe path"):
         install_ffplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_rejects_backslash_path_entry(tmp_path):
+    # A backslash separator is a Windows traversal vector; reject it lexically.
+    pkg = tmp_path / "evil.ffplugin"
+    with zipfile.ZipFile(pkg, "w") as zf:
+        zf.writestr("flowframe-plugin.json", json.dumps(_MANIFEST))
+        zf.writestr("..\\escape.py", "pwned = True\n")
+    with pytest.raises(InstallError, match="unsafe path"):
+        install_ffplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_rejects_symlink_entry(tmp_path):
+    # A symlink entry could redirect later reads/writes outside the tree.
+    pkg = tmp_path / "evil.ffplugin"
+    with zipfile.ZipFile(pkg, "w") as zf:
+        zf.writestr("flowframe-plugin.json", json.dumps(_MANIFEST))
+        info = zipfile.ZipInfo("link.py")
+        info.external_attr = (0o120777 | 0o100000) << 16  # S_IFLNK mode bits
+        zf.writestr(info, "/etc/passwd")
+    with pytest.raises(InstallError, match="symlink"):
+        install_ffplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_rejects_too_many_entries(src, tmp_path, monkeypatch):
+    monkeypatch.setattr(install_mod, "MAX_ENTRIES", 1)
+    pkg = package.pack_directory(src, tmp_path / "p.ffplugin")  # manifest + module = 2 entries
+    with pytest.raises(InstallError, match="too many entries"):
+        install_ffplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_rejects_oversized_entry(src, tmp_path, monkeypatch):
+    monkeypatch.setattr(install_mod, "MAX_ENTRY_BYTES", 4)
+    pkg = package.pack_directory(src, tmp_path / "p.ffplugin")
+    with pytest.raises(InstallError, match="too large"):
+        install_ffplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_safe_target_name_rejects_invalid_ids():
+    # Injective: a separator must not be silently rewritten to "_" (which would
+    # let two ids collide on one install dir).
+    for bad in ("a/b", "a:b", "..", "", "a b"):
+        with pytest.raises(InstallError):
+            _safe_target_name(bad)
+    assert _safe_target_name("community.hello") == "community.hello"
 
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
