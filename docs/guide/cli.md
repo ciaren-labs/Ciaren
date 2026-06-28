@@ -182,6 +182,29 @@ flowframe transformations list --output json
   ...
 ```
 
+## `flowframe flow`
+
+Validate and migrate [`.flow` document](/specs/flow-format) files — the portable,
+versioned description of a flow. Useful in CI to catch a malformed or outdated
+project before importing it.
+
+```bash
+flowframe flow validate project.flow              # schema + graph structure
+flowframe flow validate project.flow --output json
+flowframe flow migrate  project.flow --to 1.1.0   # print the migrated document
+flowframe flow migrate  project.flow --to 1.1.0 --write   # write back (keeps a .bak)
+```
+
+| Subcommand | Description |
+| --- | --- |
+| `validate` | Validate document shape **and** graph structure. Exits non-zero (and prints `INVALID`) on failure. |
+| `migrate` | Migrate to a newer schema version (default: the latest this build supports). Prints to stdout unless `--write`. |
+
+:::warning `--write` never mutates silently
+`migrate --write` keeps a `.bak` backup of the original next to the file before
+writing the migrated version.
+:::
+
 ## Environment variables
 
 All settings use the `FLOWFRAME_` prefix and can be set via the environment or a
@@ -201,6 +224,7 @@ All settings use the `FLOWFRAME_` prefix and can be set via the environment or a
 | `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | Scheduler poll interval |
 | `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
 | `FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before auto-disable (0 = never) |
+| `FLOWFRAME_PLUGINS_DIR` | — | Extra plugin directories to scan (`os.pathsep`-separated); see [Writing a plugin](/plugins/writing-a-plugin) |
 
 :::warning Async driver required
 `FLOWFRAME_DATABASE_URL` must use an async driver: `sqlite+aiosqlite://`,
