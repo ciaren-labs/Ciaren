@@ -11,7 +11,9 @@ from app.plugins.runtime import (
     build_registry,
     ensure_plugins_loaded,
     get_load_result,
+    get_plugin_state,
     get_registry,
+    reload_plugins,
     reset_registry,
 )
 
@@ -21,4 +23,6 @@ __all__ = [
     "get_load_result",
     "ensure_plugins_loaded",
     "reset_registry",
+    "reload_plugins",
+    "get_plugin_state",
 ]
