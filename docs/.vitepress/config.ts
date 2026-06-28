@@ -1,15 +1,28 @@
 import { defineConfig } from 'vitepress'
 
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
-// public .flow / manifest schemas). Reused across /guide/, /plugins/, /specs/.
+// public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
+// Plugins are a first-class concept in FlowFrame, so this sidebar leads with the
+// overview (the extension-points map) before the how-to and reference pages.
 const extendingSidebar = [
   {
-    text: 'Extending FlowFrame',
+    text: 'Plugins & Extensibility',
     items: [
+      { text: 'Overview', link: '/plugins/overview' },
       { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
       { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
+    ],
+  },
+  {
+    text: 'Reference',
+    items: [
       { text: '.flow Document Format', link: '/specs/flow-format' },
       { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
+    ],
+  },
+  {
+    text: 'Security & Trust',
+    items: [
       { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
       { text: 'Local-First Trust Model', link: '/security/local-first-trust-model' },
     ],
@@ -18,14 +31,38 @@ const extendingSidebar = [
 
 export default defineConfig({
   title: 'FlowFrame',
-  description: 'Visual ETL builder — Simple, local-first data pipelines on polars or pandas',
+  description:
+    'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
-    ['meta', { name: 'og:type', content: 'website' }],
-    ['meta', { name: 'og:locale', content: 'en' }],
+    // Open Graph — controls how links render on GitHub, Reddit, HN, Slack, etc.
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:locale', content: 'en' }],
+    ['meta', { property: 'og:site_name', content: 'FlowFrame' }],
+    ['meta', { property: 'og:title', content: 'FlowFrame — Visual Data Engineering & ML, exported to clean Python' }],
+    ['meta', {
+      property: 'og:description',
+      content:
+        'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
+    }],
+    ['meta', { property: 'og:image', content: 'https://rodrigo-arenas.github.io/FlowFrame/FlowFrame.png' }],
+    ['meta', { property: 'og:url', content: 'https://rodrigo-arenas.github.io/FlowFrame/' }],
+    // Twitter / X card
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'FlowFrame — Visual Data Engineering & ML, exported to clean Python' }],
+    ['meta', {
+      name: 'twitter:description',
+      content:
+        'Open-source, plugin-first, local-first platform for Data Engineering and Machine Learning workflows. Build visually, export portable Python.',
+    }],
+    ['meta', { name: 'twitter:image', content: 'https://rodrigo-arenas.github.io/FlowFrame/FlowFrame.png' }],
   ],
+
+  sitemap: {
+    hostname: 'https://rodrigo-arenas.github.io/FlowFrame/',
+  },
 
   lastUpdated: true,
   cleanUrls: true,
@@ -53,9 +90,24 @@ export default defineConfig({
         activeMatch: '/transformations/',
       },
       {
+        text: 'Machine Learning',
+        link: '/guide/ml-quickstart',
+        activeMatch: '/(guide/ml-quickstart|transformations/machine-learning)',
+      },
+      {
+        text: 'Plugins',
+        link: '/plugins/overview',
+        activeMatch: '/(plugins|specs|security)/',
+      },
+      {
         text: 'Examples',
         link: '/examples/sales-analysis',
         activeMatch: '/examples/',
+      },
+      {
+        text: 'Recipes',
+        link: '/recipes/overview',
+        activeMatch: '/recipes/',
       },
       {
         text: 'API',
@@ -65,6 +117,10 @@ export default defineConfig({
       {
         text: 'FAQ',
         link: '/faq',
+      },
+      {
+        text: '⭐ Star on GitHub',
+        link: 'https://github.com/rodrigo-arenas/FlowFrame',
       },
     ],
 
@@ -79,15 +135,14 @@ export default defineConfig({
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
             { text: 'Interface Tour', link: '/guide/interface' },
+            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
           ],
         },
         {
-          text: 'Features',
+          text: 'Data Engineering',
           items: [
             { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
             { text: 'Database Connections', link: '/guide/connections' },
-            { text: 'Machine Learning', link: '/guide/ml-quickstart' },
-            { text: 'Visualizations', link: '/guide/visualizations' },
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
             { text: 'Flow Parameters', link: '/guide/parameters' },
             { text: 'Scheduling', link: '/guide/scheduling' },
@@ -97,15 +152,20 @@ export default defineConfig({
           ],
         },
         {
-          text: 'Extending FlowFrame',
-          collapsed: true,
+          text: 'Machine Learning',
           items: [
+            { text: 'ML Quick Start', link: '/guide/ml-quickstart' },
+            { text: 'ML Nodes Reference', link: '/transformations/machine-learning' },
+            { text: 'Visualizations', link: '/guide/visualizations' },
+          ],
+        },
+        {
+          text: 'Plugins & Extensibility',
+          items: [
+            { text: 'Overview', link: '/plugins/overview' },
             { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
             { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
-            { text: '.flow Document Format', link: '/specs/flow-format' },
-            { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
             { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
-            { text: 'Local-First Trust Model', link: '/security/local-first-trust-model' },
           ],
         },
         {
@@ -120,6 +180,14 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Design System', link: '/guide/design-system' },
+          ],
+        },
+        {
+          text: 'Community',
+          collapsed: true,
+          items: [
+            { text: 'Roadmap', link: '/guide/roadmap' },
+            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
           ],
         },
         {
@@ -242,12 +310,39 @@ export default defineConfig({
 
       '/examples/': [
         {
-          text: 'Real-World Examples',
+          text: 'Data Engineering',
           items: [
             { text: 'Sales Analysis', link: '/examples/sales-analysis' },
             { text: 'Customer Segmentation', link: '/examples/customer-segmentation' },
             { text: 'Time Series', link: '/examples/time-series' },
             { text: 'Data Quality Checks', link: '/examples/data-quality' },
+            { text: 'DuckDB Analytics', link: '/examples/duckdb-analytics' },
+          ],
+        },
+        {
+          text: 'Machine Learning',
+          items: [
+            { text: 'Customer Churn Classification', link: '/examples/ml-classification' },
+            { text: 'Feature Engineering', link: '/examples/feature-engineering' },
+          ],
+        },
+        {
+          text: 'More',
+          items: [
+            { text: 'Recipes (quick tasks)', link: '/recipes/overview' },
+          ],
+        },
+      ],
+
+      '/recipes/': [
+        {
+          text: 'Recipes',
+          items: [
+            { text: 'Overview', link: '/recipes/overview' },
+            { text: 'Convert Excel to Parquet', link: '/recipes/convert-excel-to-parquet' },
+            { text: 'Remove Duplicate Rows', link: '/recipes/remove-duplicate-rows' },
+            { text: 'Fill Missing Values', link: '/recipes/fill-missing-values' },
+            { text: 'Pivot a Table', link: '/recipes/pivot-a-table' },
           ],
         },
       ],
@@ -301,6 +396,10 @@ export default defineConfig({
 
     footer: {
       message:
+        '<a href="https://github.com/rodrigo-arenas/FlowFrame" target="_blank" rel="noreferrer">GitHub</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/FlowFrame/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/FlowFrame/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
         'Released under the Apache License 2.0. Created by ' +
         '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
         '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',
