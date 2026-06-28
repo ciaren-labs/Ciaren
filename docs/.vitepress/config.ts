@@ -9,6 +9,7 @@ const extendingSidebar = [
     text: 'Plugins & Extensibility',
     items: [
       { text: 'Overview', link: '/plugins/overview' },
+      { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
       { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
       { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
     ],
@@ -16,6 +17,7 @@ const extendingSidebar = [
   {
     text: 'Reference',
     items: [
+      { text: 'Plugin API Reference', link: '/plugins/api-reference' },
       { text: '.flow Document Format', link: '/specs/flow-format' },
       { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
     ],
@@ -163,7 +165,9 @@ export default defineConfig({
           text: 'Plugins & Extensibility',
           items: [
             { text: 'Overview', link: '/plugins/overview' },
+            { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
             { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
+            { text: 'Plugin API Reference', link: '/plugins/api-reference' },
             { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
             { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
           ],

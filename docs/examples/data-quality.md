@@ -26,7 +26,7 @@ Remove Duplicates → Filter Rows → File Output.
 
 ## Sample data
 
-`contacts.csv`:
+`contacts.csv` (📥 [download contacts.csv](/samples/data-quality/contacts.csv)):
 
 ```csv
 name,email,age

@@ -91,6 +91,17 @@ mdFiles.forEach((file) => {
       }
     }
 
+    // Static assets (images, sample data, …) live under docs/public/ but are
+    // referenced with site-root absolute paths (e.g. /screenshots/x.png,
+    // /samples/data.csv). VitePress serves public/ at the site root, so resolve
+    // an absolute link against public/ as well before reporting it broken.
+    if (!fs.existsSync(targetPath) && link.startsWith('/')) {
+      const publicPath = path.join(DOCS_DIR, 'public', link);
+      if (fs.existsSync(publicPath)) {
+        targetPath = publicPath;
+      }
+    }
+
     // Check if file exists
     if (!fs.existsSync(targetPath)) {
       const relTarget = path.relative(DOCS_DIR, targetPath);

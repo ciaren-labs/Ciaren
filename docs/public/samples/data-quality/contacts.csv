@@ -1,0 +1,6 @@
+name,email,age
+  Ada Lovelace ,ADA@EXAMPLE.COM,36
+Grace Hopper,grace@example.com,unknown
+Grace Hopper,GRACE@EXAMPLE.COM,85
+Linus T,linus@example.com ,250
+,bad-row@example.com,40
