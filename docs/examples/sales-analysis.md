@@ -11,7 +11,7 @@ revenue summary by region. This walkthrough cleans the data, then groups and
 aggregates it.
 
 **You'll use:** CSV Input → Drop Columns → Cast Types → Drop Nulls → Filter Rows →
-Fill Nulls → Group by + Aggregate → Rename → Sort → CSV Output.
+Fill Nulls → Group by + Aggregate → Rename → Sort → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"sales.csv"},
@@ -24,7 +24,7 @@ Fill Nulls → Group by + Aggregate → Rename → Sort → CSV Output.
   {"type":"transform","label":"Group By + Aggregate","detail":"region · sum(amount) · count(order_id)"},
   {"type":"clean","label":"Rename Columns","detail":"amount→total_sales · order_id→num_orders"},
   {"type":"clean","label":"Sort Rows","detail":"total_sales desc"},
-  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+  {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' :vertical="true" />
 
 ## Sample data
@@ -58,7 +58,7 @@ missing amount, a negative (refund) amount, and a missing region.
    `aggregations: { "amount": "sum", "order_id": "count" }`.
 9. **Rename Columns** — `mapping: { "amount": "total_sales", "order_id": "num_orders" }`.
 10. **Sort Rows** — `columns: ["total_sales"]`, `ascending: false`.
-11. **CSV Output** — `path: "sales_summary.csv"`.
+11. **File Output** — `format: csv` (name `sales_summary`).
 
 Use the **live preview** after each node to watch the data take shape, then
 **Run** the flow.

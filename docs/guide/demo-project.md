@@ -66,7 +66,7 @@ This is the simplest shape: a straight line from input to output.
     {"type":"clean","label":"Fill Nulls","detail":"age → median"},
     {"type":"clean","label":"String Transform","detail":"country → upper"},
     {"type":"clean","label":"Parse Dates","detail":"signup_date → datetime"},
-    {"type":"output","label":"CSV Output"}
+    {"type":"output","label":"File Output"}
   ]'
 />
 
@@ -77,7 +77,7 @@ This is the simplest shape: a straight line from input to output.
    `USA`, and `Usa` all become `USA`.
 4. **Parse Dates** — column `signup_date`, errors **coerce**. Text like
    `2022-06-14` becomes an actual date you can sort and extract parts from.
-5. **CSV Output**.
+5. **File Output**.
 
 **Follow along:** select each node and **Run preview** to watch the column
 change one step at a time. Select **String Transform** and you'll see `country`
@@ -103,7 +103,7 @@ This adds date-part extraction and grouping.
     {"type":"clean","label":"Filter Rows","detail":"status = completed"},
     {"type":"transform","label":"Group By","detail":"sum amount by month"},
     {"type":"clean","label":"Sort Rows","detail":"year → month asc"},
-    {"type":"output","label":"CSV Output"}
+    {"type":"output","label":"File Output"}
   ]'
 />
 
@@ -115,7 +115,7 @@ This adds date-part extraction and grouping.
 5. **Group By Aggregate** — group by `order_date_year`, `order_date_month`;
    aggregate `amount` with **sum**.
 6. **Sort Rows** — by `order_date_year`, `order_date_month` ascending.
-7. **CSV Output**.
+7. **File Output**.
 
 **Follow along:** preview after **Extract Date Parts** to see the new
 year/month columns, then after **Group By Aggregate** to see one row per month.
@@ -147,7 +147,7 @@ meeting at a **Join**.
   :join='{"label":"Join","detail":"on customer_id — inner"}'
   :after='[
     {"type":"transform","label":"Calculated Column","detail":"net_amount = amount × 0.9"},
-    {"type":"output","label":"CSV Output"}
+    {"type":"output","label":"File Output"}
   ]'
 />
 
@@ -171,7 +171,7 @@ meeting at a **Join**.
 1. **Join** — left input = customers, right input = orders; `left_on = id`,
    `right_on = customer_id`, how **inner**.
 2. **Calculated Column** — `net_amount = amount * 0.9`.
-3. **CSV Output**.
+3. **File Output**.
 
 **Follow along:** preview the **Remove Outliers** node — the row count drops as
 the outliers leave. Preview the **Join** to see customer columns sitting next to
@@ -199,7 +199,7 @@ This is the most complex flow — three inputs and two chained joins.
     {"type":"transform","label":"Join","detail":"+ orders on order_id"},
     {"type":"transform","label":"Group By","detail":"sum line_total by category"},
     {"type":"transform","label":"Conditional Column","detail":"revenue_tier label"},
-    {"type":"output","label":"CSV Output"}
+    {"type":"output","label":"File Output"}
   ]'
   :vertical="true"
 />
@@ -231,7 +231,7 @@ This is the most complex flow — three inputs and two chained joins.
    `order_id` **count**.
 3. **Conditional Column** — `revenue_tier`: `line_total >= 5000` → **high**,
    `>= 1000` → **medium**, else **low**.
-4. **CSV Output**.
+4. **File Output**.
 
 **Follow along:** preview each **Join** to watch the table widen as columns from
 the next dataset attach. Preview **Group By Aggregate** for the final
