@@ -1,0 +1,60 @@
+name: CodeQL
+
+# Static analysis security scanning for the Python backend and the
+# TypeScript/JavaScript frontend. Results surface in the repo's Security tab
+# (Code scanning alerts) and annotate PRs.
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+  schedule:
+    # Weekly full scan so newly disclosed query packs catch existing code.
+    - cron: "27 4 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze | ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      # Required to upload results to the code-scanning dashboard.
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            paths: backend
+          - language: javascript-typescript
+            paths: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-and-quality adds maintainability queries on top of the
+          # default security set; keep it to the security-extended pack to stay
+          # focused on vulnerabilities for an MVP.
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
