@@ -211,6 +211,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="List every registered transformation node type.",
         parents=[output_parent],
     )
+
+    flow = sub.add_parser("flow", help="Validate and migrate .flow document files.")
+    flow_sub = flow.add_subparsers(dest="flow_command")
+    flow_validate = flow_sub.add_parser(
+        "validate",
+        help="Validate a .flow document against the schema and graph structure.",
+        parents=[output_parent],
+    )
+    flow_validate.add_argument("path", help="Path to the .flow / JSON document.")
+    flow_migrate = flow_sub.add_parser(
+        "migrate",
+        help="Migrate a .flow document to a newer schema version.",
+        parents=[output_parent],
+    )
+    flow_migrate.add_argument("path", help="Path to the .flow / JSON document.")
+    flow_migrate.add_argument(
+        "--to",
+        dest="to_version",
+        default=None,
+        metavar="VERSION",
+        help="Target schema version (default: the latest this build supports).",
+    )
+    flow_migrate.add_argument(
+        "--write",
+        action="store_true",
+        help="Write the migrated document back in place (a .bak backup is kept).",
+    )
     return parser
 
 
@@ -502,6 +529,60 @@ def _transformations(args: argparse.Namespace) -> None:
         print(f"  {r['type'].ljust(width)}  inputs={r['inputs']}")
 
 
+def _flow(args: argparse.Namespace) -> None:
+    from app.flow_schema import (
+        CURRENT_SCHEMA_VERSION,
+        FlowSchemaError,
+        MigrationError,
+        migrate,
+        validate,
+    )
+
+    command = getattr(args, "flow_command", None)
+    if command not in ("validate", "migrate"):
+        print("usage: flowframe flow {validate,migrate}")
+        return
+
+    path = Path(args.path)
+    if not path.is_file():
+        raise SystemExit(f"file not found: {path}")
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise SystemExit(f"could not read {path}: {exc}") from exc
+
+    if command == "validate":
+        try:
+            document = validate(data)
+        except FlowSchemaError as exc:
+            if getattr(args, "output", "table") == "json":
+                print(json.dumps({"valid": False, "error": str(exc)}, indent=2))
+            else:
+                print(f"INVALID: {exc}")
+            raise SystemExit(1) from exc
+        if getattr(args, "output", "table") == "json":
+            print(json.dumps({"valid": True, "schemaVersion": document.schema_version}, indent=2))
+        else:
+            print(f"OK: valid .flow document (schemaVersion={document.schema_version})")
+        return
+
+    # migrate
+    target = getattr(args, "to_version", None) or CURRENT_SCHEMA_VERSION
+    try:
+        migrated = migrate(data, target=target)
+    except MigrationError as exc:
+        raise SystemExit(f"migration failed: {exc}") from exc
+
+    if getattr(args, "write", False):
+        backup = path.with_suffix(path.suffix + ".bak")
+        backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        path.write_text(json.dumps(migrated, indent=2), encoding="utf-8")
+        print(f"Migrated {path} to schemaVersion={target} (backup: {backup.name}).")
+    else:
+        print(json.dumps(migrated, indent=2))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -512,6 +593,7 @@ def main(argv: list[str] | None = None) -> None:
         "check": _check,
         "db": _db,
         "transformations": _transformations,
+        "flow": _flow,
     }
     handler = handlers.get(args.command)
     if handler is None:
