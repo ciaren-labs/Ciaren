@@ -155,13 +155,13 @@ describe("mlTrain config form", () => {
   };
 
   it("shows the target picker for supervised models", () => {
-    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a", "target"] });
+    renderForm({ type: "mlTrainClassifier", config: baseConfig, columns: ["a", "target"] });
     expect(screen.getByText("Target column")).toBeInTheDocument();
   });
 
   it("hides the target picker for unsupervised models", () => {
     renderForm({
-      type: "mlTrain",
+      type: "mlTrainClustering",
       config: { ...baseConfig, model_type: "kmeans" },
       columns: ["a", "b"],
     });
@@ -171,21 +171,22 @@ describe("mlTrain config form", () => {
   it("resets hyperparameters when the model changes", () => {
     const onChange = vi.fn();
     renderForm({
-      type: "mlTrain",
+      type: "mlTrainClassifier",
       config: { ...baseConfig, hyperparameters: { n_estimators: 500 } },
       columns: ["a"],
       onChange,
     });
     const modelSelect = screen.getByDisplayValue("Random Forest");
-    fireEvent.change(modelSelect, { target: { value: "ridge" } });
+    // Switch to another classification model (the picker is task-scoped now).
+    fireEvent.change(modelSelect, { target: { value: "logistic_regression" } });
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ model_type: "ridge", hyperparameters: {} }),
+      expect.objectContaining({ model_type: "logistic_regression", hyperparameters: {} }),
     );
   });
 
   it("writes a hyperparameter change", () => {
     const onChange = vi.fn();
-    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a"], onChange });
+    renderForm({ type: "mlTrainClassifier", config: baseConfig, columns: ["a"], onChange });
     // Random Forest's basic param: "Number of trees" (n_estimators, default 100)
     const trees = screen.getByDisplayValue("100");
     fireEvent.change(trees, { target: { value: "250" } });
@@ -196,7 +197,7 @@ describe("mlTrain config form", () => {
 
   it("warns when a model needs an extra library", () => {
     renderForm({
-      type: "mlTrain",
+      type: "mlTrainClassifier",
       config: { ...baseConfig, model_type: "xgboost_classifier" },
       columns: ["a"],
     });
@@ -204,7 +205,7 @@ describe("mlTrain config form", () => {
   });
 
   it("opens the Advanced options modal with cross-validation", () => {
-    renderForm({ type: "mlTrain", config: baseConfig, columns: ["a"] });
+    renderForm({ type: "mlTrainClassifier", config: baseConfig, columns: ["a"] });
     fireEvent.click(screen.getByRole("button", { name: /Advanced options/i }));
     expect(screen.getByText("Cross-validation")).toBeInTheDocument();
     expect(screen.getByText("Preprocessing")).toBeInTheDocument();

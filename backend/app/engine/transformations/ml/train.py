@@ -1,12 +1,14 @@
-"""mlTrain — fit a model and log it to MLflow.
+"""Train nodes — fit a model and log it to MLflow.
 
-The central ML node. It bundles preprocessing INTO an sklearn ``Pipeline`` so the
-exact transforms used at fit time are reapplied at predict time (no train/serve
-skew, no leakage from upstream nodes fitting on the full dataset). It emits a
-single ``model`` output — a one-row reference frame with the MLflow run id /
-model URI / task — plus run metadata (metrics, cv scores) onto its NodeResult.
-The ``model`` wire is type-checked: it can only feed a model input (mlPredict /
-featureImportance), never a data input.
+One node per learning task (classification, regression, clustering, timeseries,
+dimensionality reduction) so each picker only offers relevant models and the
+palette is self-explanatory. All share :class:`BaseTrainTransformation`: it bundles
+preprocessing INTO an sklearn ``Pipeline`` so the exact transforms used at fit time
+are reapplied at predict time (no train/serve skew, no leakage from upstream nodes
+fitting on the full dataset). Each emits a single ``model`` output — a one-row
+reference frame with the MLflow run id / model URI / task — plus run metadata
+(metrics, cv scores) onto its NodeResult. The ``model`` wire is type-checked: it
+can only feed a model input (mlPredict / featureImportance), never a data input.
 """
 
 from __future__ import annotations
@@ -29,59 +31,73 @@ MIN_TRAIN_ROWS = 10
 SMALL_TRAIN_ROWS = 50  # warn below this
 
 
-class MLTrainTransformation(MetadataMLTransformation):
-    type = "mlTrain"
+class BaseTrainTransformation(MetadataMLTransformation):
+    """Shared training logic. Subclasses set :attr:`type` and :attr:`allowed_tasks`
+    (the tasks whose ``model_type`` values the node accepts)."""
+
     input_handles = ("in",)
+    #: Tasks this node trains; a chosen model_type must belong to one of them.
+    allowed_tasks: tuple[str, ...] = ()
 
     # -- validation ----------------------------------------------------------
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        nm = self.type
         seed = config.get("seed")
         if not isinstance(seed, int) or isinstance(seed, bool):
-            raise ValueError("mlTrain requires an integer 'seed' for reproducibility.")
+            raise ValueError(f"{nm} requires an integer 'seed' for reproducibility.")
         model_type = config.get("model_type")
         if not isinstance(model_type, str) or not model_type:
-            raise ValueError("mlTrain requires a 'model_type'.")
+            raise ValueError(f"{nm} requires a 'model_type'.")
         spec = get_model_spec(model_type)  # raises with the supported list if unknown
+        self._check_task(model_type, spec)
 
         if spec.supervised:
             target = config.get("target_column")
             if not isinstance(target, str) or not target:
-                raise ValueError(f"mlTrain: model_type {model_type!r} is supervised and needs a 'target_column'.")
+                raise ValueError(f"{nm}: model_type {model_type!r} is supervised and needs a 'target_column'.")
             features = config.get("feature_columns")
             if features is not None:
                 if not isinstance(features, list) or not all(isinstance(c, str) for c in features):
-                    raise ValueError("mlTrain 'feature_columns' must be a list of column names.")
+                    raise ValueError(f"{nm} 'feature_columns' must be a list of column names.")
                 if target in features:
-                    raise ValueError(f"mlTrain: target_column {target!r} is also in feature_columns — data leakage.")
+                    raise ValueError(f"{nm}: target_column {target!r} is also in feature_columns — data leakage.")
         if config.get("cross_validate"):
             folds = config.get("cv_folds", 5)
             if not isinstance(folds, int) or isinstance(folds, bool) or folds < 2:
-                raise ValueError("mlTrain 'cv_folds' must be an integer >= 2 when cross_validate is on.")
+                raise ValueError(f"{nm} 'cv_folds' must be an integer >= 2 when cross_validate is on.")
+
+    def _check_task(self, model_type: str, spec: Any) -> None:
+        if self.allowed_tasks and spec.task not in self.allowed_tasks:
+            allowed = ", ".join(self.allowed_tasks)
+            raise ValueError(
+                f"{self.type}: model_type {model_type!r} is a {spec.task} model, but this node trains {allowed} models."
+            )
 
     def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
+        nm = self.type
         settings = get_settings()
         spec = get_model_spec(config["model_type"])
         target = config.get("target_column")
         if spec.supervised and target and target not in schema.columns:
-            raise ValueError(f"mlTrain: target_column {target!r} not in input columns {schema.columns}.")
+            raise ValueError(f"{nm}: target_column {target!r} not in input columns {schema.columns}.")
         features = self._resolve_features(config, schema.columns, spec.supervised, target)
         missing = [c for c in features if c not in schema.columns]
         if missing:
-            raise ValueError(f"mlTrain: feature columns not found: {missing}.")
+            raise ValueError(f"{nm}: feature columns not found: {missing}.")
         if len(features) > settings.ML_MAX_FEATURE_COLUMNS:
             raise ValueError(
-                f"mlTrain: {len(features)} feature columns exceeds the limit of "
+                f"{nm}: {len(features)} feature columns exceeds the limit of "
                 f"{settings.ML_MAX_FEATURE_COLUMNS} (ML_MAX_FEATURE_COLUMNS)."
             )
         if schema.row_count is not None:
             if schema.row_count > settings.ML_MAX_TRAINING_ROWS:
                 raise ValueError(
-                    f"mlTrain: {schema.row_count} rows exceeds the training limit of "
+                    f"{nm}: {schema.row_count} rows exceeds the training limit of "
                     f"{settings.ML_MAX_TRAINING_ROWS} (ML_MAX_TRAINING_ROWS)."
                 )
             if schema.row_count < MIN_TRAIN_ROWS:
-                raise ValueError(f"mlTrain: need at least {MIN_TRAIN_ROWS} rows to train (got {schema.row_count}).")
+                raise ValueError(f"{nm}: need at least {MIN_TRAIN_ROWS} rows to train (got {schema.row_count}).")
 
     # -- execution -----------------------------------------------------------
 
@@ -90,7 +106,9 @@ class MLTrainTransformation(MetadataMLTransformation):
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
 
+        nm = self.type
         spec = get_model_spec(config["model_type"])
+        self._check_task(config["model_type"], spec)
         # During preview we must not fit a model or create an MLflow run: hand
         # downstream a placeholder model reference so the graph still resolves.
         if in_preview():
@@ -106,27 +124,27 @@ class MLTrainTransformation(MetadataMLTransformation):
 
         n = len(pdf)
         if n < MIN_TRAIN_ROWS:
-            raise ValueError(f"mlTrain: need at least {MIN_TRAIN_ROWS} rows to train (got {n}).")
+            raise ValueError(f"{nm}: need at least {MIN_TRAIN_ROWS} rows to train (got {n}).")
         if n > settings.ML_MAX_TRAINING_ROWS:
-            raise ValueError(f"mlTrain: {n} rows exceeds ML_MAX_TRAINING_ROWS ({settings.ML_MAX_TRAINING_ROWS}).")
+            raise ValueError(f"{nm}: {n} rows exceeds ML_MAX_TRAINING_ROWS ({settings.ML_MAX_TRAINING_ROWS}).")
         if n < SMALL_TRAIN_ROWS:
-            logger.warning("mlTrain: training on only %d rows — results may be unreliable.", n)
+            logger.warning("%s: training on only %d rows — results may be unreliable.", nm, n)
 
         target = config.get("target_column")
         features = self._resolve_features(config, list(pdf.columns), spec.supervised, target)
         missing = [c for c in features if c not in pdf.columns]
         if missing:
-            raise ValueError(f"mlTrain: feature columns not found: {missing}.")
+            raise ValueError(f"{nm}: feature columns not found: {missing}.")
         if len(features) > settings.ML_MAX_FEATURE_COLUMNS:
             raise ValueError(
-                f"mlTrain: {len(features)} feature columns exceeds ML_MAX_FEATURE_COLUMNS "
+                f"{nm}: {len(features)} feature columns exceeds ML_MAX_FEATURE_COLUMNS "
                 f"({settings.ML_MAX_FEATURE_COLUMNS})."
             )
         if spec.supervised:
             if not target or target not in pdf.columns:
-                raise ValueError(f"mlTrain: target_column {target!r} not found.")
+                raise ValueError(f"{nm}: target_column {target!r} not found.")
             if target in features:
-                raise ValueError(f"mlTrain: target_column {target!r} is in feature_columns — data leakage.")
+                raise ValueError(f"{nm}: target_column {target!r} is in feature_columns — data leakage.")
             self._warn_id_leakage(pdf, features)
 
         pipeline = self._build_pipeline(config, features, pdf, spec, seed)
@@ -172,7 +190,7 @@ class MLTrainTransformation(MetadataMLTransformation):
     def _warn_id_leakage(self, pdf: Any, features: list[str]) -> None:
         for col in features:
             if pdf[col].nunique(dropna=False) == len(pdf) and len(pdf) > 1:
-                logger.warning("mlTrain: column %r has a unique value per row — possible ID leakage.", col)
+                logger.warning("%s: column %r has a unique value per row — possible ID leakage.", self.type, col)
 
     def _build_pipeline(self, config: dict[str, Any], features: list[str], pdf: Any, spec: Any, seed: int) -> Any:
         from sklearn.pipeline import Pipeline
@@ -239,7 +257,7 @@ class MLTrainTransformation(MetadataMLTransformation):
         from sklearn.model_selection import cross_val_score
 
         if folds > n:
-            raise ValueError(f"mlTrain: cannot run {folds}-fold CV with only {n} training rows.")
+            raise ValueError(f"{self.type}: cannot run {folds}-fold CV with only {n} training rows.")
         scoring = "f1_weighted" if task == CLASSIFICATION else "r2"
         scores = cross_val_score(pipeline, x, y, cv=folds, scoring=scoring)
         return [float(s) for s in scores]
@@ -259,7 +277,7 @@ class MLTrainTransformation(MetadataMLTransformation):
             if labels is not None and 1 < len(unique) < len(labels):
                 metrics["silhouette"] = float(silhouette_score(xt, labels))
             elif labels is not None and set(labels) == {-1}:
-                logger.warning("mlTrain: DBSCAN assigned all points to noise — adjust eps/min_samples.")
+                logger.warning("%s: DBSCAN assigned all points to noise — adjust eps/min_samples.", self.type)
             return metrics
         # pca_fit
         ratio = getattr(model, "explained_variance_ratio_", None)
@@ -273,7 +291,7 @@ class MLTrainTransformation(MetadataMLTransformation):
         size_mb = buf.tell() / 1_000_000
         if size_mb > max_mb:
             raise ValueError(
-                f"mlTrain: trained model is {size_mb:.1f} MB, over the {max_mb} MB limit (ML_MAX_MODEL_SIZE_MB)."
+                f"{self.type}: trained model is {size_mb:.1f} MB, over the {max_mb} MB limit (ML_MAX_MODEL_SIZE_MB)."
             )
 
     def _log_to_mlflow(
@@ -315,7 +333,7 @@ class MLTrainTransformation(MetadataMLTransformation):
                     if tags:
                         mlflow.set_tags(tags)
                 except Exception as exc:  # noqa: BLE001
-                    logger.warning("mlTrain: could not log params/metrics/tags (%s).", exc)
+                    logger.warning("%s: could not log params/metrics/tags (%s).", self.type, exc)
                 # cloudpickle is MLflow's standard sklearn format; the newer skops
                 # default rejects common numpy types. User-supplied model paths are
                 # still validated separately in mlPredict (see app/ml/security.py).
@@ -337,7 +355,7 @@ class MLTrainTransformation(MetadataMLTransformation):
                 )
                 return run.info.run_id, info.model_uri
         except Exception as exc:  # noqa: BLE001 - MLflow problems must not fail a good model
-            logger.warning("mlTrain: MLflow logging failed (%s) — model trained but not tracked.", exc)
+            logger.warning("%s: MLflow logging failed (%s) — model trained but not tracked.", self.type, exc)
             return None, None
 
     def _infer_signature(self, pipeline: Any, x: Any) -> Any:
@@ -352,7 +370,7 @@ class MLTrainTransformation(MetadataMLTransformation):
             sample = x.head(50) if hasattr(x, "head") else x
             return infer_signature(sample, pipeline.predict(sample))
         except Exception as exc:  # noqa: BLE001
-            logger.debug("mlTrain: could not infer model signature (%s).", exc)
+            logger.debug("%s: could not infer model signature (%s).", self.type, exc)
             return None
 
     def _pinned_requirements(self, config: dict[str, Any]) -> list[str]:
@@ -506,3 +524,41 @@ class MLTrainTransformation(MetadataMLTransformation):
         if num_strategy in self._SCALER_CLASSES:
             imps.append(f"from sklearn.preprocessing import {self._SCALER_CLASSES[num_strategy]}")
         return imps
+
+
+# -- task-scoped train nodes -------------------------------------------------
+# One node per learning task. They share BaseTrainTransformation; only the type
+# and the accepted task(s) differ, so each model picker shows just its family.
+
+
+class TrainClassifierTransformation(BaseTrainTransformation):
+    type = "mlTrainClassifier"
+    allowed_tasks = ("classification",)
+
+
+class TrainRegressorTransformation(BaseTrainTransformation):
+    type = "mlTrainRegressor"
+    allowed_tasks = ("regression",)
+
+
+class TrainClusteringTransformation(BaseTrainTransformation):
+    type = "mlTrainClustering"
+    allowed_tasks = ("clustering",)
+
+
+class TrainForecasterTransformation(BaseTrainTransformation):
+    """Timeseries forecasting. Defined as a scaffold — no estimators are registered
+    for the ``timeseries`` task yet, so this node appears in the palette but isn't
+    runnable until forecasting models are added."""
+
+    type = "mlTrainForecaster"
+    allowed_tasks = ("timeseries",)
+
+
+class TrainDimReductionTransformation(BaseTrainTransformation):
+    type = "mlTrainDimReduction"
+    allowed_tasks = ("dimensionality_reduction",)
+
+
+# Backwards-compatible alias for code that imported the old class name.
+MLTrainTransformation = TrainClassifierTransformation

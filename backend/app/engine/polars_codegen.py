@@ -23,11 +23,13 @@ from typing import Any
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
+    FILE_OUTPUT_TYPE,
     MODEL_OUTPUT_HANDLES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
     edge_carries_model,
     output_handles,
+    output_source_type,
 )
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
@@ -51,6 +53,16 @@ _OUTPUT_WRITE = {
     "csvOutput": "write_csv",
     "excelOutput": "write_excel",
     "parquetOutput": "write_parquet",
+}
+# fileOutput writes by its configured format. (method, kwargs, extension)
+_FILE_OUTPUT_WRITE_PL = {
+    "csv": ("write_csv", "", ".csv"),
+    "tsv": ("write_csv", "separator='\\t'", ".tsv"),
+    "excel": ("write_excel", "", ".xlsx"),
+    "parquet": ("write_parquet", "", ".parquet"),
+    "json": ("write_json", "", ".json"),
+    "jsonl": ("write_ndjson", "", ".jsonl"),
+    "text": ("write_csv", "include_header=False, separator='\\t'", ".txt"),
 }
 
 
@@ -271,6 +283,13 @@ class PolarsCodeGenerator:
                     extra = _INPUT_READ_KWARGS.get(node_type, "")
                     suffix = ".lazy()" if lazy else ""
                     lines.append(f"{var} = {_INPUT_READ[node_type]}({path!r}{extra}){suffix}")
+            elif node_type == FILE_OUTPUT_TYPE:
+                src_var = source_var(incoming[node_id][0])
+                method, kwargs, suffix = _FILE_OUTPUT_WRITE_PL[output_source_type(node_type, config)]
+                frame = f"{src_var}.collect()" if lazy else src_var
+                out_path = config.get("path") or f"{config.get('dataset_name') or 'output'}{suffix}"
+                args = f"{out_path!r}" + (f", {kwargs}" if kwargs else "")
+                lines.append(f"{frame}.{method}({args})")
             elif node_type in _OUTPUT_WRITE:
                 src_var = source_var(incoming[node_id][0])
                 out_path = config.get("path", "output.csv")

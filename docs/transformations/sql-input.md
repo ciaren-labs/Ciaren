@@ -15,7 +15,7 @@ scheduled flows always process **fresh data**.
     {"type":"input","label":"SQL Input","detail":"orders table — live DB"},
     {"type":"clean","label":"Filter Rows","detail":"status = shipped"},
     {"type":"transform","label":"Group By","detail":"revenue by region"},
-    {"type":"output","label":"CSV Output","detail":"daily report"}
+    {"type":"output","label":"File Output","detail":"daily report"}
   ]'
 />
 

@@ -25,6 +25,7 @@ Each resource has its own reference page:
 - [Flows](./flows.md) — saved pipelines (graph), preview, and code export
 - [Runs](./runs.md) — execute flows and read status, logs, per-node results, SSE stream
 - [Transformations](./transformations.md) — list node types, preview one node
+- [Catalog & Plugins](./catalog.md) — backend-fed node catalog and installed-plugin introspection
 - [Schedules](./schedules.md) — run flows automatically on a cron schedule
 - [Connections](./connections.md) — reusable database connections for SQL nodes
 

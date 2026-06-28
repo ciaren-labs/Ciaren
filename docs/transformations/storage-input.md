@@ -33,7 +33,7 @@ process boundary.
 | --- | --- | --- | --- |
 | `connection_id` | string | Yes | The storage connection to read from |
 | `path` | string | Yes | File path inside the bucket/container/folder (e.g. `data/sales.csv`) |
-| `format` | string | No | `csv` (default), `excel`, `parquet`, `json`, or `text` |
+| `format` | string | No | `csv` (default), `tsv`, `excel`, `parquet`, `json`, `jsonl`, or `text` |
 
 The connection defines the provider, bucket/container, and how credentials are
 resolved from environment variables. The node only needs the relative path

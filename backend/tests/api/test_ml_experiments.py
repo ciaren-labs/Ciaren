@@ -1,4 +1,5 @@
 """GET /api/flows/{id}/ml/experiments — lists MLflow experiments a flow logs to."""
+
 import io
 
 import numpy as np
@@ -15,7 +16,7 @@ def _ml_graph(dataset_id: str, experiment: str | None = None) -> dict:
     return {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": dataset_id}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": cfg}},
+            {"id": "tr", "type": "mlTrainClassifier", "data": {"config": cfg}},
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
     }

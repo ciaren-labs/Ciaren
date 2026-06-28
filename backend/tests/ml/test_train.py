@@ -9,9 +9,35 @@ from app.core.config import get_settings
 from app.engine.backends import get_engine
 from app.engine.executor import FlowExecutor, dataset_ref_key
 from app.engine.transformations.ml.base import MLSchema
-from app.engine.transformations.ml.train import MLTrainTransformation
+from app.engine.transformations.ml.train import (
+    TrainClassifierTransformation,
+    TrainClusteringTransformation,
+    TrainDimReductionTransformation,
+    TrainForecasterTransformation,
+    TrainRegressorTransformation,
+)
+from app.ml.models import get_model_spec
 
-NODE = MLTrainTransformation()
+NODE = TrainClassifierTransformation()  # classifier-config method tests
+REGRESSOR = TrainRegressorTransformation()
+
+_NODE_BY_TASK = {
+    "classification": TrainClassifierTransformation(),
+    "regression": TrainRegressorTransformation(),
+    "clustering": TrainClusteringTransformation(),
+    "dimensionality_reduction": TrainDimReductionTransformation(),
+    "timeseries": TrainForecasterTransformation(),
+}
+
+
+def node_for(config):
+    """The task-scoped train node matching a config's model_type (classifier on
+    an unknown type, so the 'unknown model_type' path still surfaces)."""
+    try:
+        task = get_model_spec(config.get("model_type", "")).task
+    except Exception:
+        return NODE
+    return _NODE_BY_TASK.get(task, NODE)
 
 
 @pytest.fixture
@@ -42,7 +68,7 @@ def _regression_df(n=120):
 def _train(df, config, engine_name="pandas"):
     engine = get_engine(engine_name)
     frame = engine.from_pandas(df)
-    out, meta = NODE.execute_with_metadata(engine, {"in": frame}, config)
+    out, meta = node_for(config).execute_with_metadata(engine, {"in": frame}, config)
     return engine, out, meta
 
 
@@ -185,7 +211,7 @@ def test_unknown_model_type_rejected():
 
 def test_target_in_features_is_leakage():
     with pytest.raises(ValueError, match="leakage"):
-        NODE.validate_config(
+        REGRESSOR.validate_config(
             {
                 "model_type": "ridge",
                 "target_column": "y",
@@ -197,7 +223,7 @@ def test_target_in_features_is_leakage():
 
 def test_supervised_requires_target():
     with pytest.raises(ValueError, match="target_column"):
-        NODE.validate_config({"model_type": "ridge", "seed": 1})
+        REGRESSOR.validate_config({"model_type": "ridge", "seed": 1})
 
 
 def test_too_few_rows_rejected(ml_env):
@@ -267,7 +293,7 @@ def test_executor_runs_train_and_attaches_metadata(ml_env, tmp_path):
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 42}},
             },
         ],

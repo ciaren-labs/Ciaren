@@ -11,10 +11,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes import (
+    catalog,
     connections,
     datasets,
     flows,
     ml,
+    plugins,
     projects,
     runs,
     schedules,
@@ -133,6 +135,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await init_db()
 
+    # Discover plugins and bridge their executable nodes into the engine registry
+    # before any request, so a run that uses a plugin node resolves it even if the
+    # catalog endpoint was never hit first.
+    from app.plugins import ensure_plugins_loaded
+
+    ensure_plugins_loaded()
+
     await _seed_local_storage_safe(settings.DATA_DIR)
 
     if settings.ML_ENABLED:
@@ -227,6 +236,8 @@ def create_app() -> FastAPI:
     app.include_router(ml.router, prefix="/api", tags=["ml"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
+    app.include_router(catalog.router, prefix="/api/catalog", tags=["catalog"])
+    app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
     app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
 
     @app.get("/health", tags=["health"])

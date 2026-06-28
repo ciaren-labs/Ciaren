@@ -14,6 +14,7 @@ import { SchedulesPage } from "@/features/schedules/SchedulesPage";
 import { ScheduleDetailPage } from "@/features/schedules/ScheduleDetailPage";
 import { ProjectsPage } from "@/features/projects/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
+import { PluginsPage } from "@/features/plugins/PluginsPage";
 
 export default function App() {
   // Reset the error boundary on navigation so an error on one page doesn't
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/schedules" element={<SchedulesPage />} />
           <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
+          <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/flows/:flowId" element={<FlowEditorPage />} />
         </Routes>
         </ErrorBoundary>
