@@ -16,6 +16,15 @@ export function useMarketplace() {
   });
 }
 
+/** License status for one plugin (premium plugins register a provider; community
+ *  plugins report "no license provider"). Used to show a license badge. */
+export function usePluginLicense(id: string) {
+  return useQuery({
+    queryKey: queryKeys.pluginLicense(id),
+    queryFn: () => pluginsApi.license(id),
+  });
+}
+
 /** Invalidate everything plugin-affected: the plugin list, the "Explore" catalog
  *  (installed flags change), and the node catalog (a granted/disabled plugin
  *  adds/removes nodes from the palette live). */
