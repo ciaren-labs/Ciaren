@@ -10,6 +10,7 @@ rebuild and unregister the bridged nodes.
 from __future__ import annotations
 
 import logging
+import threading
 
 from app.engine.registry import register_transformations, unregister_transformations
 from app.plugin_api import NodeRuntime, ServiceRegistry
@@ -32,6 +33,13 @@ _registry: ServiceRegistry | None = None
 _load_result: LoadResult | None = None
 #: Node types this process bridged into the engine registry, so reset can undo it.
 _bridged_types: list[str] = []
+#: Serializes registry build/reset. Runs execute on worker threads while the API
+#: (enable/disable/grant) can trigger ``reload_plugins`` on the event loop; without
+#: this two callers could build the registry concurrently and double-bridge plugin
+#: nodes, or a reset could interleave with a build and corrupt ``_bridged_types``.
+#: Re-entrant because ``get_load_result``/``reload_plugins`` call ``get_registry``
+#: while already holding it.
+_lock = threading.RLock()
 
 
 def build_registry() -> ServiceRegistry:
@@ -78,15 +86,19 @@ def get_registry() -> ServiceRegistry:
     """The cached process-wide registry — built-ins plus discovered plugins, with
     plugin nodes bridged into the engine so they execute."""
     global _registry, _load_result
-    if _registry is None:
-        registry = build_registry()
-        _load_result = load_plugins(
-            registry,
-            plugin_dirs=default_plugin_dirs(),
-            state=PluginStateStore(),
-        )
-        _bridge_plugin_nodes(registry)
-        _registry = registry
+    if _registry is not None:
+        return _registry
+    with _lock:
+        # Re-check under the lock: another thread may have built it while we waited.
+        if _registry is None:
+            registry = build_registry()
+            _load_result = load_plugins(
+                registry,
+                plugin_dirs=default_plugin_dirs(),
+                state=PluginStateStore(),
+            )
+            _bridge_plugin_nodes(registry)
+            _registry = registry
     return _registry
 
 
@@ -103,8 +115,9 @@ def ensure_plugins_loaded() -> None:
 def get_load_result() -> LoadResult:
     """Diagnostics from the last plugin discovery (loaded plugins + isolated errors)."""
     get_registry()  # ensure discovery has run
-    assert _load_result is not None
-    return _load_result
+    with _lock:
+        assert _load_result is not None
+        return _load_result
 
 
 def reset_registry() -> None:
@@ -112,19 +125,21 @@ def reset_registry() -> None:
     nodes from the engine registry, so the next access rebuilds cleanly. Used by
     tests that change what is installed/registered."""
     global _registry, _load_result, _bridged_types
-    if _bridged_types:
-        unregister_transformations(*_bridged_types)
-        _bridged_types = []
-    _registry = None
-    _load_result = None
+    with _lock:
+        if _bridged_types:
+            unregister_transformations(*_bridged_types)
+            _bridged_types = []
+        _registry = None
+        _load_result = None
 
 
 def reload_plugins() -> LoadResult:
     """Rebuild the registry from scratch (re-reading plugin state from disk) and
     return the fresh load result. Called after the API changes enable/disable or
     permission grants so the change takes effect live, without a restart."""
-    reset_registry()
-    return get_load_result()
+    with _lock:  # reset + rebuild as one unit so no caller sees a half-reset state
+        reset_registry()
+        return get_load_result()
 
 
 def get_plugin_state() -> PluginStateStore:

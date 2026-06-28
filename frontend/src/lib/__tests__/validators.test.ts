@@ -72,7 +72,11 @@ const COVERED = new Set<string>([
   "encodeCategories",
   "selectFeatures",
   "reduceDimensions",
-  "mlTrain",
+  "mlTrainClassifier",
+  "mlTrainRegressor",
+  "mlTrainClustering",
+  "mlTrainForecaster",
+  "mlTrainDimReduction",
   "mlPredict",
   "mlEvaluate",
   "featureImportance",
@@ -618,25 +622,25 @@ describe("reduceDimensions", () => {
     rejects("reduceDimensions", { method: "tsne", n_components: 2 }, "method"));
 });
 
-describe("mlTrain", () => {
+describe("mlTrainClassifier", () => {
   it("accepts a supervised config with a target", () =>
-    accepts("mlTrain", {
+    accepts("mlTrainClassifier", {
       model_type: "random_forest_classifier",
       target_column: "churn",
       feature_columns: ["a", "b"],
       seed: 42,
     }));
   it("accepts an unsupervised model without a target", () =>
-    accepts("mlTrain", { model_type: "kmeans", seed: 1 }));
+    accepts("mlTrainRegressor", { model_type: "kmeans", seed: 1 }));
   it("requires a seed", () =>
-    rejects("mlTrain", { model_type: "ridge", target_column: "y" }, "seed"));
+    rejects("mlTrainRegressor", { model_type: "ridge", target_column: "y" }, "seed"));
   it("rejects an unknown model_type", () =>
-    rejects("mlTrain", { model_type: "deep_net", target_column: "y", seed: 1 }, "model_type"));
+    rejects("mlTrainRegressor", { model_type: "deep_net", target_column: "y", seed: 1 }, "model_type"));
   it("requires a target for supervised models (superRefine)", () =>
-    rejects("mlTrain", { model_type: "ridge", seed: 1 }, "target_column"));
+    rejects("mlTrainRegressor", { model_type: "ridge", seed: 1 }, "target_column"));
   it("rejects the target appearing in features (leakage)", () =>
     rejects(
-      "mlTrain",
+      "mlTrainRegressor",
       { model_type: "ridge", target_column: "y", feature_columns: ["x", "y"], seed: 1 },
       "feature_columns",
     ));

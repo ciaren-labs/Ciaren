@@ -1,5 +1,6 @@
 """ML-specific run operations: reading per-node ML metrics off a finished run and
 promoting a run's trained model into the MLflow registry."""
+
 from __future__ import annotations
 
 import json
@@ -245,7 +246,7 @@ class MLService:
                     "last_run": _ms_to_iso(last),
                 }
             )
-        experiments.sort(key=lambda e: (e["last_run"] or ""), reverse=True)
+        experiments.sort(key=lambda e: e["last_run"] or "", reverse=True)
         return experiments
 
     async def list_experiment_runs(self, experiment_id: str, limit: int = 100) -> list[dict[str, Any]]:
@@ -274,9 +275,11 @@ class MLService:
         return runs
 
     def _experiment_names(self, graph: dict[str, Any]) -> set[str]:
+        from app.engine.node_kinds import ML_OUTPUT_NODES
+
         names: set[str] = set()
         for node in graph.get("nodes", []):
-            if node.get("type") == "mlTrain":
+            if node.get("type") in ML_OUTPUT_NODES:
                 config = node.get("data", {}).get("config", {})
                 names.add(config.get("mlflow_experiment") or _DEFAULT_EXPERIMENT)
         return names

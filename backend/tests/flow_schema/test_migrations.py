@@ -50,6 +50,14 @@ def test_stops_at_intermediate_target():
     assert "b" not in out
 
 
+def test_error_when_migration_overshoots_target():
+    # The only registered step jumps 1.0.0 -> 2.0.0; asking for the in-between
+    # 1.5.0 has no exact landing point and must error rather than return 2.0.0.
+    register_migration("1.0.0", "2.0.0", lambda d: {**d, "b": 2})
+    with pytest.raises(MigrationError, match="overshot"):
+        migrate({"schemaVersion": "1.0.0"}, target="1.5.0")
+
+
 def test_error_when_no_path():
     with pytest.raises(MigrationError, match="no migration registered"):
         migrate({"schemaVersion": "1.0.0"}, target="9.9.9")

@@ -1447,8 +1447,12 @@ export function NodeConfigForm({
       );
 
     // ----- Machine learning -----
-    case "mlTrain":
-      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} />;
+    case "mlTrainClassifier":
+    case "mlTrainRegressor":
+    case "mlTrainClustering":
+    case "mlTrainForecaster":
+    case "mlTrainDimReduction":
+      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} nodeType={type} />;
 
     case "trainTestSplit":
       return (

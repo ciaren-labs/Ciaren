@@ -202,7 +202,7 @@ describe("computeNodeColumns", () => {
     const ds = [dataset("d1", ["x1", "x2", "target"])];
     const nodes = [
       node("in", "csvInput", { dataset_id: "d1" }),
-      node("tr", "mlTrain", { model_type: "random_forest_classifier", target_column: "target" }),
+      node("tr", "mlTrainClassifier", { model_type: "random_forest_classifier", target_column: "target" }),
       node("pr", "mlPredict", { output_column: "prediction" }),
     ];
     const edges = [
@@ -222,7 +222,7 @@ describe("computeNodeColumns", () => {
     const ds = [dataset("d1", ["x1", "x2", "target"])];
     const nodes = [
       node("in", "csvInput", { dataset_id: "d1" }),
-      node("tr", "mlTrain", { model_type: "random_forest_classifier", target_column: "target" }),
+      node("tr", "mlTrainClassifier", { model_type: "random_forest_classifier", target_column: "target" }),
       node("fi", "featureImportance", {}),
     ];
     const edges = [edge("in", "tr"), edge("tr", "fi", "model")];
@@ -675,7 +675,7 @@ describe("cleanStaleColumnRefs — conditionalColumn", () => {
 
 describe("cleanStaleColumnRefs — mlTrain", () => {
   it("clears stale feature_columns and target_column", () => {
-    const { hadStale, patched } = clean("mlTrain", {
+    const { hadStale, patched } = clean("mlTrainClassifier", {
       model_type: "random_forest",
       feature_columns: ["age", "missing_feature", "score"],
       target_column: "gone_label",
@@ -686,7 +686,7 @@ describe("cleanStaleColumnRefs — mlTrain", () => {
   });
 
   it("preserves valid feature_columns and target_column", () => {
-    expectClean("mlTrain", {
+    expectClean("mlTrainRegressor", {
       model_type: "linear_regression",
       feature_columns: ["age", "score"],
       target_column: "name",
@@ -694,7 +694,7 @@ describe("cleanStaleColumnRefs — mlTrain", () => {
   });
 
   it("handles absent feature_columns gracefully", () => {
-    const { hadStale } = clean("mlTrain", { model_type: "svm", target_column: "name" });
+    const { hadStale } = clean("mlTrainClassifier", { model_type: "svm", target_column: "name" });
     expect(hadStale).toBe(false);
   });
 });
