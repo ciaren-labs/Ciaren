@@ -25,6 +25,7 @@ import type {
   MlNodeMetrics,
   MlRegisteredModel,
   MlRegisterResult,
+  LicenseStatus,
   MarketplaceCatalog,
   PluginDiagnostics,
   PluginInfo,
@@ -360,6 +361,7 @@ export const pluginsApi = {
     }
     return (await res.json()) as PluginInstallResult;
   },
+  license: (id: string) => request<LicenseStatus>(`/plugins/${encodeURIComponent(id)}/license`),
 };
 
 // ---- Marketplace ("Explore" catalog) ---------------------------------------

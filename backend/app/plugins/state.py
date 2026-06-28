@@ -42,6 +42,9 @@ class PluginStateEntry(BaseModel):
     granted_permissions: list[Permission] = Field(default_factory=list)
     #: ISO-8601 timestamp the plugin was first discovered (for "new plugin" UX).
     first_seen: str = ""
+    #: How the package verified when it was installed: ``trusted`` | ``untrusted`` |
+    #: ``unsigned`` | ``invalid`` | "" (unknown, e.g. a hand-dropped directory).
+    signature: str = ""
 
 
 def default_state_path() -> Path:
@@ -104,6 +107,11 @@ class PluginStateStore:
         entry = self._entries.get(plugin_id)
         return set(entry.granted_permissions) if entry else set()
 
+    def signature(self, plugin_id: str) -> str:
+        """The install-time signature trust outcome, or "" if unknown."""
+        entry = self._entries.get(plugin_id)
+        return entry.signature if entry else ""
+
     def missing_permissions(self, plugin_id: str, required: Iterable[Permission]) -> list[Permission]:
         granted = self.granted(plugin_id)
         return [p for p in required if p not in granted]
@@ -120,6 +128,13 @@ class PluginStateStore:
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
         if entry.enabled != enabled:
             entry.enabled = enabled
+            self._dirty = True
+
+    def set_signature(self, plugin_id: str, outcome: str) -> None:
+        """Record how a package verified at install time, for later display."""
+        entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
+        if entry.signature != outcome:
+            entry.signature = outcome
             self._dirty = True
 
     def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:
