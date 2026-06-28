@@ -12,14 +12,13 @@ Security:
 
 from __future__ import annotations
 
-import io
 import logging
 from typing import Any
 
 import pandas as pd
 
 from app.connectors.base import ConnectorError
-from app.connectors.storage_base import StorageSpec
+from app.connectors.storage_base import StorageSpec, deserialize_dataframe, serialize_dataframe
 from app.core.secrets import scrub
 
 logging.getLogger("azure").setLevel(logging.CRITICAL)
@@ -80,16 +79,8 @@ class AzureBlobConnector:
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
 
-        buf = io.BytesIO(body)
         try:
-            if fmt == "csv":
-                return pd.read_csv(buf)
-            elif fmt == "excel":
-                return pd.read_excel(buf)
-            elif fmt == "parquet":
-                return pd.read_parquet(buf)
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet.")
+            return deserialize_dataframe(body, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
@@ -108,25 +99,16 @@ class AzureBlobConnector:
             except Exception:
                 pass
 
-        buf = io.BytesIO()
         try:
-            if fmt == "csv":
-                df.to_csv(buf, index=False)
-            elif fmt == "excel":
-                df.to_excel(buf, index=False)
-            elif fmt == "parquet":
-                df.to_parquet(buf, index=False)
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}.")
+            data, _content_type = serialize_dataframe(df, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to serialize as {fmt}: {exc}") from None
 
-        buf.seek(0)
         try:
             blob = client.get_blob_client(container=spec.bucket, blob=path)
-            blob.upload_blob(buf, overwrite=(if_exists == "overwrite"))
+            blob.upload_blob(data, overwrite=(if_exists == "overwrite"))
         except ConnectorError:
             raise
         except Exception as exc:

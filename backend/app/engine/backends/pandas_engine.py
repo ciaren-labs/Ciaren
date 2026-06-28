@@ -25,7 +25,10 @@ class PandasEngine:
         if source_type == "json":
             return pd.read_json(path)
         if source_type == "text":
-            return pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
+            # One row per line. splitlines() is robust — newer pandas rejects sep="\n".
+            from pathlib import Path
+
+            return pd.DataFrame({"text": Path(path).read_text(encoding="utf-8").splitlines()})
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pd.DataFrame, path: str, source_type: str) -> None:
