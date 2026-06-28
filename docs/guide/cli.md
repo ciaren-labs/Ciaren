@@ -205,6 +205,40 @@ flowframe flow migrate  project.flow --to 1.1.0 --write   # write back (keeps a 
 writing the migrated version.
 :::
 
+## `flowframe plugin`
+
+Install, inspect, and (for publishers) sign [plugins](/plugins/writing-a-plugin).
+See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full
+workflow.
+
+```bash
+flowframe plugin list                          # discovered plugins + status
+flowframe plugin install my-plugin.ffplugin    # verify + install
+flowframe plugin install ./src --dir           # install from a source directory
+flowframe plugin install my-plugin.ffplugin --trusted   # require a trusted signature
+flowframe plugin uninstall acme.myplugin
+flowframe plugin verify my-plugin.ffplugin     # trusted | untrusted | unsigned | invalid
+flowframe plugin enable acme.myplugin
+flowframe plugin disable acme.myplugin
+
+# Publisher tooling (needs `flowframe[signing]`):
+flowframe plugin keygen                         # generate an Ed25519 keypair
+flowframe plugin pack ./src out.ffplugin        # build an unsigned package
+flowframe plugin sign out.ffplugin --key <hex> --key-id acme-2026 --publisher acme
+
+flowframe plugin search databricks --index ./marketplace.json
+```
+
+| Subcommand | Description |
+| --- | --- |
+| `list` | List discovered plugins (loaded / disabled / pending) and load errors. |
+| `install` | Verify and install a `.ffplugin` (or `--dir` source). `--trusted` requires a trusted signature; a tampered package is always refused. |
+| `uninstall` | Remove an installed plugin and forget its state. |
+| `verify` | Report a package's signature/integrity outcome (exits non-zero if `invalid`). |
+| `enable` / `disable` | Toggle whether a plugin loads. |
+| `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. |
+| `search` | Search a local marketplace index file. |
+
 ## Environment variables
 
 All settings use the `FLOWFRAME_` prefix and can be set via the environment or a

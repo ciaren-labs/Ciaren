@@ -238,6 +238,49 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write the migrated document back in place (a .bak backup is kept).",
     )
+
+    plugin = sub.add_parser("plugin", help="Install, inspect, and sign FlowFrame plugins.")
+    plugin_sub = plugin.add_subparsers(dest="plugin_command")
+
+    plugin_sub.add_parser("list", help="List discovered plugins and their status.", parents=[output_parent])
+
+    p_install = plugin_sub.add_parser("install", help="Install a .ffplugin package (or a source dir with --dir).")
+    p_install.add_argument("path", help="Path to the .ffplugin file (or plugin source directory with --dir).")
+    p_install.add_argument("--dir", action="store_true", help="Install from an unpacked source directory.")
+    p_install.add_argument("--trusted", action="store_true", help="Refuse unless signed by a trusted key.")
+    p_install.add_argument("--force", action="store_true", help="Overwrite an existing install.")
+
+    p_uninstall = plugin_sub.add_parser("uninstall", help="Remove an installed plugin by id.")
+    p_uninstall.add_argument("plugin_id", help="The plugin id to remove.")
+
+    p_verify = plugin_sub.add_parser(
+        "verify", help="Verify a .ffplugin's signature and integrity.", parents=[output_parent]
+    )
+    p_verify.add_argument("path", help="Path to the .ffplugin file.")
+
+    p_enable = plugin_sub.add_parser("enable", help="Enable a plugin.")
+    p_enable.add_argument("plugin_id")
+    p_disable = plugin_sub.add_parser("disable", help="Disable a plugin (its code won't load).")
+    p_disable.add_argument("plugin_id")
+
+    plugin_sub.add_parser("keygen", help="Generate an Ed25519 signing keypair (for publishers).")
+
+    p_pack = plugin_sub.add_parser("pack", help="Package a plugin source directory into an (unsigned) .ffplugin.")
+    p_pack.add_argument("src_dir", help="Plugin source directory (contains flowframe-plugin.json).")
+    p_pack.add_argument("out", help="Output .ffplugin path.")
+
+    p_sign = plugin_sub.add_parser("sign", help="Sign a .ffplugin in place with an Ed25519 private key.")
+    p_sign.add_argument("path", help="Path to the .ffplugin file.")
+    p_sign.add_argument("--key", required=True, help="Hex-encoded Ed25519 private key.")
+    p_sign.add_argument(
+        "--key-id", required=True, dest="key_id", help="Identifier clients use to look up the public key."
+    )
+    p_sign.add_argument("--publisher", default="", help="Publisher name to embed in the signature.")
+
+    p_search = plugin_sub.add_parser("search", help="Search a local marketplace index.", parents=[output_parent])
+    p_search.add_argument("query", nargs="?", default="", help="Search text (empty lists all).")
+    p_search.add_argument("--index", required=True, help="Path to a marketplace index JSON file.")
+
     return parser
 
 
@@ -583,6 +626,178 @@ def _flow(args: argparse.Namespace) -> None:
         print(json.dumps(migrated, indent=2))
 
 
+def _plugin(args: argparse.Namespace) -> None:
+    command = getattr(args, "plugin_command", None)
+    if command == "list":
+        _plugin_list(args)
+    elif command == "install":
+        _plugin_install(args)
+    elif command == "uninstall":
+        _plugin_uninstall(args)
+    elif command == "verify":
+        _plugin_verify(args)
+    elif command in ("enable", "disable"):
+        _plugin_toggle(args, enable=command == "enable")
+    elif command == "keygen":
+        _plugin_keygen()
+    elif command == "pack":
+        _plugin_pack(args)
+    elif command == "sign":
+        _plugin_sign(args)
+    elif command == "search":
+        _plugin_search(args)
+    else:
+        print("usage: flowframe plugin {list,install,uninstall,verify,enable,disable,keygen,pack,sign,search}")
+
+
+def _plugin_list(args: argparse.Namespace) -> None:
+    from app.plugins import get_load_result, get_plugin_state
+
+    result = get_load_result()
+    state = get_plugin_state()
+    rows: list[dict[str, Any]] = []
+    for p in result.loaded:
+        rows.append({"id": p.metadata.id, "name": p.metadata.name, "status": "loaded", "source": p.source})
+    for g in result.gated:
+        rows.append({"id": g.plugin_id, "name": g.name, "status": g.reason, "source": g.source})
+    errors = [{"source": e.source, "error": e.error} for e in result.errors]
+
+    if getattr(args, "output", "table") == "json":
+        print(json.dumps({"plugins": rows, "errors": errors}, indent=2))
+        return
+    if not rows and not errors:
+        print("No external plugins discovered.")
+        return
+    for r in rows:
+        print(f"  [{r['status']:<17}] {r['id']:<24} {r['name']}  ({r['source']})")
+    for e in errors:
+        print(f"  [error            ] {e['source']}: {e['error']}")
+    _ = state  # reserved for showing granted permissions in a future column
+
+
+def _plugin_install(args: argparse.Namespace) -> None:
+    from app.plugins.install import InstallError, install_directory, install_ffplugin
+    from app.plugins.package import PackageError
+
+    try:
+        if args.dir:
+            res = install_directory(args.path, force=args.force)
+        else:
+            res = install_ffplugin(args.path, require_trusted=args.trusted, force=args.force)
+    except (InstallError, PackageError) as exc:
+        raise SystemExit(f"install failed: {exc}") from exc
+    v = res.verification
+    print(f"Installed {res.plugin_id} -> {res.location}")
+    print(f"  signature: {v.outcome} ({v.reason})")
+    print("Run `flowframe serve` (or restart) to load it.")
+
+
+def _plugin_uninstall(args: argparse.Namespace) -> None:
+    from app.plugins.install import uninstall_plugin
+
+    removed = uninstall_plugin(args.plugin_id)
+    print(f"Uninstalled {args.plugin_id}." if removed else f"{args.plugin_id} is not installed.")
+
+
+def _plugin_verify(args: argparse.Namespace) -> None:
+    from app.plugins.package import PackageError, read_manifest, verify_package
+
+    try:
+        manifest = read_manifest(args.path)
+        result = verify_package(args.path)
+    except PackageError as exc:
+        raise SystemExit(f"verify failed: {exc}") from exc
+    if getattr(args, "output", "table") == "json":
+        print(
+            json.dumps(
+                {
+                    "id": manifest.id,
+                    "outcome": result.outcome,
+                    "signed": result.signed,
+                    "digest": result.digest,
+                    "reason": result.reason,
+                    "publisher": result.publisher,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"Plugin:    {manifest.id} ({manifest.name} {manifest.version})")
+        print(f"Digest:    {result.digest}")
+        print(f"Signature: {result.outcome} — {result.reason}")
+    if result.outcome == "invalid":
+        raise SystemExit(1)
+
+
+def _plugin_toggle(args: argparse.Namespace, *, enable: bool) -> None:
+    from app.plugins import get_plugin_state
+
+    state = get_plugin_state()
+    state.set_enabled(args.plugin_id, enable)
+    state.save()
+    print(f"{'Enabled' if enable else 'Disabled'} {args.plugin_id}. Restart `flowframe serve` to apply.")
+
+
+def _plugin_keygen() -> None:
+    from app.plugin_api.signing import SigningUnavailableError, generate_keypair
+
+    try:
+        private_hex, public_hex = generate_keypair()
+    except SigningUnavailableError as exc:
+        raise SystemExit(str(exc)) from exc
+    print("Ed25519 keypair generated. Keep the private key secret.\n")
+    print(f"  private_key: {private_hex}")
+    print(f"  public_key:  {public_hex}")
+    print("\nPublish the public key as a trusted key, e.g.:")
+    print(f'  FLOWFRAME_TRUSTED_PLUGIN_KEYS=\'{{"your-key-id": "{public_hex}"}}\'')
+
+
+def _plugin_pack(args: argparse.Namespace) -> None:
+    from app.plugins.package import PackageError, pack_directory
+
+    try:
+        out = pack_directory(args.src_dir, args.out)
+    except PackageError as exc:
+        raise SystemExit(f"pack failed: {exc}") from exc
+    print(f"Wrote {out} (unsigned). Sign it with `flowframe plugin sign`.")
+
+
+def _plugin_sign(args: argparse.Namespace) -> None:
+    from app.plugin_api.signing import SigningUnavailableError
+    from app.plugins.package import PackageError, sign_package
+
+    try:
+        sig = sign_package(args.path, args.key, key_id=args.key_id, publisher=args.publisher)
+    except SigningUnavailableError as exc:
+        raise SystemExit(str(exc)) from exc
+    except PackageError as exc:
+        raise SystemExit(f"sign failed: {exc}") from exc
+    print(f"Signed {args.path}")
+    print(f"  key_id: {sig.key_id}")
+    print(f"  digest: {sig.digest}")
+
+
+def _plugin_search(args: argparse.Namespace) -> None:
+    from app.plugins.marketplace import load_index
+
+    try:
+        index = load_index(args.index)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"could not read index: {exc}") from exc
+    matches = index.search(args.query)
+    if getattr(args, "output", "table") == "json":
+        print(json.dumps([m.model_dump(by_alias=True) for m in matches], indent=2))
+        return
+    if not matches:
+        print("No matching plugins.")
+        return
+    for m in matches:
+        flag = " [license]" if m.license_required else ""
+        print(f"  {m.id:<24} {m.version:<8} {m.name}{flag}")
+        if m.description:
+            print(f"      {m.description}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -594,6 +809,7 @@ def main(argv: list[str] | None = None) -> None:
         "db": _db,
         "transformations": _transformations,
         "flow": _flow,
+        "plugin": _plugin,
     }
     handler = handlers.get(args.command)
     if handler is None:

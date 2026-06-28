@@ -26,6 +26,14 @@ from app.plugin_api.providers import (
     ValidatorProvider,
 )
 from app.plugin_api.registry import DuplicateRegistrationError, ServiceRegistry
+from app.plugin_api.signing import (
+    SigningUnavailableError,
+    generate_keypair,
+    sha256_hex,
+    sign,
+    signing_available,
+    verify,
+)
 from app.plugin_api.specs import (
     AICapabilitySpec,
     AuthMethodSpec,
@@ -78,4 +86,11 @@ __all__ = [
     # events
     "EventBus",
     "Hook",
+    # signing
+    "sha256_hex",
+    "sign",
+    "verify",
+    "generate_keypair",
+    "signing_available",
+    "SigningUnavailableError",
 ]
