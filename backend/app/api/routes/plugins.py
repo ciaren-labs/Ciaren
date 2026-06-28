@@ -1,0 +1,185 @@
+"""Installed-plugin introspection and management.
+
+Lists what loaded, what was gated (disabled or pending permission approval), and
+what failed. The management endpoints let the user enable/disable a plugin and
+grant/revoke the permissions it requested — the *trust/UX boundary* from the
+architecture plan. Changes take effect live: the registry is rebuilt so a granted
+plugin's nodes appear in the catalog without a restart.
+"""
+
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from app.plugin_api import Hook, Permission
+from app.plugins import (
+    get_load_result,
+    get_plugin_state,
+    get_registry,
+    reload_plugins,
+)
+from app.plugins.loader import GatedPlugin, LoadedPlugin, LoadResult
+from app.plugins.state import PluginStateStore
+
+router = APIRouter()
+
+PluginStatus = Literal["loaded", "disabled", "needs_permissions"]
+
+
+class PluginInfo(BaseModel):
+    id: str
+    name: str
+    version: str = ""
+    publisher: str = ""
+    description: str = ""
+    source: str
+    status: PluginStatus
+    capabilities: list[str] = Field(default_factory=list)
+    #: Permissions the plugin requests in its manifest/metadata.
+    permissions: list[Permission] = Field(default_factory=list)
+    #: Permissions the user has granted it so far.
+    granted_permissions: list[Permission] = Field(default_factory=list)
+    #: Requested-but-not-yet-granted permissions (non-empty ⇒ needs approval).
+    missing_permissions: list[Permission] = Field(default_factory=list)
+
+
+class PluginErrorInfo(BaseModel):
+    source: str
+    error: str
+
+
+class PluginDiagnostics(BaseModel):
+    loaded: list[PluginInfo]
+    gated: list[PluginInfo]
+    errors: list[PluginErrorInfo]
+
+
+class GrantRequest(BaseModel):
+    #: Permissions to grant. Omit/empty to grant every permission the plugin requests.
+    permissions: list[Permission] = Field(default_factory=list)
+
+
+class RevokeRequest(BaseModel):
+    permissions: list[Permission] = Field(default_factory=list)
+
+
+def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
+    meta = loaded.metadata
+    return PluginInfo(
+        id=meta.id,
+        name=meta.name,
+        version=meta.version,
+        publisher=meta.publisher,
+        description=meta.description,
+        source=loaded.source,
+        status="loaded",
+        capabilities=list(meta.capabilities),
+        permissions=list(meta.permissions),
+        granted_permissions=sorted(state.granted(meta.id), key=lambda p: p.value),
+    )
+
+
+def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
+    status: PluginStatus = "disabled" if gated.reason == "disabled" else "needs_permissions"
+    return PluginInfo(
+        id=gated.plugin_id,
+        name=gated.name,
+        source=gated.source,
+        status=status,
+        permissions=list(gated.requested_permissions),
+        granted_permissions=sorted(state.granted(gated.plugin_id), key=lambda p: p.value),
+        missing_permissions=list(gated.missing_permissions),
+    )
+
+
+def _all_infos(result: LoadResult, state: PluginStateStore) -> list[PluginInfo]:
+    return [_loaded_info(p, state) for p in result.loaded] + [_gated_info(g, state) for g in result.gated]
+
+
+@router.get("", response_model=list[PluginInfo])
+async def list_plugins() -> list[PluginInfo]:
+    """Every discovered plugin (loaded + gated) with its status. The open-source
+    core is not listed — it is always present."""
+    return _all_infos(get_load_result(), get_plugin_state())
+
+
+@router.get("/diagnostics", response_model=PluginDiagnostics)
+async def plugin_diagnostics() -> PluginDiagnostics:
+    """Loaded plugins, gated plugins, and any isolated load/validation errors."""
+    result = get_load_result()
+    state = get_plugin_state()
+    return PluginDiagnostics(
+        loaded=[_loaded_info(p, state) for p in result.loaded],
+        gated=[_gated_info(g, state) for g in result.gated],
+        errors=[PluginErrorInfo(source=e.source, error=e.error) for e in result.errors],
+    )
+
+
+def _find_info(plugin_id: str) -> PluginInfo:
+    info = next((i for i in _all_infos(get_load_result(), get_plugin_state()) if i.id == plugin_id), None)
+    if info is None:
+        raise HTTPException(status_code=404, detail=f"Plugin {plugin_id!r} not found")
+    return info
+
+
+def _requested_permissions(plugin_id: str) -> list[Permission]:
+    info = next((i for i in _all_infos(get_load_result(), get_plugin_state()) if i.id == plugin_id), None)
+    return list(info.permissions) if info else []
+
+
+def _emit_lifecycle(hook: Hook, plugin_id: str) -> None:
+    try:
+        get_registry().events.emit(hook, plugin_id=plugin_id)
+    except Exception:  # noqa: BLE001 — lifecycle hooks must never break management
+        pass
+
+
+@router.post("/{plugin_id}/enable", response_model=PluginInfo)
+async def enable_plugin(plugin_id: str) -> PluginInfo:
+    """Re-enable a disabled plugin. If it still requests ungranted permissions it
+    will move to ``needs_permissions`` rather than ``loaded``."""
+    _find_info(plugin_id)  # 404 if unknown
+    state = get_plugin_state()
+    state.set_enabled(plugin_id, True)
+    state.save()
+    reload_plugins()
+    _emit_lifecycle(Hook.plugin_enabled, plugin_id)
+    return _find_info(plugin_id)
+
+
+@router.post("/{plugin_id}/disable", response_model=PluginInfo)
+async def disable_plugin(plugin_id: str) -> PluginInfo:
+    """Disable a plugin so its code is not loaded on subsequent startups."""
+    _find_info(plugin_id)
+    state = get_plugin_state()
+    state.set_enabled(plugin_id, False)
+    state.save()
+    reload_plugins()
+    _emit_lifecycle(Hook.plugin_disabled, plugin_id)
+    return _find_info(plugin_id)
+
+
+@router.post("/{plugin_id}/grant", response_model=PluginInfo)
+async def grant_permissions(plugin_id: str, body: GrantRequest) -> PluginInfo:
+    """Grant permissions to a plugin. With an empty list, grants everything the
+    plugin requests (one-click "approve"). Loads the plugin if it was pending."""
+    _find_info(plugin_id)
+    perms = body.permissions or _requested_permissions(plugin_id)
+    state = get_plugin_state()
+    state.grant(plugin_id, perms)
+    state.save()
+    reload_plugins()
+    return _find_info(plugin_id)
+
+
+@router.post("/{plugin_id}/revoke", response_model=PluginInfo)
+async def revoke_permissions(plugin_id: str, body: RevokeRequest) -> PluginInfo:
+    """Revoke permissions from a plugin. If it then has ungranted required
+    permissions it becomes pending (its code stops loading)."""
+    _find_info(plugin_id)
+    state = get_plugin_state()
+    state.revoke(plugin_id, body.permissions)
+    state.save()
+    reload_plugins()
+    return _find_info(plugin_id)

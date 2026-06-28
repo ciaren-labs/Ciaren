@@ -39,9 +39,9 @@ def _node(node_id: str, node_type: str, config: dict[str, Any], x: int, y: int) 
 def _output(node_id: str, dataset_name: str, x: int, y: int) -> dict[str, Any]:
     return {
         "id": node_id,
-        "type": "csvOutput",
+        "type": "fileOutput",
         "position": {"x": x, "y": y},
-        "data": {"config": {"dataset_name": dataset_name}},
+        "data": {"config": {"format": "csv", "dataset_name": dataset_name}},
     }
 
 
@@ -392,7 +392,7 @@ def _iris_quick_classifier(ds: dict[str, str]) -> DemoFlow:
             ),
             _node(
                 "train",
-                "mlTrain",
+                "mlTrainClassifier",
                 {
                     "model_type": "random_forest_classifier",
                     "target_column": "species",
@@ -434,7 +434,7 @@ def _iris_train_validate_evaluate(ds: dict[str, str]) -> DemoFlow:
             ),
             _node(
                 "train",
-                "mlTrain",
+                "mlTrainClassifier",
                 {
                     "model_type": "random_forest_classifier",
                     "target_column": "species",
@@ -499,7 +499,7 @@ def _house_prices_regression(ds: dict[str, str]) -> DemoFlow:
             _node("split", "trainTestSplit", {"test_size": 0.25, "seed": 42}, 250, 0),
             _node(
                 "train",
-                "mlTrain",
+                "mlTrainRegressor",
                 {
                     "model_type": "random_forest_regressor",
                     "target_column": "price",

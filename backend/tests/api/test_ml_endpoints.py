@@ -1,4 +1,5 @@
 """ML run endpoints: GET /api/runs/{id}/ml/metrics and POST .../ml/register."""
+
 import numpy as np
 import pandas as pd
 from httpx import AsyncClient
@@ -29,12 +30,23 @@ async def _run_with_results(db_session, node_results: list[dict]) -> str:
 
 
 async def test_metrics_returns_ml_nodes(client: AsyncClient, db_session) -> None:
-    run_id = await _run_with_results(db_session, [
-        {"node_id": "in1", "type": "csvInput", "status": "success"},  # no ML fields
-        {"node_id": "tr", "type": "mlTrain", "label": "Train", "status": "success",
-         "ml_metrics": {"train_accuracy": 0.9}, "model_uri": "models:/m-abc",
-         "task_type": "classification", "cv_scores": [0.8, 0.9], "mlflow_run_id": "r1"},
-    ])
+    run_id = await _run_with_results(
+        db_session,
+        [
+            {"node_id": "in1", "type": "csvInput", "status": "success"},  # no ML fields
+            {
+                "node_id": "tr",
+                "type": "mlTrainClassifier",
+                "label": "Train",
+                "status": "success",
+                "ml_metrics": {"train_accuracy": 0.9},
+                "model_uri": "models:/m-abc",
+                "task_type": "classification",
+                "cv_scores": [0.8, 0.9],
+                "mlflow_run_id": "r1",
+            },
+        ],
+    )
     r = await client.get(f"/api/runs/{run_id}/ml/metrics")
     assert r.status_code == 200
     data = r.json()
@@ -45,10 +57,13 @@ async def test_metrics_returns_ml_nodes(client: AsyncClient, db_session) -> None
 
 
 async def test_metrics_empty_for_non_ml_run(client: AsyncClient, db_session) -> None:
-    run_id = await _run_with_results(db_session, [
-        {"node_id": "in1", "type": "csvInput", "status": "success"},
-        {"node_id": "drop", "type": "dropNulls", "status": "success"},
-    ])
+    run_id = await _run_with_results(
+        db_session,
+        [
+            {"node_id": "in1", "type": "csvInput", "status": "success"},
+            {"node_id": "drop", "type": "dropNulls", "status": "success"},
+        ],
+    )
     r = await client.get(f"/api/runs/{run_id}/ml/metrics")
     assert r.status_code == 200
     assert r.json() == []
@@ -63,9 +78,12 @@ async def test_metrics_404_for_unknown_run(client: AsyncClient) -> None:
 
 
 async def test_register_501_when_ml_disabled(client: AsyncClient, db_session) -> None:
-    run_id = await _run_with_results(db_session, [
-        {"node_id": "tr", "type": "mlTrain", "status": "success", "model_uri": "models:/m-abc"},
-    ])
+    run_id = await _run_with_results(
+        db_session,
+        [
+            {"node_id": "tr", "type": "mlTrainClassifier", "status": "success", "model_uri": "models:/m-abc"},
+        ],
+    )
     r = await client.post(f"/api/runs/{run_id}/ml/register", json={"model_name": "m"})
     assert r.status_code == 501
 
@@ -74,9 +92,12 @@ async def test_register_400_when_no_model(client: AsyncClient, db_session, monke
     monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
-        run_id = await _run_with_results(db_session, [
-            {"node_id": "drop", "type": "dropNulls", "status": "success"},
-        ])
+        run_id = await _run_with_results(
+            db_session,
+            [
+                {"node_id": "drop", "type": "dropNulls", "status": "success"},
+            ],
+        )
         r = await client.post(f"/api/runs/{run_id}/ml/register", json={"model_name": "m"})
         assert r.status_code == 400
         assert "no trained model" in r.json()["detail"]
@@ -88,9 +109,12 @@ async def test_register_validation_empty_name(client: AsyncClient, db_session, m
     monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
-        run_id = await _run_with_results(db_session, [
-            {"node_id": "tr", "type": "mlTrain", "status": "success", "model_uri": "models:/m-abc"},
-        ])
+        run_id = await _run_with_results(
+            db_session,
+            [
+                {"node_id": "tr", "type": "mlTrainClassifier", "status": "success", "model_uri": "models:/m-abc"},
+            ],
+        )
         r = await client.post(f"/api/runs/{run_id}/ml/register", json={"model_name": ""})
         assert r.status_code == 422  # schema min_length
     finally:
@@ -110,13 +134,22 @@ async def _train_register(db_session, tmp_path, name: str = "iris-model") -> dic
     df = pd.DataFrame({"x1": x[:, 0], "x2": x[:, 1], "target": (x[:, 0] + x[:, 1] > 0).astype(int)})
     with run_context(flow_id="flow-123", run_id="run-456", dataset_ids=["ds-789"]):
         _, meta = MLTrainTransformation().execute_with_metadata(
-            engine, {"in": engine.from_pandas(df)},
+            engine,
+            {"in": engine.from_pandas(df)},
             {"model_type": "logistic_regression", "target_column": "target", "seed": 1},
         )
-    run_id = await _run_with_results(db_session, [
-        {"node_id": "tr", "type": "mlTrain", "status": "success",
-         "model_uri": meta.model_uri, "task_type": "classification"},
-    ])
+    run_id = await _run_with_results(
+        db_session,
+        [
+            {
+                "node_id": "tr",
+                "type": "mlTrainClassifier",
+                "status": "success",
+                "model_uri": meta.model_uri,
+                "task_type": "classification",
+            },
+        ],
+    )
     from app.services.ml_service import MLService
 
     return await MLService(db_session).register_model(run_id, name)
@@ -177,9 +210,7 @@ async def test_set_and_clear_model_alias(client: AsyncClient, db_session, tmp_pa
     try:
         await _train_register(db_session, tmp_path, name="alias-model")
         # Set an alias on version 1.
-        r = await client.post(
-            "/api/ml/models/alias-model/alias", json={"alias": "Staging", "version": "1"}
-        )
+        r = await client.post("/api/ml/models/alias-model/alias", json={"alias": "Staging", "version": "1"})
         assert r.status_code == 200, r.text
         assert r.json()["alias"] == "staging"
         models = {m["name"]: m for m in (await client.get("/api/ml/models")).json()}
@@ -207,16 +238,23 @@ async def test_register_happy_path(client: AsyncClient, db_session, tmp_path, mo
         x = rng.normal(size=(60, 2))
         df = pd.DataFrame({"x1": x[:, 0], "x2": x[:, 1], "target": (x[:, 0] + x[:, 1] > 0).astype(int)})
         _, meta = MLTrainTransformation().execute_with_metadata(
-            engine, {"in": engine.from_pandas(df)},
+            engine,
+            {"in": engine.from_pandas(df)},
             {"model_type": "logistic_regression", "target_column": "target", "seed": 1},
         )
-        run_id = await _run_with_results(db_session, [
-            {"node_id": "tr", "type": "mlTrain", "status": "success",
-             "model_uri": meta.model_uri, "task_type": "classification"},
-        ])
-        r = await client.post(
-            f"/api/runs/{run_id}/ml/register", json={"model_name": "churn-model", "stage": "Staging"}
+        run_id = await _run_with_results(
+            db_session,
+            [
+                {
+                    "node_id": "tr",
+                    "type": "mlTrainClassifier",
+                    "status": "success",
+                    "model_uri": meta.model_uri,
+                    "task_type": "classification",
+                },
+            ],
         )
+        r = await client.post(f"/api/runs/{run_id}/ml/register", json={"model_name": "churn-model", "stage": "Staging"})
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["model_name"] == "churn-model"

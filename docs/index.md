@@ -83,7 +83,7 @@ FlowFrame supports 28 transformation nodes plus file, SQL, and cloud-storage inp
     {"type":"clean","label":"Clean","detail":"nulls · types · dedupe · rename"},
     {"type":"transform","label":"Transform","detail":"join · group · pivot · calculate"},
     {"type":"ml","label":"ML (optional)","detail":"split · train · predict · evaluate"},
-    {"type":"output","label":"CSV / SQL / Parquet Output","detail":"export or write to DB"}
+    {"type":"output","label":"File / SQL / Storage Output","detail":"export or write to DB/cloud"}
   ]'
 />
 

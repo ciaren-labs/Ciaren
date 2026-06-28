@@ -6,16 +6,36 @@ export type MlTask =
   | "classification"
   | "regression"
   | "clustering"
-  | "dimensionality_reduction";
+  | "dimensionality_reduction"
+  | "timeseries";
 
 export const ML_TASK_LABELS: Record<MlTask, string> = {
   classification: "Classification",
   regression: "Regression",
   clustering: "Clustering",
   dimensionality_reduction: "Dimensionality reduction",
+  timeseries: "Time series",
 };
 
-export const SUPERVISED_TASKS = new Set<MlTask>(["classification", "regression"]);
+export const SUPERVISED_TASKS = new Set<MlTask>(["classification", "regression", "timeseries"]);
+
+// Each task-scoped train node accepts models from one task family, so its picker
+// shows only relevant models. Mirrors TRAIN_NODE_TASKS in app/ml/models.py.
+export const TRAIN_NODE_TASKS: Record<string, MlTask> = {
+  mlTrainClassifier: "classification",
+  mlTrainRegressor: "regression",
+  mlTrainClustering: "clustering",
+  mlTrainForecaster: "timeseries",
+  mlTrainDimReduction: "dimensionality_reduction",
+};
+
+export const TRAIN_NODE_TYPES = Object.keys(TRAIN_NODE_TASKS);
+
+/** Models a given train node can pick (empty for tasks with no models yet). */
+export function modelsForNodeType(nodeType: string): MlModelDef[] {
+  const task = TRAIN_NODE_TASKS[nodeType];
+  return task ? ML_MODELS.filter((m) => m.task === task) : ML_MODELS;
+}
 
 export type HyperControl = "int" | "float" | "bool" | "select";
 

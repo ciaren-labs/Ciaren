@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flowframe-hello-plugin"
+version = "0.1.0"
+description = "Example FlowFrame plugin contributing one catalog node."
+requires-python = ">=3.12"
+# Depends only on the FlowFrame plugin contract, never on the app internals.
+# (Until flowframe-plugin-api is published separately, this resolves to the
+# app.plugin_api package inside the FlowFrame backend.)
+dependencies = []
+
+# How an installed plugin is discovered by FlowFrame's loader.
+[project.entry-points."flowframe.plugins"]
+hello = "flowframe_hello.plugin:HelloPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["flowframe_hello"]

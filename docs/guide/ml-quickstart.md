@@ -52,17 +52,17 @@ this connection, so changing it re-points MLflow everywhere — no restart neede
     {"type":"input","label":"CSV Input","detail":"churn dataset"},
     {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
     {"type":"ml","label":"Scale Features","detail":"normalize numeric cols"},
-    {"type":"ml","label":"Train Model","detail":"Random Forest → MLflow"},
+    {"type":"ml","label":"Train Classifier","detail":"Random Forest → MLflow"},
     {"type":"ml","label":"Predict","detail":"test output + model wire"},
     {"type":"ml","label":"Evaluate","detail":"accuracy, AUC, F1"},
-    {"type":"output","label":"CSV Output","detail":"save metrics"}
+    {"type":"output","label":"File Output","detail":"save metrics"}
   ]'
 />
 
 :::tip Purple model wire
 **Train/Test Split** has two output handles: `train` and `test`. The train handle
-feeds **Scale Features** and then **Train Model**. The test handle feeds the data
-input of **Predict** directly. **Train Model** has a second output — the **model**
+feeds **Scale Features** and then **Train Classifier**. The test handle feeds the data
+input of **Predict** directly. **Train Classifier** has a second output — the **model**
 handle — which connects via a purple wire to **Predict**'s model input.
 :::
 
@@ -77,7 +77,7 @@ Open a flow and expand **Machine Learning** in the node palette:
 | **Encode Categories** | One-hot or ordinal encoding for text columns. |
 | **Select Features** | Keep the most useful columns (variance / correlation / top-K). |
 | **Reduce Dimensions** | Compress numeric columns with PCA. |
-| **Train Model** | Fit a model and log it to MLflow. |
+| **Train Classifier** | Fit a model and log it to MLflow. |
 | **Predict** | Score rows with a trained model. |
 | **Evaluate** | Compute metrics from predictions. |
 | **Feature Importance** | Rank which features the model relied on. |
@@ -88,20 +88,20 @@ Open a flow and expand **Machine Learning** in the node palette:
    column, e.g. `churn`).
 2. **Train / Test Split** — connect the input. Set a **seed** (required for
    reproducibility) and, for classification, stratify on your target.
-3. **Train Model** — connect the split's **train** output.
+3. **Train Classifier** — connect the split's **train** output.
    - Pick a **Model** (grouped by task). Random Forest is a solid default.
    - Choose the **Target column** (`churn`). Leave **Feature columns** empty to
      use every other column.
    - Tweak basic hyperparameters inline, or open **Advanced options** for the
      full set, cross-validation, and preprocessing.
 4. **Predict** — connect the split's **test** output to its data input, and the
-   Train Model's **model** output (the purple wire) to its model input.
+   Train Classifier's **model** output (the purple wire) to its model input.
 5. **Evaluate** — connect Predict. Set the task type and the prediction column
    (`prediction`); choose metrics or accept the defaults.
-6. **Output** — connect a **CSV Output** to Evaluate to save the metrics table.
+6. **Output** — connect a **File Output** to Evaluate to save the metrics table.
 
 ::: tip Multi-output nodes
-Train / Test Split has two outputs (`train`, `test`) and Train Model has two
+Train / Test Split has two outputs (`train`, `test`) and Train Classifier has two
 (`out`, `model`). Drag from the specific handle you need. The **purple** wire is
 a model reference; blue wires are data.
 :::
@@ -110,9 +110,9 @@ a model reference; blue wires are data.
 
 Run the flow, then open the run. The run detail page shows the full DAG with green checkmarks on every node and row counts at each step:
 
-![Run detail for an ML flow — csvInput, scaleFeatures, trainTestSplit, mlTrain, featureImportance, mlPredict, mlEvaluate, and two csvOutput nodes all succeeded](/screenshots/run-detail.png)
+![Run detail for an ML flow — csvInput, scaleFeatures, trainTestSplit, mlTrainClassifier, featureImportance, mlPredict, mlEvaluate, and two csvOutput nodes all succeeded](/screenshots/run-detail.png)
 
-Click the **Train Model** node to see its **Machine learning** panel:
+Click the **Train Classifier** node to see its **Machine learning** panel:
 
 - training metrics and cross-validation folds,
 - a confusion-matrix heatmap (classification),

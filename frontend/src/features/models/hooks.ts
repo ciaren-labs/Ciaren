@@ -9,7 +9,7 @@ export function useMlEnabled() {
     queryFn: () => transformationsApi.list(),
     staleTime: 5 * 60 * 1000,
   });
-  return (data ?? []).includes("mlTrain");
+  return (data ?? []).includes("mlTrainClassifier");
 }
 
 export function useRegisteredModels() {
