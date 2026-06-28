@@ -6,6 +6,11 @@ plugin depends on this and on the public schema; it never imports private
 internals of the FlowFrame app, engine, or FastAPI layer.
 """
 
+from app.plugin_api.manifest import (
+    PluginManifest,
+    PluginUI,
+    validate_manifest,
+)
 from app.plugin_api.providers import (
     AIProvider,
     AuthProvider,
@@ -62,4 +67,8 @@ __all__ = [
     "LicenseStatus",
     "PluginMetadata",
     "Permission",
+    # manifest
+    "PluginManifest",
+    "PluginUI",
+    "validate_manifest",
 ]
