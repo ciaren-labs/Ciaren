@@ -42,7 +42,7 @@ installing the package was the consent step.
 
 | Surface | How |
 | --- | --- |
-| UI | The **Plugins** page lists each plugin's status, requested vs. granted permissions, and Approve / Enable / Disable actions. |
+| UI | The **Plugins** page lists each plugin's status, requested vs. granted permissions, and Approve / Revoke / Enable / Disable actions. A loaded plugin shows its permissions as active; revoking the ones you granted sends it back to pending. |
 | API | `POST /api/plugins/{id}/enable\|disable\|grant\|revoke` — see [Catalog & Plugins API](/api/catalog). |
 | CLI | `flowframe plugin enable\|disable <id>` — see [CLI reference](/guide/cli). |
 
