@@ -15,7 +15,6 @@ FlowFrame is organized around a few pages, reachable from the navigation bar at 
 
 ![Datasets page — card grid showing uploaded CSV/Parquet files with column counts and version labels](/screenshots/datasets.png)
 
-
 - **Landing** (`/`) — the marketing/start page.
 - **Projects** (`/projects`) — lightweight workspaces that group related datasets
   and flows. A `Default` project always exists. See
@@ -42,7 +41,6 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 [React Flow](https://reactflow.dev/). The layout has three main regions:
 
 ![FlowFrame flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
-
 
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input

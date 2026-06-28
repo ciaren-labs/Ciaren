@@ -27,7 +27,7 @@ or pandas.
   ]'
 />
 
-### What Evaluate produces
+## What Evaluate produces
 
 <DataTransform
   transform="Evaluate (task=classification, prediction_column=prediction)"
