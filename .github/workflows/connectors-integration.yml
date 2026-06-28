@@ -10,18 +10,31 @@ on:
   push:
     branches: [main]
     paths:
-      - backend/**
+      # Scope to connector code + its integration tests (and the extras that
+      # provide the drivers), so unrelated backend changes (e.g. plugins) don't
+      # trigger this heavy container suite.
+      - backend/app/connectors/**
+      - backend/tests/integration/**
+      - backend/pyproject.toml
       - .github/workflows/connectors-integration.yml
   pull_request:
     # Connectors CI only gates main — it's too heavy to run on every feature PR.
     branches: [main]
     paths:
-      - backend/**
+      # Scope to connector code + its integration tests (and the extras that
+      # provide the drivers), so unrelated backend changes (e.g. plugins) don't
+      # trigger this heavy container suite.
+      - backend/app/connectors/**
+      - backend/tests/integration/**
+      - backend/pyproject.toml
       - .github/workflows/connectors-integration.yml
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   s3:
