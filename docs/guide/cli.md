@@ -241,6 +241,9 @@ flowframe plugin index add out.ffplugin --index ./marketplace.json   # author th
 | `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. `pack --compile` ships `.pyc` bytecode instead of source. |
 | `search` | Search a local marketplace index file. |
 | `index add` | Add/replace a packed plugin's entry in a marketplace index (records digest + signing key id). |
+| `license issue` | Sign a license token for a user + plugin (publisher; needs the private key). |
+| `license import` | Cache a received license token locally so the plugin validates it. |
+| `license status` | Show a cached token's user/expiry; `--key <issuer public hex>` verifies the signature. |
 
 ## Environment variables
 

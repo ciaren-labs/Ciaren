@@ -123,3 +123,43 @@ def test_install_trusted_only_rejects_unsigned(src, tmp_path, monkeypatch):
     monkeypatch.setenv("FLOWFRAME_PLUGIN_INSTALL_DIR", str(tmp_path / "i"))
     with pytest.raises(SystemExit):
         main(["plugin", "install", str(pkg), "--trusted"])
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_license_issue_import_status_roundtrip(tmp_path, monkeypatch, capsys):
+    # Isolate the license cache (LicenseCache defaults to ~/.flowframe/licenses).
+    monkeypatch.setenv("HOME", str(tmp_path))
+    main(["plugin", "keygen"])
+    keygen_out = capsys.readouterr().out
+    priv = next(line.split(":", 1)[1].strip() for line in keygen_out.splitlines() if "private_key" in line)
+    pub = next(line.split(":", 1)[1].strip() for line in keygen_out.splitlines() if "public_key" in line)
+
+    token_path = tmp_path / "token.json"
+    main([
+        "plugin", "license", "issue",
+        "--key", priv, "--user", "u-1", "--plugin", "acme.db",
+        "--expires", "2099-01-01T00:00:00Z", "--grace", "2099-02-01T00:00:00Z",
+        "--out", str(token_path),
+    ])
+    assert token_path.is_file()
+    capsys.readouterr()
+
+    main(["plugin", "license", "import", str(token_path)])
+    assert "Imported license for acme.db" in capsys.readouterr().out
+
+    main(["plugin", "license", "status", "acme.db", "--key", pub])
+    out = capsys.readouterr().out
+    assert "valid — licensed" in out
+
+    # A different key fails verification.
+    main(["plugin", "keygen"])
+    other_lines = capsys.readouterr().out.splitlines()
+    other_pub = next(line.split(":", 1)[1].strip() for line in other_lines if "public_key" in line)
+    main(["plugin", "license", "status", "acme.db", "--key", other_pub])
+    assert "invalid" in capsys.readouterr().out
+
+
+def test_license_status_without_cache(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    main(["plugin", "license", "status", "nope.x"])
+    assert "No cached license" in capsys.readouterr().out
