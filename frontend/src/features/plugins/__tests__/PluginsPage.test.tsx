@@ -22,6 +22,8 @@ vi.mock("@/lib/api", () => ({
     enable: (id: string) => enable(id),
     revoke: (id: string, perms: string[]) => revoke(id, perms),
     install: (file: File) => installPlugin(file),
+    license: (id: string) =>
+      Promise.resolve({ plugin_id: id, valid: true, license_type: null, expires_at: null, reason: "no license provider" }),
   },
   marketplaceApi: {
     list: () => marketplaceList(),
@@ -54,9 +56,16 @@ const PENDING = {
   permissions: ["network"],
   granted_permissions: [],
   missing_permissions: ["network"],
+  signature: "unsigned",
 };
 
-const LOADED = { ...PENDING, status: "loaded" as const, permissions: [], missing_permissions: [] };
+const LOADED = {
+  ...PENDING,
+  status: "loaded" as const,
+  permissions: [],
+  missing_permissions: [],
+  signature: "trusted",
+};
 
 // A drop-in plugin the user approved: loaded, with the permissions it requested
 // recorded as granted. Its permissions should read as active, and it can be revoked.
@@ -132,6 +141,15 @@ describe("PluginsPage", () => {
 
     await screen.findByText("Active");
     expect(screen.queryByRole("button", { name: /Revoke/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the install-time signature trust badge", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [PENDING], errors: [] });
+    renderPage();
+
+    // LOADED verified as trusted; PENDING was an unsigned drop-in.
+    expect(await screen.findByText("Trusted")).toBeInTheDocument();
+    expect(screen.getByText("Unsigned")).toBeInTheDocument();
   });
 
   it("surfaces load errors", async () => {
