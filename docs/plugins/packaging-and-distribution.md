@@ -55,7 +55,31 @@ export FLOWFRAME_TRUSTED_PLUGIN_KEYS='{"acme-2026": "<public_hex>"}'
 ```
 
 Trusted keys are read from `FLOWFRAME_TRUSTED_PLUGIN_KEYS` (a JSON object) and
-`~/.flowframe/trusted_keys.json`.
+`~/.flowframe/trusted_keys.json`. The signature covers the package digest **and**
+the signer metadata (`key_id`, `publisher`, `algorithm`), so a valid signature
+can't be relabelled to impersonate a different key.
+
+### Shipping compiled bytecode (paid plugins)
+
+By default a `.ffplugin` carries your `.py` source — anyone can unzip and read it.
+For a paid plugin you can ship compiled bytecode instead:
+
+```bash
+flowframe plugin pack ./my-plugin ./my-plugin-1.0.0.ffplugin --compile
+```
+
+With `--compile`, every `.py` is compiled to optimized `.pyc` (docstrings and
+`assert`s stripped) and only the bytecode ships — the source is omitted. The
+loader imports the bare `.pyc` transparently, so the plugin still runs.
+
+::: warning Bytecode is a deterrent, not real protection
+A `.pyc` can still be decompiled back to near-original logic, and it is **locked to
+the Python version it was built with** (a 3.12 build won't load on 3.13) — build
+one artifact per supported Python version. For genuinely sensitive IP (an AI
+optimizer, a proprietary algorithm), keep the logic in a remote service the plugin
+calls, rather than shipping it to the user's disk at all. See the architecture plan
+§15 — "do not assume Python source can be fully hidden."
+:::
 
 ## Verify and install (users)
 

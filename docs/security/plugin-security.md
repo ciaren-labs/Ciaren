@@ -81,6 +81,20 @@ What signatures protect against: tampered packages, swapped downloads, and
 unofficial builds presented as official. What they **don't**: a signed-but-buggy
 plugin, or someone copying already-installed files.
 
+The signature covers the package digest **and** the signer metadata (`key_id`,
+`publisher`, `algorithm`), and trust is matched strictly by `key_id` — a
+package-supplied `publisher` name can never select which trusted key is checked.
+So a validly-signed package can't be relabelled to impersonate a trusted key.
+
+### Install-time hardening
+
+Installation extracts a `.ffplugin` defensively: entry names are validated
+lexically (absolute paths, `..`, and `\`/drive-qualified paths are rejected) and
+again after path resolution, **symlink entries are refused**, and per-entry/total
+uncompressed size and entry-count caps bound a decompression bomb. Plugin ids that
+aren't filesystem-injective (anything outside `[A-Za-z0-9._-]`) are rejected rather
+than silently rewritten, so one plugin can't clobber another's install directory.
+
 ## Dangerous capabilities
 
 Some operations execute code or touch credentials. FlowFrame already enforces:
