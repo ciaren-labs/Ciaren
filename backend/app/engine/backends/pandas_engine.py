@@ -18,12 +18,16 @@ class PandasEngine:
     def read(self, path: str, source_type: str) -> pd.DataFrame:
         if source_type == "csv":
             return pd.read_csv(path)
+        if source_type == "tsv":
+            return pd.read_csv(path, sep="\t")
         if source_type == "excel":
             return pd.read_excel(path)
         if source_type == "parquet":
             return pd.read_parquet(path)
         if source_type == "json":
             return pd.read_json(path)
+        if source_type == "jsonl":
+            return pd.read_json(path, lines=True)
         if source_type == "text":
             # One row per line. splitlines() is robust — newer pandas rejects sep="\n".
             from pathlib import Path
@@ -34,12 +38,16 @@ class PandasEngine:
     def write(self, df: pd.DataFrame, path: str, source_type: str) -> None:
         if source_type == "csv":
             df.to_csv(path, index=False)
+        elif source_type == "tsv":
+            df.to_csv(path, index=False, sep="\t")
         elif source_type == "excel":
             df.to_excel(path, index=False)
         elif source_type == "parquet":
             df.to_parquet(path, index=False)
         elif source_type == "json":
             df.to_json(path, orient="records", indent=2)
+        elif source_type == "jsonl":
+            df.to_json(path, orient="records", lines=True)
         elif source_type == "text":
             # One row per line. A single-column frame writes its values directly;
             # wider frames are tab-separated (mirrors the text input reader).

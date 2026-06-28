@@ -519,17 +519,17 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   storageInput: z.object({
     connection_id: z.string().min(1, "Select a storage connection"),
     path: z.string().min(1, "File path is required"),
-    format: z.enum(["csv", "excel", "parquet", "json", "text"]),
+    format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
   }),
   storageOutput: z.object({
     connection_id: z.string().min(1, "Select a storage connection"),
     path: z.string().min(1, "Destination path is required"),
-    format: z.enum(["csv", "excel", "parquet", "json", "text"]),
+    format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
     if_exists: z.enum(["overwrite", "error"]).optional(),
   }),
 
   fileOutput: z.object({
-    format: z.enum(["csv", "excel", "parquet", "json", "text"]),
+    format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
     dataset_name: z.string().min(1, "Dataset name is required"),
   }),
   csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),

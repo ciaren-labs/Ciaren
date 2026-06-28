@@ -1,7 +1,7 @@
 ---
-title: File output (CSV / Excel / Parquet / JSON / text)
+title: File output (CSV / TSV / Excel / Parquet / JSON / JSONL / text)
 description: Write the result of a flow to a file
-search: output csv excel parquet json text write save result dataset file
+search: output csv tsv excel parquet json jsonl text write save result dataset file
 ---
 
 # File output
@@ -25,14 +25,14 @@ format from a dropdown and give it a name.
 
 ## Use cases
 
-- Save a cleaned dataset back out as CSV, Excel, Parquet, JSON, or text.
+- Save a cleaned dataset back out as CSV, TSV, Excel, Parquet, JSON, JSON Lines, or text.
 - Produce a Parquet file for fast re-reads in a later flow.
 
 ## Configuration
 
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `format` | enum | Yes | `csv` · `excel` · `parquet` · `json` · `text` |
+| `format` | enum | Yes | `csv` · `tsv` · `excel` · `parquet` · `json` · `jsonl` · `text` |
 | `dataset_name` | string | Yes | Name for the produced dataset/file |
 
 The result is written to the run's output location and registered as a dataset

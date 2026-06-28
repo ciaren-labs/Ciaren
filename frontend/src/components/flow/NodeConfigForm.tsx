@@ -1373,9 +1373,11 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to read.">
             <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
               <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
               <option value="json">JSON</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
               <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
@@ -1419,9 +1421,11 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to write.">
             <Select value={c.format ?? "parquet"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
               <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
               <option value="json">JSON</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
               <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
@@ -1440,9 +1444,11 @@ export function NodeConfigForm({
           <Field label="File type" help="The file format to write the result as.">
             <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV (.csv)</option>
+              <option value="tsv">TSV (.tsv)</option>
               <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet (.parquet)</option>
               <option value="json">JSON (.json)</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
               <option value="text">Text (.txt)</option>
             </Select>
           </Field>
