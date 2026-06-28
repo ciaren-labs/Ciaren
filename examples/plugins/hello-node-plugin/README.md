@@ -30,8 +30,9 @@ flowframe serve
 **Installed package:** `pip install .` inside this folder; the entry point is then
 discovered without setting `FLOWFRAME_PLUGINS_DIR`.
 
-## Scope
+## Execution
 
-In Phase 1 a plugin node appears in the catalog (so the UI can render it). Wiring
-a plugin-supplied node into the **execution engine** is a later phase — this
-provider returns no implementation.
+The node ships a `NodeRuntime` (`HelloGreetingRuntime`), so it runs end-to-end:
+it executes in previews and runs and exports to Python code, exactly like a
+built-in node. The runtime works on pandas; FlowFrame bridges it to the active
+engine (polars/pandas) automatically.
