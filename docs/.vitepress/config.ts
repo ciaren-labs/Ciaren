@@ -10,6 +10,8 @@ const extendingSidebar = [
       { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
       { text: '.flow Document Format', link: '/specs/flow-format' },
       { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
+      { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
+      { text: 'Local-First Trust Model', link: '/security/local-first-trust-model' },
     ],
   },
 ]
@@ -102,6 +104,8 @@ export default defineConfig({
             { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
             { text: '.flow Document Format', link: '/specs/flow-format' },
             { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
+            { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
+            { text: 'Local-First Trust Model', link: '/security/local-first-trust-model' },
           ],
         },
         {
@@ -279,6 +283,7 @@ export default defineConfig({
 
       '/plugins/': extendingSidebar,
       '/specs/': extendingSidebar,
+      '/security/': extendingSidebar,
     },
 
     socialLinks: [
