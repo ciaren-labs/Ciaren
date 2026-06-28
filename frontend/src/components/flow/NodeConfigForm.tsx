@@ -680,12 +680,12 @@ export function NodeConfigForm({
               <Input type="number" value={c.n ?? 100} onChange={(e) => set({ n: Number(e.target.value) })} />
             </Field>
           )}
-          <Field label="Random seed (optional)" error={errors.seed} help="Set for reproducible samples across runs.">
-            <Input
-              type="number"
-              value={c.seed ?? ""}
-              onChange={(e) => set({ seed: e.target.value === "" ? null : Number(e.target.value) })}
-            />
+          <Field
+            label="Random seed"
+            error={errors.seed}
+            help="Required: the same seed reproduces the exact same sample every run."
+          >
+            <Input type="number" value={c.seed ?? 42} onChange={(e) => set({ seed: Number(e.target.value) })} />
           </Field>
         </>
       );

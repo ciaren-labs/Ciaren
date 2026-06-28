@@ -65,10 +65,7 @@ class DatasetService:
         source_type = _validate_extension(filename)
         name = Path(filename).name
 
-        content = await file.read()
-        if len(content) > self.max_upload_bytes:
-            settings = get_settings()
-            raise FileTooLargeError(settings.MAX_UPLOAD_SIZE_MB)
+        content = await self._read_within_limit(file)
 
         df = _parse_dataframe(content, source_type, filename)
         schema = _extract_schema(df)
@@ -119,9 +116,7 @@ class DatasetService:
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def list_all(
-        self, project_id: str | None = None, include_deleted: bool = False
-    ) -> list[DatasetRead]:
+    async def list_all(self, project_id: str | None = None, include_deleted: bool = False) -> list[DatasetRead]:
         stmt = select(Dataset).options(selectinload(Dataset.versions)).order_by(Dataset.created_at.desc())
         if project_id is not None:
             stmt = stmt.where(Dataset.project_id == project_id)
@@ -246,9 +241,7 @@ class DatasetService:
             except OSError:
                 pass  # never fail a purge on a stray filesystem error
 
-    async def list_versions(
-        self, dataset_id: str, limit: int = 100, offset: int = 0
-    ) -> list[DatasetVersionRead]:
+    async def list_versions(self, dataset_id: str, limit: int = 100, offset: int = 0) -> list[DatasetVersionRead]:
         """Newest-first page of a dataset's versions. Output datasets accrue one
         version per run, so this is paginated to stay bounded in production."""
         await self._get_or_raise(dataset_id)
@@ -264,6 +257,26 @@ class DatasetService:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
+
+    async def _read_within_limit(self, file: UploadFile) -> bytes:
+        """Read the upload in bounded chunks, rejecting once it exceeds the limit.
+
+        Reading the whole body first and *then* checking ``len()`` would let a
+        large upload exhaust memory before the limit is ever applied. Streaming in
+        chunks caps memory at roughly the limit plus one chunk and fails fast.
+        """
+        chunk_size = 1024 * 1024  # 1 MiB
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > self.max_upload_bytes:
+                raise FileTooLargeError(get_settings().MAX_UPLOAD_SIZE_MB)
+            chunks.append(chunk)
+        return b"".join(chunks)
 
     async def get_version_location(self, dataset_id: str, version_number: int) -> Path:
         """Return the filesystem path for a specific dataset version."""
