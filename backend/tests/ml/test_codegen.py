@@ -42,7 +42,7 @@ def test_full_ml_pipeline_export_compiles():
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1}},
             },
             {"id": "pr", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
@@ -124,7 +124,7 @@ def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 42, "test_size": 0.25}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {
                     "config": {
                         "model_type": "random_forest_classifier",
@@ -173,7 +173,7 @@ def test_exported_evaluate_and_proba_run_with_all_metrics(tmp_path):
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 7, "test_size": 0.25}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {
                     "config": {
                         "model_type": "random_forest_classifier",
@@ -246,7 +246,7 @@ def test_polars_ml_export_runs_end_to_end(tmp_path, lazy):
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 42, "test_size": 0.25}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {
                     "config": {
                         "model_type": "random_forest_classifier",

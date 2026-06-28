@@ -3,13 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X } from "lucide-react";
 import { transformationsApi } from "@/lib/api";
 import {
-  CATEGORY_LABELS,
-  CATEGORY_ORDER,
-  NODE_TYPES,
-  type NodeCategory,
+  getCategoryLabel,
+  HIDDEN_PALETTE_TYPES,
+  paletteCategories,
   type NodeTypeDef,
 } from "@/lib/nodeCatalog";
-import { CATEGORY_ICONS, CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
+import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
+import { getCategoryIcon, getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -20,6 +20,10 @@ import {
 /** MIME-ish key used to carry the node type across a drag from palette → canvas. */
 export const NODE_DND_MIME = "application/flowframe-node";
 
+const PALETTE_MIN_WIDTH = 200;
+const PALETTE_MAX_WIDTH = 480;
+const PALETTE_DEFAULT_WIDTH = 240;
+
 interface NodePaletteProps {
   onAdd: (def: NodeTypeDef) => void;
   /** When false, every non-input category is locked until a dataset is set. */
@@ -27,11 +31,17 @@ interface NodePaletteProps {
 }
 
 export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
-  // Accordion: all sections collapsed by default per design.
-  const [open, setOpen] = useState<Set<NodeCategory>>(new Set());
+  // Accordion: all sections collapsed by default per design. Categories are
+  // strings (not just the built-in union) so plugin-contributed categories work.
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem("ff_palette_collapsed") === "true";
+  });
+  // User-adjustable panel width (px), persisted. Clamped to a sensible range.
+  const [width, setWidth] = useState(() => {
+    const v = Number(localStorage.getItem("ff_palette_width"));
+    return v >= PALETTE_MIN_WIDTH && v <= PALETTE_MAX_WIDTH ? v : PALETTE_DEFAULT_WIDTH;
   });
 
   const toggleCollapsed = () => {
@@ -40,7 +50,31 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
     localStorage.setItem("ff_palette_collapsed", String(next));
   };
 
-  const toggle = (category: NodeCategory) =>
+  // Drag the right edge to resize. Listeners live on the window so the drag keeps
+  // working even when the cursor moves over the canvas; width is persisted on release.
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    let latest = startW;
+    const onMove = (ev: MouseEvent) => {
+      latest = Math.min(PALETTE_MAX_WIDTH, Math.max(PALETTE_MIN_WIDTH, startW + ev.clientX - startX));
+      setWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem("ff_palette_width", String(Math.round(latest)));
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const toggle = (category: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
@@ -48,8 +82,13 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       return next;
     });
 
+  // The palette is sourced from the backend catalog (which includes plugin nodes)
+  // merged over the static seed; see useNodeCatalog.
+  const catalog = useNodeCatalog();
+
   // The backend only lists ML node types when the ML extension is installed +
-  // enabled, so gate ML palette entries on what the server actually offers.
+  // enabled. The catalog already reflects that, but keep this gate so the static
+  // fallback (offline / failed fetch) still hides ML when it isn't available.
   const { data: availableTypes } = useQuery({
     queryKey: ["transformations", "available"],
     queryFn: () => transformationsApi.list(),
@@ -57,18 +96,25 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   });
   const visibleTypes = useMemo(() => {
     const available = new Set(availableTypes ?? []);
-    return NODE_TYPES.filter((n) => !n.requiresMl || available.has(n.type));
-  }, [availableTypes]);
+    return catalog.filter(
+      (n) => (!n.requiresMl || available.has(n.type)) && !HIDDEN_PALETTE_TYPES.has(n.type),
+    );
+  }, [catalog, availableTypes]);
+
+  // Built-in categories first, then any plugin-contributed categories present.
+  const categories = useMemo(() => paletteCategories(visibleTypes), [visibleTypes]);
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return [];
-    return visibleTypes.filter(
-      (n) =>
-        n.label.toLowerCase().includes(q) ||
-        n.description.toLowerCase().includes(q) ||
-        n.type.toLowerCase().includes(q),
-    );
+    return visibleTypes
+      .filter(
+        (n) =>
+          n.label.toLowerCase().includes(q) ||
+          n.description.toLowerCase().includes(q) ||
+          n.type.toLowerCase().includes(q),
+      )
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [q, visibleTypes]);
 
   if (collapsed) {
@@ -88,9 +134,9 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
         </Tooltip>
 
         <div className="flex flex-col gap-2">
-          {CATEGORY_ORDER.map((cat) => {
-            const CatIcon = CATEGORY_ICONS[cat];
-            const theme = CATEGORY_THEME[cat];
+          {categories.map((cat) => {
+            const CatIcon = getCategoryIcon(cat);
+            const theme = getCategoryTheme(cat);
             const locked = !unlocked && cat !== "input";
             return (
               <Tooltip key={cat}>
@@ -105,7 +151,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
                     <CatIcon className="h-3.5 w-3.5" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="right">{CATEGORY_LABELS[cat]}</TooltipContent>
+                <TooltipContent side="right">{getCategoryLabel(cat)}</TooltipContent>
               </Tooltip>
             );
           })}
@@ -115,7 +161,8 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   }
 
   return (
-    <div className="flex h-full w-60 shrink-0 flex-col gap-2 overflow-y-auto border-r border-border bg-muted/30 p-3">
+    <div className="relative flex h-full shrink-0" style={{ width }}>
+      <div className="flex h-full w-full flex-col gap-2 overflow-y-auto border-r border-border bg-muted/30 p-3">
       <div className="flex items-start justify-between px-1">
         <div>
           <h2 className="text-base font-semibold text-foreground">Nodes</h2>
@@ -178,8 +225,17 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           toggle={toggle}
           onAdd={onAdd}
           nodeTypes={visibleTypes}
+          categories={categories}
         />
       )}
+      </div>
+      <div
+        onMouseDown={startResize}
+        role="separator"
+        aria-orientation="vertical"
+        title="Drag to resize"
+        className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize transition-colors hover:bg-brand-300/60 active:bg-brand-400/70"
+      />
     </div>
   );
 }
@@ -190,12 +246,14 @@ function PaletteAccordion({
   toggle,
   onAdd,
   nodeTypes,
+  categories,
 }: {
   unlocked: boolean;
-  open: Set<NodeCategory>;
-  toggle: (category: NodeCategory) => void;
+  open: Set<string>;
+  toggle: (category: string) => void;
   onAdd: (def: NodeTypeDef) => void;
   nodeTypes: NodeTypeDef[];
+  categories: string[];
 }) {
   return (
     <>
@@ -209,13 +267,15 @@ function PaletteAccordion({
         </div>
       )}
 
-      {CATEGORY_ORDER.map((category) => {
-        const items = nodeTypes.filter((n) => n.category === category);
+      {categories.map((category) => {
+        const items = nodeTypes
+          .filter((n) => n.category === category)
+          .sort((a, b) => a.label.localeCompare(b.label));
         if (items.length === 0) return null;
         const isOpen = open.has(category);
         const locked = !unlocked && category !== "input";
-        const CatIcon = CATEGORY_ICONS[category];
-        const theme = CATEGORY_THEME[category];
+        const CatIcon = getCategoryIcon(category);
+        const theme = getCategoryTheme(category);
         return (
           <div key={category} className="flex flex-col">
             <button
@@ -237,7 +297,7 @@ function PaletteAccordion({
                 <CatIcon className="h-3 w-3" />
               </span>
               <span className="flex-1 text-sm font-semibold text-foreground">
-                {CATEGORY_LABELS[category]}
+                {getCategoryLabel(category)}
               </span>
               {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
               <span className="text-xs tabular-nums text-muted-foreground/70">

@@ -41,8 +41,13 @@ export interface NodeTypeDef {
   isModelSink?: boolean;
   /** Only available when the ML extension is installed + enabled on the server. */
   requiresMl?: boolean;
+  /** Registered for backward-compat but not shown in the palette (superseded). */
+  hidden?: boolean;
   description: string;
 }
+
+/** Node types kept resolvable for existing flows but hidden from the palette. */
+export const HIDDEN_PALETTE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
 
 export const NODE_TYPES: NodeTypeDef[] = [
   // ----- Inputs -----
@@ -503,8 +508,8 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Compress numeric features into principal components (PCA).",
   },
   {
-    type: "mlTrain",
-    label: "Train Model",
+    type: "mlTrainClassifier",
+    label: "Train Classifier",
     category: "ml",
     requiresMl: true,
     defaultConfig: {
@@ -521,7 +526,84 @@ export const NODE_TYPES: NodeTypeDef[] = [
     modelOutputHandles: ["model"],
     hasOutput: true,
     isModelSink: true,
-    description: "Fit a model and log it to MLflow (classification, regression, clustering).",
+    description: "Fit a classification model (predict a category) and log it to MLflow.",
+  },
+  {
+    type: "mlTrainRegressor",
+    label: "Train Regressor",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "random_forest_regressor",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      cross_validate: false,
+      cv_folds: 5,
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Fit a regression model (predict a number) and log it to MLflow.",
+  },
+  {
+    type: "mlTrainClustering",
+    label: "Train Clustering",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "kmeans",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Group rows into clusters (unsupervised) and log the model to MLflow.",
+  },
+  {
+    type: "mlTrainForecaster",
+    label: "Train Forecaster",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "",
+      time_column: "",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Train a time-series forecasting model. (Models coming soon.)",
+  },
+  {
+    type: "mlTrainDimReduction",
+    label: "Train Dim. Reduction",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "pca_fit",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Fit a dimensionality-reduction model (e.g. PCA) and log it to MLflow.",
   },
   {
     type: "mlPredict",
@@ -564,12 +646,24 @@ export const NODE_TYPES: NodeTypeDef[] = [
   },
   // ----- Outputs -----
   {
+    type: "fileOutput",
+    label: "File Output",
+    category: "output",
+    defaultConfig: { format: "csv", dataset_name: "" },
+    inputHandles: ["in"],
+    hasOutput: false,
+    description: "Write the result to a file — choose the format (CSV, Excel, Parquet, JSON, text) and a name.",
+  },
+  // Legacy single-format outputs — superseded by File Output. Kept so existing
+  // flows still resolve, but hidden from the palette (see HIDDEN_PALETTE_TYPES).
+  {
     type: "csvOutput",
     label: "CSV Output",
     category: "output",
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to a CSV file.",
   },
   {
@@ -579,6 +673,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to an Excel file.",
   },
   {
@@ -588,6 +683,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to a Parquet file.",
   },
   {
@@ -614,8 +710,25 @@ export const NODE_TYPE_MAP: Record<string, NodeTypeDef> = Object.fromEntries(
   NODE_TYPES.map((n) => [n.type, n]),
 );
 
+// Runtime overlay populated from the backend catalog (GET /api/catalog/nodes),
+// including plugin-contributed nodes. The static NODE_TYPES above remain the
+// seed/offline fallback; once the catalog is fetched, `setRuntimeNodeDefs`
+// installs the merged set so every existing `getNodeTypeDef` caller (canvas drop,
+// validation, codegen-adjacent UI) resolves plugin nodes without changes.
+let RUNTIME_NODE_DEFS: Record<string, NodeTypeDef> = {};
+
+/** Replace the runtime overlay with the merged catalog (static + backend). */
+export function setRuntimeNodeDefs(defs: NodeTypeDef[]): void {
+  RUNTIME_NODE_DEFS = Object.fromEntries(defs.map((d) => [d.type, d]));
+}
+
+/** Clear the runtime overlay (tests). */
+export function clearRuntimeNodeDefs(): void {
+  RUNTIME_NODE_DEFS = {};
+}
+
 export function getNodeTypeDef(type: string): NodeTypeDef | undefined {
-  return NODE_TYPE_MAP[type];
+  return RUNTIME_NODE_DEFS[type] ?? NODE_TYPE_MAP[type];
 }
 
 export const CATEGORY_LABELS: Record<NodeCategory, string> = {
@@ -639,6 +752,29 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "ml",
   "output",
 ];
+
+/** Display label for any category. Built-in categories use their curated label;
+ *  a plugin category that isn't built in is title-cased so it still reads well. */
+export function getCategoryLabel(category: string): string {
+  const known = CATEGORY_LABELS[category as NodeCategory];
+  if (known) return known;
+  return category
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+/** The categories to show in the palette: the built-in order, followed by any
+ *  extra categories that appear in the given node defs (e.g. from plugins),
+ *  de-duplicated and sorted for stable display. */
+export function paletteCategories(defs: NodeTypeDef[]): string[] {
+  const known = new Set<string>(CATEGORY_ORDER);
+  const extra = new Set<string>();
+  for (const d of defs) {
+    if (!known.has(d.category)) extra.add(d.category);
+  }
+  return [...CATEGORY_ORDER, ...[...extra].sort()];
+}
 
 /** Output handle ids for a node (single implicit "out" unless it declares more). */
 export function getOutputHandles(def: NodeTypeDef): string[] {

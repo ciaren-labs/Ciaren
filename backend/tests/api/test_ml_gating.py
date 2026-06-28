@@ -20,7 +20,7 @@ def _enable_ml(monkeypatch):
 async def test_default_list_excludes_ml_when_disabled(client: AsyncClient) -> None:
     types = (await client.get("/api/transformations")).json()
     assert "dropNulls" in types
-    assert "mlTrain" not in types
+    assert "mlTrainClassifier" not in types
     assert "trainTestSplit" not in types
 
 
@@ -33,7 +33,7 @@ async def test_category_ml_empty_when_disabled(client: AsyncClient) -> None:
 async def test_category_etl_excludes_ml(client: AsyncClient) -> None:
     types = (await client.get("/api/transformations", params={"category": "etl"})).json()
     assert "dropNulls" in types
-    assert "mlTrain" not in types
+    assert "mlTrainClassifier" not in types
 
 
 async def test_preview_ml_node_disabled_returns_501(client: AsyncClient) -> None:
@@ -57,7 +57,7 @@ async def test_default_list_includes_ml_when_enabled(client: AsyncClient, monkey
     _enable_ml(monkeypatch)
     try:
         types = (await client.get("/api/transformations")).json()
-        assert "mlTrain" in types
+        assert "mlTrainClassifier" in types
         assert "dropNulls" in types
     finally:
         get_settings.cache_clear()
@@ -67,7 +67,7 @@ async def test_category_ml_lists_ml_nodes_when_enabled(client: AsyncClient, monk
     _enable_ml(monkeypatch)
     try:
         ml = (await client.get("/api/transformations", params={"category": "ml"})).json()
-        assert {"trainTestSplit", "mlTrain", "mlPredict", "mlEvaluate"}.issubset(set(ml))
+        assert {"trainTestSplit", "mlTrainClassifier", "mlPredict", "mlEvaluate"}.issubset(set(ml))
         assert "dropNulls" not in ml
     finally:
         get_settings.cache_clear()
@@ -105,7 +105,7 @@ async def test_running_an_ml_flow_is_blocked_when_disabled(client: AsyncClient) 
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "logistic_regression", "target_column": "y", "seed": 1}},
             },
         ],

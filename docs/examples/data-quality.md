@@ -11,7 +11,7 @@ numeric columns, duplicates, and out-of-range values. This flow standardizes a
 contact list and drops the rows that can't be trusted.
 
 **You'll use:** CSV Input → String Transform → Cast Types → Drop Nulls →
-Remove Duplicates → Filter Rows → CSV Output.
+Remove Duplicates → Filter Rows → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"contacts.csv"},
@@ -21,7 +21,7 @@ Remove Duplicates → Filter Rows → CSV Output.
   {"type":"clean","label":"Drop Nulls","detail":"subset: name, age"},
   {"type":"clean","label":"Remove Duplicates","detail":"subset: email · keep: first"},
   {"type":"clean","label":"Filter Rows","detail":"0 ≤ age ≤ 120"},
-  {"type":"output","label":"CSV Output","detail":"contacts_clean.csv"}
+  {"type":"output","label":"File Output","detail":"contacts_clean.csv"}
 ]' />
 
 ## Sample data
@@ -56,7 +56,7 @@ row with no name.
    normalized, the duplicate Grace collapses to one row.
 8. **Filter Rows** — `column: "age"`, `operator: "between"`, `value: 0`,
    `value2: 120` (drop the impossible 250).
-9. **CSV Output** — `path: "contacts_clean.csv"`.
+9. **File Output** — `format: csv` (name `contacts_clean`).
 
 Watch the **live preview** at steps 5–8 to confirm each rule does what you expect.
 

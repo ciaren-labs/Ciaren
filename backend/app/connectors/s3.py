@@ -9,16 +9,16 @@ Security:
   reaching log files.
 - All errors are scrubbed of the secret before propagation.
 """
+
 from __future__ import annotations
 
-import io
 import logging
 from typing import Any
 
 import pandas as pd
 
 from app.connectors.base import ConnectorError
-from app.connectors.storage_base import StorageSpec
+from app.connectors.storage_base import StorageSpec, deserialize_dataframe, serialize_dataframe
 from app.core.secrets import scrub
 
 # Silencing these prevents Access Key / token values leaking into log output.
@@ -30,9 +30,7 @@ def _client(spec: StorageSpec) -> Any:
     try:
         import boto3
     except ImportError as exc:
-        raise ConnectorError(
-            "boto3 is not installed. Run: pip install flowframe[s3]"
-        ) from exc
+        raise ConnectorError("boto3 is not installed. Run: pip install flowframe[s3]") from exc
 
     kwargs: dict[str, Any] = {}
     if spec.region:
@@ -78,59 +76,34 @@ class S3Connector:
             body = client.get_object(Bucket=spec.bucket, Key=path)["Body"].read()
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
-        buf = io.BytesIO(body)
         try:
-            if fmt == "csv":
-                return pd.read_csv(buf)
-            elif fmt == "excel":
-                return pd.read_excel(buf)
-            elif fmt == "parquet":
-                return pd.read_parquet(buf)
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet.")
+            return deserialize_dataframe(body, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to parse s3://{spec.bucket}/{path} as {fmt}: {exc}") from None
 
-    def write_file(
-        self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str
-    ) -> None:
+    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         client = _client(spec)
         if if_exists == "error":
             try:
                 client.head_object(Bucket=spec.bucket, Key=path)
                 raise ConnectorError(
-                    f"Object s3://{spec.bucket}/{path} already exists."
-                    " Set 'if_exists' to 'overwrite' to replace it."
+                    f"Object s3://{spec.bucket}/{path} already exists. Set 'if_exists' to 'overwrite' to replace it."
                 )
             except ConnectorError:
                 raise
             except Exception:
                 pass  # Object doesn't exist — safe to write.
 
-        buf = io.BytesIO()
         try:
-            if fmt == "csv":
-                df.to_csv(buf, index=False)
-                content_type = "text/csv"
-            elif fmt == "excel":
-                df.to_excel(buf, index=False)
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            elif fmt == "parquet":
-                df.to_parquet(buf, index=False)
-                content_type = "application/octet-stream"
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}.")
+            data, content_type = serialize_dataframe(df, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to serialize data as {fmt}: {exc}") from None
 
-        buf.seek(0)
         try:
-            client.put_object(
-                Bucket=spec.bucket, Key=path, Body=buf.getvalue(), ContentType=content_type
-            )
+            client.put_object(Bucket=spec.bucket, Key=path, Body=data, ContentType=content_type)
         except Exception as exc:
             raise _guard(exc, spec.secret) from None

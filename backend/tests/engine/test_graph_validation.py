@@ -228,7 +228,7 @@ def test_model_to_model_handle_is_valid():
     graph = {
         "nodes": [
             _ml_input(),
-            _node("tr", "mlTrain", {"model_type": "ridge", "target_column": "y", "seed": 1}),
+            _node("tr", "mlTrainRegressor", {"model_type": "ridge", "target_column": "y", "seed": 1}),
             _node("pr", "mlPredict"),
             _node("fi", "featureImportance"),
             _node("out", "csvOutput"),
@@ -249,7 +249,7 @@ def test_model_into_data_input_rejected():
     graph = {
         "nodes": [
             _ml_input(),
-            _node("tr", "mlTrain", {"model_type": "ridge", "target_column": "y", "seed": 1}),
+            _node("tr", "mlTrainRegressor", {"model_type": "ridge", "target_column": "y", "seed": 1}),
             _node("drop", "dropNulls"),
             _node("out", "csvOutput"),
         ],

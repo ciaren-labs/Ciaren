@@ -95,7 +95,11 @@ export function NodeConfigForm({
   const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
   const objectsQuery = useConnectionObjects(isStorageInput ? c.connection_id || null : null);
 
-  const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
+  // SQL nodes use database connections only — never storage or the MLflow
+  // tracking connection (which isn't a queryable database).
+  const sqlConnections = connections.filter(
+    (cn) => cn.connection_type !== "storage" && cn.connection_type !== "mlflow",
+  );
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
   const FILE_INPUT_SOURCE: Record<string, string> = {
@@ -1369,9 +1373,11 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to read.">
             <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
               <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
               <option value="json">JSON</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
               <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
@@ -1415,8 +1421,12 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to write.">
             <Select value={c.format ?? "parquet"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
+              <option value="tsv">TSV</option>
+              <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
+              <option value="json">JSON</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
+              <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
           <Field label="If file exists" error={errors.if_exists} help="Overwrite the existing file, or fail if it already exists.">
@@ -1424,6 +1434,35 @@ export function NodeConfigForm({
               <option value="overwrite">Overwrite</option>
               <option value="error">Fail with error</option>
             </Select>
+          </Field>
+        </>
+      );
+
+    case "fileOutput":
+      return (
+        <>
+          <Field label="File type" help="The file format to write the result as.">
+            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV (.csv)</option>
+              <option value="tsv">TSV (.tsv)</option>
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="parquet">Parquet (.parquet)</option>
+              <option value="json">JSON (.json)</option>
+              <option value="jsonl">JSON Lines (.jsonl)</option>
+              <option value="text">Text (.txt)</option>
+            </Select>
+          </Field>
+          <Field
+            label="Dataset name"
+            hint="e.g. cleaned_sales"
+            help="The output is saved as a reusable dataset in your project under this name. Re-running adds a new version."
+            error={errors.dataset_name}
+          >
+            <Input
+              value={c.dataset_name ?? ""}
+              onChange={(e) => set({ dataset_name: e.target.value })}
+              placeholder="my_output_dataset"
+            />
           </Field>
         </>
       );
@@ -1447,8 +1486,12 @@ export function NodeConfigForm({
       );
 
     // ----- Machine learning -----
-    case "mlTrain":
-      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} />;
+    case "mlTrainClassifier":
+    case "mlTrainRegressor":
+    case "mlTrainClustering":
+    case "mlTrainForecaster":
+    case "mlTrainDimReduction":
+      return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} nodeType={type} />;
 
     case "trainTestSplit":
       return (

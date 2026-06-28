@@ -3,7 +3,7 @@ import { AlertTriangle, FolderOpen, Trash2, X } from "lucide-react";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { useDatasets } from "@/features/datasets/hooks";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
-import { CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
+import { getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cleanStaleColumnRefs, computeNodeColumns, getDownstreamNodeIds, isInputType } from "@/lib/flowGraph";
 import { referencedParameters } from "@/lib/parameters";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,9 @@ export function NodeSidebar() {
   }
 
   const def = getNodeTypeDef(node.type ?? "");
-  const theme = CATEGORY_THEME[def?.category ?? "clean"];
+  // getCategoryTheme falls back to a neutral theme for plugin-contributed
+  // categories that aren't built in (direct indexing would be undefined → crash).
+  const theme = getCategoryTheme(def?.category ?? "clean");
   const Icon = getNodeIcon(node.type);
   const columns = columnsByNode.get(node.id)?.input ?? [];
 

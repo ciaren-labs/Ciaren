@@ -14,6 +14,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor, RunResult
+from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.process_pool import (
     get_process_pool,
@@ -21,6 +22,7 @@ from app.engine.process_pool import (
     run_graph_in_process,
 )
 from app.engine.run_context import run_context
+from app.plugin_api.events import EventBus, Hook
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
@@ -124,6 +126,15 @@ class ExecutionService:
                 "dataset_ids": dataset_ids,
                 "tracking_uri": tracking_uri,
             }
+            # Plugin event bus: graph-level hooks fire for every run; node-level
+            # hooks only in thread mode (a process worker can't reach parent
+            # subscribers, so the bus is passed to the in-process executor only).
+            events = self._event_bus()
+            if events is not None:
+                events.emit(
+                    Hook.before_graph_execute, flow_id=flow_id, run_id=run.id, engine=engine, mode=execution_mode
+                )
+
             compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
@@ -143,7 +154,7 @@ class ExecutionService:
                 )
             else:
                 compute = asyncio.to_thread(
-                    FlowExecutor().run_with_results,
+                    FlowExecutor(events=events).run_with_results,
                     graph,
                     dataset_paths,
                     output_dir,
@@ -198,7 +209,11 @@ class ExecutionService:
                             config = node.get("data", {}).get("config", {})
                             dataset_name = (config.get("dataset_name") or "").strip()
                             if dataset_name:
-                                src_type = _OUTPUT_TYPE_MAP.get(node.get("type", ""), "csv")
+                                node_type = node.get("type", "")
+                                if node_type == FILE_OUTPUT_TYPE:
+                                    src_type = output_source_type(node_type, config)
+                                else:
+                                    src_type = _OUTPUT_TYPE_MAP.get(node_type, "csv")
                                 try:
                                     await dataset_service.register_output(
                                         name=dataset_name,
@@ -228,6 +243,9 @@ class ExecutionService:
             run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
             run.finished_at = datetime.now(UTC).replace(tzinfo=None)
+            events = self._event_bus()
+            if events is not None:
+                events.emit(Hook.after_graph_execute, flow_id=flow_id, run_id=run.id, status=run.status)
             await self.db.commit()
             await self.db.refresh(run)
 
@@ -320,6 +338,21 @@ class ExecutionService:
         ]
 
     # -- Internals ------------------------------------------------------
+
+    def _event_bus(self) -> EventBus | None:
+        """The process-wide plugin event bus, or None if the plugin layer can't be
+        reached.
+
+        Best-effort: never let plugin wiring break a run. The returned bus is cheap
+        to emit on when nothing is listening (``EventBus.emit`` returns early with no
+        subscribers), so the common no-plugin path costs only that early return.
+        """
+        try:
+            from app.plugins import get_registry
+
+            return get_registry().events
+        except Exception:  # noqa: BLE001 — plugin layer must never break execution
+            return None
 
     def _guard_ml_enabled(self, graph: dict[str, Any] | None) -> None:
         """Reject running a graph that uses ML nodes when the ML extension is off.

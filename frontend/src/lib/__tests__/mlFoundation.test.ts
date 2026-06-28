@@ -47,7 +47,7 @@ function dataset(id: string, cols: string[]): Dataset {
 // ---- Catalog --------------------------------------------------------------
 
 describe("ML node catalog", () => {
-  it("registers all nine ML nodes under the 'ml' category", () => {
+  it("registers the ML nodes under the 'ml' category", () => {
     const ml = Object.values(NODE_TYPE_MAP).filter((d) => d.category === "ml");
     expect(ml.map((d) => d.type).sort()).toEqual(
       [
@@ -55,7 +55,11 @@ describe("ML node catalog", () => {
         "featureImportance",
         "mlEvaluate",
         "mlPredict",
-        "mlTrain",
+        "mlTrainClassifier",
+        "mlTrainClustering",
+        "mlTrainDimReduction",
+        "mlTrainForecaster",
+        "mlTrainRegressor",
         "reduceDimensions",
         "scaleFeatures",
         "selectFeatures",
@@ -71,13 +75,13 @@ describe("ML node catalog", () => {
 
   it("declares handles for split (two frames) and train (single model output)", () => {
     expect(getOutputHandles(getNodeTypeDef("trainTestSplit")!)).toEqual(["train", "test"]);
-    expect(getOutputHandles(getNodeTypeDef("mlTrain")!)).toEqual(["model"]);
+    expect(getOutputHandles(getNodeTypeDef("mlTrainClassifier")!)).toEqual(["model"]);
     expect(getOutputHandles(getNodeTypeDef("scaleFeatures")!)).toEqual(["out"]);
   });
 
   it("marks model handles: mlTrain emits one, predict/importance consume one", () => {
-    expect(getNodeTypeDef("mlTrain")!.isModelSink).toBe(true);
-    expect(getNodeTypeDef("mlTrain")!.modelOutputHandles).toEqual(["model"]);
+    expect(getNodeTypeDef("mlTrainClassifier")!.isModelSink).toBe(true);
+    expect(getNodeTypeDef("mlTrainClassifier")!.modelOutputHandles).toEqual(["model"]);
     expect(getNodeTypeDef("mlPredict")!.optionalInputHandles).toEqual(["model"]);
     expect(getNodeTypeDef("mlPredict")!.modelInputHandles).toEqual(["model"]);
     expect(getNodeTypeDef("featureImportance")!.inputHandles).toEqual(["model"]);
@@ -135,7 +139,7 @@ describe("ML flow validation", () => {
   it("treats a train-only flow (no output node) as valid", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "d" }),
-      node("tr", "mlTrain", { model_type: "random_forest_classifier", target_column: "y", seed: 1 }),
+      node("tr", "mlTrainClassifier", { model_type: "random_forest_classifier", target_column: "y", seed: 1 }),
     ];
     const edges = [edge("in", "tr")];
     const v = validateFlow(nodes, edges, [dataset("d", ["x", "y"])]);
@@ -146,7 +150,7 @@ describe("ML flow validation", () => {
   it("flags an mlTrain with no incoming input", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "d" }),
-      node("tr", "mlTrain", { model_type: "kmeans", seed: 1 }),
+      node("tr", "mlTrainClustering", { model_type: "kmeans", seed: 1 }),
       node("out", "csvOutput", { dataset_name: "x" }),
     ];
     // mlTrain not connected to the input

@@ -21,9 +21,9 @@ from typing import Any
 
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
+from app.engine.node_kinds import FILE_OUTPUT_TYPE, SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles, output_source_type
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
-from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
@@ -37,6 +37,16 @@ _WRITE_FUNCS = {
     "csvOutput": ("to_csv", "index=False"),
     "excelOutput": ("to_excel", "index=False"),
     "parquetOutput": ("to_parquet", "index=False"),
+}
+# fileOutput writes by its configured format. (method, kwargs, extension)
+_FILE_OUTPUT_WRITE = {
+    "csv": ("to_csv", "index=False", ".csv"),
+    "tsv": ("to_csv", "index=False, sep='\\t'", ".tsv"),
+    "excel": ("to_excel", "index=False", ".xlsx"),
+    "parquet": ("to_parquet", "index=False", ".parquet"),
+    "json": ("to_json", "orient='records', indent=2", ".json"),
+    "jsonl": ("to_json", "orient='records', lines=True", ".jsonl"),
+    "text": ("to_csv", "index=False, header=False, sep='\\t'", ".txt"),
 }
 
 
@@ -168,11 +178,22 @@ class CodeGenerator:
                 else:
                     body.append(f"{var} = pd.read_csv({path!r})  # unsupported input type: {node_type}")
 
-            elif node_type in _OUTPUT_TYPES:
+            elif node_type == FILE_OUTPUT_TYPE:
+                src_var = _source_var(node_outputs, incoming[node_id][0])
+                method, extra, suffix = _FILE_OUTPUT_WRITE[output_source_type(node_type, config)]
+                out_path = config.get("path") or f"{config.get('dataset_name') or 'output'}{suffix}"
+                body.append(f"{src_var}.{method}({out_path!r}, {extra})")
+
+            elif node_type in _WRITE_FUNCS:
                 src_var = _source_var(node_outputs, incoming[node_id][0])
                 method, extra = _WRITE_FUNCS[node_type]
                 out_path = config.get("path", "output.csv")
                 body.append(f"{src_var}.{method}({out_path!r}, {extra})")
+
+            elif node_type in _OUTPUT_TYPES:
+                # Storage output (cloud) isn't reproduced in the portable script.
+                src_var = _source_var(node_outputs, incoming[node_id][0])
+                body.append(f"# {node_type}: write {src_var} to your configured storage target")
 
             else:
                 transformation = get_transformation(node_type)

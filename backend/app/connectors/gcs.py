@@ -12,14 +12,13 @@ Security:
 
 from __future__ import annotations
 
-import io
 import logging
 from typing import Any
 
 import pandas as pd
 
 from app.connectors.base import ConnectorError
-from app.connectors.storage_base import StorageSpec
+from app.connectors.storage_base import StorageSpec, deserialize_dataframe, serialize_dataframe
 from app.core.secrets import scrub
 
 for _logger in ("google", "urllib3.connectionpool"):
@@ -82,16 +81,8 @@ class GCSConnector:
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
 
-        buf = io.BytesIO(body)
         try:
-            if fmt == "csv":
-                return pd.read_csv(buf)
-            elif fmt == "excel":
-                return pd.read_excel(buf)
-            elif fmt == "parquet":
-                return pd.read_parquet(buf)
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet.")
+            return deserialize_dataframe(body, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
@@ -113,27 +104,15 @@ class GCSConnector:
             except Exception:
                 pass
 
-        buf = io.BytesIO()
         try:
-            if fmt == "csv":
-                df.to_csv(buf, index=False)
-                content_type = "text/csv"
-            elif fmt == "excel":
-                df.to_excel(buf, index=False)
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            elif fmt == "parquet":
-                df.to_parquet(buf, index=False)
-                content_type = "application/octet-stream"
-            else:
-                raise ConnectorError(f"Unsupported format {fmt!r}.")
+            data, content_type = serialize_dataframe(df, fmt)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to serialize as {fmt}: {exc}") from None
 
-        buf.seek(0)
         try:
-            blob.upload_from_file(buf, content_type=content_type)
+            blob.upload_from_string(data, content_type=content_type)
         except ConnectorError:
             raise
         except Exception as exc:

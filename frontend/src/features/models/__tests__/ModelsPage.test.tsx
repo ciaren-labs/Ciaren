@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/lib/api", () => ({
-  transformationsApi: { list: vi.fn(() => Promise.resolve(["mlTrain", "dropNulls"])) },
+  transformationsApi: { list: vi.fn(() => Promise.resolve(["mlTrainClassifier", "dropNulls"])) },
   flowsApi: {
     list: vi.fn(() =>
       Promise.resolve([

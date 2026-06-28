@@ -180,7 +180,7 @@ describe("validateFlow", () => {
   it("accepts mlPredict when a model is wired to the model input", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "csv1" }),
-      node("t", "mlTrain", { model_type: "logistic_regression", target_column: "a", feature_columns: ["a"] }),
+      node("t", "mlTrainClassifier", { model_type: "logistic_regression", target_column: "a", feature_columns: ["a"] }),
       node("p", "mlPredict", { output_column: "prediction" }),
       node("out", "csvOutput", { dataset_name: "output" }),
     ];
