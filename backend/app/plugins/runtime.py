@@ -21,6 +21,7 @@ from app.plugins.builtin import (
     BuiltinNodeProvider,
     BuiltinStorageProvider,
     BuiltinValidatorProvider,
+    MlNodeProvider,
 )
 from app.plugins.loader import LoadResult, default_plugin_dirs, load_plugins
 from app.plugins.state import PluginStateStore
@@ -34,9 +35,19 @@ _bridged_types: list[str] = []
 
 
 def build_registry() -> ServiceRegistry:
-    """Assemble a fresh registry from the built-in providers only."""
+    """Assemble a fresh registry from the built-in providers only.
+
+    The ML node provider is registered only when the ``[ml]`` extra is importable,
+    so the open-source ETL core does not depend on it — it plugs in exactly like a
+    third-party provider would. ``ML_ENABLED`` still gates the *product surface*
+    (catalog filtering, run guard) at the service layer.
+    """
+    from app.ml.availability import ml_core_available
+
     registry = ServiceRegistry()
     registry.register_node_provider(BuiltinNodeProvider())
+    if ml_core_available():
+        registry.register_node_provider(MlNodeProvider())
     registry.register_connector_provider(BuiltinConnectorProvider())
     registry.register_storage_provider(BuiltinStorageProvider())
     registry.register_execution_provider(BuiltinExecutionProvider())
