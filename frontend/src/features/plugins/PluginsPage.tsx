@@ -1,21 +1,29 @@
+import { useRef, useState } from "react";
 import {
   AlertTriangle,
   Blocks,
   Check,
+  Download,
   Loader2,
   Lock,
   Power,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
+  Store,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { PluginInfo, PluginStatus } from "@/lib/types";
+import type { MarketplaceEntry, PluginInfo, PluginStatus } from "@/lib/types";
+import { ApiError } from "@/lib/api";
 import {
   useDisablePlugin,
   useEnablePlugin,
   useGrantPlugin,
+  useInstallFromMarketplace,
+  useInstallPlugin,
+  useMarketplace,
   usePluginDiagnostics,
   useRevokePlugin,
 } from "./hooks";
@@ -60,14 +68,17 @@ export function PluginsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Plugins</h1>
-        <p className="text-sm text-muted-foreground">
-          Extend FlowFrame with extra nodes, connectors, and exporters. Drop a
-          plugin into <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.flowframe/plugins</code>{" "}
-          or install one with{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin install</code>.
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Plugins</h1>
+          <p className="text-sm text-muted-foreground">
+            Extend FlowFrame with extra nodes, connectors, and exporters. Install a{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">.ffplugin</code> file below, drop one into{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.flowframe/plugins</code>, or use{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin install</code>.
+          </p>
+        </div>
+        <InstallButton />
       </div>
 
       <TrustWarning />
@@ -85,6 +96,53 @@ export function PluginsPage() {
           ))}
           {errors.length > 0 && <ErrorsPanel errors={errors} />}
         </div>
+      )}
+
+      <MarketplaceSection />
+    </div>
+  );
+}
+
+function InstallButton() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const install = useInstallPlugin();
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const onPick = (file: File | undefined) => {
+    if (!file) return;
+    setMessage(null);
+    install.mutate(file, {
+      onSuccess: (res) =>
+        setMessage({ ok: true, text: `Installed ${res.plugin.name} (${res.outcome}).` }),
+      onError: (err) =>
+        setMessage({ ok: false, text: err instanceof ApiError ? err.message : "Install failed." }),
+    });
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".ffplugin"
+        className="hidden"
+        onChange={(e) => {
+          onPick(e.target.files?.[0]);
+          e.target.value = ""; // allow re-picking the same file
+        }}
+      />
+      <Button size="sm" disabled={install.isPending} onClick={() => inputRef.current?.click()}>
+        {install.isPending ? (
+          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Upload className="mr-1.5 h-3.5 w-3.5" />
+        )}
+        Install plugin
+      </Button>
+      {message && (
+        <span className={cn("text-xs", message.ok ? "text-emerald-600" : "text-red-600")}>
+          {message.text}
+        </span>
       )}
     </div>
   );
@@ -282,6 +340,105 @@ function PermissionList({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+function MarketplaceSection() {
+  const { data, isLoading } = useMarketplace();
+  if (isLoading || !data) return null;
+
+  return (
+    <div className="mt-10">
+      <div className="mb-3 flex items-center gap-2">
+        <Store className="h-5 w-5 text-muted-foreground" />
+        <h2 className="text-lg font-semibold">Explore plugins</h2>
+      </div>
+
+      {!data.configured ? (
+        <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
+          No catalog is configured. Point{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">FLOWFRAME_MARKETPLACE_INDEX</code> at a{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">marketplace.json</code> file to browse plugins
+          here. Add entries with{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin index add</code>.
+        </div>
+      ) : data.plugins.length === 0 ? (
+        <p className="text-sm text-muted-foreground">The catalog is empty.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {data.plugins.map((e) => (
+            <MarketplaceCard key={e.id} entry={e} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
+  const install = useInstallFromMarketplace();
+  const [error, setError] = useState<string | null>(null);
+
+  const onInstall = () => {
+    setError(null);
+    install.mutate(entry.id, {
+      onError: (err) => setError(err instanceof ApiError ? err.message : "Install failed."),
+    });
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 rounded-lg bg-muted p-2.5">
+          <Store className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{entry.name}</span>
+            <span className="text-xs text-muted-foreground">v{entry.version}</span>
+            {entry.license_required && (
+              <span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                License required
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {entry.publisher && <>by {entry.publisher} · </>}
+            <span className="font-mono">{entry.id}</span>
+          </p>
+          {entry.description && (
+            <p className="mt-1.5 text-sm text-muted-foreground">{entry.description}</p>
+          )}
+          {entry.permissions.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Requests: <span className="font-medium">{entry.permissions.join(", ")}</span>
+            </p>
+          )}
+          {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        </div>
+
+        <div className="shrink-0">
+          {entry.installed ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              <Check className="h-3 w-3" /> Installed
+            </span>
+          ) : entry.installable ? (
+            <Button size="sm" disabled={install.isPending} onClick={onInstall}>
+              {install.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Install
+            </Button>
+          ) : (
+            <span className="text-[11px] text-muted-foreground" title="Download the .ffplugin and install it manually">
+              Manual install
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

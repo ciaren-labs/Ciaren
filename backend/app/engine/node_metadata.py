@@ -270,6 +270,14 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "Build a column from if/elif/else rules (CASE-WHEN).",
         {"new_column": "", "default": "", "rules": []},
     ),
+    # ----- Advanced -----
+    NodeMeta(
+        "pythonTransform",
+        "Python Transform",
+        "analytics",
+        "Run arbitrary Python code on the DataFrame — an escape hatch for custom logic.",
+        {"script": "# Write the body of: def transform(df):\n#   ...\nreturn df"},
+    ),
     # ----- Data Quality -----
     NodeMeta(
         "assertNotNull",

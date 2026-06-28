@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +36,8 @@ MANIFEST_FILENAME = "flowframe-plugin.json"
 SIGNATURE_FILENAME = "flowframe-signature.json"
 TRUSTED_KEYS_ENV = "FLOWFRAME_TRUSTED_PLUGIN_KEYS"
 
+logger = logging.getLogger("app.plugins.package")
+
 #: How much we trust a package after verification.
 TrustOutcome = Literal["trusted", "untrusted", "unsigned", "invalid"]
 
@@ -49,6 +52,20 @@ class PackageSignature(BaseModel):
     #: The package digest that was signed (must equal the recomputed digest).
     digest: str
     signature: str
+
+    def signed_message(self) -> bytes:
+        """Canonical bytes a signature covers: the digest **plus** the signer
+        metadata (``algorithm``/``key_id``/``publisher``). Binding the metadata
+        into the signed payload stops anyone from taking a validly-signed
+        ``(digest, signature)`` pair and relabelling who signed it — the signature
+        only validates against the exact key/publisher it was issued for."""
+        payload = {
+            "algorithm": self.algorithm,
+            "digest": self.digest,
+            "keyId": self.key_id,
+            "publisher": self.publisher,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 class PackageError(ValueError):
@@ -127,14 +144,16 @@ def load_trusted_keys() -> dict[str, str]:
     if file_path.is_file():
         try:
             keys.update(json.loads(file_path.read_text(encoding="utf-8")))
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            # Don't silently fall back to "no trusted keys" — a config typo would
+            # invisibly turn every signed package into an untrusted one.
+            logger.warning("Ignoring unreadable trusted-keys file %s: %s", file_path, exc)
     raw = os.environ.get(TRUSTED_KEYS_ENV)
     if raw:
         try:
             keys.update(json.loads(raw))
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            logger.warning("Ignoring malformed %s: %s", TRUSTED_KEYS_ENV, exc)
     return keys
 
 
@@ -155,13 +174,16 @@ def verify_package(path: str | os.PathLike[str], trusted_keys: dict[str, str] | 
         return VerifyResult(
             "invalid", digest, signed=True, reason="digest mismatch — package was modified after signing"
         )
-    public_hex = trusted.get(sig.key_id) or (trusted.get(sig.publisher) if sig.publisher else None)
+    # Trust is keyed strictly by ``key_id``. The earlier ``publisher`` fallback let
+    # a package-supplied (attacker-controlled) free-text name select which trusted
+    # key to check against — a trust-anchor confusion we no longer allow.
+    public_hex = trusted.get(sig.key_id)
     if public_hex is None:
         return VerifyResult(
             "untrusted", digest, signed=True, reason=f"signed by untrusted key {sig.key_id!r}", publisher=sig.publisher
         )
     try:
-        valid = verify(public_hex, digest.encode("utf-8"), sig.signature)
+        valid = verify(public_hex, sig.signed_message(), sig.signature)
     except SigningUnavailableError as exc:
         return VerifyResult("untrusted", digest, signed=True, reason=str(exc), publisher=sig.publisher)
     if not valid:
@@ -174,11 +196,40 @@ def verify_package(path: str | os.PathLike[str], trusted_keys: dict[str, str] | 
 # -- packaging / signing tooling ----------------------------------------------
 
 
-def pack_directory(src_dir: str | os.PathLike[str], out_path: str | os.PathLike[str]) -> Path:
+def _compile_to_pyc(source: Path) -> bytes:
+    """Compile a ``.py`` file to optimized bytecode and return the ``.pyc`` bytes.
+    ``optimize=2`` also strips docstrings and ``assert``s from the output."""
+    import py_compile
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cfile = Path(tmp) / "out.pyc"
+        try:
+            py_compile.compile(str(source), cfile=str(cfile), optimize=2, doraise=True)
+        except py_compile.PyCompileError as exc:
+            raise PackageError(f"could not compile {source}: {exc}") from exc
+        return cfile.read_bytes()
+
+
+def pack_directory(
+    src_dir: str | os.PathLike[str],
+    out_path: str | os.PathLike[str],
+    *,
+    compile_python: bool = False,
+) -> Path:
     """Zip a plugin source directory into an (unsigned) ``.ffplugin``.
 
     The directory must contain a valid ``flowframe-plugin.json`` at its root.
     Returns the written path.
+
+    When ``compile_python`` is set, every ``.py`` is compiled to optimized
+    bytecode and only the resulting ``.pyc`` ships (placed at the same import path,
+    e.g. ``pkg/mod.pyc``) — the source ``.py`` is **omitted**. The loader imports
+    bare ``.pyc`` modules transparently, so the plugin still runs. This raises the
+    bar against casual inspection/copying of a paid plugin's source; it is **not**
+    strong protection — bytecode can still be decompiled, and a ``.pyc`` is locked
+    to the building interpreter's Python version. For genuinely sensitive IP, keep
+    the logic in a remote service (see the architecture plan §15).
     """
     src = Path(src_dir)
     manifest_path = src / MANIFEST_FILENAME
@@ -194,6 +245,10 @@ def pack_directory(src_dir: str | os.PathLike[str], out_path: str | os.PathLike[
             if arcname == SIGNATURE_FILENAME:
                 continue  # never carry a stale signature from the source tree
             if "__pycache__" in file.parts:
+                continue
+            if compile_python and file.suffix == ".py":
+                # Ship compiled bytecode at <module>.pyc instead of the source.
+                zf.writestr(arcname[: -len(".py")] + ".pyc", _compile_to_pyc(file))
                 continue
             zf.write(file, arcname)
     return out
@@ -214,12 +269,10 @@ def sign_package(
         entries = [(n, zf.read(n)) for n in zf.namelist() if n != SIGNATURE_FILENAME and not n.endswith("/")]
         digest = compute_digest_from_zip(zf)
 
-    signature = PackageSignature(
-        publisher=publisher,
-        key_id=key_id,
-        digest=digest,
-        signature=sign(private_key_hex, digest.encode("utf-8")),
-    )
+    signature = PackageSignature(publisher=publisher, key_id=key_id, digest=digest, signature="")
+    # Sign over the canonical payload (digest + signer metadata), not the bare
+    # digest, so the signature binds *who* signed it, not just the file contents.
+    signature.signature = sign(private_key_hex, signature.signed_message())
     with ZipFile(src, "w", ZIP_DEFLATED) as zf:
         for name, data in entries:
             zf.writestr(name, data)
