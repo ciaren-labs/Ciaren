@@ -13,9 +13,12 @@ on:
     # Weekly full scan so newly disclosed query packs catch existing code.
     - cron: "27 4 * * 1"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analyze:
