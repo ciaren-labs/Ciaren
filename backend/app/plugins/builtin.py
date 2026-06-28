@@ -119,14 +119,43 @@ def builtin_node_types() -> list[str]:
     return [*node_kinds.INPUT_TYPES, *node_kinds.OUTPUT_TYPES, *list_transformation_types()]
 
 
+def _core_transform_types() -> list[str]:
+    """Registered transforms that are *not* ML nodes."""
+    return [t for t in list_transformation_types() if not is_ml_node(t)]
+
+
+def _ml_transform_types() -> list[str]:
+    """Registered ML transforms (non-empty only when the ``[ml]`` extra is present)."""
+    return [t for t in list_transformation_types() if is_ml_node(t)]
+
+
 class BuiltinNodeProvider(NodeProvider):
+    """The open-source ETL core: I/O nodes plus every non-ML transform. ML nodes
+    are contributed separately by :class:`MlNodeProvider`, so the core node set is
+    independent of whether the ML extension is installed."""
+
     def nodes(self) -> list[NodeSpec]:
-        return [build_node_spec(t) for t in builtin_node_types()]
+        types = [*node_kinds.INPUT_TYPES, *node_kinds.OUTPUT_TYPES, *_core_transform_types()]
+        return [build_node_spec(t) for t in types]
 
     def node_implementations(self) -> dict[str, Any]:
         # Only transforms have an engine implementation; I/O nodes are resolved by
         # the executor/service layer, not by a BaseTransformation.
-        return {t: get_transformation(t) for t in list_transformation_types()}
+        return {t: get_transformation(t) for t in _core_transform_types()}
+
+
+class MlNodeProvider(NodeProvider):
+    """The optional ML node set, isolated as its own provider. Registered only when
+    the ``[ml]`` extra is importable (see ``runtime.build_registry``), so the
+    open-source core never depends on it — exactly how a third-party plugin would
+    contribute nodes. Mirrors the "ML basic stays community, but optional" split in
+    the architecture plan."""
+
+    def nodes(self) -> list[NodeSpec]:
+        return [build_node_spec(t) for t in _ml_transform_types()]
+
+    def node_implementations(self) -> dict[str, Any]:
+        return {t: get_transformation(t) for t in _ml_transform_types()}
 
 
 def _connector_permissions(p: Provider) -> tuple[Permission, ...]:
