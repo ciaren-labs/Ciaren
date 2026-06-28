@@ -1,8 +1,9 @@
 # Writing a FlowFrame plugin
 
-> Status: **draft** (Phase 1). A plugin can currently contribute to the catalog
-> (nodes/connectors/engines/exporters/validators) and declare capabilities.
-> Wiring a plugin-supplied node into the execution engine is a later phase.
+A plugin can contribute to the catalog (nodes/connectors/engines/exporters/
+validators), declare capabilities and permissions, ship **executable** nodes that
+run end-to-end (via `NodeRuntime`), and subscribe to lifecycle/execution
+**events**.
 
 A plugin is a small Python package that implements the `Plugin` contract and
 registers one or more providers. It depends **only** on the FlowFrame plugin API
@@ -46,6 +47,63 @@ class AcmePlugin(Plugin):
 Other provider interfaces you can register: `ConnectorProvider`,
 `StorageProvider`, `ExecutionProvider`, `ExporterProvider`, `ValidatorProvider`,
 `AIProvider`, `AuthProvider`, `LicenseProvider`.
+
+### Make the node executable (`NodeRuntime`)
+
+A `NodeSpec` only *describes* a node. To make it run, ship a `NodeRuntime` and
+return it from the provider's `node_implementations()`, keyed by node id. The
+runtime works on **pandas** frames; FlowFrame bridges to the active engine
+(pandas/polars) automatically, so a single runtime runs on both.
+
+```python
+from app.plugin_api import NodeRuntime
+
+class GreetingRuntime(NodeRuntime):
+    def execute(self, inputs, config):
+        df = inputs["in"].copy()
+        df[config["column"]] = f"Hello, {config.get('name', 'world')}!"
+        return {"out": df}
+
+    # Optional: makes "Export Python" work for this node.
+    def to_python_code(self, input_vars, output_vars, config):
+        col, name = config["column"], config.get("name", "world")
+        return f"{output_vars['out']} = {input_vars['in']}.assign(**{{{col!r}: {f'Hello, {name}!'!r}}})"
+
+class _MyNodes(NodeProvider):
+    def nodes(self): ...
+    def node_implementations(self):
+        return {"acme.greeting": GreetingRuntime()}
+```
+
+Once registered the node executes in runs and previews, passes graph validation,
+and (if `to_python_code` is implemented) appears in both the pandas and polars
+exports — exactly like a built-in.
+
+### React to events
+
+A plugin can subscribe to lifecycle and execution hooks via `registry.events`
+inside `register()`. Subscribers are error-isolated (a raising hook is logged and
+skipped) and run synchronously in registration order.
+
+```python
+from app.plugin_api import Hook
+
+class AuditPlugin(Plugin):
+    def metadata(self): ...
+    def register(self, registry):
+        registry.events.subscribe(Hook.after_graph_execute, self._log_run)
+
+    def _log_run(self, *, flow_id, run_id, status, **_):
+        print(f"[audit] flow {flow_id} run {run_id}: {status}")
+```
+
+Available hooks (`app.plugin_api.Hook`): plugin lifecycle (`plugin_installed`,
+`plugin_enabled`, `plugin_disabled`), project/graph (`graph_validated`, …),
+execution (`before_graph_execute`, `after_graph_execute`, `before_node_execute`,
+`after_node_execute`), and `export_requested`. Graph-level and export hooks fire
+for every run/export; **node-level** hooks fire in the in-process (`thread`)
+execution path — in `process` mode a worker can't reach parent subscribers, so
+prefer graph-level hooks for cross-mode behaviour.
 
 ## 2. Add a manifest
 

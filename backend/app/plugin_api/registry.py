@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.plugin_api.events import EventBus
 from app.plugin_api.providers import (
     AIProvider,
     AuthProvider,
@@ -60,6 +61,8 @@ class ServiceRegistry:
         #: capability string -> id of the provider/spec that first declared it.
         self._capability_source: dict[str, str] = {}
         self._plugins: list[PluginMetadata] = []
+        #: Hooks plugins subscribe to in ``register()`` and the core emits.
+        self.events = EventBus()
 
     # -- registration ---------------------------------------------------------
 
@@ -213,6 +216,9 @@ class ServiceRegistry:
     def _snapshot(self) -> dict[str, Any]:
         snap: dict[str, Any] = {name: dict(getattr(self, name)) for name in self._MUTABLE_STORES}
         snap["_license_providers"] = list(self._license_providers)
+        # Capture event subscriptions too, so a plugin that subscribes in
+        # register() and then fails has its hooks rolled back as well.
+        snap["_events"] = {hook: list(cbs) for hook, cbs in self.events._subscribers.items()}
         return snap
 
     def _restore(self, snapshot: dict[str, Any]) -> None:
@@ -220,3 +226,6 @@ class ServiceRegistry:
             getattr(self, name).clear()
             getattr(self, name).update(snapshot[name])
         self._license_providers[:] = snapshot["_license_providers"]
+        self.events._subscribers.clear()
+        for hook, cbs in snapshot["_events"].items():
+            self.events._subscribers[hook] = list(cbs)
