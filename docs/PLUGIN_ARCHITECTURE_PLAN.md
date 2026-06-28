@@ -23,7 +23,7 @@
 | 3.5 — Plugin state (enable/disable/permission grant) | ✅ | `app/plugins/state.py`; loader gates disabled + ungranted-permission plugins (code not imported until approved); `/api/plugins/{id}/enable\|disable\|grant\|revoke`, live registry rebuild |
 | 4 — Dynamic catalog | ✅ | `/api/catalog/nodes\|connectors\|exporters\|categories`; palette renders from the catalog. (Full schema-driven config *forms* deferred — node `config_schema` isn't modeled yet; would rewrite 46 Zod forms for no functional gain today.) |
 | 5 — Features as providers | ✅ | built-ins as providers; ML split into `MlNodeProvider`, registered only when `[ml]` is importable — the ETL core no longer contributes ML nodes. Engine ML imports already isolated. |
-| 6 — Marketplace readiness | ⬜ | `.ffplugin` format, signature verify, license tokens + offline grace, `flowframe plugin …` CLI |
+| 6 — Marketplace readiness | ✅ | `.ffplugin` zip format + deterministic digest; Ed25519 detached signatures (`app/plugin_api/signing.py`, optional `[signing]` extra); trusted-key verification; `flowframe plugin list/install/uninstall/verify/enable/disable/keygen/pack/sign/search`; license tokens + offline grace + cache + `TokenLicenseProvider`; marketplace index format. (Premium *plugins* themselves are out of scope.) |
 | 7 — Security hardening | ⬜ | permission approval UI, joblib/pickle + SQL warnings, dependency-license scan, security docs |
 | 8 — Premium pilot | ⬜ | Intentionally out of scope (no premium code in the OSS core); architecture proven via signed example plugin |
 | §17 — Hooks & events | ✅ | `app/plugin_api/events.py` EventBus on the registry; node/graph/export hooks wired through executor + services |
