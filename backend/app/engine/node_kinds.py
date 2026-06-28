@@ -6,6 +6,8 @@ them here keeps those four in sync and gives a new I/O node type exactly one
 place to register.
 """
 
+from typing import Any
+
 # Input node type -> source_type understood by ``EngineBackend.read``.
 INPUT_SOURCE_TYPES: dict[str, str] = {
     "csvInput": "csv",
@@ -18,6 +20,9 @@ INPUT_SOURCE_TYPES: dict[str, str] = {
 # Output node type -> source_type understood by ``EngineBackend.write``.
 # ``sqlOutput`` and ``storageOutput`` are materialized to parquet by the executor;
 # the execution service then pushes the parquet to the target via a connector.
+# ``fileOutput`` is the unified local-file output: its format is chosen per-node in
+# config (see ``output_source_type``). The legacy csv/excel/parquet output types
+# remain registered (existing flows keep running) but are hidden from the palette.
 OUTPUT_SOURCE_TYPES: dict[str, str] = {
     "csvOutput": "csv",
     "excelOutput": "excel",
@@ -26,12 +31,35 @@ OUTPUT_SOURCE_TYPES: dict[str, str] = {
     "storageOutput": "parquet",
 }
 
+# The unified local-file output node. Its format (and so its source_type) comes
+# from the node config rather than the node type.
+FILE_OUTPUT_TYPE = "fileOutput"
+#: Formats the File Output node can write — mirrors the file input formats.
+FILE_OUTPUT_FORMATS: tuple[str, ...] = ("csv", "excel", "parquet", "json", "text")
+DEFAULT_FILE_OUTPUT_FORMAT = "csv"
+
 # File extension written for each output source_type.
 OUTPUT_SUFFIX: dict[str, str] = {
     "csv": ".csv",
     "excel": ".xlsx",
     "parquet": ".parquet",
+    "json": ".json",
+    "text": ".txt",
 }
+
+
+def output_source_type(node_type: str, config: dict[str, Any] | None = None) -> str:
+    """The engine ``source_type`` an output node writes.
+
+    Fixed by type for the legacy/SQL/storage outputs; taken from ``config['format']``
+    for the unified ``fileOutput`` node (defaulting to CSV)."""
+    if node_type == FILE_OUTPUT_TYPE:
+        fmt = (config or {}).get("format") or DEFAULT_FILE_OUTPUT_FORMAT
+        if fmt not in FILE_OUTPUT_FORMATS:
+            raise ValueError(f"fileOutput: unknown format {fmt!r}. Allowed: {', '.join(FILE_OUTPUT_FORMATS)}.")
+        return fmt
+    return OUTPUT_SOURCE_TYPES[node_type]
+
 
 # Database-backed I/O nodes (resolved via app/connectors/sql, not the file engine).
 SQL_INPUT_TYPE = "sqlInput"
@@ -47,7 +75,7 @@ PRE_MATERIALIZED_INPUT_TYPES: frozenset[str] = frozenset({SQL_INPUT_TYPE, STORAG
 
 #: Membership sets — use these for ``in`` checks.
 INPUT_TYPES: frozenset[str] = frozenset(INPUT_SOURCE_TYPES) | PRE_MATERIALIZED_INPUT_TYPES
-OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES)
+OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES) | {FILE_OUTPUT_TYPE}
 
 # The task-scoped train nodes. Each fits a model and emits a single "model" wire.
 # Kept as plain strings here so node_kinds stays free of any ML imports (the [ml]

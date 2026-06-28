@@ -102,6 +102,11 @@ class PolarsEngine:
             df.write_parquet(path)
         elif source_type == "excel":
             df.write_excel(path)
+        elif source_type == "json":
+            df.write_json(path)
+        elif source_type == "text":
+            # One row per line; tab-separated for wider frames (mirrors text input).
+            df.write_csv(path, include_header=False, separator="\t")
         else:
             raise ValueError(f"Unsupported source_type: {source_type!r}")
 
