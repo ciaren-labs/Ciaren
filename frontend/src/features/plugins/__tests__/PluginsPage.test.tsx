@@ -66,6 +66,13 @@ describe("PluginsPage", () => {
     expect(await screen.findByText("No plugins installed")).toBeInTheDocument();
   });
 
+  it("always shows the trust warning", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    renderPage();
+    expect(await screen.findByText(/Only install plugins you trust/i)).toBeInTheDocument();
+    expect(screen.getByText(/not responsible/i)).toBeInTheDocument();
+  });
+
   it("renders a pending plugin with its permissions and an Approve action", async () => {
     diagnostics.mockResolvedValueOnce({ loaded: [], gated: [PENDING], errors: [] });
     renderPage();
