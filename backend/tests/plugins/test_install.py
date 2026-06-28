@@ -80,6 +80,18 @@ def test_install_rejects_zip_slip(tmp_path):
         zf.writestr("../escape.py", "pwned = True\n")
     with pytest.raises(InstallError, match="unsafe path"):
         install_ffplugin(pkg, install_dir=tmp_path / "i")
+    # Nothing escaped the install root.
+    assert not (tmp_path / "escape.py").exists()
+
+
+def test_install_rejects_absolute_path_entry(tmp_path):
+    # An absolute path in the archive is a distinct traversal vector from "../".
+    pkg = tmp_path / "evil.ffplugin"
+    with zipfile.ZipFile(pkg, "w") as zf:
+        zf.writestr("flowframe-plugin.json", json.dumps(_MANIFEST))
+        zf.writestr("/etc/cron.d/pwn", "pwned\n")
+    with pytest.raises(InstallError, match="unsafe path"):
+        install_ffplugin(pkg, install_dir=tmp_path / "i")
 
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
