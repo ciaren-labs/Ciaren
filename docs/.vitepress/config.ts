@@ -1,5 +1,18 @@
 import { defineConfig } from 'vitepress'
 
+// Shared sidebar for the developer-facing extensibility docs (plugins + the
+// public .flow / manifest schemas). Reused across /guide/, /plugins/, /specs/.
+const extendingSidebar = [
+  {
+    text: 'Extending FlowFrame',
+    items: [
+      { text: 'Writing a Plugin (preview)', link: '/plugins/writing-a-plugin' },
+      { text: '.flow Document Format', link: '/specs/flow-format' },
+      { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
+    ],
+  },
+]
+
 export default defineConfig({
   title: 'FlowFrame',
   description: 'Visual ETL builder — Simple, local-first data pipelines on polars or pandas',
@@ -78,6 +91,15 @@ export default defineConfig({
             { text: 'Webhook Trigger', link: '/guide/webhook' },
             { text: 'Python SDK', link: '/guide/sdk' },
             { text: 'CLI Reference', link: '/guide/cli' },
+          ],
+        },
+        {
+          text: 'Extending FlowFrame',
+          collapsed: true,
+          items: [
+            { text: 'Writing a Plugin (preview)', link: '/plugins/writing-a-plugin' },
+            { text: '.flow Document Format', link: '/specs/flow-format' },
+            { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
           ],
         },
         {
@@ -239,6 +261,7 @@ export default defineConfig({
             { text: 'Flows', link: '/api/flows' },
             { text: 'Runs', link: '/api/runs' },
             { text: 'Transformations', link: '/api/transformations' },
+            { text: 'Catalog & Plugins', link: '/api/catalog' },
             { text: 'Schedules', link: '/api/schedules' },
             { text: 'Connections', link: '/api/connections' },
           ],
@@ -251,6 +274,9 @@ export default defineConfig({
           ],
         },
       ],
+
+      '/plugins/': extendingSidebar,
+      '/specs/': extendingSidebar,
     },
 
     socialLinks: [
