@@ -268,6 +268,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_pack = plugin_sub.add_parser("pack", help="Package a plugin source directory into an (unsigned) .ffplugin.")
     p_pack.add_argument("src_dir", help="Plugin source directory (contains flowframe-plugin.json).")
     p_pack.add_argument("out", help="Output .ffplugin path.")
+    p_pack.add_argument(
+        "--compile",
+        action="store_true",
+        dest="compile_python",
+        help="Ship compiled .pyc bytecode instead of .py source (deters casual "
+        "inspection of paid plugins; locks the package to this Python version).",
+    )
 
     p_sign = plugin_sub.add_parser("sign", help="Sign a .ffplugin in place with an Ed25519 private key.")
     p_sign.add_argument("path", help="Path to the .ffplugin file.")
@@ -764,10 +771,13 @@ def _plugin_pack(args: argparse.Namespace) -> None:
     from app.plugins.package import PackageError, pack_directory
 
     try:
-        out = pack_directory(args.src_dir, args.out)
+        out = pack_directory(args.src_dir, args.out, compile_python=getattr(args, "compile_python", False))
     except PackageError as exc:
         raise SystemExit(f"pack failed: {exc}") from exc
-    print(f"Wrote {out} (unsigned). Sign it with `flowframe plugin sign`.")
+    note = " (compiled bytecode)" if getattr(args, "compile_python", False) else ""
+    print(f"Wrote {out} (unsigned{note}). Sign it with `flowframe plugin sign`.")
+    if getattr(args, "compile_python", False):
+        print(f"  Built for Python {sys.version_info.major}.{sys.version_info.minor}; rebuild per Python version.")
 
 
 def _plugin_sign(args: argparse.Namespace) -> None:
