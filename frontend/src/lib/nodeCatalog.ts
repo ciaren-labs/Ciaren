@@ -394,6 +394,16 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Build a column from if/elif/else rules (CASE-WHEN).",
   },
+  // ----- Advanced -----
+  {
+    type: "pythonTransform",
+    label: "Python Transform",
+    category: "analytics",
+    defaultConfig: { script: "# Write the body of: def transform(df):\n#   ...\nreturn df" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Run arbitrary Python code on the DataFrame — an escape hatch for custom logic.",
+  },
   // ----- Data Quality -----
   {
     type: "assertNotNull",

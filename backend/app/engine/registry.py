@@ -39,6 +39,7 @@ from app.engine.transformations.rows import (
     SampleRowsTransformation,
     SortRowsTransformation,
 )
+from app.engine.transformations.script import PythonTransformTransformation
 from app.engine.transformations.text import (
     MapValuesTransformation,
     ReplaceValuesTransformation,
@@ -89,6 +90,7 @@ _register(
     AssertValueRangeTransformation(),
     AssertExpressionTransformation(),
     AssertRowCountTransformation(),
+    PythonTransformTransformation(),
 )
 
 
