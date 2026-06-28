@@ -2,12 +2,12 @@
 
 <img src="docs/public/FlowFrame.png" alt="FlowFrame" width="520" />
 
-### Build, run, and schedule data pipelines — and train ML models — visually, no boilerplate required.
+### The plugin-first, local-first platform for building Data Engineering & Machine Learning workflows — visually, with Python you can read.
 
-Upload a file, clean and reshape it on a drag-and-drop canvas, train and track
-machine-learning models, preview every step, execute with one click, schedule
-recurring runs, and export the equivalent pandas **or** polars code whenever you
-need it.
+Build data and ML pipelines on a drag-and-drop canvas, preview every step, run
+them locally, schedule them — and export the equivalent **pandas** or **polars**
+code whenever you want. Every capability, from nodes to connectors to execution
+engines, is a **plugin**.
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](backend/pyproject.toml)
@@ -17,8 +17,8 @@ need it.
 
 [**Documentation**](https://rodrigo-arenas.github.io/FlowFrame) ·
 [**Quick Start**](#-quick-start) ·
-[**Transformations**](#%EF%B8%8F-transformation-nodes) ·
-[**Plugins**](#-plugins--extensibility) ·
+[**Plugin Platform**](#-a-plugin-first-platform) ·
+[**Workflow Lifecycle**](#-one-canvas-the-whole-workflow) ·
 [**Contributing**](#-contributing)
 
 </div>
@@ -33,54 +33,62 @@ need it.
 
 ## What is FlowFrame?
 
-FlowFrame is an open-source, **local-first** visual ETL (Extract, Transform, Load)
-builder — with an optional **machine-learning** extension — for **small and medium
-datasets**. It lets you:
+FlowFrame is an open-source platform for building **Data Engineering and Machine
+Learning workflows visually** — and turning them into readable, portable Python.
+It's more than a visual ETL tool: it's a **plugin-first, local-first development
+environment** where the whole workflow lifecycle lives on one canvas, and almost
+every capability is an extension point.
 
-- **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
-- **Build** transformation pipelines on a drag-and-drop canvas
-- **Preview** intermediate results before running the full flow
-- **Execute** flows with a single click — on **polars** (default) or **pandas**
-- **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
-- **Schedule** flows to run automatically with a built-in cron scheduler
-- **Extend** the node palette with **plugins** — installable, signed packages that add
-  your own nodes without touching FlowFrame's internals
-- **Train** machine-learning models visually and track them with MLflow — an
-  optional extension (`pip install "flowframe[ml]"`)
+It rests on a few principles:
 
-Each visual node maps to **one clear dataframe operation** — so the generated
-code is readable whenever you export it, and execution is transparent. FlowFrame
-is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
-and does not do distributed or streaming execution.
+- **🐍 Visual-first, but Python-native.** Every node maps to one clear dataframe
+  operation. Export the exact **pandas** or **polars** code at any time — no black
+  box, no proprietary runtime, no lock-in.
+- **🔒 Local-first.** It runs entirely on your machine. You own your data and your
+  execution — no SaaS account, no cloud upload required.
+- **🧩 Plugin-first.** Nodes, connectors, storage, execution engines, exporters,
+  validators, and AI capabilities are all defined as stable provider contracts.
+  Virtually every part of FlowFrame can be extended — and packaged, signed, and
+  shared.
+- **⚙️ Multi-engine.** Runs on **polars** (default) or **pandas** today, selectable
+  per run — behind a pluggable engine contract designed to grow.
+- **🔁 Full lifecycle.** Ingestion → transformation → validation → feature
+  engineering → model training → evaluation → inference, all on one canvas.
 
-Built for **data analysts, data engineers, and developers** who want repeatable
-ETL pipelines without the infrastructure overhead — and accessible enough for
-business analysts and Python beginners who are just getting started.
+Built for **data engineers, data analysts, and developers** who want repeatable
+pipelines without infrastructure overhead — and approachable enough for business
+analysts and Python beginners getting started.
 
 <div align="center">
-  <img src="docs/public/screenshots/editor-full.png" alt="FlowFrame visual editor — building a join pipeline on the canvas" width="850" />
+  <img src="docs/public/screenshots/editor-full.png" alt="FlowFrame visual editor — building a pipeline on the canvas" width="850" />
   <br />
-  <em>The visual editor: drag nodes onto the canvas, wire them together, preview, run, and export.</em>
+  <em>One canvas: ingest, clean, reshape, validate, train, and export — node by node.</em>
 </div>
 
 ---
 
 ## 🤔 Why FlowFrame?
 
-Most data cleaning lives in throwaway notebooks and one-off scripts that are hard
-to re-run, share, or trust. Heavyweight orchestrators (Airflow, dbt, Spark) solve
-a *different* problem and bring infrastructure you don't want for a 50 MB CSV.
+Most data and ML work lives in throwaway notebooks and one-off scripts that are
+hard to re-run, share, or trust. Heavyweight orchestrators (Airflow, dbt, Spark)
+solve a *different* problem and bring infrastructure you don't want for a 50 MB
+CSV or a quick model.
 
-FlowFrame sits in the gap:
+FlowFrame sits in the gap — and goes further than a visual ETL builder:
 
-- **No black box.** Every node maps to one dataframe operation, and you can export
-  the exact pandas/polars code at any time — copy it and run it anywhere Python runs.
-- **Local-first.** It runs entirely on your machine. No SaaS account, no cloud
-  upload, no vendor lock-in.
-- **Reproducible by default.** Versioned datasets, run history, and a built-in
-  scheduler mean a flow you build today runs the same way next month.
-- **Approachable.** A visual canvas lowers the barrier for analysts and Python
-  beginners, while the code export keeps power users in control.
+- **Not a black box.** Every node is one dataframe operation, and you can export
+  the exact pandas/polars code at any time. Copy it, run it anywhere Python runs.
+- **You own everything.** Local-first execution means your data never has to leave
+  your machine, and your pipelines aren't trapped in a proprietary format.
+- **Built to be extended.** The plugin architecture means the community can add
+  connectors, engines, exporters, nodes, validators, and AI assistants — instead
+  of waiting on a vendor roadmap.
+- **One tool for the whole workflow.** Data engineering *and* machine learning live
+  on the same canvas, so handoffs between cleaning, validation, and modeling
+  disappear.
+
+> The goal: a developer landing here should think *"this is much more than another
+> visual ETL tool — I want to try it."*
 
 ### See it: build visually, run instantly, export when you need to
 
@@ -96,9 +104,83 @@ df_3 = df_2.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
 df_3.write_csv("summary.csv")
 ```
 
-No proprietary runtime — copy the script and run it anywhere Python runs. Need it
-to scale? Export the **lazy polars** variant (`scan_*` → `collect()`) for pushdown
-and join optimization on large files.
+Need it to scale? Export the **lazy polars** variant (`scan_*` → `collect()`) for
+pushdown and join optimization on large files.
+
+---
+
+## 🧩 A Plugin-First Platform
+
+FlowFrame is designed as an **ecosystem**, not a fixed feature set. Its plugin API
+(`app.plugin_api`) defines stable **provider contracts** so that nearly every
+capability can be extended by a small Python package — one that depends only on the
+public contract, never on FlowFrame's internals.
+
+| Extension point | Contract | What a plugin can add |
+|-----------------|----------|------------------------|
+| **Nodes** | `NodeProvider` | New canvas nodes that run end-to-end (preview, run, code export) |
+| **Connectors** | `ConnectorProvider` | New database / API sources and sinks |
+| **Storage** | `StorageProvider` | New object/file storage backends |
+| **Execution engines** | `ExecutionProvider` | New dataframe engines beyond polars/pandas |
+| **Exporters** | `ExporterProvider` | New code/artifact export targets (e.g. notebooks) |
+| **Validators** | `ValidatorProvider` | New data-quality / contract checks |
+| **AI capabilities** | `AIProvider` | Pipeline builders, debuggers, optimizers |
+| **Auth** | `AuthProvider` | Authentication methods |
+
+Plugins can be packaged as portable `.ffplugin` files and **cryptographically
+signed** (Ed25519). With `--trusted`, FlowFrame refuses any package not signed by
+a key you trust.
+
+```bash
+# Discover plugins from a local directory (no install needed)
+export FLOWFRAME_PLUGINS_DIR=/path/to/your/plugins
+flowframe serve
+
+# Inspect, install, enable, disable, and verify
+flowframe plugin list
+flowframe plugin install ./my-plugin.ffplugin --trusted
+flowframe plugin enable  <plugin_id>
+flowframe plugin verify  ./my-plugin.ffplugin
+
+# Publishers: generate a key, package, and sign
+flowframe plugin keygen
+flowframe plugin pack ./my-plugin ./my-plugin.ffplugin
+flowframe plugin sign ./my-plugin.ffplugin
+```
+
+A complete, runnable example — the smallest possible plugin that adds one node —
+lives in [`examples/plugins/hello-node-plugin/`](examples/plugins/hello-node-plugin/),
+with a pre-built signed package in [`examples/plugins/dist/`](examples/plugins/dist/).
+
+> **Where this is heading:** the plugin contracts above are the foundation for a
+> community ecosystem of nodes, templates, connectors, execution engines,
+> exporters, AI assistants, and integrations. The core stays fully open-source and
+> useful on its own; the architecture is built so extensions install from the
+> outside without ever forking the core.
+
+**Learn more:**
+[Writing a plugin](docs/plugins/writing-a-plugin.md) ·
+[Packaging & distribution](docs/plugins/packaging-and-distribution.md)
+
+---
+
+## 🔁 One Canvas, the Whole Workflow
+
+FlowFrame covers the workflow lifecycle end to end — no jumping between tools:
+
+| Stage | What FlowFrame provides |
+|-------|--------------------------|
+| **Ingestion** | CSV, Excel, Parquet files; SQL databases and object storage via saved connections |
+| **Transformation** | 28 transformation nodes — clean, reshape, join, aggregate, window, pivot |
+| **Validation** | Data-quality contract nodes (not-null, unique, value range, expression, row count) |
+| **Feature engineering** *(ML extra)* | Scale, encode, select features, reduce dimensions (PCA), train/test split |
+| **Model training** *(ML extra)* | Classifiers, regressors, clustering — with cross-validation and tuning |
+| **Evaluation** *(ML extra)* | Metrics, confusion matrix, feature importance |
+| **Inference** *(ML extra)* | Score new data with a wired or registered MLflow model |
+| **Export & reuse** | Readable pandas / polars / lazy-polars Python; scheduling; run history |
+
+The ML stages ship as an optional extension (`pip install "flowframe[ml]"`) and are
+tracked with **MLflow** — see [Machine Learning](#-machine-learning-optional-extension).
 
 ---
 
@@ -108,11 +190,11 @@ and join optimization on large files.
 |---------|---------|
 | **Visual Builder** | Drag-and-drop nodes for cleaning, reshaping, joining, and aggregating data |
 | **28 Transformation Nodes** | From drop-nulls to window functions, joins, pivots, and conditional columns |
+| **Plugin Platform** | Extend nodes, connectors, engines, exporters, validators, and AI via signed plugins |
 | **Live Preview** | See data changes at each step before running the full pipeline |
 | **Code Export** | Download readable, standalone Python — pandas, polars, or optimized **lazy** polars |
-| **polars or pandas** | Runs on polars by default; switch engines per run |
-| **SQL Databases** | Read from and write to SQL databases via saved connections, alongside files |
-| **Plugins** | Extend the node palette with installable, optionally **signed** plugin packages |
+| **Multi-Engine** | Runs on polars by default; switch to pandas per run; engine contract open to more |
+| **SQL & Storage** | Read/write SQL databases and object storage via saved connections, alongside files |
 | **Local-First** | Runs entirely on your machine — no SaaS, no cloud lock-in |
 | **Versioned Datasets** | Re-uploading a file keeps every version, so flows stay reproducible |
 | **Scheduling** | Built-in cron scheduler with retries, catch-up, and auto-disable |
@@ -265,52 +347,8 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 - Assert not-null, unique, value range, expression, and row count — pass-through
   contract nodes that either fail the run or log a warning when violated
 
----
-
-## 🧩 Plugins & Extensibility
-
-Need a node FlowFrame doesn't ship? Write a **plugin**. A plugin is a small Python
-package that contributes catalog nodes (and can ship **executable** runtimes that
-run in previews, runs, and code export — exactly like a built-in node). Plugins
-depend only on the public plugin API (`app.plugin_api`), never on FlowFrame's
-private internals.
-
-```bash
-# Discover plugins from a local directory (no install needed)
-export FLOWFRAME_PLUGINS_DIR=/path/to/your/plugins
-flowframe serve
-
-# Or install a packaged plugin
-flowframe plugin install ./my-plugin.ffplugin
-
-# Inspect, enable, disable, and verify plugins
-flowframe plugin list
-flowframe plugin enable  <plugin_id>
-flowframe plugin disable <plugin_id>
-flowframe plugin verify  ./my-plugin.ffplugin
-```
-
-Plugins can be packaged as portable `.ffplugin` files and **cryptographically
-signed** (Ed25519). When you install with `--trusted`, FlowFrame refuses any
-package that isn't signed by a key you trust:
-
-```bash
-# Publishers: generate a keypair, package, and sign
-flowframe plugin keygen
-flowframe plugin pack ./my-plugin ./my-plugin.ffplugin
-flowframe plugin sign ./my-plugin.ffplugin
-
-# Consumers: install only trusted, signed packages
-flowframe plugin install ./my-plugin.ffplugin --trusted
-```
-
-A complete, runnable example — the smallest possible plugin that adds one node —
-lives in [`examples/plugins/hello-node-plugin/`](examples/plugins/hello-node-plugin/),
-with a pre-built signed package in [`examples/plugins/dist/`](examples/plugins/dist/).
-
-**Learn more:**
-[Writing a plugin](docs/plugins/writing-a-plugin.md) ·
-[Packaging & distribution](docs/plugins/packaging-and-distribution.md)
+> Need a node that isn't here? [Write a plugin](#-a-plugin-first-platform) — plugin
+> nodes run in previews, runs, and code export exactly like built-ins.
 
 ---
 
@@ -355,8 +393,10 @@ on first boot so the Runs and Models views aren't empty. See the
 ## 🏗️ Tech Stack
 
 **Backend:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.x (async), pandas,
-polars. Default dataframe engine is **polars**; pandas is fully supported and
-selectable per run.
+polars. The dataframe engine is **pluggable** (`app/engine/backends/`); polars is
+the default and pandas is fully supported and selectable per run. The
+`ExecutionProvider` plugin contract is the path to additional engines — and
+DuckDB is already available today as a SQL **connector**.
 
 **Frontend:** React 18, TypeScript (strict), Vite, @xyflow/react, TanStack Query,
 Zustand, shadcn/ui, Tailwind CSS.
@@ -372,7 +412,8 @@ For the full picture, see [architecture.md](architecture.md).
 ## 🚦 Project Status
 
 FlowFrame is **alpha** software under active development. The core engine,
-transformations, scheduler, code export, and plugin system work today, but:
+transformations, scheduler, code export, ML extension, and plugin system work
+today, but:
 
 - The public API, data model, and generated code **may change between releases**.
 - There is **no backward-compatibility guarantee** yet.
@@ -407,7 +448,7 @@ effort is made to ensure correctness and quality, **we cannot guarantee**:
 ## 🤝 Contributing
 
 Contributions are welcome and genuinely appreciated — whether you're fixing a bug,
-adding a transformation, writing a plugin, or improving the docs. **New
+adding a transformation, **building a plugin**, or improving the docs. **New
 contributors are welcome**: look for issues labelled
 [`good first issue`](https://github.com/rodrigo-arenas/FlowFrame/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 to get started.
@@ -471,7 +512,7 @@ If you use FlowFrame in academic work, you can cite it as:
 ```bibtex
 @software{flowframe,
   author  = {Arenas, Rodrigo},
-  title   = {FlowFrame: A local-first visual ETL builder},
+  title   = {FlowFrame: A plugin-first, local-first platform for visual data and ML workflows},
   url     = {https://github.com/rodrigo-arenas/FlowFrame},
   year    = {2026}
 }
@@ -490,6 +531,6 @@ If you use FlowFrame in academic work, you can cite it as:
 
 <div align="center">
 
-**Made with ❤️ for data practitioners who value simplicity and reproducibility.**
+**Made with ❤️ for data practitioners who value simplicity, openness, and reproducibility.**
 
 </div>
