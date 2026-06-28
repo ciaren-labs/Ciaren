@@ -604,8 +604,25 @@ export const NODE_TYPE_MAP: Record<string, NodeTypeDef> = Object.fromEntries(
   NODE_TYPES.map((n) => [n.type, n]),
 );
 
+// Runtime overlay populated from the backend catalog (GET /api/catalog/nodes),
+// including plugin-contributed nodes. The static NODE_TYPES above remain the
+// seed/offline fallback; once the catalog is fetched, `setRuntimeNodeDefs`
+// installs the merged set so every existing `getNodeTypeDef` caller (canvas drop,
+// validation, codegen-adjacent UI) resolves plugin nodes without changes.
+let RUNTIME_NODE_DEFS: Record<string, NodeTypeDef> = {};
+
+/** Replace the runtime overlay with the merged catalog (static + backend). */
+export function setRuntimeNodeDefs(defs: NodeTypeDef[]): void {
+  RUNTIME_NODE_DEFS = Object.fromEntries(defs.map((d) => [d.type, d]));
+}
+
+/** Clear the runtime overlay (tests). */
+export function clearRuntimeNodeDefs(): void {
+  RUNTIME_NODE_DEFS = {};
+}
+
 export function getNodeTypeDef(type: string): NodeTypeDef | undefined {
-  return NODE_TYPE_MAP[type];
+  return RUNTIME_NODE_DEFS[type] ?? NODE_TYPE_MAP[type];
 }
 
 export const CATEGORY_LABELS: Record<NodeCategory, string> = {
