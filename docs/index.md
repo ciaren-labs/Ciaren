@@ -166,10 +166,21 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 
 ## Real-World Examples
 
+**Data Engineering**
+
 - [Sales Data Analysis](/examples/sales-analysis) — Clean sales data, aggregate by region
 - [Customer Segmentation](/examples/customer-segmentation) — Group customers by behavior
 - [Time Series](/examples/time-series) — Resample and smooth time-based data
 - [Data Quality](/examples/data-quality) — Validate and clean messy datasets
+- [DuckDB Analytics](/examples/duckdb-analytics) — Query and write back a DuckDB database
+
+**Machine Learning**
+
+- [Customer Churn Classification](/examples/ml-classification) — Split, train, evaluate, export
+- [Feature Engineering](/examples/feature-engineering) — Scale, encode, select, reduce
+
+In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
+[how FlowFrame compares](/guide/comparison) to notebooks and orchestrators.
 
 ## Why FlowFrame?
 

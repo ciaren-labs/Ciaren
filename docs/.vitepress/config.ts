@@ -105,6 +105,11 @@ export default defineConfig({
         activeMatch: '/examples/',
       },
       {
+        text: 'Recipes',
+        link: '/recipes/overview',
+        activeMatch: '/recipes/',
+      },
+      {
         text: 'API',
         link: '/api/rest-api',
         activeMatch: '/api/',
@@ -130,6 +135,7 @@ export default defineConfig({
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
             { text: 'Interface Tour', link: '/guide/interface' },
+            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
           ],
         },
         {
@@ -174,6 +180,14 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Design System', link: '/guide/design-system' },
+          ],
+        },
+        {
+          text: 'Community',
+          collapsed: true,
+          items: [
+            { text: 'Roadmap', link: '/guide/roadmap' },
+            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
           ],
         },
         {
@@ -296,12 +310,39 @@ export default defineConfig({
 
       '/examples/': [
         {
-          text: 'Real-World Examples',
+          text: 'Data Engineering',
           items: [
             { text: 'Sales Analysis', link: '/examples/sales-analysis' },
             { text: 'Customer Segmentation', link: '/examples/customer-segmentation' },
             { text: 'Time Series', link: '/examples/time-series' },
             { text: 'Data Quality Checks', link: '/examples/data-quality' },
+            { text: 'DuckDB Analytics', link: '/examples/duckdb-analytics' },
+          ],
+        },
+        {
+          text: 'Machine Learning',
+          items: [
+            { text: 'Customer Churn Classification', link: '/examples/ml-classification' },
+            { text: 'Feature Engineering', link: '/examples/feature-engineering' },
+          ],
+        },
+        {
+          text: 'More',
+          items: [
+            { text: 'Recipes (quick tasks)', link: '/recipes/overview' },
+          ],
+        },
+      ],
+
+      '/recipes/': [
+        {
+          text: 'Recipes',
+          items: [
+            { text: 'Overview', link: '/recipes/overview' },
+            { text: 'Convert Excel to Parquet', link: '/recipes/convert-excel-to-parquet' },
+            { text: 'Remove Duplicate Rows', link: '/recipes/remove-duplicate-rows' },
+            { text: 'Fill Missing Values', link: '/recipes/fill-missing-values' },
+            { text: 'Pivot a Table', link: '/recipes/pivot-a-table' },
           ],
         },
       ],
