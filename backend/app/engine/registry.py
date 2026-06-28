@@ -140,6 +140,24 @@ _ML_TYPES: set[str] = set()
 _register_ml_nodes()
 
 
+def register_transformations(*transformations: BaseTransformation) -> None:
+    """Register externally-provided transformations (e.g. a plugin's nodes) so the
+    executor, codegen, and graph validation resolve them like built-ins. Raises
+    ``ValueError`` on a duplicate type, so a plugin can never silently shadow a
+    built-in node."""
+    for t in transformations:
+        if t.type in _REGISTRY:
+            raise ValueError(f"transformation {t.type!r} is already registered")
+        _REGISTRY[t.type] = t
+
+
+def unregister_transformations(*types: str) -> None:
+    """Remove externally-registered node types (plugin unload / test reset). No-op
+    for unknown types."""
+    for type_name in types:
+        _REGISTRY.pop(type_name, None)
+
+
 def get_transformation(node_type: str) -> BaseTransformation:
     if node_type not in _REGISTRY:
         raise KeyError(f"Unknown transformation type: {node_type!r}")

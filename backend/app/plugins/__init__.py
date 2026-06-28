@@ -9,6 +9,7 @@ internals (it is app code); the pure contract lives in ``app.plugin_api``.
 
 from app.plugins.runtime import (
     build_registry,
+    ensure_plugins_loaded,
     get_load_result,
     get_registry,
     reset_registry,
@@ -18,5 +19,6 @@ __all__ = [
     "build_registry",
     "get_registry",
     "get_load_result",
+    "ensure_plugins_loaded",
     "reset_registry",
 ]

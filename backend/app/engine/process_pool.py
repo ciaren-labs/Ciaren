@@ -72,8 +72,17 @@ def get_process_pool() -> ProcessPoolExecutor:
     global _pool
     if _pool is None:
         max_workers = max(1, get_settings().SCHEDULER_MAX_CONCURRENT_RUNS)
-        _pool = ProcessPoolExecutor(max_workers=max_workers)
+        # Bootstrap plugins in each worker so plugin-contributed nodes resolve in
+        # `process` mode too (the parent's in-memory registry isn't inherited).
+        _pool = ProcessPoolExecutor(max_workers=max_workers, initializer=_init_worker)
     return _pool
+
+
+def _init_worker() -> None:
+    """Process-pool worker initializer: load + bridge plugins. Best-effort."""
+    from app.plugins import ensure_plugins_loaded
+
+    ensure_plugins_loaded()
 
 
 def shutdown_process_pool() -> None:
