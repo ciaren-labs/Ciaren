@@ -30,7 +30,8 @@ Select Features → Reduce Dimensions (PCA).
 
 ## Sample data
 
-Save this as `applicants.csv` and upload it on the **Datasets** page:
+Save this as `applicants.csv` and upload it on the **Datasets** page
+(📥 [download applicants.csv](/samples/feature-engineering/applicants.csv)):
 
 ```csv
 applicant_id,age,income,region,score,approved
