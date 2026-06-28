@@ -20,6 +20,10 @@ import {
 /** MIME-ish key used to carry the node type across a drag from palette → canvas. */
 export const NODE_DND_MIME = "application/flowframe-node";
 
+const PALETTE_MIN_WIDTH = 200;
+const PALETTE_MAX_WIDTH = 480;
+const PALETTE_DEFAULT_WIDTH = 240;
+
 interface NodePaletteProps {
   onAdd: (def: NodeTypeDef) => void;
   /** When false, every non-input category is locked until a dataset is set. */
@@ -34,11 +38,40 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem("ff_palette_collapsed") === "true";
   });
+  // User-adjustable panel width (px), persisted. Clamped to a sensible range.
+  const [width, setWidth] = useState(() => {
+    const v = Number(localStorage.getItem("ff_palette_width"));
+    return v >= PALETTE_MIN_WIDTH && v <= PALETTE_MAX_WIDTH ? v : PALETTE_DEFAULT_WIDTH;
+  });
 
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
     localStorage.setItem("ff_palette_collapsed", String(next));
+  };
+
+  // Drag the right edge to resize. Listeners live on the window so the drag keeps
+  // working even when the cursor moves over the canvas; width is persisted on release.
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    let latest = startW;
+    const onMove = (ev: MouseEvent) => {
+      latest = Math.min(PALETTE_MAX_WIDTH, Math.max(PALETTE_MIN_WIDTH, startW + ev.clientX - startX));
+      setWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem("ff_palette_width", String(Math.round(latest)));
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
 
   const toggle = (category: string) =>
@@ -74,12 +107,14 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return [];
-    return visibleTypes.filter(
-      (n) =>
-        n.label.toLowerCase().includes(q) ||
-        n.description.toLowerCase().includes(q) ||
-        n.type.toLowerCase().includes(q),
-    );
+    return visibleTypes
+      .filter(
+        (n) =>
+          n.label.toLowerCase().includes(q) ||
+          n.description.toLowerCase().includes(q) ||
+          n.type.toLowerCase().includes(q),
+      )
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [q, visibleTypes]);
 
   if (collapsed) {
@@ -126,7 +161,8 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   }
 
   return (
-    <div className="flex h-full w-60 shrink-0 flex-col gap-2 overflow-y-auto border-r border-border bg-muted/30 p-3">
+    <div className="relative flex h-full shrink-0" style={{ width }}>
+      <div className="flex h-full w-full flex-col gap-2 overflow-y-auto border-r border-border bg-muted/30 p-3">
       <div className="flex items-start justify-between px-1">
         <div>
           <h2 className="text-base font-semibold text-foreground">Nodes</h2>
@@ -192,6 +228,14 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           categories={categories}
         />
       )}
+      </div>
+      <div
+        onMouseDown={startResize}
+        role="separator"
+        aria-orientation="vertical"
+        title="Drag to resize"
+        className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize transition-colors hover:bg-brand-300/60 active:bg-brand-400/70"
+      />
     </div>
   );
 }
@@ -224,7 +268,9 @@ function PaletteAccordion({
       )}
 
       {categories.map((category) => {
-        const items = nodeTypes.filter((n) => n.category === category);
+        const items = nodeTypes
+          .filter((n) => n.category === category)
+          .sort((a, b) => a.label.localeCompare(b.label));
         if (items.length === 0) return null;
         const isOpen = open.has(category);
         const locked = !unlocked && category !== "input";
