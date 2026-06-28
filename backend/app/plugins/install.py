@@ -27,6 +27,17 @@ from app.plugins.package import (
 
 INSTALL_DIR_ENV = "FLOWFRAME_PLUGIN_INSTALL_DIR"
 
+#: Anti zip-bomb / runaway-package limits applied during extraction.
+MAX_ENTRY_BYTES = 256 * 1024 * 1024  # 256 MiB per file
+MAX_TOTAL_BYTES = 1024 * 1024 * 1024  # 1 GiB across the whole package
+MAX_ENTRIES = 10_000
+
+#: Unix file-type bits in a zip entry's external attributes. A symlink entry
+#: (``S_IFLNK``) is refused so a package can't drop a symlink that later redirects
+#: writes/reads outside the tree.
+_S_IFMT = 0o170000
+_S_IFLNK = 0o120000
+
 
 class InstallError(RuntimeError):
     """Raised when a plugin cannot be installed (bad package, untrusted, exists)."""
@@ -47,19 +58,48 @@ def user_plugins_dir() -> Path:
 
 
 def _safe_target_name(plugin_id: str) -> str:
-    """A filesystem-safe directory name for a plugin id (ids may contain dots)."""
-    cleaned = "".join(c if c.isalnum() or c in "._-" else "_" for c in plugin_id)
-    if not cleaned or cleaned in (".", ".."):
+    """A filesystem-safe directory name for a plugin id (ids may contain dots).
+
+    The mapping must be **injective** — silently rewriting ``a/b`` and ``a_b`` to
+    the same name would let one plugin id clobber another's install dir — so we
+    reject any id with characters outside ``[A-Za-z0-9._-]`` rather than rewrite.
+    """
+    if not plugin_id or plugin_id in (".", "..") or not all(c.isalnum() or c in "._-" for c in plugin_id):
         raise InstallError(f"invalid plugin id for installation: {plugin_id!r}")
-    return cleaned
+    return plugin_id
+
+
+def _is_unsafe_name(name: str) -> bool:
+    """Reject an archive entry name lexically (before touching the filesystem):
+    absolute paths, drive-qualified paths, backslashes, or any ``..`` component."""
+    if name.startswith("/") or "\\" in name or ":" in name:
+        return True
+    return any(part == ".." for part in name.split("/"))
 
 
 def _extract_safely(zf: ZipFile, target: Path) -> None:
-    """Extract every entry under ``target``, rejecting path traversal (zip-slip)."""
+    """Extract every entry under ``target``, rejecting path traversal (zip-slip),
+    symlink entries, and oversized/too-many entries (zip-bomb)."""
     target = target.resolve()
-    for name in zf.namelist():
-        if name.endswith("/"):
-            continue
+    infos = [i for i in zf.infolist() if not i.filename.endswith("/")]
+    if len(infos) > MAX_ENTRIES:
+        raise InstallError(f"package has too many entries ({len(infos)} > {MAX_ENTRIES})")
+    total = 0
+    for info in infos:
+        name = info.filename
+        # 1. Lexical check on the *archive* name, before any path resolution.
+        if _is_unsafe_name(name):
+            raise InstallError(f"unsafe path in package: {name!r}")
+        # 2. Refuse symlink entries — extracting them could redirect outside target.
+        if (info.external_attr >> 16) & _S_IFMT == _S_IFLNK:
+            raise InstallError(f"package contains a symlink entry: {name!r}")
+        # 3. Size guards (uncompressed) to bound a decompression bomb.
+        if info.file_size > MAX_ENTRY_BYTES:
+            raise InstallError(f"entry {name!r} is too large ({info.file_size} bytes)")
+        total += info.file_size
+        if total > MAX_TOTAL_BYTES:
+            raise InstallError("package exceeds the maximum uncompressed size")
+        # 4. Resolved-path check as defense in depth against any residual escape.
         dest = (target / name).resolve()
         if not str(dest).startswith(str(target) + os.sep) and dest != target:
             raise InstallError(f"unsafe path in package: {name!r}")

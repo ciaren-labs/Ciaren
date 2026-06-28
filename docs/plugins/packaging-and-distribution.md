@@ -55,7 +55,31 @@ export FLOWFRAME_TRUSTED_PLUGIN_KEYS='{"acme-2026": "<public_hex>"}'
 ```
 
 Trusted keys are read from `FLOWFRAME_TRUSTED_PLUGIN_KEYS` (a JSON object) and
-`~/.flowframe/trusted_keys.json`.
+`~/.flowframe/trusted_keys.json`. The signature covers the package digest **and**
+the signer metadata (`key_id`, `publisher`, `algorithm`), so a valid signature
+can't be relabelled to impersonate a different key.
+
+### Shipping compiled bytecode (paid plugins)
+
+By default a `.ffplugin` carries your `.py` source — anyone can unzip and read it.
+For a paid plugin you can ship compiled bytecode instead:
+
+```bash
+flowframe plugin pack ./my-plugin ./my-plugin-1.0.0.ffplugin --compile
+```
+
+With `--compile`, every `.py` is compiled to optimized `.pyc` (docstrings and
+`assert`s stripped) and only the bytecode ships — the source is omitted. The
+loader imports the bare `.pyc` transparently, so the plugin still runs.
+
+::: warning Bytecode is a deterrent, not real protection
+A `.pyc` can still be decompiled back to near-original logic, and it is **locked to
+the Python version it was built with** (a 3.12 build won't load on 3.13) — build
+one artifact per supported Python version. For genuinely sensitive IP (an AI
+optimizer, a proprietary algorithm), keep the logic in a remote service the plugin
+calls, rather than shipping it to the user's disk at all. See the architecture plan
+§15 — "do not assume Python source can be fully hidden."
+:::
 
 ## Verify and install (users)
 
@@ -79,6 +103,14 @@ Installation extracts into `~/.flowframe/plugins` (override with
 on the next start. Path-traversal entries are rejected. A drop-in plugin that
 declares permissions still starts **pending** until you approve it — see
 [plugin security](/security/plugin-security).
+
+## Install from the app
+
+The **Plugins** page has an **Install plugin** button that uploads a local
+`.ffplugin` (`POST /api/plugins/install`). It runs the same verification and
+permission gating as the CLI — a tampered/invalid package is refused, and a
+plugin that declares permissions stays pending until you approve it. Set
+`FLOWFRAME_REQUIRE_TRUSTED_PLUGINS=true` to refuse unsigned/untrusted uploads.
 
 ## Marketplace index
 
@@ -105,9 +137,26 @@ billing in the core):
 }
 ```
 
+Author an index by adding packed plugins to it — the digest and signing key id
+are recorded automatically, and the artifact is referenced relative to the index
+file so the catalog stays portable:
+
 ```bash
+flowframe plugin index add ./acme-databricks-1.2.0.ffplugin --index ./marketplace.json
 flowframe plugin search databricks --index ./marketplace.json
 ```
+
+### The "Explore" catalog
+
+Point `FLOWFRAME_MARKETPLACE_INDEX` at a local `marketplace.json` and the
+Plugins page grows an **Explore** section that lists its entries
+(`GET /api/marketplace`), marking which are already installed. Entries whose
+artifact is available locally install in one click
+(`POST /api/marketplace/{id}/install`) — FlowFrame re-checks the advertised
+digest and verifies the signature before installing. Entries that point at a
+remote URL must be downloaded and installed manually for now; a hosted index with
+network download is a drop-in later (same setting accepts an `https://` URL, same
+API contract).
 
 ## Premium licensing (optional)
 
