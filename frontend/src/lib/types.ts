@@ -545,6 +545,16 @@ export interface PluginInfo {
   granted_permissions: string[];
   /** Requested-but-not-yet-granted permissions (non-empty ⇒ needs approval). */
   missing_permissions: string[];
+  /** How the package verified at install time: trusted | untrusted | unsigned | invalid | "". */
+  signature: string;
+}
+
+export interface LicenseStatus {
+  plugin_id: string;
+  valid: boolean;
+  license_type: string | null;
+  expires_at: string | null;
+  reason: string | null;
 }
 
 export interface PluginErrorInfo {

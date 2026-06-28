@@ -180,6 +180,24 @@ A premium plugin registers its own `TokenLicenseProvider` (from
 premium licensing of its own — this is reusable infrastructure for plugin authors.
 Local licensing deters casual misuse; it is not unbreakable DRM.
 
+The token lifecycle is fully local — no license server is required to *use* a
+token, only to *issue* it:
+
+```bash
+# Publisher mints a signed token (after a purchase, server-side):
+flowframe plugin license issue --key <private_hex> --user u-123 --plugin acme.databricks \
+  --expires 2027-01-01T00:00:00Z --grace 2027-01-15T00:00:00Z --out token.json
+
+# User caches it locally; the plugin's provider then validates it offline:
+flowframe plugin license import token.json
+flowframe plugin license status acme.databricks --key <issuer_public_hex>
+```
+
+`GET /api/plugins/{id}/license` reports the resolved status, and the Plugins page
+shows a **license badge** for plugins whose provider answers. It also shows a
+**signature badge** (`Trusted` / `Untrusted key` / `Unsigned`) recording how each
+installed package verified.
+
 ## See also
 
 - [Writing a plugin](/plugins/writing-a-plugin)
