@@ -12,6 +12,17 @@ can verify where it came from. It is a trust/consent boundary, **not** an OS
 sandbox — read the [local-first trust model](/security/local-first-trust-model)
 for what that does and doesn't guarantee.
 
+::: danger Only install plugins you trust
+A plugin is ordinary Python that runs on your machine with your account's access
+and is **not sandboxed**. A malicious or buggy plugin can read or delete your
+files, use your saved credentials, run other programs, or send data over the
+network — and the permission list is a heads-up, **not** an enforced limit.
+Install only plugins from sources you trust and whose code you can review (prefer
+signed packages from a [trusted key](#signature-verification)). FlowFrame cannot
+vet third-party plugins and is **not responsible** for what they do once you
+install and approve them. You install plugins at your own risk.
+:::
+
 ## Permissions
 
 A plugin declares the permissions it needs in its [manifest](/specs/plugin-manifest):
