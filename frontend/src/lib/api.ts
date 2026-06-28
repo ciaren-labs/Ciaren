@@ -25,6 +25,8 @@ import type {
   MlNodeMetrics,
   MlRegisteredModel,
   MlRegisterResult,
+  PluginDiagnostics,
+  PluginInfo,
   PreviewResponse,
   Project,
   ProjectCreate,
@@ -320,4 +322,31 @@ export const transformationsApi = {
 
 export const catalogApi = {
   nodes: () => request<CatalogNode[]>("/catalog/nodes"),
+};
+
+// ---- Plugins ---------------------------------------------------------------
+
+export const pluginsApi = {
+  list: () => request<PluginInfo[]>("/plugins"),
+  diagnostics: () => request<PluginDiagnostics>("/plugins/diagnostics"),
+  enable: (id: string) =>
+    request<PluginInfo>(`/plugins/${encodeURIComponent(id)}/enable`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  disable: (id: string) =>
+    request<PluginInfo>(`/plugins/${encodeURIComponent(id)}/disable`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  grant: (id: string, permissions: string[] = []) =>
+    request<PluginInfo>(`/plugins/${encodeURIComponent(id)}/grant`, {
+      method: "POST",
+      body: JSON.stringify({ permissions }),
+    }),
+  revoke: (id: string, permissions: string[]) =>
+    request<PluginInfo>(`/plugins/${encodeURIComponent(id)}/revoke`, {
+      method: "POST",
+      body: JSON.stringify({ permissions }),
+    }),
 };
