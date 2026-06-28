@@ -525,3 +525,35 @@ export interface CatalogNode {
   is_model_sink: boolean;
   config_schema: Record<string, unknown>;
 }
+
+// ---- Plugins ---------------------------------------------------------------
+
+export type PluginStatus = "loaded" | "disabled" | "needs_permissions";
+
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  publisher: string;
+  description: string;
+  source: string;
+  status: PluginStatus;
+  capabilities: string[];
+  /** Permissions the plugin requests. */
+  permissions: string[];
+  /** Permissions the user has granted it. */
+  granted_permissions: string[];
+  /** Requested-but-not-yet-granted permissions (non-empty ⇒ needs approval). */
+  missing_permissions: string[];
+}
+
+export interface PluginErrorInfo {
+  source: string;
+  error: string;
+}
+
+export interface PluginDiagnostics {
+  loaded: PluginInfo[];
+  gated: PluginInfo[];
+  errors: PluginErrorInfo[];
+}
