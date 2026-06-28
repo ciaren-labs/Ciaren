@@ -166,7 +166,7 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 
 ## Real-World Examples
 
-**Data Engineering**
+### Data Engineering
 
 - [Sales Data Analysis](/examples/sales-analysis) — Clean sales data, aggregate by region
 - [Customer Segmentation](/examples/customer-segmentation) — Group customers by behavior
@@ -174,7 +174,7 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 - [Data Quality](/examples/data-quality) — Validate and clean messy datasets
 - [DuckDB Analytics](/examples/duckdb-analytics) — Query and write back a DuckDB database
 
-**Machine Learning**
+### Machine Learning
 
 - [Customer Churn Classification](/examples/ml-classification) — Split, train, evaluate, export
 - [Feature Engineering](/examples/feature-engineering) — Scale, encode, select, reduce

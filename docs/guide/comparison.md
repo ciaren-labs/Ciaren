@@ -11,9 +11,11 @@ Data Engineering and ML workflows for small and medium datasets — that still e
 **clean, portable Python**. Here's how it relates to the tools you might already use.
 
 ::: tip TL;DR
+
 - More **repeatable and reviewable** than a notebook — with the same code on export.
 - Far **lighter** than Airflow/dbt/Spark — no cluster, no infra to run a flow.
 - More **open and extensible** than closed visual ETL tools — and no lock-in.
+
 :::
 
 ## vs. Notebooks & scripts (Jupyter, pandas/polars)
