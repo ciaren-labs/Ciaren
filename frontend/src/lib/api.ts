@@ -2,6 +2,7 @@
 // All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
+  CatalogNode,
   ColumnProfile,
   Connection,
   ConnectionCreate,
@@ -313,4 +314,10 @@ export const transformationsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+};
+
+// ---- Catalog (backend-fed node metadata, incl. plugin nodes) ---------------
+
+export const catalogApi = {
+  nodes: () => request<CatalogNode[]>("/catalog/nodes"),
 };
