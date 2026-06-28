@@ -288,6 +288,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("query", nargs="?", default="", help="Search text (empty lists all).")
     p_search.add_argument("--index", required=True, help="Path to a marketplace index JSON file.")
 
+    p_index = plugin_sub.add_parser("index", help="Author a local marketplace index (the 'Explore' catalog).")
+    index_sub = p_index.add_subparsers(dest="index_command")
+    p_index_add = index_sub.add_parser("add", help="Add/replace a plugin entry in a marketplace index.")
+    p_index_add.add_argument("package", help="Path to the .ffplugin to add.")
+    p_index_add.add_argument("--index", required=True, help="Marketplace index JSON file (created if absent).")
+    p_index_add.add_argument(
+        "--download-url",
+        default=None,
+        dest="download_url",
+        help="Where clients fetch the artifact. Defaults to the package path relative to the index file.",
+    )
+
     p_lic = plugin_sub.add_parser(
         "licenses", help="Scan installed dependency licenses for redistribution review.", parents=[output_parent]
     )
@@ -659,10 +671,15 @@ def _plugin(args: argparse.Namespace) -> None:
         _plugin_sign(args)
     elif command == "search":
         _plugin_search(args)
+    elif command == "index":
+        _plugin_index(args)
     elif command == "licenses":
         _plugin_licenses(args)
     else:
-        print("usage: flowframe plugin {list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,licenses}")
+        print(
+            "usage: flowframe plugin "
+            "{list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,index,licenses}"
+        )
 
 
 def _plugin_list(args: argparse.Namespace) -> None:
@@ -793,6 +810,24 @@ def _plugin_sign(args: argparse.Namespace) -> None:
     print(f"Signed {args.path}")
     print(f"  key_id: {sig.key_id}")
     print(f"  digest: {sig.digest}")
+
+
+def _plugin_index(args: argparse.Namespace) -> None:
+    if getattr(args, "index_command", None) != "add":
+        print("usage: flowframe plugin index add <package.ffplugin> --index <index.json>")
+        return
+    from app.plugins.marketplace import add_to_index_file
+    from app.plugins.package import PackageError
+
+    try:
+        entry = add_to_index_file(args.index, args.package, download_url=args.download_url)
+    except (OSError, ValueError, PackageError) as exc:
+        raise SystemExit(f"index add failed: {exc}") from exc
+    print(f"Added {entry.id} {entry.version} to {args.index}")
+    print(f"  downloadUrl: {entry.download_url}")
+    print(f"  digest:      {entry.digest}")
+    if entry.key_id:
+        print(f"  keyId:       {entry.key_id}")
 
 
 def _plugin_search(args: argparse.Namespace) -> None:

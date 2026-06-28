@@ -104,6 +104,14 @@ on the next start. Path-traversal entries are rejected. A drop-in plugin that
 declares permissions still starts **pending** until you approve it — see
 [plugin security](/security/plugin-security).
 
+## Install from the app
+
+The **Plugins** page has an **Install plugin** button that uploads a local
+`.ffplugin` (`POST /api/plugins/install`). It runs the same verification and
+permission gating as the CLI — a tampered/invalid package is refused, and a
+plugin that declares permissions stays pending until you approve it. Set
+`FLOWFRAME_REQUIRE_TRUSTED_PLUGINS=true` to refuse unsigned/untrusted uploads.
+
 ## Marketplace index
 
 A marketplace is just a JSON index of installable plugins (no hosted compute, no
@@ -129,9 +137,26 @@ billing in the core):
 }
 ```
 
+Author an index by adding packed plugins to it — the digest and signing key id
+are recorded automatically, and the artifact is referenced relative to the index
+file so the catalog stays portable:
+
 ```bash
+flowframe plugin index add ./acme-databricks-1.2.0.ffplugin --index ./marketplace.json
 flowframe plugin search databricks --index ./marketplace.json
 ```
+
+### The "Explore" catalog
+
+Point `FLOWFRAME_MARKETPLACE_INDEX` at a local `marketplace.json` and the
+Plugins page grows an **Explore** section that lists its entries
+(`GET /api/marketplace`), marking which are already installed. Entries whose
+artifact is available locally install in one click
+(`POST /api/marketplace/{id}/install`) — FlowFrame re-checks the advertised
+digest and verifies the signature before installing. Entries that point at a
+remote URL must be downloaded and installed manually for now; a hosted index with
+network download is a drop-in later (same setting accepts an `https://` URL, same
+API contract).
 
 ## Premium licensing (optional)
 
