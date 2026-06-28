@@ -846,6 +846,7 @@ dependencies = [
     { name = "croniter" },
     { name = "fastapi" },
     { name = "openpyxl" },
+    { name = "packaging" },
     { name = "pandas" },
     { name = "polars" },
     { name = "pyarrow" },
@@ -907,6 +908,9 @@ postgres = [
 s3 = [
     { name = "boto3" },
 ]
+signing = [
+    { name = "cryptography" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -935,6 +939,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'all-connectors'", specifier = ">=1.34" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.34" },
     { name = "croniter", specifier = ">=3.0" },
+    { name = "cryptography", marker = "extra == 'signing'", specifier = ">=42" },
     { name = "fastapi", specifier = ">=0.138.0" },
     { name = "google-cloud-storage", marker = "extra == 'all'", specifier = ">=2.16" },
     { name = "google-cloud-storage", marker = "extra == 'all-connectors'", specifier = ">=2.16" },
@@ -943,6 +948,7 @@ requires-dist = [
     { name = "lightgbm", marker = "extra == 'ml'", specifier = ">=4.0" },
     { name = "mlflow", marker = "extra == 'ml'", specifier = ">=3.0" },
     { name = "openpyxl", specifier = ">=3.1" },
+    { name = "packaging", specifier = ">=23" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "polars", specifier = ">=1.0" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'all'", specifier = ">=3.1" },
@@ -968,7 +974,7 @@ requires-dist = [
     { name = "xgboost", marker = "extra == 'ml'", specifier = ">=3.3.0" },
     { name = "xlsxwriter", specifier = ">=3.1" },
 ]
-provides-extras = ["postgres", "mysql", "mssql", "mongo", "s3", "gcs", "azure", "ml", "all", "all-connectors"]
+provides-extras = ["postgres", "mysql", "mssql", "mongo", "s3", "gcs", "azure", "ml", "signing", "all", "all-connectors"]
 
 [package.metadata.requires-dev]
 dev = [
