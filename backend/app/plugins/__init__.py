@@ -7,6 +7,16 @@ so the core has no privileged path. This package may import engine/connector
 internals (it is app code); the pure contract lives in ``app.plugin_api``.
 """
 
-from app.plugins.runtime import build_registry, get_registry, reset_registry
+from app.plugins.runtime import (
+    build_registry,
+    get_load_result,
+    get_registry,
+    reset_registry,
+)
 
-__all__ = ["build_registry", "get_registry", "reset_registry"]
+__all__ = [
+    "build_registry",
+    "get_registry",
+    "get_load_result",
+    "reset_registry",
+]
