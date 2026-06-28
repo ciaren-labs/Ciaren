@@ -25,8 +25,10 @@ import type {
   MlNodeMetrics,
   MlRegisteredModel,
   MlRegisterResult,
+  MarketplaceCatalog,
   PluginDiagnostics,
   PluginInfo,
+  PluginInstallResult,
   PreviewResponse,
   Project,
   ProjectCreate,
@@ -348,5 +350,25 @@ export const pluginsApi = {
     request<PluginInfo>(`/plugins/${encodeURIComponent(id)}/revoke`, {
       method: "POST",
       body: JSON.stringify({ permissions }),
+    }),
+  install: async (file: File): Promise<PluginInstallResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE_URL}/plugins/install`, { method: "POST", body: form });
+    if (!res.ok) {
+      throw await parseError(res);
+    }
+    return (await res.json()) as PluginInstallResult;
+  },
+};
+
+// ---- Marketplace ("Explore" catalog) ---------------------------------------
+
+export const marketplaceApi = {
+  list: () => request<MarketplaceCatalog>("/marketplace"),
+  install: (id: string) =>
+    request<PluginInstallResult>(`/marketplace/${encodeURIComponent(id)}/install`, {
+      method: "POST",
+      body: JSON.stringify({}),
     }),
 };
