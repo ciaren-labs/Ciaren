@@ -38,7 +38,7 @@ def test_file_output_is_a_valid_terminal():
 
 
 @pytest.mark.parametrize("engine_name", ["pandas", "polars"])
-@pytest.mark.parametrize("fmt", ["csv", "excel", "parquet", "json", "text"])
+@pytest.mark.parametrize("fmt", ["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"])
 def test_file_output_writes_every_format(tmp_path, engine_name, fmt):
     in_csv = tmp_path / "in.csv"
     pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]}).to_csv(in_csv, index=False)

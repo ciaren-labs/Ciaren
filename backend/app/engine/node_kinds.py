@@ -34,16 +34,18 @@ OUTPUT_SOURCE_TYPES: dict[str, str] = {
 # The unified local-file output node. Its format (and so its source_type) comes
 # from the node config rather than the node type.
 FILE_OUTPUT_TYPE = "fileOutput"
-#: Formats the File Output node can write — mirrors the file input formats.
-FILE_OUTPUT_FORMATS: tuple[str, ...] = ("csv", "excel", "parquet", "json", "text")
+#: Formats the File Output node can write.
+FILE_OUTPUT_FORMATS: tuple[str, ...] = ("csv", "tsv", "excel", "parquet", "json", "jsonl", "text")
 DEFAULT_FILE_OUTPUT_FORMAT = "csv"
 
 # File extension written for each output source_type.
 OUTPUT_SUFFIX: dict[str, str] = {
     "csv": ".csv",
+    "tsv": ".tsv",
     "excel": ".xlsx",
     "parquet": ".parquet",
     "json": ".json",
+    "jsonl": ".jsonl",
     "text": ".txt",
 }
 

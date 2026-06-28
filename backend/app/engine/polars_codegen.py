@@ -57,9 +57,11 @@ _OUTPUT_WRITE = {
 # fileOutput writes by its configured format. (method, kwargs, extension)
 _FILE_OUTPUT_WRITE_PL = {
     "csv": ("write_csv", "", ".csv"),
+    "tsv": ("write_csv", "separator='\\t'", ".tsv"),
     "excel": ("write_excel", "", ".xlsx"),
     "parquet": ("write_parquet", "", ".parquet"),
     "json": ("write_json", "", ".json"),
+    "jsonl": ("write_ndjson", "", ".jsonl"),
     "text": ("write_csv", "include_header=False, separator='\\t'", ".txt"),
 }
 

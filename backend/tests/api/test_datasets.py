@@ -183,12 +183,16 @@ async def test_upload_unsupported_type_returns_400(client: AsyncClient) -> None:
     assert "unsupported" in r.json()["detail"].lower()
 
 
-async def test_upload_txt_extension_returns_400(client: AsyncClient) -> None:
+async def test_upload_txt_creates_text_dataset(client: AsyncClient) -> None:
+    # .txt is a supported (text) format — one row per line, single "text" column.
     r = await client.post(
         "/api/datasets/upload",
-        files={"file": ("notes.txt", b"hello", "text/plain")},
+        files={"file": ("notes.txt", b"line one\nline two", "text/plain")},
     )
-    assert r.status_code == 400
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["source_type"] == "text"
+    assert [f["name"] for f in body["column_schema"]] == ["text"]
 
 
 async def test_upload_no_extension_returns_400(client: AsyncClient) -> None:
