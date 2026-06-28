@@ -557,3 +557,33 @@ export interface PluginDiagnostics {
   gated: PluginInfo[];
   errors: PluginErrorInfo[];
 }
+
+export interface PluginInstallResult {
+  plugin: PluginInfo;
+  /** Signature trust outcome: trusted | untrusted | unsigned | invalid. */
+  outcome: string;
+  reason: string;
+}
+
+export interface MarketplaceEntry {
+  id: string;
+  name: string;
+  version: string;
+  publisher: string;
+  description: string;
+  license: string;
+  trust: string;
+  capabilities: string[];
+  permissions: string[];
+  license_required: boolean;
+  /** A plugin with this id is already installed. */
+  installed: boolean;
+  /** The artifact is available locally for one-click install. */
+  installable: boolean;
+}
+
+export interface MarketplaceCatalog {
+  /** False when no index is configured (the UI explains how to enable it). */
+  configured: boolean;
+  plugins: MarketplaceEntry[];
+}
