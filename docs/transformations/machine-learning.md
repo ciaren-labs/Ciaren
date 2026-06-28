@@ -23,7 +23,7 @@ or pandas.
     {"type":"ml","label":"Train Classifier","detail":"model → MLflow"},
     {"type":"ml","label":"Predict","detail":"test data + model wire"},
     {"type":"ml","label":"Evaluate","detail":"accuracy · AUC · F1"},
-    {"type":"output","label":"CSV Output","detail":"metrics table"}
+    {"type":"output","label":"File Output","detail":"metrics table"}
   ]'
 />
 

@@ -11,7 +11,7 @@ an order history. This shows off **Join**, **Group by + Aggregate**, and
 **Bin Column**.
 
 **You'll use:** two CSV Inputs → Group by + Aggregate → Rename → Join → Bin Column
-→ Sort → CSV Output.
+→ Sort → File Output.
 
 The key pattern here is a **fork-join**: two separate CSV inputs feed into a single
 Join node. The left branch aggregates orders first; the right branch is the raw
@@ -30,7 +30,7 @@ customer list.
   :after='[
     {"type":"transform","label":"Bin Column","detail":"total_spent → tier (Bronze/Silver/Gold)"},
     {"type":"clean","label":"Sort Rows","detail":"total_spent desc"},
-    {"type":"output","label":"CSV Output","detail":"segments.csv"}
+    {"type":"output","label":"File Output","detail":"segments.csv"}
   ]'
 />
 
@@ -74,7 +74,7 @@ Upload both on the **Datasets** page.
 6. **Bin Column** — `column: "total_spent"`, `new_column: "tier"`, `bins: 3`,
    `method: "quantile"`, `labels: ["Bronze", "Silver", "Gold"]`.
 7. **Sort Rows** — `columns: ["total_spent"]`, `ascending: false`.
-8. **CSV Output** — `path: "segments.csv"`.
+8. **File Output** — `format: csv` (name `segments`).
 
 ## Exported Python
 

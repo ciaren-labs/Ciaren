@@ -93,7 +93,7 @@ card is one node; you drag them from the palette and connect them on the canvas.
   {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},
   {"type":"transform","label":"Group By + Aggregate","detail":"by region · sum amount"},
   {"type":"clean","label":"Rename Columns","detail":"sum_amount → total_sales"},
-  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+  {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' />
 
 ## FAQ

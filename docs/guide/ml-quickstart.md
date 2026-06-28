@@ -55,7 +55,7 @@ this connection, so changing it re-points MLflow everywhere — no restart neede
     {"type":"ml","label":"Train Classifier","detail":"Random Forest → MLflow"},
     {"type":"ml","label":"Predict","detail":"test output + model wire"},
     {"type":"ml","label":"Evaluate","detail":"accuracy, AUC, F1"},
-    {"type":"output","label":"CSV Output","detail":"save metrics"}
+    {"type":"output","label":"File Output","detail":"save metrics"}
   ]'
 />
 
@@ -98,7 +98,7 @@ Open a flow and expand **Machine Learning** in the node palette:
    Train Classifier's **model** output (the purple wire) to its model input.
 5. **Evaluate** — connect Predict. Set the task type and the prediction column
    (`prediction`); choose metrics or accept the defaults.
-6. **Output** — connect a **CSV Output** to Evaluate to save the metrics table.
+6. **Output** — connect a **File Output** to Evaluate to save the metrics table.
 
 ::: tip Multi-output nodes
 Train / Test Split has two outputs (`train`, `test`) and Train Classifier has two
