@@ -18,9 +18,11 @@ permissions:
   pages: write
   id-token: write
 
+# Cancel superseded PR runs per ref; never cancel a push (main) run mid-flight.
+# Pages deployments are serialized separately on the deploy job below.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -136,6 +138,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    # Serialize Pages deployments across the whole repo, but never cancel a
+    # deployment that is already running (GitHub Pages guidance).
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
