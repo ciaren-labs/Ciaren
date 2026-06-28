@@ -58,6 +58,7 @@ const COVERED = new Set<string>([
   "mapValues",
   "windowFunction",
   "conditionalColumn",
+  "pythonTransform",
   "jsonInput",
   "textInput",
   "sqlInput",
@@ -509,6 +510,13 @@ describe("conditionalColumn", () => {
     });
     expect(result.success).toBe(false);
   });
+});
+
+// Advanced --------------------------------------------------------------
+describe("pythonTransform", () => {
+  it("accepts a non-empty script", () => accepts("pythonTransform", { script: "return df" }));
+  it("rejects an empty script", () => rejects("pythonTransform", { script: "" }, "script"));
+  it("rejects a missing script", () => rejects("pythonTransform", {}, "script"));
 });
 
 // SQL + output nodes ----------------------------------------------------
