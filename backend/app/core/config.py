@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
+    # Log output format. "auto" (default) prints ANSI-colored lines to a TTY and
+    # plain text when redirected; "json" emits one JSON object per line for log
+    # collectors (Docker/k8s/ELK); "text" forces plain lines regardless of TTY.
+    LOG_FORMAT: str = "auto"
+
     DATABASE_URL: str = "sqlite+aiosqlite:///./flowframe.db"
     DATA_DIR: str = ".data"
 
@@ -65,6 +70,13 @@ class Settings(BaseSettings):
     # In "process" execution mode the worker process is also recycled so the CPU
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
+
+    # -- Webhook trigger -------------------------------------------------------
+    # When set, POST /api/flows/{id}/trigger is enabled and the caller must
+    # provide this value in the X-FlowFrame-Secret header. Uses constant-time
+    # comparison (hmac.compare_digest) to prevent timing attacks. Unset by
+    # default so the endpoint is disabled on fresh installs (no secret = 404).
+    WEBHOOK_SECRET: str | None = None
 
     # -- Machine learning (optional extension; see docs/ml-architecture.md) ----
     # Feature flag. ML nodes/routes only activate when this is true AND the ``[ml]``

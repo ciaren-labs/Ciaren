@@ -32,6 +32,7 @@ def _json_safe(v: Any) -> Any:
         return {k: _json_safe(x) for k, x in v.items()}
     return v
 
+
 # How values accepted by the public API mapped to polars' own vocabulary.
 _JOIN_HOW = {
     "inner": "inner",
@@ -74,9 +75,12 @@ class PolarsEngine:
 
     def read(self, path: str, source_type: str) -> pl.DataFrame:
         if source_type == "csv":
-            return pl.read_csv(path)
+            # Lazy scan + streaming collect reads the file in batches, so the peak
+            # memory needed to load a large CSV is a fraction of read_csv's. The
+            # result is byte-identical to read_csv (same parser/inference).
+            return pl.scan_csv(path).collect(engine="streaming")
         if source_type == "parquet":
-            return pl.read_parquet(path)
+            return pl.scan_parquet(path).collect(engine="streaming")
         if source_type == "excel":
             # Native polars read (via openpyxl, already a dependency) so Excel gets
             # the same type inference as the CSV/Parquet paths — not pandas'.
@@ -86,6 +90,7 @@ class PolarsEngine:
         if source_type == "text":
             # polars has no line-reader; fall back to pandas for consistency with storage connector.
             import pandas as _pd
+
             pdf = _pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
             return pl.from_pandas(pdf)
         raise ValueError(f"Unsupported source_type: {source_type!r}")
@@ -117,6 +122,9 @@ class PolarsEngine:
 
     def row_count(self, df: pl.DataFrame) -> int:
         return df.height
+
+    def column_names(self, df: pl.DataFrame) -> list[str]:
+        return df.columns
 
     # -- Operations -----------------------------------------------------
 

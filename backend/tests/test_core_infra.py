@@ -18,6 +18,38 @@ def test_setup_logging(environment: str) -> None:
     assert logging.getLogger("uvicorn.access").level == logging.WARNING
 
 
+def test_json_log_format_emits_one_json_object_per_line(capsys: pytest.CaptureFixture[str]) -> None:
+    import json
+
+    setup_logging("production", log_format="json")
+    try:
+        logging.getLogger("app.test").info("hello", extra={"run_id": "r1"})
+        out = capsys.readouterr().out.strip().splitlines()
+        record = json.loads(out[-1])
+        assert record["level"] == "INFO"
+        assert record["logger"] == "app.test"
+        assert record["message"] == "hello"
+        # Caller-supplied `extra=` fields are surfaced as top-level keys.
+        assert record["run_id"] == "r1"
+    finally:
+        setup_logging("development")  # restore plain handler for other tests
+
+
+def test_json_log_format_includes_exception_traceback(capsys: pytest.CaptureFixture[str]) -> None:
+    import json
+
+    setup_logging("production", log_format="json")
+    try:
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            logging.getLogger("app.test").exception("failed")
+        record = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        assert "ValueError: boom" in record["exception"]
+    finally:
+        setup_logging("development")
+
+
 # -- database: session + schema helpers ---------------------------------
 
 

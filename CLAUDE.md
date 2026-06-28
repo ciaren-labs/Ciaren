@@ -98,6 +98,11 @@ Zustand, shadcn/ui, Tailwind, React Hook Form + Zod. Lives in `frontend/`.
 - **Transform:** calculated column, group by + aggregate, join/merge,
   union/concat, parse dates, extract date parts, pivot, unpivot,
   window function, conditional column
+- **Quality:** assertNotNull, assertUnique, assertValueRange, assertExpression,
+  assertRowCount — pass-through nodes that enforce data contracts; violations
+  either fail the run (error mode) or log a warning (warn mode)
+- **Advanced:** pythonTransform — user-supplied Python function body; engine
+  namespace (`pd`/`pl`) injected; syntax validated at save time
 - **Output:** CSV, Excel, Parquet, SQL (database), Storage (S3/GCS/Azure Blob)
 
 `app/engine/registry.py` is the authoritative list for transformation nodes.
@@ -111,7 +116,10 @@ REST only (no GraphQL for MVP).
 - Flows: `GET/POST /api/flows`, `GET/PUT/DELETE /api/flows/{id}`
 - Preview: `POST /api/flows/{id}/preview`, `POST /api/transformations/preview`
 - Runs: `POST /api/flows/{id}/runs`, `GET /api/runs` (filterable by flow,
-  schedule, status, date), `GET /api/runs/{id}`, `GET /api/runs/{id}/output`
+  schedule, status, date), `GET /api/runs/{id}`, `GET /api/runs/{id}/output`,
+  `POST /api/runs/{id}/retry`, `GET /api/runs/{id}/logs/stream` (SSE)
+- Webhook: `GET /api/settings/webhook`, `POST /api/flows/{id}/trigger`
+  (requires `X-FlowFrame-Secret` header; set `FLOWFRAME_WEBHOOK_SECRET` to enable)
 - Schedules: `GET/POST /api/flows/{id}/schedules`, `GET /api/schedules`,
   `GET/PATCH/DELETE /api/schedules/{id}`, `POST /api/schedules/{id}/run-now`,
   `GET /api/schedules/{id}/runs`

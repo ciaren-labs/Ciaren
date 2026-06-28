@@ -94,7 +94,7 @@ materializes around just those steps (`.collect()` … `.lazy()`) and keeps the
 rest of the plan lazy.
 
 | Export dialect | When to choose |
-|---|---|
+| --- | --- |
 | **pandas** | Existing pandas workflows, Jupyter notebooks, team familiarity |
 | **polars (eager)** | Default — fast, low-memory, idiomatic polars |
 | **polars (lazy)** | Large files; lets polars push down filters and projections |
@@ -107,13 +107,22 @@ and eager-polars scripts. This releases intermediate tables sooner, lowering pea
 memory on long pipelines. The lazy script is unaffected — its variables are query
 plans, not materialized data, so there is nothing to free.
 
+### Streaming reads at runtime (polars)
+
+The above is about *exported code*. Inside FlowFrame, the **polars** engine also
+loads CSV and Parquet inputs with a streaming reader (`scan_*` + a streaming
+`collect`), so a large input file is parsed in batches instead of all at once —
+lower peak memory at the point that usually dominates it. The result is identical
+to a plain read, so nothing else about your flow changes. (The pandas engine
+reads eagerly.)
+
 ## Execution mode: thread vs. process
 
 Flow compute is synchronous (pandas/polars), so FlowFrame runs it **off the event
 loop** to avoid blocking the API. `EXECUTION_MODE` selects how:
 
 | Mode | Parallelism | Notes |
-|---|---|---|
+| --- | --- | --- |
 | **`thread`** (default) | GIL-limited | Simple; lowest overhead; fine for most workloads |
 | **`process`** | True multi-core | `ProcessPoolExecutor`; only picklable args cross the boundary; DB session stays in parent |
 

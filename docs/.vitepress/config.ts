@@ -75,6 +75,8 @@ export default defineConfig({
             { text: 'Engines (polars / pandas)', link: '/guide/engines' },
             { text: 'Flow Parameters', link: '/guide/parameters' },
             { text: 'Scheduling', link: '/guide/scheduling' },
+            { text: 'Webhook Trigger', link: '/guide/webhook' },
+            { text: 'Python SDK', link: '/guide/sdk' },
             { text: 'CLI Reference', link: '/guide/cli' },
           ],
         },
@@ -184,6 +186,24 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Data Quality',
+          collapsed: true,
+          items: [
+            { text: 'Assert not null', link: '/transformations/assert-not-null' },
+            { text: 'Assert unique', link: '/transformations/assert-unique' },
+            { text: 'Assert value range', link: '/transformations/assert-value-range' },
+            { text: 'Assert expression', link: '/transformations/assert-expression' },
+            { text: 'Assert row count', link: '/transformations/assert-row-count' },
+          ],
+        },
+        {
+          text: 'Advanced',
+          collapsed: true,
+          items: [
+            { text: 'Python transform', link: '/transformations/python-transform' },
+          ],
+        },
+        {
           text: 'Machine Learning',
           collapsed: true,
           items: [
@@ -221,6 +241,13 @@ export default defineConfig({
             { text: 'Transformations', link: '/api/transformations' },
             { text: 'Schedules', link: '/api/schedules' },
             { text: 'Connections', link: '/api/connections' },
+          ],
+        },
+        {
+          text: 'Automation',
+          items: [
+            { text: 'Webhook Trigger', link: '/guide/webhook' },
+            { text: 'Python SDK', link: '/guide/sdk' },
           ],
         },
       ],

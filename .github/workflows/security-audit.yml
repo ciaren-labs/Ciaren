@@ -1,0 +1,81 @@
+name: Security Audit
+
+# Dependency vulnerability auditing for backend (pip-audit) and frontend
+# (npm audit). Complements Dependabot: Dependabot opens version-bump PRs on a
+# schedule, while this fails CI when a *currently pinned* dependency has a known
+# CVE. Gated at "high" so transitive low/moderate noise doesn't block PRs.
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/security-audit.yml
+  pull_request:
+    branches: [main, development]
+    paths:
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/security-audit.yml
+  schedule:
+    # Weekly so newly disclosed CVEs are caught even without a dependency change.
+    - cron: "27 5 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: pip-audit (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Audit resolved dependencies
+        working-directory: backend
+        # Audit the locked dependency set (all groups + ml extra), matching what
+        # the test job installs. --strict fails on any vulnerability that has a
+        # fix available; informational advisories without a fix are reported but
+        # do not fail the build.
+        run: |
+          uv export --frozen --all-groups --extra ml --no-emit-project \
+            --no-hashes --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit --requirement /tmp/requirements.txt --strict --progress-spinner off
+
+  frontend:
+    name: npm audit (frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Audit dependencies
+        working-directory: frontend
+        # Fail only on high/critical so moderate transitive advisories in dev
+        # tooling don't block PRs; review those via the weekly Dependabot run.
+        run: npm audit --audit-level=high
