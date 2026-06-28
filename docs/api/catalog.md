@@ -45,24 +45,34 @@ A node spec looks like:
 
 ## Plugins
 
-Read-only introspection of installed plugins and any isolated load errors.
+Introspection **and** management of installed plugins.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/plugins` | Plugins that loaded successfully (the core is not listed). |
-| `GET` | `/api/plugins/diagnostics` | Loaded plugins **plus** isolated load/validation errors. |
+| `GET` | `/api/plugins` | Every discovered plugin with its `status` (the core is not listed). |
+| `GET` | `/api/plugins/diagnostics` | `loaded`, `gated`, and isolated load/validation `errors`. |
+| `POST` | `/api/plugins/{id}/enable` | Re-enable a disabled plugin. |
+| `POST` | `/api/plugins/{id}/disable` | Disable a plugin (its code stops loading). |
+| `POST` | `/api/plugins/{id}/grant` | Grant permissions (empty body grants all requested → one-click approve). |
+| `POST` | `/api/plugins/{id}/revoke` | Revoke permissions (may move the plugin back to pending). |
+
+Each plugin reports a `status`:
+
+- `loaded` — running; its nodes/connectors are in the catalog.
+- `disabled` — the user turned it off; not loaded.
+- `needs_permissions` — it declares permissions that haven't been granted, so its
+  code is **not imported** until you approve them (`missing_permissions` lists
+  which). This is the trust/UX boundary — see
+  [plugin security](/security/plugin-security).
 
 Plugins are discovered via the `flowframe.plugins` entry-point group and local
 plugin directories (`FLOWFRAME_PLUGINS_DIR`, `~/.flowframe/plugins`). A malformed
 or incompatible plugin is reported under `diagnostics` rather than crashing the
-app.
+app. Permission gating applies to **drop-in** (manifest) plugins; entry-point
+packages are installed deliberately and load without the gate.
 
-:::tip Developer preview
-The plugin system is an architectural foundation. Today a plugin contributes
-**catalog** entries (so its nodes appear in the palette) and declares
-capabilities; wiring a plugin-supplied node into the execution engine is a later
-phase. See [Writing a plugin](/plugins/writing-a-plugin).
-:::
+Changes apply live: granting a pending plugin rebuilds the registry so its nodes
+appear in the catalog without a restart.
 
 ## See also
 

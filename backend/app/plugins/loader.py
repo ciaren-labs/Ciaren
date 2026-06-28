@@ -26,8 +26,9 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Any
 
-from app.plugin_api import Plugin, PluginManifest, ServiceRegistry, validate_manifest
+from app.plugin_api import Permission, Plugin, PluginManifest, ServiceRegistry, validate_manifest
 from app.plugin_api.specs import PluginMetadata
+from app.plugins.state import PluginStateStore
 from app.version import flowframe_version
 
 logger = logging.getLogger("app.plugins.loader")
@@ -54,9 +55,24 @@ class PluginError:
 
 
 @dataclass
+class GatedPlugin:
+    """A discovered plugin that was deliberately *not* loaded: either the user
+    disabled it, or it declares permissions that have not been granted yet (so its
+    code is never imported). Surfaced to the UI so the user can enable/approve it."""
+
+    source: str
+    plugin_id: str
+    name: str
+    reason: str  # "disabled" | "needs_permissions"
+    requested_permissions: list[Permission] = field(default_factory=list)
+    missing_permissions: list[Permission] = field(default_factory=list)
+
+
+@dataclass
 class LoadResult:
     loaded: list[LoadedPlugin] = field(default_factory=list)
     errors: list[PluginError] = field(default_factory=list)
+    gated: list[GatedPlugin] = field(default_factory=list)
 
 
 @dataclass
@@ -156,11 +172,45 @@ def _local_dir_candidates(dirs: Iterable[str | os.PathLike[str]]) -> list[Plugin
 # -- loading ------------------------------------------------------------------
 
 
+def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | None:
+    """Decide whether to skip a manifest-bearing candidate (disabled, or pending
+    permission approval). Returns the gating record, or None to proceed.
+
+    Only plugins that ship a manifest are gated — that's the drop-in / marketplace
+    case where code should not run before the user opts in. Entry-point packages
+    are pip-installed deliberately and load without this gate.
+    """
+    manifest = candidate.manifest
+    if manifest is None:
+        return None
+    state.note_seen(manifest.id)
+    if not state.is_enabled(manifest.id):
+        return GatedPlugin(
+            source=candidate.source,
+            plugin_id=manifest.id,
+            name=manifest.name,
+            reason="disabled",
+            requested_permissions=list(manifest.permissions),
+        )
+    missing = state.missing_permissions(manifest.id, manifest.permissions)
+    if missing:
+        return GatedPlugin(
+            source=candidate.source,
+            plugin_id=manifest.id,
+            name=manifest.name,
+            reason="needs_permissions",
+            requested_permissions=list(manifest.permissions),
+            missing_permissions=missing,
+        )
+    return None
+
+
 def _process(
     registry: ServiceRegistry,
     candidate: PluginCandidate,
     version: str,
     result: LoadResult,
+    state: PluginStateStore | None,
 ) -> None:
     try:
         manifest = candidate.manifest
@@ -168,6 +218,12 @@ def _process(
             raise IncompatiblePluginError(
                 f"plugin {manifest.id!r} requires FlowFrame {manifest.flowframe!r}, running {version}"
             )
+        if state is not None:
+            gated = _gate(candidate, state)
+            if gated is not None:
+                result.gated.append(gated)
+                logger.info("Plugin %s from %s gated (%s)", gated.plugin_id, candidate.source, gated.reason)
+                return
         plugin = candidate.load()
         meta = registry.register_plugin(plugin)
         result.loaded.append(LoadedPlugin(source=candidate.source, metadata=meta, manifest=manifest))
@@ -184,12 +240,15 @@ def load_plugins(
     include_entry_points: bool = True,
     extra: Iterable[PluginCandidate] | None = None,
     flowframe_version_str: str | None = None,
+    state: PluginStateStore | None = None,
 ) -> LoadResult:
     """Discover and register plugins into ``registry``. Returns a result with the
-    plugins that loaded and the errors that were isolated.
+    plugins that loaded, the errors that were isolated, and the manifest-bearing
+    plugins that were gated (disabled or pending permission approval).
 
     ``extra`` lets callers inject pre-built candidates (used by the example plugin
-    and tests) without going through entry points or the filesystem.
+    and tests) without going through entry points or the filesystem. ``state``,
+    when given, enables enable/disable + permission gating for manifest plugins.
     """
     version = flowframe_version_str or flowframe_version()
     candidates: list[PluginCandidate] = []
@@ -202,7 +261,9 @@ def load_plugins(
 
     result = LoadResult()
     for candidate in candidates:
-        _process(registry, candidate, version, result)
+        _process(registry, candidate, version, result, state)
+    if state is not None:
+        state.save()
     return result
 
 
