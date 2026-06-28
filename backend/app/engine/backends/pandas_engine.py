@@ -35,6 +35,12 @@ class PandasEngine:
             df.to_excel(path, index=False)
         elif source_type == "parquet":
             df.to_parquet(path, index=False)
+        elif source_type == "json":
+            df.to_json(path, orient="records", indent=2)
+        elif source_type == "text":
+            # One row per line. A single-column frame writes its values directly;
+            # wider frames are tab-separated (mirrors the text input reader).
+            df.to_csv(path, index=False, header=False, sep="\t")
         else:
             raise ValueError(f"Unsupported source_type: {source_type!r}")
 

@@ -64,6 +64,7 @@ const COVERED = new Set<string>([
   "sqlOutput",
   "storageInput",
   "storageOutput",
+  "fileOutput",
   "csvOutput",
   "excelOutput",
   "parquetOutput",

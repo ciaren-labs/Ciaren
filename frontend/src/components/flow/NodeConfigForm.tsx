@@ -1432,6 +1432,33 @@ export function NodeConfigForm({
         </>
       );
 
+    case "fileOutput":
+      return (
+        <>
+          <Field label="File type" help="The file format to write the result as.">
+            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
+              <option value="csv">CSV (.csv)</option>
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="parquet">Parquet (.parquet)</option>
+              <option value="json">JSON (.json)</option>
+              <option value="text">Text (.txt)</option>
+            </Select>
+          </Field>
+          <Field
+            label="Dataset name"
+            hint="e.g. cleaned_sales"
+            help="The output is saved as a reusable dataset in your project under this name. Re-running adds a new version."
+            error={errors.dataset_name}
+          >
+            <Input
+              value={c.dataset_name ?? ""}
+              onChange={(e) => set({ dataset_name: e.target.value })}
+              placeholder="my_output_dataset"
+            />
+          </Field>
+        </>
+      );
+
     case "csvOutput":
     case "excelOutput":
     case "parquetOutput":

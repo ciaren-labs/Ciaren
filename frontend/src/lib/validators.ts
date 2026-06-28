@@ -528,6 +528,10 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     if_exists: z.enum(["overwrite", "error"]).optional(),
   }),
 
+  fileOutput: z.object({
+    format: z.enum(["csv", "excel", "parquet", "json", "text"]),
+    dataset_name: z.string().min(1, "Dataset name is required"),
+  }),
   csvOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
   excelOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),
   parquetOutput: z.object({ dataset_name: z.string().min(1, "Dataset name is required") }),

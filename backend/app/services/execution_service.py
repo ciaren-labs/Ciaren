@@ -14,6 +14,7 @@ from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
 from app.engine.executor import FlowExecutor, RunResult
+from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.process_pool import (
     get_process_pool,
@@ -208,7 +209,11 @@ class ExecutionService:
                             config = node.get("data", {}).get("config", {})
                             dataset_name = (config.get("dataset_name") or "").strip()
                             if dataset_name:
-                                src_type = _OUTPUT_TYPE_MAP.get(node.get("type", ""), "csv")
+                                node_type = node.get("type", "")
+                                if node_type == FILE_OUTPUT_TYPE:
+                                    src_type = output_source_type(node_type, config)
+                                else:
+                                    src_type = _OUTPUT_TYPE_MAP.get(node_type, "csv")
                                 try:
                                     await dataset_service.register_output(
                                         name=dataset_name,

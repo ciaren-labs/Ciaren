@@ -41,8 +41,13 @@ export interface NodeTypeDef {
   isModelSink?: boolean;
   /** Only available when the ML extension is installed + enabled on the server. */
   requiresMl?: boolean;
+  /** Registered for backward-compat but not shown in the palette (superseded). */
+  hidden?: boolean;
   description: string;
 }
+
+/** Node types kept resolvable for existing flows but hidden from the palette. */
+export const HIDDEN_PALETTE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
 
 export const NODE_TYPES: NodeTypeDef[] = [
   // ----- Inputs -----
@@ -631,12 +636,24 @@ export const NODE_TYPES: NodeTypeDef[] = [
   },
   // ----- Outputs -----
   {
+    type: "fileOutput",
+    label: "File Output",
+    category: "output",
+    defaultConfig: { format: "csv", dataset_name: "" },
+    inputHandles: ["in"],
+    hasOutput: false,
+    description: "Write the result to a file — choose the format (CSV, Excel, Parquet, JSON, text) and a name.",
+  },
+  // Legacy single-format outputs — superseded by File Output. Kept so existing
+  // flows still resolve, but hidden from the palette (see HIDDEN_PALETTE_TYPES).
+  {
     type: "csvOutput",
     label: "CSV Output",
     category: "output",
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to a CSV file.",
   },
   {
@@ -646,6 +663,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to an Excel file.",
   },
   {
@@ -655,6 +673,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { path: "" },
     inputHandles: ["in"],
     hasOutput: false,
+    hidden: true,
     description: "Write the result to a Parquet file.",
   },
   {
