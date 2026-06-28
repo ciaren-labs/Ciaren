@@ -52,6 +52,19 @@ async def test_catalog_connectors(client):
     assert "connector.sql" in by_id["postgresql"]["capabilities"]
 
 
+async def test_catalog_exporters(client):
+    resp = await client.get("/api/catalog/exporters")
+    assert resp.status_code == 200
+    by_id = {e["id"]: e for e in resp.json()}
+    # The three built-in code generators are exposed.
+    assert "python" in by_id
+    assert by_id["python"]["format"] == "python"
+    assert by_id["python"]["file_extension"] == ".py"
+    assert "polars" in by_id
+    assert "polars-lazy" in by_id
+    assert "exporter.python" in by_id["python"]["capabilities"]
+
+
 async def test_catalog_categories_ordered(client):
     resp = await client.get("/api/catalog/categories")
     assert resp.status_code == 200
