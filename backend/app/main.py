@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes import (
     connections,
@@ -18,9 +19,10 @@ from app.api.routes import (
     runs,
     schedules,
     transformations,
+    webhooks,
 )
 from app.core.config import get_settings
-from app.core.database import AsyncSessionLocal, init_db
+from app.core.database import AsyncSessionLocal, get_db, init_db
 from app.core.exceptions import (
     ConflictError,
     DatasetParseError,
@@ -45,9 +47,7 @@ async def _seed_local_storage_safe(data_dir: str) -> None:
         async with AsyncSessionLocal() as session:
             # Use first() (not scalar_one_or_none): tolerate pre-existing duplicate
             # rows from older builds instead of crashing startup seeding.
-            result = await session.execute(
-                select(Connection).where(Connection.provider == "local").limit(1)
-            )
+            result = await session.execute(select(Connection).where(Connection.provider == "local").limit(1))
             if result.scalars().first() is None:
                 conn = Connection(name="Local Storage", provider="local", database=data_dir)
                 session.add(conn)
@@ -68,9 +68,7 @@ async def _seed_mlflow_connection_safe(tracking_uri: str) -> None:
         from app.db.models.connection import Connection
 
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(Connection).where(Connection.provider == "mlflow").limit(1)
-            )
+            result = await session.execute(select(Connection).where(Connection.provider == "mlflow").limit(1))
             if result.scalars().first() is None:
                 conn = Connection(name="Local MLflow", provider="mlflow", database=tracking_uri)
                 session.add(conn)
@@ -128,7 +126,7 @@ async def _run_seeded_flows_safe(project_id: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
-    setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG)
+    setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG, log_format=settings.LOG_FORMAT)
 
     for subdir in ("uploads", "outputs", "previews"):
         Path(settings.DATA_DIR, subdir).mkdir(parents=True, exist_ok=True)
@@ -180,7 +178,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Accept"],
+        allow_headers=["Content-Type", "Authorization", "Accept", "X-FlowFrame-Secret"],
     )
     # Compress responses (the served JS/CSS bundle and large JSON payloads).
     app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -229,10 +227,28 @@ def create_app() -> FastAPI:
     app.include_router(ml.router, prefix="/api", tags=["ml"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
+    app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
+        """Liveness: the process is up and serving. No dependencies are checked,
+        so a container orchestrator can restart a hung process without being
+        misled by a transient database blip."""
         return {"status": "ok"}
+
+    @app.get("/ready", tags=["health"])
+    async def ready(db: AsyncSession = Depends(get_db)) -> Response:
+        """Readiness: the process can serve real traffic — i.e. the database is
+        reachable. Returns 503 (not 500) when the DB check fails so a load
+        balancer drains this instance instead of sending it requests."""
+        from sqlalchemy import text
+
+        try:
+            await db.execute(text("SELECT 1"))
+        except Exception:  # noqa: BLE001 - any DB error means "not ready"
+            logger.warning("Readiness check failed: database unreachable.", exc_info=True)
+            return JSONResponse(status_code=503, content={"status": "unavailable", "database": "down"})
+        return JSONResponse(status_code=200, content={"status": "ok", "database": "up"})
 
     _mount_frontend(app, settings)
 
@@ -294,15 +310,19 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
         # index.html must not be cached, or clients pin a stale bundle reference.
         return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
+    dist_resolved = dist.resolve()
+
     # Catch-all for client-side routes: serve real files, else the SPA shell.
     # /api, /health, /docs are matched by their routes above (registered first).
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str) -> Response:
-        if path.startswith("api/") or path in ("health", "openapi.json"):
+        if path.startswith("api/") or path in ("health", "ready", "openapi.json"):
             return JSONResponse(status_code=404, content={"detail": "Not found"})
         candidate = (dist / path).resolve()
-        # Guard against path traversal escaping the dist dir.
-        if candidate.is_file() and str(candidate).startswith(str(dist.resolve())):
+        # Guard against path traversal escaping the dist dir. is_relative_to does a
+        # real path-component containment check (str.startswith would also accept a
+        # sibling dir whose path shares the prefix, e.g. ".../web-secret").
+        if candidate.is_file() and candidate.is_relative_to(dist_resolved):
             return FileResponse(str(candidate))
         return _index()
 
