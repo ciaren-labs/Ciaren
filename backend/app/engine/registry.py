@@ -117,7 +117,13 @@ def _register_ml_nodes() -> None:
     from app.engine.transformations.ml.importance import FeatureImportanceTransformation
     from app.engine.transformations.ml.predict import MLPredictTransformation
     from app.engine.transformations.ml.split import TrainTestSplitTransformation
-    from app.engine.transformations.ml.train import MLTrainTransformation
+    from app.engine.transformations.ml.train import (
+        TrainClassifierTransformation,
+        TrainClusteringTransformation,
+        TrainDimReductionTransformation,
+        TrainForecasterTransformation,
+        TrainRegressorTransformation,
+    )
 
     _register(
         TrainTestSplitTransformation(),
@@ -125,7 +131,11 @@ def _register_ml_nodes() -> None:
         EncodeCategoriesTransformation(),
         SelectFeaturesTransformation(),
         ReduceDimensionsTransformation(),
-        MLTrainTransformation(),
+        TrainClassifierTransformation(),
+        TrainRegressorTransformation(),
+        TrainClusteringTransformation(),
+        TrainForecasterTransformation(),
+        TrainDimReductionTransformation(),
         MLPredictTransformation(),
         MLEvaluateTransformation(),
         FeatureImportanceTransformation(),

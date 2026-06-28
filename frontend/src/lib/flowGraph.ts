@@ -247,8 +247,12 @@ function outputColumns(
       return ["metric", "value"];
     case "featureImportance":
       return ["feature_name", "importance", "rank"];
-    case "mlTrain":
-      // mlTrain's single output is a model reference, not the training data.
+    case "mlTrainClassifier":
+    case "mlTrainRegressor":
+    case "mlTrainClustering":
+    case "mlTrainForecaster":
+    case "mlTrainDimReduction":
+      // A train node's single output is a model reference, not the training data.
       return ["mlflow_run_id", "model_uri", "task_type"];
     case "reduceDimensions": {
       const cols = asStringArray(config.columns);
@@ -412,7 +416,11 @@ export function cleanStaleColumnRefs(
       if (rulesChanged) { p.rules = cleaned; hadStale = true; }
       break;
     }
-    case "mlTrain":
+    case "mlTrainClassifier":
+    case "mlTrainRegressor":
+    case "mlTrainClustering":
+    case "mlTrainForecaster":
+    case "mlTrainDimReduction":
       arr("feature_columns");
       single("target_column"); break;
   }

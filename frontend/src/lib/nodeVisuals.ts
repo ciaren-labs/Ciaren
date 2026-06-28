@@ -6,6 +6,7 @@ import {
   AlignLeft,
   Archive,
   ArrowRightLeft,
+  Blocks,
   ArrowUpDown,
   BarChart3,
   BarChartBig,
@@ -103,7 +104,11 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   encodeCategories: Tags,
   selectFeatures: ListChecks,
   reduceDimensions: Shrink,
-  mlTrain: BrainCircuit,
+  mlTrainClassifier: BrainCircuit,
+  mlTrainRegressor: BrainCircuit,
+  mlTrainClustering: BrainCircuit,
+  mlTrainForecaster: BrainCircuit,
+  mlTrainDimReduction: BrainCircuit,
   mlPredict: Target,
   mlEvaluate: Gauge,
   featureImportance: BarChartBig,
@@ -146,6 +151,27 @@ export const CATEGORY_ICONS: Record<NodeCategory, LucideIcon> = {
   ml: Brain,
   output: Download,
 };
+
+/** Theme used for plugin-contributed categories that aren't one of the built-in
+ *  ones — keeps the palette/canvas from crashing on an unknown category. */
+export const PLUGIN_CATEGORY_THEME: CategoryTheme = {
+  badge: "bg-slate-500 text-white",
+  card: "border-slate-200 bg-slate-50/60",
+  ring: "ring-slate-400",
+  text: "text-slate-700",
+  dot: "bg-slate-500",
+};
+
+/** Icon for any category, falling back to a generic "plugin" icon for
+ *  categories contributed by plugins that aren't built in. */
+export function getCategoryIcon(category: string): LucideIcon {
+  return CATEGORY_ICONS[category as NodeCategory] ?? Blocks;
+}
+
+/** Theme for any category, falling back to the neutral plugin theme. */
+export function getCategoryTheme(category: string): CategoryTheme {
+  return CATEGORY_THEME[category as NodeCategory] ?? PLUGIN_CATEGORY_THEME;
+}
 
 export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
   input: {

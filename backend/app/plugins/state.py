@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.plugin_api import Permission
 
@@ -31,6 +31,12 @@ STATE_ENV_VAR = "FLOWFRAME_PLUGIN_STATE_FILE"
 
 class PluginStateEntry(BaseModel):
     """Per-plugin persisted state."""
+
+    # Re-validate on assignment so callers that mutate ``granted_permissions``
+    # with raw permission strings (CLI, internal helpers) still store proper
+    # ``Permission`` members — otherwise ``model_dump(mode="json")`` emits a
+    # serialization warning and the in-memory value type drifts from the schema.
+    model_config = ConfigDict(validate_assignment=True)
 
     enabled: bool = True
     granted_permissions: list[Permission] = Field(default_factory=list)
@@ -116,20 +122,22 @@ class PluginStateStore:
             entry.enabled = enabled
             self._dirty = True
 
-    def grant(self, plugin_id: str, permissions: Iterable[Permission]) -> None:
+    def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
         current = list(entry.granted_permissions)
-        for perm in permissions:
+        # Coerce raw strings (CLI / API) to Permission members so the model
+        # round-trips and serializes without a Pydantic "expected enum" warning.
+        for perm in (Permission(p) for p in permissions):
             if perm not in current:
                 current.append(perm)
                 self._dirty = True
         entry.granted_permissions = current
 
-    def revoke(self, plugin_id: str, permissions: Iterable[Permission]) -> None:
+    def revoke(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:
         entry = self._entries.get(plugin_id)
         if entry is None:
             return
-        to_remove = set(permissions)
+        to_remove = {Permission(p) for p in permissions}
         kept = [p for p in entry.granted_permissions if p not in to_remove]
         if len(kept) != len(entry.granted_permissions):
             entry.granted_permissions = kept

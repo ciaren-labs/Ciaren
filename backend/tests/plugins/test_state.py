@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 
 from app.plugin_api import Permission
 from app.plugins.state import PluginStateStore
@@ -50,6 +51,36 @@ def test_grant_is_idempotent(tmp_path):
     entry = store.entry("p1")
     assert entry is not None
     assert entry.granted_permissions == [Permission.network]
+
+
+def test_grant_coerces_raw_permission_strings(tmp_path):
+    """Callers may pass raw permission strings (CLI, internal helpers). They must
+    be stored as ``Permission`` members so the model round-trips and serializes
+    cleanly — no Pydantic 'expected enum' warning, no type drift."""
+    path = tmp_path / "s.json"
+    store = PluginStateStore(path)
+    store.grant("p1", ["network", "credentials"])  # raw strings, not enum members
+
+    entry = store.entry("p1")
+    assert entry is not None
+    assert all(isinstance(p, Permission) for p in entry.granted_permissions)
+
+    # Saving must not emit a serialization warning.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        store.save()
+
+    # …and the persisted JSON holds the plain permission values, re-read as enums.
+    on_disk = json.loads(path.read_text())["plugins"]["p1"]["granted_permissions"]
+    assert on_disk == ["network", "credentials"]
+    assert PluginStateStore(path).granted("p1") == {Permission.network, Permission.credentials}
+
+
+def test_revoke_accepts_raw_permission_strings(tmp_path):
+    store = PluginStateStore(tmp_path / "s.json")
+    store.grant("p1", [Permission.network, Permission.credentials])
+    store.revoke("p1", ["network"])  # raw string still matches the stored enum
+    assert store.granted("p1") == {Permission.credentials}
 
 
 def test_missing_permissions(tmp_path):
