@@ -60,16 +60,17 @@ export function PluginsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Plugins</h1>
         <p className="text-sm text-muted-foreground">
-          Extend FlowFrame with extra nodes, connectors, and exporters. Plugins run
-          code on this machine — review what they ask for before approving. Drop a
+          Extend FlowFrame with extra nodes, connectors, and exporters. Drop a
           plugin into <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.flowframe/plugins</code>{" "}
           or install one with{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin install</code>.
         </p>
       </div>
+
+      <TrustWarning />
 
       {isLoading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -85,6 +86,25 @@ export function PluginsPage() {
           {errors.length > 0 && <ErrorsPanel errors={errors} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function TrustWarning() {
+  return (
+    <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+      <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+      <div className="text-sm">
+        <p className="font-semibold">Only install plugins you trust.</p>
+        <p className="mt-1 leading-relaxed">
+          A plugin is ordinary Python that runs on this machine with your account's
+          access — it is <strong>not sandboxed</strong>. A malicious or buggy plugin
+          could read or delete your files, use your saved credentials, or make network
+          requests. Permissions shown below are a heads-up, not a security boundary.
+          Install only plugins from sources you trust and whose code you can review.
+          FlowFrame cannot vet third-party plugins and is not responsible for what they do.
+        </p>
+      </div>
     </div>
   );
 }

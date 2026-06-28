@@ -11,6 +11,13 @@ the plugin's manifest, its Python package, and an optional detached Ed25519
 signature. The same format works for free community plugins and signed premium
 plugins; the open-source core never needs to change to support either.
 
+::: warning Install only plugins you trust
+A plugin runs unsandboxed Python on your machine with your access. Install only
+plugins from sources you trust and whose code you can review — prefer signed
+packages from a trusted key. FlowFrame cannot vet third-party plugins and is not
+responsible for their behaviour. See [Plugin Security](/security/plugin-security).
+:::
+
 > Signing/verifying needs the optional `cryptography` dependency:
 > `pip install "flowframe[signing]"`. Hashing and unsigned packages work without it.
 
