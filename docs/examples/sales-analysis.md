@@ -29,7 +29,8 @@ Fill Nulls → Group by + Aggregate → Rename → Sort → File Output.
 
 ## Sample data
 
-Save this as `sales.csv` and upload it on the **Datasets** page:
+Save this as `sales.csv` and upload it on the **Datasets** page
+(📥 [download sales.csv](/samples/sales-analysis/sales.csv)):
 
 ```csv
 order_id,region,amount,ordered_at,internal_note
