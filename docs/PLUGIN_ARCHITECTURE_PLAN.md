@@ -20,7 +20,7 @@
 | 1 — `.flow` schema & contracts | ✅ | `app/flow_schema/` (document/validate/migrations) + CLI `flow validate/migrate` |
 | 2 — Plugin API foundation | ✅ | `app/plugin_api/` (specs, providers, registry, manifest, node_runtime) |
 | 3 — Plugin loader | ✅ | `app/plugins/loader.py` (entry points + local dirs), error isolation, `/api/plugins[/diagnostics]` |
-| 3.5 — Plugin state (enable/disable/permission grant) | ⬜ | `app/plugins/state.py`, gating in loader, `/api/plugins/{id}/enable\|disable\|grant` |
+| 3.5 — Plugin state (enable/disable/permission grant) | ✅ | `app/plugins/state.py`; loader gates disabled + ungranted-permission plugins (code not imported until approved); `/api/plugins/{id}/enable\|disable\|grant\|revoke`, live registry rebuild |
 | 4 — Dynamic catalog | 🟡 | nodes/connectors/categories live; exporters endpoint + connectors UI consumption remain |
 | 5 — Features as providers | 🟡 | built-ins as providers; ML still a built-in node import, not an optional provider |
 | 6 — Marketplace readiness | ⬜ | `.ffplugin` format, signature verify, license tokens + offline grace, `flowframe plugin …` CLI |

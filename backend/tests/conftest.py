@@ -9,6 +9,20 @@ from app.main import app
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_plugin_state(tmp_path, monkeypatch):
+    """Point the persisted plugin state at a per-test temp file so plugin
+    enable/disable + permission grants never touch the repo's data dir and never
+    leak between tests. Runs before module-level autouse fixtures that build the
+    plugin registry. The registry is reset afterwards so its cached state (and any
+    bridged plugin nodes) don't bleed into the next test."""
+    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
+    yield
+    from app.plugins import reset_registry
+
+    reset_registry()
+
+
 @pytest.fixture
 async def engine():
     # StaticPool keeps the same connection alive so the in-memory DB is shared
