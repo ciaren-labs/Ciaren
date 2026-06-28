@@ -1,0 +1,217 @@
+"""Discover, validate, and register external plugins.
+
+Discovery sources (Phase 1d):
+
+- Python entry points in the ``flowframe.plugins`` group (installed packages).
+- Local plugin directories: each immediate subdirectory containing a
+  ``flowframe-plugin.json`` manifest.
+
+The loader validates a manifest and checks version compatibility *before*
+importing the plugin's entry point, and isolates every plugin behind a try/except
+so one broken or incompatible plugin is recorded as an error rather than crashing
+the app. Registration is atomic per plugin (the registry rolls back partial
+contributions on failure).
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+import logging
+import os
+import sys
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
+from importlib.metadata import EntryPoint, entry_points
+from pathlib import Path
+from typing import Any
+
+from app.plugin_api import Plugin, PluginManifest, ServiceRegistry, validate_manifest
+from app.plugin_api.specs import PluginMetadata
+from app.version import flowframe_version
+
+logger = logging.getLogger("app.plugins.loader")
+
+ENTRY_POINT_GROUP = "flowframe.plugins"
+MANIFEST_FILENAME = "flowframe-plugin.json"
+
+
+class IncompatiblePluginError(RuntimeError):
+    """Raised when a plugin declares incompatibility with the running FlowFrame."""
+
+
+@dataclass
+class LoadedPlugin:
+    source: str
+    metadata: PluginMetadata
+    manifest: PluginManifest | None = None
+
+
+@dataclass
+class PluginError:
+    source: str
+    error: str
+
+
+@dataclass
+class LoadResult:
+    loaded: list[LoadedPlugin] = field(default_factory=list)
+    errors: list[PluginError] = field(default_factory=list)
+
+
+@dataclass
+class PluginCandidate:
+    """A potential plugin: where it came from, how to load it, and (if known) its
+    validated manifest. ``load`` is deferred so a malformed manifest or an import
+    error is caught uniformly during processing."""
+
+    source: str
+    load: Callable[[], Plugin]
+    manifest: PluginManifest | None = None
+
+
+# -- entry point resolution ---------------------------------------------------
+
+
+def _instantiate(obj: Any) -> Plugin:
+    """Coerce an entry-point target into a Plugin instance: it may be a Plugin
+    instance, a Plugin subclass, or a zero-arg factory returning one."""
+    if isinstance(obj, Plugin):
+        return obj
+    if isinstance(obj, type) and issubclass(obj, Plugin):
+        return obj()
+    if callable(obj):
+        result = obj()
+        if isinstance(result, Plugin):
+            return result
+    raise TypeError(f"{obj!r} is not a Plugin, Plugin subclass, or Plugin factory")
+
+
+def load_entrypoint(spec: str) -> Plugin:
+    """Import ``module.path:Attribute`` and instantiate it as a Plugin."""
+    module_path, _, attr = spec.partition(":")
+    if not module_path or not attr:
+        raise ValueError(f"entrypoint must be 'module.path:Attribute', got {spec!r}")
+    module = importlib.import_module(module_path)
+    return _instantiate(getattr(module, attr))
+
+
+# -- candidate discovery ------------------------------------------------------
+
+
+def _entry_point_loader(ep: EntryPoint) -> Callable[[], Plugin]:
+    def load() -> Plugin:
+        return _instantiate(ep.load())
+
+    return load
+
+
+def _entry_point_candidates() -> list[PluginCandidate]:
+    return [
+        PluginCandidate(source=f"entry_point:{ep.name}", load=_entry_point_loader(ep))
+        for ep in entry_points(group=ENTRY_POINT_GROUP)
+    ]
+
+
+def _raiser(exc: Exception) -> Callable[[], Plugin]:
+    def _raise() -> Plugin:
+        raise exc
+
+    return _raise
+
+
+def _local_candidate(plugin_dir: Path, manifest_path: Path) -> PluginCandidate:
+    source = f"dir:{plugin_dir.name}"
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = validate_manifest(data)
+    except Exception as exc:  # noqa: BLE001 — surfaced as a load error in diagnostics
+        return PluginCandidate(source=source, load=_raiser(exc), manifest=None)
+
+    def load(plugin_dir: Path = plugin_dir, manifest: PluginManifest = manifest) -> Plugin:
+        # The plugin's package lives directly inside its own directory, so put
+        # that directory on sys.path to make the entry-point module importable.
+        if str(plugin_dir) not in sys.path:
+            sys.path.insert(0, str(plugin_dir))
+        if not manifest.entrypoint:
+            raise ValueError(f"plugin {manifest.id!r} manifest has no entrypoint")
+        return load_entrypoint(manifest.entrypoint)
+
+    return PluginCandidate(source=source, load=load, manifest=manifest)
+
+
+def _local_dir_candidates(dirs: Iterable[str | os.PathLike[str]]) -> list[PluginCandidate]:
+    candidates: list[PluginCandidate] = []
+    for raw in dirs:
+        base = Path(raw).expanduser()
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            manifest_path = child / MANIFEST_FILENAME
+            if child.is_dir() and manifest_path.is_file():
+                candidates.append(_local_candidate(child, manifest_path))
+    return candidates
+
+
+# -- loading ------------------------------------------------------------------
+
+
+def _process(
+    registry: ServiceRegistry,
+    candidate: PluginCandidate,
+    version: str,
+    result: LoadResult,
+) -> None:
+    try:
+        manifest = candidate.manifest
+        if manifest is not None and not manifest.is_compatible_with(version):
+            raise IncompatiblePluginError(
+                f"plugin {manifest.id!r} requires FlowFrame {manifest.flowframe!r}, running {version}"
+            )
+        plugin = candidate.load()
+        meta = registry.register_plugin(plugin)
+        result.loaded.append(LoadedPlugin(source=candidate.source, metadata=meta, manifest=manifest))
+        logger.info("Loaded plugin %s from %s", meta.id, candidate.source)
+    except Exception as exc:  # noqa: BLE001 — one plugin must not break the rest
+        result.errors.append(PluginError(source=candidate.source, error=str(exc)))
+        logger.warning("Failed to load plugin from %s: %s", candidate.source, exc, exc_info=True)
+
+
+def load_plugins(
+    registry: ServiceRegistry,
+    *,
+    plugin_dirs: Iterable[str | os.PathLike[str]] | None = None,
+    include_entry_points: bool = True,
+    extra: Iterable[PluginCandidate] | None = None,
+    flowframe_version_str: str | None = None,
+) -> LoadResult:
+    """Discover and register plugins into ``registry``. Returns a result with the
+    plugins that loaded and the errors that were isolated.
+
+    ``extra`` lets callers inject pre-built candidates (used by the example plugin
+    and tests) without going through entry points or the filesystem.
+    """
+    version = flowframe_version_str or flowframe_version()
+    candidates: list[PluginCandidate] = []
+    if include_entry_points:
+        candidates += _entry_point_candidates()
+    if plugin_dirs is not None:
+        candidates += _local_dir_candidates(plugin_dirs)
+    if extra is not None:
+        candidates += list(extra)
+
+    result = LoadResult()
+    for candidate in candidates:
+        _process(registry, candidate, version, result)
+    return result
+
+
+def default_plugin_dirs() -> list[str]:
+    """Plugin directories scanned by default: ``FLOWFRAME_PLUGINS_DIR`` (an
+    ``os.pathsep``-separated list) plus ``~/.flowframe/plugins``."""
+    dirs: list[str] = []
+    env = os.environ.get("FLOWFRAME_PLUGINS_DIR")
+    if env:
+        dirs += [d for d in env.split(os.pathsep) if d]
+    dirs.append(str(Path.home() / ".flowframe" / "plugins"))
+    return dirs

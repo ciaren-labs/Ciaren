@@ -64,11 +64,18 @@ class ServiceRegistry:
     # -- registration ---------------------------------------------------------
 
     def register_plugin(self, plugin: Plugin) -> PluginMetadata:
-        """Register a whole plugin: record its metadata and run
-        :meth:`Plugin.register`. Exceptions propagate so the caller (loader) can
-        isolate a failing plugin; metadata is only recorded on success."""
+        """Register a whole plugin atomically: record its metadata and run
+        :meth:`Plugin.register`. If registration raises (e.g. a duplicate-id
+        collision with a core node), every partial contribution from this plugin
+        is rolled back and the exception propagates, so one bad plugin can never
+        leave the catalog half-populated. Metadata is only recorded on success."""
         meta = plugin.metadata()
-        plugin.register(self)
+        snapshot = self._snapshot()
+        try:
+            plugin.register(self)
+        except Exception:
+            self._restore(snapshot)
+            raise
         self._plugins.append(meta)
         return meta
 
@@ -188,3 +195,28 @@ class ServiceRegistry:
     def _record_capabilities(self, capabilities: tuple[str, ...], source: str) -> None:
         for cap in capabilities:
             self._capability_source.setdefault(cap, source)
+
+    # The mutable stores, captured/restored for atomic plugin registration.
+    _MUTABLE_STORES = (
+        "_node_specs",
+        "_node_impls",
+        "_connectors",
+        "_storage",
+        "_execution",
+        "_exporters",
+        "_validators",
+        "_ai",
+        "_auth",
+        "_capability_source",
+    )
+
+    def _snapshot(self) -> dict[str, Any]:
+        snap: dict[str, Any] = {name: dict(getattr(self, name)) for name in self._MUTABLE_STORES}
+        snap["_license_providers"] = list(self._license_providers)
+        return snap
+
+    def _restore(self, snapshot: dict[str, Any]) -> None:
+        for name in self._MUTABLE_STORES:
+            getattr(self, name).clear()
+            getattr(self, name).update(snapshot[name])
+        self._license_providers[:] = snapshot["_license_providers"]
