@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Visual ETL & ML builder — Simple, local-first data pipelines and machine-learning models on polars or pandas
-search: flowframe etl ml machine learning visual polars pandas data pipeline mlflow
+description: Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
+search: flowframe data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
 
 hero:
   name: FlowFrame
-  text: The simplest visual data & ML builder
-  tagline: Upload data, build a visual pipeline, train and track models, preview, run it, and export readable Python — local-first, on polars or pandas.
+  text: Build data & ML workflows visually. Ship clean Python.
+  tagline: An open-source, plugin-first, local-first platform for Data Engineering and Machine Learning — design pipelines on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -16,36 +16,36 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
-      text: View on GitHub
+      text: ⭐ Star on GitHub
       link: https://github.com/rodrigo-arenas/FlowFrame
     - theme: alt
-      text: Transformations
-      link: /transformations/overview
+      text: Explore Plugins
+      link: /plugins/overview
 
 features:
-  - icon: 📊
-    title: Visual Builder
-    details: Drag-and-drop nodes for cleaning, filtering, joining, aggregating, and more. No code required.
-
-  - icon: 👀
-    title: Live Preview
-    details: See your data transform on real rows before running the full pipeline.
+  - icon: 🧩
+    title: Plugin-First Platform
+    details: Nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points. Build, package, sign, and share plugins.
 
   - icon: 🐍
-    title: polars or pandas, exported to Python
-    details: Runs on polars by default (switch to pandas per run) and exports every flow to readable, standalone Python.
+    title: Python-Native, No Lock-In
+    details: Every flow exports to readable, standalone pandas or polars code. No black box, no proprietary runtime — copy the script and run it anywhere.
 
   - icon: 🤖
-    title: Machine Learning
-    details: Split, train, predict, and evaluate models on the canvas — tracked with MLflow. Optional extension.
+    title: Data Engineering + ML
+    details: One canvas for the whole lifecycle — ingest, clean, validate, engineer features, train, evaluate, and predict. ML tracked with MLflow (optional extension).
 
-  - icon: 🚀
+  - icon: ⚙️
+    title: Multi-Engine
+    details: Runs on polars by default, switch to pandas per run — behind a pluggable engine contract designed to grow.
+
+  - icon: 🔒
     title: Local-First
-    details: Runs entirely on your machine. No SaaS, no cloud lock-in, no subscriptions.
+    details: Runs entirely on your machine. You own your data and execution — no SaaS, no cloud upload, no subscriptions.
 
-  - icon: ⏰
-    title: Scheduling
-    details: A built-in cron scheduler runs flows automatically, with retries and catch-up.
+  - icon: 👀
+    title: Live Preview & Scheduling
+    details: See your data transform on real rows before running the full pipeline, then schedule flows with a built-in cron scheduler.
 ---
 
 :::warning Alpha software
@@ -53,46 +53,86 @@ FlowFrame is in early development. APIs, the data model, and generated code may
 change between releases. Use it for experimentation — not production pipelines.
 :::
 
-## Learn in 5 Minutes
+## More Than a Visual ETL Tool
 
-1. **Upload** a CSV or Excel file
-2. **Build** a flow with visual nodes
-3. **Preview** results as you go
-4. **Run** the full pipeline
-5. **Export** as Python code
+FlowFrame covers the **whole workflow lifecycle** on one canvas — and turns it into
+portable Python. It's built on a few principles:
+
+- **🧩 Plugin-first** — almost every capability is an extension point you can build on
+- **🐍 Python-native** — export readable pandas/polars code anytime, no lock-in
+- **🔒 Local-first** — your data and execution stay on your machine
+- **⚙️ Multi-engine** — polars or pandas today, behind a pluggable engine contract
+
+<FlowPipeline
+  :nodes='[
+    {"type":"input","label":"Ingest","detail":"CSV · Excel · Parquet · SQL · storage"},
+    {"type":"clean","label":"Clean","detail":"nulls · types · dedupe · rename"},
+    {"type":"transform","label":"Transform","detail":"join · group · pivot · window"},
+    {"type":"clean","label":"Validate","detail":"not-null · unique · ranges · contracts"},
+    {"type":"ml","label":"ML (optional)","detail":"split · train · evaluate · predict"},
+    {"type":"output","label":"Export","detail":"Python code · file · SQL · storage"}
+  ]'
+/>
 
 ## What It Looks Like
 
 ![FlowFrame editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
 
-## Who Uses FlowFrame?
+## Export to Clean, Portable Python
 
-- **Data Analysts** — Clean and explore data visually
-- **Business Users** — Build repeatable data workflows
-- **Python Learners** — Learn pandas through visual examples
-- **Educators** — Teach data cleaning interactively
-- **Developers** — Quick-start pandas pipelines
+There's no black box. Every flow generates a readable, standalone script — copy it
+and run it anywhere Python runs. A read → drop-nulls → group-and-sum flow exports to:
 
-## No Code, All Power
+```python
+import polars as pl
 
-FlowFrame supports 28 transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
+df_1 = pl.read_csv("sales.csv")
+df_2 = df_1.drop_nulls(subset=["amount"])
+df_3 = df_2.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
+df_3.write_csv("summary.csv")
+```
 
-<FlowPipeline
-  :nodes='[
-    {"type":"input","label":"CSV / SQL / S3 Input","detail":"upload or live query"},
-    {"type":"clean","label":"Clean","detail":"nulls · types · dedupe · rename"},
-    {"type":"transform","label":"Transform","detail":"join · group · pivot · calculate"},
-    {"type":"ml","label":"ML (optional)","detail":"split · train · predict · evaluate"},
-    {"type":"output","label":"File / SQL / Storage Output","detail":"export or write to DB/cloud"}
-  ]'
-/>
+Need scale? Export the **lazy polars** variant (`scan_*` → `collect()`) for pushdown
+and join optimization on large files. [Learn about engines →](/guide/engines)
+
+## Extend Everything: the Plugin Platform
+
+FlowFrame is designed as an ecosystem. Its plugin API defines stable **provider
+contracts** so nearly every capability can be added by a small Python package:
+
+| Extend | Add |
+| --- | --- |
+| **Nodes** | New canvas operations that run end-to-end |
+| **Connectors & storage** | New databases, APIs, and object stores |
+| **Execution engines** | New dataframe engines beyond polars/pandas |
+| **Exporters & validators** | New code targets and data-quality checks |
+| **AI capabilities** | Pipeline builders, debuggers, optimizers |
+
+Plugins can be packaged as portable `.ffplugin` files and **cryptographically
+signed** — install only what you trust.
+
+[Explore the plugin platform →](/plugins/overview)
+
+## The Built-In Toolbox
+
+28 transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
 
 - **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
 - **Transform:** Filter, aggregate, join, calculated columns, replace/round values
 - **Reshape:** Group by, union, pivot, unpivot, bin, extract date parts, sort, sample
-- **I/O:** CSV, Excel, Parquet input and output
+- **Data quality:** Assert not-null, unique, value range, expression, row count
+- **I/O:** CSV, Excel, Parquet, SQL databases, and cloud storage (S3/GCS/Azure)
 
 [See all transformations →](/transformations/overview)
+
+## Who Uses FlowFrame?
+
+- **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
+- **Developers** — Prototype visually, then export and version the generated Python
+- **Plugin Authors** — Extend the platform with custom nodes, connectors, and engines
+- **Data Scientists** — Go from raw data to a tracked model on one canvas
+- **Data Analysts** — Clean, join, and explore data visually
+- **Educators & Python Learners** — See pandas/polars operations come to life
 
 ## Get Started Now
 
@@ -126,27 +166,51 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 
 ## Real-World Examples
 
+**Data Engineering**
+
 - [Sales Data Analysis](/examples/sales-analysis) — Clean sales data, aggregate by region
 - [Customer Segmentation](/examples/customer-segmentation) — Group customers by behavior
 - [Time Series](/examples/time-series) — Resample and smooth time-based data
 - [Data Quality](/examples/data-quality) — Validate and clean messy datasets
+- [DuckDB Analytics](/examples/duckdb-analytics) — Query and write back a DuckDB database
+
+**Machine Learning**
+
+- [Customer Churn Classification](/examples/ml-classification) — Split, train, evaluate, export
+- [Feature Engineering](/examples/feature-engineering) — Scale, encode, select, reduce
+
+In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
+[how FlowFrame compares](/guide/comparison) to notebooks and orchestrators.
 
 ## Why FlowFrame?
 
-| Feature | Details |
+| Capability | Details |
 | --------- | --------- |
-| **Visual Editor** | Build pipelines by connecting nodes — no code required |
-| **Code Export** | Every flow generates a readable, standalone Python script |
-| **Local-First** | Runs entirely on your machine — no accounts, no cloud |
+| **Plugin-First** | Nodes, connectors, engines, exporters, validators, and AI are all extensible |
+| **Python-Native** | Every flow generates readable, standalone pandas/polars code — no lock-in |
+| **Local-First** | Runs entirely on your machine — no accounts, no cloud upload |
+| **Data Engineering + ML** | One canvas for ingest → transform → validate → train → predict |
+| **Multi-Engine** | polars by default, pandas per run, pluggable engine contract for more |
 | **Live Preview** | See data changes at each step before executing the full flow |
-| **polars or pandas** | Runs on polars by default; switch to pandas per run |
-| **Open Source** | Apache 2.0 licensed — inspect, modify, and self-host freely |
+| **Open Source** | Apache 2.0 licensed — inspect, modify, self-host, and extend freely |
 
-## Community
+## How FlowFrame Compares
 
-- **Questions?** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
-- **Found a bug?** [GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
-- **Want to contribute?** [Contributing Guide](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+FlowFrame fills the gap between throwaway notebooks and heavyweight orchestrators:
+
+- **vs. notebooks/scripts** — repeatable, reviewable, and visual, with the same code on export
+- **vs. Airflow / dbt / Spark** — local-first and lightweight; no cluster or infra to run a flow
+- **Not** a distributed/streaming engine — built for small and medium datasets on one machine
+
+## Join the Community
+
+FlowFrame is an open, community-driven project. The best ways to get involved:
+
+- ⭐ **[Star us on GitHub](https://github.com/rodrigo-arenas/FlowFrame)** — it helps others discover the project
+- 💬 **[Ask in Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — questions and ideas welcome
+- 🐛 **[Report a bug](https://github.com/rodrigo-arenas/FlowFrame/issues)** — or request a feature
+- 🧩 **[Build a plugin](/plugins/overview)** — extend the platform and share it
+- 🤝 **[Contribute](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)** — good first issues are labelled
 
 Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/) ([GitHub](https://github.com/rodrigo-arenas)).
 
@@ -156,4 +220,4 @@ Apache License 2.0 — Free for personal and commercial use.
 
 ---
 
-**Ready to build your first data or ML flow?** [Get Started →](/guide/getting-started)
+**Ready to build your first data or ML workflow?** [Get Started →](/guide/getting-started) · [Explore Plugins →](/plugins/overview)
