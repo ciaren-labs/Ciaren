@@ -6,6 +6,35 @@
 
 ---
 
+## Implementation Progress Tracker
+
+> Living checklist kept in sync as the branch `feature/plugins` advances. The
+> "Definition of Done" (section 24) was already met at Phase 2; the work below
+> drives the remaining marketplace/security phases to a fully end-to-end system.
+
+**Legend:** ✅ done · 🟡 partial · ⬜ not started
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 — Inventory | ✅ | `docs/architecture/current-architecture-map.md` |
+| 1 — `.flow` schema & contracts | ✅ | `app/flow_schema/` (document/validate/migrations) + CLI `flow validate/migrate` |
+| 2 — Plugin API foundation | ✅ | `app/plugin_api/` (specs, providers, registry, manifest, node_runtime) |
+| 3 — Plugin loader | ✅ | `app/plugins/loader.py` (entry points + local dirs), error isolation, `/api/plugins[/diagnostics]` |
+| 3.5 — Plugin state (enable/disable/permission grant) | ⬜ | `app/plugins/state.py`, gating in loader, `/api/plugins/{id}/enable\|disable\|grant` |
+| 4 — Dynamic catalog | 🟡 | nodes/connectors/categories live; exporters endpoint + connectors UI consumption remain |
+| 5 — Features as providers | 🟡 | built-ins as providers; ML still a built-in node import, not an optional provider |
+| 6 — Marketplace readiness | ⬜ | `.ffplugin` format, signature verify, license tokens + offline grace, `flowframe plugin …` CLI |
+| 7 — Security hardening | ⬜ | permission approval UI, joblib/pickle + SQL warnings, dependency-license scan, security docs |
+| 8 — Premium pilot | ⬜ | Intentionally out of scope (no premium code in the OSS core); architecture proven via signed example plugin |
+| §17 — Hooks & events | ✅ | `app/plugin_api/events.py` EventBus on the registry; node/graph/export hooks wired through executor + services |
+
+**Out of scope (by constraint):** premium billing, cloud sync, enterprise auth,
+hosted compute, and any actual premium connector implementations. The core must
+remain installable and useful without any of these; premium plugins must be
+installable externally without editing the core.
+
+---
+
 ## 1. Strategic Direction
 
 FlowFrame should evolve into a **local-first visual development environment for ETL and Machine Learning workflows**.

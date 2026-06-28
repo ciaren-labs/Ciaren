@@ -11,6 +11,7 @@ from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
 from app.engine.node_kinds import PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
 from app.engine.registry import get_transformation
 from app.engine.transformations.base import EmitsNodeMetadata, NodeMetadata
+from app.plugin_api.events import EventBus, Hook
 
 # A node's outputs, keyed by source handle. Single-output nodes use ``{"out": df}``.
 NodeOutputs = dict[str, AnyFrame]
@@ -142,6 +143,14 @@ def _primary_frame(node_type: str, node_outputs: NodeOutputs) -> AnyFrame:
 
 
 class FlowExecutor:
+    def __init__(self, events: EventBus | None = None) -> None:
+        """``events`` is an optional plugin :class:`EventBus`. When provided (the
+        in-process / thread execution path), node-level hooks fire around each
+        node so plugins can observe execution. It is intentionally omitted in
+        ``process`` mode — a worker process can't reach parent-registered
+        subscribers — so node hooks are an in-process facility by design."""
+        self._events = events
+
     def _node_outputs(
         self,
         engine: EngineBackend,
@@ -293,6 +302,8 @@ class FlowExecutor:
                 node_results.append(NodeResult(node_id, node["type"], label, "skipped"))
                 continue
             started = time.perf_counter()
+            if self._events is not None:
+                self._events.emit(Hook.before_node_execute, node_id=node_id, node_type=node["type"], engine=engine_name)
             try:
                 node_outputs, meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
                 outputs[node_id] = node_outputs
@@ -312,6 +323,15 @@ class FlowExecutor:
                 )
                 result.apply_metadata(meta)
                 node_results.append(result)
+                if self._events is not None:
+                    self._events.emit(
+                        Hook.after_node_execute,
+                        node_id=node_id,
+                        node_type=node["type"],
+                        status="success",
+                        rows=result.rows,
+                        duration_ms=result.duration_ms,
+                    )
             except Exception as exc:  # noqa: BLE001 - surfaced on the run record
                 node_results.append(
                     NodeResult(
@@ -324,6 +344,14 @@ class FlowExecutor:
                     )
                 )
                 error = str(exc)
+                if self._events is not None:
+                    self._events.emit(
+                        Hook.after_node_execute,
+                        node_id=node_id,
+                        node_type=node["type"],
+                        status="failed",
+                        error=str(exc),
+                    )
 
         output_paths: dict[str, Path] = {}
         if error is None:
