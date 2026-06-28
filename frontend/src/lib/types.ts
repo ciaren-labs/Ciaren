@@ -496,3 +496,32 @@ export interface ExportCodeResponse {
   /** importable JSON description of the flow. */
   flow_document: FlowDocument;
 }
+
+// ---- Catalog (backend-fed node metadata) -----------------------------------
+// Mirrors app/plugin_api NodeSpec/PortSpec, served by GET /api/catalog/nodes.
+
+export type CatalogPortKind = "dataframe" | "model";
+
+export interface CatalogPort {
+  id: string;
+  type: CatalogPortKind;
+  required: boolean;
+  multi: boolean;
+}
+
+export interface CatalogNode {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
+  provider: string;
+  version: string;
+  inputs: CatalogPort[];
+  outputs: CatalogPort[];
+  default_config: Record<string, unknown>;
+  capabilities: string[];
+  permissions: string[];
+  requires_ml: boolean;
+  is_model_sink: boolean;
+  config_schema: Record<string, unknown>;
+}
