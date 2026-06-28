@@ -95,7 +95,11 @@ export function NodeConfigForm({
   const tablesQuery = useConnectionTables(isSqlNode ? c.connection_id || null : null);
   const objectsQuery = useConnectionObjects(isStorageInput ? c.connection_id || null : null);
 
-  const sqlConnections = connections.filter((cn) => cn.connection_type !== "storage");
+  // SQL nodes use database connections only — never storage or the MLflow
+  // tracking connection (which isn't a queryable database).
+  const sqlConnections = connections.filter(
+    (cn) => cn.connection_type !== "storage" && cn.connection_type !== "mlflow",
+  );
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
   const FILE_INPUT_SOURCE: Record<string, string> = {
