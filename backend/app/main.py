@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes import (
+    catalog,
     connections,
     datasets,
     flows,
@@ -227,6 +228,7 @@ def create_app() -> FastAPI:
     app.include_router(ml.router, prefix="/api", tags=["ml"])
     app.include_router(schedules.router, prefix="/api", tags=["schedules"])
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
+    app.include_router(catalog.router, prefix="/api/catalog", tags=["catalog"])
     app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
 
     @app.get("/health", tags=["health"])
