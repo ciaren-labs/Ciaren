@@ -88,11 +88,10 @@ class PolarsEngine:
         if source_type == "json":
             return pl.read_json(path)
         if source_type == "text":
-            # polars has no line-reader; fall back to pandas for consistency with storage connector.
-            import pandas as _pd
+            # One row per line. splitlines() is robust — newer pandas rejects sep="\n".
+            from pathlib import Path
 
-            pdf = _pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
-            return pl.from_pandas(pdf)
+            return pl.DataFrame({"text": Path(path).read_text(encoding="utf-8").splitlines()})
         raise ValueError(f"Unsupported source_type: {source_type!r}")
 
     def write(self, df: pl.DataFrame, path: str, source_type: str) -> None:
