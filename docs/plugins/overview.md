@@ -101,7 +101,9 @@ stays fully open-source and useful on its own; extensions install from the outsi
 
 ## Next steps
 
-- **[Writing a Plugin](/plugins/writing-a-plugin)** — build your first node
+- **[Build Your First Plugin](/plugins/first-plugin)** — a 10-minute, step-by-step tutorial
+- **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
+- **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
 - **[Packaging & Distribution](/plugins/packaging-and-distribution)** — package and sign
 - **[Plugin Manifest](/specs/plugin-manifest)** — the manifest schema
 - **[Plugin Security & Permissions](/security/plugin-security)** — the trust model

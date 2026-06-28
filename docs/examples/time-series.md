@@ -42,7 +42,8 @@ event_id,occurred_at,value
 6,2024-03-29,13
 ```
 
-Upload it on the **Datasets** page.
+Upload it on the **Datasets** page
+(📥 [download events.csv](/samples/time-series/events.csv)).
 
 ## Build the flow
 
