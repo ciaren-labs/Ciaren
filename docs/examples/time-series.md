@@ -10,7 +10,7 @@ Turn a stream of time-stamped events into a tidy monthly summary. FlowFrame does
 this by **extracting date parts** and grouping by them.
 
 **You'll use:** CSV Input → Cast Types → Extract Date Parts → Group by + Aggregate
-→ Rename → Sort → CSV Output.
+→ Rename → Sort → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"events.csv"},
@@ -19,7 +19,7 @@ this by **extracting date parts** and grouping by them.
   {"type":"transform","label":"Group By + Aggregate","detail":"by year+month · sum(value) · count(events)"},
   {"type":"clean","label":"Rename Columns","detail":"value→total_value · event_id→num_events"},
   {"type":"clean","label":"Sort Rows","detail":"year asc, month asc"},
-  {"type":"output","label":"CSV Output","detail":"monthly_summary.csv"}
+  {"type":"output","label":"File Output","detail":"monthly_summary.csv"}
 ]' />
 
 ::: info Scope
@@ -57,7 +57,7 @@ Upload it on the **Datasets** page.
    `mapping: { "value": "total_value", "event_id": "num_events" }`.
 6. **Sort Rows** — `columns: ["occurred_at_year", "occurred_at_month"]`,
    `ascending: true`.
-7. **CSV Output** — `path: "monthly_summary.csv"`.
+7. **File Output** — `format: csv` (name `monthly_summary`).
 
 ## Exported Python
 

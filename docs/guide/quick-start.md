@@ -35,7 +35,7 @@ aggregates, and outputs a summary CSV — plus the equivalent Python script.
   {"type":"clean","label":"Drop Nulls","detail":"remove rows missing amount"},
   {"type":"clean","label":"Remove Duplicates","detail":"deduplicate rows"},
   {"type":"transform","label":"Group By + Aggregate","detail":"sum amount by region"},
-  {"type":"output","label":"CSV Output","detail":"sales_summary.csv"}
+  {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' />
 
 ## 1. Upload a dataset
@@ -55,7 +55,7 @@ than overwriting the old one, so existing flows stay reproducible.
    - **Drop Nulls** — remove rows missing an `amount`.
    - **Remove Duplicates** — drop repeated rows.
    - **Group by & Aggregate** — group by `region`, sum `amount`.
-4. Add a **CSV Output** node at the end and connect it.
+4. Add a **File Output** node at the end and connect it.
 
 ![Flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
 
