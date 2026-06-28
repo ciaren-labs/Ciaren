@@ -281,6 +281,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("query", nargs="?", default="", help="Search text (empty lists all).")
     p_search.add_argument("--index", required=True, help="Path to a marketplace index JSON file.")
 
+    p_lic = plugin_sub.add_parser(
+        "licenses", help="Scan installed dependency licenses for redistribution review.", parents=[output_parent]
+    )
+    p_lic.add_argument("--flagged-only", action="store_true", help="Only show packages that need review.")
+    p_lic.add_argument("--fail-on-flagged", action="store_true", help="Exit non-zero if any package is flagged.")
+
     return parser
 
 
@@ -646,8 +652,10 @@ def _plugin(args: argparse.Namespace) -> None:
         _plugin_sign(args)
     elif command == "search":
         _plugin_search(args)
+    elif command == "licenses":
+        _plugin_licenses(args)
     else:
-        print("usage: flowframe plugin {list,install,uninstall,verify,enable,disable,keygen,pack,sign,search}")
+        print("usage: flowframe plugin {list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,licenses}")
 
 
 def _plugin_list(args: argparse.Namespace) -> None:
@@ -796,6 +804,31 @@ def _plugin_search(args: argparse.Namespace) -> None:
         print(f"  {m.id:<24} {m.version:<8} {m.name}{flag}")
         if m.description:
             print(f"      {m.description}")
+
+
+def _plugin_licenses(args: argparse.Namespace) -> None:
+    from app.plugins.license_scan import scan_installed
+
+    packages = scan_installed()
+    flagged = [p for p in packages if p.flagged]
+    shown = flagged if getattr(args, "flagged_only", False) else packages
+
+    if getattr(args, "output", "table") == "json":
+        print(
+            json.dumps(
+                [{"name": p.name, "version": p.version, "license": p.effective, "flagged": p.flagged} for p in shown],
+                indent=2,
+            )
+        )
+    else:
+        width = max((len(p.name) for p in shown), default=4)
+        for p in shown:
+            mark = "  REVIEW" if p.flagged else ""
+            print(f"  {p.name.ljust(width)}  {p.version:<12} {p.effective or 'UNKNOWN'}{mark}")
+        print(f"\n{len(flagged)} of {len(packages)} packages need review.")
+
+    if getattr(args, "fail_on_flagged", False) and flagged:
+        raise SystemExit(1)
 
 
 def main(argv: list[str] | None = None) -> None:
