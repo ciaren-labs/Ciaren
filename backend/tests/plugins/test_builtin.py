@@ -72,9 +72,9 @@ def test_concat_input_is_variadic():
 
 
 def test_ml_train_emits_model_output_and_is_sink():
-    if "mlTrain" not in list_transformation_types():
+    if "mlTrainClassifier" not in list_transformation_types():
         return  # ML extra not installed
-    spec = build_registry().node_spec("mlTrain")
+    spec = build_registry().node_spec("mlTrainClassifier")
     assert spec is not None
     model_outputs = [p for p in spec.outputs if p.type == "model"]
     assert [p.id for p in model_outputs] == ["model"]

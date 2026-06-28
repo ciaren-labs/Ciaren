@@ -46,7 +46,7 @@ def test_preview_mode_skips_training_in_full_flow(ml_env, tmp_path):
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1}},
             },
         ],
@@ -69,7 +69,7 @@ def test_train_only_flow_is_valid():
             {"id": "sp", "type": "trainTestSplit", "data": {"config": {"seed": 1}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainRegressor",
                 "data": {"config": {"model_type": "ridge", "target_column": "y", "seed": 1}},
             },
         ],
@@ -103,7 +103,7 @@ def test_train_only_flow_runs_and_logs(ml_env, tmp_path):
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "logistic_regression", "target_column": "target", "seed": 1}},
             },
         ],
@@ -140,7 +140,7 @@ def test_feature_importance_graph_wiring_validates():
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainRegressor",
                 "data": {"config": {"model_type": "ridge", "target_column": "y", "seed": 1}},
             },
             {"id": "fi", "type": "featureImportance", "data": {"config": {}}},

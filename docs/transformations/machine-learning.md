@@ -20,7 +20,7 @@ or pandas.
     {"type":"input","label":"CSV Input","detail":"dataset with target"},
     {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
     {"type":"ml","label":"Scale Features","detail":"normalize numerics"},
-    {"type":"ml","label":"Train Model","detail":"model → MLflow"},
+    {"type":"ml","label":"Train Classifier","detail":"model → MLflow"},
     {"type":"ml","label":"Predict","detail":"test data + model wire"},
     {"type":"ml","label":"Evaluate","detail":"accuracy · AUC · F1"},
     {"type":"output","label":"CSV Output","detail":"metrics table"}
@@ -55,7 +55,7 @@ and `test` — wire each to the right place.
 ## Feature engineering
 
 These transform features for exploration/preview. For training, prefer the
-**Preprocessing** section inside Train Model's Advanced options — it bundles the
+**Preprocessing** section inside a train node's Advanced options — it bundles the
 same steps into the model so they're reapplied identically at predict time.
 
 - **Scale Features** — `standard` (z-score), `minmax` (0–1), or `robust`
@@ -69,17 +69,21 @@ same steps into the model so they're reapplied identically at predict time.
 
 To fill missing values, use the standard **[Fill Nulls](./fill-nulls.md)**
 cleaning node (mean / median / mode / constant / forward- / backward-fill) — it
-works on both engines. For training, Train Model's Advanced → Preprocessing also
+works on both engines. For training, a train node's Advanced → Preprocessing also
 imputes inside the model pipeline so the same fill is applied at predict time.
 
-## Train Model
+## Train nodes
 
-Fits a model and logs it to MLflow. **Two outputs:** `out` (the training data,
-passed through) and `model` (a model reference — the purple wire).
+Training is split into one node per task, so each model picker only shows
+relevant algorithms: **Train Classifier**, **Train Regressor**, **Train
+Clustering**, **Train Dim. Reduction**, and **Train Forecaster** (time-series —
+defined as a scaffold; models coming soon). They all fit a model and log it to
+MLflow, and each emits a single `model` output (the purple wire) — wire it into
+**Predict** or **Feature Importance**.
 
-**Basic config:** model (grouped by task), target column (supervised models),
-feature columns (empty = all but the target), the model's common hyperparameters,
-and the required seed.
+**Basic config:** model (scoped to the node's task), target column (supervised
+nodes), feature columns (empty = all but the target), the model's common
+hyperparameters, and the required seed.
 
 **Advanced options** (modal): the full hyperparameter set, k-fold cross-validation,
 preprocessing (numeric scaling + imputation, categorical imputation + one-hot),
@@ -87,12 +91,13 @@ and the MLflow experiment name.
 
 Supported models:
 
-| Task | Models |
-| --- | --- |
-| Classification | Logistic Regression, Random Forest, XGBoost, LightGBM, SVM, KNN |
-| Regression | Linear, Ridge, Lasso, Random Forest, SVR, XGBoost, LightGBM |
-| Clustering | K-Means, DBSCAN, Agglomerative |
-| Dimensionality reduction | PCA (fit) |
+| Node | Task | Models |
+| --- | --- | --- |
+| Train Classifier | Classification | Logistic Regression, Random Forest, XGBoost, LightGBM, SVM, KNN |
+| Train Regressor | Regression | Linear, Ridge, Lasso, Random Forest, SVR, XGBoost, LightGBM |
+| Train Clustering | Clustering | K-Means, DBSCAN, Agglomerative |
+| Train Dim. Reduction | Dimensionality reduction | PCA (fit) |
+| Train Forecaster | Time series | _(coming soon)_ |
 
 Guardrails: the seed is required, the target can't also be a feature (leakage),
 and row/feature/model-size limits are enforced before training starts.
@@ -122,7 +127,7 @@ table.
 
 ## Feature Importance
 
-Takes a Train Model **model** output and returns `feature_name` / `importance` /
+Takes a train node's **model** output and returns `feature_name` / `importance` /
 `rank`. Works for tree-based and linear models; SVM (non-linear) and KNN are not
 supported.
 

@@ -22,15 +22,28 @@ logger = logging.getLogger("app.plugin_api.events")
 
 
 class Hook(str, Enum):
-    """The lifecycle/execution points the core emits. Values are the public
-    hook names; subscribe with either the enum member or the raw string."""
+    """The lifecycle/execution points the core can emit. Values are the public
+    hook names; subscribe with either the enum member or the raw string.
+
+    **Emitted today** (a subscriber will be called): ``plugin_enabled``,
+    ``plugin_disabled``, ``before_graph_execute``, ``after_graph_execute``,
+    ``before_node_execute``, ``after_node_execute`` (the node hooks only in
+    in-process ``thread`` execution mode — a process-pool worker can't reach
+    parent-registered subscribers), and ``export_requested``.
+
+    **Reserved** (defined for a stable contract but **not emitted yet**, so do not
+    rely on them firing): ``plugin_installed`` (installation happens in the CLI, a
+    separate process with no running bus), ``project_created`` / ``project_opened``
+    / ``project_saved``, ``graph_loaded``, and ``graph_validated``. They are kept
+    here so the hook namespace is stable when wiring lands.
+    """
 
     # -- plugin lifecycle --
-    plugin_installed = "on_plugin_installed"
+    plugin_installed = "on_plugin_installed"  # reserved (CLI-side install)
     plugin_enabled = "on_plugin_enabled"
     plugin_disabled = "on_plugin_disabled"
 
-    # -- project / graph --
+    # -- project / graph (reserved) --
     project_created = "on_project_created"
     project_opened = "on_project_opened"
     project_saved = "on_project_saved"

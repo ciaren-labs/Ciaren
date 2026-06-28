@@ -3,13 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X } from "lucide-react";
 import { transformationsApi } from "@/lib/api";
 import {
-  CATEGORY_LABELS,
-  CATEGORY_ORDER,
-  type NodeCategory,
+  getCategoryLabel,
+  paletteCategories,
   type NodeTypeDef,
 } from "@/lib/nodeCatalog";
 import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
-import { CATEGORY_ICONS, CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
+import { getCategoryIcon, getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -27,8 +26,9 @@ interface NodePaletteProps {
 }
 
 export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
-  // Accordion: all sections collapsed by default per design.
-  const [open, setOpen] = useState<Set<NodeCategory>>(new Set());
+  // Accordion: all sections collapsed by default per design. Categories are
+  // strings (not just the built-in union) so plugin-contributed categories work.
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem("ff_palette_collapsed") === "true";
@@ -40,7 +40,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
     localStorage.setItem("ff_palette_collapsed", String(next));
   };
 
-  const toggle = (category: NodeCategory) =>
+  const toggle = (category: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
@@ -64,6 +64,9 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
     const available = new Set(availableTypes ?? []);
     return catalog.filter((n) => !n.requiresMl || available.has(n.type));
   }, [catalog, availableTypes]);
+
+  // Built-in categories first, then any plugin-contributed categories present.
+  const categories = useMemo(() => paletteCategories(visibleTypes), [visibleTypes]);
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
@@ -93,9 +96,9 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
         </Tooltip>
 
         <div className="flex flex-col gap-2">
-          {CATEGORY_ORDER.map((cat) => {
-            const CatIcon = CATEGORY_ICONS[cat];
-            const theme = CATEGORY_THEME[cat];
+          {categories.map((cat) => {
+            const CatIcon = getCategoryIcon(cat);
+            const theme = getCategoryTheme(cat);
             const locked = !unlocked && cat !== "input";
             return (
               <Tooltip key={cat}>
@@ -110,7 +113,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
                     <CatIcon className="h-3.5 w-3.5" />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="right">{CATEGORY_LABELS[cat]}</TooltipContent>
+                <TooltipContent side="right">{getCategoryLabel(cat)}</TooltipContent>
               </Tooltip>
             );
           })}
@@ -183,6 +186,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           toggle={toggle}
           onAdd={onAdd}
           nodeTypes={visibleTypes}
+          categories={categories}
         />
       )}
     </div>
@@ -195,12 +199,14 @@ function PaletteAccordion({
   toggle,
   onAdd,
   nodeTypes,
+  categories,
 }: {
   unlocked: boolean;
-  open: Set<NodeCategory>;
-  toggle: (category: NodeCategory) => void;
+  open: Set<string>;
+  toggle: (category: string) => void;
   onAdd: (def: NodeTypeDef) => void;
   nodeTypes: NodeTypeDef[];
+  categories: string[];
 }) {
   return (
     <>
@@ -214,13 +220,13 @@ function PaletteAccordion({
         </div>
       )}
 
-      {CATEGORY_ORDER.map((category) => {
+      {categories.map((category) => {
         const items = nodeTypes.filter((n) => n.category === category);
         if (items.length === 0) return null;
         const isOpen = open.has(category);
         const locked = !unlocked && category !== "input";
-        const CatIcon = CATEGORY_ICONS[category];
-        const theme = CATEGORY_THEME[category];
+        const CatIcon = getCategoryIcon(category);
+        const theme = getCategoryTheme(category);
         return (
           <div key={category} className="flex flex-col">
             <button
@@ -242,7 +248,7 @@ function PaletteAccordion({
                 <CatIcon className="h-3 w-3" />
               </span>
               <span className="flex-1 text-sm font-semibold text-foreground">
-                {CATEGORY_LABELS[category]}
+                {getCategoryLabel(category)}
               </span>
               {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
               <span className="text-xs tabular-nums text-muted-foreground/70">

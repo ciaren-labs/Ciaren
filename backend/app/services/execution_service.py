@@ -335,11 +335,12 @@ class ExecutionService:
     # -- Internals ------------------------------------------------------
 
     def _event_bus(self) -> EventBus | None:
-        """The process-wide plugin event bus, or None if plugins aren't loaded.
+        """The process-wide plugin event bus, or None if the plugin layer can't be
+        reached.
 
-        Best-effort: never let plugin wiring break a run. Returns None when no
-        plugin has subscribed to any execution hook, so the common (no-plugin)
-        path skips emission entirely.
+        Best-effort: never let plugin wiring break a run. The returned bus is cheap
+        to emit on when nothing is listening (``EventBus.emit`` returns early with no
+        subscribers), so the common no-plugin path costs only that early return.
         """
         try:
             from app.plugins import get_registry

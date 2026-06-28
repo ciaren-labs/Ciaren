@@ -7,6 +7,7 @@ import {
   Power,
   ShieldAlert,
   ShieldCheck,
+  ShieldX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import {
   useEnablePlugin,
   useGrantPlugin,
   usePluginDiagnostics,
+  useRevokePlugin,
 } from "./hooks";
 
 // Short, friendly explanations for the permissions a plugin can request. Keeps
@@ -115,9 +117,19 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
   const enable = useEnablePlugin();
   const disable = useDisablePlugin();
   const grant = useGrantPlugin();
-  const busy = enable.isPending || disable.isPending || grant.isPending;
+  const revoke = useRevokePlugin();
+  const busy =
+    enable.isPending || disable.isPending || grant.isPending || revoke.isPending;
 
-  const granted = new Set(plugin.granted_permissions);
+  // A loaded plugin's declared permissions are in force (its code is running), so
+  // show them as active rather than "not granted". For a plugin still pending
+  // approval, show exactly what the user has granted so far.
+  const isLoaded = plugin.status === "loaded";
+  const granted = new Set(isLoaded ? plugin.permissions : plugin.granted_permissions);
+  // Revoking only means something when the user previously consented to a gated
+  // plugin's permissions (drop-in plugins). Entry-point packages aren't gated, so
+  // "Disable" is the way to stop them instead.
+  const canRevoke = plugin.granted_permissions.length > 0;
   const tintByStatus = {
     loaded: "#10b981",
     needs_permissions: "#f59e0b",
@@ -181,6 +193,17 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
           {plugin.status === "disabled" && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => enable.mutate(plugin.id)}>
               <Power className="mr-1.5 h-3.5 w-3.5" /> Enable
+            </Button>
+          )}
+          {plugin.status !== "disabled" && canRevoke && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => revoke.mutate({ id: plugin.id, permissions: plugin.granted_permissions })}
+              title="Withdraw the permissions you granted; the plugin stops loading until you approve again"
+            >
+              <ShieldX className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Revoke
             </Button>
           )}
           {plugin.status !== "disabled" && (

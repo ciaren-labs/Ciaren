@@ -493,8 +493,8 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Compress numeric features into principal components (PCA).",
   },
   {
-    type: "mlTrain",
-    label: "Train Model",
+    type: "mlTrainClassifier",
+    label: "Train Classifier",
     category: "ml",
     requiresMl: true,
     defaultConfig: {
@@ -511,7 +511,84 @@ export const NODE_TYPES: NodeTypeDef[] = [
     modelOutputHandles: ["model"],
     hasOutput: true,
     isModelSink: true,
-    description: "Fit a model and log it to MLflow (classification, regression, clustering).",
+    description: "Fit a classification model (predict a category) and log it to MLflow.",
+  },
+  {
+    type: "mlTrainRegressor",
+    label: "Train Regressor",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "random_forest_regressor",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      cross_validate: false,
+      cv_folds: 5,
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Fit a regression model (predict a number) and log it to MLflow.",
+  },
+  {
+    type: "mlTrainClustering",
+    label: "Train Clustering",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "kmeans",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Group rows into clusters (unsupervised) and log the model to MLflow.",
+  },
+  {
+    type: "mlTrainForecaster",
+    label: "Train Forecaster",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "",
+      time_column: "",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Train a time-series forecasting model. (Models coming soon.)",
+  },
+  {
+    type: "mlTrainDimReduction",
+    label: "Train Dim. Reduction",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "pca_fit",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    isModelSink: true,
+    description: "Fit a dimensionality-reduction model (e.g. PCA) and log it to MLflow.",
   },
   {
     type: "mlPredict",
@@ -646,6 +723,29 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "ml",
   "output",
 ];
+
+/** Display label for any category. Built-in categories use their curated label;
+ *  a plugin category that isn't built in is title-cased so it still reads well. */
+export function getCategoryLabel(category: string): string {
+  const known = CATEGORY_LABELS[category as NodeCategory];
+  if (known) return known;
+  return category
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+/** The categories to show in the palette: the built-in order, followed by any
+ *  extra categories that appear in the given node defs (e.g. from plugins),
+ *  de-duplicated and sorted for stable display. */
+export function paletteCategories(defs: NodeTypeDef[]): string[] {
+  const known = new Set<string>(CATEGORY_ORDER);
+  const extra = new Set<string>();
+  for (const d of defs) {
+    if (!known.has(d.category)) extra.add(d.category);
+  }
+  return [...CATEGORY_ORDER, ...[...extra].sort()];
+}
 
 /** Output handle ids for a node (single implicit "out" unless it declares more). */
 export function getOutputHandles(def: NodeTypeDef): string[] {

@@ -5,6 +5,7 @@ a builder that constructs the sklearn-compatible estimator with the user's
 hyperparameters and the run seed. Everything imports lazily so the catalog can be
 described (names, tasks) without importing scikit-learn / xgboost / lightgbm.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -18,6 +19,22 @@ CLASSIFICATION = "classification"
 REGRESSION = "regression"
 CLUSTERING = "clustering"
 DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
+TIMESERIES = "timeseries"
+
+#: Every learning task FlowFrame models. ``timeseries`` is defined but has no
+#: estimators yet (the Train Forecaster node is a scaffold — models land later).
+TASKS = (CLASSIFICATION, REGRESSION, CLUSTERING, DIMENSIONALITY_REDUCTION, TIMESERIES)
+
+#: Train node type → the tasks whose models it accepts. One node per task family
+#: so the palette is self-explanatory and each picker only shows relevant models.
+TRAIN_NODE_TASKS: dict[str, tuple[str, ...]] = {
+    "mlTrainClassifier": (CLASSIFICATION,),
+    "mlTrainRegressor": (REGRESSION,),
+    "mlTrainClustering": (CLUSTERING,),
+    "mlTrainForecaster": (TIMESERIES,),
+    "mlTrainDimReduction": (DIMENSIONALITY_REDUCTION,),
+}
+TRAIN_NODE_TYPES: tuple[str, ...] = tuple(TRAIN_NODE_TASKS)
 
 
 @dataclass(frozen=True)
@@ -171,10 +188,13 @@ MODEL_CATALOG: dict[str, ModelSpec] = {
 def get_model_spec(model_type: str) -> ModelSpec:
     spec = MODEL_CATALOG.get(model_type)
     if spec is None:
-        raise ValueError(
-            f"Unknown model_type {model_type!r}. Supported: {sorted(MODEL_CATALOG)}."
-        )
+        raise ValueError(f"Unknown model_type {model_type!r}. Supported: {sorted(MODEL_CATALOG)}.")
     return spec
+
+
+def models_for_tasks(tasks: tuple[str, ...]) -> list[str]:
+    """Model-type names whose task is in ``tasks`` (sorted, stable)."""
+    return sorted(name for name, spec in MODEL_CATALOG.items() if spec.task in tasks)
 
 
 def build_estimator(model_type: str, hyperparameters: dict[str, Any] | None, seed: int | None) -> Any:
