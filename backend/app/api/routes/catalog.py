@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app.engine.node_metadata import CATEGORY_LABELS, CATEGORY_ORDER
 from app.ml.availability import ml_extension_ready
-from app.plugin_api import ConnectorSpec, NodeSpec
+from app.plugin_api import ConnectorSpec, ExporterSpec, NodeSpec
 from app.plugins import get_registry
 
 router = APIRouter()
@@ -39,6 +39,13 @@ async def list_catalog_connectors() -> list[ConnectorSpec]:
     """Connectors contributed by the core and any installed plugins, including
     driver availability and the connection-form metadata the UI needs."""
     return get_registry().connector_specs()
+
+
+@router.get("/exporters", response_model=list[ExporterSpec])
+async def list_catalog_exporters() -> list[ExporterSpec]:
+    """Code/artifact exporters contributed by the core and any installed plugins
+    (python, eager-polars, lazy-polars today)."""
+    return get_registry().exporter_specs()
 
 
 @router.get("/categories", response_model=list[CategorySpec])
