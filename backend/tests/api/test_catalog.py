@@ -29,7 +29,7 @@ async def test_catalog_nodes_hides_ml_when_disabled(client):
     # The client fixture pins ML off.
     resp = await client.get("/api/catalog/nodes")
     ids = {n["id"] for n in resp.json()}
-    assert "mlTrain" not in ids
+    assert "mlTrainClassifier" not in ids
     assert all(n["requires_ml"] is False for n in resp.json())
 
 
@@ -87,10 +87,10 @@ async def test_catalog_nodes_shows_ml_when_enabled(client, monkeypatch):
     try:
         resp = await client.get("/api/catalog/nodes")
         by_id = {n["id"]: n for n in resp.json()}
-        assert "mlTrain" in by_id
-        assert by_id["mlTrain"]["requires_ml"] is True
+        assert "mlTrainClassifier" in by_id
+        assert by_id["mlTrainClassifier"]["requires_ml"] is True
         # mlTrain emits a model output and is a model sink.
-        assert any(p["type"] == "model" for p in by_id["mlTrain"]["outputs"])
-        assert by_id["mlTrain"]["is_model_sink"] is True
+        assert any(p["type"] == "model" for p in by_id["mlTrainClassifier"]["outputs"])
+        assert by_id["mlTrainClassifier"]["is_model_sink"] is True
     finally:
         get_settings.cache_clear()

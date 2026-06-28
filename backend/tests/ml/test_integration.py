@@ -6,6 +6,7 @@ csvInput -> trainTestSplit -> mlTrain (train branch)
 Exercises multi-output routing (split, train), the optional model input on
 mlPredict, the metadata channel, and reproducibility across two runs.
 """
+
 import pandas as pd
 import pytest
 
@@ -17,13 +18,28 @@ def _graph():
     return {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
-            {"id": "split", "type": "trainTestSplit",
-             "data": {"config": {"seed": 42, "test_size": 0.25, "stratify_column": "target"}}},
-            {"id": "train", "type": "mlTrain", "data": {"config": {
-                "model_type": "random_forest_classifier", "target_column": "target", "seed": 42}}},
+            {
+                "id": "split",
+                "type": "trainTestSplit",
+                "data": {"config": {"seed": 42, "test_size": 0.25, "stratify_column": "target"}},
+            },
+            {
+                "id": "train",
+                "type": "mlTrainClassifier",
+                "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 42}},
+            },
             {"id": "pred", "type": "mlPredict", "data": {"config": {"output_column": "prediction"}}},
-            {"id": "eval", "type": "mlEvaluate", "data": {"config": {
-                "task_type": "classification", "target_column": "target", "prediction_column": "prediction"}}},
+            {
+                "id": "eval",
+                "type": "mlEvaluate",
+                "data": {
+                    "config": {
+                        "task_type": "classification",
+                        "target_column": "target",
+                        "prediction_column": "prediction",
+                    }
+                },
+            },
             {"id": "out", "type": "csvOutput", "data": {"config": {}}},
         ],
         "edges": [

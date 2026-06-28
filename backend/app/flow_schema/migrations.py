@@ -74,4 +74,10 @@ def migrate(data: dict[str, Any], *, target: str = CURRENT_SCHEMA_VERSION) -> di
         data["schemaVersion"] = to_version
         current = to_version
 
+    # A migration edge may jump *past* the requested target (e.g. a 1.0.0 -> 2.0.0
+    # step when 1.5.0 was asked for). Surface that rather than silently returning a
+    # document at the wrong version.
+    if _as_version(current) != target_v:
+        raise MigrationError(f"no migration lands exactly on {target!r}; chain overshot to {current}")
+
     return data

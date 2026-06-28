@@ -43,7 +43,7 @@ def test_ml_provider_contributes_only_ml_nodes():
     assert all(s.requires_ml for s in specs)
     assert all(s.provider == "flowframe.ml" for s in specs)
     # Implementations are present so ML nodes execute once registered.
-    assert reg.node_implementation("mlTrain") is not None
+    assert reg.node_implementation("mlTrainClassifier") is not None
 
 
 @pytest.mark.skipif(not _ML_AVAILABLE, reason="[ml] extra not installed")
@@ -65,7 +65,7 @@ def test_ml_provider_can_be_added_and_omitted_independently():
     # Omitting the ML provider yields a registry with no ML nodes…
     core_only = ServiceRegistry()
     core_only.register_node_provider(BuiltinNodeProvider())
-    assert core_only.node_spec("mlTrain") is None
+    assert core_only.node_spec("mlTrainClassifier") is None
     # …adding it brings them in, without re-registering the core.
     core_only.register_node_provider(MlNodeProvider())
-    assert core_only.node_spec("mlTrain") is not None
+    assert core_only.node_spec("mlTrainClassifier") is not None

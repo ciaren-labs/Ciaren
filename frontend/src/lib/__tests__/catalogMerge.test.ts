@@ -98,7 +98,7 @@ describe("nodeSpecToDef", () => {
   it("maps model output + sink (mlTrain)", () => {
     const def = nodeSpecToDef(
       spec({
-        id: "mlTrain",
+        id: "mlTrainClassifier",
         category: "ml",
         is_model_sink: true,
         outputs: [{ id: "model", type: "model", required: true, multi: false }],

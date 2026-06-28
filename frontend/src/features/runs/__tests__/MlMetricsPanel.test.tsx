@@ -9,7 +9,7 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }
 function result(overrides: Partial<NodeResult>): NodeResult {
   return {
     node_id: "n",
-    type: "mlTrain",
+    type: "mlTrainClassifier",
     label: "Train",
     status: "success",
     rows: 100,

@@ -169,6 +169,48 @@ const inputConfig = z.object({
   dataset_version: z.number().int().positive().nullable().optional(),
 });
 
+// Shared by the supervised/unsupervised train nodes (classifier, regressor,
+// clustering, dim. reduction). The superRefine only enforces a target for
+// supervised models, so the same schema serves the unsupervised ones too.
+const mlTrainSchema = z
+  .object({
+    model_type: z.enum(ML_MODEL_VALUES),
+    target_column: z.string().optional(),
+    feature_columns: stringArray.optional(),
+    hyperparameters: z.record(z.string(), z.unknown()).optional(),
+    cross_validate: z.boolean().optional(),
+    cv_folds: z.coerce.number().int().min(2).optional(),
+    mlflow_experiment: z.string().optional(),
+    seed: z.coerce.number().int("Seed must be a whole number"),
+    preprocessing: z.record(z.string(), z.unknown()).optional(),
+  })
+  .superRefine((cfg, ctx) => {
+    if (isSupervisedModel(cfg.model_type)) {
+      if (!cfg.target_column) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["target_column"], message: "Pick a target column" });
+      }
+      const feats = cfg.feature_columns ?? [];
+      if (cfg.target_column && feats.includes(cfg.target_column)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["feature_columns"],
+          message: "The target can't also be a feature (data leakage).",
+        });
+      }
+    }
+  });
+
+// The Train Forecaster node has no models yet, so model_type stays a free string.
+const mlForecasterSchema = z.object({
+  model_type: z.string().optional(),
+  time_column: z.string().optional(),
+  target_column: z.string().optional(),
+  feature_columns: stringArray.optional(),
+  hyperparameters: z.record(z.string(), z.unknown()).optional(),
+  mlflow_experiment: z.string().optional(),
+  seed: z.coerce.number().int("Seed must be a whole number"),
+});
+
 export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   csvInput: inputConfig,
   excelInput: inputConfig,
@@ -530,33 +572,11 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     prefix: z.string().optional(),
     seed: z.coerce.number().int().optional(),
   }),
-  mlTrain: z
-    .object({
-      model_type: z.enum(ML_MODEL_VALUES),
-      target_column: z.string().optional(),
-      feature_columns: stringArray.optional(),
-      hyperparameters: z.record(z.string(), z.unknown()).optional(),
-      cross_validate: z.boolean().optional(),
-      cv_folds: z.coerce.number().int().min(2).optional(),
-      mlflow_experiment: z.string().optional(),
-      seed: z.coerce.number().int("Seed must be a whole number"),
-      preprocessing: z.record(z.string(), z.unknown()).optional(),
-    })
-    .superRefine((cfg, ctx) => {
-      if (isSupervisedModel(cfg.model_type)) {
-        if (!cfg.target_column) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["target_column"], message: "Pick a target column" });
-        }
-        const feats = cfg.feature_columns ?? [];
-        if (cfg.target_column && feats.includes(cfg.target_column)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["feature_columns"],
-            message: "The target can't also be a feature (data leakage).",
-          });
-        }
-      }
-    }),
+  mlTrainClassifier: mlTrainSchema,
+  mlTrainRegressor: mlTrainSchema,
+  mlTrainClustering: mlTrainSchema,
+  mlTrainDimReduction: mlTrainSchema,
+  mlTrainForecaster: mlForecasterSchema,
   mlPredict: z.object({
     model_uri: z.string().optional(),
     output_column: z.string().min(1, "Name the prediction column"),

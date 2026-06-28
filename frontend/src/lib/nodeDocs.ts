@@ -356,12 +356,12 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Columns", desc: "Optional. Empty means all numeric columns." },
     ],
   },
-  mlTrain: {
+  mlTrainClassifier: {
     summary:
-      "Fits a model and logs it to MLflow. Preprocessing is bundled into the model so the exact same steps run at prediction time. Its single output is a model reference — wire it into Predict or Feature Importance.",
+      "Fits a classification model (predicts a category) and logs it to MLflow. Preprocessing is bundled into the model so the same steps run at prediction time. Its single output is a model reference — wire it into Predict or Feature Importance.",
     fields: [
-      { name: "Model", desc: "Pick an algorithm grouped by task (classification, regression, clustering)." },
-      { name: "Target", desc: "The column to predict (supervised models only)." },
+      { name: "Model", desc: "Pick a classification algorithm (e.g. Random Forest, Logistic Regression)." },
+      { name: "Target", desc: "The category column to predict." },
       { name: "Features", desc: "Optional. Empty = every column except the target." },
       { name: "Advanced options", desc: "Cross-validation, preprocessing, and the full hyperparameter set." },
     ],
@@ -370,6 +370,53 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       "The seed is required so a run reproduces the same model.",
       "Wire the model output into Predict or Feature Importance.",
     ],
+  },
+  mlTrainRegressor: {
+    summary:
+      "Fits a regression model (predicts a number) and logs it to MLflow. Preprocessing is bundled in so the same steps run at prediction time. Its single output is a model reference.",
+    fields: [
+      { name: "Model", desc: "Pick a regression algorithm (e.g. Random Forest, Ridge, Linear)." },
+      { name: "Target", desc: "The numeric column to predict." },
+      { name: "Features", desc: "Optional. Empty = every column except the target." },
+      { name: "Advanced options", desc: "Cross-validation, preprocessing, and hyperparameters." },
+    ],
+    tips: [
+      "Feed it the train output of Train / Test Split.",
+      "The seed is required so a run reproduces the same model.",
+      "Wire the model output into Predict or Feature Importance.",
+    ],
+  },
+  mlTrainClustering: {
+    summary:
+      "Groups rows into clusters (unsupervised — no target) and logs the model to MLflow. Its single output is a model reference.",
+    fields: [
+      { name: "Model", desc: "Pick a clustering algorithm (e.g. K-Means, DBSCAN)." },
+      { name: "Features", desc: "Optional. Empty = all columns." },
+      { name: "Advanced options", desc: "Preprocessing and hyperparameters (e.g. number of clusters)." },
+    ],
+    tips: [
+      "No target column — clustering is unsupervised.",
+      "The seed is required so a run reproduces the same model.",
+    ],
+  },
+  mlTrainForecaster: {
+    summary:
+      "Trains a time-series forecasting model. Defined as a scaffold — forecasting models are coming soon, so this node isn't runnable yet.",
+    fields: [
+      { name: "Time column", desc: "The column that orders rows in time." },
+      { name: "Target", desc: "The value to forecast." },
+    ],
+    tips: ["Forecasting models will appear here in a future release."],
+  },
+  mlTrainDimReduction: {
+    summary:
+      "Fits a dimensionality-reduction model (e.g. PCA) and logs it to MLflow. Its single output is a model reference. (For inline reduction, use the Reduce Dimensions node instead.)",
+    fields: [
+      { name: "Model", desc: "Pick a method (e.g. PCA)." },
+      { name: "Features", desc: "Optional. Empty = all columns." },
+      { name: "Advanced options", desc: "Preprocessing and hyperparameters (e.g. number of components)." },
+    ],
+    tips: ["The seed is required so a run reproduces the same model."],
   },
   mlPredict: {
     summary: "Scores rows with a trained model, adding a prediction column.",

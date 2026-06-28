@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertCircle } from "lucide-react";
 import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
 import { getNodeIcon } from "@/lib/nodeVisuals";
-import { getModelDef } from "@/lib/mlModels";
+import { getModelDef, TRAIN_NODE_TASKS } from "@/lib/mlModels";
 import { cn } from "@/lib/utils";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowNodeType } from "@/stores/flowEditorStore";
@@ -76,9 +76,9 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
   const Icon = getNodeIcon(type);
   const hasError = useFlowEditorStore((s) => s.invalidNodeIds.includes(id));
 
-  // mlTrain shows the selected model under its label.
+  // A train node shows the selected model under its label.
   const subtitle =
-    type === "mlTrain"
+    type in TRAIN_NODE_TASKS
       ? getModelDef(String((data.config as Record<string, unknown>)?.model_type ?? ""))?.label
       : undefined;
 
