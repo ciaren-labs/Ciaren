@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.plugin_api import Hook, Permission
+from app.plugin_api import Hook, LicenseStatus, Permission
 from app.plugins import (
     get_load_result,
     get_plugin_state,
@@ -44,6 +44,9 @@ class PluginInfo(BaseModel):
     granted_permissions: list[Permission] = Field(default_factory=list)
     #: Requested-but-not-yet-granted permissions (non-empty ⇒ needs approval).
     missing_permissions: list[Permission] = Field(default_factory=list)
+    #: How the package verified at install time: ``trusted`` | ``untrusted`` |
+    #: ``unsigned`` | ``invalid`` | "" (unknown, e.g. a hand-dropped directory).
+    signature: str = ""
 
 
 class PluginErrorInfo(BaseModel):
@@ -90,6 +93,7 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         capabilities=list(meta.capabilities),
         permissions=list(meta.permissions),
         granted_permissions=sorted(state.granted(meta.id), key=lambda p: p.value),
+        signature=state.signature(meta.id),
     )
 
 
@@ -103,6 +107,7 @@ def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
         permissions=list(gated.requested_permissions),
         granted_permissions=sorted(state.granted(gated.plugin_id), key=lambda p: p.value),
         missing_permissions=list(gated.missing_permissions),
+        signature=state.signature(gated.plugin_id),
     )
 
 
@@ -141,6 +146,11 @@ def install_package_and_report(package_path: str, *, require_trusted: bool) -> P
         result = install_ffplugin(package_path, require_trusted=require_trusted, force=True)
     except (InstallError, PackageError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Remember how it verified so the UI can show a trust badge for the installed
+    # plugin (the package itself is gone after extraction).
+    state = get_plugin_state()
+    state.set_signature(result.plugin_id, result.verification.outcome)
+    state.save()
     reload_plugins()
     return PluginInstallResult(
         plugin=_find_info(result.plugin_id),
@@ -172,6 +182,15 @@ async def install_plugin(
         return install_package_and_report(tmp.name, require_trusted=must_trust)
     finally:
         os.unlink(tmp.name)
+
+
+@router.get("/{plugin_id}/license", response_model=LicenseStatus)
+async def plugin_license(plugin_id: str) -> LicenseStatus:
+    """The license status for a plugin, resolved through any registered license
+    provider. A premium plugin registers a ``TokenLicenseProvider`` (backed by a
+    locally-cached signed token); with no provider, a plugin reports licensed (the
+    open-source default)."""
+    return get_registry().validate_license(plugin_id)
 
 
 def _find_info(plugin_id: str) -> PluginInfo:
