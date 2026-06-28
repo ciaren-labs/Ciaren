@@ -21,6 +21,7 @@ from app.engine.process_pool import (
     run_graph_in_process,
 )
 from app.engine.run_context import run_context
+from app.plugin_api.events import EventBus, Hook
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
@@ -124,6 +125,15 @@ class ExecutionService:
                 "dataset_ids": dataset_ids,
                 "tracking_uri": tracking_uri,
             }
+            # Plugin event bus: graph-level hooks fire for every run; node-level
+            # hooks only in thread mode (a process worker can't reach parent
+            # subscribers, so the bus is passed to the in-process executor only).
+            events = self._event_bus()
+            if events is not None:
+                events.emit(
+                    Hook.before_graph_execute, flow_id=flow_id, run_id=run.id, engine=engine, mode=execution_mode
+                )
+
             compute: Awaitable[RunResult]
             if execution_mode == "process":
                 # True multi-core parallelism: the GIL is not shared across
@@ -143,7 +153,7 @@ class ExecutionService:
                 )
             else:
                 compute = asyncio.to_thread(
-                    FlowExecutor().run_with_results,
+                    FlowExecutor(events=events).run_with_results,
                     graph,
                     dataset_paths,
                     output_dir,
@@ -228,6 +238,9 @@ class ExecutionService:
             run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
             run.finished_at = datetime.now(UTC).replace(tzinfo=None)
+            events = self._event_bus()
+            if events is not None:
+                events.emit(Hook.after_graph_execute, flow_id=flow_id, run_id=run.id, status=run.status)
             await self.db.commit()
             await self.db.refresh(run)
 
@@ -320,6 +333,20 @@ class ExecutionService:
         ]
 
     # -- Internals ------------------------------------------------------
+
+    def _event_bus(self) -> EventBus | None:
+        """The process-wide plugin event bus, or None if plugins aren't loaded.
+
+        Best-effort: never let plugin wiring break a run. Returns None when no
+        plugin has subscribed to any execution hook, so the common (no-plugin)
+        path skips emission entirely.
+        """
+        try:
+            from app.plugins import get_registry
+
+            return get_registry().events
+        except Exception:  # noqa: BLE001 — plugin layer must never break execution
+            return None
 
     def _guard_ml_enabled(self, graph: dict[str, Any] | None) -> None:
         """Reject running a graph that uses ML nodes when the ML extension is off.
