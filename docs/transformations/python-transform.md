@@ -67,6 +67,7 @@ The polars export is identical in structure (the script body is inlined as-is;
 ## Examples
 
 **Filter and add a column (polars):**
+
 ```python
 df = df.filter(pl.col("amount") > 0)
 df = df.with_columns(
@@ -76,6 +77,7 @@ return df
 ```
 
 **Call an installed library (pandas):**
+
 ```python
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
@@ -86,6 +88,7 @@ return df
 ```
 
 **Multi-step string cleaning (pandas):**
+
 ```python
 df = df.copy()
 df['email'] = df['email'].str.strip().str.lower()
