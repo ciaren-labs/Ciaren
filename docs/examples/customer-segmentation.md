@@ -58,7 +58,9 @@ order_id,customer_id,amount
 5006,4,30.00
 ```
 
-Upload both on the **Datasets** page.
+Upload both on the **Datasets** page (📥 download
+[customers.csv](/samples/customer-segmentation/customers.csv) ·
+[orders.csv](/samples/customer-segmentation/orders.csv)).
 
 ## Build the flow
 
