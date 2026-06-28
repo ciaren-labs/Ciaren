@@ -66,6 +66,41 @@ def test_io_round_trip(engine_name: str, source_type: str, suffix: str, tmp_path
 
 
 @pytest.mark.parametrize("engine_name", ENGINES)
+def test_column_names_matches_frame_without_materializing(engine_name: str) -> None:
+    # The run DAG reads each node's columns via column_names (cheap), instead of
+    # converting the whole frame to pandas. Both engines must agree.
+    engine = get_engine(engine_name)
+    frame = _make(engine_name, {"a": [1, 2], "b": ["x", "y"], "c": [1.5, 2.5]})
+    assert engine.column_names(frame) == ["a", "b", "c"]
+
+
+@pytest.mark.parametrize("source_type,suffix", [("csv", "csv"), ("parquet", "parquet")])
+def test_polars_streaming_read_matches_eager_read(source_type: str, suffix: str, tmp_path) -> None:
+    # The polars backend reads via scan + streaming collect to cap peak memory;
+    # the result must be byte-identical to an eager read, including null handling
+    # and dtype inference across mixed columns.
+    df = pl.DataFrame(
+        {
+            "i": [1, 2, None, 4],
+            "s": ["x", None, "z", "w"],
+            "f": [1.5, 2.5, None, 4.0],
+            "b": [True, False, True, None],
+        }
+    )
+    path = str(tmp_path / f"data.{suffix}")
+    if source_type == "csv":
+        df.write_csv(path)
+        eager = pl.read_csv(path)
+    else:
+        df.write_parquet(path)
+        eager = pl.read_parquet(path)
+
+    streamed = get_engine("polars").read(path, source_type)
+    assert streamed.schema == eager.schema
+    assert streamed.equals(eager)
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
 def test_io_unsupported_source_type_raises(engine_name: str, tmp_path) -> None:
     engine = get_engine(engine_name)
     frame = _make(engine_name, {"a": [1]})
