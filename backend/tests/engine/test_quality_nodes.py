@@ -721,6 +721,45 @@ def test_polars_codegen_not_null_all_columns(tmp_path):
     assert out.shape == df_in.shape
 
 
+def test_polars_codegen_not_null_detects_nulls_in_non_first_column():
+    """Regression: exported polars assertNotNull must detect nulls in ANY listed
+    column, not just the first. The run (pandas) raises here, so the exported
+    polars code must too — otherwise a data-quality gate silently passes."""
+    t = get_transformation("assertNotNull")
+    # Nulls live ONLY in the second column.
+    pdf = pd.DataFrame({"a": [1, 2, 3], "b": [None, 2, 3]})
+    code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"columns": ["a", "b"]})
+    df_in = pl.from_pandas(pdf)
+    with pytest.raises(ValueError, match="assertNotNull"):
+        _exec_polars_codegen(code, df_in)
+
+
+def test_polars_codegen_not_null_count_matches_runtime():
+    """Exported polars _null_count equals the run's rows-with-null count."""
+    pdf = pd.DataFrame({"a": [1, None, 3], "b": [None, 2, 3]})
+    cols = ["a", "b"]
+    runtime = get_transformation("assertNotNull")._check(pdf.copy(), {"columns": cols})
+    t = get_transformation("assertNotNull")
+    code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"columns": cols, "mode": "warn"})
+    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl}
+    with warnings.catch_warnings(record=True):
+        exec(code, ns)  # noqa: S102
+    assert ns["_null_count"] == runtime.violation_count == 2
+
+
+def test_polars_codegen_value_range_counts_nulls_as_violations():
+    """Regression: exported polars assertValueRange must count null / non-numeric
+    values as violations, matching the run (pandas coerces them to NaN -> fail)."""
+    t = get_transformation("assertValueRange")
+    pdf = pd.DataFrame({"x": [1, 2, None, 5, 100]})
+    runtime = t._check(pdf.copy(), {"column": "x", "min": 0, "max": 10})
+    code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"column": "x", "min": 0, "max": 10, "mode": "warn"})
+    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl}
+    with warnings.catch_warnings(record=True):
+        exec(code, ns)  # noqa: S102
+    assert ns["_range_violations"] == runtime.violation_count == 2
+
+
 def test_polars_codegen_value_range_none_bounds():
     """assertValueRange with only min generates valid polars code."""
     t = get_transformation("assertValueRange")
