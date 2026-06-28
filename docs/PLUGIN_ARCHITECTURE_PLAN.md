@@ -26,7 +26,7 @@
 | 6 — Marketplace readiness | ✅ | `.ffplugin` zip format + deterministic digest; Ed25519 detached signatures (`app/plugin_api/signing.py`, optional `[signing]` extra); trusted-key verification; `flowframe plugin list/install/uninstall/verify/enable/disable/keygen/pack/sign/search`; license tokens + offline grace + cache + `TokenLicenseProvider`; marketplace index format. (Premium *plugins* themselves are out of scope.) |
 | 7 — Security hardening | ✅ | Permission gating (code not imported until approved) + signature verification; joblib/pickle refusal & env-only DB secrets enforced; dependency-license scan (`flowframe plugin licenses`); security docs (`docs/security/`); **permission approval UI** on the frontend Plugins page (approve/enable/disable, per-permission consent). |
 | 8 — Premium pilot | ⬜ | Intentionally out of scope (no premium code in the OSS core); architecture proven via signed example plugin |
-| §17 — Hooks & events | ✅ | `app/plugin_api/events.py` EventBus on the registry; node/graph/export hooks wired through executor + services |
+| §17 — Hooks & events | ✅ | `app/plugin_api/events.py` EventBus on the registry. **Emitted:** plugin enable/disable, before/after graph execute, before/after node execute (node hooks in `thread` mode only), export requested. **Reserved (defined, not emitted yet):** `plugin_installed`, `project_*`, `graph_loaded`, `graph_validated`. |
 
 **Out of scope (by constraint):** premium billing, cloud sync, enterprise auth,
 hosted compute, and any actual premium connector implementations. The core must

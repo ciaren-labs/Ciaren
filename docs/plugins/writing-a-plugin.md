@@ -79,6 +79,15 @@ Once registered the node executes in runs and previews, passes graph validation,
 and (if `to_python_code` is implemented) appears in both the pandas and polars
 exports — exactly like a built-in.
 
+#### Node categories
+
+`NodeSpec.category` controls where the node lands in the editor palette. Use a
+built-in category (`input`, `clean`, `columns`, `reshape`, `analytics`,
+`quality`, `ml`, `output`) to slot it into that section. Any other value is fine
+too: the palette renders an extra section for the custom category (title-cased,
+with a neutral plugin theme) after the built-in ones, and the node still renders
+and runs normally on the canvas.
+
 ### React to events
 
 A plugin can subscribe to lifecycle and execution hooks via `registry.events`
@@ -97,13 +106,17 @@ class AuditPlugin(Plugin):
         print(f"[audit] flow {flow_id} run {run_id}: {status}")
 ```
 
-Available hooks (`app.plugin_api.Hook`): plugin lifecycle (`plugin_installed`,
-`plugin_enabled`, `plugin_disabled`), project/graph (`graph_validated`, …),
-execution (`before_graph_execute`, `after_graph_execute`, `before_node_execute`,
-`after_node_execute`), and `export_requested`. Graph-level and export hooks fire
+**Emitted today** (`app.plugin_api.Hook`): `plugin_enabled`, `plugin_disabled`,
+`before_graph_execute`, `after_graph_execute`, `before_node_execute`,
+`after_node_execute`, and `export_requested`. Graph-level and export hooks fire
 for every run/export; **node-level** hooks fire in the in-process (`thread`)
 execution path — in `process` mode a worker can't reach parent subscribers, so
 prefer graph-level hooks for cross-mode behaviour.
+
+**Reserved** (defined for a stable namespace but **not emitted yet** — don't rely
+on them firing): `plugin_installed` (install runs in the CLI, a separate process),
+`project_created` / `project_opened` / `project_saved`, `graph_loaded`, and
+`graph_validated`.
 
 ## 2. Add a manifest
 
