@@ -72,6 +72,29 @@ def test_search_local_index(tmp_path, capsys):
     assert "acme.x" in capsys.readouterr().out
 
 
+def test_index_add_then_search(src, tmp_path, capsys):
+    pkg = tmp_path / "p.ffplugin"
+    main(["plugin", "pack", str(src), str(pkg)])
+    capsys.readouterr()
+
+    index = tmp_path / "index.json"
+    main(["plugin", "index", "add", str(pkg), "--index", str(index)])
+    out = capsys.readouterr().out
+    assert "Added community.cli" in out
+    assert index.is_file()
+
+    # The package digest is recorded and the artifact is referenced relative to the
+    # index file, so the entry is found by a subsequent search.
+    payload = json.loads(index.read_text(encoding="utf-8"))
+    entry = payload["plugins"][0]
+    assert entry["id"] == "community.cli"
+    assert entry["downloadUrl"] == "p.ffplugin"
+    assert entry["digest"]
+
+    main(["plugin", "search", "community", "--index", str(index)])
+    assert "community.cli" in capsys.readouterr().out
+
+
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_keygen_pack_sign_verify_trusted(src, tmp_path, monkeypatch, capsys):
     # keygen

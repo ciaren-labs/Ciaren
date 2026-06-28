@@ -1,10 +1,17 @@
 # Plugin Marketplace / Install Page — Validation & Proposal
 
-> **Status: design proposal, not implemented.** This document validates the idea
-> of a marketing/marketplace web page where people can browse and install
-> FlowFrame plugins (including paid ones), and recommends the safest architecture.
-> No marketplace web page, hosted index, in-app URL install, or license-issuing
-> service exists in the codebase yet. Nothing here describes shipped behaviour.
+> **Status: design proposal for the *external* parts; the *local* parts are now
+> partially built.** This document validates a marketing/marketplace web page where
+> people browse and install FlowFrame plugins (including paid ones), and recommends
+> the safest architecture.
+>
+> **Already shipped locally (no external service):** in-app install of a `.ffplugin`
+> upload (`POST /api/plugins/install` + the Plugins page **Install** button), and an
+> **Explore** catalog over a configurable *local* index (`FLOWFRAME_MARKETPLACE_INDEX`
+> → `GET /api/marketplace`, one-click install of locally-available artifacts), plus
+> `flowframe plugin index add` to author the index. **Still not built:** the public
+> marketing website, a hosted index, network download of artifacts, billing, and a
+> license-issuing service — those are the external pieces below.
 
 The request: *"a marketing-type page where people can install plugins, and this
 reads our private configuration, so paid plugins really stay private."*
@@ -34,20 +41,23 @@ and lets the marketing page be a thin, public catalog.
 
 **What is missing for an install page:**
 
-1. No code fetches anything over the network. `load_index` reads a **local** file
-   only (`app/plugins/marketplace.py`); there is no download path for a
-   `downloadUrl` and no hosted index client.
-2. No backend endpoint installs a plugin from a URL — install is CLI-only today
-   (`flowframe plugin install <file>`), and the API exposes only
-   enable/disable/grant/revoke (`app/api/routes/plugins.py`).
+1. **(Done locally)** In-app install now exists: `POST /api/plugins/install`
+   (upload) and `POST /api/marketplace/{id}/install` (one-click from the local
+   index), both reusing the verified, permission-gated install path. What is
+   missing is **network download** of a remote `downloadUrl` (today only local
+   artifacts install) and a hosted index client — `load_index` still reads a
+   local file (`app/plugins/marketplace.py`).
+2. **(Done locally)** The **Explore** catalog reads a configurable local index
+   (`FLOWFRAME_MARKETPLACE_INDEX` → `GET /api/marketplace`) and `flowframe plugin
+   index add` authors it. The remaining work is the *external* index host.
 3. No license-issuing service and no authenticated "download my license token"
    flow.
 4. The plugin-management API has **no authentication** (consistent with the
-   local-first, single-user app) — adding any "install from the web" path makes
-   that gap load-bearing (see §5).
+   local-first, single-user app) — adding any "install from the **web**" path
+   (cross-origin, remote download) makes that gap load-bearing (see §5).
 
-So the install page is **feasible and well-supported by the existing contracts**,
-but it requires net-new network + auth surface that must be designed carefully.
+So the local half is **built and feasible**; the remaining work is the external
+network + auth surface, which must be designed carefully.
 
 ---
 

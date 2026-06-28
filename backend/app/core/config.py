@@ -96,6 +96,16 @@ class Settings(BaseSettings):
     ML_MAX_TRAINING_ROWS: int = 5_000_000
     ML_MAX_FEATURE_COLUMNS: int = 500
 
+    # Source for the "Explore" plugin catalog. Today a local JSON file path (the
+    # MarketplaceIndex shape); empty disables the catalog. A hosted index is a
+    # drop-in later — the same setting will accept an https:// URL once network
+    # fetch lands, with no change to the API contract or the frontend.
+    MARKETPLACE_INDEX: str = ""
+    # Require a trusted signature for marketplace/UI installs (hand-installed
+    # community plugins via the CLI can still opt out). Off by default to keep
+    # unsigned community plugins installable.
+    REQUIRE_TRUSTED_PLUGINS: bool = False
+
     @property
     def max_upload_bytes(self) -> int:
         return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
