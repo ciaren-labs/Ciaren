@@ -30,7 +30,8 @@ Evaluate → File Output.
 
 ## Sample data
 
-Save this as `customers.csv` and upload it on the **Datasets** page:
+Save this as `customers.csv` and upload it on the **Datasets** page
+(📥 [download customers.csv](/samples/ml-classification/customers.csv)):
 
 ```csv
 customer_id,tenure,monthly_charges,support_calls,churn
