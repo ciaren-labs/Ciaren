@@ -6,7 +6,8 @@ const extendingSidebar = [
   {
     text: 'Extending FlowFrame',
     items: [
-      { text: 'Writing a Plugin (preview)', link: '/plugins/writing-a-plugin' },
+      { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
+      { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
       { text: '.flow Document Format', link: '/specs/flow-format' },
       { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
     ],
@@ -97,7 +98,8 @@ export default defineConfig({
           text: 'Extending FlowFrame',
           collapsed: true,
           items: [
-            { text: 'Writing a Plugin (preview)', link: '/plugins/writing-a-plugin' },
+            { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
+            { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
             { text: '.flow Document Format', link: '/specs/flow-format' },
             { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
           ],
