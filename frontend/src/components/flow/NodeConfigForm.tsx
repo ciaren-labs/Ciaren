@@ -1419,8 +1419,10 @@ export function NodeConfigForm({
           <Field label="Format" error={errors.format} help="File format to write.">
             <Select value={c.format ?? "parquet"} onChange={(e) => set({ format: e.target.value })}>
               <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
+              <option value="excel">Excel (.xlsx)</option>
               <option value="parquet">Parquet</option>
+              <option value="json">JSON</option>
+              <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
           <Field label="If file exists" error={errors.if_exists} help="Overwrite the existing file, or fail if it already exists.">
