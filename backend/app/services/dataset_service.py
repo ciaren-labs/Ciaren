@@ -32,10 +32,12 @@ from app.services.project_service import ProjectService
 
 _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".csv": "csv",
+    ".tsv": "tsv",
     ".xlsx": "excel",
     ".xls": "excel",
     ".parquet": "parquet",
     ".json": "json",
+    ".jsonl": "jsonl",
     ".txt": "text",
 }
 
@@ -412,14 +414,19 @@ def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.Data
     try:
         if source_type == "csv":
             return pd.read_csv(buf)
+        if source_type == "tsv":
+            return pd.read_csv(buf, sep="\t")
         if source_type == "excel":
             return pd.read_excel(buf)
         if source_type == "parquet":
             return pd.read_parquet(buf)
         if source_type == "json":
             return pd.read_json(buf)
+        if source_type == "jsonl":
+            return pd.read_json(buf, lines=True)
         if source_type == "text":
-            return pd.read_csv(buf, sep="\n", header=None, names=["text"], engine="python", dtype=str)
+            # splitlines() is robust — newer pandas rejects sep="\n".
+            return pd.DataFrame({"text": content.decode("utf-8").splitlines()})
     except Exception as exc:
         raise DatasetParseError(filename, str(exc)) from exc
     raise DatasetParseError(filename, f"unknown source_type '{source_type}'")
