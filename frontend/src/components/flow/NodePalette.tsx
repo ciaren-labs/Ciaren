@@ -5,10 +5,10 @@ import { transformationsApi } from "@/lib/api";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
-  NODE_TYPES,
   type NodeCategory,
   type NodeTypeDef,
 } from "@/lib/nodeCatalog";
+import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
 import { CATEGORY_ICONS, CATEGORY_THEME, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import {
@@ -48,8 +48,13 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       return next;
     });
 
+  // The palette is sourced from the backend catalog (which includes plugin nodes)
+  // merged over the static seed; see useNodeCatalog.
+  const catalog = useNodeCatalog();
+
   // The backend only lists ML node types when the ML extension is installed +
-  // enabled, so gate ML palette entries on what the server actually offers.
+  // enabled. The catalog already reflects that, but keep this gate so the static
+  // fallback (offline / failed fetch) still hides ML when it isn't available.
   const { data: availableTypes } = useQuery({
     queryKey: ["transformations", "available"],
     queryFn: () => transformationsApi.list(),
@@ -57,8 +62,8 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   });
   const visibleTypes = useMemo(() => {
     const available = new Set(availableTypes ?? []);
-    return NODE_TYPES.filter((n) => !n.requiresMl || available.has(n.type));
-  }, [availableTypes]);
+    return catalog.filter((n) => !n.requiresMl || available.has(n.type));
+  }, [catalog, availableTypes]);
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
