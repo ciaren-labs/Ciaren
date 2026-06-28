@@ -438,6 +438,15 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         {"top_n": None},
     ),
     # ----- Outputs -----
+    NodeMeta(
+        "fileOutput",
+        "File Output",
+        "output",
+        "Write the result to a file — pick the format (CSV, Excel, Parquet, JSON, text) and a name.",
+        {"format": "csv", "dataset_name": ""},
+    ),
+    # Legacy single-format outputs — superseded by File Output, kept so existing
+    # flows keep running. Hidden from the palette in the editor.
     NodeMeta("csvOutput", "CSV Output", "output", "Write the result to a CSV file.", {"path": ""}),
     NodeMeta("excelOutput", "Excel Output", "output", "Write the result to an Excel file.", {"path": ""}),
     NodeMeta("parquetOutput", "Parquet Output", "output", "Write the result to a Parquet file.", {"path": ""}),

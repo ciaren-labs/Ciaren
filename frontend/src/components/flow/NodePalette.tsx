@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X }
 import { transformationsApi } from "@/lib/api";
 import {
   getCategoryLabel,
+  HIDDEN_PALETTE_TYPES,
   paletteCategories,
   type NodeTypeDef,
 } from "@/lib/nodeCatalog";
@@ -62,7 +63,9 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   });
   const visibleTypes = useMemo(() => {
     const available = new Set(availableTypes ?? []);
-    return catalog.filter((n) => !n.requiresMl || available.has(n.type));
+    return catalog.filter(
+      (n) => (!n.requiresMl || available.has(n.type)) && !HIDDEN_PALETTE_TYPES.has(n.type),
+    );
   }, [catalog, availableTypes]);
 
   // Built-in categories first, then any plugin-contributed categories present.

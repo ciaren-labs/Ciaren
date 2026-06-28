@@ -39,9 +39,9 @@ def _node(node_id: str, node_type: str, config: dict[str, Any], x: int, y: int) 
 def _output(node_id: str, dataset_name: str, x: int, y: int) -> dict[str, Any]:
     return {
         "id": node_id,
-        "type": "csvOutput",
+        "type": "fileOutput",
         "position": {"x": x, "y": y},
-        "data": {"config": {"dataset_name": dataset_name}},
+        "data": {"config": {"format": "csv", "dataset_name": dataset_name}},
     }
 
 

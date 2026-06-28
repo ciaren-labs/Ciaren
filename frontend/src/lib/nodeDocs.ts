@@ -312,6 +312,14 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
 
+  fileOutput: {
+    summary:
+      "Write the result to a file. Pick the format (CSV, Excel, Parquet, JSON, or text) and a name; the output is saved as a reusable dataset you can download or feed into another flow.",
+    fields: [
+      { name: "File type", desc: "CSV, Excel, Parquet, JSON, or text." },
+      { name: "Dataset name", desc: "Names the saved output dataset; re-running adds a new version." },
+    ],
+  },
   csvOutput: OUTPUT_DOC("CSV"),
   excelOutput: OUTPUT_DOC("Excel"),
   parquetOutput: OUTPUT_DOC("Parquet"),
