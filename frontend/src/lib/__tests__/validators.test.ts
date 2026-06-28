@@ -76,6 +76,11 @@ const COVERED = new Set<string>([
   "mlPredict",
   "mlEvaluate",
   "featureImportance",
+  "assertNotNull",
+  "assertUnique",
+  "assertValueRange",
+  "assertExpression",
+  "assertRowCount",
 ]);
 
 describe("nodeConfigSchemas coverage guard", () => {
@@ -268,11 +273,44 @@ describe("concatRows", () => {
 
 // New transform nodes ---------------------------------------------------
 describe("sampleRows", () => {
-  it("accepts an n", () => accepts("sampleRows", { n: 10 }));
+  it("accepts an n", () => accepts("sampleRows", { n: 10, seed: 42 }));
   it("accepts a frac", () => accepts("sampleRows", { frac: 0.25, seed: 42 }));
-  it("rejects neither n nor frac (superRefine)", () => rejects("sampleRows", {}, "n"));
-  it("rejects a frac above 1", () => rejects("sampleRows", { frac: 1.5 }, "frac"));
-  it("rejects a frac of 0", () => rejects("sampleRows", { frac: 0 }, "frac"));
+  it("rejects a missing seed (reproducibility)", () => rejects("sampleRows", { n: 10 }, "seed"));
+  it("rejects neither n nor frac (superRefine)", () => rejects("sampleRows", { seed: 42 }, "n"));
+  it("rejects a frac above 1", () => rejects("sampleRows", { frac: 1.5, seed: 42 }, "frac"));
+  it("rejects a frac of 0", () => rejects("sampleRows", { frac: 0, seed: 42 }, "frac"));
+});
+
+// Quality / assertion nodes --------------------------------------------
+describe("assertNotNull", () => {
+  it("accepts empty config (defaults to all columns, error mode)", () => accepts("assertNotNull", {}));
+  it("accepts columns + mode", () => accepts("assertNotNull", { columns: ["a"], mode: "warn" }));
+  it("rejects an unknown mode", () => rejects("assertNotNull", { mode: "boom" }, "mode"));
+});
+
+describe("assertUnique", () => {
+  it("accepts empty config", () => accepts("assertUnique", {}));
+  it("rejects an unknown mode", () => rejects("assertUnique", { mode: "boom" }, "mode"));
+});
+
+describe("assertValueRange", () => {
+  it("accepts a column with a min", () => accepts("assertValueRange", { column: "x", min: 0 }));
+  it("accepts a column with a max", () => accepts("assertValueRange", { column: "x", max: 10 }));
+  it("rejects a missing column", () => rejects("assertValueRange", { min: 0 }, "column"));
+  it("rejects neither min nor max (superRefine)", () => rejects("assertValueRange", { column: "x" }, "min"));
+});
+
+describe("assertExpression", () => {
+  it("accepts a non-empty expression", () => accepts("assertExpression", { expression: "amount > 0" }));
+  it("rejects an empty expression", () => rejects("assertExpression", { expression: "" }, "expression"));
+});
+
+describe("assertRowCount", () => {
+  it("accepts a min_rows", () => accepts("assertRowCount", { min_rows: 1 }));
+  it("accepts a max_rows", () => accepts("assertRowCount", { max_rows: 100 }));
+  it("rejects neither bound (superRefine)", () => rejects("assertRowCount", {}, "min_rows"));
+  it("rejects min_rows > max_rows", () => rejects("assertRowCount", { min_rows: 10, max_rows: 5 }, "min_rows"));
+  it("rejects a negative min_rows", () => rejects("assertRowCount", { min_rows: -1 }, "min_rows"));
 });
 
 describe("removeOutliers", () => {

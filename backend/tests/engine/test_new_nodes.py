@@ -758,7 +758,7 @@ _CODEGEN_CASES = [
     ),
     ("join", {"on": ["a"], "how": "inner"}, {"left": "df_1", "right": "df_0"}),
     ("sampleRows", {"n": 3, "seed": 1}, {"in": "df_1"}),
-    ("sampleRows", {"frac": 0.5}, {"in": "df_1"}),
+    ("sampleRows", {"frac": 0.5, "seed": 1}, {"in": "df_1"}),
     ("removeOutliers", {"columns": ["a"], "method": "iqr", "action": "drop"}, {"in": "df_1"}),
     ("removeOutliers", {"columns": ["a"], "method": "zscore", "action": "clip"}, {"in": "df_1"}),
     (
@@ -957,7 +957,8 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("sortRows", {"columns": ["a"], "na_position": "center"}),  # bad na_position
         ("fillNulls", {"strategy": "constant"}),  # constant needs value
         ("pivot", {"index": ["r"], "columns": "c"}),  # missing values
-        ("sampleRows", {"n": -1}),  # negative n
+        ("sampleRows", {"n": -1, "seed": 1}),  # negative n
+        ("sampleRows", {"n": 3}),  # missing required seed
         ("binColumn", {"column": "x", "bins": 3}),  # missing new_column
     ],
 )

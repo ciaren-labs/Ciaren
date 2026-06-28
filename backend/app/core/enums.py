@@ -50,6 +50,7 @@ class RunTrigger(StrEnum):
     SCHEDULE = "schedule"
     RETRY = "retry"
     SEED = "seed"
+    WEBHOOK = "webhook"
 
 
 class DatasetKind(StrEnum):

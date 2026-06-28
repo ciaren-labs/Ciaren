@@ -261,10 +261,10 @@ export const NODE_TYPES: NodeTypeDef[] = [
     type: "sampleRows",
     label: "Sample Rows",
     category: "clean",
-    defaultConfig: { n: 100, seed: null },
+    defaultConfig: { n: 100, seed: 42 },
     inputHandles: ["in"],
     hasOutput: true,
-    description: "Take a random sample of rows.",
+    description: "Take a reproducible random sample of rows (seed required).",
   },
   {
     type: "removeOutliers",

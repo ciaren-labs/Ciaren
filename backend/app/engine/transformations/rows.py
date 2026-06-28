@@ -162,6 +162,12 @@ class SampleRowsTransformation(BaseTransformation):
     polars_lazy_safe = False  # LazyFrame has no .sample()
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        seed = config.get("seed")
+        # bool is an int subclass — reject True/False masquerading as a seed.
+        if not isinstance(seed, int) or isinstance(seed, bool):
+            raise ValueError(
+                "sampleRows requires an integer 'seed' for reproducibility (random samples are not allowed)."
+            )
         n, frac = config.get("n"), config.get("frac")
         if frac is not None:
             if not isinstance(frac, (int, float)) or not (0 < frac <= 1):
