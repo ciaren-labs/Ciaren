@@ -14,9 +14,8 @@ import {
 import {
   getModelDef,
   isSupervisedModel,
-  ML_MODELS,
-  ML_TASK_LABELS,
-  modelsByTask,
+  modelsForNodeType,
+  TRAIN_NODE_TASKS,
   type HyperParam,
 } from "@/lib/mlModels";
 import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
@@ -28,6 +27,8 @@ interface Props {
   columns: string[];
   errors: Record<string, string>;
   set: (patch: Record<string, unknown>) => void;
+  /** The train node type, e.g. "mlTrainClassifier" — scopes the model picker. */
+  nodeType: string;
 }
 
 /** One hyperparameter control (int / float / bool / select). */
@@ -91,10 +92,15 @@ const IMPUTE_CATEGORICAL = [
   { value: "constant", label: "Constant ('missing')" },
 ];
 
-export function MlTrainConfig({ config, columns, errors, set }: Props) {
+export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props) {
   const [open, setOpen] = useState(false);
-  const modelDef = getModelDef(config.model_type) ?? ML_MODELS[0];
-  const supervised = isSupervisedModel(modelDef.value);
+  const models = modelsForNodeType(nodeType);
+  const task = TRAIN_NODE_TASKS[nodeType];
+  const modelDef = getModelDef(config.model_type) ?? models[0];
+  // No models for this task yet (e.g. the Train Forecaster scaffold).
+  const noModels = models.length === 0;
+  const supervised = modelDef ? isSupervisedModel(modelDef.value) : task === "timeseries";
+  const isTimeseries = task === "timeseries";
   const hp = (config.hyperparameters ?? {}) as Record<string, unknown>;
   const setHp = (name: string, v: number | boolean | string) =>
     set({ hyperparameters: { ...hp, [name]: v } });
@@ -102,32 +108,43 @@ export function MlTrainConfig({ config, columns, errors, set }: Props) {
   const pre = (config.preprocessing ?? {}) as Record<string, unknown>;
   const setPre = (patch: Record<string, unknown>) => set({ preprocessing: { ...pre, ...patch } });
 
-  const basicParams = modelDef.params.filter((p) => !p.advanced);
+  const basicParams = (modelDef?.params ?? []).filter((p) => !p.advanced);
+
+  if (noModels) {
+    return (
+      <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Time-series forecasting models are coming soon. This node is defined but not
+        runnable yet.
+      </p>
+    );
+  }
 
   return (
     <>
-      <Field label="Model" error={errors.model_type} help="Pick an algorithm. Models are grouped by the kind of problem they solve.">
+      <Field label="Model" error={errors.model_type} help="Pick an algorithm for this task.">
         <Select
-          value={modelDef.value}
+          value={modelDef?.value ?? ""}
           // Switching models clears stale hyperparameters from the old model.
           onChange={(e) => set({ model_type: e.target.value, hyperparameters: {} })}
         >
-          {modelsByTask().map((group) => (
-            <optgroup key={group.task} label={ML_TASK_LABELS[group.task]}>
-              {group.models.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </optgroup>
+          {models.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
           ))}
         </Select>
       </Field>
 
-      {modelDef.requires && (
+      {modelDef?.requires && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
           Needs the <strong>{modelDef.requires}</strong> library (installed with the <code>ml</code> extra).
         </p>
+      )}
+
+      {isTimeseries && (
+        <Field label="Time column" error={errors.time_column} help="The column that orders rows in time.">
+          <ColumnSelect value={config.time_column ?? ""} columns={columns} onChange={(v) => set({ time_column: v })} />
+        </Field>
       )}
 
       {supervised && (
@@ -169,7 +186,7 @@ export function MlTrainConfig({ config, columns, errors, set }: Props) {
         </DialogTrigger>
         <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Advanced options — {modelDef.label}</DialogTitle>
+            <DialogTitle>Advanced options — {modelDef?.label}</DialogTitle>
             <DialogDescription>
               Fine-tune hyperparameters, cross-validation, and preprocessing. Defaults are sensible — only change what you need.
             </DialogDescription>
@@ -178,10 +195,10 @@ export function MlTrainConfig({ config, columns, errors, set }: Props) {
           <div className="flex flex-col gap-4">
             <section className="flex flex-col gap-3">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hyperparameters</h4>
-              {modelDef.params.length === 0 ? (
+              {(modelDef?.params ?? []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">This model has no tunable hyperparameters.</p>
               ) : (
-                modelDef.params.map((p) => (
+                (modelDef?.params ?? []).map((p) => (
                   <HyperControl key={p.name} param={p} value={hp[p.name]} onChange={(v) => setHp(p.name, v)} />
                 ))
               )}

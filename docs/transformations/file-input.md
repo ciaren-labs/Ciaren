@@ -14,7 +14,7 @@ node in a pipeline — the entry point for a file-based ETL flow.
     {"type":"input","label":"CSV Input","detail":"uploaded dataset"},
     {"type":"clean","label":"Drop Nulls","detail":"remove bad rows"},
     {"type":"transform","label":"Group By","detail":"aggregate"},
-    {"type":"output","label":"Parquet Output","detail":"efficient export"}
+    {"type":"output","label":"File Output","detail":"efficient export"}
   ]'
 />
 

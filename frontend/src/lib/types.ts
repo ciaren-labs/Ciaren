@@ -496,3 +496,64 @@ export interface ExportCodeResponse {
   /** importable JSON description of the flow. */
   flow_document: FlowDocument;
 }
+
+// ---- Catalog (backend-fed node metadata) -----------------------------------
+// Mirrors app/plugin_api NodeSpec/PortSpec, served by GET /api/catalog/nodes.
+
+export type CatalogPortKind = "dataframe" | "model";
+
+export interface CatalogPort {
+  id: string;
+  type: CatalogPortKind;
+  required: boolean;
+  multi: boolean;
+}
+
+export interface CatalogNode {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
+  provider: string;
+  version: string;
+  inputs: CatalogPort[];
+  outputs: CatalogPort[];
+  default_config: Record<string, unknown>;
+  capabilities: string[];
+  permissions: string[];
+  requires_ml: boolean;
+  is_model_sink: boolean;
+  config_schema: Record<string, unknown>;
+}
+
+// ---- Plugins ---------------------------------------------------------------
+
+export type PluginStatus = "loaded" | "disabled" | "needs_permissions";
+
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  publisher: string;
+  description: string;
+  source: string;
+  status: PluginStatus;
+  capabilities: string[];
+  /** Permissions the plugin requests. */
+  permissions: string[];
+  /** Permissions the user has granted it. */
+  granted_permissions: string[];
+  /** Requested-but-not-yet-granted permissions (non-empty ⇒ needs approval). */
+  missing_permissions: string[];
+}
+
+export interface PluginErrorInfo {
+  source: string;
+  error: string;
+}
+
+export interface PluginDiagnostics {
+  loaded: PluginInfo[];
+  gated: PluginInfo[];
+  errors: PluginErrorInfo[];
+}

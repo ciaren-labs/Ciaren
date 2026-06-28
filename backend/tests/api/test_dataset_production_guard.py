@@ -1,5 +1,6 @@
 """Deleting a dataset that a Production-aliased model was trained on returns 409
 (plan §8), overridable with ?force=true. Relies on mlTrain's reproducibility tags."""
+
 import io
 
 import numpy as np
@@ -24,8 +25,11 @@ async def _train_run(client: AsyncClient, dataset_id: str) -> str:
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": dataset_id}}},
-            {"id": "tr", "type": "mlTrain", "data": {"config": {
-                "model_type": "logistic_regression", "target_column": "target", "seed": 1}}},
+            {
+                "id": "tr",
+                "type": "mlTrainClassifier",
+                "data": {"config": {"model_type": "logistic_regression", "target_column": "target", "seed": 1}},
+            },
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "tr"}],
     }
@@ -43,9 +47,7 @@ async def test_delete_blocked_by_production_model(client: AsyncClient, tmp_path,
     try:
         ds = await _upload(client)
         run_id = await _train_run(client, ds["id"])
-        reg = await client.post(
-            f"/api/runs/{run_id}/ml/register", json={"model_name": "churn", "stage": "Production"}
-        )
+        reg = await client.post(f"/api/runs/{run_id}/ml/register", json={"model_name": "churn", "stage": "Production"})
         assert reg.status_code == 200, reg.text
 
         # delete is refused while a Production model depends on the dataset

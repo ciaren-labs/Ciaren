@@ -7,6 +7,7 @@ created on first use if it doesn't exist yet.
 This connector is always available (no optional dependency) and is seeded
 as the built-in "Local Storage" connection at server startup.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -15,23 +16,34 @@ from pathlib import Path
 import pandas as pd
 
 from app.connectors.base import ConnectorError
-from app.connectors.storage_base import StorageSpec
+from app.connectors.storage_base import FILE_FORMATS, StorageSpec
 
 
 def _read_text(path: Path) -> pd.DataFrame:
-    """Read a plain-text file as a single-column DataFrame (one row per line)."""
-    return pd.read_csv(path, sep="\n", header=None, names=["text"], engine="python", dtype=str)
+    """Read a plain-text file as a single-column DataFrame (one row per line).
+    Uses splitlines() — newer pandas rejects sep="\\n"."""
+    return pd.DataFrame({"text": path.read_text(encoding="utf-8").splitlines()})
 
 
 def _read_json(path: Path) -> pd.DataFrame:
     return pd.read_json(path)
 
 
+def _read_jsonl(path: Path) -> pd.DataFrame:
+    return pd.read_json(path, lines=True)
+
+
+def _read_tsv(path: Path) -> pd.DataFrame:
+    return pd.read_csv(path, sep="\t")
+
+
 _READERS: dict[str, Callable[..., pd.DataFrame]] = {
     "csv": pd.read_csv,
+    "tsv": _read_tsv,
     "excel": pd.read_excel,
     "parquet": pd.read_parquet,
     "json": _read_json,
+    "jsonl": _read_jsonl,
     "text": _read_text,
 }
 
@@ -92,24 +104,28 @@ class LocalStorageConnector:
         except Exception as exc:
             raise ConnectorError(f"Failed to read {full}: {exc}") from None
 
-    def write_file(
-        self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str
-    ) -> None:
+    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         full = self._safe_path(spec, path)
         full.parent.mkdir(parents=True, exist_ok=True)
         if full.exists() and if_exists == "error":
-            raise ConnectorError(
-                f"File already exists: {full}. Set 'if_exists' to 'overwrite' to replace it."
-            )
+            raise ConnectorError(f"File already exists: {full}. Set 'if_exists' to 'overwrite' to replace it.")
         try:
             if fmt == "csv":
                 df.to_csv(full, index=False)
+            elif fmt == "tsv":
+                df.to_csv(full, index=False, sep="\t")
             elif fmt == "excel":
                 df.to_excel(full, index=False)
             elif fmt == "parquet":
                 df.to_parquet(full, index=False)
+            elif fmt == "json":
+                df.to_json(full, orient="records", indent=2)
+            elif fmt == "jsonl":
+                df.to_json(full, orient="records", lines=True)
+            elif fmt == "text":
+                df.to_csv(full, index=False, header=False, sep="\t")
             else:
-                raise ConnectorError(f"Unsupported format {fmt!r}.")
+                raise ConnectorError(f"Unsupported format {fmt!r}. Supported: {', '.join(FILE_FORMATS)}.")
         except ConnectorError:
             raise
         except Exception as exc:

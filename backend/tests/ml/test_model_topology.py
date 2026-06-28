@@ -30,20 +30,20 @@ from tests.ml.conftest import classification_df
 
 
 def test_output_handles_for_model_and_multi_and_plain_nodes():
-    assert output_handles("mlTrain") == ("model",)
+    assert output_handles("mlTrainClassifier") == ("model",)
     assert output_handles("trainTestSplit") == ("train", "test")
     assert output_handles("dropNulls") == ("out",)
     assert output_handles("featureImportance") == ("out",)  # model is an INPUT here
-    assert primary_output_handle("mlTrain") == "model"
+    assert primary_output_handle("mlTrainClassifier") == "model"
 
 
 @pytest.mark.parametrize(
     "source_type,source_handle,expected",
     [
-        ("mlTrain", None, True),  # single-output: resolves to its sole model handle
-        ("mlTrain", "model", True),  # explicit, redundant but valid
-        ("mlTrain", "out", False),  # wrong handle name -> not a model edge
-        ("mlTrain", "wat", False),
+        ("mlTrainClassifier", None, True),  # single-output: resolves to its sole model handle
+        ("mlTrainClassifier", "model", True),  # explicit, redundant but valid
+        ("mlTrainClassifier", "out", False),  # wrong handle name -> not a model edge
+        ("mlTrainClassifier", "wat", False),
         ("trainTestSplit", "train", False),  # split outputs are frames
         ("trainTestSplit", None, False),
         ("dropNulls", None, False),
@@ -64,7 +64,7 @@ def test_edge_carries_model_matrix(source_type, source_handle, expected):
         ("featureImportance", "model", True),
         ("featureImportance", "in", False),
         ("dropNulls", "in", False),
-        ("mlTrain", "model", False),  # mlTrain's "model" is an OUTPUT, not an input
+        ("mlTrainClassifier", "model", False),  # mlTrain's "model" is an OUTPUT, not an input
     ],
 )
 def test_is_model_input_handle_matrix(node_type, handle, expected):
@@ -102,7 +102,7 @@ _RIDGE = {"model_type": "ridge", "target_column": "y", "seed": 1}
 
 def test_model_into_file_output_rejected():
     graph = {
-        "nodes": [_input(), _n("tr", "mlTrain", _RIDGE), _n("out", "csvOutput")],
+        "nodes": [_input(), _n("tr", "mlTrainRegressor", _RIDGE), _n("out", "csvOutput")],
         "edges": [_e("e1", "in1", "tr"), _e("e2", "tr", "out")],
     }
     with pytest.raises(GraphValidationError, match="model can only connect to a model input"):
@@ -113,7 +113,7 @@ def test_model_into_evaluate_data_input_rejected():
     graph = {
         "nodes": [
             _input(),
-            _n("tr", "mlTrain", _RIDGE),
+            _n("tr", "mlTrainRegressor", _RIDGE),
             _n("ev", "mlEvaluate", {"task_type": "regression", "target_column": "y", "prediction_column": "p"}),
             _n("out", "csvOutput"),
         ],
@@ -127,8 +127,8 @@ def test_model_into_another_trains_data_input_rejected():
     graph = {
         "nodes": [
             _input(),
-            _n("tr1", "mlTrain", _RIDGE),
-            _n("tr2", "mlTrain", _RIDGE),
+            _n("tr1", "mlTrainRegressor", _RIDGE),
+            _n("tr2", "mlTrainRegressor", _RIDGE),
         ],
         "edges": [_e("e1", "in1", "tr1"), _e("e2", "tr1", "tr2")],  # model -> mlTrain.in
     }
@@ -155,7 +155,7 @@ def test_model_wired_into_predict_data_input_rejected():
     # A model wired into the data "in" handle (its sole incoming edge) must be
     # rejected — the model belongs on the "model" handle.
     graph = {
-        "nodes": [_input(), _n("tr", "mlTrain", _RIDGE), _n("pr", "mlPredict"), _n("out", "csvOutput")],
+        "nodes": [_input(), _n("tr", "mlTrainRegressor", _RIDGE), _n("pr", "mlPredict"), _n("out", "csvOutput")],
         "edges": [
             _e("e1", "in1", "tr"),
             _e("e2", "tr", "pr"),  # model into "in" (default handle) — wrong
@@ -170,8 +170,8 @@ def test_two_models_into_one_model_input_rejected():
     graph = {
         "nodes": [
             _input(),
-            _n("tr1", "mlTrain", _RIDGE),
-            _n("tr2", "mlTrain", _RIDGE),
+            _n("tr1", "mlTrainRegressor", _RIDGE),
+            _n("tr2", "mlTrainRegressor", _RIDGE),
             _n("fi", "featureImportance"),
             _n("out", "csvOutput"),
         ],
@@ -202,7 +202,7 @@ def test_full_model_topology_is_valid():
         "nodes": [
             _input(),
             _n("sp", "trainTestSplit", {"seed": 1}),
-            _n("tr", "mlTrain", _RIDGE),
+            _n("tr", "mlTrainRegressor", _RIDGE),
             _n("pr", "mlPredict"),
             _n("fi", "featureImportance"),
             _n(
@@ -280,7 +280,7 @@ def test_executor_train_to_feature_importance_via_model_handle(ml_env, tmp_path)
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
                 "id": "tr",
-                "type": "mlTrain",
+                "type": "mlTrainClassifier",
                 "data": {"config": {"model_type": "random_forest_classifier", "target_column": "target", "seed": 0}},
             },
             {"id": "fi", "type": "featureImportance", "data": {"config": {}}},
