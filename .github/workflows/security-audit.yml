@@ -26,9 +26,12 @@ on:
     # Weekly so newly disclosed CVEs are caught even without a dependency change.
     - cron: "27 5 * * 1"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
