@@ -29,9 +29,11 @@ When the variable is unset the trigger endpoint returns **404** — there is no
 open trigger surface on a fresh install.
 
 ::: tip Generating a strong secret
+
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
+
 :::
 
 ## Checking whether the webhook is active
