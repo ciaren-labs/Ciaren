@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { pluginsApi } from "@/lib/api";
+import { marketplaceApi, pluginsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 
 export function usePluginDiagnostics() {
@@ -9,15 +9,40 @@ export function usePluginDiagnostics() {
   });
 }
 
-/** Invalidate everything plugin-affected: the plugin list and the node catalog
- *  (a granted/disabled plugin adds/removes nodes from the palette live). */
+export function useMarketplace() {
+  return useQuery({
+    queryKey: queryKeys.marketplace,
+    queryFn: () => marketplaceApi.list(),
+  });
+}
+
+/** Invalidate everything plugin-affected: the plugin list, the "Explore" catalog
+ *  (installed flags change), and the node catalog (a granted/disabled plugin
+ *  adds/removes nodes from the palette live). */
 function useInvalidatePlugins() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: queryKeys.plugins });
+    qc.invalidateQueries({ queryKey: queryKeys.marketplace });
     qc.invalidateQueries({ queryKey: ["catalog"] });
     qc.invalidateQueries({ queryKey: queryKeys.transformations });
   };
+}
+
+export function useInstallPlugin() {
+  const invalidate = useInvalidatePlugins();
+  return useMutation({
+    mutationFn: (file: File) => pluginsApi.install(file),
+    onSuccess: invalidate,
+  });
+}
+
+export function useInstallFromMarketplace() {
+  const invalidate = useInvalidatePlugins();
+  return useMutation({
+    mutationFn: (id: string) => marketplaceApi.install(id),
+    onSuccess: invalidate,
+  });
 }
 
 export function useEnablePlugin() {

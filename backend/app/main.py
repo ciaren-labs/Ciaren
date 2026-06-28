@@ -15,6 +15,7 @@ from app.api.routes import (
     connections,
     datasets,
     flows,
+    marketplace,
     ml,
     plugins,
     projects,
@@ -238,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(transformations.router, prefix="/api/transformations", tags=["transformations"])
     app.include_router(catalog.router, prefix="/api/catalog", tags=["catalog"])
     app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
+    app.include_router(marketplace.router, prefix="/api/marketplace", tags=["marketplace"])
     app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
 
     @app.get("/health", tags=["health"])

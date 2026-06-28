@@ -80,3 +80,100 @@ def parse_index(data: dict[str, Any] | str) -> MarketplaceIndex:
     if isinstance(data, str):
         data = json.loads(data)
     return MarketplaceIndex.model_validate(data)
+
+
+# -- configured catalog source ------------------------------------------------
+
+
+def configured_index_path() -> Path | None:
+    """The local index file the "Explore" catalog reads, from
+    ``settings.MARKETPLACE_INDEX``. ``None`` when unset (catalog disabled).
+
+    A hosted index is a future drop-in: the same setting will accept an ``https://``
+    URL once network fetch lands, parsed through :func:`parse_index` — the API
+    contract and the frontend do not change.
+    """
+    from app.core.config import get_settings
+
+    raw = get_settings().MARKETPLACE_INDEX.strip()
+    return Path(raw).expanduser() if raw else None
+
+
+def load_configured_index() -> MarketplaceIndex | None:
+    """Read the configured catalog index, or ``None`` if unset/missing."""
+    path = configured_index_path()
+    if path is None or not path.is_file():
+        return None
+    return load_index(path)
+
+
+def resolve_artifact_path(entry: MarketplaceEntry, index_path: Path) -> Path | None:
+    """Local filesystem path to an entry's ``.ffplugin`` when ``download_url`` names
+    a local file — absolute, ``file://``, or relative to the index file. Returns
+    ``None`` for an ``http(s)`` URL (remote download is a future drop-in, not done
+    here so the catalog stays fully local)."""
+    url = entry.download_url.strip()
+    if not url or url.startswith(("http://", "https://")):
+        return None
+    if url.startswith("file://"):
+        url = url[len("file://") :]
+    p = Path(url).expanduser()
+    return p if p.is_absolute() else index_path.parent / p
+
+
+# -- index authoring (`flowframe plugin index add`) ---------------------------
+
+
+def build_entry(package_path: str | os.PathLike[str], *, download_url: str = "") -> MarketplaceEntry:
+    """Build a marketplace entry from a ``.ffplugin``: its manifest metadata plus
+    the package digest and signing key id, so a client can re-verify after fetch."""
+    from app.plugins.package import compute_package_digest, read_manifest, read_signature
+
+    manifest = read_manifest(package_path)
+    sig = read_signature(package_path)
+    return MarketplaceEntry(
+        id=manifest.id,
+        name=manifest.name,
+        version=manifest.version,
+        publisher=manifest.publisher,
+        description=manifest.description,
+        license=manifest.license,
+        trust=manifest.trust,
+        capabilities=list(manifest.capabilities),
+        permissions=list(manifest.permissions),
+        download_url=download_url,
+        digest=compute_package_digest(package_path),
+        key_id=(sig.key_id if sig else ""),
+        license_required=manifest.license_required,
+    )
+
+
+def upsert_entry(index: MarketplaceIndex, entry: MarketplaceEntry) -> MarketplaceIndex:
+    """Return a copy of ``index`` with ``entry`` added or replacing the same id."""
+    kept = [e for e in index.plugins if e.id != entry.id]
+    return MarketplaceIndex(schema_version=index.schema_version, plugins=[*kept, entry])
+
+
+def add_to_index_file(
+    index_path: str | os.PathLike[str],
+    package_path: str | os.PathLike[str],
+    *,
+    download_url: str | None = None,
+) -> MarketplaceEntry:
+    """Add/replace ``package_path``'s entry in the index JSON at ``index_path``
+    (created if absent), and return the entry. ``download_url`` defaults to the
+    artifact's path **relative to the index file** so the catalog stays portable
+    and local; pass an explicit URL to point at a hosted artifact instead."""
+    idx_path = Path(index_path)
+    index = load_index(idx_path) if idx_path.is_file() else MarketplaceIndex()
+    if download_url is None:
+        pkg = Path(package_path).resolve()
+        try:
+            download_url = pkg.relative_to(idx_path.resolve().parent).as_posix()
+        except ValueError:
+            download_url = str(pkg)  # artifact lives outside the index dir
+    entry = build_entry(package_path, download_url=download_url)
+    new_index = upsert_entry(index, entry)
+    idx_path.parent.mkdir(parents=True, exist_ok=True)
+    idx_path.write_text(new_index.model_dump_json(by_alias=True, indent=2), encoding="utf-8")
+    return entry
