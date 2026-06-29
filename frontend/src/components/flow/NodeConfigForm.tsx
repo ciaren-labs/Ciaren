@@ -39,6 +39,7 @@ import {
 } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
 import { MlTrainConfig } from "./MlTrainConfig";
+import { MlCrossValidateConfig } from "./MlCrossValidateConfig";
 
 interface NodeConfigFormProps {
   type: string;
@@ -1492,6 +1493,9 @@ export function NodeConfigForm({
     case "mlTrainForecaster":
     case "mlTrainDimReduction":
       return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} nodeType={type} />;
+
+    case "mlCrossValidate":
+      return <MlCrossValidateConfig config={c} columns={columns} errors={errors} set={set} />;
 
     case "trainTestSplit":
       return (

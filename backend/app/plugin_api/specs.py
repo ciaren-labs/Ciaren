@@ -87,6 +87,10 @@ class NodeSpec(BaseModel):
     requires_ml: bool = False
     #: A terminal that persists a result without a file-output node (e.g. mlTrain).
     is_model_sink: bool = False
+    #: A node that completes a flow on its own (no downstream output node needed) —
+    #: a model sink (mlTrain) or a report node like cross-validation. The editor uses
+    #: this to decide whether the "add an output node" check applies.
+    is_flow_terminal: bool = False
     #: Reserved for schema-driven config forms (JSON schema). Empty for now.
     config_schema: dict[str, Any] = Field(default_factory=dict)
 
