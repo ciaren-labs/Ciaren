@@ -105,3 +105,27 @@ def test_code_like_string_is_kept_as_literal():
 def test_nested_non_native_rejected():
     with pytest.raises(ModelSecurityError, match="non-JSON value"):
         sanitize_hyperparameters({"grid": [1, 2, object()]})
+
+
+# -- loader size guard (ML_MAX_MODEL_SIZE_MB) -------------------------------
+
+
+def test_load_model_rejects_oversized_joblib(tmp_path, monkeypatch):
+    """A .joblib over the size cap is refused before the pickle-backed joblib
+    deserializer runs (so this holds even without joblib installed)."""
+    from app.core.config import get_settings
+    from app.ml import loader
+
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    model = artifacts / "model.joblib"
+    model.write_bytes(b"\x00" * (2 * 1024 * 1024))  # 2 MiB
+
+    monkeypatch.setenv("FLOWFRAME_ML_ARTIFACT_DIR", str(artifacts))
+    monkeypatch.setenv("FLOWFRAME_ML_MAX_MODEL_SIZE_MB", "1")  # 1 MiB cap < file
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ModelSecurityError, match="over the .* MB limit"):
+            loader.load_model(str(model))
+    finally:
+        get_settings.cache_clear()
