@@ -1,6 +1,8 @@
 from app.engine.transformations.base import BaseTransformation
 from app.engine.transformations.columns import (
     CastDtypesTransformation,
+    CoalesceColumnsTransformation,
+    CombineColumnsTransformation,
     DropColumnsTransformation,
     RenameColumnsTransformation,
     SelectColumnsTransformation,
@@ -22,10 +24,13 @@ from app.engine.transformations.quality import (
     AssertRowCountTransformation,
     AssertUniqueTransformation,
     AssertValueRangeTransformation,
+    AssertValuesInSetTransformation,
 )
 from app.engine.transformations.reshape import (
     ConcatRowsTransformation,
     CreateCalculatedColumnTransformation,
+    DateDifferenceTransformation,
+    ExplodeRowsTransformation,
     ExtractDatePartsTransformation,
     GroupByAggregateTransformation,
     ParseDatesTransformation,
@@ -33,6 +38,7 @@ from app.engine.transformations.reshape import (
     UnpivotTransformation,
 )
 from app.engine.transformations.rows import (
+    FilterExpressionTransformation,
     FilterRowsTransformation,
     LimitRowsTransformation,
     RemoveDuplicatesTransformation,
@@ -46,7 +52,11 @@ from app.engine.transformations.text import (
     SplitColumnTransformation,
     StringTransformTransformation,
 )
-from app.engine.transformations.window import WindowFunctionTransformation
+from app.engine.transformations.window import (
+    RollingAggregateTransformation,
+    RowDifferenceTransformation,
+    WindowFunctionTransformation,
+)
 
 _REGISTRY: dict[str, BaseTransformation] = {}
 
@@ -90,7 +100,15 @@ _register(
     AssertValueRangeTransformation(),
     AssertExpressionTransformation(),
     AssertRowCountTransformation(),
+    AssertValuesInSetTransformation(),
     PythonTransformTransformation(),
+    FilterExpressionTransformation(),
+    CombineColumnsTransformation(),
+    CoalesceColumnsTransformation(),
+    ExplodeRowsTransformation(),
+    RollingAggregateTransformation(),
+    RowDifferenceTransformation(),
+    DateDifferenceTransformation(),
 )
 
 
