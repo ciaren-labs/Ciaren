@@ -137,3 +137,23 @@ async def test_marketplace_install_unknown_404(client, monkeypatch, tmp_path):
 
     resp = await client.post("/api/marketplace/does.not.exist/install")
     assert resp.status_code == 404
+
+
+async def test_install_rejects_oversized_upload(client, monkeypatch, tmp_path, hello_ffplugin):
+    """An upload larger than MAX_UPLOAD_SIZE_MB is rejected with 413, and is not
+    buffered whole before the check (it is streamed and aborted early)."""
+    from app.core.config import get_settings
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    monkeypatch.setenv("FLOWFRAME_MAX_UPLOAD_SIZE_MB", "1")  # 1 MiB cap
+    get_settings.cache_clear()
+    try:
+        big = b"\x00" * (2 * 1024 * 1024)  # 2 MiB, over the cap
+        resp = await client.post(
+            "/api/plugins/install",
+            files={"file": ("big.ffplugin", big, "application/octet-stream")},
+        )
+        assert resp.status_code == 413, resp.text
+        assert "maximum upload size" in resp.text
+    finally:
+        get_settings.cache_clear()

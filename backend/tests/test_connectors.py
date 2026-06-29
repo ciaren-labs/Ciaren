@@ -157,3 +157,51 @@ def test_local_storage_absolute_path_rejected(tmp_path):
         evil_path = "/etc/hosts"
     with pytest.raises(ConnectorError, match="escapes the storage root"):
         conn.read_file(_local_spec(tmp_path), evil_path, "csv")
+
+
+# -- local storage root confinement (FLOWFRAME_STORAGE_ALLOWED_ROOTS) -------
+
+
+def test_local_storage_root_unrestricted_by_default(tmp_path, monkeypatch):
+    """With no allow-list configured, any folder is a valid root (historical
+    behavior — the connector's whole purpose is reading local folders)."""
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", raising=False)
+    get_settings.cache_clear()
+    try:
+        outside = tmp_path / "anywhere"
+        outside.mkdir()
+        spec = StorageSpec(provider="local", bucket=str(outside))
+        LocalStorageConnector().test_connection(spec)  # no raise
+    finally:
+        get_settings.cache_clear()
+
+
+def test_local_storage_root_inside_allowlist_allowed(tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    base = tmp_path / "allowed"
+    base.mkdir()
+    monkeypatch.setenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    get_settings.cache_clear()
+    try:
+        spec = StorageSpec(provider="local", bucket=str(base / "sub"))
+        LocalStorageConnector().test_connection(spec)  # creates + probes, no raise
+    finally:
+        get_settings.cache_clear()
+
+
+def test_local_storage_root_outside_allowlist_rejected(tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    base = tmp_path / "allowed"
+    base.mkdir()
+    monkeypatch.setenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    get_settings.cache_clear()
+    try:
+        spec = StorageSpec(provider="local", bucket=str(tmp_path / "elsewhere"))
+        with pytest.raises(ConnectorError, match="outside the allowed roots"):
+            LocalStorageConnector().test_connection(spec)
+    finally:
+        get_settings.cache_clear()
