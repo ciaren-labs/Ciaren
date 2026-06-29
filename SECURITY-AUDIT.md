@@ -49,7 +49,7 @@ assumption breaks — primarily when the API is exposed on a network.
 
 ## Findings
 
-### #1 — Unauthenticated API + arbitrary code execution when network-exposed — **Open (High, contextual)**
+### #1 — Unauthenticated API + arbitrary code execution when network-exposed — **Mitigated**
 
 The API has no authentication. Several paths reach arbitrary code execution:
 
@@ -61,13 +61,25 @@ The API has no authentication. Several paths reach arbitrary code execution:
   `/enable`) imports and runs plugin code in-process.
 
 The CLI default (`127.0.0.1`) is safe, but **the Docker image starts the server
-with `--host 0.0.0.0`** (`Dockerfile:71`), exposing the unauthenticated API on all
+with `--host 0.0.0.0`** (`Dockerfile`), exposing the unauthenticated API on all
 interfaces in the documented container deployment.
 
-**Recommendation:** Do not expose FlowFrame to untrusted networks without an
-authenticating reverse proxy. Consider an optional API token
-(e.g. `FLOWFRAME_API_TOKEN`) enforced when the bind host is not loopback, and make
-the Docker default posture explicit in the docs.
+**Applied:** Added an optional shared-secret gate, `FLOWFRAME_API_TOKEN`
+(`app/core/auth.py`, wired as a global FastAPI dependency in `create_app`). Unset
+(default) preserves the local-first, no-auth posture; when set, every `/api/*`
+request must present the token as `Authorization: Bearer <token>` or
+`X-FlowFrame-Token` (constant-time compared). Exempt: CORS preflight, the static
+web UI / SPA shell, health/readiness/OpenAPI, and the webhook trigger (which keeps
+its own `X-FlowFrame-Secret`). The CLI prints a startup warning when binding to a
+non-loopback host with no token (`flowframe serve`), and the Dockerfile documents
+the posture. The web UI sends the token automatically (stored in `localStorage`,
+seedable once via a `?api_token=…` URL). Tests: `tests/api/test_api_auth.py`.
+
+**Still recommended:** for untrusted networks, also front FlowFrame with an
+authenticating reverse proxy; the single shared token is a baseline, not a
+substitute for per-user auth. The token does not retrofit auth onto the SSE log
+stream consumed via `EventSource` (browsers can't set headers there) — the bundled
+UI doesn't use it, but a custom client would need a header-capable SSE reader.
 
 ### #2 — Plugin permission model is load-time only; runtime is not sandboxed — **Open (High, design)**
 
@@ -167,7 +179,7 @@ unsigned package.
 
 | # | Area | Severity | Status |
 |---|------|----------|--------|
-| 1 | Unauthenticated API + RCE when exposed (Docker `0.0.0.0`) | High (contextual) | Open (documented) |
+| 1 | Unauthenticated API + RCE when exposed (Docker `0.0.0.0`) | High (contextual) | **Mitigated** (opt-in `FLOWFRAME_API_TOKEN`) |
 | 2 | Plugin permissions are load-time only, no sandbox | High (design) | Open (documented) |
 | 3 | `.joblib` mislabeled as non-pickle/safe | Medium | **Fixed** |
 | 4 | SSRF via connector endpoints/hosts | Medium | Open (recommendation) |
@@ -176,8 +188,8 @@ unsigned package.
 | 7 | Upload buffered before size check | Low | **Fixed** |
 | 8 | API force-overwrite of installed plugin | Low | Open (recommendation) |
 
-The cryptographic and archive-extraction defenses are solid. The dominant residual
-risk is the combination of an unauthenticated API with the Docker `0.0.0.0` bind
-(#1), amplified by the permission model's false sense of safety (#2). Neither is a
-code bug — both are deployment/trust-model decisions worth surfacing prominently in
-the documentation.
+The cryptographic and archive-extraction defenses are solid. The dominant risk —
+an unauthenticated API exposed by the Docker `0.0.0.0` bind (#1) — is now
+mitigated by the opt-in `FLOWFRAME_API_TOKEN` gate plus a startup warning. The next
+residual concern is the plugin permission model's false sense of safety (#2), a
+trust-model/documentation matter rather than a code bug.

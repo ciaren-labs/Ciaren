@@ -54,6 +54,43 @@ function queryString(params: Record<string, string | number | undefined>): strin
 
 const BASE_URL = "/api";
 
+// ---- API token (optional; matches backend FLOWFRAME_API_TOKEN) --------------
+// When the backend is started with FLOWFRAME_API_TOKEN set, every /api request
+// must carry a bearer token. The token is stored in localStorage; it can be
+// seeded once via a `?api_token=…` query param (handy for a bookmarked URL),
+// which is then stripped from the address bar.
+const API_TOKEN_STORAGE_KEY = "flowframe_api_token";
+
+function captureTokenFromUrl(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get("api_token");
+  if (token) {
+    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
+    url.searchParams.delete("api_token");
+    window.history.replaceState({}, "", url.toString());
+  }
+}
+captureTokenFromUrl();
+
+export function getApiToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
+}
+
+export function setApiToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
+  else window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+}
+
+/** Authorization header for the current token, or empty when none is stored.
+ * Safe to spread into a FormData request (it sets no Content-Type). */
+function authHeaders(): Record<string, string> {
+  const token = getApiToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export class ApiError extends Error {
   status: number;
   details: unknown;
@@ -93,6 +130,7 @@ async function request<T>(
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
       ...(options.headers ?? {}),
     },
     ...options,
@@ -301,7 +339,7 @@ export const datasetsApi = {
     form.append("file", file);
     const res = await fetch(
       `${BASE_URL}/datasets/upload${queryString({ project_id: projectId })}`,
-      { method: "POST", body: form },
+      { method: "POST", body: form, headers: authHeaders() },
     );
     if (!res.ok) {
       throw await parseError(res);
@@ -355,7 +393,11 @@ export const pluginsApi = {
   install: async (file: File): Promise<PluginInstallResult> => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE_URL}/plugins/install`, { method: "POST", body: form });
+    const res = await fetch(`${BASE_URL}/plugins/install`, {
+      method: "POST",
+      body: form,
+      headers: authHeaders(),
+    });
     if (!res.ok) {
       throw await parseError(res);
     }
