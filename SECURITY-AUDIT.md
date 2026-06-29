@@ -128,7 +128,7 @@ allowlist) is the control. Added a size guard (`ML_MAX_MODEL_SIZE_MB`) evaluated
 **before** the deserializer runs to bound the resource-exhaustion case. Tests:
 `tests/ml/test_security.py::test_load_model_rejects_oversized_joblib`.
 
-### #4 — SSRF in connectors (no allowlist) — **Open (Medium)**
+### #4 — SSRF in connectors (no allowlist) — **Mitigated (opt-in)**
 
 User-controlled connection fields are passed straight to clients with no
 allowlist / internal-IP blocking: S3/Azure `endpoint_url`, and SQL/Mongo
@@ -136,9 +136,20 @@ allowlist / internal-IP blocking: S3/Azure `endpoint_url`, and SQL/Mongo
 `http://169.254.169.254/...` (cloud metadata) or internal hosts; `test_connection`
 acts as a connectivity oracle.
 
-**Recommendation:** Add an opt-in allow/deny list for connector endpoints/hosts
-(block link-local `169.254.0.0/16` and RFC1918 by default for non-local
-deployments).
+**Applied:** Added an opt-in SSRF guard (`app/connectors/ssrf.py`) gated by
+`FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS` (default off — the local-first setup
+legitimately connects to localhost/private DBs). When enabled, each connector
+validates its host/endpoint at the single client-construction chokepoint
+(`SqlConnector._engine`, `MongoConnector._client`, `s3._client`,
+`azure_blob._service_client`) and refuses any name that resolves to a loopback,
+link-local (incl. `169.254.169.254`), private/RFC1918, unique-local, reserved,
+multicast, or unspecified address. Surfaced in `flowframe info`. Tests:
+`tests/test_ssrf.py`.
+
+**Limitation:** the guard resolves DNS once and the driver resolves again, so a
+determined DNS-rebinding attacker could race the two lookups — this is a baseline
+control, not a replacement for network egress policy. Unresolvable hosts are not
+blocked (the driver surfaces the real DNS error instead).
 
 ### #5 — Local-storage connector root was unconfined — **Fixed**
 
@@ -196,7 +207,7 @@ unsigned package.
 | 1 | Unauthenticated API + RCE when exposed (Docker `0.0.0.0`) | High (contextual) | **Mitigated** (opt-in `FLOWFRAME_API_TOKEN`) |
 | 2 | Plugin permissions are load-time only, no sandbox | High (design) | **Partially mitigated** (explicit approval + disclosure) |
 | 3 | `.joblib` mislabeled as non-pickle/safe | Medium | **Fixed** |
-| 4 | SSRF via connector endpoints/hosts | Medium | Open (recommendation) |
+| 4 | SSRF via connector endpoints/hosts | Medium | **Mitigated** (opt-in `FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS`) |
 | 5 | Local-storage root unconfined | Medium | **Fixed** (opt-in) |
 | 6 | Licensing fails open / `license_required` unenforced | Medium | Open (product decision) |
 | 7 | Upload buffered before size check | Low | **Fixed** |
@@ -206,6 +217,7 @@ The cryptographic and archive-extraction defenses are solid. The dominant risk �
 an unauthenticated API exposed by the Docker `0.0.0.0` bind (#1) — is now mitigated
 by the opt-in `FLOWFRAME_API_TOKEN` gate plus a startup warning. The plugin trust
 model (#2) is improved: no plugin code runs without an explicit user opt-in, and
-the UI/docs are honest that there is no runtime sandbox. The remaining open items
-are connector SSRF (#4) and the lower-severity install-overwrite (#8); licensing
-(#6) is a product decision left to the maintainers.
+the UI/docs are honest that there is no runtime sandbox. Connector SSRF (#4) now
+has an opt-in guard. The remaining open items are the lower-severity
+install-overwrite (#8); licensing (#6) is a product decision left to the
+maintainers.

@@ -67,6 +67,16 @@ _ENV_TEMPLATE = """\
 # Unset = the webhook is disabled (404).
 # FLOWFRAME_WEBHOOK_SECRET=
 
+# Block connector hosts/endpoints that resolve to internal addresses (loopback,
+# link-local incl. cloud metadata, RFC1918). Off by default so local databases
+# work; turn on for shared deployments where connection configs aren't trusted.
+# FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS=false
+
+# Confine the local-folder storage connector to these directories (JSON list).
+# Empty = any folder is allowed (default). Set on shared deployments to stop a
+# connection from reading/writing arbitrary server files.
+# FLOWFRAME_STORAGE_ALLOWED_ROOTS=["/srv/flowframe/data"]
+
 # --- Machine learning (optional; requires `pip install flowframe[ml]`) --------
 # `flowframe init` provisions a default LOCAL MLflow instance below. To use an
 # existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
@@ -467,6 +477,7 @@ def _info(args: argparse.Namespace) -> None:
         # Booleans only — never print the secret values themselves.
         "api_token_set": s.API_TOKEN is not None,
         "webhook_secret_set": s.WEBHOOK_SECRET is not None,
+        "connector_block_private_hosts": s.CONNECTOR_BLOCK_PRIVATE_HOSTS,
         "ml_enabled": s.ML_ENABLED,
         "mlflow_tracking_uri": s.MLFLOW_TRACKING_URI,
         "ml_artifact_dir": s.ml_artifact_path,

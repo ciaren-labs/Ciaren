@@ -18,6 +18,7 @@ from typing import Any
 import pandas as pd
 
 from app.connectors.base import ConnectorError
+from app.connectors.ssrf import guard_endpoint
 from app.connectors.storage_base import StorageSpec, deserialize_dataframe, serialize_dataframe
 from app.core.secrets import scrub
 
@@ -43,6 +44,9 @@ def _service_client(spec: StorageSpec) -> Any:
     # clouds (e.g. *.blob.core.usgovcloudapi.net) and the Azurite emulator. When
     # absent, default to the public-cloud URL derived from the account name.
     account_url = spec.endpoint_url or f"https://{account_name}.blob.core.windows.net"
+    # A user-supplied custom endpoint could target an internal host; refuse internal
+    # targets when the SSRF guard is enabled (no-op otherwise).
+    guard_endpoint(account_url)
     return BlobServiceClient(account_url=account_url, credential=account_key)
 
 
