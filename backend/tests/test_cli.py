@@ -80,8 +80,13 @@ def test_run_seed_flows_flag() -> None:
 def test_apply_serve_env_sets_run_seed_flows(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FLOWFRAME_SEED_RUN_FLOWS", raising=False)
     args = argparse.Namespace(
-        db_url=None, data_dir=None, engine=None, execution_mode=None,
-        no_scheduler=False, no_demo=False, run_seed_flows=True,
+        db_url=None,
+        data_dir=None,
+        engine=None,
+        execution_mode=None,
+        no_scheduler=False,
+        no_demo=False,
+        run_seed_flows=True,
     )
     cli._apply_serve_env(args)
     assert os.environ["FLOWFRAME_SEED_RUN_FLOWS"] == "true"
@@ -405,3 +410,33 @@ def test_init_force_overwrites(tmp_path: Path) -> None:
     contents = target.read_text(encoding="utf-8")
     assert "KEEP_ME=1" not in contents
     assert "FLOWFRAME_DATABASE_URL" in contents
+
+
+# -- serve: API-token exposure warning ---------------------------------
+
+
+def test_warn_when_exposed_without_token(monkeypatch, capsys):
+    monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+    _clear_settings_cache()
+    cli._warn_if_exposed_without_token(argparse.Namespace(host="0.0.0.0"))
+    out = capsys.readouterr().out
+    assert "WARNING" in out
+    assert "FLOWFRAME_API_TOKEN" in out
+
+
+def test_no_warning_on_loopback(monkeypatch, capsys):
+    monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+    _clear_settings_cache()
+    cli._warn_if_exposed_without_token(argparse.Namespace(host="127.0.0.1"))
+    assert capsys.readouterr().out == ""
+
+
+def test_no_warning_when_token_set(monkeypatch, capsys):
+    monkeypatch.setenv("FLOWFRAME_API_TOKEN", "secret")
+    _clear_settings_cache()
+    try:
+        cli._warn_if_exposed_without_token(argparse.Namespace(host="0.0.0.0"))
+        assert capsys.readouterr().out == ""
+    finally:
+        monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+        _clear_settings_cache()
