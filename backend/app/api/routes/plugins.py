@@ -137,8 +137,9 @@ async def plugin_diagnostics() -> PluginDiagnostics:
 def install_package_and_report(package_path: str, *, require_trusted: bool) -> PluginInstallResult:
     """Verify + install a local ``.ffplugin``, rebuild the registry live, and
     report the result. Shared by the upload endpoint and the marketplace install
-    endpoint. Installation never imports plugin code — a plugin that declares
-    permissions stays gated until the user approves it."""
+    endpoint. Installation never imports plugin code — a freshly installed plugin
+    stays gated (``needs_permissions``) until the user explicitly approves it, even
+    when it declares no permissions, since approving means letting its code run."""
     from app.plugins.install import InstallError, install_ffplugin
     from app.plugins.package import PackageError
 
@@ -220,11 +221,15 @@ def _emit_lifecycle(hook: Hook, plugin_id: str) -> None:
 
 @router.post("/{plugin_id}/enable", response_model=PluginInfo)
 async def enable_plugin(plugin_id: str) -> PluginInfo:
-    """Re-enable a disabled plugin. If it still requests ungranted permissions it
-    will move to ``needs_permissions`` rather than ``loaded``."""
+    """Enable a plugin and approve running its code. If it still requests ungranted
+    permissions it moves to ``needs_permissions`` rather than ``loaded``.
+
+    Enabling is an explicit opt-in: the plugin's Python runs with the user's full
+    account access (it is not sandboxed), so this also marks it approved."""
     _find_info(plugin_id)  # 404 if unknown
     state = get_plugin_state()
     state.set_enabled(plugin_id, True)
+    state.set_approved(plugin_id, True)
     state.save()
     reload_plugins()
     _emit_lifecycle(Hook.plugin_enabled, plugin_id)
