@@ -192,8 +192,12 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             reason="disabled",
             requested_permissions=list(manifest.permissions),
         )
+    # A plugin runs only after the user explicitly approves it (enabling or granting
+    # permissions). A freshly discovered plugin is unapproved, so its code stays
+    # un-imported even when it declares no permissions — approval means "let this
+    # code run", not merely "grant these capabilities".
     missing = state.missing_permissions(manifest.id, manifest.permissions)
-    if missing:
+    if missing or not state.is_approved(manifest.id):
         return GatedPlugin(
             source=candidate.source,
             plugin_id=manifest.id,
