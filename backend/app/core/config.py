@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Optional confinement for the local-folder storage connector. Empty (default)
+    # keeps the historical behavior: a Local Storage connection may point at any
+    # folder the server process can access. When set to one or more absolute
+    # directories, a Local Storage connection's root must resolve *inside* one of
+    # them — otherwise the connection is refused. Use this on shared/networked
+    # deployments to stop a connection from reading or writing arbitrary server
+    # files (e.g. /etc, ~/.aws). See SECURITY-AUDIT.md (finding #5).
+    STORAGE_ALLOWED_ROOTS: list[str] = []
+
     # Path to the built frontend (frontend/dist). When set/auto-detected, the
     # server also serves the web UI so `flowframe serve` is a single URL. None +
     # no auto-detected dist = API only (run the Vite dev server separately).

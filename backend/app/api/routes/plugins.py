@@ -170,14 +170,20 @@ async def install_plugin(
     from app.core.config import get_settings
 
     settings = get_settings()
-    data = await file.read()
-    if len(data) > settings.max_upload_bytes:
-        raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
     must_trust = settings.REQUIRE_TRUSTED_PLUGINS if require_trusted is None else require_trusted
+    limit = settings.max_upload_bytes
 
+    # Stream the upload to disk in bounded chunks, aborting as soon as the size
+    # limit is crossed — so an oversized package can't be buffered whole in memory
+    # before it is rejected (a cheap DoS otherwise). See SECURITY-AUDIT.md (#7).
     tmp = tempfile.NamedTemporaryFile(suffix=".ffplugin", delete=False)
     try:
-        tmp.write(data)
+        total = 0
+        while chunk := await file.read(1024 * 1024):
+            total += len(chunk)
+            if total > limit:
+                raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
+            tmp.write(chunk)
         tmp.close()
         return install_package_and_report(tmp.name, require_trusted=must_trust)
     finally:
