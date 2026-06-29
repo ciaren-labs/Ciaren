@@ -82,6 +82,36 @@ class FilterRowsTransformation(BaseTransformation):
         raise ValueError(f"Unknown filter operator: {op!r}")
 
 
+class FilterExpressionTransformation(BaseTransformation):
+    """Keep rows where a boolean expression is true. The expression uses pandas
+    ``eval`` semantics (e.g. ``amount > 100 and status == 'paid'``) on both engines,
+    so the same expression behaves identically on pandas and polars."""
+
+    type = "filterExpression"
+    # The polars path evaluates the mask via pandas, so it can't run on a LazyFrame.
+    polars_lazy_safe = False
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not str(config.get("expression", "")).strip():
+            raise ValueError("filterExpression requires a non-empty 'expression'")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        return {"out": engine.filter_expr(inputs["in"], config["expression"])}
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        expr = config["expression"]
+        return f"{dst} = {src}[{src}.eval({expr!r}).astype(bool)].reset_index(drop=True)"
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        expr = config["expression"]
+        # Mirror execute(): evaluate the mask with pandas, filter the polars frame.
+        return f"{dst} = {src}.filter(pl.Series({src}.to_pandas().eval({expr!r})).cast(pl.Boolean))"
+
+
 class SortRowsTransformation(BaseTransformation):
     type = "sortRows"
 

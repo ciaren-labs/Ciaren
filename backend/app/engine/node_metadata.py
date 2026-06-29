@@ -124,6 +124,13 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         {"column": "", "operator": "==", "value": ""},
     ),
     NodeMeta(
+        "filterExpression",
+        "Filter by Expression",
+        "clean",
+        "Keep rows where a boolean expression is true (e.g. amount > 100 and status == 'paid').",
+        {"expression": ""},
+    ),
+    NodeMeta(
         "sortRows",
         "Sort Rows",
         "clean",
@@ -151,6 +158,20 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "renameColumns", "Rename Columns", "columns", "Rename columns using an old -> new mapping.", {"mapping": {}}
     ),
     NodeMeta("selectColumns", "Select Columns", "columns", "Keep only the selected columns.", {"columns": []}),
+    NodeMeta(
+        "combineColumns",
+        "Combine Columns",
+        "columns",
+        "Join several columns into one text column with a separator.",
+        {"columns": [], "new_column": "", "separator": " ", "keep_original": True},
+    ),
+    NodeMeta(
+        "coalesceColumns",
+        "Coalesce Columns",
+        "columns",
+        "Take the first non-null value across several columns into a new column.",
+        {"columns": [], "new_column": "", "keep_original": True},
+    ),
     NodeMeta(
         "replaceValues",
         "Replace Values",
@@ -212,6 +233,13 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "Reshape long rows into a wide aggregated table.",
         {"index": [], "columns": "", "values": "", "aggfunc": "sum"},
     ),
+    NodeMeta(
+        "explodeRows",
+        "Split to Rows",
+        "reshape",
+        "Expand a delimited or list column into one row per value.",
+        {"column": "", "delimiter": ","},
+    ),
     # ----- Analytics -----
     NodeMeta(
         "removeOutliers",
@@ -270,6 +298,44 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "Build a column from if/elif/else rules (CASE-WHEN).",
         {"new_column": "", "default": "", "rules": []},
     ),
+    NodeMeta(
+        "rollingAggregate",
+        "Rolling Aggregate",
+        "analytics",
+        "Moving mean/sum/min/max/std/median over a window of N rows.",
+        {
+            "target": "",
+            "function": "mean",
+            "window": 3,
+            "min_periods": None,
+            "partition_by": [],
+            "order_by": [],
+            "descending": False,
+            "new_column": "",
+        },
+    ),
+    NodeMeta(
+        "rowDifference",
+        "Row Difference",
+        "analytics",
+        "Difference or percent change between consecutive rows.",
+        {
+            "target": "",
+            "method": "diff",
+            "periods": 1,
+            "partition_by": [],
+            "order_by": [],
+            "descending": False,
+            "new_column": "",
+        },
+    ),
+    NodeMeta(
+        "dateDifference",
+        "Date Difference",
+        "analytics",
+        "Difference between two date columns (end − start) in days, hours, etc.",
+        {"start_column": "", "end_column": "", "unit": "days", "new_column": ""},
+    ),
     # ----- Advanced -----
     NodeMeta(
         "pythonTransform",
@@ -313,6 +379,13 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "quality",
         "Fail or warn when the row count falls outside declared bounds.",
         {"min_rows": None, "max_rows": None, "mode": "error"},
+    ),
+    NodeMeta(
+        "assertValuesInSet",
+        "Assert Values In Set",
+        "quality",
+        "Fail or warn when a column has values outside an allowed set.",
+        {"column": "", "allowed": [], "allow_null": True, "mode": "error"},
     ),
     # ----- Machine Learning -----
     NodeMeta(
