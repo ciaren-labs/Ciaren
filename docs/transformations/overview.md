@@ -62,6 +62,14 @@ and transformation.
 | Fill missing values | [Fill nulls](./fill-nulls.md) |
 | Remove duplicate rows | [Remove duplicates](./remove-duplicates.md) |
 | Keep rows matching a condition | [Filter rows](./filter-rows.md) |
+| Filter on a multi-condition expression | [Filter by expression](./filter-expression.md) |
+| Join columns into one text field | [Combine columns](./combine-columns.md) |
+| First non-null across columns | [Coalesce columns](./coalesce-columns.md) |
+| Split a delimited/list column into rows | [Split to rows](./split-to-rows.md) |
+| Moving average / rolling window | [Rolling aggregate](./rolling-aggregate.md) |
+| Row-over-row delta or % change | [Row difference](./row-difference.md) |
+| Days/hours between two dates | [Date difference](./date-difference.md) |
+| Assert values are in an allowed set | [Assert values in set](./assert-values-in-set.md) |
 | Create a new computed column | [Calculated column](./calculated-column.md) |
 | Sum / count / average by group | [Group by + aggregate](./group-by-aggregate.md) |
 | Read from S3 / GCS / Azure Blob | [Storage input](./storage-input.md) |

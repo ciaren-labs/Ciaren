@@ -225,6 +225,8 @@ export default defineConfig({
             { text: 'Rename columns', link: '/transformations/rename-columns' },
             { text: 'Select columns', link: '/transformations/select-columns' },
             { text: 'Cast types', link: '/transformations/cast-types' },
+            { text: 'Combine columns', link: '/transformations/combine-columns' },
+            { text: 'Coalesce columns', link: '/transformations/coalesce-columns' },
           ],
         },
         {
@@ -238,6 +240,7 @@ export default defineConfig({
           text: 'Rows',
           items: [
             { text: 'Filter rows', link: '/transformations/filter-rows' },
+            { text: 'Filter by expression', link: '/transformations/filter-expression' },
             { text: 'Sort rows', link: '/transformations/sort-rows' },
             { text: 'Limit rows', link: '/transformations/limit-rows' },
             { text: 'Sample rows', link: '/transformations/sample-rows' },
@@ -275,6 +278,7 @@ export default defineConfig({
             { text: 'Unpivot', link: '/transformations/unpivot' },
             { text: 'Extract date parts', link: '/transformations/extract-date-parts' },
             { text: 'Parse dates', link: '/transformations/parse-dates' },
+            { text: 'Split to rows', link: '/transformations/split-to-rows' },
           ],
         },
         {
@@ -283,6 +287,9 @@ export default defineConfig({
           items: [
             { text: 'Window function', link: '/transformations/window-function' },
             { text: 'Conditional column', link: '/transformations/conditional-column' },
+            { text: 'Rolling aggregate', link: '/transformations/rolling-aggregate' },
+            { text: 'Row difference', link: '/transformations/row-difference' },
+            { text: 'Date difference', link: '/transformations/date-difference' },
           ],
         },
         {
@@ -294,6 +301,7 @@ export default defineConfig({
             { text: 'Assert value range', link: '/transformations/assert-value-range' },
             { text: 'Assert expression', link: '/transformations/assert-expression' },
             { text: 'Assert row count', link: '/transformations/assert-row-count' },
+            { text: 'Assert values in set', link: '/transformations/assert-values-in-set' },
           ],
         },
         {

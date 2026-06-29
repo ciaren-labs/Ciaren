@@ -1,6 +1,12 @@
 // Zod schemas for validating each node type's config in the sidebar forms.
 import { z } from "zod";
-import { ML_MODEL_VALUES, isSupervisedModel } from "./mlModels";
+import {
+  ML_MODEL_VALUES,
+  isSupervisedModel,
+  CV_STRATEGY_VALUES,
+  CV_SCORING_VALUES,
+  CV_STRATEGY_MAP,
+} from "./mlModels";
 
 const stringArray = z.array(z.string());
 
@@ -130,6 +136,24 @@ export const windowFunctions = [
 // Functions that operate on a value column, and those that need an order key.
 export const windowTargetFuncs = new Set(["cumsum", "cummax", "cummin", "lag", "lead"]);
 export const windowRankFuncs = new Set(["rank", "dense_rank"]);
+
+// Rolling-aggregate functions (rollingAggregate) and row-difference methods.
+export const rollingFunctions = ["mean", "sum", "min", "max", "std", "median"] as const;
+export const ROLLING_FUNCTION_LABELS: Record<string, string> = {
+  mean: "Mean (moving average)",
+  sum: "Sum",
+  min: "Minimum",
+  max: "Maximum",
+  std: "Std. deviation",
+  median: "Median",
+};
+export const rowDiffMethods = ["diff", "pct_change"] as const;
+export const ROW_DIFF_METHOD_LABELS: Record<string, string> = {
+  diff: "Difference (a − previous)",
+  pct_change: "Percent change",
+};
+// Units for the Date Difference node.
+export const dateDiffUnits = ["days", "hours", "minutes", "seconds", "weeks"] as const;
 
 // Operators usable in a conditionalColumn rule.
 export const conditionOperators = [
@@ -333,6 +357,51 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
       }
     }),
   concatRows: z.object({}),
+
+  // ----- Free-tier derive / analytics nodes -----
+  filterExpression: z.object({
+    expression: z.string().min(1, "Expression is required"),
+  }),
+  combineColumns: z.object({
+    columns: stringArray.min(2, "Pick at least two columns"),
+    new_column: z.string().min(1, "New column name is required"),
+    separator: z.string().optional(),
+    keep_original: z.boolean().optional(),
+  }),
+  coalesceColumns: z.object({
+    columns: stringArray.min(2, "Pick at least two columns"),
+    new_column: z.string().min(1, "New column name is required"),
+    keep_original: z.boolean().optional(),
+  }),
+  explodeRows: z.object({
+    column: z.string().min(1, "Column is required"),
+    delimiter: z.string().optional(),
+  }),
+  rollingAggregate: z.object({
+    target: z.string().min(1, "Target column is required"),
+    function: z.enum(rollingFunctions),
+    window: z.coerce.number().int().min(1, "Window must be at least 1"),
+    min_periods: z.coerce.number().int().min(1).nullable().optional(),
+    partition_by: stringArray.optional(),
+    order_by: stringArray.optional(),
+    descending: z.boolean().optional(),
+    new_column: z.string().min(1, "New column name is required"),
+  }),
+  rowDifference: z.object({
+    target: z.string().min(1, "Target column is required"),
+    method: z.enum(rowDiffMethods),
+    periods: z.coerce.number().int().min(1).optional(),
+    partition_by: stringArray.optional(),
+    order_by: stringArray.optional(),
+    descending: z.boolean().optional(),
+    new_column: z.string().min(1, "New column name is required"),
+  }),
+  dateDifference: z.object({
+    start_column: z.string().min(1, "Start column is required"),
+    end_column: z.string().min(1, "End column is required"),
+    unit: z.enum(dateDiffUnits),
+    new_column: z.string().min(1, "New column name is required"),
+  }),
 
   // ----- New transform nodes -----
   sampleRows: z
@@ -603,6 +672,48 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   featureImportance: z.object({
     top_n: z.coerce.number().int().min(1).nullable().optional(),
   }),
+  mlCrossValidate: z
+    .object({
+      model_type: z.enum(ML_MODEL_VALUES),
+      target_column: z.string().optional(),
+      feature_columns: stringArray.optional(),
+      cv_strategy: z.enum(CV_STRATEGY_VALUES),
+      n_splits: z.coerce.number().int().min(2).optional(),
+      n_repeats: z.coerce.number().int().min(1).optional(),
+      test_size: z.coerce.number().gt(0).lt(1).optional(),
+      shuffle: z.boolean().optional(),
+      group_column: z.string().nullable().optional(),
+      scoring: z.array(z.enum(CV_SCORING_VALUES as [string, ...string[]])).optional(),
+      hyperparameters: z.record(z.string(), z.unknown()).optional(),
+      seed: z.coerce.number().int("Seed must be a whole number"),
+    })
+    .superRefine((cfg, ctx) => {
+      if (!isSupervisedModel(cfg.model_type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["model_type"],
+          message: "Cross-validation supports classification and regression models only.",
+        });
+      }
+      if (!cfg.target_column) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["target_column"], message: "Pick a target column" });
+      }
+      const feats = cfg.feature_columns ?? [];
+      if (cfg.target_column && feats.includes(cfg.target_column)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["feature_columns"],
+          message: "The target can't also be a feature (data leakage).",
+        });
+      }
+      if (CV_STRATEGY_MAP[cfg.cv_strategy]?.usesGroup && !cfg.group_column) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["group_column"],
+          message: "Group K-Fold needs a group column.",
+        });
+      }
+    }),
 
   // ----- Advanced -----
   pythonTransform: z.object({
@@ -633,6 +744,12 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     }),
   assertExpression: z.object({
     expression: z.string().min(1, "Expression is required"),
+    mode: z.enum(["error", "warn"]).optional(),
+  }),
+  assertValuesInSet: z.object({
+    column: z.string().min(1, "Select a column"),
+    allowed: stringArray.min(1, "Add at least one allowed value"),
+    allow_null: z.boolean().optional(),
     mode: z.enum(["error", "warn"]).optional(),
   }),
   assertRowCount: z

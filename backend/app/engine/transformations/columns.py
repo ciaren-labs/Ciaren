@@ -67,6 +67,97 @@ class SelectColumnsTransformation(BaseTransformation):
         return f"{dst} = {src}.select({config['columns']!r})"
 
 
+class CombineColumnsTransformation(BaseTransformation):
+    """Join several columns into one text column with a separator (inverse of Split
+    Column). Null cells become empty strings, so the separator is preserved."""
+
+    type = "combineColumns"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        columns = config.get("columns")
+        if not isinstance(columns, list) or len(columns) < 2:
+            raise ValueError("combineColumns requires a 'columns' list with at least two columns")
+        if not config.get("new_column"):
+            raise ValueError("combineColumns requires a 'new_column' name")
+
+    def _args(self, config: dict[str, Any]) -> tuple[list[str], str, str, bool]:
+        return (
+            config["columns"],
+            config["new_column"],
+            config.get("separator", " "),
+            bool(config.get("keep_original", True)),
+        )
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        columns, new_column, separator, keep_original = self._args(config)
+        return {"out": engine.combine_columns(inputs["in"], columns, new_column, separator, keep_original)}
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        columns, new_column, separator, keep_original = self._args(config)
+        line = (
+            f"{dst} = {src}.assign(**{{{new_column!r}: "
+            f"{src}[{columns!r}].astype('string').fillna('').apply({separator!r}.join, axis=1).astype('string')}})"
+        )
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            line += f"\n{dst} = {dst}.drop(columns={drop!r})"
+        return line
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        columns, new_column, separator, keep_original = self._args(config)
+        parts = ", ".join(f"pl.col({c!r}).cast(pl.Utf8).fill_null('')" for c in columns)
+        line = f"{dst} = {src}.with_columns(pl.concat_str([{parts}], separator={separator!r}).alias({new_column!r}))"
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            line += f"\n{dst} = {dst}.drop({drop!r})"
+        return line
+
+
+class CoalesceColumnsTransformation(BaseTransformation):
+    """Take the first non-null value across several columns into a new column."""
+
+    type = "coalesceColumns"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        columns = config.get("columns")
+        if not isinstance(columns, list) or len(columns) < 2:
+            raise ValueError("coalesceColumns requires a 'columns' list with at least two columns")
+        if not config.get("new_column"):
+            raise ValueError("coalesceColumns requires a 'new_column' name")
+
+    def _args(self, config: dict[str, Any]) -> tuple[list[str], str, bool]:
+        return (config["columns"], config["new_column"], bool(config.get("keep_original", True)))
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        columns, new_column, keep_original = self._args(config)
+        return {"out": engine.coalesce_columns(inputs["in"], columns, new_column, keep_original)}
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        columns, new_column, keep_original = self._args(config)
+        line = f"{dst} = {src}.assign(**{{{new_column!r}: {src}[{columns!r}].bfill(axis=1).iloc[:, 0]}})"
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            line += f"\n{dst} = {dst}.drop(columns={drop!r})"
+        return line
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        columns, new_column, keep_original = self._args(config)
+        parts = ", ".join(f"pl.col({c!r})" for c in columns)
+        line = f"{dst} = {src}.with_columns(pl.coalesce([{parts}]).alias({new_column!r}))"
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            line += f"\n{dst} = {dst}.drop({drop!r})"
+        return line
+
+
 class CastDtypesTransformation(BaseTransformation):
     type = "castDtypes"
 

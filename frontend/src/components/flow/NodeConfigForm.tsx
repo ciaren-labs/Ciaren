@@ -24,6 +24,11 @@ import {
   stringOperations,
   windowFunctions,
   windowTargetFuncs,
+  rollingFunctions,
+  ROLLING_FUNCTION_LABELS,
+  rowDiffMethods,
+  ROW_DIFF_METHOD_LABELS,
+  dateDiffUnits,
 } from "@/lib/validators";
 import {
   ColumnKeyedEditor,
@@ -39,6 +44,7 @@ import {
 } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
 import { MlTrainConfig } from "./MlTrainConfig";
+import { MlCrossValidateConfig } from "./MlCrossValidateConfig";
 
 interface NodeConfigFormProps {
   type: string;
@@ -1493,6 +1499,9 @@ export function NodeConfigForm({
     case "mlTrainDimReduction":
       return <MlTrainConfig config={c} columns={columns} errors={errors} set={set} nodeType={type} />;
 
+    case "mlCrossValidate":
+      return <MlCrossValidateConfig config={c} columns={columns} errors={errors} set={set} />;
+
     case "trainTestSplit":
       return (
         <>
@@ -1908,6 +1917,223 @@ export function NodeConfigForm({
               <option value="error">Error (stop run)</option>
               <option value="warn">Warn (continue)</option>
             </Select>
+          </Field>
+        </>
+      );
+
+    case "assertValuesInSet":
+      return (
+        <>
+          <Field label="Column" error={errors.column} help="The column whose values are checked.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field
+            label="Allowed values"
+            error={errors.allowed}
+            hint="Comma-separated"
+            help="Rows whose value isn't in this set are violations."
+          >
+            <CsvListInput value={c.allowed} onChange={(v) => set({ allowed: v })} placeholder="paid, pending, failed" />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={c.allow_null !== false}
+              onChange={(e) => set({ allow_null: e.target.checked })}
+            />
+            Allow null / empty values
+          </label>
+          <Field label="On violation" error={errors.mode} help="Error stops the run; warn records the result and continues.">
+            <Select value={c.mode ?? "error"} onChange={(e) => set({ mode: e.target.value })}>
+              <option value="error">Error (stop run)</option>
+              <option value="warn">Warn (continue)</option>
+            </Select>
+          </Field>
+        </>
+      );
+
+    case "filterExpression":
+      return (
+        <Field
+          label="Expression"
+          error={errors.expression}
+          help="A boolean expression that must be true to keep a row. Same syntax as Calculated Column: amount > 100 and status == 'paid'."
+        >
+          <textarea
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            rows={3}
+            value={(c.expression as string) ?? ""}
+            placeholder="amount > 100 and status == 'paid'"
+            onChange={(e) => set({ expression: e.target.value })}
+          />
+        </Field>
+      );
+
+    case "combineColumns":
+      return (
+        <>
+          <Field label="Columns to combine" error={errors.columns} help="Joined left-to-right in this order.">
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="New column" error={errors.new_column}>
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="full_name" />
+          </Field>
+          <Field label="Separator" error={errors.separator} help="Text inserted between values (default a single space).">
+            <Input value={c.separator ?? " "} onChange={(e) => set({ separator: e.target.value })} />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={c.keep_original !== false}
+              onChange={(e) => set({ keep_original: e.target.checked })}
+            />
+            Keep the original columns
+          </label>
+        </>
+      );
+
+    case "coalesceColumns":
+      return (
+        <>
+          <Field
+            label="Columns (in priority order)"
+            error={errors.columns}
+            help="The first non-null value across these columns is kept."
+          >
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+          <Field label="New column" error={errors.new_column}>
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="value" />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={c.keep_original !== false}
+              onChange={(e) => set({ keep_original: e.target.checked })}
+            />
+            Keep the original columns
+          </label>
+        </>
+      );
+
+    case "explodeRows":
+      return (
+        <>
+          <Field label="Column" error={errors.column} help="The column to expand into multiple rows.">
+            <ColumnSelect value={c.column} columns={columns} onChange={(v) => set({ column: v })} />
+          </Field>
+          <Field
+            label="Delimiter (optional)"
+            error={errors.delimiter}
+            help="Split text on this delimiter, then explode. Leave empty to explode an existing list column."
+          >
+            <Input value={c.delimiter ?? ""} onChange={(e) => set({ delimiter: e.target.value })} placeholder="," />
+          </Field>
+        </>
+      );
+
+    case "rollingAggregate":
+      return (
+        <>
+          <Field label="Target column" error={errors.target} help="The numeric column to aggregate.">
+            <ColumnSelect value={c.target} columns={columns} onChange={(v) => set({ target: v })} />
+          </Field>
+          <Field label="Function" error={errors.function}>
+            <Select value={c.function ?? "mean"} onChange={(e) => set({ function: e.target.value })}>
+              {rollingFunctions.map((f) => (
+                <option key={f} value={f}>
+                  {ROLLING_FUNCTION_LABELS[f] ?? f}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Window (rows)" error={errors.window} help="Number of rows in each moving window.">
+            <Input type="number" min={1} value={c.window ?? 3} onChange={(e) => set({ window: Number(e.target.value) })} />
+          </Field>
+          <Field
+            label="Min periods (optional)"
+            error={errors.min_periods}
+            hint="Empty = full window"
+            help="Fewer rows than the window yield null unless this is set."
+          >
+            <Input
+              type="number"
+              min={1}
+              value={c.min_periods ?? ""}
+              placeholder="full window"
+              onChange={(e) => set({ min_periods: e.target.value === "" ? null : Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Order by" error={errors.order_by} help="Rows are ordered by these columns within each window (e.g. a date).">
+            <ColumnMultiSelect value={c.order_by} columns={columns} onChange={(v) => set({ order_by: v })} />
+          </Field>
+          <Field label="Partition by (optional)" error={errors.partition_by} hint="Empty = whole table" help="Restart the window within each group.">
+            <ColumnMultiSelect value={c.partition_by} columns={columns} onChange={(v) => set({ partition_by: v })} />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={!!c.descending} onChange={(e) => set({ descending: e.target.checked })} />
+            Order descending
+          </label>
+          <Field label="New column" error={errors.new_column}>
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="rolling_mean" />
+          </Field>
+        </>
+      );
+
+    case "rowDifference":
+      return (
+        <>
+          <Field label="Target column" error={errors.target} help="The numeric column to compare across rows.">
+            <ColumnSelect value={c.target} columns={columns} onChange={(v) => set({ target: v })} />
+          </Field>
+          <Field label="Method" error={errors.method}>
+            <Select value={c.method ?? "diff"} onChange={(e) => set({ method: e.target.value })}>
+              {rowDiffMethods.map((m) => (
+                <option key={m} value={m}>
+                  {ROW_DIFF_METHOD_LABELS[m] ?? m}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Periods" error={errors.periods} help="How many rows back to compare against (default 1).">
+            <Input type="number" min={1} value={c.periods ?? 1} onChange={(e) => set({ periods: Number(e.target.value) })} />
+          </Field>
+          <Field label="Order by" error={errors.order_by} help="Rows are ordered by these columns first (e.g. a date).">
+            <ColumnMultiSelect value={c.order_by} columns={columns} onChange={(v) => set({ order_by: v })} />
+          </Field>
+          <Field label="Partition by (optional)" error={errors.partition_by} hint="Empty = whole table" help="Compare only within each group.">
+            <ColumnMultiSelect value={c.partition_by} columns={columns} onChange={(v) => set({ partition_by: v })} />
+          </Field>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={!!c.descending} onChange={(e) => set({ descending: e.target.checked })} />
+            Order descending
+          </label>
+          <Field label="New column" error={errors.new_column}>
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="delta" />
+          </Field>
+        </>
+      );
+
+    case "dateDifference":
+      return (
+        <>
+          <Field label="Start date column" error={errors.start_column}>
+            <ColumnSelect value={c.start_column} columns={columns} onChange={(v) => set({ start_column: v })} />
+          </Field>
+          <Field label="End date column" error={errors.end_column} help="The result is end − start.">
+            <ColumnSelect value={c.end_column} columns={columns} onChange={(v) => set({ end_column: v })} />
+          </Field>
+          <Field label="Unit" error={errors.unit}>
+            <Select value={c.unit ?? "days"} onChange={(e) => set({ unit: e.target.value })}>
+              {dateDiffUnits.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="New column" error={errors.new_column}>
+            <Input value={c.new_column ?? ""} onChange={(e) => set({ new_column: e.target.value })} placeholder="days_between" />
           </Field>
         </>
       );
