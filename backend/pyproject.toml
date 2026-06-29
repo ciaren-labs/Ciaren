@@ -30,6 +30,10 @@ dependencies = [
     "aiofiles>=24.0",
     "croniter>=3.0",
     "python-dotenv>=1.0",
+    # Used by app/plugin_api/manifest.py to parse/compare plugin version specifiers.
+    # Declared explicitly (not relied on as a transitive dep) so the slim runtime
+    # image has it — otherwise `flowframe serve` fails to import in Docker.
+    "packaging>=23",
 ]
 
 [project.optional-dependencies]
@@ -110,6 +114,9 @@ known-first-party = ["app"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# The Pydantic plugin reads model config (e.g. populate_by_name) so constructing a
+# model by field name is accepted, matching runtime behaviour for alias fields.
+plugins = ["pydantic.mypy"]
 # Alembic generates these; they are not written to strict-typing standards.
 exclude = ["app/migrations/versions/"]
 
