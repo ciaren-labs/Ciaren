@@ -176,11 +176,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    from app.core.auth import verify_api_token
+
     app = FastAPI(
         title=settings.APP_NAME,
         description="Visual ETL builder — local-first, dataframe-based",
         version="0.1.0",
         lifespan=lifespan,
+        # Optional API-token gate (no-op unless FLOWFRAME_API_TOKEN is set). As a
+        # dependency rather than middleware, a 401 still passes through CORS.
+        dependencies=[Depends(verify_api_token)],
     )
 
     app.add_middleware(

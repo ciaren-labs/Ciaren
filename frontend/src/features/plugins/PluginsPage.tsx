@@ -366,8 +366,19 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            This plugin's code is <strong>not loaded</strong> until you approve the
-            permissions above.
+            {plugin.permissions.length > 0 ? (
+              <>
+                This plugin's code is <strong>not loaded</strong> until you approve the
+                permissions above. Approving runs its code on this machine with your
+                access — it is not sandboxed.
+              </>
+            ) : (
+              <>
+                This plugin declares no permissions, but approving still{" "}
+                <strong>runs its code</strong> on this machine with your access (it is
+                not sandboxed). Its code is <strong>not loaded</strong> until you approve.
+              </>
+            )}
           </span>
         </div>
       )}

@@ -56,6 +56,32 @@ _ENV_TEMPLATE = """\
 # Abandon a run after this many seconds (0 = no limit):
 # FLOWFRAME_RUN_TIMEOUT_SECONDS=0
 
+# --- Security -----------------------------------------------------------------
+# The API is unauthenticated by default (fine bound to 127.0.0.1). If you expose
+# it on a network — e.g. binding 0.0.0.0, like the Docker image — set a token so
+# every /api request must send `Authorization: Bearer <token>`. The web UI sends
+# it automatically (seed it once via the app URL with `?api_token=<token>`).
+# FLOWFRAME_API_TOKEN=
+
+# Pre-shared secret for the POST /api/flows/{id}/trigger webhook (CI/CD, Airflow).
+# Unset = the webhook is disabled (404).
+# FLOWFRAME_WEBHOOK_SECRET=
+
+# Block connector hosts/endpoints that resolve to internal addresses (loopback,
+# link-local incl. cloud metadata, RFC1918). Off by default so local databases
+# work; turn on for shared deployments where connection configs aren't trusted.
+# FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS=false
+
+# Confine the local-folder storage connector to these directories (JSON list).
+# Empty = any folder is allowed (default). Set on shared deployments to stop a
+# connection from reading/writing arbitrary server files.
+# FLOWFRAME_STORAGE_ALLOWED_ROOTS=["/srv/flowframe/data"]
+
+# Strict static checks for the pythonTransform node: reject dangerous imports/
+# builtins/dunders at save/run time and run with restricted builtins. Defense in
+# depth, not a sandbox. Off by default so existing scripts keep working.
+# FLOWFRAME_PYTHON_TRANSFORM_STRICT=false
+
 # --- Machine learning (optional; requires `pip install flowframe[ml]`) --------
 # `flowframe init` provisions a default LOCAL MLflow instance below. To use an
 # existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
@@ -367,6 +393,7 @@ def _serve(args: argparse.Namespace) -> None:
     _apply_serve_env(args)
 
     _print_serve_banner(args)
+    _warn_if_exposed_without_token(args)
 
     import uvicorn
 
@@ -377,6 +404,30 @@ def _serve(args: argparse.Namespace) -> None:
         port=args.port,
         reload=args.reload,
         log_level=args.log_level,
+    )
+
+
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def _warn_if_exposed_without_token(args: argparse.Namespace) -> None:
+    """Warn when binding to a non-loopback interface without an API token.
+
+    The API is unauthenticated by default and reaches arbitrary code execution
+    (pythonTransform, plugin install), so a wide bind with no token is an open
+    door. Just a warning — we never refuse to start. See SECURITY-AUDIT.md (#1).
+    """
+    from app.core.config import get_settings
+
+    if args.host in _LOOPBACK_HOSTS:
+        return
+    if get_settings().API_TOKEN:
+        return
+    print(
+        f"  WARNING: serving on {args.host} with no API token. The API is "
+        "unauthenticated and can execute code (pythonTransform, plugin install).\n"
+        "     Set FLOWFRAME_API_TOKEN to require a bearer token, or bind to "
+        "127.0.0.1 and use a reverse proxy.\n"
     )
 
 
@@ -428,6 +479,11 @@ def _info(args: argparse.Namespace) -> None:
         "scheduler_max_consecutive_failures": s.SCHEDULER_MAX_CONSECUTIVE_FAILURES,
         "run_timeout_seconds": s.RUN_TIMEOUT_SECONDS,
         "max_upload_size_mb": s.MAX_UPLOAD_SIZE_MB,
+        # Booleans only — never print the secret values themselves.
+        "api_token_set": s.API_TOKEN is not None,
+        "webhook_secret_set": s.WEBHOOK_SECRET is not None,
+        "connector_block_private_hosts": s.CONNECTOR_BLOCK_PRIVATE_HOSTS,
+        "python_transform_strict": s.PYTHON_TRANSFORM_STRICT,
         "ml_enabled": s.ML_ENABLED,
         "mlflow_tracking_uri": s.MLFLOW_TRACKING_URI,
         "ml_artifact_dir": s.ml_artifact_path,
@@ -790,6 +846,9 @@ def _plugin_toggle(args: argparse.Namespace, *, enable: bool) -> None:
 
     state = get_plugin_state()
     state.set_enabled(args.plugin_id, enable)
+    if enable:
+        # Enabling is an explicit opt-in to run the plugin's (unsandboxed) code.
+        state.set_approved(args.plugin_id, True)
     state.save()
     print(f"{'Enabled' if enable else 'Disabled'} {args.plugin_id}. Restart `flowframe serve` to apply.")
 

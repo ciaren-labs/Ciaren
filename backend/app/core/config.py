@@ -39,6 +39,33 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Strict static checks for the pythonTransform node. Off by default so existing
+    # scripts (e.g. `import numpy`) keep working. When on, a script is rejected at
+    # save/preview/run time if it uses a dangerous import (os/sys/subprocess/…), a
+    # code-exec builtin (eval/exec/open/__import__/…), or a dunder-traversal
+    # attribute, and it runs with a restricted set of builtins. Defense in depth —
+    # not a sandbox (Python can't be fully locked down in-process). See
+    # SECURITY-AUDIT.md (finding #2 / the pythonTransform notes).
+    PYTHON_TRANSFORM_STRICT: bool = False
+
+    # SSRF guard for outbound connector hosts. Off by default because the common
+    # local-first setup legitimately connects to localhost / private-network
+    # databases and object stores. Turn it ON for shared/networked deployments
+    # where connection configs are not fully trusted: it refuses any SQL/Mongo host
+    # or S3/Azure endpoint that resolves to a loopback, link-local (incl. the cloud
+    # metadata endpoint 169.254.169.254), or private/RFC1918 address. See
+    # SECURITY-AUDIT.md (finding #4).
+    CONNECTOR_BLOCK_PRIVATE_HOSTS: bool = False
+
+    # Optional confinement for the local-folder storage connector. Empty (default)
+    # keeps the historical behavior: a Local Storage connection may point at any
+    # folder the server process can access. When set to one or more absolute
+    # directories, a Local Storage connection's root must resolve *inside* one of
+    # them — otherwise the connection is refused. Use this on shared/networked
+    # deployments to stop a connection from reading or writing arbitrary server
+    # files (e.g. /etc, ~/.aws). See SECURITY-AUDIT.md (finding #5).
+    STORAGE_ALLOWED_ROOTS: list[str] = []
+
     # Path to the built frontend (frontend/dist). When set/auto-detected, the
     # server also serves the web UI so `flowframe serve` is a single URL. None +
     # no auto-detected dist = API only (run the Vite dev server separately).
@@ -70,6 +97,17 @@ class Settings(BaseSettings):
     # In "process" execution mode the worker process is also recycled so the CPU
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
+
+    # -- API authentication ----------------------------------------------------
+    # Optional bearer token for the REST API. Unset (default) keeps FlowFrame's
+    # local-first, no-auth posture — safe when bound to 127.0.0.1. When set, every
+    # /api/* request must present the token via `Authorization: Bearer <token>` or
+    # the `X-FlowFrame-Token` header (constant-time compared). The static web UI,
+    # health probes, OpenAPI, and the webhook trigger (which has its own
+    # X-FlowFrame-Secret) are exempt. Set this whenever the API is reachable from a
+    # network you don't fully trust — e.g. the Docker image binds 0.0.0.0. See
+    # SECURITY-AUDIT.md (finding #1).
+    API_TOKEN: str | None = None
 
     # -- Webhook trigger -------------------------------------------------------
     # When set, POST /api/flows/{id}/trigger is enabled and the caller must
