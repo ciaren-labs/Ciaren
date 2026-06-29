@@ -265,3 +265,97 @@ class PivotTransformation(BaseTransformation):
             f"{dst} = {src}.pivot(on={config['columns']!r}, index={index!r}, "
             f"values={config['values']!r}, aggregate_function={agg!r})"
         )
+
+
+class ExplodeRowsTransformation(BaseTransformation):
+    """Split a column into multiple rows. With a delimiter, the text is split first
+    (``"a,b"`` -> two rows); without one, an existing list column is exploded."""
+
+    type = "explodeRows"
+    polars_lazy_safe = False  # explode + split materialize
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("column"):
+            raise ValueError("explodeRows requires a 'column'")
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        delimiter = config.get("delimiter") or None
+        return {"out": engine.explode_rows(inputs["in"], config["column"], delimiter)}
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        delimiter = config.get("delimiter") or None
+        if delimiter:
+            return (
+                f"{dst} = {src}.assign(**{{{col!r}: {src}[{col!r}].astype('string').str.split({delimiter!r})}})"
+                f".explode({col!r}).reset_index(drop=True)"
+            )
+        return f"{dst} = {src}.explode({col!r}).reset_index(drop=True)"
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        delimiter = config.get("delimiter") or None
+        if delimiter:
+            return (
+                f"{dst} = {src}.with_columns(pl.col({col!r}).cast(pl.Utf8).str.split({delimiter!r}))"
+                f".explode({col!r})"
+            )
+        return f"{dst} = {src}.explode({col!r})"
+
+
+class DateDifferenceTransformation(BaseTransformation):
+    """Compute the difference between two date columns (end - start) in a chosen unit
+    (days, hours, minutes, seconds, weeks), as a new numeric column."""
+
+    type = "dateDifference"
+    _UNITS = {"seconds": 1, "minutes": 60, "hours": 3600, "days": 86400, "weeks": 604800}
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("start_column"):
+            raise ValueError("dateDifference requires a 'start_column'")
+        if not config.get("end_column"):
+            raise ValueError("dateDifference requires an 'end_column'")
+        unit = config.get("unit", "days")
+        if unit not in self._UNITS:
+            raise ValueError(f"dateDifference 'unit' must be one of {sorted(self._UNITS)}")
+        if not config.get("new_column"):
+            raise ValueError("dateDifference requires a 'new_column' name")
+
+    def _args(self, config: dict[str, Any]) -> tuple[str, str, str, str]:
+        return (
+            config["start_column"],
+            config["end_column"],
+            config.get("unit", "days"),
+            config["new_column"],
+        )
+
+    def execute(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> dict[str, AnyFrame]:
+        start, end, unit, new = self._args(config)
+        return {"out": engine.date_difference(inputs["in"], start, end, unit, new)}
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        start, end, unit, new = self._args(config)
+        factor = self._UNITS[unit]
+        diff = (
+            f"(pd.to_datetime({src}[{end!r}], errors='coerce') - "
+            f"pd.to_datetime({src}[{start!r}], errors='coerce')).dt.total_seconds() / {factor!r}"
+        )
+        return f"{dst} = {src}.assign(**{{{new!r}: {diff}}})"
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        start, end, unit, new = self._args(config)
+        factor = self._UNITS[unit]
+        # str columns are parsed; already-temporal columns are cast. Non-strict so bad
+        # values become null instead of raising.
+        end_expr = f"pl.col({end!r}).str.to_datetime(strict=False)"
+        start_expr = f"pl.col({start!r}).str.to_datetime(strict=False)"
+        diff = f"(({end_expr} - {start_expr}).dt.total_seconds() / {factor!r})"
+        return f"{dst} = {src}.with_columns({diff}.alias({new!r}))"

@@ -99,6 +99,7 @@ def _transform_node_spec(node_type: str) -> NodeSpec:
         default_config=dict(meta.default_config),
         requires_ml=ml,
         is_model_sink=node_type in node_kinds.ML_OUTPUT_NODES,
+        is_flow_terminal=node_type in node_kinds.FLOW_TERMINAL_NODES,
     )
 
 

@@ -7,7 +7,17 @@ from typing import Any, Literal, cast
 import pandas as pd
 import polars as pl
 
-from app.engine.backends.base import register_engine, rule_combine_all, rule_conditions
+from app.engine.backends.base import DATE_UNIT_SECONDS, register_engine, rule_combine_all, rule_conditions
+
+# Rolling aggregation function name -> polars Expr method.
+_ROLLING_POLARS = {
+    "mean": "rolling_mean",
+    "sum": "rolling_sum",
+    "min": "rolling_min",
+    "max": "rolling_max",
+    "std": "rolling_std",
+    "median": "rolling_median",
+}
 
 
 def _json_safe(v: Any) -> Any:
@@ -540,6 +550,114 @@ class PolarsEngine:
             chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
         expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
         return df.with_columns(expr.alias(new_column))
+
+
+    # -- New nodes (derive / analytics) --------------------------------
+
+    def filter_expr(self, df: pl.DataFrame, expression: str) -> pl.DataFrame:
+        # Evaluate with pandas semantics (matching the assertExpression node and the
+        # filterExpression pandas backend) so a single expression syntax works on
+        # both engines; the filter itself stays on the native polars frame.
+        mask = cast(Any, df.to_pandas().eval(expression))
+        return df.filter(pl.Series(mask).cast(pl.Boolean))
+
+    def combine_columns(
+        self,
+        df: pl.DataFrame,
+        columns: list[str],
+        new_column: str,
+        separator: str,
+        keep_original: bool,
+    ) -> pl.DataFrame:
+        # fill_null("") keeps the separator for null cells (matches the pandas backend).
+        expr = pl.concat_str(
+            [pl.col(c).cast(pl.Utf8).fill_null("") for c in columns], separator=separator
+        ).alias(new_column)
+        result = df.with_columns(expr)
+        if not keep_original:
+            result = result.drop([c for c in columns if c != new_column])
+        return result
+
+    def coalesce_columns(
+        self,
+        df: pl.DataFrame,
+        columns: list[str],
+        new_column: str,
+        keep_original: bool,
+    ) -> pl.DataFrame:
+        result = df.with_columns(pl.coalesce([pl.col(c) for c in columns]).alias(new_column))
+        if not keep_original:
+            result = result.drop([c for c in columns if c != new_column])
+        return result
+
+    def explode_rows(self, df: pl.DataFrame, column: str, delimiter: str | None) -> pl.DataFrame:
+        work = df
+        if delimiter:
+            work = df.with_columns(pl.col(column).cast(pl.Utf8).str.split(delimiter))
+        return work.explode(column)
+
+    def rolling_aggregate(
+        self,
+        df: pl.DataFrame,
+        target: str,
+        function: str,
+        window: int,
+        min_periods: int | None,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> pl.DataFrame:
+        work = df.with_row_index("__rn__")
+        if order_by:
+            work = work.sort(by=order_by, descending=descending)
+        method = _ROLLING_POLARS[function]
+        expr = getattr(pl.col(target), method)(window_size=window, min_periods=min_periods)
+        if partition_by:
+            expr = expr.over(partition_by)
+        work = work.with_columns(expr.alias(new_column))
+        return work.sort("__rn__").drop("__rn__")
+
+    def row_difference(
+        self,
+        df: pl.DataFrame,
+        target: str,
+        method: str,
+        periods: int,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> pl.DataFrame:
+        work = df.with_row_index("__rn__")
+        if order_by:
+            work = work.sort(by=order_by, descending=descending)
+        col = pl.col(target)
+        expr = col.pct_change(periods) if method == "pct_change" else col.diff(periods)
+        if partition_by:
+            expr = expr.over(partition_by)
+        work = work.with_columns(expr.alias(new_column))
+        return work.sort("__rn__").drop("__rn__")
+
+    def _to_datetime_expr(self, df: pl.DataFrame, column: str) -> pl.Expr:
+        col = pl.col(column)
+        if df.schema[column] == pl.Utf8:
+            return col.str.to_datetime(strict=False)
+        return col.cast(pl.Datetime, strict=False)
+
+    def date_difference(
+        self,
+        df: pl.DataFrame,
+        start_column: str,
+        end_column: str,
+        unit: str,
+        new_column: str,
+    ) -> pl.DataFrame:
+        factor = DATE_UNIT_SECONDS[unit]
+        start = self._to_datetime_expr(df, start_column)
+        end = self._to_datetime_expr(df, end_column)
+        diff = (end - start).dt.total_seconds() / factor
+        return df.with_columns(diff.alias(new_column))
 
 
 def _polars_window_expr(
