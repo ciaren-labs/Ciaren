@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # SSRF guard for outbound connector hosts. Off by default because the common
+    # local-first setup legitimately connects to localhost / private-network
+    # databases and object stores. Turn it ON for shared/networked deployments
+    # where connection configs are not fully trusted: it refuses any SQL/Mongo host
+    # or S3/Azure endpoint that resolves to a loopback, link-local (incl. the cloud
+    # metadata endpoint 169.254.169.254), or private/RFC1918 address. See
+    # SECURITY-AUDIT.md (finding #4).
+    CONNECTOR_BLOCK_PRIVATE_HOSTS: bool = False
+
     # Optional confinement for the local-folder storage connector. Empty (default)
     # keeps the historical behavior: a Local Storage connection may point at any
     # folder the server process can access. When set to one or more absolute
