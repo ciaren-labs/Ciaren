@@ -80,6 +80,17 @@ class Settings(BaseSettings):
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
 
+    # -- API authentication ----------------------------------------------------
+    # Optional bearer token for the REST API. Unset (default) keeps FlowFrame's
+    # local-first, no-auth posture — safe when bound to 127.0.0.1. When set, every
+    # /api/* request must present the token via `Authorization: Bearer <token>` or
+    # the `X-FlowFrame-Token` header (constant-time compared). The static web UI,
+    # health probes, OpenAPI, and the webhook trigger (which has its own
+    # X-FlowFrame-Secret) are exempt. Set this whenever the API is reachable from a
+    # network you don't fully trust — e.g. the Docker image binds 0.0.0.0. See
+    # SECURITY-AUDIT.md (finding #1).
+    API_TOKEN: str | None = None
+
     # -- Webhook trigger -------------------------------------------------------
     # When set, POST /api/flows/{id}/trigger is enabled and the caller must
     # provide this value in the X-FlowFrame-Secret header. Uses constant-time
