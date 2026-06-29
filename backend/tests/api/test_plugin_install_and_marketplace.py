@@ -40,12 +40,18 @@ async def test_install_plugin_via_upload(client, monkeypatch, tmp_path, hello_ff
     body = resp.json()
     assert body["outcome"] == "unsigned"
     assert body["plugin"]["id"] == "community.hello"
-    # Hello declares no permissions, so it loads straight away.
-    assert body["plugin"]["status"] == "loaded"
+    # Even with no declared permissions, a freshly installed plugin stays pending
+    # until the user approves running its code — it does NOT auto-load.
+    assert body["plugin"]["status"] == "needs_permissions"
 
-    # It now shows up in the installed-plugins listing.
+    # It shows up in the installed-plugins listing (gated, not loaded).
     listing = await client.get("/api/plugins")
     assert "community.hello" in {p["id"] for p in listing.json()}
+
+    # Approving (enable) opts the code in and the plugin loads.
+    approved = await client.post("/api/plugins/community.hello/enable")
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "loaded"
 
 
 async def test_install_records_signature_outcome(client, monkeypatch, tmp_path, hello_ffplugin):
@@ -137,3 +143,23 @@ async def test_marketplace_install_unknown_404(client, monkeypatch, tmp_path):
 
     resp = await client.post("/api/marketplace/does.not.exist/install")
     assert resp.status_code == 404
+
+
+async def test_install_rejects_oversized_upload(client, monkeypatch, tmp_path, hello_ffplugin):
+    """An upload larger than MAX_UPLOAD_SIZE_MB is rejected with 413, and is not
+    buffered whole before the check (it is streamed and aborted early)."""
+    from app.core.config import get_settings
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    monkeypatch.setenv("FLOWFRAME_MAX_UPLOAD_SIZE_MB", "1")  # 1 MiB cap
+    get_settings.cache_clear()
+    try:
+        big = b"\x00" * (2 * 1024 * 1024)  # 2 MiB, over the cap
+        resp = await client.post(
+            "/api/plugins/install",
+            files={"file": ("big.ffplugin", big, "application/octet-stream")},
+        )
+        assert resp.status_code == 413, resp.text
+        assert "maximum upload size" in resp.text
+    finally:
+        get_settings.cache_clear()

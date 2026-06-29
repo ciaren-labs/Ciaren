@@ -123,6 +123,45 @@ def test_atomic_write_leaves_no_tmp(tmp_path):
     assert not (tmp_path / "s.json.tmp").exists()
 
 
+# -- explicit-approval gate --------------------------------------------------
+
+
+def test_unknown_and_new_plugin_is_not_approved(tmp_path):
+    store = PluginStateStore(tmp_path / "s.json")
+    assert store.is_approved("nope") is False
+    store.note_seen("p1")  # discovered, but not yet approved
+    assert store.is_approved("p1") is False
+
+
+def test_set_approved_persists(tmp_path):
+    path = tmp_path / "s.json"
+    store = PluginStateStore(path)
+    store.set_approved("p1", True)
+    store.save()
+    assert PluginStateStore(path).is_approved("p1") is True
+
+
+def test_grant_implies_approval(tmp_path):
+    """Granting any permission (the 'Approve' action) opts the plugin in."""
+    store = PluginStateStore(tmp_path / "s.json")
+    store.note_seen("p1")
+    assert store.is_approved("p1") is False
+    store.grant("p1", [Permission.network])
+    assert store.is_approved("p1") is True
+
+
+def test_legacy_state_without_approved_is_treated_as_approved(tmp_path):
+    """State files written before the `approved` field predate the gate; a plugin
+    recorded then was already loading, so it must stay approved across upgrade."""
+    path = tmp_path / "s.json"
+    path.write_text(
+        json.dumps({"plugins": {"p1": {"enabled": True, "granted_permissions": [], "first_seen": "2020-01-01"}}}),
+        encoding="utf-8",
+    )
+    store = PluginStateStore(path)
+    assert store.is_approved("p1") is True
+
+
 def test_forget_removes_entry(tmp_path):
     store = PluginStateStore(tmp_path / "s.json")
     store.set_enabled("p1", False)

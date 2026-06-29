@@ -16,8 +16,15 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "plugins"
 
 @pytest.fixture(autouse=True)
 def _example_plugin(monkeypatch):
+    from app.plugins.state import PluginStateStore
+
     # ASGITransport doesn't run lifespan, so bridge the example plugin explicitly.
     monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
+    # Plugins require explicit approval before their code loads; pre-approve the
+    # example so the catalog/run flow has its node available.
+    state = PluginStateStore()
+    state.set_approved("community.hello", True)
+    state.save()
     reset_registry()
     get_registry()
     yield

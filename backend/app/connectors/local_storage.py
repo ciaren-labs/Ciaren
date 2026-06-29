@@ -19,6 +19,15 @@ from app.connectors.base import ConnectorError
 from app.connectors.storage_base import FILE_FORMATS, StorageSpec
 
 
+def _is_within(path: Path, base: Path) -> bool:
+    """Whether *path* is contained in *base* (both already resolved)."""
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
 def _read_text(path: Path) -> pd.DataFrame:
     """Read a plain-text file as a single-column DataFrame (one row per line).
     Uses splitlines() — newer pandas rejects sep="\\n"."""
@@ -48,11 +57,32 @@ _READERS: dict[str, Callable[..., pd.DataFrame]] = {
 }
 
 
+def _allowed_roots() -> list[Path]:
+    """Configured confinement directories for local storage, resolved absolute.
+    Empty list means "no confinement" (the historical default)."""
+    from app.core.config import get_settings
+
+    roots: list[Path] = []
+    for raw in get_settings().STORAGE_ALLOWED_ROOTS:
+        raw = raw.strip()
+        if raw:
+            roots.append(Path(raw).expanduser().resolve())
+    return roots
+
+
 class LocalStorageConnector:
     provider_kind = "storage"
 
     def _root(self, spec: StorageSpec) -> Path:
-        return Path(spec.bucket).expanduser().resolve()
+        root = Path(spec.bucket).expanduser().resolve()
+        allowed = _allowed_roots()
+        if allowed and not any(root == base or _is_within(root, base) for base in allowed):
+            raise ConnectorError(
+                f"Storage folder {root} is outside the allowed roots "
+                f"({', '.join(str(b) for b in allowed)}). "
+                "Adjust FLOWFRAME_STORAGE_ALLOWED_ROOTS or the connection folder."
+            )
+        return root
 
     def _safe_path(self, spec: StorageSpec, path: str) -> Path:
         """Resolve *path* relative to root and raise if it escapes the root dir."""

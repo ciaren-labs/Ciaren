@@ -94,11 +94,25 @@ def test_disabled_plugin_is_gated(tmp_path):
     assert _GatedPlugin.loaded is False
 
 
-def test_no_permissions_loads_by_default(tmp_path):
+def test_no_permissions_still_needs_approval(tmp_path):
+    # A zero-permission plugin is NOT auto-loaded: approving means "let this code
+    # run", so it stays pending until the user opts in.
     state = PluginStateStore(tmp_path / "s.json")
+    _, result = _load([], state)
+    assert result.loaded == []
+    assert len(result.gated) == 1
+    assert result.gated[0].reason == "needs_permissions"
+    assert result.gated[0].missing_permissions == []
+    assert _GatedPlugin.loaded is False
+
+
+def test_zero_permission_plugin_loads_once_approved(tmp_path):
+    state = PluginStateStore(tmp_path / "s.json")
+    state.set_approved(PLUGIN_ID, True)
     _, result = _load([], state)
     assert len(result.loaded) == 1
     assert result.gated == []
+    assert _GatedPlugin.loaded is True
 
 
 def test_discovery_is_recorded_in_state(tmp_path):

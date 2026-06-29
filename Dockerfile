@@ -68,6 +68,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev $extra_flags
 
 # ── Startup script: apply migrations then start the server ────────────────────
+# The server binds 0.0.0.0 so the container is reachable. The API is
+# unauthenticated by default and can execute code (pythonTransform, plugin
+# install), so set FLOWFRAME_API_TOKEN (and/or front it with an authenticating
+# reverse proxy) before exposing this container beyond a trusted host. The CLI
+# prints a warning at startup when it binds wide with no token. See SECURITY-AUDIT.md.
 RUN printf '#!/bin/sh\nset -e\nflowframe db upgrade\nexec flowframe serve --host 0.0.0.0 "$@"\n' \
     > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
