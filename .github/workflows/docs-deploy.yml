@@ -135,7 +135,12 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only deploy from main, and only when Pages can actually be deployed: on a
+    # private repo (no paid plan / Pages not enabled) the deploy step fails with
+    # "404 — Ensure GitHub Pages has been enabled". Gating on public visibility
+    # keeps CI green and starts deploying automatically once the repo is public
+    # and Pages source is set to GitHub Actions.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.visibility == 'public'
     needs: build
     runs-on: ubuntu-latest
     # Serialize Pages deployments across the whole repo, but never cancel a
