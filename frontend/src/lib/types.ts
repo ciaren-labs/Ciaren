@@ -523,6 +523,7 @@ export interface CatalogNode {
   permissions: string[];
   requires_ml: boolean;
   is_model_sink: boolean;
+  is_flow_terminal?: boolean;
   config_schema: Record<string, unknown>;
 }
 

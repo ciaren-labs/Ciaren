@@ -96,6 +96,14 @@ TRAIN_NODE_TYPES: tuple[str, ...] = (
 # these in lieu of an OUTPUT_TYPES node.
 ML_OUTPUT_NODES: frozenset[str] = frozenset(TRAIN_NODE_TYPES)
 
+# Report nodes whose result is a score/metrics frame: a valid flow terminal even
+# without a downstream file-output node (the scores show in the inspector), though
+# the frame can also be wired onward to an output. Cross-validation is one.
+ML_REPORT_NODES: frozenset[str] = frozenset({"mlCrossValidate"})
+
+# Every node that makes a flow "complete" on its own (no output node required).
+FLOW_TERMINAL_NODES: frozenset[str] = ML_OUTPUT_NODES | ML_REPORT_NODES
+
 # Nodes that emit more than one named output frame. The executor stores a frame
 # per (node, handle); downstream edges select which one via ``sourceHandle``. The
 # first handle listed is the node's *primary* output — the one sampled for the

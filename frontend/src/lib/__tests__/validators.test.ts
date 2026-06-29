@@ -82,6 +82,7 @@ const COVERED = new Set<string>([
   "mlPredict",
   "mlEvaluate",
   "featureImportance",
+  "mlCrossValidate",
   "assertNotNull",
   "assertUnique",
   "assertValueRange",
@@ -686,4 +687,39 @@ describe("featureImportance", () => {
   it("accepts an empty config", () => accepts("featureImportance", {}));
   it("accepts a top_n", () => accepts("featureImportance", { top_n: 10 }));
   it("rejects a top_n below 1", () => rejects("featureImportance", { top_n: 0 }, "top_n"));
+});
+
+describe("mlCrossValidate", () => {
+  it("accepts a k-fold config", () =>
+    accepts("mlCrossValidate", {
+      model_type: "random_forest_classifier",
+      target_column: "y",
+      cv_strategy: "kfold",
+      n_splits: 5,
+      seed: 42,
+    }));
+  it("requires a seed", () =>
+    rejects("mlCrossValidate", { model_type: "ridge", target_column: "y", cv_strategy: "kfold" }, "seed"));
+  it("rejects an unsupervised model", () =>
+    rejects("mlCrossValidate", { model_type: "kmeans", target_column: "y", cv_strategy: "kfold", seed: 1 }, "model_type"));
+  it("requires a target column", () =>
+    rejects("mlCrossValidate", { model_type: "ridge", cv_strategy: "kfold", seed: 1 }, "target_column"));
+  it("rejects an unknown strategy", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", cv_strategy: "bogus", seed: 1 },
+      "cv_strategy",
+    ));
+  it("requires a group column for group k-fold", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", cv_strategy: "group_kfold", seed: 1 },
+      "group_column",
+    ));
+  it("rejects the target appearing in features (leakage)", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", feature_columns: ["x", "y"], cv_strategy: "kfold", seed: 1 },
+      "feature_columns",
+    ));
 });

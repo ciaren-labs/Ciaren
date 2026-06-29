@@ -131,6 +131,53 @@ Takes a train node's **model** output and returns `feature_name` / `importance` 
 `rank`. Works for tree-based and linear models; SVM (non-linear) and KNN are not
 supported.
 
+## Cross-Validate
+
+Estimates how well a model **generalizes** by re-fitting and scoring it across
+resampling folds, rather than reporting a single train score. It does not persist
+a model — it returns a tidy `fold | <metric> …` frame (one row per fold) and
+surfaces the per-fold scores plus the mean/std on the run's ML view. Like the
+train nodes, preprocessing is bundled into the pipeline and refit **inside each
+fold**, so the scores aren't inflated by leakage.
+
+It connects after your cleaning/feature steps and is a valid flow terminal on its
+own (no output node required), or you can wire its scores frame onward to an
+output.
+
+| Field | Notes |
+| --- | --- |
+| Model | The classification or regression model to evaluate. |
+| Target column | The column the model learns to predict. |
+| Feature columns | Optional. Empty = every column except the target. |
+| Strategy | The resampling scheme (see below). |
+| Folds / Splits | How many folds to evaluate (ignored by Leave-One-Out). |
+| Test size | For Shuffle Split strategies — fraction held out each split. |
+| Repeats | For Repeated K-Fold — how many times to repeat with a fresh shuffle. |
+| Group column | For Group K-Fold — rows sharing a value stay in one fold. |
+| Scoring | Optional. Empty uses a sensible default set for the task. |
+| Random seed | Required — reproduces the same folds every run. |
+
+Strategies:
+
+| Strategy | When to use |
+| --- | --- |
+| K-Fold | The default — split rows into k equal folds. |
+| Stratified K-Fold | Classification with imbalanced classes (preserves class balance per fold). |
+| Shuffle Split | Repeated random train/test splits (control the held-out fraction). |
+| Stratified Shuffle Split | Shuffle Split that preserves class balance. |
+| Group K-Fold | Keep all rows of a group together (no leakage across groups). |
+| Time Series Split | Ordered data — train on the past, test on the future. |
+| Repeated K-Fold | K-Fold repeated several times for a more stable estimate. |
+| Leave-One-Out | Each row is its own test fold — small datasets only. |
+
+Default scoring is accuracy + weighted F1 (classification) and R² + RMSE
+(regression). `neg_*` sklearn scores (RMSE, MAE, …) are negated and renamed in
+the report so they read as positive, lower-is-better numbers.
+
+Guardrails: the seed is required, the target can't also be a feature (leakage),
+stratified strategies require a classification model, Group K-Fold requires a
+group column, and the fold count can't exceed the row count.
+
 ## See also
 
 - [ML Quick Start](../guide/ml-quickstart.md)

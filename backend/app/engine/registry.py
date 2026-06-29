@@ -109,6 +109,7 @@ def _register_ml_nodes() -> None:
     if not ml_core_available():
         return
     before = set(_REGISTRY)
+    from app.engine.transformations.ml.cross_validation import CrossValidateTransformation
     from app.engine.transformations.ml.evaluate import MLEvaluateTransformation
     from app.engine.transformations.ml.feature_engineering import (
         EncodeCategoriesTransformation,
@@ -141,6 +142,7 @@ def _register_ml_nodes() -> None:
         MLPredictTransformation(),
         MLEvaluateTransformation(),
         FeatureImportanceTransformation(),
+        CrossValidateTransformation(),
     )
     _ML_TYPES.update(set(_REGISTRY) - before)
 
