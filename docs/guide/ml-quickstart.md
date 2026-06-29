@@ -81,6 +81,7 @@ Open a flow and expand **Machine Learning** in the node palette:
 | **Predict** | Score rows with a trained model. |
 | **Evaluate** | Compute metrics from predictions. |
 | **Feature Importance** | Rank which features the model relied on. |
+| **Cross-Validate** | Estimate generalization with k-fold, stratified, time-series, group, or other CV strategies. |
 
 ## Build the flow
 

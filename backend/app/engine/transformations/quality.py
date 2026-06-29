@@ -338,6 +338,78 @@ class AssertExpressionTransformation(_BaseAssertion):
 
 
 # ---------------------------------------------------------------------------
+# assertValuesInSet
+# ---------------------------------------------------------------------------
+
+
+class AssertValuesInSetTransformation(_BaseAssertion):
+    """Fail/warn when a column contains values outside an allowed set (a domain
+    check for categorical columns — e.g. status in {'paid','pending','failed'})."""
+
+    type = "assertValuesInSet"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        if not config.get("column"):
+            raise ValueError("assertValuesInSet requires a 'column'")
+        allowed = config.get("allowed")
+        if not isinstance(allowed, list) or len(allowed) == 0:
+            raise ValueError("assertValuesInSet requires a non-empty 'allowed' list")
+        mode = config.get("mode", "error")
+        if mode not in _VALID_MODES:
+            raise ValueError(f"assertValuesInSet 'mode' must be one of {_VALID_MODES}")
+
+    def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
+        col = config["column"]
+        if col not in pdf.columns:
+            raise ValueError(f"assertValuesInSet: column {col!r} not found")
+        allowed = config["allowed"]
+        allow_null = config.get("allow_null", True)
+        in_set = pdf[col].isin(allowed)
+        if allow_null:
+            in_set = in_set | pdf[col].isna()
+        violating = pdf[~in_set]
+        count = int((~in_set).sum())
+        passed = count == 0
+        return _CheckResult(
+            passed=passed,
+            violation_count=count,
+            message=f"assertValuesInSet: {count} row(s) in {col!r} have values outside {allowed}",
+            violating_sample=_sample(violating) if not passed else [],
+        )
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        allowed = config["allowed"]
+        allow_null = config.get("allow_null", True)
+        mode = config.get("mode", "error")
+        in_set = f"{dst}[{col!r}].isin({allowed!r})"
+        if allow_null:
+            in_set += f" | {dst}[{col!r}].isna()"
+        msg = f'f"assertValuesInSet: {{(~_set_mask).sum()}} row(s) in {col!r} outside the allowed set"'
+        action = self._violation_action(mode, msg)
+        return f"{dst} = {src}\n_set_mask = {in_set}\nif not _set_mask.all():\n    {action}"
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src, dst = input_vars["in"], output_vars["out"]
+        col = config["column"]
+        allowed = config["allowed"]
+        allow_null = config.get("allow_null", True)
+        mode = config.get("mode", "error")
+        in_set = f"pl.col({col!r}).is_in({allowed!r})"
+        if allow_null:
+            in_set += f" | pl.col({col!r}).is_null()"
+        msg = f'f"assertValuesInSet: {{_set_violations}} row(s) in {col!r} outside the allowed set"'
+        action = self._violation_action(mode, msg)
+        return (
+            f"{dst} = {src}\n"
+            f"_set_violations = {dst}.filter(~({in_set})).height\n"
+            f"if _set_violations > 0:\n"
+            f"    {action}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # assertRowCount
 # ---------------------------------------------------------------------------
 

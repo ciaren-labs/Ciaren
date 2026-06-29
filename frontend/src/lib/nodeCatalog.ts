@@ -39,6 +39,10 @@ export interface NodeTypeDef {
   /** A terminal that persists a result without a file-output node (mlTrain logs a
    *  model to MLflow), so a flow ending here is still "complete". */
   isModelSink?: boolean;
+  /** A node that completes a flow on its own — a model sink or a report node like
+   *  cross-validation (emits a scores frame). The editor skips the "add an output
+   *  node" check for flows ending here. */
+  isFlowTerminal?: boolean;
   /** Only available when the ML extension is installed + enabled on the server. */
   requiresMl?: boolean;
   /** Registered for backward-compat but not shown in the palette (superseded). */
@@ -161,6 +165,24 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Keep only the selected columns.",
   },
   {
+    type: "combineColumns",
+    label: "Combine Columns",
+    category: "columns",
+    defaultConfig: { columns: [], new_column: "", separator: " ", keep_original: true },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Join several columns into one text column with a separator.",
+  },
+  {
+    type: "coalesceColumns",
+    label: "Coalesce Columns",
+    category: "columns",
+    defaultConfig: { columns: [], new_column: "", keep_original: true },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Take the first non-null value across several columns into a new column.",
+  },
+  {
     type: "removeDuplicates",
     label: "Remove Duplicates",
     category: "clean",
@@ -177,6 +199,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     inputHandles: ["in"],
     hasOutput: true,
     description: "Keep rows matching a condition.",
+  },
+  {
+    type: "filterExpression",
+    label: "Filter by Expression",
+    category: "clean",
+    defaultConfig: { expression: "" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Keep rows where a boolean expression is true (e.g. amount > 100 and status == 'paid').",
   },
   {
     type: "sortRows",
@@ -334,6 +365,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Reshape long rows into a wide aggregated table.",
   },
   {
+    type: "explodeRows",
+    label: "Split to Rows",
+    category: "reshape",
+    defaultConfig: { column: "", delimiter: "," },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Expand a delimited or list column into one row per value.",
+  },
+  {
     type: "splitColumn",
     label: "Split Column",
     category: "columns",
@@ -399,6 +439,50 @@ export const NODE_TYPES: NodeTypeDef[] = [
     hasOutput: true,
     description: "Build a column from if/elif/else rules (CASE-WHEN).",
   },
+  {
+    type: "rollingAggregate",
+    label: "Rolling Aggregate",
+    category: "analytics",
+    defaultConfig: {
+      target: "",
+      function: "mean",
+      window: 3,
+      min_periods: null,
+      partition_by: [],
+      order_by: [],
+      descending: false,
+      new_column: "",
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Moving mean/sum/min/max/std/median over a window of N rows.",
+  },
+  {
+    type: "rowDifference",
+    label: "Row Difference",
+    category: "analytics",
+    defaultConfig: {
+      target: "",
+      method: "diff",
+      periods: 1,
+      partition_by: [],
+      order_by: [],
+      descending: false,
+      new_column: "",
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Difference or percent change between consecutive rows.",
+  },
+  {
+    type: "dateDifference",
+    label: "Date Difference",
+    category: "analytics",
+    defaultConfig: { start_column: "", end_column: "", unit: "days", new_column: "" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Difference between two date columns (end − start) in days, hours, etc.",
+  },
   // ----- Advanced -----
   {
     type: "pythonTransform",
@@ -454,6 +538,15 @@ export const NODE_TYPES: NodeTypeDef[] = [
     inputHandles: ["in"],
     hasOutput: true,
     description: "Fail or warn when the row count falls outside declared bounds.",
+  },
+  {
+    type: "assertValuesInSet",
+    label: "Assert Values In Set",
+    category: "quality",
+    defaultConfig: { column: "", allowed: [], allow_null: true, mode: "error" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    description: "Fail or warn when a column has values outside an allowed set.",
   },
   // ----- Machine Learning -----
   {
@@ -643,6 +736,31 @@ export const NODE_TYPES: NodeTypeDef[] = [
     modelInputHandles: ["model"],
     hasOutput: true,
     description: "Rank which features a trained model relied on most.",
+  },
+  {
+    type: "mlCrossValidate",
+    label: "Cross-Validate",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "random_forest_classifier",
+      target_column: "",
+      feature_columns: [],
+      cv_strategy: "kfold",
+      n_splits: 5,
+      n_repeats: 1,
+      test_size: 0.2,
+      shuffle: true,
+      group_column: null,
+      scoring: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description:
+      "Estimate model performance with k-fold, stratified, time-series, group, or other CV strategies.",
   },
   // ----- Outputs -----
   {
