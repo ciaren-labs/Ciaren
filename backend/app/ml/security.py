@@ -11,6 +11,7 @@ Two attack surfaces are covered (see docs/ml-architecture.md §6):
    be JSON-native values only — never code. We never ``eval``/``exec`` them; a value
    that looks like code is passed through as a literal string sklearn will reject.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,9 +19,16 @@ from typing import Any
 
 # MLflow URI schemes the client resolves itself (it validates run/model existence).
 _ALLOWED_MODEL_URI_SCHEMES = ("runs:/", "models:/")
-# Safe on-disk model formats. joblib for sklearn pipelines; json for XGBoost native.
+# On-disk model formats we load. ``.json`` (XGBoost native) is genuinely code-free.
+# ``.joblib`` is NOT — joblib serializes with pickle under the hood, so loading a
+# crafted ``.joblib`` can execute arbitrary code exactly like a raw ``.pkl``. We
+# still allow it because sklearn pipelines need it, but the only thing protecting
+# this path is the artifact-root confinement in ``validate_model_uri`` (the file
+# must already live under a trusted server directory). Do not treat ``.joblib`` as
+# "safe because it isn't a pickle" — it is a pickle. See SECURITY-AUDIT.md (#3).
 _ALLOWED_MODEL_SUFFIXES = (".joblib", ".json")
-# Explicitly named so the error is unambiguous about *why* a pickle is refused.
+# Refused outright: the bare pickle extensions, so an attacker can't drop a model
+# with an obviously-executable suffix. (This does not make ``.joblib`` safe.)
 _REJECTED_MODEL_SUFFIXES = (".pkl", ".pickle")
 
 
