@@ -273,6 +273,76 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     example: "if age >= 18 AND country == 'US' → 'us_adult'; else 'other'.",
   },
 
+  filterExpression: {
+    summary: "Keep rows where a boolean expression is true. Combine multiple conditions in one expression.",
+    fields: [{ name: "Expression", desc: "A boolean expression; same syntax as Calculated Column." }],
+    example: "amount > 100 and status == 'paid'",
+    tips: ["Use Filter Rows for a simple single-column condition; use this when you need AND/OR across columns."],
+  },
+  combineColumns: {
+    summary: "Join several columns into one text column with a separator (the inverse of Split Column).",
+    fields: [
+      { name: "Columns to combine", desc: "Joined left-to-right in this order." },
+      { name: "New column", desc: "Where the combined text is written." },
+      { name: "Separator", desc: "Text inserted between values (default a space)." },
+    ],
+    tips: ["Null cells become empty strings, so the separator's position is preserved."],
+  },
+  coalesceColumns: {
+    summary: "Take the first non-null value across several columns into a new column.",
+    fields: [
+      { name: "Columns", desc: "Checked left-to-right; the first non-null wins." },
+      { name: "New column", desc: "Where the result is written." },
+    ],
+    example: "phone_mobile, phone_home, phone_work → phone.",
+  },
+  explodeRows: {
+    summary: "Expand a column into multiple rows — one per value. Other columns are repeated.",
+    fields: [
+      { name: "Column", desc: "The column to expand." },
+      { name: "Delimiter", desc: "Split text on this delimiter first; leave empty to explode an existing list column." },
+    ],
+    example: "\"x;y;z\" with delimiter ';' → three rows.",
+  },
+  rollingAggregate: {
+    summary: "Moving aggregate (mean/sum/min/max/std/median) over a window of N rows.",
+    fields: [
+      { name: "Target", desc: "The numeric column to aggregate." },
+      { name: "Function", desc: "How to combine the rows in each window." },
+      { name: "Window", desc: "Number of rows per window." },
+      { name: "Order by", desc: "Orders rows within the window (e.g. a date)." },
+      { name: "Partition by", desc: "Optional — restart the window within each group." },
+    ],
+    tips: ["Set Min periods to allow partial windows at the start; otherwise the first rows are null."],
+  },
+  rowDifference: {
+    summary: "Difference or percent change between consecutive rows — deltas and growth rates.",
+    fields: [
+      { name: "Target", desc: "The numeric column to compare." },
+      { name: "Method", desc: "Absolute difference or percent change." },
+      { name: "Periods", desc: "How many rows back to compare against." },
+      { name: "Order by / Partition by", desc: "Order rows (e.g. by date) and optionally compare within groups." },
+    ],
+  },
+  dateDifference: {
+    summary: "Difference between two date columns (end − start), in days, hours, minutes, seconds, or weeks.",
+    fields: [
+      { name: "Start / End date column", desc: "The two dates; the result is end − start." },
+      { name: "Unit", desc: "The unit of the resulting number." },
+      { name: "New column", desc: "Where the difference is written." },
+    ],
+    tips: ["Unparseable dates become null rather than failing the run."],
+  },
+  assertValuesInSet: {
+    summary: "Fail or warn when a column contains values outside an allowed set (a domain check).",
+    fields: [
+      { name: "Column", desc: "The column whose values are checked." },
+      { name: "Allowed values", desc: "The permitted set; anything else is a violation." },
+      { name: "On violation", desc: "Error stops the run; warn records the result and continues." },
+    ],
+    example: "status in {paid, pending, failed}.",
+  },
+
   sqlInput: {
     summary: "Read rows live from a database (table or custom SQL) at run time.",
     fields: [
@@ -446,6 +516,20 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     summary: "Ranks which features a trained model relied on most.",
     fields: [{ name: "Top N", desc: "Optional limit to the N most important features." }],
     tips: ["Connect the model output of Train Model. Works for tree and linear models (not SVM-rbf or KNN)."],
+  },
+  mlCrossValidate: {
+    summary: "Estimates how well a model generalizes by scoring it across resampling folds. Returns one row per fold.",
+    fields: [
+      { name: "Model", desc: "The classification or regression model to evaluate." },
+      { name: "Target column", desc: "The column the model learns to predict." },
+      { name: "Strategy", desc: "K-Fold, Stratified, Shuffle, Time Series, Group, Repeated, or Leave-One-Out." },
+      { name: "Folds / splits", desc: "How many folds to evaluate (ignored by Leave-One-Out)." },
+      { name: "Scoring", desc: "Optional. Empty uses a sensible default set for the task." },
+    ],
+    tips: [
+      "Use Stratified for imbalanced classes, Time Series for ordered data, and Group to keep a group within one fold.",
+      "Preprocessing is refit inside each fold, so scores aren't inflated by leakage.",
+    ],
   },
 };
 

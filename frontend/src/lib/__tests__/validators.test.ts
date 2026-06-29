@@ -58,6 +58,14 @@ const COVERED = new Set<string>([
   "mapValues",
   "windowFunction",
   "conditionalColumn",
+  "filterExpression",
+  "combineColumns",
+  "coalesceColumns",
+  "explodeRows",
+  "rollingAggregate",
+  "rowDifference",
+  "dateDifference",
+  "assertValuesInSet",
   "pythonTransform",
   "jsonInput",
   "textInput",
@@ -82,6 +90,7 @@ const COVERED = new Set<string>([
   "mlPredict",
   "mlEvaluate",
   "featureImportance",
+  "mlCrossValidate",
   "assertNotNull",
   "assertUnique",
   "assertValueRange",
@@ -686,4 +695,104 @@ describe("featureImportance", () => {
   it("accepts an empty config", () => accepts("featureImportance", {}));
   it("accepts a top_n", () => accepts("featureImportance", { top_n: 10 }));
   it("rejects a top_n below 1", () => rejects("featureImportance", { top_n: 0 }, "top_n"));
+});
+
+describe("mlCrossValidate", () => {
+  it("accepts a k-fold config", () =>
+    accepts("mlCrossValidate", {
+      model_type: "random_forest_classifier",
+      target_column: "y",
+      cv_strategy: "kfold",
+      n_splits: 5,
+      seed: 42,
+    }));
+  it("requires a seed", () =>
+    rejects("mlCrossValidate", { model_type: "ridge", target_column: "y", cv_strategy: "kfold" }, "seed"));
+  it("rejects an unsupervised model", () =>
+    rejects("mlCrossValidate", { model_type: "kmeans", target_column: "y", cv_strategy: "kfold", seed: 1 }, "model_type"));
+  it("requires a target column", () =>
+    rejects("mlCrossValidate", { model_type: "ridge", cv_strategy: "kfold", seed: 1 }, "target_column"));
+  it("rejects an unknown strategy", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", cv_strategy: "bogus", seed: 1 },
+      "cv_strategy",
+    ));
+  it("requires a group column for group k-fold", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", cv_strategy: "group_kfold", seed: 1 },
+      "group_column",
+    ));
+  it("rejects the target appearing in features (leakage)", () =>
+    rejects(
+      "mlCrossValidate",
+      { model_type: "ridge", target_column: "y", feature_columns: ["x", "y"], cv_strategy: "kfold", seed: 1 },
+      "feature_columns",
+    ));
+});
+
+describe("filterExpression", () => {
+  it("accepts a non-empty expression", () => accepts("filterExpression", { expression: "a > 1" }));
+  it("rejects an empty expression", () => rejects("filterExpression", { expression: "" }, "expression"));
+});
+
+describe("combineColumns", () => {
+  it("accepts two+ columns and a name", () =>
+    accepts("combineColumns", { columns: ["a", "b"], new_column: "c", separator: "-" }));
+  it("rejects fewer than two columns", () =>
+    rejects("combineColumns", { columns: ["a"], new_column: "c" }, "columns"));
+  it("requires a new column name", () => rejects("combineColumns", { columns: ["a", "b"] }, "new_column"));
+});
+
+describe("coalesceColumns", () => {
+  it("accepts two+ columns and a name", () =>
+    accepts("coalesceColumns", { columns: ["a", "b"], new_column: "c" }));
+  it("rejects fewer than two columns", () =>
+    rejects("coalesceColumns", { columns: ["a"], new_column: "c" }, "columns"));
+});
+
+describe("explodeRows", () => {
+  it("accepts a column with a delimiter", () => accepts("explodeRows", { column: "tags", delimiter: ";" }));
+  it("accepts a column without a delimiter (list column)", () => accepts("explodeRows", { column: "tags" }));
+  it("requires a column", () => rejects("explodeRows", { delimiter: ";" }, "column"));
+});
+
+describe("rollingAggregate", () => {
+  it("accepts a valid config", () =>
+    accepts("rollingAggregate", { target: "v", function: "mean", window: 3, order_by: ["t"], new_column: "r" }));
+  it("rejects an unknown function", () =>
+    rejects("rollingAggregate", { target: "v", function: "variance", window: 3, new_column: "r" }, "function"));
+  it("rejects a window below 1", () =>
+    rejects("rollingAggregate", { target: "v", function: "mean", window: 0, new_column: "r" }, "window"));
+  it("requires target and new column", () =>
+    rejects("rollingAggregate", { function: "mean", window: 3 }, "target"));
+});
+
+describe("rowDifference", () => {
+  it("accepts diff and pct_change", () => {
+    accepts("rowDifference", { target: "v", method: "diff", new_column: "d" });
+    accepts("rowDifference", { target: "v", method: "pct_change", periods: 2, new_column: "p" });
+  });
+  it("rejects an unknown method", () =>
+    rejects("rowDifference", { target: "v", method: "delta", new_column: "d" }, "method"));
+  it("rejects periods below 1", () =>
+    rejects("rowDifference", { target: "v", method: "diff", periods: 0, new_column: "d" }, "periods"));
+});
+
+describe("dateDifference", () => {
+  it("accepts two columns, a unit and a name", () =>
+    accepts("dateDifference", { start_column: "s", end_column: "e", unit: "days", new_column: "d" }));
+  it("rejects an unknown unit", () =>
+    rejects("dateDifference", { start_column: "s", end_column: "e", unit: "months", new_column: "d" }, "unit"));
+  it("requires the end column", () =>
+    rejects("dateDifference", { start_column: "s", unit: "days", new_column: "d" }, "end_column"));
+});
+
+describe("assertValuesInSet", () => {
+  it("accepts a column and an allowed set", () =>
+    accepts("assertValuesInSet", { column: "status", allowed: ["paid", "pending"], mode: "error" }));
+  it("rejects an empty allowed set", () =>
+    rejects("assertValuesInSet", { column: "status", allowed: [] }, "allowed"));
+  it("requires a column", () => rejects("assertValuesInSet", { allowed: ["a"] }, "column"));
 });

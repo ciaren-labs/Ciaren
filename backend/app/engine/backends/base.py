@@ -157,6 +157,70 @@ class EngineBackend(Protocol):
         new_column: str,
     ) -> AnyFrame: ...
 
+    # -- New nodes (derive / analytics) --------------------------------
+    def filter_expr(self, df: AnyFrame, expression: str) -> AnyFrame: ...
+    def combine_columns(
+        self,
+        df: AnyFrame,
+        columns: list[str],
+        new_column: str,
+        separator: str,
+        keep_original: bool,
+    ) -> AnyFrame: ...
+    def coalesce_columns(
+        self,
+        df: AnyFrame,
+        columns: list[str],
+        new_column: str,
+        keep_original: bool,
+    ) -> AnyFrame: ...
+    def explode_rows(self, df: AnyFrame, column: str, delimiter: str | None) -> AnyFrame: ...
+    def rolling_aggregate(
+        self,
+        df: AnyFrame,
+        target: str,
+        function: str,
+        window: int,
+        min_periods: int | None,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> AnyFrame: ...
+    def row_difference(
+        self,
+        df: AnyFrame,
+        target: str,
+        method: str,
+        periods: int,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> AnyFrame: ...
+    def date_difference(
+        self,
+        df: AnyFrame,
+        start_column: str,
+        end_column: str,
+        unit: str,
+        new_column: str,
+    ) -> AnyFrame: ...
+
+
+# Seconds per unit for the Date Difference node — shared so both engines and the
+# codegen agree on the conversion factor.
+DATE_UNIT_SECONDS: dict[str, int] = {
+    "seconds": 1,
+    "minutes": 60,
+    "hours": 3600,
+    "days": 86400,
+    "weeks": 604800,
+}
+
+# Rolling/row-difference aggregation function names allowed on the analytics nodes.
+ROLLING_FUNCS: frozenset[str] = frozenset({"mean", "sum", "min", "max", "std", "median"})
+
 
 def rule_conditions(rule: dict[str, Any]) -> list[dict[str, Any]]:
     """The conditions of a conditionalColumn rule, as a uniform list.
