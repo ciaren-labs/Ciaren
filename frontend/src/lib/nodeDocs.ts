@@ -447,6 +447,20 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     fields: [{ name: "Top N", desc: "Optional limit to the N most important features." }],
     tips: ["Connect the model output of Train Model. Works for tree and linear models (not SVM-rbf or KNN)."],
   },
+  mlCrossValidate: {
+    summary: "Estimates how well a model generalizes by scoring it across resampling folds. Returns one row per fold.",
+    fields: [
+      { name: "Model", desc: "The classification or regression model to evaluate." },
+      { name: "Target column", desc: "The column the model learns to predict." },
+      { name: "Strategy", desc: "K-Fold, Stratified, Shuffle, Time Series, Group, Repeated, or Leave-One-Out." },
+      { name: "Folds / splits", desc: "How many folds to evaluate (ignored by Leave-One-Out)." },
+      { name: "Scoring", desc: "Optional. Empty uses a sensible default set for the task." },
+    ],
+    tips: [
+      "Use Stratified for imbalanced classes, Time Series for ordered data, and Group to keep a group within one fold.",
+      "Preprocessing is refit inside each fold, so scores aren't inflated by leakage.",
+    ],
+  },
 };
 
 export function getNodeDoc(type: string | undefined): NodeDoc | undefined {

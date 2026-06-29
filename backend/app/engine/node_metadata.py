@@ -445,6 +445,26 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "Rank which features a trained model relied on most.",
         {"top_n": None},
     ),
+    NodeMeta(
+        "mlCrossValidate",
+        "Cross-Validate",
+        "ml",
+        "Estimate model performance with k-fold, stratified, time-series, group, or other CV strategies.",
+        {
+            "model_type": "random_forest_classifier",
+            "target_column": "",
+            "feature_columns": [],
+            "cv_strategy": "kfold",
+            "n_splits": 5,
+            "n_repeats": 1,
+            "test_size": 0.2,
+            "shuffle": True,
+            "group_column": None,
+            "scoring": [],
+            "hyperparameters": {},
+            "seed": 42,
+        },
+    ),
     # ----- Outputs -----
     NodeMeta(
         "fileOutput",

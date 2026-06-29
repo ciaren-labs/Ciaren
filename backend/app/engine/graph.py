@@ -1,9 +1,8 @@
 from collections import defaultdict, deque
 from typing import Any
 
-from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import (
-    ML_OUTPUT_NODES,
+    FLOW_TERMINAL_NODES,
     MODEL_INPUT_HANDLES,
     MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
@@ -12,6 +11,7 @@ from app.engine.node_kinds import (
     edge_carries_model,
     is_model_input_handle,
 )
+from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 
 
@@ -39,9 +39,10 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
 
     if not input_nodes:
         raise GraphValidationError("Graph must have at least one input node")
-    # An mlTrain node is a valid terminal (it persists a model to MLflow), so a
-    # train-only flow needs no file-output node.
-    has_ml_output = any(n["type"] in ML_OUTPUT_NODES for n in nodes)
+    # An mlTrain node (persists a model) or a report node like cross-validation
+    # (emits a scores frame) is a valid terminal, so such a flow needs no
+    # file-output node.
+    has_ml_output = any(n["type"] in FLOW_TERMINAL_NODES for n in nodes)
     if require_output and not output_nodes and not has_ml_output:
         raise GraphValidationError("Graph must have at least one output node")
 
