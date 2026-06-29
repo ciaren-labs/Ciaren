@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Strict static checks for the pythonTransform node. Off by default so existing
+    # scripts (e.g. `import numpy`) keep working. When on, a script is rejected at
+    # save/preview/run time if it uses a dangerous import (os/sys/subprocess/…), a
+    # code-exec builtin (eval/exec/open/__import__/…), or a dunder-traversal
+    # attribute, and it runs with a restricted set of builtins. Defense in depth —
+    # not a sandbox (Python can't be fully locked down in-process). See
+    # SECURITY-AUDIT.md (finding #2 / the pythonTransform notes).
+    PYTHON_TRANSFORM_STRICT: bool = False
+
     # SSRF guard for outbound connector hosts. Off by default because the common
     # local-first setup legitimately connects to localhost / private-network
     # databases and object stores. Turn it ON for shared/networked deployments

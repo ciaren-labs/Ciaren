@@ -77,6 +77,11 @@ _ENV_TEMPLATE = """\
 # connection from reading/writing arbitrary server files.
 # FLOWFRAME_STORAGE_ALLOWED_ROOTS=["/srv/flowframe/data"]
 
+# Strict static checks for the pythonTransform node: reject dangerous imports/
+# builtins/dunders at save/run time and run with restricted builtins. Defense in
+# depth, not a sandbox. Off by default so existing scripts keep working.
+# FLOWFRAME_PYTHON_TRANSFORM_STRICT=false
+
 # --- Machine learning (optional; requires `pip install flowframe[ml]`) --------
 # `flowframe init` provisions a default LOCAL MLflow instance below. To use an
 # existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
@@ -478,6 +483,7 @@ def _info(args: argparse.Namespace) -> None:
         "api_token_set": s.API_TOKEN is not None,
         "webhook_secret_set": s.WEBHOOK_SECRET is not None,
         "connector_block_private_hosts": s.CONNECTOR_BLOCK_PRIVATE_HOSTS,
+        "python_transform_strict": s.PYTHON_TRANSFORM_STRICT,
         "ml_enabled": s.ML_ENABLED,
         "mlflow_tracking_uri": s.MLFLOW_TRACKING_URI,
         "ml_artifact_dir": s.ml_artifact_path,
