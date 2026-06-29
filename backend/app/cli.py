@@ -829,6 +829,9 @@ def _plugin_toggle(args: argparse.Namespace, *, enable: bool) -> None:
 
     state = get_plugin_state()
     state.set_enabled(args.plugin_id, enable)
+    if enable:
+        # Enabling is an explicit opt-in to run the plugin's (unsandboxed) code.
+        state.set_approved(args.plugin_id, True)
     state.save()
     print(f"{'Enabled' if enable else 'Disabled'} {args.plugin_id}. Restart `flowframe serve` to apply.")
 

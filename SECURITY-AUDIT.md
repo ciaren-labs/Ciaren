@@ -81,23 +81,37 @@ substitute for per-user auth. The token does not retrofit auth onto the SSE log
 stream consumed via `EventSource` (browsers can't set headers there) — the bundled
 UI doesn't use it, but a custom client would need a header-capable SSE reader.
 
-### #2 — Plugin permission model is load-time only; runtime is not sandboxed — **Open (High, design)**
+### #2 — Plugin permission model is load-time only; runtime is not sandboxed — **Partially mitigated**
 
 The permission "gate" (`app/plugins/loader.py` `_gate`) only decides **whether to
 import** a plugin. Once imported, plugin code runs with full process privileges —
-Python has no real sandbox. Consequences:
+Python has no real sandbox, so this cannot be fully fixed. Two concrete issues
+were addressed:
 
-- A plugin declaring `permissions: []` loads **without any approval prompt** and
-  can still open sockets, read files, spawn subprocesses, etc.
-- Entry-point (pip-installed) plugins and manifest-less candidates bypass the gate
-  entirely.
+- **Silent load of zero-permission plugins (fixed).** Previously a drop-in /
+  marketplace plugin declaring `permissions: []` loaded with **no approval prompt
+  at all**. Now a discovered plugin requires an **explicit user opt-in before any
+  of its code is imported**, even with zero declared permissions — approval means
+  "let this code run", not merely "grant these capabilities". Implemented via a new
+  `approved` flag on the persisted plugin state (`app/plugins/state.py`):
+  `is_approved`/`set_approved`, with enabling or granting counting as approval. The
+  loader keeps an unapproved plugin pending (`needs_permissions` → shown as "Needs
+  approval"). Backward-compatible: state entries written before the flag are read
+  as already-approved, so an upgrade never silently re-gates trusted plugins.
+- **Honest disclosure (already strong, reinforced).** The plugins UI already warns
+  prominently that plugins are *not sandboxed* and that "permissions are a heads-up,
+  not a security boundary". The per-plugin approval notice now also covers the
+  zero-permission case ("approving still runs its code on this machine with your
+  access"). Backend docstrings (`state.py`, `loader.py`, install route) were
+  corrected to stop implying the permission list is runtime-enforced.
 
-The code's docstrings are candid about this, but the management UI presents granted
-permissions as if they constrained runtime behavior — they do not.
+Tests: `tests/plugins/test_state.py` (approval + legacy read),
+`tests/plugins/test_loader_gating.py` (zero-permission stays pending until
+approved), and updated API/run tests.
 
-**Recommendation:** Make it explicit in the UI/docs that installing/enabling a
-plugin means running its code with your privileges; the permission list is a
-disclosure/UX boundary, not a sandbox.
+**Still inherent:** entry-point (pip-installed) plugins load deliberately and are
+not gated; and no mechanism constrains what approved code does at runtime. Treat
+enabling a plugin as running arbitrary code with your account's access.
 
 ### #3 — `.joblib` model loading treated as a "non-pickle / safe" format — **Fixed**
 
@@ -180,7 +194,7 @@ unsigned package.
 | # | Area | Severity | Status |
 |---|------|----------|--------|
 | 1 | Unauthenticated API + RCE when exposed (Docker `0.0.0.0`) | High (contextual) | **Mitigated** (opt-in `FLOWFRAME_API_TOKEN`) |
-| 2 | Plugin permissions are load-time only, no sandbox | High (design) | Open (documented) |
+| 2 | Plugin permissions are load-time only, no sandbox | High (design) | **Partially mitigated** (explicit approval + disclosure) |
 | 3 | `.joblib` mislabeled as non-pickle/safe | Medium | **Fixed** |
 | 4 | SSRF via connector endpoints/hosts | Medium | Open (recommendation) |
 | 5 | Local-storage root unconfined | Medium | **Fixed** (opt-in) |
@@ -189,7 +203,9 @@ unsigned package.
 | 8 | API force-overwrite of installed plugin | Low | Open (recommendation) |
 
 The cryptographic and archive-extraction defenses are solid. The dominant risk —
-an unauthenticated API exposed by the Docker `0.0.0.0` bind (#1) — is now
-mitigated by the opt-in `FLOWFRAME_API_TOKEN` gate plus a startup warning. The next
-residual concern is the plugin permission model's false sense of safety (#2), a
-trust-model/documentation matter rather than a code bug.
+an unauthenticated API exposed by the Docker `0.0.0.0` bind (#1) — is now mitigated
+by the opt-in `FLOWFRAME_API_TOKEN` gate plus a startup warning. The plugin trust
+model (#2) is improved: no plugin code runs without an explicit user opt-in, and
+the UI/docs are honest that there is no runtime sandbox. The remaining open items
+are connector SSRF (#4) and the lower-severity install-overwrite (#8); licensing
+(#6) is a product decision left to the maintainers.
