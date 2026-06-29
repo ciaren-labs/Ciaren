@@ -24,6 +24,7 @@ from app.connectors.base import (
     TableRef,
     validate_identifier,
 )
+from app.connectors.ssrf import guard_host
 from app.core.secrets import scrub
 
 # Each SQL provider maps to a concrete **synchronous** SQLAlchemy driver. The
@@ -76,6 +77,9 @@ class SqlConnector:
         )
 
     def _engine(self, spec: ConnectionSpec) -> Engine:
+        # Refuse internal hosts when the SSRF guard is enabled (no-op otherwise,
+        # and for file-based sqlite/duckdb which have no host).
+        guard_host(spec.host)
         # NullPool: never hold connections open between calls.
         return create_engine(self._url(spec), poolclass=NullPool, pool_pre_ping=True)
 

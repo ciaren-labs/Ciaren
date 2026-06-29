@@ -43,6 +43,12 @@ class PythonTransformTransformation(BaseTransformation):
             compile(fn_code, "<pythonTransform>", "exec")
         except SyntaxError as exc:
             raise ValueError(f"pythonTransform: syntax error — {exc}") from exc
+        # Opt-in defense-in-depth: reject dangerous constructs before the script can
+        # ever be saved/run. No-op unless PYTHON_TRANSFORM_STRICT is enabled.
+        from app.engine.script_guard import check_script, is_strict_enabled
+
+        if is_strict_enabled():
+            check_script(script)
 
     def execute(
         self,
@@ -64,6 +70,15 @@ class PythonTransformTransformation(BaseTransformation):
             import pandas as pd
 
             ns = {"pd": pd, "pandas": pd}
+
+        # Opt-in hardening: re-check statically (the config may not have gone through
+        # validate_config) and run with a restricted set of builtins so open/eval/
+        # __import__ are absent. No-op unless PYTHON_TRANSFORM_STRICT is enabled.
+        from app.engine.script_guard import check_script, is_strict_enabled, safe_builtins
+
+        if is_strict_enabled():
+            check_script(script)
+            ns["__builtins__"] = safe_builtins()
 
         fn_code = f"def _transform(df):\n{_indent(script)}"
         exec(fn_code, ns)  # noqa: S102

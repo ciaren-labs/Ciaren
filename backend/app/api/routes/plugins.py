@@ -137,8 +137,9 @@ async def plugin_diagnostics() -> PluginDiagnostics:
 def install_package_and_report(package_path: str, *, require_trusted: bool) -> PluginInstallResult:
     """Verify + install a local ``.ffplugin``, rebuild the registry live, and
     report the result. Shared by the upload endpoint and the marketplace install
-    endpoint. Installation never imports plugin code — a plugin that declares
-    permissions stays gated until the user approves it."""
+    endpoint. Installation never imports plugin code — a freshly installed plugin
+    stays gated (``needs_permissions``) until the user explicitly approves it, even
+    when it declares no permissions, since approving means letting its code run."""
     from app.plugins.install import InstallError, install_ffplugin
     from app.plugins.package import PackageError
 
@@ -170,14 +171,20 @@ async def install_plugin(
     from app.core.config import get_settings
 
     settings = get_settings()
-    data = await file.read()
-    if len(data) > settings.max_upload_bytes:
-        raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
     must_trust = settings.REQUIRE_TRUSTED_PLUGINS if require_trusted is None else require_trusted
+    limit = settings.max_upload_bytes
 
+    # Stream the upload to disk in bounded chunks, aborting as soon as the size
+    # limit is crossed — so an oversized package can't be buffered whole in memory
+    # before it is rejected (a cheap DoS otherwise). See SECURITY-AUDIT.md (#7).
     tmp = tempfile.NamedTemporaryFile(suffix=".ffplugin", delete=False)
     try:
-        tmp.write(data)
+        total = 0
+        while chunk := await file.read(1024 * 1024):
+            total += len(chunk)
+            if total > limit:
+                raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
+            tmp.write(chunk)
         tmp.close()
         return install_package_and_report(tmp.name, require_trusted=must_trust)
     finally:
@@ -214,11 +221,15 @@ def _emit_lifecycle(hook: Hook, plugin_id: str) -> None:
 
 @router.post("/{plugin_id}/enable", response_model=PluginInfo)
 async def enable_plugin(plugin_id: str) -> PluginInfo:
-    """Re-enable a disabled plugin. If it still requests ungranted permissions it
-    will move to ``needs_permissions`` rather than ``loaded``."""
+    """Enable a plugin and approve running its code. If it still requests ungranted
+    permissions it moves to ``needs_permissions`` rather than ``loaded``.
+
+    Enabling is an explicit opt-in: the plugin's Python runs with the user's full
+    account access (it is not sandboxed), so this also marks it approved."""
     _find_info(plugin_id)  # 404 if unknown
     state = get_plugin_state()
     state.set_enabled(plugin_id, True)
+    state.set_approved(plugin_id, True)
     state.save()
     reload_plugins()
     _emit_lifecycle(Hook.plugin_enabled, plugin_id)
