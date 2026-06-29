@@ -6,7 +6,7 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 
-from .base import register_engine, rule_combine_all, rule_conditions
+from .base import DATE_UNIT_SECONDS, register_engine, rule_combine_all, rule_conditions
 
 
 @register_engine
@@ -483,6 +483,106 @@ class PandasEngine:
         # np.select picks the first matching condition (CASE-WHEN priority order).
         result = np.select(conditions, choices, default=default)  # type: ignore[type-var]
         return df.assign(**{new_column: result})
+
+
+    # -- New nodes (derive / analytics) --------------------------------
+
+    def filter_expr(self, df: pd.DataFrame, expression: str) -> pd.DataFrame:
+        mask = pd.Series(df.eval(expression)).astype(bool)
+        result: pd.DataFrame = df[mask.to_numpy()].reset_index(drop=True)
+        return result
+
+    def combine_columns(
+        self,
+        df: pd.DataFrame,
+        columns: list[str],
+        new_column: str,
+        separator: str,
+        keep_original: bool,
+    ) -> pd.DataFrame:
+        joined = df[columns].astype("string").fillna("").apply(separator.join, axis=1)
+        result = df.assign(**{new_column: joined.astype("string")})
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            result = result.drop(columns=drop)
+        return result
+
+    def coalesce_columns(
+        self,
+        df: pd.DataFrame,
+        columns: list[str],
+        new_column: str,
+        keep_original: bool,
+    ) -> pd.DataFrame:
+        coalesced = df[columns].bfill(axis=1).iloc[:, 0]
+        result = df.assign(**{new_column: coalesced})
+        if not keep_original:
+            drop = [c for c in columns if c != new_column]
+            result = result.drop(columns=drop)
+        return result
+
+    def explode_rows(self, df: pd.DataFrame, column: str, delimiter: str | None) -> pd.DataFrame:
+        work = df
+        if delimiter:
+            work = df.assign(**{column: df[column].astype("string").str.split(delimiter)})
+        exploded: pd.DataFrame = work.explode(column).reset_index(drop=True)
+        return exploded
+
+    def rolling_aggregate(
+        self,
+        df: pd.DataFrame,
+        target: str,
+        function: str,
+        window: int,
+        min_periods: int | None,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> pd.DataFrame:
+        work = df.reset_index(drop=True)
+        if order_by:
+            work = work.sort_values(by=order_by, ascending=[not descending] * len(order_by), kind="stable")
+        if partition_by:
+            rolling = work.groupby(partition_by, sort=False)[target].rolling(window, min_periods=min_periods)
+            values = getattr(rolling, function)().reset_index(level=list(range(len(partition_by))), drop=True)
+        else:
+            values = getattr(work[target].rolling(window, min_periods=min_periods), function)()
+        work = work.assign(**{new_column: values})
+        return work.sort_index().reset_index(drop=True)
+
+    def row_difference(
+        self,
+        df: pd.DataFrame,
+        target: str,
+        method: str,
+        periods: int,
+        partition_by: list[str],
+        order_by: list[str],
+        descending: bool,
+        new_column: str,
+    ) -> pd.DataFrame:
+        work = df.reset_index(drop=True)
+        if order_by:
+            work = work.sort_values(by=order_by, ascending=[not descending] * len(order_by), kind="stable")
+        series = work.groupby(partition_by, sort=False)[target] if partition_by else work[target]
+        values = series.pct_change(periods) if method == "pct_change" else series.diff(periods)
+        work = work.assign(**{new_column: values})
+        return work.sort_index().reset_index(drop=True)
+
+    def date_difference(
+        self,
+        df: pd.DataFrame,
+        start_column: str,
+        end_column: str,
+        unit: str,
+        new_column: str,
+    ) -> pd.DataFrame:
+        factor = DATE_UNIT_SECONDS[unit]
+        start = pd.to_datetime(df[start_column], errors="coerce")
+        end = pd.to_datetime(df[end_column], errors="coerce")
+        diff = (end - start).dt.total_seconds() / factor
+        return df.assign(**{new_column: diff})
 
 
 def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
