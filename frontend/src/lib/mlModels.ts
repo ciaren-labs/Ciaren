@@ -214,3 +214,103 @@ export function modelsByTask(): { task: MlTask; models: MlModelDef[] }[] {
     .map((task) => ({ task, models: ML_MODELS.filter((m) => m.task === task) }))
     .filter((g) => g.models.length > 0);
 }
+
+// --- Cross-validation (mlCrossValidate) -------------------------------------
+// Mirrors CV_STRATEGIES in app/engine/transformations/ml/cross_validation.py.
+
+export interface CvStrategyDef {
+  value: string;
+  label: string;
+  help: string;
+  /** Only offered for this task (classification-only for stratified strategies). */
+  classificationOnly?: boolean;
+  /** Uses test_size rather than a fold count. */
+  usesTestSize?: boolean;
+  /** Uses n_repeats (repeated k-fold). */
+  usesRepeats?: boolean;
+  /** Needs a group column (group k-fold). */
+  usesGroup?: boolean;
+  /** Has no configurable split count (leave-one-out). */
+  noSplits?: boolean;
+  /** Offers the shuffle toggle (plain / stratified k-fold). */
+  usesShuffle?: boolean;
+}
+
+export const CV_STRATEGIES: CvStrategyDef[] = [
+  { value: "kfold", label: "K-Fold", help: "Split rows into k equal folds; each is held out once.", usesShuffle: true },
+  {
+    value: "stratified_kfold",
+    label: "Stratified K-Fold",
+    help: "K-Fold that preserves the class balance in every fold.",
+    classificationOnly: true,
+    usesShuffle: true,
+  },
+  { value: "shuffle_split", label: "Shuffle Split", help: "Random train/test splits repeated k times.", usesTestSize: true },
+  {
+    value: "stratified_shuffle_split",
+    label: "Stratified Shuffle Split",
+    help: "Shuffle Split that preserves class balance.",
+    classificationOnly: true,
+    usesTestSize: true,
+  },
+  {
+    value: "group_kfold",
+    label: "Group K-Fold",
+    help: "Keeps all rows of a group within a single fold (no leakage across groups).",
+    usesGroup: true,
+  },
+  {
+    value: "time_series_split",
+    label: "Time Series Split",
+    help: "Expanding-window splits that respect time order (train on past, test on future).",
+  },
+  {
+    value: "repeated_kfold",
+    label: "Repeated K-Fold",
+    help: "K-Fold repeated several times with different shuffles.",
+    usesRepeats: true,
+  },
+  { value: "leave_one_out", label: "Leave-One-Out", help: "Each row is its own test fold. Use only on small data.", noSplits: true },
+];
+
+export const CV_STRATEGY_MAP: Record<string, CvStrategyDef> = Object.fromEntries(
+  CV_STRATEGIES.map((s) => [s.value, s]),
+);
+export const CV_STRATEGY_VALUES = CV_STRATEGIES.map((s) => s.value) as [string, ...string[]];
+
+/** CV strategies a given model task can use (stratified ⇒ classification only). */
+export function cvStrategiesForTask(task: MlTask | undefined): CvStrategyDef[] {
+  if (task === "classification") return CV_STRATEGIES;
+  return CV_STRATEGIES.filter((s) => !s.classificationOnly);
+}
+
+// Scoring metrics per task. Mirrors _SCORING in the backend node; neg_* metrics
+// are negated + renamed in the report (the label drops the "lower is better" sign).
+export const CV_SCORING: Record<"classification" | "regression", { value: string; label: string }[]> = {
+  classification: [
+    { value: "accuracy", label: "Accuracy" },
+    { value: "balanced_accuracy", label: "Balanced accuracy" },
+    { value: "f1_weighted", label: "F1 (weighted)" },
+    { value: "f1_macro", label: "F1 (macro)" },
+    { value: "precision_weighted", label: "Precision (weighted)" },
+    { value: "recall_weighted", label: "Recall (weighted)" },
+    { value: "roc_auc", label: "ROC AUC" },
+  ],
+  regression: [
+    { value: "r2", label: "R²" },
+    { value: "neg_root_mean_squared_error", label: "RMSE" },
+    { value: "neg_mean_absolute_error", label: "MAE" },
+    { value: "neg_mean_squared_error", label: "MSE" },
+    { value: "neg_mean_absolute_percentage_error", label: "MAPE" },
+  ],
+};
+
+export const CV_SCORING_VALUES = [
+  ...CV_SCORING.classification.map((s) => s.value),
+  ...CV_SCORING.regression.map((s) => s.value),
+];
+
+/** Cross-validation supports supervised classification & regression models only. */
+export function cvModels(): MlModelDef[] {
+  return ML_MODELS.filter((m) => m.task === "classification" || m.task === "regression");
+}

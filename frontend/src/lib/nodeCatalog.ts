@@ -39,6 +39,10 @@ export interface NodeTypeDef {
   /** A terminal that persists a result without a file-output node (mlTrain logs a
    *  model to MLflow), so a flow ending here is still "complete". */
   isModelSink?: boolean;
+  /** A node that completes a flow on its own — a model sink or a report node like
+   *  cross-validation (emits a scores frame). The editor skips the "add an output
+   *  node" check for flows ending here. */
+  isFlowTerminal?: boolean;
   /** Only available when the ML extension is installed + enabled on the server. */
   requiresMl?: boolean;
   /** Registered for backward-compat but not shown in the palette (superseded). */
@@ -643,6 +647,31 @@ export const NODE_TYPES: NodeTypeDef[] = [
     modelInputHandles: ["model"],
     hasOutput: true,
     description: "Rank which features a trained model relied on most.",
+  },
+  {
+    type: "mlCrossValidate",
+    label: "Cross-Validate",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "random_forest_classifier",
+      target_column: "",
+      feature_columns: [],
+      cv_strategy: "kfold",
+      n_splits: 5,
+      n_repeats: 1,
+      test_size: 0.2,
+      shuffle: true,
+      group_column: null,
+      scoring: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description:
+      "Estimate model performance with k-fold, stratified, time-series, group, or other CV strategies.",
   },
   // ----- Outputs -----
   {

@@ -113,6 +113,7 @@ export const NODE_ICONS: Record<string, LucideIcon> = {
   mlPredict: Target,
   mlEvaluate: Gauge,
   featureImportance: BarChartBig,
+  mlCrossValidate: Layers,
   pythonTransform: Code2,
   assertNotNull: ShieldCheck,
   assertUnique: ShieldCheck,

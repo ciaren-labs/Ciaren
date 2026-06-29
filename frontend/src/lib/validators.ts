@@ -1,6 +1,12 @@
 // Zod schemas for validating each node type's config in the sidebar forms.
 import { z } from "zod";
-import { ML_MODEL_VALUES, isSupervisedModel } from "./mlModels";
+import {
+  ML_MODEL_VALUES,
+  isSupervisedModel,
+  CV_STRATEGY_VALUES,
+  CV_SCORING_VALUES,
+  CV_STRATEGY_MAP,
+} from "./mlModels";
 
 const stringArray = z.array(z.string());
 
@@ -603,6 +609,48 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   featureImportance: z.object({
     top_n: z.coerce.number().int().min(1).nullable().optional(),
   }),
+  mlCrossValidate: z
+    .object({
+      model_type: z.enum(ML_MODEL_VALUES),
+      target_column: z.string().optional(),
+      feature_columns: stringArray.optional(),
+      cv_strategy: z.enum(CV_STRATEGY_VALUES),
+      n_splits: z.coerce.number().int().min(2).optional(),
+      n_repeats: z.coerce.number().int().min(1).optional(),
+      test_size: z.coerce.number().gt(0).lt(1).optional(),
+      shuffle: z.boolean().optional(),
+      group_column: z.string().nullable().optional(),
+      scoring: z.array(z.enum(CV_SCORING_VALUES as [string, ...string[]])).optional(),
+      hyperparameters: z.record(z.string(), z.unknown()).optional(),
+      seed: z.coerce.number().int("Seed must be a whole number"),
+    })
+    .superRefine((cfg, ctx) => {
+      if (!isSupervisedModel(cfg.model_type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["model_type"],
+          message: "Cross-validation supports classification and regression models only.",
+        });
+      }
+      if (!cfg.target_column) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["target_column"], message: "Pick a target column" });
+      }
+      const feats = cfg.feature_columns ?? [];
+      if (cfg.target_column && feats.includes(cfg.target_column)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["feature_columns"],
+          message: "The target can't also be a feature (data leakage).",
+        });
+      }
+      if (CV_STRATEGY_MAP[cfg.cv_strategy]?.usesGroup && !cfg.group_column) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["group_column"],
+          message: "Group K-Fold needs a group column.",
+        });
+      }
+    }),
 
   // ----- Advanced -----
   pythonTransform: z.object({
