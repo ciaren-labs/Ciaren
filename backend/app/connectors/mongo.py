@@ -18,6 +18,7 @@ from app.connectors.base import (
     TableRef,
     validate_identifier,
 )
+from app.connectors.ssrf import guard_host
 from app.core.secrets import scrub
 
 _READ_GUARD_LIMIT = 1_000_000
@@ -33,6 +34,8 @@ class MongoConnector:
             raise ConnectorError(
                 "MongoDB support requires the 'pymongo' package (pip install flowframe[mongo])."
             ) from exc
+        # Refuse internal hosts when the SSRF guard is enabled (no-op otherwise).
+        guard_host(spec.host)
         # Credentials are passed as keyword args, never interpolated into a URI
         # string, so the password can't leak into a connection-string log.
         return MongoClient(

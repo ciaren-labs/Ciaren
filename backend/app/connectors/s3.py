@@ -18,6 +18,7 @@ from typing import Any
 import pandas as pd
 
 from app.connectors.base import ConnectorError
+from app.connectors.ssrf import guard_endpoint
 from app.connectors.storage_base import StorageSpec, deserialize_dataframe, serialize_dataframe
 from app.core.secrets import scrub
 
@@ -32,6 +33,9 @@ def _client(spec: StorageSpec) -> Any:
     except ImportError as exc:
         raise ConnectorError("boto3 is not installed. Run: pip install flowframe[s3]") from exc
 
+    # A user-supplied custom endpoint (MinIO/R2/…) could point at an internal host;
+    # refuse internal targets when the SSRF guard is enabled (no-op otherwise).
+    guard_endpoint(spec.endpoint_url)
     kwargs: dict[str, Any] = {}
     if spec.region:
         kwargs["region_name"] = spec.region
