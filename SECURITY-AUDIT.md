@@ -113,6 +113,19 @@ approved), and updated API/run tests.
 not gated; and no mechanism constrains what approved code does at runtime. Treat
 enabling a plugin as running arbitrary code with your account's access.
 
+**Related — `pythonTransform` strict mode (new).** The `pythonTransform` node runs
+arbitrary user Python and is likewise unsandboxed. An opt-in
+`FLOWFRAME_PYTHON_TRANSFORM_STRICT` (`app/engine/script_guard.py`) adds two
+defense-in-depth layers, off by default: an AST scan that refuses dangerous imports
+(`os`/`sys`/`subprocess`/…), code-exec builtins (`eval`/`exec`/`open`/`__import__`/…),
+and the dunder-traversal attributes used to escape a restricted namespace
+(`__class__`/`__subclasses__`/`__globals__`/…); plus execution with a restricted
+`__builtins__`. Enforced at save (`validate_config`) and at run (`execute`). Like the
+plugin model, this raises the bar and catches casual misuse but is **not** a
+sandbox — a determined attacker can still find a bypass, so network auth (#1) and an
+unprivileged service account remain the real controls. Tests:
+`tests/engine/test_script_guard.py`.
+
 ### #3 — `.joblib` model loading treated as a "non-pickle / safe" format — **Fixed**
 
 `app/ml/security.py` rejected `.pkl`/`.pickle` "because they execute code on load"
