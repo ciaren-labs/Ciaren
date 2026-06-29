@@ -40,12 +40,18 @@ async def test_install_plugin_via_upload(client, monkeypatch, tmp_path, hello_ff
     body = resp.json()
     assert body["outcome"] == "unsigned"
     assert body["plugin"]["id"] == "community.hello"
-    # Hello declares no permissions, so it loads straight away.
-    assert body["plugin"]["status"] == "loaded"
+    # Even with no declared permissions, a freshly installed plugin stays pending
+    # until the user approves running its code — it does NOT auto-load.
+    assert body["plugin"]["status"] == "needs_permissions"
 
-    # It now shows up in the installed-plugins listing.
+    # It shows up in the installed-plugins listing (gated, not loaded).
     listing = await client.get("/api/plugins")
     assert "community.hello" in {p["id"] for p in listing.json()}
+
+    # Approving (enable) opts the code in and the plugin loads.
+    approved = await client.post("/api/plugins/community.hello/enable")
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "loaded"
 
 
 async def test_install_records_signature_outcome(client, monkeypatch, tmp_path, hello_ffplugin):

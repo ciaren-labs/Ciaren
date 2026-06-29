@@ -25,7 +25,14 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "plugins"
 
 @pytest.fixture(autouse=True)
 def _load_example_plugin(monkeypatch):
+    from app.plugins.state import PluginStateStore
+
     monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
+    # Plugins now require explicit approval before their code is imported, even
+    # with zero declared permissions. Pre-approve the example so it loads.
+    state = PluginStateStore()
+    state.set_approved("community.hello", True)
+    state.save()
     reset_registry()
     get_registry()  # discovers + bridges the example plugin into the engine
     yield

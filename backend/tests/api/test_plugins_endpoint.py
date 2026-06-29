@@ -32,14 +32,20 @@ async def test_plugin_discovered_from_dir_shows_in_endpoints(client, monkeypatch
     monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
     reset_registry()  # rebuild with the env now set
 
+    # Discovered but pending approval: it's listed, but its code isn't loaded yet,
+    # so its node is not in the catalog.
     listing = await client.get("/api/plugins")
-    ids = {p["id"] for p in listing.json()}
-    assert "community.hello" in ids
-
-    # The plugin's node appears in the dynamic catalog without a frontend change.
+    hello = next(p for p in listing.json() if p["id"] == "community.hello")
+    assert hello["status"] == "needs_permissions"
     catalog = await client.get("/api/catalog/nodes")
-    node_ids = {n["id"] for n in catalog.json()}
-    assert "hello.greeting" in node_ids
+    assert "hello.greeting" not in {n["id"] for n in catalog.json()}
+
+    # After approval the plugin loads and its node appears in the dynamic catalog
+    # without a frontend change.
+    approved = await client.post("/api/plugins/community.hello/enable")
+    assert approved.json()["status"] == "loaded"
+    catalog = await client.get("/api/catalog/nodes")
+    assert "hello.greeting" in {n["id"] for n in catalog.json()}
 
 
 async def test_diagnostics_reports_invalid_plugin(client, monkeypatch, tmp_path):

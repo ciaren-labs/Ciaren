@@ -1,13 +1,17 @@
 """Local, persisted plugin state: which plugins are enabled and which
 permissions the user has granted them.
 
-This is the *trust/UX boundary* the architecture plan describes: a drop-in plugin
-that declares permissions stays **pending** (not loaded, so its code never runs)
-until the user approves it, and any plugin can be disabled. State is a small JSON
-file under the data dir so it survives restarts and is easy to inspect or wipe.
+This is the *trust/UX boundary* the architecture plan describes: a discovered
+drop-in/marketplace plugin stays **pending** (not loaded, so its code never runs)
+until the user explicitly approves it — even one that declares **zero** permissions,
+since approving is really "let this code run", not "grant these capabilities". Any
+plugin can also be disabled. State is a small JSON file under the data dir so it
+survives restarts and is easy to inspect or wipe.
 
-Python plugins are not sandboxed — this gates *loading*, not runtime syscalls —
-so the boundary matters most before a plugin's entry point is ever imported.
+Python plugins are not sandboxed — approving runs ordinary code with the user's
+full account access, and the declared permissions are an advisory heads-up, **not**
+an enforced runtime boundary. This store gates *whether a plugin's entry point is
+ever imported*; it does not constrain what the code does once it runs.
 """
 
 from __future__ import annotations
@@ -39,6 +43,13 @@ class PluginStateEntry(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     enabled: bool = True
+    #: Whether the user has explicitly opted this plugin in (approved running its
+    #: code). A freshly discovered plugin is **not** approved, so its code never runs
+    #: until the user acts — even if it declares no permissions. Granting permissions
+    #: or enabling counts as approval. Defaults False for new entries; see
+    #: :meth:`PluginStateStore._load` for the backward-compatible read of older
+    #: state files (which predate this field and were effectively approved).
+    approved: bool = False
     granted_permissions: list[Permission] = Field(default_factory=list)
     #: ISO-8601 timestamp the plugin was first discovered (for "new plugin" UX).
     first_seen: str = ""
@@ -77,6 +88,13 @@ class PluginStateStore:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
             for plugin_id, data in (raw.get("plugins") or {}).items():
+                # Backward compat: state files written before the `approved` field
+                # predate the explicit-approval gate. A plugin already recorded then
+                # was loading under the old "enabled by default" rule, so treat it as
+                # approved — otherwise an upgrade would silently re-gate every plugin
+                # the user already trusts.
+                if isinstance(data, dict) and "approved" not in data:
+                    data = {**data, "approved": True}
                 self._entries[plugin_id] = PluginStateEntry.model_validate(data)
         except Exception:  # noqa: BLE001 — a corrupt state file must not break startup
             logger.warning("Could not read plugin state %s; starting fresh.", self.path, exc_info=True)
@@ -102,6 +120,13 @@ class PluginStateStore:
         """Plugins are enabled by default; only an explicit disable turns one off."""
         entry = self._entries.get(plugin_id)
         return True if entry is None else entry.enabled
+
+    def is_approved(self, plugin_id: str) -> bool:
+        """Whether the user has approved running this plugin's code. A
+        not-yet-discovered or freshly discovered plugin is **not** approved, so the
+        loader keeps it pending until the user enables/grants it."""
+        entry = self._entries.get(plugin_id)
+        return bool(entry and entry.approved)
 
     def granted(self, plugin_id: str) -> set[Permission]:
         entry = self._entries.get(plugin_id)
@@ -130,6 +155,14 @@ class PluginStateStore:
             entry.enabled = enabled
             self._dirty = True
 
+    def set_approved(self, plugin_id: str, approved: bool = True) -> None:
+        """Record the user's explicit opt-in (or withdraw it). Enabling or granting
+        permissions both approve a plugin; this is the underlying flag."""
+        entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
+        if entry.approved != approved:
+            entry.approved = approved
+            self._dirty = True
+
     def set_signature(self, plugin_id: str, outcome: str) -> None:
         """Record how a package verified at install time, for later display."""
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
@@ -139,6 +172,12 @@ class PluginStateStore:
 
     def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
+        # Granting is an explicit approval: the user is opting the plugin in. This
+        # also covers the zero-permission case, where "Approve" grants nothing but
+        # still consents to the code running.
+        if not entry.approved:
+            entry.approved = True
+            self._dirty = True
         current = list(entry.granted_permissions)
         # Coerce raw strings (CLI / API) to Permission members so the model
         # round-trips and serializes without a Pydantic "expected enum" warning.
