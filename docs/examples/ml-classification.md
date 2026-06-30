@@ -56,8 +56,10 @@ features.
 3. **Train Classifier** — wire the **`train`** output here. Pick **Random Forest**,
    set `target_column: "churn"`, leave features empty (uses all columns except the
    target), set the required `seed: 42`. The node emits a purple **`model`** wire.
-   - *Optional:* open **Advanced options** for k-fold cross-validation, the full
-     hyperparameter set, in-pipeline preprocessing, and the MLflow experiment name.
+   - *Optional:* open **Advanced options** for the full hyperparameter set,
+     in-pipeline preprocessing, and the MLflow experiment name. Use **Classifier
+     Model** plus **Cross-Validate** if you want fold scores without training a
+     final model first.
 4. **Predict** — wire the **`test`** split as the data input and the **`model`**
    wire from the train node. It adds a `prediction` column.
 5. **Evaluate** — `task: classification`, `prediction_column: "prediction"`. It

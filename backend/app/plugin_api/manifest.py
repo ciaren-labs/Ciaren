@@ -15,7 +15,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, Field, field_validator
 
-from app.plugin_api.specs import Permission
+from app.plugin_api.specs import BUILTIN_NODE_CATEGORIES, DEFAULT_PLUGIN_NODE_CATEGORY, Permission
 
 #: Marketplace trust tiers (does not grant capabilities — purely informational).
 TrustLevel = Literal["trusted", "verified", "community"]
@@ -26,6 +26,15 @@ class PluginUI(BaseModel):
     """UI contributions a plugin declares (advisory; the catalog is authoritative)."""
 
     nodes: list[str] = Field(default_factory=list)
+    node_categories: dict[str, str] = Field(default_factory=dict, alias="nodeCategories")
+
+    @field_validator("node_categories")
+    @classmethod
+    def _normalize_node_categories(cls, value: dict[str, str]) -> dict[str, str]:
+        return {
+            node: category if category in BUILTIN_NODE_CATEGORIES else DEFAULT_PLUGIN_NODE_CATEGORY
+            for node, category in value.items()
+        }
 
 
 class PluginManifest(BaseModel):

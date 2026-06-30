@@ -28,6 +28,8 @@ _INDEX = {
             "version": "0.1.0",
             "description": "A friendly greeting node.",
             "capabilities": ["node.hello"],
+            "nodes": ["hello.greeting"],
+            "nodeCategories": {"hello.greeting": "columns"},
         },
     ],
 }
@@ -41,6 +43,10 @@ def test_parse_index_aliases():
     assert entry.key_id == "acme-key"
     assert entry.license_required is True
     assert entry.permissions == ["network", "credentials"]
+    hello = parse_index(_INDEX).find("community.hello")
+    assert hello is not None
+    assert hello.nodes == ["hello.greeting"]
+    assert hello.node_categories == {"hello.greeting": "columns"}
 
 
 def test_find_missing_returns_none():

@@ -53,9 +53,11 @@ describe("ML node catalog", () => {
       [
         "encodeCategories",
         "featureImportance",
+        "mlClassifierModel",
         "mlCrossValidate",
         "mlEvaluate",
         "mlPredict",
+        "mlRegressorModel",
         "mlTrainClassifier",
         "mlTrainClustering",
         "mlTrainDimReduction",

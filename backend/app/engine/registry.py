@@ -139,6 +139,8 @@ def _register_ml_nodes() -> None:
     from app.engine.transformations.ml.predict import MLPredictTransformation
     from app.engine.transformations.ml.split import TrainTestSplitTransformation
     from app.engine.transformations.ml.train import (
+        ClassifierModelTransformation,
+        RegressorModelTransformation,
         TrainClassifierTransformation,
         TrainClusteringTransformation,
         TrainDimReductionTransformation,
@@ -152,6 +154,8 @@ def _register_ml_nodes() -> None:
         EncodeCategoriesTransformation(),
         SelectFeaturesTransformation(),
         ReduceDimensionsTransformation(),
+        ClassifierModelTransformation(),
+        RegressorModelTransformation(),
         TrainClassifierTransformation(),
         TrainRegressorTransformation(),
         TrainClusteringTransformation(),

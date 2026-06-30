@@ -22,6 +22,8 @@ export const SUPERVISED_TASKS = new Set<MlTask>(["classification", "regression",
 // Each task-scoped train node accepts models from one task family, so its picker
 // shows only relevant models. Mirrors TRAIN_NODE_TASKS in app/ml/models.py.
 export const TRAIN_NODE_TASKS: Record<string, MlTask> = {
+  mlClassifierModel: "classification",
+  mlRegressorModel: "regression",
   mlTrainClassifier: "classification",
   mlTrainRegressor: "regression",
   mlTrainClustering: "clustering",

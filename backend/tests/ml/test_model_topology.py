@@ -138,7 +138,7 @@ def test_model_into_another_trains_data_input_rejected():
 
 def test_data_into_model_input_rejected_predict():
     # "in" is satisfied by real data; the offending edge is data wired into the
-    # "model" input, which must be rejected as "needs a trained model".
+    # "model" input, which must be rejected as "needs a model reference".
     graph = {
         "nodes": [_input(), _n("pr", "mlPredict"), _n("out", "csvOutput")],
         "edges": [
@@ -147,7 +147,7 @@ def test_data_into_model_input_rejected_predict():
             _e("e3", "pr", "out"),
         ],
     }
-    with pytest.raises(GraphValidationError, match="needs a trained model"):
+    with pytest.raises(GraphValidationError, match="needs a model reference"):
         validate_graph(graph)
 
 
@@ -297,7 +297,8 @@ def test_executor_train_to_feature_importance_via_model_handle(ml_env, tmp_path)
     assert result.error is None, result.error
     by_id = {r.node_id: r for r in result.node_results}
     # mlTrain's sampled (primary) frame is the model reference, not training data.
-    assert by_id["tr"].columns == ["mlflow_run_id", "model_uri", "task_type"]
+    assert by_id["tr"].columns[:3] == ["mlflow_run_id", "model_uri", "task_type"]
+    assert "model_config_json" in by_id["tr"].columns
     assert by_id["tr"].model_uri
     fi_csv = pd.read_csv(result.output_paths["out"])
     assert list(fi_csv.columns) == ["feature_name", "importance", "rank"]

@@ -23,8 +23,13 @@ def _point_plugin_dirs_at(monkeypatch, install_dir: Path) -> None:
     from app.core.config import get_settings
 
     install_dir.mkdir(parents=True, exist_ok=True)
+    home = install_dir.parent / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("FLOWFRAME_PLUGIN_INSTALL_DIR", str(install_dir))
     monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(install_dir))
+    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(install_dir.parent / "plugin_state.json"))
     get_settings.cache_clear()
     reset_registry()
 
@@ -111,12 +116,16 @@ async def test_bundled_marketplace_lists_installs_and_loads_hello(client, monkey
     entry = next(e for e in cat["plugins"] if e["id"] == "community.hello")
     assert entry["installable"] is True
     assert entry["installed"] is False
+    assert entry["nodes"] == ["hello.greeting"]
+    assert entry["node_categories"] == {"hello.greeting": "columns"}
 
     installed = await client.post("/api/marketplace/community.hello/install")
     assert installed.status_code == 200, installed.text
     body = installed.json()
     assert body["plugin"]["id"] == "community.hello"
     assert body["plugin"]["status"] == "needs_permissions"
+    assert body["plugin"]["nodes"] == ["hello.greeting"]
+    assert body["plugin"]["node_categories"] == {"hello.greeting": "columns"}
 
     approved = await client.post("/api/plugins/community.hello/enable")
     assert approved.status_code == 200, approved.text

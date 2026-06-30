@@ -10,12 +10,15 @@ export type NodeCategory =
   | "analytics"
   | "quality"
   | "ml"
-  | "output";
+  | "output"
+  | "plugins";
 
 export interface NodeTypeDef {
   type: string;
   label: string;
   category: NodeCategory;
+  /** Provider id; plugin nodes use their plugin id instead of flowframe.core. */
+  provider?: string;
   /** Default config object for a freshly-created node. */
   defaultConfig: Record<string, unknown>;
   /** Input handle ids. Empty for input nodes. */
@@ -624,6 +627,42 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Compress numeric features into principal components (PCA).",
   },
   {
+    type: "mlClassifierModel",
+    label: "Classifier Model",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "logistic_regression",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    description: "Configure a classification model without fitting it; use it with Cross-Validate.",
+  },
+  {
+    type: "mlRegressorModel",
+    label: "Regressor Model",
+    category: "ml",
+    requiresMl: true,
+    defaultConfig: {
+      model_type: "ridge",
+      target_column: "",
+      feature_columns: [],
+      hyperparameters: {},
+      seed: 42,
+    },
+    inputHandles: ["in"],
+    outputHandles: ["model"],
+    modelOutputHandles: ["model"],
+    hasOutput: true,
+    description: "Configure a regression model without fitting it; use it with Cross-Validate.",
+  },
+  {
     type: "mlTrainClassifier",
     label: "Train Classifier",
     category: "ml",
@@ -633,8 +672,6 @@ export const NODE_TYPES: NodeTypeDef[] = [
       target_column: "",
       feature_columns: [],
       hyperparameters: {},
-      cross_validate: false,
-      cv_folds: 5,
       seed: 42,
     },
     inputHandles: ["in"],
@@ -654,8 +691,6 @@ export const NODE_TYPES: NodeTypeDef[] = [
       target_column: "",
       feature_columns: [],
       hyperparameters: {},
-      cross_validate: false,
-      cv_folds: 5,
       seed: 42,
     },
     inputHandles: ["in"],
@@ -766,9 +801,6 @@ export const NODE_TYPES: NodeTypeDef[] = [
     category: "ml",
     requiresMl: true,
     defaultConfig: {
-      model_type: "random_forest_classifier",
-      target_column: "",
-      feature_columns: [],
       cv_strategy: "kfold",
       n_splits: 5,
       n_repeats: 1,
@@ -776,14 +808,14 @@ export const NODE_TYPES: NodeTypeDef[] = [
       shuffle: true,
       group_column: null,
       scoring: [],
-      hyperparameters: {},
       seed: 42,
     },
-    inputHandles: ["in"],
+    inputHandles: ["in", "model"],
+    modelInputHandles: ["model"],
     hasOutput: true,
     isFlowTerminal: true,
     description:
-      "Estimate model performance with k-fold, stratified, time-series, group, or other CV strategies.",
+      "Estimate a connected model's performance with k-fold, stratified, time-series, group, or other CV strategies.",
   },
   // ----- Outputs -----
   {
@@ -872,6 +904,12 @@ export function getNodeTypeDef(type: string): NodeTypeDef | undefined {
   return RUNTIME_NODE_DEFS[type] ?? NODE_TYPE_MAP[type];
 }
 
+const BUILTIN_PROVIDERS = new Set(["flowframe.core", "flowframe.ml"]);
+
+export function isPluginNodeDef(def: NodeTypeDef): boolean {
+  return !!def.provider && !BUILTIN_PROVIDERS.has(def.provider);
+}
+
 export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   input: "Inputs",
   clean: "Cleaning",
@@ -881,6 +919,7 @@ export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   quality: "Data Quality",
   ml: "Machine Learning",
   output: "Outputs",
+  plugins: "Plugins",
 };
 
 export const CATEGORY_ORDER: NodeCategory[] = [
@@ -892,6 +931,7 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "quality",
   "ml",
   "output",
+  "plugins",
 ];
 
 /** Display label for any category. Built-in categories use their curated label;

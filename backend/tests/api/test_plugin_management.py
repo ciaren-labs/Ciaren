@@ -44,11 +44,17 @@ _MANIFEST = {
     "entrypoint": "mgmt_plugin:MgmtPlugin",
     "permissions": ["network"],
     "capabilities": ["node.mgmt"],
+    "ui": {"nodes": [NODE_ID], "nodeCategories": {NODE_ID: "quality"}},
 }
 
 
 @pytest.fixture(autouse=True)
 def _plugin_dir(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
     plugin = tmp_path / "mgmt-plugin"
     plugin.mkdir()
     (plugin / "mgmt_plugin.py").write_text(_MODULE, encoding="utf-8")
@@ -70,6 +76,8 @@ async def test_pending_then_grant_then_revoke_lifecycle(client):
     entry = next(p for p in listing if p["id"] == PLUGIN_ID)
     assert entry["status"] == "needs_permissions"
     assert entry["missing_permissions"] == ["network"]
+    assert entry["nodes"] == [NODE_ID]
+    assert entry["node_categories"] == {NODE_ID: "quality"}
     assert NODE_ID not in await _catalog_ids(client)
 
     # 2. Grant (empty body -> grant all requested) -> loads, node appears live.

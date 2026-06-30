@@ -47,6 +47,15 @@ class PluginInfo(BaseModel):
     #: How the package verified at install time: ``trusted`` | ``untrusted`` |
     #: ``unsigned`` | ``invalid`` | "" (unknown, e.g. a hand-dropped directory).
     signature: str = ""
+    #: Node type ids this plugin contributes to the editor palette.
+    nodes: list[str] = Field(default_factory=list)
+    #: Palette category/subgroup for each contributed node.
+    node_categories: dict[str, str] = Field(default_factory=dict)
+
+
+def _node_categories_for_loaded(loaded: LoadedPlugin) -> dict[str, str]:
+    provider = loaded.metadata.id
+    return {spec.id: spec.category for spec in get_registry().node_specs() if spec.provider == provider}
 
 
 class PluginErrorInfo(BaseModel):
@@ -94,6 +103,8 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         permissions=list(meta.permissions),
         granted_permissions=sorted(state.granted(meta.id), key=lambda p: p.value),
         signature=state.signature(meta.id),
+        nodes=list(loaded.manifest.ui.nodes) if loaded.manifest else [],
+        node_categories=_node_categories_for_loaded(loaded),
     )
 
 
@@ -108,6 +119,8 @@ def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
         granted_permissions=sorted(state.granted(gated.plugin_id), key=lambda p: p.value),
         missing_permissions=list(gated.missing_permissions),
         signature=state.signature(gated.plugin_id),
+        nodes=list(gated.nodes),
+        node_categories={node: gated.node_categories.get(node, "plugins") for node in gated.nodes},
     )
 
 

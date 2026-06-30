@@ -77,11 +77,12 @@ Open a flow and expand **Machine Learning** in the node palette:
 | **Encode Categories** | One-hot or ordinal encoding for text columns. |
 | **Select Features** | Keep the most useful columns (variance / correlation / top-K). |
 | **Reduce Dimensions** | Compress numeric columns with PCA. |
+| **Classifier / Regressor Model** | Define an unfitted model for Cross-Validate. |
 | **Train Classifier** | Fit a model and log it to MLflow. |
 | **Predict** | Score rows with a trained model. |
 | **Evaluate** | Compute metrics from predictions. |
 | **Feature Importance** | Rank which features the model relied on. |
-| **Cross-Validate** | Estimate generalization with k-fold, stratified, time-series, group, or other CV strategies. |
+| **Cross-Validate** | Estimate generalization for a connected model with k-fold, stratified, time-series, group, or other CV strategies. |
 
 ## Build the flow
 
@@ -94,7 +95,7 @@ Open a flow and expand **Machine Learning** in the node palette:
    - Choose the **Target column** (`churn`). Leave **Feature columns** empty to
      use every other column.
    - Tweak basic hyperparameters inline, or open **Advanced options** for the
-     full set, cross-validation, and preprocessing.
+     full set, tracking, and preprocessing.
 4. **Predict** — connect the split's **test** output to its data input, and the
    Train Classifier's **model** output (the purple wire) to its model input.
 5. **Evaluate** — connect Predict. Set the task type and the prediction column
@@ -102,9 +103,9 @@ Open a flow and expand **Machine Learning** in the node palette:
 6. **Output** — connect a **File Output** to Evaluate to save the metrics table.
 
 ::: tip Multi-output nodes
-Train / Test Split has two outputs (`train`, `test`) and Train Classifier has two
-(`out`, `model`). Drag from the specific handle you need. The **purple** wire is
-a model reference; blue wires are data.
+Train / Test Split has two outputs (`train`, `test`). Train Classifier emits a
+`model` output. Drag from the specific handle you need. The **purple** wire is a
+model reference; blue wires are data.
 :::
 
 ## Run it and read the results
@@ -115,7 +116,7 @@ Run the flow, then open the run. The run detail page shows the full DAG with gre
 
 Click the **Train Classifier** node to see its **Machine learning** panel:
 
-- training metrics and cross-validation folds,
+- training metrics,
 - a confusion-matrix heatmap (classification),
 - the model URI and MLflow run id,
 - a **Register in registry** button to promote the model (name + optional stage).

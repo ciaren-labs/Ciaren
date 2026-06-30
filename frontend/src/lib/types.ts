@@ -557,6 +557,10 @@ export interface PluginInfo {
   missing_permissions: string[];
   /** How the package verified at install time: trusted | untrusted | unsigned | invalid | "". */
   signature: string;
+  /** Node type ids this plugin contributes to the editor palette. */
+  nodes: string[];
+  /** Palette category/subgroup for each contributed node. */
+  node_categories: Record<string, string>;
 }
 
 export interface LicenseStatus {
@@ -595,6 +599,10 @@ export interface MarketplaceEntry {
   trust: string;
   capabilities: string[];
   permissions: string[];
+  /** Node type ids this catalog entry contributes after install + approval. */
+  nodes: string[];
+  /** Palette category/subgroup for each contributed node. */
+  node_categories: Record<string, string>;
   license_required: boolean;
   /** A plugin with this id is already installed. */
   installed: boolean;

@@ -1538,6 +1538,8 @@ export function NodeConfigForm({
       );
 
     // ----- Machine learning -----
+    case "mlClassifierModel":
+    case "mlRegressorModel":
     case "mlTrainClassifier":
     case "mlTrainRegressor":
     case "mlTrainClustering":

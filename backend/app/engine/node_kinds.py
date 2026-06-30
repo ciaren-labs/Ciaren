@@ -106,6 +106,10 @@ TRAIN_NODE_TYPES: tuple[str, ...] = (
     "mlTrainForecaster",
     "mlTrainDimReduction",
 )
+MODEL_DEFINITION_NODE_TYPES: tuple[str, ...] = (
+    "mlClassifierModel",
+    "mlRegressorModel",
+)
 
 # Nodes that are a valid terminal *result* of a flow even without a file-output
 # node: a train node persists a model to MLflow, so a "train only" graph
@@ -139,11 +143,14 @@ MULTI_OUTPUT_NODES: dict[str, tuple[str, ...]] = {
 # consume it on a dedicated "model" input handle.
 
 #: Output handles (by node type) that carry a model rather than a frame.
-MODEL_OUTPUT_HANDLES: dict[str, frozenset[str]] = {t: frozenset({"model"}) for t in TRAIN_NODE_TYPES}
+MODEL_OUTPUT_HANDLES: dict[str, frozenset[str]] = {
+    t: frozenset({"model"}) for t in (*TRAIN_NODE_TYPES, *MODEL_DEFINITION_NODE_TYPES)
+}
 #: Input handles (by node type) that expect a model rather than a frame.
 MODEL_INPUT_HANDLES: dict[str, frozenset[str]] = {
     "mlPredict": frozenset({"model"}),
     "featureImportance": frozenset({"model"}),
+    "mlCrossValidate": frozenset({"model"}),
 }
 
 

@@ -1,5 +1,7 @@
-"""mlTrain: training across tasks, MLflow logging, CV, leakage detection, the
+"""mlTrain: training across tasks, MLflow logging, leakage detection, the
 guardrail limits, and reproducibility. MLflow is pointed at a temp dir."""
+
+import json
 
 import numpy as np
 import pandas as pd
@@ -135,19 +137,25 @@ def test_regression_trains(ml_env):
     assert meta.ml_metrics["train_r2"] > 0.9  # strong linear signal
 
 
-def test_cross_validation_records_scores(ml_env):
-    _, _, meta = _train(
+def test_model_reference_carries_estimator_config_for_downstream_cv(ml_env):
+    engine, out, _ = _train(
         _classification_df(),
         {
             "model_type": "logistic_regression",
             "target_column": "target",
+            "feature_columns": ["x1", "x2"],
+            "hyperparameters": {"max_iter": 200},
+            "preprocessing": {"numeric_columns": ["x1", "x2"], "numeric_strategy": "standard_scaler"},
             "seed": 3,
-            "cross_validate": True,
-            "cv_folds": 4,
         },
     )
-    assert meta.cv_scores is not None and len(meta.cv_scores) == 4
-    assert "cv_mean" in meta.ml_metrics
+    model_ref = engine.to_pandas(out["model"]).iloc[0]
+    model_config = json.loads(model_ref["model_config_json"])
+    assert model_config["model_type"] == "logistic_regression"
+    assert model_config["target_column"] == "target"
+    assert model_config["feature_columns"] == ["x1", "x2"]
+    assert model_config["hyperparameters"] == {"max_iter": 200}
+    assert model_config["preprocessing"]["numeric_strategy"] == "standard_scaler"
 
 
 def test_xgboost_classifier_trains(ml_env):
@@ -230,21 +238,6 @@ def test_too_few_rows_rejected(ml_env):
     df = _classification_df(n=8)
     with pytest.raises(ValueError, match="at least"):
         _train(df, {"model_type": "logistic_regression", "target_column": "target", "seed": 1})
-
-
-def test_cv_folds_exceeding_rows_rejected(ml_env):
-    df = _classification_df(n=12)
-    with pytest.raises(ValueError, match="CV"):
-        _train(
-            df,
-            {
-                "model_type": "logistic_regression",
-                "target_column": "target",
-                "seed": 1,
-                "cross_validate": True,
-                "cv_folds": 20,
-            },
-        )
 
 
 def test_model_size_limit_enforced(ml_env, monkeypatch):
