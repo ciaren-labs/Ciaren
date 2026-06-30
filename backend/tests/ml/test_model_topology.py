@@ -42,6 +42,8 @@ def test_output_handles_for_model_and_multi_and_plain_nodes():
     [
         ("mlTrainClassifier", None, True),  # single-output: resolves to its sole model handle
         ("mlTrainClassifier", "model", True),  # explicit, redundant but valid
+        ("mlClassifierModel", None, True),
+        ("mlRegressorModel", "model", True),
         ("mlTrainClassifier", "out", False),  # wrong handle name -> not a model edge
         ("mlTrainClassifier", "wat", False),
         ("trainTestSplit", "train", False),  # split outputs are frames
@@ -62,6 +64,7 @@ def test_edge_carries_model_matrix(source_type, source_handle, expected):
         ("mlPredict", "model", True),
         ("mlPredict", "in", False),
         ("featureImportance", "model", True),
+        ("mlCrossValidate", "model", True),
         ("featureImportance", "in", False),
         ("dropNulls", "in", False),
         ("mlTrainClassifier", "model", False),  # mlTrain's "model" is an OUTPUT, not an input
@@ -149,6 +152,39 @@ def test_data_into_model_input_rejected_predict():
     }
     with pytest.raises(GraphValidationError, match="needs a model reference"):
         validate_graph(graph)
+
+
+def test_cross_validate_rejects_train_node_as_model_source():
+    graph = {
+        "nodes": [
+            _input(),
+            _n("tr", "mlTrainClassifier", {"model_type": "logistic_regression", "target_column": "y", "seed": 1}),
+            _n("cv", "mlCrossValidate", {"cv_strategy": "kfold", "n_splits": 3, "seed": 1}),
+        ],
+        "edges": [
+            _e("e1", "in1", "tr"),
+            _e("e2", "in1", "cv"),
+            _e("e3", "tr", "cv", target_handle="model", source_handle="model"),
+        ],
+    }
+    with pytest.raises(GraphValidationError, match="Classifier Model or Regressor Model"):
+        validate_graph(graph)
+
+
+def test_cross_validate_accepts_model_definition_source():
+    graph = {
+        "nodes": [
+            _input(),
+            _n("model", "mlClassifierModel", {"model_type": "logistic_regression", "target_column": "y", "seed": 1}),
+            _n("cv", "mlCrossValidate", {"cv_strategy": "kfold", "n_splits": 3, "seed": 1}),
+        ],
+        "edges": [
+            _e("e1", "in1", "model"),
+            _e("e2", "in1", "cv"),
+            _e("e3", "model", "cv", target_handle="model", source_handle="model"),
+        ],
+    }
+    validate_graph(graph)
 
 
 def test_model_wired_into_predict_data_input_rejected():

@@ -15,6 +15,7 @@ export interface GraphNodeLike {
 export interface GraphEdgeLike {
   source: string;
   target: string;
+  sourceHandle?: string | null;
   targetHandle?: string | null;
 }
 

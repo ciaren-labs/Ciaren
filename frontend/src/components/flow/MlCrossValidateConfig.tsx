@@ -27,7 +27,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
   return (
     <>
       <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] text-sky-800">
-        Connect a Train Classifier or Train Regressor node to the <strong>model</strong> input. Target, features,
+        Connect a Classifier Model or Regressor Model node to the <strong>model</strong> input. Target, features,
         hyperparameters, and preprocessing are inherited from that model.
       </p>
 

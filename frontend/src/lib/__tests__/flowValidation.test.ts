@@ -213,6 +213,28 @@ describe("validateFlow", () => {
     expect(codes(v.errors)).not.toContain("MODEL_MISSING");
   });
 
+  it("rejects Train -> Cross-Validate to avoid duplicate full-data training", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("t", "mlTrainClassifier", { model_type: "logistic_regression", target_column: "a" }),
+      node("cv", "mlCrossValidate", { cv_strategy: "kfold", n_splits: 3, seed: 1 }),
+    ];
+    const edges = [edge("in", "t"), edge("in", "cv"), edge("t", "cv", "model")];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("MODEL_SOURCE_MISMATCH");
+  });
+
+  it("accepts Model Definition -> Cross-Validate", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("m", "mlClassifierModel", { model_type: "logistic_regression", target_column: "a", seed: 1 }),
+      node("cv", "mlCrossValidate", { cv_strategy: "kfold", n_splits: 3, seed: 1 }),
+    ];
+    const edges = [edge("in", "m"), edge("in", "cv"), edge("m", "cv", "model")];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).not.toContain("MODEL_SOURCE_MISMATCH");
+  });
+
   it("flags invalid node config", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "" }), // empty -> zod error

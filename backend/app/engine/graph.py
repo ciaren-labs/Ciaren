@@ -3,6 +3,7 @@ from typing import Any
 
 from app.engine.node_kinds import (
     FLOW_TERMINAL_NODES,
+    MODEL_DEFINITION_NODE_TYPES,
     MODEL_INPUT_HANDLES,
     MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
@@ -178,6 +179,15 @@ def _validate_model_handles(nodes: list[dict[str, Any]], edges: list[dict[str, A
             raise GraphValidationError(
                 f"{labels_by_id[edge['target']]}: the {expected!r} input needs a "
                 f"model reference — connect a model-producing ML node's output."
+            )
+        if (
+            target_type == "mlCrossValidate"
+            and target_handle == "model"
+            and source_type not in MODEL_DEFINITION_NODE_TYPES
+        ):
+            raise GraphValidationError(
+                f"{labels_by_id[edge['target']]}: connect Classifier Model or Regressor Model to cross-validate. "
+                "Train nodes fit a final model and would make cross-validation do extra work."
             )
 
 
