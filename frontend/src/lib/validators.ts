@@ -205,8 +205,6 @@ const mlTrainSchema = z
     target_column: z.string().optional(),
     feature_columns: stringArray.optional(),
     hyperparameters: z.record(z.string(), z.unknown()).optional(),
-    cross_validate: z.boolean().optional(),
-    cv_folds: z.coerce.number().int().min(2).optional(),
     mlflow_experiment: z.string().optional(),
     seed: z.coerce.number().int("Seed must be a whole number"),
     preprocessing: z.record(z.string(), z.unknown()).optional(),
@@ -649,6 +647,8 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     prefix: z.string().optional(),
     seed: z.coerce.number().int().optional(),
   }),
+  mlClassifierModel: mlTrainSchema,
+  mlRegressorModel: mlTrainSchema,
   mlTrainClassifier: mlTrainSchema,
   mlTrainRegressor: mlTrainSchema,
   mlTrainClustering: mlTrainSchema,
@@ -678,9 +678,6 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   }),
   mlCrossValidate: z
     .object({
-      model_type: z.enum(ML_MODEL_VALUES),
-      target_column: z.string().optional(),
-      feature_columns: stringArray.optional(),
       cv_strategy: z.enum(CV_STRATEGY_VALUES),
       n_splits: z.coerce.number().int().min(2).optional(),
       n_repeats: z.coerce.number().int().min(1).optional(),
@@ -688,28 +685,9 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
       shuffle: z.boolean().optional(),
       group_column: z.string().nullable().optional(),
       scoring: z.array(z.enum(CV_SCORING_VALUES as [string, ...string[]])).optional(),
-      hyperparameters: z.record(z.string(), z.unknown()).optional(),
       seed: z.coerce.number().int("Seed must be a whole number"),
     })
     .superRefine((cfg, ctx) => {
-      if (!isSupervisedModel(cfg.model_type)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["model_type"],
-          message: "Cross-validation supports classification and regression models only.",
-        });
-      }
-      if (!cfg.target_column) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["target_column"], message: "Pick a target column" });
-      }
-      const feats = cfg.feature_columns ?? [];
-      if (cfg.target_column && feats.includes(cfg.target_column)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["feature_columns"],
-          message: "The target can't also be a feature (data leakage).",
-        });
-      }
       if (CV_STRATEGY_MAP[cfg.cv_strategy]?.usesGroup && !cfg.group_column) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

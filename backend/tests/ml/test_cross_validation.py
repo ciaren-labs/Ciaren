@@ -1,5 +1,7 @@
-"""mlCrossValidate: the CV strategies, scoring, validation guardrails, codegen,
-and executor integration (a cross-validation node is a valid flow terminal)."""
+"""mlCrossValidate: CV strategies, scoring, validation guardrails, codegen,
+and executor integration. The node consumes a model reference from a Train node."""
+
+import json
 
 import numpy as np
 import pandas as pd
@@ -10,6 +12,7 @@ from app.engine.backends import get_engine
 from app.engine.executor import FlowExecutor, dataset_ref_key
 from app.engine.transformations.ml.base import MLSchema
 from app.engine.transformations.ml.cross_validation import CrossValidateTransformation
+from app.ml.models import get_model_spec
 
 NODE = CrossValidateTransformation()
 
@@ -32,7 +35,10 @@ def _regression_df(n=60):
 
 def _run(df, config, engine_name="pandas"):
     engine = get_engine(engine_name)
-    out, meta = NODE.execute_with_metadata(engine, {"in": engine.from_pandas(df)}, config)
+    model_config = _model_config(config)
+    cv_config = _cv_config(config)
+    model_ref = _model_ref(engine, model_config)
+    out, meta = NODE.execute_with_metadata(engine, {"in": engine.from_pandas(df), "model": model_ref}, cv_config)
     return engine.to_pandas(out["out"]), meta
 
 
@@ -40,6 +46,41 @@ def _base(**over):
     cfg = {"model_type": "logistic_regression", "target_column": "target", "feature_columns": ["x1", "x2"], "seed": 42}
     cfg.update(over)
     return cfg
+
+
+def _model_config(config):
+    return {
+        "model_type": config["model_type"],
+        "target_column": config.get("target_column"),
+        "feature_columns": config.get("feature_columns") or [],
+        "hyperparameters": config.get("hyperparameters") or {},
+        "preprocessing": config.get("preprocessing") or {},
+        "seed": config.get("seed", 42),
+    }
+
+
+def _cv_config(config):
+    model_keys = {"model_type", "target_column", "feature_columns", "hyperparameters", "preprocessing"}
+    return {k: v for k, v in config.items() if k not in model_keys}
+
+
+def _model_ref(engine, model_config):
+    spec = get_model_spec(model_config["model_type"])
+    return engine.from_pandas(
+        pd.DataFrame(
+            [
+                {
+                    "mlflow_run_id": None,
+                    "model_uri": None,
+                    "task_type": spec.task,
+                    "model_type": model_config["model_type"],
+                    "target_column": model_config.get("target_column"),
+                    "feature_columns_json": json.dumps(model_config.get("feature_columns") or []),
+                    "model_config_json": json.dumps(model_config),
+                }
+            ]
+        )
+    )
 
 
 # -- happy paths: every strategy --------------------------------------------
@@ -111,12 +152,12 @@ def test_seed_required():
 
 def test_target_required():
     with pytest.raises(ValueError, match="target_column"):
-        NODE.validate_config({"model_type": "logistic_regression", "cv_strategy": "kfold", "seed": 1})
+        _run(_classification_df(), _base(target_column=None, cv_strategy="kfold"))
 
 
 def test_unsupervised_model_rejected():
     with pytest.raises(ValueError, match="classification and regression"):
-        NODE.validate_config(_base(model_type="kmeans"))
+        _run(_classification_df(), _base(model_type="kmeans", target_column=None))
 
 
 def test_unknown_strategy_rejected():
@@ -126,7 +167,7 @@ def test_unknown_strategy_rejected():
 
 def test_stratified_requires_classification():
     with pytest.raises(ValueError, match="classification"):
-        NODE.validate_config(_base(model_type="ridge", cv_strategy="stratified_kfold"))
+        _run(_regression_df(), _base(model_type="ridge", cv_strategy="stratified_kfold"))
 
 
 def test_group_strategy_requires_group_column():
@@ -151,7 +192,7 @@ def test_unsupported_scoring_rejected():
 
 def test_target_in_features_is_leakage():
     with pytest.raises(ValueError, match="leakage"):
-        NODE.validate_config(_base(feature_columns=["x1", "target"]))
+        _run(_classification_df(), _base(feature_columns=["x1", "target"]))
 
 
 def test_schema_rejects_too_many_folds():
@@ -161,17 +202,15 @@ def test_schema_rejects_too_many_folds():
 
 
 def test_schema_rejects_missing_target():
-    schema = MLSchema(columns=["x1", "x2"], row_count=100)
     with pytest.raises(ValueError, match="target_column"):
-        NODE.validate_with_schema(_base(cv_strategy="kfold"), schema)
+        _run(_classification_df(), _base(target_column="missing", cv_strategy="kfold"))
 
 
 def test_feature_limit_via_schema(monkeypatch):
     monkeypatch.setenv("FLOWFRAME_ML_MAX_FEATURE_COLUMNS", "1")
     get_settings.cache_clear()
-    schema = MLSchema(columns=["x1", "x2", "target"], row_count=100)
     with pytest.raises(ValueError, match="ML_MAX_FEATURE_COLUMNS"):
-        NODE.validate_with_schema(_base(cv_strategy="kfold"), schema)
+        _run(_classification_df(), _base(cv_strategy="kfold"))
     get_settings.cache_clear()
 
 
@@ -192,14 +231,14 @@ def test_feature_limit_via_schema(monkeypatch):
 )
 def test_codegen_compiles(strategy, extra):
     cfg = _base(model_type="random_forest_classifier", cv_strategy=strategy, **extra)
-    code = NODE.to_python_code({"in": "df"}, {"out": "result"}, cfg)
+    code = NODE.to_python_code({"in": "df", "model": "model_ref"}, {"out": "result"}, _cv_config(cfg))
     full = "import pandas as pd\n" + "\n".join(NODE.imports(cfg)) + "\n" + code
     compile(full, "<gen>", "exec")
 
 
 def test_codegen_group_uses_input_var():
     cfg = _base(cv_strategy="group_kfold", group_column="grp")
-    code = NODE.to_python_code({"in": "df"}, {"out": "result"}, cfg)
+    code = NODE.to_python_code({"in": "df", "model": "model_ref"}, {"out": "result"}, _cv_config(cfg))
     assert "groups=df['grp']" in code
 
 
@@ -216,12 +255,23 @@ def test_executor_runs_cv_as_terminal(tmp_path):
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
             {
-                "id": "cv",
-                "type": "mlCrossValidate",
+                "id": "model",
+                "type": "mlClassifierModel",
                 "data": {
                     "config": {
                         "model_type": "logistic_regression",
                         "target_column": "target",
+                        "feature_columns": ["x1", "x2"],
+                        "hyperparameters": {},
+                        "seed": 42,
+                    }
+                },
+            },
+            {
+                "id": "cv",
+                "type": "mlCrossValidate",
+                "data": {
+                    "config": {
                         "cv_strategy": "stratified_kfold",
                         "n_splits": 4,
                         "seed": 42,
@@ -229,7 +279,11 @@ def test_executor_runs_cv_as_terminal(tmp_path):
                 },
             },
         ],
-        "edges": [{"id": "e1", "source": "in1", "target": "cv"}],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "model"},
+            {"id": "e2", "source": "in1", "target": "cv"},
+            {"id": "e3", "source": "model", "target": "cv", "sourceHandle": "model", "targetHandle": "model"},
+        ],
     }
     paths = {dataset_ref_key("ds1", None): csv}
     result = FlowExecutor().run_with_results(graph, paths, out_dir)

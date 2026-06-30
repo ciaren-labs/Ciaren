@@ -464,13 +464,33 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Model", desc: "Pick a classification algorithm (e.g. Random Forest, Logistic Regression)." },
       { name: "Target", desc: "The category column to predict." },
       { name: "Features", desc: "Optional. Empty = every column except the target." },
-      { name: "Advanced options", desc: "Cross-validation, preprocessing, and the full hyperparameter set." },
+      { name: "Advanced options", desc: "Preprocessing, tracking, and the full hyperparameter set." },
     ],
     tips: [
       "Feed it the train output of Train / Test Split.",
       "The seed is required so a run reproduces the same model.",
       "Wire the model output into Predict or Feature Importance.",
     ],
+  },
+  mlClassifierModel: {
+    summary:
+      "Defines a classification model without fitting it. Use this when Cross-Validate should do all fitting inside folds.",
+    fields: [
+      { name: "Model", desc: "Pick a classification algorithm." },
+      { name: "Target", desc: "The category column to predict." },
+      { name: "Features", desc: "Optional. Empty = every column except the target." },
+    ],
+    tips: ["Wire its model output into Cross-Validate to avoid an extra full-data training step."],
+  },
+  mlRegressorModel: {
+    summary:
+      "Defines a regression model without fitting it. Use this when Cross-Validate should do all fitting inside folds.",
+    fields: [
+      { name: "Model", desc: "Pick a regression algorithm." },
+      { name: "Target", desc: "The numeric column to predict." },
+      { name: "Features", desc: "Optional. Empty = every column except the target." },
+    ],
+    tips: ["Wire its model output into Cross-Validate to avoid an extra full-data training step."],
   },
   mlTrainRegressor: {
     summary:
@@ -479,7 +499,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Model", desc: "Pick a regression algorithm (e.g. Random Forest, Ridge, Linear)." },
       { name: "Target", desc: "The numeric column to predict." },
       { name: "Features", desc: "Optional. Empty = every column except the target." },
-      { name: "Advanced options", desc: "Cross-validation, preprocessing, and hyperparameters." },
+      { name: "Advanced options", desc: "Preprocessing, tracking, and hyperparameters." },
     ],
     tips: [
       "Feed it the train output of Train / Test Split.",
@@ -541,10 +561,10 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     tips: ["Connect the model output of Train Model. Works for tree and linear models (not SVM-rbf or KNN)."],
   },
   mlCrossValidate: {
-    summary: "Estimates how well a model generalizes by scoring it across resampling folds. Returns one row per fold.",
+    summary:
+      "Estimates how well a connected classifier or regressor generalizes by scoring it across resampling folds. Returns one row per fold.",
     fields: [
-      { name: "Model", desc: "The classification or regression model to evaluate." },
-      { name: "Target column", desc: "The column the model learns to predict." },
+      { name: "Model input", desc: "Connect the model output of Classifier Model or Regressor Model." },
       { name: "Strategy", desc: "K-Fold, Stratified, Shuffle, Time Series, Group, Repeated, or Leave-One-Out." },
       { name: "Folds / splits", desc: "How many folds to evaluate (ignored by Leave-One-Out)." },
       { name: "Scoring", desc: "Optional. Empty uses a sensible default set for the task." },

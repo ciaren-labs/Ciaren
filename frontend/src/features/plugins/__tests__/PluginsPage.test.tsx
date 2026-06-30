@@ -57,6 +57,8 @@ const PENDING = {
   granted_permissions: [],
   missing_permissions: ["network"],
   signature: "unsigned",
+  nodes: ["hello.greeting"],
+  node_categories: { "hello.greeting": "columns" },
 };
 
 const LOADED = {
@@ -100,6 +102,8 @@ describe("PluginsPage", () => {
     // The requested permission is shown with its friendly description.
     expect(screen.getByText("network")).toBeInTheDocument();
     expect(screen.getByText(/Make network requests/)).toBeInTheDocument();
+    expect(screen.getByText("hello.greeting")).toBeInTheDocument();
+    expect(screen.getByText("Columns")).toBeInTheDocument();
     expect(screen.getByText(/not loaded/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Approve/i }));
@@ -190,6 +194,8 @@ describe("PluginsPage", () => {
           trust: "verified",
           capabilities: ["connector.databricks"],
           permissions: ["network", "credentials"],
+          nodes: ["databricks.query"],
+          node_categories: { "databricks.query": "input" },
           license_required: true,
           installed: false,
           installable: true,
@@ -199,6 +205,8 @@ describe("PluginsPage", () => {
     renderPage();
 
     expect(await screen.findByText("Databricks Connector")).toBeInTheDocument();
+    expect(screen.getByText("databricks.query")).toBeInTheDocument();
+    expect(screen.getByText("Inputs")).toBeInTheDocument();
     expect(screen.getByText("License required")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Install$/i }));
     await waitFor(() => expect(marketplaceInstall).toHaveBeenCalledWith("acme.databricks"));
@@ -219,6 +227,8 @@ describe("PluginsPage", () => {
           trust: "community",
           capabilities: [],
           permissions: [],
+          nodes: ["acme.xNode"],
+          node_categories: { "acme.xNode": "plugins" },
           license_required: false,
           installed: true,
           installable: true,

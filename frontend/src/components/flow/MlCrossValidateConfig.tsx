@@ -1,17 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { mlApi } from "@/lib/api";
-import {
-  cvModels,
-  cvStrategiesForTask,
-  CV_SCORING,
-  CV_STRATEGY_MAP,
-  getModelDef,
-  type MlTask,
-} from "@/lib/mlModels";
-import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
+import { CV_SCORING, CV_STRATEGIES, CV_STRATEGY_MAP } from "@/lib/mlModels";
+import { Field, ColumnSelect } from "./configFields";
 
 type Config = Record<string, any>;
 
@@ -23,85 +13,27 @@ interface Props {
 }
 
 /**
- * Config form for the Cross-Validate node: pick a model, a target, a CV strategy
- * (k-fold, stratified, shuffle, time-series, group, repeated, leave-one-out), and
- * which scores to report. Strategy/scoring options follow the model's task.
+ * Config form for the Cross-Validate node: choose a CV strategy and scores.
+ * The estimator, target, features, and preprocessing come from the connected
+ * Train node's model handle.
  */
 export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
-  const { data: catalog = [] } = useQuery({
-    queryKey: ["ml", "model-catalog"],
-    queryFn: mlApi.modelCatalog,
-    staleTime: 60_000,
-  });
-  const availability = new Map(catalog.map((m) => [m.model_type, m]));
-  const models = cvModels();
-  const modelDef = getModelDef(config.model_type) ?? models[0];
-  const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
-  const task = (modelDef?.task ?? "classification") as MlTask;
-  const scoringTask = task === "regression" ? "regression" : "classification";
-  const strategies = cvStrategiesForTask(task);
-  const strategy = CV_STRATEGY_MAP[config.cv_strategy as string] ?? strategies[0];
+  const strategy = CV_STRATEGY_MAP[config.cv_strategy as string] ?? CV_STRATEGIES[0];
 
   const scoring = (config.scoring as string[]) ?? [];
   const toggleScore = (value: string) =>
     set({ scoring: scoring.includes(value) ? scoring.filter((s) => s !== value) : [...scoring, value] });
 
-  const onModelChange = (value: string) => {
-    const newTask = getModelDef(value)?.task;
-    const allowed = cvStrategiesForTask(newTask).map((s) => s.value);
-    const patch: Record<string, unknown> = { model_type: value, hyperparameters: {}, scoring: [] };
-    // A stratified strategy is invalid for regression — fall back to plain k-fold.
-    if (!allowed.includes(config.cv_strategy)) patch.cv_strategy = "kfold";
-    set(patch);
-  };
-
   return (
     <>
-      <Field label="Model" error={errors.model_type} help="The classification or regression model to evaluate.">
-        <Select value={modelDef?.value ?? ""} onChange={(e) => onModelChange(e.target.value)}>
-          {models.map((m) => (
-            <option key={m.value} value={m.value} disabled={availability.get(m.value)?.available === false}>
-              {m.label}
-              {availability.get(m.value)?.available === false ? " (not installed)" : ""}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      {selectedAvailability?.available === false ? (
-        <p
-          className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800"
-          title={selectedAvailability.warning ?? "Required dependency was not found."}
-        >
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Required dependency not installed for {modelDef?.label}.</span>
-        </p>
-      ) : modelDef?.requires ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-          Needs the <strong>{modelDef.requires}</strong> library (installed with the <code>ml</code> extra).
-        </p>
-      ) : null}
-
-      <Field label="Target column" error={errors.target_column} help="The column the model learns to predict.">
-        <ColumnSelect value={config.target_column ?? ""} columns={columns} onChange={(v) => set({ target_column: v })} />
-      </Field>
-
-      <Field
-        label="Feature columns (optional)"
-        error={errors.feature_columns}
-        hint="Empty = every column except the target"
-        help="The inputs the model is trained on."
-      >
-        <ColumnMultiSelect
-          value={config.feature_columns}
-          columns={columns.filter((col) => col !== config.target_column)}
-          onChange={(v) => set({ feature_columns: v })}
-        />
-      </Field>
+      <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] text-sky-800">
+        Connect a Train Classifier or Train Regressor node to the <strong>model</strong> input. Target, features,
+        hyperparameters, and preprocessing are inherited from that model.
+      </p>
 
       <Field label="Strategy" error={errors.cv_strategy} help={strategy?.help}>
         <Select value={strategy?.value ?? "kfold"} onChange={(e) => set({ cv_strategy: e.target.value })}>
-          {strategies.map((s) => (
+          {CV_STRATEGIES.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
             </option>
@@ -177,27 +109,36 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
         </label>
       )}
 
-      <Field label="Scoring (optional)" hint="Empty = sensible defaults for the task" help="Which scores to report per fold.">
-        <div className="flex flex-wrap gap-1.5">
-          {CV_SCORING[scoringTask].map((s) => {
-            const on = scoring.includes(s.value);
-            return (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => toggleScore(s.value)}
-                className={
-                  "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all " +
-                  (on
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted")
-                }
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
+      <Field
+        label="Scoring (optional)"
+        hint="Empty = sensible defaults for the connected model"
+        help="Only choose metrics that match the connected classifier or regressor."
+      >
+        {(["classification", "regression"] as const).map((group) => (
+          <div key={group} className="mb-2 last:mb-0">
+            <p className="mb-1 text-[11px] font-medium uppercase text-slate-500">{group}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CV_SCORING[group].map((s) => {
+                const on = scoring.includes(s.value);
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => toggleScore(s.value)}
+                    className={
+                      "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all " +
+                      (on
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background text-slate-600 hover:border-primary/50 hover:bg-muted")
+                    }
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </Field>
 
       <Field label="Random seed" error={errors.seed} help="Required — reproduces the same folds every run.">

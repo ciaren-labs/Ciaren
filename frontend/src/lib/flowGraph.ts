@@ -258,6 +258,8 @@ function outputColumns(
       return ["metric", "value"];
     case "featureImportance":
       return ["feature_name", "importance", "rank"];
+    case "mlClassifierModel":
+    case "mlRegressorModel":
     case "mlTrainClassifier":
     case "mlTrainRegressor":
     case "mlTrainClustering":

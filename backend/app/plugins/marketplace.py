@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.plugin_api import Permission
+from app.plugin_api.specs import DEFAULT_PLUGIN_NODE_CATEGORY
 
 
 class MarketplaceEntry(BaseModel):
@@ -34,6 +35,11 @@ class MarketplaceEntry(BaseModel):
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
+    #: Node type ids the plugin declares for the editor palette, e.g. ``hello.greeting``.
+    nodes: list[str] = Field(default_factory=list)
+    #: Best-known palette category for each declared node id. Manifest-only packages
+    #: do not import code, so unknown categories default to ``plugins`` until loaded.
+    node_categories: dict[str, str] = Field(default_factory=dict, alias="nodeCategories")
     #: Where to download the ``.ffplugin`` artifact.
     download_url: str = Field(default="", alias="downloadUrl")
     #: Expected package digest (clients re-verify after download).
@@ -149,6 +155,10 @@ def build_entry(package_path: str | os.PathLike[str], *, download_url: str = "")
         trust=manifest.trust,
         capabilities=list(manifest.capabilities),
         permissions=list(manifest.permissions),
+        nodes=list(manifest.ui.nodes),
+        node_categories={
+            node: manifest.ui.node_categories.get(node, DEFAULT_PLUGIN_NODE_CATEGORY) for node in manifest.ui.nodes
+        },
         download_url=download_url,
         digest=compute_package_digest(package_path),
         key_id=(sig.key_id if sig else ""),

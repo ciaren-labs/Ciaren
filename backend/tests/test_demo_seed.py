@@ -199,6 +199,33 @@ async def test_ml_datasets_and_flows_seeded(ml_demo_db: AsyncSession) -> None:
             validate_graph(flow.graph_json, require_output=True)
 
 
+async def test_ml_cross_validation_demo_has_practical_modeling_context(ml_demo_db: AsyncSession) -> None:
+    result = await ml_demo_db.execute(select(Flow).where(Flow.name == "Iris — Logistic CV Report"))
+    flow = result.scalar_one()
+    nodes = {node["id"]: node for node in flow.graph_json["nodes"]}
+    model_node = nodes["model"]
+    model_config = model_node["data"]["config"]
+    cv_node = nodes["cross_validate"]
+    cv_config = cv_node["data"]["config"]
+
+    assert model_node["type"] == "mlClassifierModel"
+    assert model_config["model_type"] == "logistic_regression"
+    assert model_config["target_column"] == "species"
+    assert model_config["feature_columns"] == ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    assert cv_config["scoring"] == ["accuracy", "f1_weighted"]
+    assert model_config["preprocessing"]["numeric_strategy"] == "standard_scaler"
+
+    incoming = [edge for edge in flow.graph_json["edges"] if edge["target"] == "cross_validate"]
+    assert {edge["targetHandle"] if "targetHandle" in edge else "in" for edge in incoming} == {"in", "model"}
+    data_edge = next(edge for edge in incoming if edge.get("targetHandle", "in") == "in")
+    model_edge = next(edge for edge in incoming if edge.get("targetHandle") == "model")
+    upstream = nodes[data_edge["source"]]
+    assert upstream["type"] == "selectColumns"
+    assert upstream["data"]["config"]["columns"] == [*model_config["feature_columns"], model_config["target_column"]]
+    assert model_edge["source"] == "model"
+    assert model_edge["sourceHandle"] == "model"
+
+
 async def test_ml_demo_flows_execute_end_to_end(ml_demo_db: AsyncSession, tmp_path) -> None:
     project = await _project(ml_demo_db)
     result = await ml_demo_db.execute(

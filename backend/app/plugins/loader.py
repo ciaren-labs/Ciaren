@@ -66,6 +66,8 @@ class GatedPlugin:
     reason: str  # "disabled" | "needs_permissions"
     requested_permissions: list[Permission] = field(default_factory=list)
     missing_permissions: list[Permission] = field(default_factory=list)
+    nodes: list[str] = field(default_factory=list)
+    node_categories: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -191,6 +193,8 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             name=manifest.name,
             reason="disabled",
             requested_permissions=list(manifest.permissions),
+            nodes=list(manifest.ui.nodes),
+            node_categories=dict(manifest.ui.node_categories),
         )
     # A plugin runs only after the user explicitly approves it (enabling or granting
     # permissions). A freshly discovered plugin is unapproved, so its code stays
@@ -205,6 +209,8 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             reason="needs_permissions",
             requested_permissions=list(manifest.permissions),
             missing_permissions=missing,
+            nodes=list(manifest.ui.nodes),
+            node_categories=dict(manifest.ui.node_categories),
         )
     return None
 

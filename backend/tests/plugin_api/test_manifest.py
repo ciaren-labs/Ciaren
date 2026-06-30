@@ -13,7 +13,7 @@ VALID = {
     "entrypoint": "flowframe_databricks.plugin:DatabricksPlugin",
     "permissions": ["network", "credentials"],
     "capabilities": ["connector.databricks"],
-    "ui": {"nodes": ["databricks.read_table"]},
+    "ui": {"nodes": ["databricks.read_table"], "nodeCategories": {"databricks.read_table": "input"}},
     "license_required": True,
     "trust": "verified",
 }
@@ -25,6 +25,7 @@ def test_valid_manifest_parses():
     assert m.license == "commercial"
     assert Permission.network in m.permissions
     assert m.ui.nodes == ["databricks.read_table"]
+    assert m.ui.node_categories == {"databricks.read_table": "input"}
     assert m.license_required is True
 
 
@@ -36,6 +37,17 @@ def test_manifest_defaults():
     assert m.flowframe == ">=0.1"
     assert m.permissions == []
     assert m.trust == "community"
+
+
+def test_manifest_ui_node_category_defaults_invalid_categories_to_plugins():
+    m = validate_manifest(
+        {
+            "id": "x",
+            "name": "X",
+            "ui": {"nodes": ["x.node"], "nodeCategories": {"x.node": "not-real"}},
+        }
+    )
+    assert m.ui.node_categories == {"x.node": "plugins"}
 
 
 def test_missing_required_fields_rejected():

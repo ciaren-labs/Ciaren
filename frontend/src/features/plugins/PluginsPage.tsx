@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getCategoryLabel } from "@/lib/nodeCatalog";
+import { getCategoryTheme } from "@/lib/nodeVisuals";
 import type { MarketplaceEntry, PluginInfo, PluginStatus } from "@/lib/types";
 import { ApiError } from "@/lib/api";
 import {
@@ -311,6 +313,8 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
             </div>
           )}
 
+          <NodePlacement nodes={plugin.nodes} nodeCategories={plugin.node_categories} />
+
           {plugin.permissions.length > 0 && (
             <PermissionList permissions={plugin.permissions} granted={granted} />
           )}
@@ -490,6 +494,7 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
               Requests: <span className="font-medium">{entry.permissions.join(", ")}</span>
             </p>
           )}
+          <NodePlacement nodes={entry.nodes} nodeCategories={entry.node_categories} />
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
         </div>
 
@@ -513,6 +518,40 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
             </span>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function NodePlacement({
+  nodes,
+  nodeCategories,
+}: {
+  nodes: string[];
+  nodeCategories: Record<string, string>;
+}) {
+  if (nodes.length === 0) return null;
+  return (
+    <div className="mt-2.5">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Appears as node
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {nodes.map((node) => {
+          const category = nodeCategories[node] ?? "plugins";
+          const theme = getCategoryTheme(category);
+          return (
+            <span
+              key={node}
+              className="inline-flex items-center overflow-hidden rounded-md border border-border bg-background text-[10px] shadow-sm"
+            >
+              <span className="px-1.5 py-0.5 font-mono text-slate-700">{node}</span>
+              <span className={cn("border-l border-border px-1.5 py-0.5 font-medium", theme.text)}>
+                {getCategoryLabel(category)}
+              </span>
+            </span>
+          );
+        })}
       </div>
     </div>
   );

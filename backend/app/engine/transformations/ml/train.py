@@ -6,8 +6,8 @@ palette is self-explanatory. All share :class:`BaseTrainTransformation`: it bund
 preprocessing INTO an sklearn ``Pipeline`` so the exact transforms used at fit time
 are reapplied at predict time (no train/serve skew, no leakage from upstream nodes
 fitting on the full dataset). Each emits a single ``model`` output — a one-row
-reference frame with the MLflow run id / model URI / task — plus run metadata
-(metrics, cv scores) onto its NodeResult. The ``model`` wire is type-checked: it
+    reference frame with the MLflow run id / model URI / task and the estimator
+    definition — plus run metadata (metrics) onto its NodeResult. The ``model`` wire is type-checked: it
 can only feed a model input (mlPredict / featureImportance), never a data input.
 """
 
@@ -62,10 +62,6 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
                     raise ValueError(f"{nm} 'feature_columns' must be a list of column names.")
                 if target in features:
                     raise ValueError(f"{nm}: target_column {target!r} is also in feature_columns — data leakage.")
-        if config.get("cross_validate"):
-            folds = config.get("cv_folds", 5)
-            if not isinstance(folds, int) or isinstance(folds, bool) or folds < 2:
-                raise ValueError(f"{nm} 'cv_folds' must be an integer >= 2 when cross_validate is on.")
 
     def _check_task(self, model_type: str, spec: Any) -> None:
         if self.allowed_tasks and spec.task not in self.allowed_tasks:
@@ -112,7 +108,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         # During preview we must not fit a model or create an MLflow run: hand
         # downstream a placeholder model reference so the graph still resolves.
         if in_preview():
-            placeholder = pd.DataFrame([{"mlflow_run_id": None, "model_uri": None, "task_type": spec.task}])
+            placeholder = pd.DataFrame([self._model_ref(None, None, spec.task, config, [])])
             return (
                 {"model": engine.from_pandas(placeholder)},
                 NodeMetadata(task_type=spec.task),
@@ -151,14 +147,10 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
 
         x = pdf[features]
         metrics: dict[str, float] = {}
-        cv_scores: list[float] | None = None
         if spec.supervised:
             y = pdf[target]
             pipeline.fit(x, y)
             metrics = self._supervised_metrics(spec.task, pipeline, x, y)
-            if config.get("cross_validate"):
-                cv_scores = self._cross_validate(pipeline, x, y, spec.task, int(config.get("cv_folds", 5)), n)
-                metrics["cv_mean"] = float(sum(cv_scores) / len(cv_scores))
         else:
             pipeline.fit(x)
             metrics = self._unsupervised_metrics(config["model_type"], pipeline, x)
@@ -167,13 +159,12 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
 
         run_id, model_uri = self._log_to_mlflow(config, pipeline, features, metrics, n, seed, x)
 
-        model_ref = pd.DataFrame([{"mlflow_run_id": run_id, "model_uri": model_uri, "task_type": spec.task}])
+        model_ref = pd.DataFrame([self._model_ref(run_id, model_uri, spec.task, config, features)])
         meta = NodeMetadata(
             ml_metrics=metrics,
             mlflow_run_id=run_id,
             model_uri=model_uri,
             task_type=spec.task,
-            cv_scores=cv_scores,
         )
         return {"model": engine.from_pandas(model_ref)}, meta
 
@@ -201,15 +192,6 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
             "train_mae": float(mean_absolute_error(y, preds)),
         }
 
-    def _cross_validate(self, pipeline: Any, x: Any, y: Any, task: str, folds: int, n: int) -> list[float]:
-        from sklearn.model_selection import cross_val_score
-
-        if folds > n:
-            raise ValueError(f"{self.type}: cannot run {folds}-fold CV with only {n} training rows.")
-        scoring = "f1_weighted" if task == CLASSIFICATION else "r2"
-        scores = cross_val_score(pipeline, x, y, cv=folds, scoring=scoring)
-        return [float(s) for s in scores]
-
     def _unsupervised_metrics(self, model_type: str, pipeline: Any, x: Any) -> dict[str, float]:
         model = pipeline.named_steps["model"]
         if get_model_spec(model_type).task == "clustering":
@@ -230,6 +212,32 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         # pca_fit
         ratio = getattr(model, "explained_variance_ratio_", None)
         return {"explained_variance": float(ratio.sum())} if ratio is not None else {}
+
+    def _model_ref(
+        self,
+        run_id: str | None,
+        model_uri: str | None,
+        task: str,
+        config: dict[str, Any],
+        features: list[str],
+    ) -> dict[str, Any]:
+        model_config = {
+            "model_type": config["model_type"],
+            "target_column": config.get("target_column"),
+            "feature_columns": features or config.get("feature_columns") or [],
+            "hyperparameters": config.get("hyperparameters") or {},
+            "preprocessing": config.get("preprocessing") or {},
+            "seed": config.get("seed"),
+        }
+        return {
+            "mlflow_run_id": run_id,
+            "model_uri": model_uri,
+            "task_type": task,
+            "model_type": config["model_type"],
+            "target_column": config.get("target_column"),
+            "feature_columns_json": json.dumps(model_config["feature_columns"]),
+            "model_config_json": json.dumps(model_config),
+        }
 
     def _enforce_model_size(self, pipeline: Any, max_mb: int) -> None:
         import joblib
@@ -397,6 +405,63 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
     def imports(self, config: dict[str, Any]) -> list[str]:
         # joblib lets the exported training script persist the fitted pipeline.
         return ["import joblib", *self._pipeline_imports(config)]
+
+
+class BaseModelDefinitionTransformation(BaseTrainTransformation):
+    """Emit an unfitted model definition for nodes that evaluate by fitting clones.
+
+    Unlike the Train nodes, this does not fit data or create an MLflow run. It
+    carries the same estimator configuration on the model wire so Cross-Validate
+    can build the pipeline inside each fold without a redundant full-data fit.
+    """
+
+    def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
+        nm = self.type
+        settings = get_settings()
+        spec = get_model_spec(config["model_type"])
+        self._check_task(config["model_type"], spec)
+        target = config.get("target_column")
+        if spec.supervised and target and target not in schema.columns:
+            raise ValueError(f"{nm}: target_column {target!r} not in input columns {schema.columns}.")
+        features = self._resolve_features(config, schema.columns, spec.supervised, target)
+        missing = [c for c in features if c not in schema.columns]
+        if missing:
+            raise ValueError(f"{nm}: feature columns not found: {missing}.")
+        if len(features) > settings.ML_MAX_FEATURE_COLUMNS:
+            raise ValueError(
+                f"{nm}: {len(features)} feature columns exceeds the limit of "
+                f"{settings.ML_MAX_FEATURE_COLUMNS} (ML_MAX_FEATURE_COLUMNS)."
+            )
+
+    def execute_with_metadata(
+        self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
+    ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
+        import pandas as pd
+
+        spec = get_model_spec(config["model_type"])
+        self._check_task(config["model_type"], spec)
+        pdf = engine.to_pandas(inputs["in"])
+        target = config.get("target_column")
+        features = self._resolve_features(config, list(pdf.columns), spec.supervised, target)
+        if spec.supervised and (not target or target not in pdf.columns):
+            raise ValueError(f"{self.type}: target_column {target!r} not found.")
+        if target in features:
+            raise ValueError(f"{self.type}: target_column {target!r} is in feature_columns — data leakage.")
+        missing = [c for c in features if c not in pdf.columns]
+        if missing:
+            raise ValueError(f"{self.type}: feature columns not found: {missing}.")
+        model_ref = pd.DataFrame([self._model_ref(None, None, spec.task, config, features)])
+        return {"model": engine.from_pandas(model_ref)}, NodeMetadata(task_type=spec.task)
+
+
+class ClassifierModelTransformation(BaseModelDefinitionTransformation):
+    type = "mlClassifierModel"
+    allowed_tasks = ("classification",)
+
+
+class RegressorModelTransformation(BaseModelDefinitionTransformation):
+    type = "mlRegressorModel"
+    allowed_tasks = ("regression",)
 
 
 # -- task-scoped train nodes -------------------------------------------------

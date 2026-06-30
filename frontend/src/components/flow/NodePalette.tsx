@@ -5,6 +5,7 @@ import { transformationsApi } from "@/lib/api";
 import {
   getCategoryLabel,
   HIDDEN_PALETTE_TYPES,
+  isPluginNodeDef,
   paletteCategories,
   type NodeTypeDef,
 } from "@/lib/nodeCatalog";
@@ -353,6 +354,11 @@ function PaletteItem({
             <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
           </span>
           <span className="flex-1 truncate">{def.label}</span>
+          {isPluginNodeDef(def) && (
+            <span className="rounded border border-violet-200 bg-violet-50 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-700">
+              plugin
+            </span>
+          )}
           {!disabled && (
             <GripVertical className="h-4 w-4 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
           )}

@@ -14,7 +14,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Permission(str, Enum):
@@ -43,6 +43,18 @@ class Permission(str, Enum):
 #: A port carries either a dataframe or a trained model. A model output may only
 #: feed a model input (graph validation enforces this).
 PortKind = Literal["dataframe", "model"]
+BUILTIN_NODE_CATEGORIES = {
+    "input",
+    "clean",
+    "columns",
+    "reshape",
+    "analytics",
+    "quality",
+    "ml",
+    "output",
+    "plugins",
+}
+DEFAULT_PLUGIN_NODE_CATEGORY = "plugins"
 
 
 class PortSpec(BaseModel):
@@ -71,7 +83,7 @@ class NodeSpec(BaseModel):
     id: str
     label: str
     #: UI grouping, e.g. ``"input"``, ``"clean"``, ``"reshape"``, ``"ml"``.
-    category: str
+    category: str = DEFAULT_PLUGIN_NODE_CATEGORY
     description: str = ""
     #: Namespaced provider id, e.g. ``"flowframe.core"`` or ``"flowframe.ml"``.
     provider: str = "flowframe.core"
@@ -93,6 +105,12 @@ class NodeSpec(BaseModel):
     is_flow_terminal: bool = False
     #: Reserved for schema-driven config forms (JSON schema). Empty for now.
     config_schema: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("category")
+    @classmethod
+    def _normalize_category(cls, value: str) -> str:
+        category = value.strip() or DEFAULT_PLUGIN_NODE_CATEGORY
+        return category if category in BUILTIN_NODE_CATEGORIES else DEFAULT_PLUGIN_NODE_CATEGORY
 
 
 class ConnectorSpec(BaseModel):

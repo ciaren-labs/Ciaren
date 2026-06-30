@@ -25,7 +25,13 @@ conveyed by the `flowframe.plugins` entry point plus the package's own metadata.
   "entrypoint": "flowframe_databricks.plugin:DatabricksPlugin",
   "permissions": ["network", "credentials"],
   "capabilities": ["connector.databricks", "exporter.databricks_job"],
-  "ui": { "nodes": ["databricks.read_table", "databricks.write_table"] },
+  "ui": {
+    "nodes": ["databricks.read_table", "databricks.write_table"],
+    "nodeCategories": {
+      "databricks.read_table": "input",
+      "databricks.write_table": "output"
+    }
+  },
   "dependencies": [],
   "license_required": true,
   "trust": "verified"
@@ -47,6 +53,7 @@ conveyed by the `flowframe.plugins` entry point plus the package's own metadata.
 | `permissions` | no | `[]` | See below. |
 | `capabilities` | no | `[]` | Capability strings the plugin provides. |
 | `ui.nodes` | no | `[]` | Node ids the plugin contributes (advisory; the catalog is authoritative). |
+| `ui.nodeCategories` | no | `{}` | Palette subgroup for each node id. Valid values are `input`, `clean`, `columns`, `reshape`, `analytics`, `quality`, `ml`, `output`, and `plugins`; missing/invalid values default to `plugins`. |
 | `dependencies` | no | `[]` | Other plugin ids it depends on. |
 | `license_required` | no | `false` | Whether a license check must pass to enable it. |
 | `trust` | no | `community` | `trusted` / `verified` / `community` (informational). |

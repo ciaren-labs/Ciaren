@@ -35,11 +35,17 @@ def test_port_spec_is_frozen():
 
 
 def test_node_spec_defaults():
-    spec = NodeSpec(id="x", label="X", category="clean")
+    spec = NodeSpec(id="x", label="X")
+    assert spec.category == "plugins"
     assert spec.requires_ml is False
     assert spec.is_model_sink is False
     assert spec.inputs == ()
     assert spec.default_config == {}
+
+
+def test_node_spec_invalid_category_defaults_to_plugins():
+    spec = NodeSpec(id="x", label="X", category="unknown")
+    assert spec.category == "plugins"
 
 
 def test_connector_spec_permissions_are_enums():

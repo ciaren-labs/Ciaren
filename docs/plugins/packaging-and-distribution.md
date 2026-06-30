@@ -128,6 +128,8 @@ billing in the core):
       "publisher": "acme",
       "license": "commercial",
       "capabilities": ["connector.databricks"],
+      "nodes": ["databricks.query"],
+      "nodeCategories": { "databricks.query": "input" },
       "permissions": ["network", "credentials"],
       "downloadUrl": "https://example/acme-databricks-1.2.0.ffplugin",
       "keyId": "acme-2026",
@@ -156,7 +158,10 @@ catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose
 artifact is available locally install in one click
 (`POST /api/marketplace/{id}/install`) — FlowFrame re-checks the advertised
-digest and verifies the signature before installing. Entries that point at a
+digest and verifies the signature before installing. Catalog entries also expose
+the manifest's `ui.nodes` as `nodes` and `ui.nodeCategories` as `node_categories`,
+so users can see which editor node types and palette subgroups will appear after
+install and approval. Missing or invalid categories default to `plugins`. Entries that point at a
 remote URL must be downloaded and installed manually for now; a hosted index with
 network download is a drop-in later (same setting accepts an `https://` URL, same
 API contract).

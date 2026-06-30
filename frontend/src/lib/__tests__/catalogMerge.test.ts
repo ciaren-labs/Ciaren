@@ -3,6 +3,7 @@ import { mergeNodeCatalog, nodeSpecToDef } from "../catalogMerge";
 import {
   clearRuntimeNodeDefs,
   getNodeTypeDef,
+  isPluginNodeDef,
   NODE_TYPES,
   setRuntimeNodeDefs,
   type NodeTypeDef,
@@ -40,6 +41,7 @@ describe("nodeSpecToDef", () => {
     expect(def.label).toBe("Filter Rows");
     expect(def.inputHandles).toEqual(["in"]);
     expect(def.hasOutput).toBe(true);
+    expect(def.provider).toBe("flowframe.core");
     // A single implicit "out" is left undefined (static convention).
     expect(def.outputHandles).toBeUndefined();
     expect(def.defaultConfig).toEqual({ column: "" });
@@ -123,6 +125,18 @@ describe("nodeSpecToDef", () => {
   });
 });
 
+describe("isPluginNodeDef", () => {
+  it("does not treat core or ML providers as plugins", () => {
+    const core = nodeSpecToDef(spec({ provider: "flowframe.core" }));
+    const ml = nodeSpecToDef(spec({ provider: "flowframe.ml" }));
+    const plugin = nodeSpecToDef(spec({ provider: "community.hello" }));
+
+    expect(isPluginNodeDef(core)).toBe(false);
+    expect(isPluginNodeDef(ml)).toBe(false);
+    expect(isPluginNodeDef(plugin)).toBe(true);
+  });
+});
+
 describe("mergeNodeCatalog", () => {
   const staticDefs: NodeTypeDef[] = [
     { type: "csvInput", label: "CSV", category: "input", defaultConfig: {}, inputHandles: [], hasOutput: true, description: "static" },
@@ -144,8 +158,9 @@ describe("mergeNodeCatalog", () => {
   });
 
   it("appends plugin-only nodes after the static ones", () => {
-    const merged = mergeNodeCatalog(staticDefs, [spec({ id: "hello.greeting", label: "Greeting" })]);
+    const merged = mergeNodeCatalog(staticDefs, [spec({ id: "hello.greeting", label: "Greeting", provider: "community.hello" })]);
     expect(merged.map((d) => d.type)).toEqual(["csvInput", "filterRows", "hello.greeting"]);
+    expect(merged[merged.length - 1]?.provider).toBe("community.hello");
   });
 });
 
