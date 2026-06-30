@@ -15,7 +15,7 @@ import { getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import type { InputDatasetRef, NodeResult, ParameterValues } from "@/lib/types";
 
-const OUTPUT_NODE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
+const OUTPUT_NODE_TYPES = new Set(["fileOutput", "csvOutput", "excelOutput", "parquetOutput"]);
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();

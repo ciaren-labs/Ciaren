@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +88,9 @@ def parse_index(data: dict[str, Any] | str) -> MarketplaceIndex:
 
 def configured_index_path() -> Path | None:
     """The local index file the "Explore" catalog reads, from
-    ``settings.MARKETPLACE_INDEX``. ``None`` when unset (catalog disabled).
+    ``settings.MARKETPLACE_INDEX``. When unset, FlowFrame falls back to the
+    bundled community catalog so first-time users can try the plugin install
+    flow. Set the value to ``none``, ``off``, or ``disabled`` to disable Explore.
 
     A hosted index is a future drop-in: the same setting will accept an ``https://``
     URL once network fetch lands, parsed through :func:`parse_index` — the API
@@ -96,7 +99,12 @@ def configured_index_path() -> Path | None:
     from app.core.config import get_settings
 
     raw = get_settings().MARKETPLACE_INDEX.strip()
-    return Path(raw).expanduser() if raw else None
+    if raw.lower() in {"none", "off", "disabled"}:
+        return None
+    if raw:
+        return Path(raw).expanduser()
+    bundled = resources.files("app.bundled_plugins").joinpath("marketplace.json")
+    return Path(str(bundled))
 
 
 def load_configured_index() -> MarketplaceIndex | None:

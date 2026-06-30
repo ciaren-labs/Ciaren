@@ -50,6 +50,7 @@ interface NodeConfigFormProps {
   type: string;
   config: Record<string, unknown>;
   datasets: Dataset[];
+  projectId?: string | null;
   /** Columns available on the wire entering this node (for column pickers). */
   columns: string[];
   onChange: (config: Record<string, unknown>) => void;
@@ -65,6 +66,7 @@ export function NodeConfigForm({
   type,
   config,
   datasets,
+  projectId,
   columns,
   onChange,
   onErrors,
@@ -109,6 +111,7 @@ export function NodeConfigForm({
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
   const FILE_INPUT_SOURCE: Record<string, string> = {
+    fileInput: "csv",
     csvInput: "csv",
     excelInput: "excel",
     parquetInput: "parquet",
@@ -116,25 +119,68 @@ export function NodeConfigForm({
     textInput: "text",
   };
   if (type in FILE_INPUT_SOURCE) {
-    const accepted = FILE_INPUT_SOURCE[type];
-    const compatible = datasets.filter((d) => d.source_type === accepted);
-    const selected = datasets.find((d) => d.id === c.dataset_id);
+    const fileInputFormats = [
+      { value: "csv", label: "CSV" },
+      { value: "tsv", label: "TSV" },
+      { value: "excel", label: "Excel" },
+      { value: "parquet", label: "Parquet" },
+      { value: "json", label: "JSON" },
+      { value: "jsonl", label: "JSON Lines" },
+      { value: "text", label: "Text" },
+    ];
+    const datasetSourceForFormat: Record<string, string> = {
+      csv: "csv",
+      tsv: "tsv",
+      excel: "excel",
+      parquet: "parquet",
+      json: "json",
+      jsonl: "jsonl",
+      text: "text",
+    };
+    const isUnified = type === "fileInput";
+    const format = isUnified ? String(c.format ?? "csv") : FILE_INPUT_SOURCE[type];
+    const accepted = datasetSourceForFormat[format] ?? FILE_INPUT_SOURCE[type];
+    const projectDatasets = projectId ? datasets.filter((d) => d.project_id === projectId) : datasets;
+    const compatible = projectDatasets.filter((d) => d.source_type === accepted);
+    const selected = projectDatasets.find((d) => d.id === c.dataset_id);
     const pinned = (c.dataset_version as number | null | undefined) ?? selected?.latest_version;
     const isOutdated =
       selected != null && pinned != null && pinned < selected.latest_version;
 
     return (
       <>
+        {isUnified && (
+          <Field
+            label="File type"
+            error={errors.format}
+            help="How this uploaded dataset should be read at run time."
+          >
+            <Select
+              value={format}
+              onChange={(e) => set({ format: e.target.value, dataset_id: "", dataset_version: null })}
+            >
+              {fileInputFormats.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field
           label="Dataset"
           error={errors.dataset_id}
-          help={`Only ${accepted.toUpperCase()} datasets can be loaded by this node.`}
+          help={
+            isUnified
+              ? `Only datasets compatible with ${format.toUpperCase()} are listed.`
+              : `Only ${accepted.toUpperCase()} datasets can be loaded by this node.`
+          }
         >
           <Select
             value={(c.dataset_id as string) ?? ""}
             onChange={(e) => {
               // Default to pinning the chosen dataset's latest version.
-              const ds = datasets.find((d) => d.id === e.target.value);
+              const ds = projectDatasets.find((d) => d.id === e.target.value);
               set({ dataset_id: e.target.value, dataset_version: ds?.latest_version ?? null });
             }}
           >
@@ -1954,19 +2000,12 @@ export function NodeConfigForm({
 
     case "filterExpression":
       return (
-        <Field
-          label="Expression"
+        <FilterExpressionEditor
+          value={(c.expression as string) ?? ""}
+          columns={columns}
           error={errors.expression}
-          help="A boolean expression that must be true to keep a row. Same syntax as Calculated Column: amount > 100 and status == 'paid'."
-        >
-          <textarea
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            rows={3}
-            value={(c.expression as string) ?? ""}
-            placeholder="amount > 100 and status == 'paid'"
-            onChange={(e) => set({ expression: e.target.value })}
-          />
-        </Field>
+          onChange={(expression) => set({ expression })}
+        />
       );
 
     case "combineColumns":
@@ -2141,6 +2180,135 @@ export function NodeConfigForm({
     default:
       return <p className="text-xs text-muted-foreground">No configuration for this node type.</p>;
   }
+}
+
+function quoteFilterValue(raw: string, operator: string): string {
+  const value = raw.trim();
+  if (operator === "in") {
+    const items = value
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .map((v) => (/^-?\d+(\.\d+)?$/.test(v) ? v : `'${v.replace(/'/g, "\\'")}'`));
+    return `[${items.join(", ")}]`;
+  }
+  if (/^-?\d+(\.\d+)?$/.test(value) || value === "True" || value === "False") return value;
+  return `'${value.replace(/'/g, "\\'")}'`;
+}
+
+function buildFilterCondition(column: string, operator: string, value: string, value2: string): string {
+  if (!column) return "";
+  if (operator === "isnull") return `${column}.isnull()`;
+  if (operator === "notnull") return `${column}.notnull()`;
+  if (operator === "contains") return `${column}.str.contains(${quoteFilterValue(value, operator)})`;
+  if (operator === "startswith") return `${column}.str.startswith(${quoteFilterValue(value, operator)})`;
+  if (operator === "endswith") return `${column}.str.endswith(${quoteFilterValue(value, operator)})`;
+  if (operator === "in") return `${column}.isin(${quoteFilterValue(value, operator)})`;
+  if (operator === "between") {
+    return `(${column} >= ${quoteFilterValue(value, operator)} and ${column} <= ${quoteFilterValue(value2, operator)})`;
+  }
+  return `${column} ${operator} ${quoteFilterValue(value, operator)}`;
+}
+
+function FilterExpressionEditor({
+  value,
+  columns,
+  error,
+  onChange,
+}: {
+  value: string;
+  columns: string[];
+  error?: string;
+  onChange: (expression: string) => void;
+}) {
+  const [column, setColumn] = useState(columns[0] ?? "");
+  const [operator, setOperator] = useState<string>("==");
+  const [conditionValue, setConditionValue] = useState("");
+  const [conditionValue2, setConditionValue2] = useState("");
+  const needsValue = !VALUELESS_OPERATORS.has(operator);
+  const condition = buildFilterCondition(column, operator, conditionValue, conditionValue2);
+  const canInsert =
+    !!column &&
+    (!needsValue || !!conditionValue.trim()) &&
+    (operator !== "between" || !!conditionValue2.trim());
+  const insert = (connector: "and" | "or" | null) => {
+    if (!canInsert) return;
+    const current = value.trim();
+    onChange(current && connector ? `${current} ${connector} ${condition}` : condition);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Field
+        label="Build condition"
+        help="Compose a condition, then append it to the expression with AND or OR."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <ColumnSelect value={column} columns={columns} onChange={setColumn} />
+          <Select value={operator} onChange={(e) => setOperator(e.target.value)}>
+            {filterOperators.map((op) => (
+              <option key={op} value={op}>
+                {FILTER_OPERATOR_LABELS[op] ?? op}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {needsValue && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Input
+              value={conditionValue}
+              placeholder={operator === "in" ? "paid, pending" : "value"}
+              onChange={(e) => setConditionValue(e.target.value)}
+            />
+            {operator === "between" ? (
+              <Input value={conditionValue2} placeholder="upper bound" onChange={(e) => setConditionValue2(e.target.value)} />
+            ) : (
+              <div />
+            )}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            disabled={!canInsert}
+            onClick={() => insert(null)}
+            className="rounded-md border border-border px-2 py-1 text-[11px] font-medium disabled:opacity-50"
+          >
+            Use condition
+          </button>
+          <button
+            type="button"
+            disabled={!canInsert || !value.trim()}
+            onClick={() => insert("and")}
+            className="rounded-md border border-border px-2 py-1 text-[11px] font-medium disabled:opacity-50"
+          >
+            AND
+          </button>
+          <button
+            type="button"
+            disabled={!canInsert || !value.trim()}
+            onClick={() => insert("or")}
+            className="rounded-md border border-border px-2 py-1 text-[11px] font-medium disabled:opacity-50"
+          >
+            OR
+          </button>
+        </div>
+      </Field>
+      <Field
+        label="Expression"
+        error={error}
+        help="A boolean expression that must be true to keep a row. You can still edit it directly."
+      >
+        <textarea
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          rows={3}
+          value={value}
+          placeholder="amount > 100 and status == 'paid'"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </Field>
+    </div>
+  );
 }
 
 // Specialized key/value editor where the value is a constrained dtype select.

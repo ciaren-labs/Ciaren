@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NodeSidebar } from "../NodeSidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -72,5 +72,29 @@ describe("NodeSidebar parameter affordance", () => {
     renderSidebar();
     expect(screen.queryByText(/Flow parameters/)).not.toBeInTheDocument();
     expect(screen.queryByText(/unknown parameter/i)).not.toBeInTheDocument();
+  });
+
+  it("loads datasets scoped to the active flow project", async () => {
+    useFlowEditorStore.setState({
+      selectedNodeId: "n1",
+      flowProjectId: "p1",
+      nodes: [
+        {
+          id: "n1",
+          type: "fileInput",
+          position: { x: 0, y: 0 },
+          data: { label: "Input", config: { dataset_id: "", format: "csv" } },
+        },
+      ],
+      edges: [],
+      parameters: [],
+    });
+
+    renderSidebar();
+
+    await waitFor(() => {
+      const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([url]) => String(url));
+      expect(calls).toContain("/api/datasets?project_id=p1");
+    });
   });
 });

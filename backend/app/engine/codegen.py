@@ -21,17 +21,34 @@ from typing import Any
 
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.node_kinds import FILE_OUTPUT_TYPE, SQL_INPUT_TYPE, SQL_OUTPUT_TYPE, output_handles, output_source_type
+from app.engine.node_kinds import (
+    FILE_INPUT_TYPE,
+    FILE_OUTPUT_TYPE,
+    SQL_INPUT_TYPE,
+    SQL_OUTPUT_TYPE,
+    input_source_type,
+    output_handles,
+    output_source_type,
+)
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
 _READ_FUNCS = {
+    "fileInput": "pd.read_csv",
     "csvInput": "pd.read_csv",
     "excelInput": "pd.read_excel",
     "parquetInput": "pd.read_parquet",
     "jsonInput": "pd.read_json",
+}
+_READ_FUNCS_BY_FORMAT = {
+    "csv": "pd.read_csv",
+    "tsv": "pd.read_csv",
+    "excel": "pd.read_excel",
+    "parquet": "pd.read_parquet",
+    "json": "pd.read_json",
+    "jsonl": "pd.read_json",
 }
 _WRITE_FUNCS = {
     "csvOutput": ("to_csv", "index=False"),
@@ -165,12 +182,22 @@ class CodeGenerator:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
-                func = _READ_FUNCS.get(node_type)
+                source_type = input_source_type(node_type, config)
+                func = (
+                    _READ_FUNCS_BY_FORMAT.get(source_type)
+                    if node_type == FILE_INPUT_TYPE
+                    else _READ_FUNCS.get(node_type)
+                )
                 # repr() the path so Windows backslashes, spaces, or quotes in a
                 # dataset name / output path can't produce invalid Python.
                 if func is not None:
-                    body.append(f"{var} = {func}({path!r})")
-                elif node_type == "textInput":
+                    kwargs = ""
+                    if source_type == "tsv":
+                        kwargs = ", sep='\\t'"
+                    elif source_type == "jsonl":
+                        kwargs = ", lines=True"
+                    body.append(f"{var} = {func}({path!r}{kwargs})")
+                elif source_type == "text":
                     body.append(
                         f'{var} = pd.read_csv({path!r}, sep="\\n", header=None, '
                         f'names=["text"], engine="python", dtype=str)'

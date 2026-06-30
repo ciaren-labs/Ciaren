@@ -75,6 +75,15 @@ packages are installed deliberately and load without the gate.
 Changes apply live: granting a pending plugin rebuilds the registry so its nodes
 appear in the catalog without a restart.
 
+## Marketplace
+
+`GET /api/marketplace` returns the Explore catalog. By default it is configured
+from FlowFrame's bundled community catalog, which includes a Hello Plugin package
+as `installable: true` and `installed: false`. Installing it uses the same
+verification and permission-gated path as uploading a `.ffplugin`; the plugin is
+not imported until the user approves it. Set `FLOWFRAME_MARKETPLACE_INDEX=none`
+to disable Explore, or point it at a custom local marketplace JSON.
+
 ## See also
 
 - [Writing a plugin](/plugins/writing-a-plugin) — build and register one

@@ -5,7 +5,7 @@ export interface DatasetSchemaField {
   type: string;
 }
 
-export type DatasetSourceType = "csv" | "excel" | "parquet" | "json" | "text";
+export type DatasetSourceType = "csv" | "tsv" | "excel" | "parquet" | "json" | "jsonl" | "text";
 
 export interface Project {
   id: string;
@@ -167,6 +167,15 @@ export interface MlRegisteredModel {
   aliases: Record<string, string>;
   last_updated: string | null;
   versions: MlModelVersion[];
+}
+
+export interface MlModelCatalogItem {
+  model_type: string;
+  task: string;
+  available: boolean;
+  requires: string[];
+  missing: string[];
+  warning: string | null;
 }
 
 export interface MlExperimentSummary {

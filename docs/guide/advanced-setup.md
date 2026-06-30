@@ -42,10 +42,28 @@ All settings use the `FLOWFRAME_` prefix.
 | `FLOWFRAME_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) |
 | `FLOWFRAME_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list) |
 | `FLOWFRAME_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB |
+| `FLOWFRAME_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
+| `FLOWFRAME_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-FlowFrame-Secret` |
+| `FLOWFRAME_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
+| `FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS` | `false` | Block connector endpoints resolving to private/internal addresses |
+| `FLOWFRAME_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage connector roots to these directories |
+| `FLOWFRAME_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
+| `FLOWFRAME_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
+| `FLOWFRAME_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
+| `FLOWFRAME_SEED_RUN_FLOWS` | `false` | Run newly seeded demo flows once |
 | `FLOWFRAME_SCHEDULER_ENABLED` | `true` | Run the background scheduler |
 | `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs |
 | `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
 | `FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) |
+| `FLOWFRAME_ML_ENABLED` | `true` | Enable ML routes/nodes when the `[ml]` extra is installed |
+| `FLOWFRAME_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
+| `FLOWFRAME_MLFLOW_REGISTRY_URI` | — | Optional MLflow registry URI; defaults to tracking URI |
+| `FLOWFRAME_ML_ARTIFACT_DIR` | `ml_artifacts` | Local model artifact root, under `DATA_DIR` when relative |
+| `FLOWFRAME_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails |
+| `FLOWFRAME_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
+| `FLOWFRAME_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
+| `FLOWFRAME_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
+| `FLOWFRAME_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 
 Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
 

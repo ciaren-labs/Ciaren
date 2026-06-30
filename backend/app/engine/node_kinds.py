@@ -17,6 +17,13 @@ INPUT_SOURCE_TYPES: dict[str, str] = {
     "textInput": "text",
 }
 
+# Unified uploaded-file input node. Its read format is selected in node config,
+# mirroring ``fileOutput`` on the write side. Legacy single-format input nodes
+# remain registered so existing flows keep running, but the palette can hide them.
+FILE_INPUT_TYPE = "fileInput"
+FILE_INPUT_FORMATS: tuple[str, ...] = ("csv", "tsv", "excel", "parquet", "json", "jsonl", "text")
+DEFAULT_FILE_INPUT_FORMAT = "csv"
+
 # Output node type -> source_type understood by ``EngineBackend.write``.
 # ``sqlOutput`` and ``storageOutput`` are materialized to parquet by the executor;
 # the execution service then pushes the parquet to the target via a connector.
@@ -63,6 +70,16 @@ def output_source_type(node_type: str, config: dict[str, Any] | None = None) -> 
     return OUTPUT_SOURCE_TYPES[node_type]
 
 
+def input_source_type(node_type: str, config: dict[str, Any] | None = None) -> str:
+    """The engine ``source_type`` an uploaded-file input node reads."""
+    if node_type == FILE_INPUT_TYPE:
+        fmt = (config or {}).get("format") or DEFAULT_FILE_INPUT_FORMAT
+        if fmt not in FILE_INPUT_FORMATS:
+            raise ValueError(f"fileInput: unknown format {fmt!r}. Allowed: {', '.join(FILE_INPUT_FORMATS)}.")
+        return fmt
+    return INPUT_SOURCE_TYPES[node_type]
+
+
 # Database-backed I/O nodes (resolved via app/connectors/sql, not the file engine).
 SQL_INPUT_TYPE = "sqlInput"
 SQL_OUTPUT_TYPE = "sqlOutput"
@@ -76,7 +93,7 @@ STORAGE_OUTPUT_TYPE = "storageOutput"
 PRE_MATERIALIZED_INPUT_TYPES: frozenset[str] = frozenset({SQL_INPUT_TYPE, STORAGE_INPUT_TYPE})
 
 #: Membership sets — use these for ``in`` checks.
-INPUT_TYPES: frozenset[str] = frozenset(INPUT_SOURCE_TYPES) | PRE_MATERIALIZED_INPUT_TYPES
+INPUT_TYPES: frozenset[str] = frozenset(INPUT_SOURCE_TYPES) | {FILE_INPUT_TYPE} | PRE_MATERIALIZED_INPUT_TYPES
 OUTPUT_TYPES: frozenset[str] = frozenset(OUTPUT_SOURCE_TYPES) | {FILE_OUTPUT_TYPE}
 
 # The task-scoped train nodes. Each fits a model and emits a single "model" wire.

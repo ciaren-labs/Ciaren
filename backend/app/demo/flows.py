@@ -21,9 +21,9 @@ DemoFlow = tuple[str, str, dict[str, Any]]
 def _input(node_id: str, dataset_id: str, x: int, y: int) -> dict[str, Any]:
     return {
         "id": node_id,
-        "type": "csvInput",
+        "type": "fileInput",
         "position": {"x": x, "y": y},
-        "data": {"config": {"dataset_id": dataset_id, "dataset_version": 1}},
+        "data": {"config": {"dataset_id": dataset_id, "dataset_version": 1, "format": "csv"}},
     }
 
 
@@ -75,6 +75,11 @@ def build_demo_flows(dataset_ids: dict[str, str], include_ml: bool = False) -> l
         _order_revenue_by_month(dataset_ids),
         _customer_orders_join(dataset_ids),
         _full_sales_mart(dataset_ids),
+        _lead_intake_cleanup(dataset_ids),
+        _web_event_engagement(dataset_ids),
+        _survey_quality_contracts(dataset_ids),
+        _regional_target_variance(dataset_ids),
+        _product_catalog_scoring(dataset_ids),
     ]
     if include_ml:
         flows += [
@@ -82,6 +87,11 @@ def build_demo_flows(dataset_ids: dict[str, str], include_ml: bool = False) -> l
             _iris_train_validate_evaluate(dataset_ids),
             _house_prices_regression(dataset_ids),
             _iris_pca_explore(dataset_ids),
+            _iris_cross_validation_report(dataset_ids),
+            _iris_knn_with_encoded_species(dataset_ids),
+            _house_price_feature_selection(dataset_ids),
+            _house_price_customer_segments(dataset_ids),
+            _house_price_pca_model(dataset_ids),
         ]
     return flows
 
@@ -372,6 +382,414 @@ def _full_sales_mart(ds: dict[str, str]) -> DemoFlow:
 
 
 # ---------------------------------------------------------------------------
+# 5. Lead Intake Cleanup — column prep, coalescing, mapping, and type cleanup.
+# ---------------------------------------------------------------------------
+
+
+def _lead_intake_cleanup(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_leads", ds["leads.csv"], 0, 0),
+            _node(
+                "contact_email",
+                "coalesceColumns",
+                {"columns": ["email", "backup_email"], "new_column": "contact_email", "keep_original": True},
+                240,
+                0,
+            ),
+            _node("has_contact", "dropNulls", {"subset": ["contact_email"], "how": "any"}, 480, 0),
+            _node(
+                "split_name",
+                "splitColumn",
+                {"column": "full_name", "mode": "delimiter", "delimiter": " ", "into": ["first_name", "last_name"]},
+                720,
+                0,
+            ),
+            _node(
+                "display_name",
+                "combineColumns",
+                {"columns": ["last_name", "first_name"], "new_column": "display_name", "separator": ", "},
+                960,
+                0,
+            ),
+            _node("cast_age", "castDtypes", {"casts": {"age_text": "integer"}, "errors": "coerce"}, 1200, 0),
+            _node("source_case", "replaceValues", {"column": "source", "to_replace": "WEB", "value": "web"}, 1440, 0),
+            _node(
+                "country_region",
+                "mapValues",
+                {
+                    "column": "country",
+                    "new_column": "region",
+                    "mapping": {"US": "North America", "CA": "North America", "MX": "North America", "UK": "Europe"},
+                    "default": "Other",
+                    "use_default": True,
+                },
+                1680,
+                0,
+            ),
+            _node("drop_raw", "dropColumns", {"columns": ["email", "backup_email", "utm_campaign"]}, 1920, 0),
+            _node(
+                "select_final",
+                "selectColumns",
+                {
+                    "columns": [
+                        "lead_id",
+                        "display_name",
+                        "contact_email",
+                        "country",
+                        "region",
+                        "source",
+                        "age_text",
+                        "score",
+                    ]
+                },
+                2160,
+                0,
+            ),
+            _node("rename_age", "renameColumns", {"mapping": {"age_text": "age"}}, 2400, 0),
+            _output("out_leads", "lead_intake_clean", 2640, 0),
+        ],
+        "edges": [
+            _edge("in_leads", "contact_email"),
+            _edge("contact_email", "has_contact"),
+            _edge("has_contact", "split_name"),
+            _edge("split_name", "display_name"),
+            _edge("display_name", "cast_age"),
+            _edge("cast_age", "source_case"),
+            _edge("source_case", "country_region"),
+            _edge("country_region", "drop_raw"),
+            _edge("drop_raw", "select_final"),
+            _edge("select_final", "rename_age"),
+            _edge("rename_age", "out_leads"),
+        ],
+    }
+    return (
+        "Lead Intake Cleanup",
+        "Turn messy inbound leads into a clean contact list: coalesce emails, split and recombine names, "
+        "cast age text, map countries to regions, and publish only the final columns.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6. Web Event Engagement — time deltas, windows, rolling metrics, sampling.
+# ---------------------------------------------------------------------------
+
+
+def _web_event_engagement(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_events", ds["web_events.csv"], 0, 0),
+            _node("parse_dates", "parseDates", {"columns": ["signup_date", "event_time"], "errors": "coerce"}, 240, 0),
+            _node(
+                "days_since_signup",
+                "dateDifference",
+                {
+                    "start_column": "signup_date",
+                    "end_column": "event_time",
+                    "unit": "days",
+                    "new_column": "days_active",
+                },
+                480,
+                0,
+            ),
+            _node(
+                "session_number",
+                "windowFunction",
+                {
+                    "function": "row_number",
+                    "partition_by": ["user_id"],
+                    "order_by": ["event_time"],
+                    "new_column": "session_number",
+                },
+                720,
+                0,
+            ),
+            _node(
+                "rolling_revenue",
+                "rollingAggregate",
+                {
+                    "target": "revenue",
+                    "function": "mean",
+                    "window": 3,
+                    "min_periods": 1,
+                    "partition_by": ["user_id"],
+                    "order_by": ["event_time"],
+                    "new_column": "rolling_revenue_3",
+                },
+                960,
+                0,
+            ),
+            _node(
+                "revenue_delta",
+                "rowDifference",
+                {
+                    "target": "revenue",
+                    "method": "diff",
+                    "periods": 1,
+                    "partition_by": ["user_id"],
+                    "order_by": ["event_time"],
+                    "new_column": "revenue_delta",
+                },
+                1200,
+                0,
+            ),
+            _node(
+                "engaged_paid",
+                "filterExpression",
+                {"expression": "duration_sec >= 60 and revenue >= 0"},
+                1440,
+                0,
+            ),
+            _node("explode_tags", "explodeRows", {"column": "tags", "delimiter": ","}, 1680, 0),
+            _node(
+                "round_metrics",
+                "roundNumbers",
+                {"columns": ["revenue", "rolling_revenue_3"], "decimals": 2},
+                1920,
+                0,
+            ),
+            _node("sample_review", "sampleRows", {"frac": 0.5, "seed": 7}, 2160, 0),
+            _node("top_review", "limitRows", {"n": 40, "offset": 0}, 2400, 0),
+            _output("out_events", "web_event_engagement", 2640, 0),
+        ],
+        "edges": [
+            _edge("in_events", "parse_dates"),
+            _edge("parse_dates", "days_since_signup"),
+            _edge("days_since_signup", "session_number"),
+            _edge("session_number", "rolling_revenue"),
+            _edge("rolling_revenue", "revenue_delta"),
+            _edge("revenue_delta", "engaged_paid"),
+            _edge("engaged_paid", "explode_tags"),
+            _edge("explode_tags", "round_metrics"),
+            _edge("round_metrics", "sample_review"),
+            _edge("sample_review", "top_review"),
+            _edge("top_review", "out_events"),
+        ],
+    }
+    return (
+        "Web Event Engagement",
+        "Parse event timestamps, calculate days since signup, add per-user session numbers, rolling revenue, "
+        "row-over-row revenue deltas, explode tags, and sample rows for review.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 7. Survey Quality Contracts — assertions plus binning and reshape.
+# ---------------------------------------------------------------------------
+
+
+def _survey_quality_contracts(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_survey", ds["survey_responses.csv"], 0, 0),
+            _node("required_ids", "assertNotNull", {"columns": ["response_id", "account_id"], "mode": "error"}, 240, 0),
+            _node("unique_response", "assertUnique", {"columns": ["response_id"], "mode": "error"}, 480, 0),
+            _node("score_range", "assertValueRange", {"column": "satisfaction", "min": 1, "max": 5}, 720, 0),
+            _node(
+                "plan_domain",
+                "assertValuesInSet",
+                {"column": "plan", "allowed": ["free", "team", "enterprise"], "allow_null": False},
+                960,
+                0,
+            ),
+            _node(
+                "valid_average",
+                "assertExpression",
+                {"expression": "satisfaction >= 1 and satisfaction <= 5"},
+                1200,
+                0,
+            ),
+            _node("row_bounds", "assertRowCount", {"min_rows": 20, "max_rows": 100}, 1440, 0),
+            _node(
+                "satisfaction_band",
+                "binColumn",
+                {
+                    "column": "satisfaction",
+                    "new_column": "satisfaction_band",
+                    "method": "equalwidth",
+                    "bins": 3,
+                    "labels": ["low", "medium", "high"],
+                },
+                1680,
+                0,
+            ),
+            _node(
+                "wide_to_long",
+                "unpivot",
+                {
+                    "id_vars": ["response_id", "account_id", "plan"],
+                    "value_vars": ["q1", "q2", "q3"],
+                    "var_name": "question",
+                    "value_name": "score",
+                },
+                1920,
+                0,
+            ),
+            _node(
+                "question_scores",
+                "groupByAggregate",
+                {"group_by": ["plan", "question"], "aggregations": {"score": "mean"}},
+                2160,
+                0,
+            ),
+            _output("out_survey", "survey_question_scores", 2400, 0),
+        ],
+        "edges": [
+            _edge("in_survey", "required_ids"),
+            _edge("required_ids", "unique_response"),
+            _edge("unique_response", "score_range"),
+            _edge("score_range", "plan_domain"),
+            _edge("plan_domain", "valid_average"),
+            _edge("valid_average", "row_bounds"),
+            _edge("row_bounds", "satisfaction_band"),
+            _edge("satisfaction_band", "wide_to_long"),
+            _edge("wide_to_long", "question_scores"),
+            _edge("question_scores", "out_survey"),
+        ],
+    }
+    return (
+        "Survey Quality Contracts",
+        "Validate survey data with not-null, uniqueness, range, domain, expression, and row-count checks, "
+        "then reshape question scores into a tidy summary.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 8. Regional Target Variance — multi-input concat, unpivot, pivot, variance.
+# ---------------------------------------------------------------------------
+
+
+def _regional_target_variance(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_targets", ds["regional_targets.csv"], 0, 0),
+            _node(
+                "targets_long",
+                "unpivot",
+                {
+                    "id_vars": ["region", "metric"],
+                    "value_vars": ["q1", "q2", "q3", "q4"],
+                    "var_name": "quarter",
+                    "value_name": "amount",
+                },
+                240,
+                0,
+            ),
+            _input("in_actuals", ds["regional_actuals.csv"], 0, 260),
+            _node(
+                "actuals_long",
+                "unpivot",
+                {
+                    "id_vars": ["region", "metric"],
+                    "value_vars": ["q1", "q2", "q3", "q4"],
+                    "var_name": "quarter",
+                    "value_name": "amount",
+                },
+                240,
+                260,
+            ),
+            _node("stack_metrics", "concatRows", {}, 520, 130),
+            _node(
+                "metrics_wide",
+                "pivot",
+                {"index": ["region", "quarter"], "columns": "metric", "values": "amount", "aggfunc": "sum"},
+                760,
+                130,
+            ),
+            _node(
+                "variance",
+                "calculatedColumn",
+                {"column_name": "variance", "expression": "actual - target"},
+                1000,
+                130,
+            ),
+            _node(
+                "attainment",
+                "calculatedColumn",
+                {"column_name": "attainment", "expression": "actual / target"},
+                1240,
+                130,
+            ),
+            _node("round_attainment", "roundNumbers", {"columns": ["attainment"], "decimals": 3}, 1480, 130),
+            _output("out_variance", "regional_target_variance", 1720, 130),
+        ],
+        "edges": [
+            _edge("in_targets", "targets_long"),
+            _edge("in_actuals", "actuals_long"),
+            _edge("targets_long", "stack_metrics"),
+            _edge("actuals_long", "stack_metrics"),
+            _edge("stack_metrics", "metrics_wide"),
+            _edge("metrics_wide", "variance"),
+            _edge("variance", "attainment"),
+            _edge("attainment", "round_attainment"),
+            _edge("round_attainment", "out_variance"),
+        ],
+    }
+    return (
+        "Regional Target Variance",
+        "Convert quarterly targets and actuals from wide to long, stack both sources, pivot them back side by side, "
+        "then calculate variance and attainment.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 9. Product Catalog Scoring — expression filter, binning, and Python escape hatch.
+# ---------------------------------------------------------------------------
+
+
+def _product_catalog_scoring(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_products", ds["products.csv"], 0, 0),
+            _node("fill_price", "fillNulls", {"columns": ["price"], "strategy": "mean"}, 240, 0),
+            _node("good_catalog", "filterExpression", {"expression": "price >= 10 and rating >= 2"}, 480, 0),
+            _node(
+                "price_band",
+                "binColumn",
+                {"column": "price", "new_column": "price_band", "method": "quantile", "bins": 3},
+                720,
+                0,
+            ),
+            _node("round_catalog", "roundNumbers", {"columns": ["price", "rating"], "decimals": 1}, 960, 0),
+            _node(
+                "python_margin",
+                "pythonTransform",
+                {
+                    "script": (
+                        "if hasattr(df, 'with_columns'):\n"
+                        "    return df.with_columns((pl.col('price') * 0.35).alias('margin_estimate'))\n"
+                        "df = df.copy()\n"
+                        "df['margin_estimate'] = df['price'] * 0.35\n"
+                        "return df"
+                    )
+                },
+                1200,
+                0,
+            ),
+            _output("out_catalog", "product_catalog_scored", 1440, 0),
+        ],
+        "edges": [
+            _edge("in_products", "fill_price"),
+            _edge("fill_price", "good_catalog"),
+            _edge("good_catalog", "price_band"),
+            _edge("price_band", "round_catalog"),
+            _edge("round_catalog", "python_margin"),
+            _edge("python_margin", "out_catalog"),
+        ],
+    }
+    return (
+        "Product Catalog Scoring",
+        "Prepare a product catalog with an expression filter, quantile price bands, rounded numeric fields, "
+        "and a small Python Transform for a margin estimate.",
+        graph,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Machine-learning demo flows (only seeded when the [ml] extra is installed)
 # ---------------------------------------------------------------------------
 
@@ -568,5 +986,200 @@ def _iris_pca_explore(ds: dict[str, str]) -> DemoFlow:
         "Iris — PCA Explore",
         "Standardize the four measurements and compress them to two principal "
         "components with PCA — ready to chart or cluster.",
+        graph,
+    )
+
+
+# 9. Iris — Cross-Validation Report: dedicated CV node with logistic regression.
+def _iris_cross_validation_report(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_iris", ds["iris.csv"], 0, 0),
+            _node(
+                "cross_validate",
+                "mlCrossValidate",
+                {
+                    "model_type": "logistic_regression",
+                    "target_column": "species",
+                    "feature_columns": _IRIS_FEATURES,
+                    "cv_strategy": "stratified_kfold",
+                    "n_splits": 5,
+                    "shuffle": True,
+                    "scoring": ["accuracy", "f1_weighted"],
+                    "hyperparameters": {"max_iter": 1000},
+                    "seed": 11,
+                },
+                260,
+                0,
+            ),
+            _output("out_cv", "iris_logistic_cv_scores", 520, 0),
+        ],
+        "edges": [_edge("in_iris", "cross_validate"), _edge("cross_validate", "out_cv")],
+        "engine": "pandas",
+    }
+    return (
+        "Iris — Logistic CV Report",
+        "Estimate a logistic-regression classifier with stratified cross-validation and export fold-level scores.",
+        graph,
+    )
+
+
+# 10. Iris — KNN with Encoded Species: category encoding + KNN classifier.
+def _iris_knn_with_encoded_species(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_iris", ds["iris.csv"], 0, 0),
+            _node("encode_species", "encodeCategories", {"columns": ["species"], "method": "ordinal"}, 240, 0),
+            _node(
+                "split",
+                "trainTestSplit",
+                {"test_size": 0.25, "stratify_column": "species", "seed": 13},
+                480,
+                0,
+            ),
+            _node(
+                "train",
+                "mlTrainClassifier",
+                {
+                    "model_type": "knn_classifier",
+                    "target_column": "species",
+                    "feature_columns": _IRIS_FEATURES,
+                    "hyperparameters": {"n_neighbors": 5},
+                    "seed": 13,
+                },
+                720,
+                -80,
+            ),
+            _node("predict", "mlPredict", {"output_column": "prediction"}, 960, 0),
+            _node(
+                "evaluate",
+                "mlEvaluate",
+                {"task_type": "classification", "target_column": "species", "prediction_column": "prediction"},
+                1200,
+                0,
+            ),
+            _output("out_eval", "iris_knn_encoded_metrics", 1440, 0),
+        ],
+        "edges": [
+            _edge("in_iris", "encode_species"),
+            _edge("encode_species", "split"),
+            _edge("split", "train", target_handle="in", source_handle="train"),
+            _edge("split", "predict", target_handle="in", source_handle="test"),
+            _edge("train", "predict", target_handle="model"),
+            _edge("predict", "evaluate"),
+            _edge("evaluate", "out_eval"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "Iris — KNN with Encoded Species",
+        "Encode the target labels, split the dataset, train a KNN classifier, and evaluate predictions.",
+        graph,
+    )
+
+
+# 11. House Prices — Feature Selection: choose numeric predictors before ridge.
+def _house_price_feature_selection(ds: dict[str, str]) -> DemoFlow:
+    graph = {
+        "nodes": [
+            _input("in_houses", ds["house_prices.csv"], 0, 0),
+            _node("select_features", "selectFeatures", {"method": "kbest", "target_column": "price", "k": 3}, 240, 0),
+            _node("split", "trainTestSplit", {"test_size": 0.25, "seed": 17}, 480, 0),
+            _node(
+                "train",
+                "mlTrainRegressor",
+                {
+                    "model_type": "ridge",
+                    "target_column": "price",
+                    "hyperparameters": {"alpha": 1.0},
+                    "seed": 17,
+                },
+                720,
+                -80,
+            ),
+            _node("predict", "mlPredict", {"output_column": "prediction"}, 960, 0),
+            _node(
+                "evaluate",
+                "mlEvaluate",
+                {"task_type": "regression", "target_column": "price", "prediction_column": "prediction"},
+                1200,
+                0,
+            ),
+            _output("out_metrics", "house_price_ridge_metrics", 1440, 0),
+        ],
+        "edges": [
+            _edge("in_houses", "select_features"),
+            _edge("select_features", "split"),
+            _edge("split", "train", target_handle="in", source_handle="train"),
+            _edge("split", "predict", target_handle="in", source_handle="test"),
+            _edge("train", "predict", target_handle="model"),
+            _edge("predict", "evaluate"),
+            _edge("evaluate", "out_metrics"),
+        ],
+        "engine": "pandas",
+    }
+    return (
+        "House Prices — Feature Selection",
+        "Use SelectKBest to keep the strongest numeric predictors, then train and evaluate a ridge regressor.",
+        graph,
+    )
+
+
+# 12. House Prices — Customer Segments: unsupervised clustering, no PCA.
+def _house_price_customer_segments(ds: dict[str, str]) -> DemoFlow:
+    features = ["area", "bedrooms", "age", "distance_to_city", "price"]
+    graph = {
+        "nodes": [
+            _input("in_houses", ds["house_prices.csv"], 0, 0),
+            _node("scale", "scaleFeatures", {"columns": features, "method": "minmax"}, 240, 0),
+            _node(
+                "cluster",
+                "mlTrainClustering",
+                {
+                    "model_type": "kmeans",
+                    "feature_columns": features,
+                    "hyperparameters": {"n_clusters": 4},
+                    "seed": 19,
+                },
+                480,
+                0,
+            ),
+        ],
+        "edges": [_edge("in_houses", "scale"), _edge("scale", "cluster")],
+        "engine": "pandas",
+    }
+    return (
+        "House Prices — Customer Segments",
+        "Scale house features and train a K-Means clustering model to discover price/size segments.",
+        graph,
+    )
+
+
+# 13. House Prices — PCA Model: fit PCA as a model, separate from the Iris PCA transform.
+def _house_price_pca_model(ds: dict[str, str]) -> DemoFlow:
+    features = ["area", "bedrooms", "age", "distance_to_city", "price"]
+    graph = {
+        "nodes": [
+            _input("in_houses", ds["house_prices.csv"], 0, 0),
+            _node("scale", "scaleFeatures", {"columns": features, "method": "standard"}, 240, 0),
+            _node(
+                "train_pca",
+                "mlTrainDimReduction",
+                {
+                    "model_type": "pca_fit",
+                    "feature_columns": features,
+                    "hyperparameters": {"n_components": 2},
+                    "seed": 23,
+                },
+                480,
+                0,
+            ),
+        ],
+        "edges": [_edge("in_houses", "scale"), _edge("scale", "train_pca")],
+        "engine": "pandas",
+    }
+    return (
+        "House Prices — PCA Model",
+        "Fit a PCA dimensionality-reduction model on scaled house features and log explained variance to MLflow.",
         graph,
     )

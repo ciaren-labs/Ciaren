@@ -148,8 +148,11 @@ flowframe plugin search databricks --index ./marketplace.json
 
 ### The "Explore" catalog
 
-Point `FLOWFRAME_MARKETPLACE_INDEX` at a local `marketplace.json` and the
-Plugins page grows an **Explore** section that lists its entries
+By default, FlowFrame ships a small bundled **Explore** catalog with an installable
+Hello Plugin so users can try the plugin installation flow without downloading
+anything. Point `FLOWFRAME_MARKETPLACE_INDEX` at a local `marketplace.json` to
+replace that catalog, or set it to `none` to hide Explore. The Plugins page lists
+catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose
 artifact is available locally install in one click
 (`POST /api/marketplace/{id}/install`) — FlowFrame re-checks the advertised

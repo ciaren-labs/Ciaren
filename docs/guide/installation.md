@@ -53,10 +53,13 @@ automatically** on first start — there is no migration step. Open the interact
 API docs at `http://localhost:8055/docs`.
 
 :::tip Database connectors are optional
-The core install stays lightweight. To connect to external databases, install the
-matching driver as an extra — e.g. `pip install -e ".[mysql]"`, or grab them all
-with `pip install -e ".[all]"`. See [Connections](/guide/connections) for the
-full list.
+The core install stays lightweight. To use external databases from SQL Input /
+SQL Output nodes, install the matching connector extra — e.g.
+`pip install -e ".[mysql]"`, or grab the connector set with
+`pip install -e ".[all]"`. These connector extras are separate from the async
+driver used by `FLOWFRAME_DATABASE_URL`; if you want FlowFrame's own metadata
+database on MySQL, install `aiomysql` and use a `mysql+aiomysql://` URL. See
+[Connections](/guide/connections) for the connector list.
 :::
 
 :::tip flowframe serve vs. uvicorn

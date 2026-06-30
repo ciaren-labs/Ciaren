@@ -20,12 +20,27 @@ from app.engine.executor import FlowExecutor, dataset_ref_key
 from app.engine.graph import validate_graph
 from app.services.dataset_resolver import build_dataset_paths
 
-_EXPECTED_DATASETS = {"customers.csv", "orders.csv", "products.csv", "order_items.csv"}
+_EXPECTED_DATASETS = {
+    "customers.csv",
+    "orders.csv",
+    "products.csv",
+    "order_items.csv",
+    "leads.csv",
+    "web_events.csv",
+    "survey_responses.csv",
+    "regional_targets.csv",
+    "regional_actuals.csv",
+}
 _EXPECTED_FLOWS = {
     "Clean Customers",
     "Order Revenue by Month",
     "Customer Orders Join",
     "Full Sales Mart",
+    "Lead Intake Cleanup",
+    "Web Event Engagement",
+    "Survey Quality Contracts",
+    "Regional Target Variance",
+    "Product Catalog Scoring",
 }
 
 
@@ -55,6 +70,11 @@ _EXPECTED_ML_FLOWS = {
     "Iris — Train, Validate & Evaluate",
     "House Prices — Regression",
     "Iris — PCA Explore",
+    "Iris — Logistic CV Report",
+    "Iris — KNN with Encoded Species",
+    "House Prices — Feature Selection",
+    "House Prices — Customer Segments",
+    "House Prices — PCA Model",
 }
 
 
@@ -89,7 +109,7 @@ async def test_demo_project_created(demo_db: AsyncSession) -> None:
     assert project.description
 
 
-async def test_four_datasets_created(demo_db: AsyncSession) -> None:
+async def test_demo_datasets_created(demo_db: AsyncSession) -> None:
     project = await _project(demo_db)
     result = await demo_db.execute(select(Dataset).where(Dataset.project_id == project.id))
     datasets = result.scalars().all()
@@ -153,7 +173,7 @@ async def test_dataset_paths_resolve_to_pinned_version(demo_db: AsyncSession) ->
     assert all(r["version_number"] == 1 for r in resolved)
     # Keys are the engine's (dataset_id, version) ref keys.
     for node in flow.graph_json["nodes"]:
-        if node["type"] == "csvInput":
+        if node["type"] == "fileInput":
             config = node["data"]["config"]
             key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
             assert key in paths

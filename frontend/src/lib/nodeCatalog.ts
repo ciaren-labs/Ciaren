@@ -51,10 +51,28 @@ export interface NodeTypeDef {
 }
 
 /** Node types kept resolvable for existing flows but hidden from the palette. */
-export const HIDDEN_PALETTE_TYPES = new Set(["csvOutput", "excelOutput", "parquetOutput"]);
+export const HIDDEN_PALETTE_TYPES = new Set([
+  "csvInput",
+  "excelInput",
+  "parquetInput",
+  "jsonInput",
+  "textInput",
+  "csvOutput",
+  "excelOutput",
+  "parquetOutput",
+]);
 
 export const NODE_TYPES: NodeTypeDef[] = [
   // ----- Inputs -----
+  {
+    type: "fileInput",
+    label: "File Input",
+    category: "input",
+    defaultConfig: { dataset_id: "", dataset_version: null, format: "csv" },
+    inputHandles: [],
+    hasOutput: true,
+    description: "Load rows from an uploaded dataset — choose the file type in the node.",
+  },
   {
     type: "csvInput",
     label: "CSV Input",
@@ -62,6 +80,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { dataset_id: "", dataset_version: null },
     inputHandles: [],
     hasOutput: true,
+    hidden: true,
     description: "Load rows from an uploaded CSV dataset.",
   },
   {
@@ -71,6 +90,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { dataset_id: "", dataset_version: null },
     inputHandles: [],
     hasOutput: true,
+    hidden: true,
     description: "Load rows from an uploaded Excel dataset.",
   },
   {
@@ -80,6 +100,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { dataset_id: "", dataset_version: null },
     inputHandles: [],
     hasOutput: true,
+    hidden: true,
     description: "Load rows from an uploaded Parquet dataset.",
   },
   {
@@ -89,6 +110,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { dataset_id: "", dataset_version: null },
     inputHandles: [],
     hasOutput: true,
+    hidden: true,
     description: "Load records from an uploaded JSON dataset.",
   },
   {
@@ -98,6 +120,7 @@ export const NODE_TYPES: NodeTypeDef[] = [
     defaultConfig: { dataset_id: "", dataset_version: null },
     inputHandles: [],
     hasOutput: true,
+    hidden: true,
     description: "Load lines from an uploaded text file (one row per line).",
   },
   {
