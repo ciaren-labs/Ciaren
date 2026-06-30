@@ -459,7 +459,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   },
   mlTrainClassifier: {
     summary:
-      "Fits a classification model (predicts a category) and logs it to MLflow. Preprocessing is bundled into the model so the same steps run at prediction time. Its single output is a model reference — wire it into Predict or Feature Importance.",
+      "Fits a final classification model (predicts a category) and logs it to MLflow. Preprocessing is bundled into the model so the same steps run at prediction time. Its single output is a trained model reference — wire it into Predict or Feature Importance, not Cross-Validate.",
     fields: [
       { name: "Model", desc: "Pick a classification algorithm (e.g. Random Forest, Logistic Regression)." },
       { name: "Target", desc: "The category column to predict." },
@@ -469,32 +469,43 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     tips: [
       "Feed it the train output of Train / Test Split.",
       "The seed is required so a run reproduces the same model.",
-      "Wire the model output into Predict or Feature Importance.",
+      "Use this after you have chosen the model you want to keep, register, score, or inspect.",
+      "For fold scores, use Classifier Model plus Cross-Validate instead; that path avoids training a final full-data model first.",
     ],
   },
   mlClassifierModel: {
     summary:
-      "Defines a classification model without fitting it. Use this when Cross-Validate should do all fitting inside folds.",
+      "Defines a classification estimator without fitting or logging it. Use this when Cross-Validate should own the fitting loop and train one fresh clone per fold.",
     fields: [
       { name: "Model", desc: "Pick a classification algorithm." },
       { name: "Target", desc: "The category column to predict." },
       { name: "Features", desc: "Optional. Empty = every column except the target." },
+      { name: "Model output", desc: "A model configuration reference for Cross-Validate, not a trained artifact for Predict." },
     ],
-    tips: ["Wire its model output into Cross-Validate to avoid an extra full-data training step."],
+    tips: [
+      "Wire its model output into Cross-Validate's model input.",
+      "Connect the same data frame to Cross-Validate's data input; Cross-Validate reads the target, features, hyperparameters, and preprocessing from this node.",
+      "Use Train Classifier instead when you need a trained model artifact for Predict, Feature Importance, registration, or MLflow tracking.",
+    ],
   },
   mlRegressorModel: {
     summary:
-      "Defines a regression model without fitting it. Use this when Cross-Validate should do all fitting inside folds.",
+      "Defines a regression estimator without fitting or logging it. Use this when Cross-Validate should own the fitting loop and train one fresh clone per fold.",
     fields: [
       { name: "Model", desc: "Pick a regression algorithm." },
       { name: "Target", desc: "The numeric column to predict." },
       { name: "Features", desc: "Optional. Empty = every column except the target." },
+      { name: "Model output", desc: "A model configuration reference for Cross-Validate, not a trained artifact for Predict." },
     ],
-    tips: ["Wire its model output into Cross-Validate to avoid an extra full-data training step."],
+    tips: [
+      "Wire its model output into Cross-Validate's model input.",
+      "Connect the same data frame to Cross-Validate's data input; Cross-Validate reads the target, features, hyperparameters, and preprocessing from this node.",
+      "Use Train Regressor instead when you need a trained model artifact for Predict, Feature Importance, registration, or MLflow tracking.",
+    ],
   },
   mlTrainRegressor: {
     summary:
-      "Fits a regression model (predicts a number) and logs it to MLflow. Preprocessing is bundled in so the same steps run at prediction time. Its single output is a model reference.",
+      "Fits a final regression model (predicts a number) and logs it to MLflow. Preprocessing is bundled in so the same steps run at prediction time. Its single output is a trained model reference — wire it into Predict or Feature Importance, not Cross-Validate.",
     fields: [
       { name: "Model", desc: "Pick a regression algorithm (e.g. Random Forest, Ridge, Linear)." },
       { name: "Target", desc: "The numeric column to predict." },
@@ -504,7 +515,8 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     tips: [
       "Feed it the train output of Train / Test Split.",
       "The seed is required so a run reproduces the same model.",
-      "Wire the model output into Predict or Feature Importance.",
+      "Use this after you have chosen the model you want to keep, register, score, or inspect.",
+      "For fold scores, use Regressor Model plus Cross-Validate instead; that path avoids training a final full-data model first.",
     ],
   },
   mlTrainClustering: {
@@ -562,14 +574,16 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
   },
   mlCrossValidate: {
     summary:
-      "Estimates how well a connected classifier or regressor generalizes by scoring it across resampling folds. Returns one row per fold.",
+      "Estimates how well a connected classifier or regressor generalizes by fitting fresh fold models from a Classifier Model or Regressor Model definition. It does not consume a trained Train node output and does not persist a final model.",
     fields: [
-      { name: "Model input", desc: "Connect the model output of Classifier Model or Regressor Model." },
+      { name: "Model input", desc: "Connect the model output of Classifier Model or Regressor Model. Train Classifier/Regressor outputs are intentionally rejected." },
       { name: "Strategy", desc: "K-Fold, Stratified, Shuffle, Time Series, Group, Repeated, or Leave-One-Out." },
       { name: "Folds / splits", desc: "How many folds to evaluate (ignored by Leave-One-Out)." },
       { name: "Scoring", desc: "Optional. Empty uses a sensible default set for the task." },
     ],
     tips: [
+      "Use Cross-Validate before final training to compare model choices and estimate generalization.",
+      "After you choose a model, add Train Classifier or Train Regressor if you need a final artifact for Predict, registration, or MLflow.",
       "Use Stratified for imbalanced classes, Time Series for ordered data, and Group to keep a group within one fold.",
       "Preprocessing is refit inside each fold, so scores aren't inflated by leakage.",
     ],
