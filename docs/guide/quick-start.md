@@ -102,12 +102,13 @@ curl -X POST http://localhost:8055/api/flows \
   -H "Content-Type: application/json" -d @flow.json
 
 # 4. Preview, then run (optionally choose an engine)
-curl -X POST http://localhost:8055/api/flows/{flow_id}/preview
+curl -X POST http://localhost:8055/api/flows/{flow_id}/preview \
+  -H "Content-Type: application/json" -d '{"limit": 50}'
 curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
   -H "Content-Type: application/json" -d '{"engine": "polars"}'
 curl http://localhost:8055/api/runs/{run_id}
 
-# 5. Export Python (returns both pandas and polars code)
+# 5. Export Python (returns pandas, polars, lazy polars, and a portable .flow document)
 curl -X POST http://localhost:8055/api/flows/{flow_id}/export/python
 ```
 

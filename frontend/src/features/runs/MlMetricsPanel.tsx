@@ -86,6 +86,7 @@ function FeatureImportanceChart({ sample }: { sample: Record<string, unknown>[] 
 }
 
 function RegisterModelDialog({ runId }: { runId: string }) {
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [stage, setStage] = useState("");
   const [result, setResult] = useState<MlRegisterResult | null>(null);
@@ -95,29 +96,37 @@ function RegisterModelDialog({ runId }: { runId: string }) {
     mutationFn: () => mlApi.register(runId, { model_name: name.trim(), stage: stage || null }),
     onSuccess: (res) => {
       setResult(res);
+      setOpen(false);
       // So the Models page reflects the new registration without a manual refresh.
       qc.invalidateQueries({ queryKey: ["ml", "models"] });
     },
   });
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700"
-        >
-          <BadgeCheck className="h-3.5 w-3.5" /> Register in registry
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Register model</DialogTitle>
-          <DialogDescription>
-            Promote this run's model to the MLflow registry under a name, optionally tagging a stage.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (nextOpen) mutation.reset();
+        }}
+      >
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700"
+          >
+            <BadgeCheck className="h-3.5 w-3.5" /> Register in registry
+          </button>
+        </DialogTrigger>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Register model</DialogTitle>
+            <DialogDescription>
+              Promote this run's model to the MLflow registry under a name, optionally tagging a stage.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
             Model name
             <Input value={name} placeholder="churn-predictor" onChange={(e) => setName(e.target.value)} />
@@ -172,9 +181,16 @@ function RegisterModelDialog({ runId }: { runId: string }) {
               Register
             </button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {result && (
+        <p className="rounded-md bg-success/10 px-2 py-1.5 text-xs text-success">
+          Registered <strong>{result.model_name}</strong> v{result.version}
+          {result.alias ? ` (alias: ${result.alias})` : ""}.
+        </p>
+      )}
+    </>
   );
 }
 

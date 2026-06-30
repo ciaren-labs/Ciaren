@@ -1,5 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { mlApi } from "@/lib/api";
 import {
   cvModels,
   cvStrategiesForTask,
@@ -25,8 +28,15 @@ interface Props {
  * which scores to report. Strategy/scoring options follow the model's task.
  */
 export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
+  const { data: catalog = [] } = useQuery({
+    queryKey: ["ml", "model-catalog"],
+    queryFn: mlApi.modelCatalog,
+    staleTime: 60_000,
+  });
+  const availability = new Map(catalog.map((m) => [m.model_type, m]));
   const models = cvModels();
   const modelDef = getModelDef(config.model_type) ?? models[0];
+  const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
   const task = (modelDef?.task ?? "classification") as MlTask;
   const scoringTask = task === "regression" ? "regression" : "classification";
   const strategies = cvStrategiesForTask(task);
@@ -50,18 +60,27 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
       <Field label="Model" error={errors.model_type} help="The classification or regression model to evaluate.">
         <Select value={modelDef?.value ?? ""} onChange={(e) => onModelChange(e.target.value)}>
           {models.map((m) => (
-            <option key={m.value} value={m.value}>
+            <option key={m.value} value={m.value} disabled={availability.get(m.value)?.available === false}>
               {m.label}
+              {availability.get(m.value)?.available === false ? " (not installed)" : ""}
             </option>
           ))}
         </Select>
       </Field>
 
-      {modelDef?.requires && (
+      {selectedAvailability?.available === false ? (
+        <p
+          className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800"
+          title={selectedAvailability.warning ?? "Required dependency was not found."}
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>Required dependency not installed for {modelDef?.label}.</span>
+        </p>
+      ) : modelDef?.requires ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
           Needs the <strong>{modelDef.requires}</strong> library (installed with the <code>ml</code> extra).
         </p>
-      )}
+      ) : null}
 
       <Field label="Target column" error={errors.target_column} help="The column the model learns to predict.">
         <ColumnSelect value={config.target_column ?? ""} columns={columns} onChange={(v) => set({ target_column: v })} />

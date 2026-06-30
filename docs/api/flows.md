@@ -13,14 +13,15 @@ Flow-compatible graph (`nodes` and `edges`).
 | --- | --- | --- |
 | `GET` | `/api/flows` | List flows |
 | `POST` | `/api/flows` | Create a flow |
+| `POST` | `/api/flows/import` | Import a portable `.flow` document; environment bindings are stripped |
 | `GET` | `/api/flows/{flow_id}` | Get one flow |
 | `PUT` | `/api/flows/{flow_id}` | Update a flow |
 | `DELETE` | `/api/flows/{flow_id}` | Delete a flow |
-| `POST` | `/api/flows/{flow_id}/preview` | Preview the flow output without saving a run |
-| `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code (returns both `code` = pandas and `polars`) |
+| `POST` | `/api/flows/{flow_id}/preview` | Preview the flow output without saving a run; body accepts `node_id`, `limit`, `profile`, and parameter overrides |
+| `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code; `?free_intermediates=true` also releases intermediate frames in generated code |
 
-The export response carries both dialects: `code` (pandas) and `polars`. See
-[Engines → Code export](/guide/engines#code-export).
+The export response carries `code` (pandas), `polars`, `polars_lazy`, and a
+portable `flow_document`. See [Engines → Code export](/guide/engines#code-export).
 
 ## See also
 

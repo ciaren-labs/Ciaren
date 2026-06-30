@@ -8,7 +8,7 @@
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
-![React](https://img.shields.io/badge/React-18-blue)
+![React](https://img.shields.io/badge/React-19-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
 ---
@@ -68,7 +68,7 @@ for pushdown and join optimization on large files.
 | Feature | Details |
 |---------|---------|
 | **Visual Builder** | Drag-and-drop nodes for cleaning, reshaping, joining, and aggregating data |
-| **28 Transformation Nodes** | From drop-nulls to window functions, joins, pivots, and conditional columns |
+| **42 Transformation Nodes** | From drop-nulls to data-quality assertions, window functions, joins, pivots, and conditional columns |
 | **Live Preview** | See data changes at each step before running the full pipeline |
 | **Code Export** | Download readable, standalone Python — pandas, polars, or optimized **lazy** polars |
 | **polars or pandas** | Runs on polars by default; switch engines per run |
@@ -154,7 +154,7 @@ Full docs (guides, transformation reference, examples, API) are published at
 
 ## 🛠️ Transformation Nodes
 
-FlowFrame ships with file & SQL input/output plus **28 transformation nodes**. The
+FlowFrame ships with file & SQL input/output plus **42 transformation nodes**. The
 authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engine/registry.py).
 
 ### Input / Output
@@ -228,7 +228,7 @@ on first boot so the Runs and Models views aren't empty. See the
 polars. Default dataframe engine is **polars**; pandas is fully supported and
 selectable per run.
 
-**Frontend:** React 18, TypeScript (strict), Vite, @xyflow/react, TanStack Query,
+**Frontend:** React 19, TypeScript (strict), Vite, @xyflow/react, TanStack Query,
 Zustand, shadcn/ui, Tailwind CSS.
 
 **Database:** SQLite by default (file or in-memory). PostgreSQL / MySQL supported

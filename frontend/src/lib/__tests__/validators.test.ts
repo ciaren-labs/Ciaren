@@ -27,6 +27,7 @@ function rejects(type: string, config: unknown, pathContains?: string) {
 // Every key in the registry must be covered by this file. This guard fails
 // loudly if a new node type is added without a test.
 const COVERED = new Set<string>([
+  "fileInput",
   "csvInput",
   "excelInput",
   "parquetInput",
@@ -108,6 +109,15 @@ describe("nodeConfigSchemas coverage guard", () => {
 
 // Input nodes -----------------------------------------------------------
 describe("input schemas (csv/excel/parquet/json/text)", () => {
+  describe("fileInput", () => {
+    it("accepts a chosen dataset and format", () => {
+      accepts("fileInput", { dataset_id: "ds-1", format: "parquet" });
+    });
+    it("rejects an unknown format", () => {
+      rejects("fileInput", { dataset_id: "ds-1", format: "xml" }, "format");
+    });
+  });
+
   for (const type of ["csvInput", "excelInput", "parquetInput", "jsonInput", "textInput"]) {
     describe(type, () => {
       it("accepts a chosen dataset", () => {

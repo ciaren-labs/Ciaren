@@ -46,7 +46,7 @@ export function FlowEditorPage() {
   const navigate = useNavigate();
   const { data: flow, isLoading } = useFlow(flowId ?? null);
   const updateFlow = useUpdateFlow();
-  const { data: datasets } = useDatasets();
+  const { data: datasets } = useDatasets(flow?.project_id ?? undefined);
   const { data: projects } = useProjects();
 
   const nodes = useFlowEditorStore((s) => s.nodes);

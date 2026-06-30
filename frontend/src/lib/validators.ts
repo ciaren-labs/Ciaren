@@ -192,6 +192,9 @@ const inputConfig = z.object({
   // Pinned version number; null/absent means "use latest".
   dataset_version: z.number().int().positive().nullable().optional(),
 });
+const fileInputConfig = inputConfig.extend({
+  format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
+});
 
 // Shared by the supervised/unsupervised train nodes (classifier, regressor,
 // clustering, dim. reduction). The superRefine only enforces a target for
@@ -236,6 +239,7 @@ const mlForecasterSchema = z.object({
 });
 
 export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
+  fileInput: fileInputConfig,
   csvInput: inputConfig,
   excelInput: inputConfig,
   parquetInput: inputConfig,

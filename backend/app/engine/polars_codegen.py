@@ -23,11 +23,13 @@ from typing import Any
 from app.engine.codegen_common import last_consumer_index
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
+    FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
     MODEL_OUTPUT_HANDLES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
     edge_carries_model,
+    input_source_type,
     output_handles,
     output_source_type,
 )
@@ -35,6 +37,7 @@ from app.engine.registry import get_transformation
 from app.engine.sql_codegen import engine_url_expr, graph_has_sql
 
 _INPUT_READ = {
+    "fileInput": "pl.read_csv",
     "csvInput": "pl.read_csv",
     "excelInput": "pl.read_excel",
     "parquetInput": "pl.read_parquet",
@@ -43,8 +46,23 @@ _INPUT_READ = {
 # Lazy scan equivalents. Excel has no scanner, so it is read eagerly and
 # converted with ``.lazy()`` (handled below).
 _INPUT_SCAN = {
+    "fileInput": "pl.scan_csv",
     "csvInput": "pl.scan_csv",
     "parquetInput": "pl.scan_parquet",
+}
+_INPUT_READ_BY_FORMAT = {
+    "csv": "pl.read_csv",
+    "tsv": "pl.read_csv",
+    "excel": "pl.read_excel",
+    "parquet": "pl.read_parquet",
+    "json": "pl.read_json",
+    "jsonl": "pl.read_ndjson",
+}
+_INPUT_SCAN_BY_FORMAT = {
+    "csv": "pl.scan_csv",
+    "tsv": "pl.scan_csv",
+    "parquet": "pl.scan_parquet",
+    "jsonl": "pl.scan_ndjson",
 }
 # Extra keyword args appended to a read call, per input type. Excel reads via
 # openpyxl to match the engine and FlowFrame's shipped deps (no fastexcel needed).
@@ -265,7 +283,9 @@ class PolarsCodeGenerator:
                     f"{frame}.write_database({config.get('table', '')!r}, "
                     f"connection={eng}, if_table_exists={if_exists!r})"
                 )
-            elif node_type == "textInput":
+            elif node_type == "textInput" or (
+                node_type == FILE_INPUT_TYPE and input_source_type(node_type, config) == "text"
+            ):
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
@@ -276,8 +296,18 @@ class PolarsCodeGenerator:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
                 path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
+                source_type = input_source_type(node_type, config)
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
-                if lazy and node_type in _INPUT_SCAN:
+                if node_type == FILE_INPUT_TYPE:
+                    read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
+                    scan = _INPUT_SCAN_BY_FORMAT.get(source_type)
+                    extra = ', separator="\\t"' if source_type == "tsv" else ""
+                    if lazy and scan is not None:
+                        lines.append(f"{var} = {scan}({path!r}{extra})")
+                    else:
+                        suffix = ".lazy()" if lazy else ""
+                        lines.append(f"{var} = {read}({path!r}{extra}){suffix}")
+                elif lazy and node_type in _INPUT_SCAN:
                     lines.append(f"{var} = {_INPUT_SCAN[node_type]}({path!r})")
                 else:
                     extra = _INPUT_READ_KWARGS.get(node_type, "")

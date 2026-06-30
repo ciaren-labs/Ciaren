@@ -188,6 +188,7 @@ async def install_plugin(
         tmp.close()
         return install_package_and_report(tmp.name, require_trusted=must_trust)
     finally:
+        tmp.close()
         os.unlink(tmp.name)
 
 

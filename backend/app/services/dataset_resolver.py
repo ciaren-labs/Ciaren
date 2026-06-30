@@ -18,7 +18,8 @@ from app.db.models.dataset_version import DatasetVersion
 from app.engine.executor import dataset_ref_key
 
 # File inputs only — SQL inputs carry no dataset_id and are resolved separately.
-from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
+from app.engine.node_kinds import FILE_INPUT_TYPE
+from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
 
 
 async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None) -> DatasetVersion:
@@ -47,7 +48,7 @@ async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None
 def _input_refs(graph: dict[str, Any]) -> set[tuple[str, int | None]]:
     refs: set[tuple[str, int | None]] = set()
     for node in graph.get("nodes", []):
-        if node["type"] not in _INPUT_TYPES:
+        if node["type"] not in _LEGACY_FILE_INPUT_TYPES and node["type"] != FILE_INPUT_TYPE:
             continue
         config = node.get("data", {}).get("config", {})
         refs.add((config["dataset_id"], config.get("dataset_version")))
@@ -71,9 +72,7 @@ async def build_dataset_paths(db: AsyncSession, graph: dict[str, Any]) -> tuple[
             # instead of a cryptic file-not-found from the engine.
             name = ver.dataset.name if ver.dataset else dataset_id
             deleted = (
-                f" (deleted on {ver.dataset.deleted_at:%Y-%m-%d})"
-                if ver.dataset and ver.dataset.deleted_at
-                else ""
+                f" (deleted on {ver.dataset.deleted_at:%Y-%m-%d})" if ver.dataset and ver.dataset.deleted_at else ""
             )
             raise ValidationError(
                 f"Dataset version 'v{ver.version_number} of {name}'{deleted} is no longer "

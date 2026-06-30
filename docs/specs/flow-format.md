@@ -27,7 +27,7 @@ and migrated across versions.
     "description": "optional"
   },
   "graph": {
-    "nodes": [{ "id": "a", "type": "csvInput", "data": { "config": {} } }],
+    "nodes": [{ "id": "a", "type": "fileInput", "data": { "config": { "format": "csv" } } }],
     "edges": [{ "id": "e1", "source": "a", "target": "b" }],
     "engine": "polars",
     "parameters": []

@@ -58,6 +58,13 @@ class NodeMeta:
 BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
     # ----- Inputs -----
     NodeMeta(
+        "fileInput",
+        "File Input",
+        "input",
+        "Load rows from an uploaded dataset — choose the file type in the node.",
+        {"dataset_id": "", "dataset_version": None, "format": "csv"},
+    ),
+    NodeMeta(
         "csvInput",
         "CSV Input",
         "input",

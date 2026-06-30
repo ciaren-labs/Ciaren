@@ -85,16 +85,46 @@ async def test_install_rejects_non_package(client, monkeypatch, tmp_path):
     assert resp.status_code == 400
 
 
-async def test_marketplace_not_configured(client, monkeypatch):
+async def test_marketplace_can_be_disabled(client, monkeypatch):
     from app.core.config import get_settings
 
-    monkeypatch.delenv("FLOWFRAME_MARKETPLACE_INDEX", raising=False)
+    monkeypatch.setenv("FLOWFRAME_MARKETPLACE_INDEX", "none")
     get_settings.cache_clear()
     resp = await client.get("/api/marketplace")
     assert resp.status_code == 200
     body = resp.json()
     assert body["configured"] is False
     assert body["plugins"] == []
+
+
+async def test_bundled_marketplace_lists_installs_and_loads_hello(client, monkeypatch, tmp_path):
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("FLOWFRAME_MARKETPLACE_INDEX", raising=False)
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    assert listing.status_code == 200, listing.text
+    cat = listing.json()
+    assert cat["configured"] is True
+    entry = next(e for e in cat["plugins"] if e["id"] == "community.hello")
+    assert entry["installable"] is True
+    assert entry["installed"] is False
+
+    installed = await client.post("/api/marketplace/community.hello/install")
+    assert installed.status_code == 200, installed.text
+    body = installed.json()
+    assert body["plugin"]["id"] == "community.hello"
+    assert body["plugin"]["status"] == "needs_permissions"
+
+    approved = await client.post("/api/plugins/community.hello/enable")
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "loaded"
+
+    relisting = await client.get("/api/marketplace")
+    entry2 = next(e for e in relisting.json()["plugins"] if e["id"] == "community.hello")
+    assert entry2["installed"] is True
 
 
 async def test_marketplace_lists_and_installs(client, monkeypatch, tmp_path, hello_ffplugin):

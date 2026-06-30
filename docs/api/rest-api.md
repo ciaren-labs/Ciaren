@@ -28,6 +28,8 @@ Each resource has its own reference page:
 - [Catalog & Plugins](./catalog.md) — backend-fed node catalog and installed-plugin introspection
 - [Schedules](./schedules.md) — run flows automatically on a cron schedule
 - [Connections](./connections.md) — reusable database connections for SQL nodes
+- **ML endpoints** — model metrics, registration, aliases, experiments, and runs under `/api/ml/*`, `/api/runs/{id}/ml/*`, and `/api/flows/{id}/ml/*`
+- **Marketplace** — plugin Explore catalog and install endpoint under `/api/marketplace`
 
 ## Webhook trigger
 
@@ -52,6 +54,9 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
   `200` `{"status": "ok", "database": "up"}` when ready, or `503`
   `{"status": "unavailable", "database": "down"}` so a load balancer drains the
   instance.
+- **Optional API auth:** when `FLOWFRAME_API_TOKEN` is set, `/api/*` requests must
+  send `Authorization: Bearer <token>` or `X-FlowFrame-Token: <token>`. Static UI,
+  `/health`, `/ready`, OpenAPI docs, and the webhook trigger's own secret are exempt.
 
 ## Typical workflow
 

@@ -139,6 +139,7 @@ export function NodeSidebar() {
               type={node.type ?? ""}
               config={node.data.config}
               datasets={datasets ?? []}
+              projectId={flowProjectId}
               columns={columns}
               onChange={handleConfigChange}
               onErrors={setHasErrors}

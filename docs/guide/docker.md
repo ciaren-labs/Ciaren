@@ -83,7 +83,7 @@ comma-separated list:
 | ------- | ------ |
 | `ml` | scikit-learn, XGBoost, LightGBM, MLflow — enables ML nodes |
 | `postgres` | asyncpg + psycopg — PostgreSQL support |
-| `mysql` | pymysql — MySQL support |
+| `mysql` | pymysql — MySQL SQL-node connector support |
 | `mongo` | pymongo — MongoDB support |
 | `mssql` | pyodbc — MSSQL support *(also needs `unixodbc` system pkg)* |
 | `all-connectors` | postgres + mysql + mongo (no mssql) |
@@ -151,6 +151,8 @@ services:
 :::tip
 The database URL must use an **async driver**: `postgresql+asyncpg://`,
 `mysql+aiomysql://`, or `sqlite+aiosqlite://`. Plain `postgresql://` will fail.
+The `postgres` extra includes the app database driver (`asyncpg`); the `mysql`
+extra is for SQL-node connectors and does not add `aiomysql` to the image.
 :::
 
 ## Running CLI commands inside the container

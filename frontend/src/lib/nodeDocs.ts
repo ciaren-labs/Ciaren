@@ -25,6 +25,18 @@ const OUTPUT_DOC = (kind: string): NodeDoc => ({
 });
 
 export const NODE_DOCS: Record<string, NodeDoc> = {
+  fileInput: {
+    summary: "Loads rows from an uploaded dataset to start the pipeline. Pick the file type in the node instead of choosing a separate input node per format.",
+    fields: [
+      { name: "File type", desc: "CSV, TSV, Excel, Parquet, JSON, JSON Lines, or text." },
+      { name: "Dataset", desc: "Only datasets compatible with the selected file type are listed." },
+      { name: "Version", desc: "Pin a dataset version so scheduled runs read the same data until you update it." },
+    ],
+    tips: [
+      "Upload files on the Datasets page first.",
+      "Changing the file type clears the selected dataset to prevent format mismatches.",
+    ],
+  },
   csvInput: INPUT_DOC("CSV"),
   excelInput: INPUT_DOC("Excel"),
   parquetInput: INPUT_DOC("Parquet"),
@@ -332,6 +344,17 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "New column", desc: "Where the difference is written." },
     ],
     tips: ["Unparseable dates become null rather than failing the run."],
+  },
+  pythonTransform: {
+    summary: "Runs custom Python against the incoming DataFrame and must return a DataFrame. Use it when a transformation is too specific for the built-in nodes.",
+    fields: [
+      { name: "Script", desc: "Write the body of transform(df). The variable df is the input table." },
+    ],
+    example: "df['margin'] = df['revenue'] - df['cost']\nreturn df",
+    tips: [
+      "Use pd with the pandas engine and pl with the polars engine; both are provided by FlowFrame.",
+      "The script runs locally with your app process, so treat it like trusted code.",
+    ],
   },
   assertValuesInSet: {
     summary: "Fail or warn when a column contains values outside an allowed set (a domain check).",

@@ -41,6 +41,7 @@ function edge(source: string, target: string, targetHandle?: string): GraphEdgeL
 
 describe("isInputType", () => {
   it("recognises input node types", () => {
+    expect(isInputType("fileInput")).toBe(true);
     expect(isInputType("csvInput")).toBe(true);
     expect(isInputType("excelInput")).toBe(true);
     expect(isInputType("dropColumns")).toBe(false);
@@ -63,6 +64,10 @@ describe("hasReadyInput", () => {
 
   it("is true once an input node has a dataset", () => {
     expect(hasReadyInput([node("in", "csvInput", { dataset_id: "d1" })])).toBe(true);
+  });
+
+  it("is true once a File Input node has a dataset", () => {
+    expect(hasReadyInput([node("in", "fileInput", { dataset_id: "d1", format: "csv" })])).toBe(true);
   });
 });
 

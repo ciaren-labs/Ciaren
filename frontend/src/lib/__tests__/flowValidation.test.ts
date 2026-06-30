@@ -70,6 +70,25 @@ describe("validateFlow", () => {
     expect(v.canRun).toBe(false);
   });
 
+  it("validates File Input against the exact selected extension", () => {
+    const jsonDs = dataset("json1", "json");
+    const jsonlDs = dataset("jsonl1", "jsonl");
+    const nodes = [
+      node("in", "fileInput", { dataset_id: "json1", format: "jsonl" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+
+    const mismatch = validateFlow(nodes, [edge("in", "out")], [jsonDs, jsonlDs]);
+    expect(codes(mismatch.errors)).toContain("DATASET_TYPE_MISMATCH");
+
+    const valid = validateFlow(
+      [node("in", "fileInput", { dataset_id: "jsonl1", format: "jsonl" }), nodes[1]],
+      [edge("in", "out")],
+      [jsonDs, jsonlDs],
+    );
+    expect(valid.errors).toEqual([]);
+  });
+
   it("errors when an input pins a version beyond the latest", () => {
     const ds = dataset("csv1", "csv", 2); // latest = v2
     const nodes = [

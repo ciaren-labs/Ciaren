@@ -19,8 +19,10 @@ async def test_catalog_nodes_returns_specs(client):
     assert [p["id"] for p in flt["outputs"]] == ["out"]
     assert flt["default_config"] == {"column": "", "operator": "==", "value": ""}
     # I/O nodes present.
+    assert "fileInput" in by_id
+    assert by_id["fileInput"]["inputs"] == []
+    assert by_id["fileInput"]["default_config"] == {"dataset_id": "", "dataset_version": None, "format": "csv"}
     assert "csvInput" in by_id
-    assert by_id["csvInput"]["inputs"] == []
     assert "csvOutput" in by_id
     assert by_id["csvOutput"]["outputs"] == []
 

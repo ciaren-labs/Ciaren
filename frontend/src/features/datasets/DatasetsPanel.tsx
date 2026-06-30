@@ -62,9 +62,11 @@ const DATASET_SORT: Record<DatasetSortKey, (d: Dataset) => string | number> = {
 
 const SOURCE_META: Record<DatasetSourceType, { icon: typeof FileText; tint: string }> = {
   csv: { icon: FileText, tint: "bg-emerald-500" },
+  tsv: { icon: FileText, tint: "bg-teal-500" },
   excel: { icon: FileSpreadsheet, tint: "bg-green-600" },
   parquet: { icon: Database, tint: "bg-indigo-500" },
   json: { icon: Braces, tint: "bg-amber-500" },
+  jsonl: { icon: Braces, tint: "bg-orange-500" },
   text: { icon: AlignLeft, tint: "bg-slate-500" },
 };
 

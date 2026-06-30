@@ -6,6 +6,7 @@
 import { getNodeTypeDef } from "./nodeCatalog";
 import { getConfigSchema } from "./validators";
 import {
+  FILE_INPUT_FORMAT_TO_SOURCE,
   INPUT_SOURCE_TYPE,
   hasCycle,
   isInputType,
@@ -108,7 +109,10 @@ export function validateFlow(
     // 2. Input-node dataset compatibility ----------------------------------
     if (isInputType(node.type)) {
       const datasetId = node.data.config.dataset_id;
-      const expected = INPUT_SOURCE_TYPE[node.type!];
+      const expected =
+        node.type === "fileInput"
+          ? FILE_INPUT_FORMAT_TO_SOURCE[String(node.data.config.format ?? "csv")] ?? "csv"
+          : INPUT_SOURCE_TYPE[node.type!];
       if (typeof datasetId === "string" && datasetId) {
         const ds = datasetById.get(datasetId);
         if (!ds) {

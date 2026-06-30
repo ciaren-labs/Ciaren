@@ -5,10 +5,11 @@ from typing import Any
 
 from app.engine.backends import AnyFrame, EngineBackend, get_engine
 from app.engine.graph import GraphValidationError, topological_sort, validate_graph
-from app.engine.node_kinds import INPUT_SOURCE_TYPES as _INPUT_TYPES
+from app.engine.node_kinds import FILE_INPUT_TYPE, PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
+from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
-from app.engine.node_kinds import PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
+from app.engine.node_kinds import input_source_type as _input_source_type
 from app.engine.node_kinds import output_source_type as _output_source_type
 from app.engine.registry import get_transformation
 from app.engine.transformations.base import EmitsNodeMetadata, NodeMetadata
@@ -175,9 +176,9 @@ class FlowExecutor:
             # Both sqlInput and storageInput are resolved in the parent async layer
             # to parquet snapshots; the executor just loads the snapshot.
             return {"out": engine.read(str(pre_paths[node_id]), "parquet")}, None
-        if node_type in _INPUT_TYPES:
+        if node_type in _LEGACY_FILE_INPUT_TYPES or node_type == FILE_INPUT_TYPE:
             key = dataset_ref_key(config["dataset_id"], config.get("dataset_version"))
-            return {"out": engine.read(str(dataset_paths[key]), _INPUT_TYPES[node_type])}, None
+            return {"out": engine.read(str(dataset_paths[key]), _input_source_type(node_type, config))}, None
         if node_type in _OUTPUT_TYPES:
             return {"out": _resolve_source(outputs, incoming[node_id][0])}, None
         transformation = get_transformation(node_type)

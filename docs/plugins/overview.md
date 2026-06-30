@@ -52,6 +52,12 @@ FlowFrame finds plugins two ways:
 2. **Installed package** — a plugin that declares the `flowframe.plugins` entry
    point is discovered automatically once `pip install`-ed.
 
+Fresh installs also include a small **bundled Explore catalog** with a Hello
+Plugin package. Bundled catalog entries are not loaded automatically: they are
+shown as installable examples so users can try the install and approval flow.
+Set `FLOWFRAME_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
+marketplace JSON.
+
 ```bash
 # Develop against a local folder
 export FLOWFRAME_PLUGINS_DIR=/path/to/your/plugins

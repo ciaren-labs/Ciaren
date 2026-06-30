@@ -11,22 +11,25 @@ node in a pipeline — the entry point for a file-based ETL flow.
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input","detail":"uploaded dataset"},
+    {"type":"input","label":"File Input","detail":"uploaded dataset + format"},
     {"type":"clean","label":"Drop Nulls","detail":"remove bad rows"},
     {"type":"transform","label":"Group By","detail":"aggregate"},
     {"type":"output","label":"File Output","detail":"efficient export"}
   ]'
 />
 
-There is one node type per file format:
+FlowFrame now uses one uploaded-file input node with a format selector:
 
-| Node type | Format | Reads |
+| Node type | Format setting | Reads |
 | --- | --- | --- |
-| `csvInput` | CSV | Comma-separated values |
-| `excelInput` | Excel | `.xlsx` / `.xls` workbooks |
-| `parquetInput` | Parquet | Columnar binary format |
-| `jsonInput` | JSON | JSON array or records |
-| `textInput` | Text | Plain text, one row per line → single `text` column |
+| `fileInput` | `csv` / `tsv` | Delimited values |
+| `fileInput` | `excel` | `.xlsx` / `.xls` workbooks |
+| `fileInput` | `parquet` | Columnar binary format |
+| `fileInput` | `json` / `jsonl` | JSON array/records or JSON Lines |
+| `fileInput` | `text` | Plain text, one row per line → single `text` column |
+
+Legacy `csvInput`, `excelInput`, `parquetInput`, `jsonInput`, and `textInput`
+nodes still run in existing flows, but new flows should use **File Input**.
 
 ## Use cases
 
@@ -40,26 +43,28 @@ There is one node type per file format:
 | --- | --- | --- | --- |
 | `dataset_id` | string | Yes | The dataset to read |
 | `dataset_version` | int | No | Pin a specific version (defaults to latest) |
+| `format` | string | Yes | How to read the file: `csv`, `tsv`, `excel`, `parquet`, `json`, `jsonl`, or `text` |
 
-The config form only offers datasets whose `source_type` matches the node — a
-`csvInput` node lists CSV datasets, a `textInput` node lists text datasets, etc.
+The config form only offers datasets compatible with the selected format. Changing
+the file type clears the selected dataset so you cannot accidentally run a CSV
+dataset as Parquet, for example.
 
 ## Generated Python code
 
 ```python
-# csvInput
+# fileInput with format="csv"
 df_1 = pd.read_csv("sales.csv")
 
-# excelInput
+# fileInput with format="excel"
 df_1 = pd.read_excel("report.xlsx")
 
-# parquetInput
+# fileInput with format="parquet"
 df_1 = pd.read_parquet("data.parquet")
 
-# jsonInput
+# fileInput with format="json"
 df_1 = pd.read_json("records.json")
 
-# textInput — one row per line, column named "text"
+# fileInput with format="text" — one row per line, column named "text"
 df_1 = pd.read_csv("log.txt", sep="\n", header=None, names=["text"], engine="python", dtype=str)
 ```
 
