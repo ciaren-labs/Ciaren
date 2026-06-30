@@ -11,7 +11,7 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 ### Code Contributions
 
 - **New transformation nodes** — filters, aggregations, joins, reshaping operations
-- **Bug fixes** — we track these in [Issues](https://github.com/yourusername/flowframe/issues)
+- **Bug fixes** — we track these in [Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
 - **Performance improvements** — especially in the execution engine and preview system
 - **Frontend improvements** — better UX, accessibility, responsive design
 - **Backend improvements** — better error handling, validation, API design
@@ -51,6 +51,11 @@ main          ← stable, released code only
 ---
 
 ## 🚀 Getting Started
+
+Before starting work, check existing issues and PRs to avoid duplicate effort.
+For questions, setup help, or early design ideas, use
+[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
+instead of opening a free-form issue.
 
 ### 1. Fork & Clone
 
@@ -117,6 +122,24 @@ Use descriptive branch names:
 
 ## 📝 Code Standards
 
+### Product and Architecture Guardrails
+
+- FlowFrame is local-first visual ETL for small and medium datasets.
+- Keep the core lightweight; it is not an Airflow, dbt, Spark, or SaaS replacement.
+- The backend is the source of truth for validation, execution, persistence, and code export.
+- Every visual node should map to one clear dataframe operation.
+- Generated Python must be readable and runnable outside FlowFrame.
+- Do not document, demo, or claim a feature unless it is implemented in code.
+- Avoid enterprise-only scope creep such as multi-tenant permissions, cloud sync, distributed execution, or real-time collaboration unless maintainers have accepted the proposal first.
+
+Authoritative places to check:
+
+- Transformations: `backend/app/engine/registry.py`
+- I/O node kinds: `backend/app/engine/node_kinds.py`
+- API routes: `backend/app/api/routes/`
+- Frontend features: `frontend/src/features/`
+- System architecture: `architecture.md`
+
 ### Backend (Python)
 
 - **Type hints required** — use them everywhere (`def transform(data: pd.DataFrame) -> pd.DataFrame`)
@@ -147,6 +170,15 @@ def rename_columns(df: pd.DataFrame, config: RenameColumnsConfig) -> pd.DataFram
 - **shadcn/ui for components** — consistent design system
 - **Zod for form validation** — same validation as backend when possible
 - **No inline styles** — use Tailwind CSS classes
+
+### Documentation
+
+- Keep documentation user-focused, concrete, and example-driven.
+- Update docs in the same PR as user-facing behavior changes.
+- For UI changes, check whether screenshots in `docs/public/screenshots/` are stale.
+- Use active voice, clear headings, and tested examples.
+- Every new transformation should include or update its docs page under `docs/transformations/`.
+- Do not copy internal notes or tool-specific agent instructions into public docs.
 
 #### Example:
 
@@ -331,7 +363,7 @@ Add pivot table transformation to enable reshaping data by column values.
 ## Checklist
 - [x] Tests pass
 - [x] Type hints on all functions
-- [x] Updated CLAUDE.md if architecture changed
+- [x] Updated architecture or docs if behavior changed
 - [x] No new security warnings
 ```
 
@@ -393,8 +425,8 @@ Nulls remain unchanged.
 
 Documentation lives in:
 - **[architecture.md](architecture.md)** — system design
-- **[CLAUDE.md](CLAUDE.md)** — vision, tech stack, coding standards
 - **[README.md](README.md)** — project overview and quick start
+- **[docs/](docs/)** — user guides, API reference, examples, and plugin docs
 - **Code comments** — explain the "why", not the "what"
 
 Help by:
@@ -428,7 +460,7 @@ This project includes code generated or assisted by AI. When contributing:
 
 ## 🚫 What We Won't Accept
 
-- PRs that add **enterprise features** (scheduling, multi-tenant, cloud sync) — use CLAUDE.md to understand MVP scope
+- PRs that add **enterprise features** such as multi-tenant auth, cloud sync, distributed execution, or real-time collaboration without prior maintainer agreement
 - **Breaking changes** without discussion — file an issue first
 - **Unmaintained code** — if you add a feature, help maintain it
 - **Security vulnerabilities** — see [SECURITY.md](SECURITY.md) for responsible disclosure

@@ -415,7 +415,7 @@ def _warn_if_exposed_without_token(args: argparse.Namespace) -> None:
 
     The API is unauthenticated by default and reaches arbitrary code execution
     (pythonTransform, plugin install), so a wide bind with no token is an open
-    door. Just a warning — we never refuse to start. See SECURITY-AUDIT.md (#1).
+    door. Just a warning — we never refuse to start. See SECURITY.md.
     """
     from app.core.config import get_settings
 

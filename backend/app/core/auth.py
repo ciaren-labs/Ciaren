@@ -4,7 +4,7 @@ FlowFrame is local-first and unauthenticated by default (safe bound to
 ``127.0.0.1``). Setting ``FLOWFRAME_API_TOKEN`` turns on a single shared-secret
 gate so a network-exposed instance (e.g. the Docker image, which binds
 ``0.0.0.0``) isn't an open door to flow execution / plugin install — both of which
-reach arbitrary code execution. See SECURITY-AUDIT.md (finding #1).
+reach arbitrary code execution. See SECURITY.md for the deployment posture.
 
 The check is wired as a global FastAPI dependency (``create_app``), so a rejection
 is a normal ``HTTPException`` that still flows through the CORS middleware. The

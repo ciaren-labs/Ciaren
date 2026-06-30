@@ -1,0 +1,13 @@
+# Default owner for all changes.
+* @rodrigo-arenas
+
+# High-signal areas for review routing.
+/.github/ @rodrigo-arenas
+/backend/ @rodrigo-arenas
+/client/ @rodrigo-arenas
+/frontend/ @rodrigo-arenas
+/docs/ @rodrigo-arenas
+/examples/ @rodrigo-arenas
+/SECURITY.md @rodrigo-arenas
+/CODE_OF_CONDUCT.md @rodrigo-arenas
+/CONTRIBUTING.md @rodrigo-arenas

@@ -41,6 +41,10 @@ class IncompatiblePluginError(RuntimeError):
     """Raised when a plugin declares incompatibility with the running FlowFrame."""
 
 
+class PluginLicenseError(RuntimeError):
+    """Raised when a manifest requires a license that cannot be validated."""
+
+
 @dataclass
 class LoadedPlugin:
     source: str
@@ -228,6 +232,15 @@ def _process(
             raise IncompatiblePluginError(
                 f"plugin {manifest.id!r} requires FlowFrame {manifest.flowframe!r}, running {version}"
             )
+        if manifest is not None and manifest.license_required:
+            if not registry.has_license_provider():
+                raise PluginLicenseError(
+                    f"plugin {manifest.id!r} requires a license, but no license provider is registered"
+                )
+            status = registry.validate_license(manifest.id)
+            if not status.valid:
+                reason = f": {status.reason}" if status.reason else ""
+                raise PluginLicenseError(f"plugin {manifest.id!r} requires a valid license{reason}")
         if state is not None:
             gated = _gate(candidate, state)
             if gated is not None:

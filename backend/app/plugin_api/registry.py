@@ -126,6 +126,10 @@ class ServiceRegistry:
     def register_license_provider(self, provider: LicenseProvider) -> None:
         self._license_providers.append(provider)
 
+    def has_license_provider(self) -> bool:
+        """Whether at least one license provider can validate premium plugins."""
+        return bool(self._license_providers)
+
     # -- catalog queries ------------------------------------------------------
 
     def node_specs(self) -> list[NodeSpec]:
@@ -177,7 +181,7 @@ class ServiceRegistry:
     def validate_license(self, plugin_id: str) -> LicenseStatus:
         """Ask each license provider in turn; the first valid result wins. With no
         license provider registered everything is treated as licensed (the
-        open-source default)."""
+        open-source default for plugins that do not require a license)."""
         last: LicenseStatus | None = None
         for provider in self._license_providers:
             status = provider.validate_license(plugin_id)

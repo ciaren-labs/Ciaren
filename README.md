@@ -146,9 +146,10 @@ Prefer the API? Everything above is also available over REST — see the
 Full docs (guides, transformation reference, examples, API) are published at
 **<https://rodrigo-arenas.github.io/FlowFrame>**.
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to contribute, code standards, testing
-- **[CLAUDE.md](CLAUDE.md)** — Product vision, tech stack, and development principles
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Development workflow, standards, and review process
 - **[architecture.md](architecture.md)** — System design, entity models, and execution flow
+- **[SUPPORT.md](SUPPORT.md)** — Where to ask questions, report bugs, and request features
+- **[MAINTAINERS.md](MAINTAINERS.md)** — Maintainer responsibilities and review policy
 
 ---
 
