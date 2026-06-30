@@ -106,17 +106,25 @@ and row/feature/model-size limits are enforced before training starts.
 ## Model definition nodes
 
 **Classifier Model** and **Regressor Model** configure an estimator without
-fitting it or logging a model. Use them when another node should own the fitting
-loop, especially **Cross-Validate**. This avoids a common ambiguity:
-cross-validation must fit one clone per fold, while a Train node fits one final
-model on its full input. Keeping those responsibilities separate prevents a flow
-from accidentally training a final model and then training fold models again.
+fitting it, logging it, registering it, or producing predictions. Their `model`
+output is a **model configuration reference**: it carries the algorithm, target,
+feature columns, hyperparameters, and preprocessing recipe that another node can
+use later.
 
-Use:
+Use these nodes with **Cross-Validate**. Cross-validation needs to fit one fresh
+clone of the estimator per fold, with preprocessing refit inside each fold. If a
+flow used a Train node as the input to Cross-Validate, it would first train a
+final full-data model and then train the fold models too. FlowFrame avoids that
+ambiguous and wasteful pattern by accepting only **Classifier Model** or
+**Regressor Model** on Cross-Validate's `model` input.
 
-- **Classifier/Regressor Model → Cross-Validate** to estimate generalization.
-- **Train Classifier/Regressor → Predict / Feature Importance** when you want a
-  fitted model artifact and MLflow tracking.
+Use the nodes this way:
+
+| Goal | Use | Why |
+| --- | --- | --- |
+| Estimate generalization or compare settings | **Classifier/Regressor Model → Cross-Validate** | Cross-Validate owns the fold fitting loop and returns fold scores. |
+| Produce the final artifact for scoring or registration | **Train Classifier/Regressor → Predict / Feature Importance / Register Model** | Train nodes fit once on their input data and log the trained model to MLflow. |
+| Do both evaluation and deployment | First evaluate with **Model → Cross-Validate**, then train the chosen setup with **Train** | Keeps evaluation separate from the final artifact so users know exactly what was fitted. |
 
 ## Predict
 
@@ -151,12 +159,13 @@ supported.
 
 Estimates how well a connected classifier or regressor **generalizes** by
 re-fitting and scoring it across resampling folds, rather than reporting a single
-train score. It takes a **Classifier Model** or **Regressor Model** node's `model` output, reuses that model's
-algorithm, target, feature columns, hyperparameters, and preprocessing, and does
-not persist another model. It returns a tidy `fold | <metric> …` frame (one row
-per fold) and surfaces the per-fold scores plus the mean/std on the run's ML
-view. Preprocessing from the connected model is refit **inside each fold**, so
-the scores aren't inflated by leakage.
+train score. It takes a **Classifier Model** or **Regressor Model** node's
+`model` output, reuses that model definition's algorithm, target, feature
+columns, hyperparameters, and preprocessing, and does not persist a final model.
+It returns a tidy `fold | <metric> …` frame (one row per fold) and surfaces the
+per-fold scores plus the mean/std on the run's ML view. Preprocessing from the
+connected model definition is refit **inside each fold**, so the scores aren't
+inflated by leakage.
 
 It has two inputs: `in` for the data to resample and `model` for a Classifier
 Model or Regressor Model reference. It is a valid flow terminal on its
@@ -165,7 +174,7 @@ output.
 
 | Field | Notes |
 | --- | --- |
-| Model input | Connect the `model` output from Classifier Model or Regressor Model. |
+| Model input | Connect the `model` output from Classifier Model or Regressor Model. Train Classifier and Train Regressor outputs are intentionally rejected. |
 | Strategy | The resampling scheme (see below). |
 | Folds / Splits | How many folds to evaluate (ignored by Leave-One-Out). |
 | Test size | For Shuffle Split strategies — fraction held out each split. |

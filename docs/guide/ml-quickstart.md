@@ -77,12 +77,24 @@ Open a flow and expand **Machine Learning** in the node palette:
 | **Encode Categories** | One-hot or ordinal encoding for text columns. |
 | **Select Features** | Keep the most useful columns (variance / correlation / top-K). |
 | **Reduce Dimensions** | Compress numeric columns with PCA. |
-| **Classifier / Regressor Model** | Define an unfitted model for Cross-Validate. |
-| **Train Classifier** | Fit a model and log it to MLflow. |
+| **Classifier / Regressor Model** | Define an unfitted estimator for Cross-Validate. |
+| **Train Classifier / Train Regressor** | Fit a final model artifact and log it to MLflow. |
 | **Predict** | Score rows with a trained model. |
 | **Evaluate** | Compute metrics from predictions. |
 | **Feature Importance** | Rank which features the model relied on. |
-| **Cross-Validate** | Estimate generalization for a connected model with k-fold, stratified, time-series, group, or other CV strategies. |
+| **Cross-Validate** | Estimate generalization from a Classifier / Regressor Model definition with k-fold, stratified, time-series, group, or other CV strategies. |
+
+::: tip Model definitions vs. trained models
+Use **Classifier Model** or **Regressor Model** before **Cross-Validate**. These
+nodes only describe the algorithm, target, features, hyperparameters, and
+preprocessing; Cross-Validate then fits fresh clones inside each fold.
+
+Use **Train Classifier** or **Train Regressor** after you have chosen a model and
+need a final trained artifact for **Predict**, **Feature Importance**, model
+registration, or MLflow tracking. Train nodes are intentionally not accepted by
+Cross-Validate, because that would train one full-data model and then train fold
+models again.
+:::
 
 ## Build the flow
 
@@ -107,6 +119,21 @@ Train / Test Split has two outputs (`train`, `test`). Train Classifier emits a
 `model` output. Drag from the specific handle you need. The **purple** wire is a
 model reference; blue wires are data.
 :::
+
+## Add cross-validation
+
+To estimate generalization before training the final artifact:
+
+1. Add **Classifier Model** or **Regressor Model**.
+2. Configure the same model type, target, features, preprocessing, and
+   hyperparameters you want to evaluate.
+3. Connect the data frame to **Cross-Validate**'s `in` input.
+4. Connect the model definition node's `model` output to **Cross-Validate**'s
+   `model` input.
+
+Cross-Validate returns one row per fold and can end the flow by itself. After you
+pick the best setup, use **Train Classifier** or **Train Regressor** in a final
+training flow to create the model artifact used by Predict or registration.
 
 ## Run it and read the results
 

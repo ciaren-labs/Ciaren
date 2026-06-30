@@ -105,6 +105,8 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
   const availability = new Map(catalog.map((m) => [m.model_type, m]));
   const models = modelsForNodeType(nodeType);
   const task = TRAIN_NODE_TASKS[nodeType];
+  const isModelDefinitionNode = nodeType === "mlClassifierModel" || nodeType === "mlRegressorModel";
+  const isFinalTrainNode = nodeType === "mlTrainClassifier" || nodeType === "mlTrainRegressor";
   const modelDef = getModelDef(config.model_type) ?? models[0];
   const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
   // No models for this task yet (e.g. the Train Forecaster scaffold).
@@ -131,6 +133,21 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
 
   return (
     <>
+      {isModelDefinitionNode ? (
+        <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] leading-snug text-sky-800">
+          This node only defines the estimator. It does not fit, log, register, or score a final model. Connect its{" "}
+          <strong>model</strong> output to <strong>Cross-Validate</strong>; Cross-Validate will fit fresh fold models
+          using this target, features, hyperparameters, and preprocessing.
+        </p>
+      ) : isFinalTrainNode ? (
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] leading-snug text-slate-700">
+          This node trains the final model artifact and logs it to MLflow. Use its <strong>model</strong> output for{" "}
+          <strong>Predict</strong>, <strong>Feature Importance</strong>, or registration. For fold scores, use{" "}
+          <strong>{task === "classification" ? "Classifier Model" : "Regressor Model"}</strong> with{" "}
+          <strong>Cross-Validate</strong> instead.
+        </p>
+      ) : null}
+
       <Field label="Model" error={errors.model_type} help="Pick an algorithm for this task.">
         <Select
           value={modelDef?.value ?? ""}
