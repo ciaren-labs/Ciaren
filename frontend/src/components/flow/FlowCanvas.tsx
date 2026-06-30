@@ -18,7 +18,12 @@ import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
-import { getNodeTypeDef, isModelInputHandle, isModelOutputHandle } from "@/lib/nodeCatalog";
+import {
+  canConnectModelToTarget,
+  getNodeTypeDef,
+  isModelInputHandle,
+  isModelOutputHandle,
+} from "@/lib/nodeCatalog";
 import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
@@ -87,6 +92,13 @@ export function FlowCanvas() {
       if (
         isModelOutputHandle(sourceDef, conn.sourceHandle) !==
         isModelInputHandle(targetDef, conn.targetHandle)
+      ) {
+        return false;
+      }
+      if (
+        isModelOutputHandle(sourceDef, conn.sourceHandle) &&
+        isModelInputHandle(targetDef, conn.targetHandle) &&
+        !canConnectModelToTarget(sourceDef, targetDef)
       ) {
         return false;
       }
