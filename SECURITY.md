@@ -1,34 +1,37 @@
 # Security Policy
 
-## ⚠️ Important Disclaimers
+## Security Status
 
 ### AI-Assisted Development
 
 Parts of this project have been written or reviewed with AI assistance. All
 contributions still need human review, tests, and security-minded maintenance.
-FlowFrame is alpha software and has not completed a formal third-party security
-audit.
+FlowFrame is alpha software and has not yet completed a formal independent
+third-party security audit.
 
-Known risks include:
+What this means in practice:
 
-- Security bugs, logic errors, or unsafe patterns may still exist.
-- Performance may vary on large or unusual datasets.
-- Reliability is not guaranteed for production or mission-critical pipelines.
-- Privacy controls are limited to the local-first trust model described below.
+- Security-sensitive changes are reviewed and tested, but undiscovered issues may
+  still exist.
+- The recommended deployment model is local-first or behind your own trusted
+  access controls.
+- For production or regulated environments, run your own review, threat model,
+  and operational controls before relying on FlowFrame.
+- Privacy protections follow the local-first trust model described below.
 
 **Users and contributors should:**
 
-1. **Review all code before use** — especially in production
-2. **Test thoroughly** — with real data and edge cases before deploying
-3. **Not use for mission-critical data** — unless you've independently verified it
-4. **Report security issues responsibly** — see below
-5. **Understand the limitations** — this is an open-source MVP, not enterprise software
+1. **Review changes carefully** when using FlowFrame in sensitive environments.
+2. **Test thoroughly** with representative data and edge cases before deploying.
+3. **Use trusted access controls** if binding outside localhost.
+4. **Report security issues responsibly** using the process below.
+5. **Track limitations explicitly** when adopting alpha features.
 
 ---
 
 ## Known Limitations
 
-### MVP Phase
+### Alpha Phase
 
 FlowFrame is in active development. Known limitations include:
 
@@ -36,17 +39,22 @@ FlowFrame is in active development. Known limitations include:
 - **No authentication by default** — assumes a trusted local environment; set
   `FLOWFRAME_API_TOKEN` when binding outside loopback or placing FlowFrame behind
   an authenticating reverse proxy
-- **Limited input validation** — some edge cases not yet handled
-- **No audit logging** — runs/changes are not logged
+- **Evolving input validation** — edge cases continue to be hardened as the
+  project matures
+- **Limited audit logging** — detailed administrative audit logs are not yet a
+  core feature
 - **Pandas dataframe limits** — no compression, large datasets may be slow or fail
 
-### Not Suitable For
+### Needs Additional Controls For
 
-- **Personal identifiable information (PII)** — no data protection mechanisms
-- **HIPAA/GDPR regulated data** — no compliance controls
+- **Personal identifiable information (PII)** — add your own data protection,
+  retention, and access controls
+- **HIPAA/GDPR regulated data** — FlowFrame does not currently provide a
+  compliance program or certification
 - **High-volume production ETL** — not designed for 100GB+ datasets
 - **Real-time pipelines** — batch-only, no streaming support
-- **Multi-user environments** — no auth, permissions, or isolation
+- **Shared multi-user environments** — add authentication, authorization, and
+  network controls around the app
 
 ---
 

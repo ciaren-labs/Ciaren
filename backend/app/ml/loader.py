@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Model loading for mlPredict / featureImportance.
 
 Every load goes through the security checks in :mod:`app.ml.security`: the URI must

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Opt-in static checks for user-supplied ``pythonTransform`` code.
 
 ``pythonTransform`` runs arbitrary Python and is **not** sandboxed (see

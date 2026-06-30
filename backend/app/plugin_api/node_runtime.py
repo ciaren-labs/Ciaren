@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Executable behavior for a plugin-contributed node.
 
 A :class:`NodeProvider` can hand FlowFrame a :class:`NodeRuntime` for a node id

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add datasets.deleted_at for soft-delete
 
 Revision ID: e5f9c2a31b88

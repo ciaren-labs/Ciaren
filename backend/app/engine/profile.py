@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-column profiling for preview panels and dataset views.
 
 Computes lightweight, type-aware statistics (null counts, distinct counts, and

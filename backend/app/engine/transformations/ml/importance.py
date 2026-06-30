@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """featureImportance — extract per-feature importance from a trained model.
 
 Reads the model reference frame (mlTrain's ``model`` output), loads the model, and

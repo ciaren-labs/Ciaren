@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Backend-fed catalog: node / connector / category metadata for the editor.
 
 The frontend renders what the backend (plus installed plugins) reports here

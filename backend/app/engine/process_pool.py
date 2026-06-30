@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Optional multi-process execution for flow runs.
 
 Flow compute is CPU-bound (pandas/polars) and therefore serialised by the GIL

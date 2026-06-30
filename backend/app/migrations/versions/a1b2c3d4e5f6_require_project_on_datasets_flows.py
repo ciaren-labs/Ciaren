@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """require a project on datasets and flows
 
 Backfills any project-less datasets/flows into the (auto-created) Default project,

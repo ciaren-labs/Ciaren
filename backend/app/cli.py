@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """FlowFrame command-line entry point.
 
 Exposed as the ``flowframe`` console script (see ``[project.scripts]``), so a

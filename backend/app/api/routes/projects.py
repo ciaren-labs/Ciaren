@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from fastapi import APIRouter, status
 
 from app.api.deps import ProjectServiceDep

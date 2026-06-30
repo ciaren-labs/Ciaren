@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend

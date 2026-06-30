@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Optional SSRF guard for connector hosts and endpoints.
 
 User-controlled connection fields — a SQL/Mongo ``host`` or an S3/Azure

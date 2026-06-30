@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The versioned ``.flow`` document — a public, stable description of a flow.
 
 Today a flow persists in the DB as React Flow ``graph_json`` and is exported as

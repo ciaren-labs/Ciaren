@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from typing import Any
 
 from fastapi import APIRouter, Query, UploadFile, status
@@ -44,9 +45,7 @@ async def patch_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(
-    dataset_id: str, service: DatasetServiceDep, purge: bool = False, force: bool = False
-) -> None:
+async def delete_dataset(dataset_id: str, service: DatasetServiceDep, purge: bool = False, force: bool = False) -> None:
     """Soft-delete a dataset (retained for restore); ``?purge=true`` deletes it and
     its files immediately. Refuses with 409 if a Production model was trained on it,
     unless ``?force=true``."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Catalog of supported model types and how to build each estimator.
 
 Maps the ``model_type`` string from an ``mlTrain`` config to its learning task and

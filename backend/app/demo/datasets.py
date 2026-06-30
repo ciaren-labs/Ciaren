@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Deterministic sample data for the demo project.
 
 Four small CSV datasets are generated from a fixed-seed RNG so every install

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Flow parameters: typed, named values declared on a flow that node configs
 reference via ``{{ name }}`` placeholders, resolved at run / preview / export time.
 

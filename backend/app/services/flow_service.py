@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 import copy
 from datetime import UTC, datetime
 from typing import Any

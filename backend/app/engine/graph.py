@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from collections import defaultdict, deque
 from typing import Any
 

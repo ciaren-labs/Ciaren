@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """mlEvaluate — compute evaluation metrics from a scored dataframe.
 
 Returns a long-format frame (one row per metric) so it feeds a csvOutput or shows

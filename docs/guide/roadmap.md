@@ -12,8 +12,9 @@ releases are tracked on **[GitHub](https://github.com/rodrigo-arenas/FlowFrame/r
 
 ::: warning Alpha software
 The public API, data model, and generated code may change between releases, with no
-backward-compatibility guarantee yet. Use FlowFrame for experimentation — not
-mission-critical pipelines.
+backward-compatibility guarantee yet. Use FlowFrame for experimentation,
+prototypes, and controlled internal workflows before relying on it for critical
+production jobs.
 :::
 
 ## Where it is today

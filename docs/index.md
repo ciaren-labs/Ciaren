@@ -50,7 +50,8 @@ features:
 
 :::warning Alpha software
 FlowFrame is in early development. APIs, the data model, and generated code may
-change between releases. Use it for experimentation — not production pipelines.
+change between releases. Use it for experimentation, prototypes, and controlled
+internal workflows before relying on it for critical production jobs.
 :::
 
 ## More Than a Visual ETL Tool
@@ -192,7 +193,7 @@ In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
 | **Data Engineering + ML** | One canvas for ingest → transform → validate → train → predict |
 | **Multi-Engine** | polars by default, pandas per run, pluggable engine contract for more |
 | **Live Preview** | See data changes at each step before executing the full flow |
-| **Open Source** | Apache 2.0 licensed — inspect, modify, self-host, and extend freely |
+| **Open Source** | Core is AGPL-3.0; the public Plugin API/SDK is Apache-2.0 |
 
 ## How FlowFrame Compares
 
@@ -216,7 +217,7 @@ Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/) ([Gi
 
 ## License
 
-Apache License 2.0 — Free for personal and commercial use.
+FlowFrame Core is AGPL-3.0-only. The public Plugin API/SDK is Apache-2.0, and plugins may use the license selected by their authors.
 
 ---
 

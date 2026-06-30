@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """FlowFrame plugin API — the stable extension contract.
 
 This package is intentionally self-contained (only Pydantic as a dependency) so

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Serializable specifications exchanged across the plugin boundary.
 
 These describe *what* a plugin contributes (nodes, connectors, engines, …) in a

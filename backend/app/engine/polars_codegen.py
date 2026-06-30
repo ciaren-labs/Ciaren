@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Generate readable **polars** code for a flow graph.
 
 Thin driver mirroring :class:`app.engine.codegen.CodeGenerator` (pandas): it

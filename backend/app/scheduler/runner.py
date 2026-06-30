@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """In-process cron scheduler.
 
 A single background asyncio task polls the ``schedules`` table and fires due

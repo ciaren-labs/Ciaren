@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 import time
 from dataclasses import dataclass, field
 from pathlib import Path

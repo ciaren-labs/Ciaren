@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared base classes for ML nodes.
 
 ``MLTransformation`` bridges FlowFrame's engine-agnostic frame world to sklearn,

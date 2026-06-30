@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """ML-specific run endpoints: read a run's ML metrics and promote its model to the
 MLflow registry. Registration requires the ML extension (501 otherwise); reading
 metrics is a pure read of stored run data and always works."""

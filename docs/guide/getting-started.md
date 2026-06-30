@@ -10,7 +10,8 @@ Welcome to FlowFrame! This guide will help you understand what FlowFrame is and 
 
 :::warning Alpha software
 FlowFrame is in early development. APIs and generated code may change between
-releases. Use it for learning and experimentation — not production pipelines.
+releases. Use it for learning, experimentation, and controlled internal
+workflows before relying on it for critical production jobs.
 :::
 
 ## What is FlowFrame?

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The ``.ffplugin`` package format and its signature verification.
 
 A ``.ffplugin`` is a plain zip archive containing:

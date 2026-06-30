@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add connections table
 
 Revision ID: c3d8e5f1a042

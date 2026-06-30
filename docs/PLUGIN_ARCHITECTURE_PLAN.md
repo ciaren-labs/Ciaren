@@ -956,13 +956,14 @@ This model file may execute code when loaded. Only load files you trust.
 
 ## 19. Licensing Considerations
 
-Apache-2.0 is compatible with premium extensions.
+The public Plugin API/SDK remains Apache-2.0 so third-party and premium plugins
+can choose their own licenses while FlowFrame Core remains AGPL-3.0-only.
 
 Recommended approach:
 
-- Keep core Apache-2.0.
+- Keep core AGPL-3.0-only.
 - Keep plugin API Apache-2.0.
-- Keep basic community plugins Apache-2.0.
+- Let community plugins choose their own licenses.
 - Make premium plugins commercial/private.
 - Protect the FlowFrame brand with trademark rules.
 - Add a dependency license scan before releases.

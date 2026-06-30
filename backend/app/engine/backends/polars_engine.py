@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from __future__ import annotations
 
 import datetime as _dt
@@ -551,7 +552,6 @@ class PolarsEngine:
         expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
         return df.with_columns(expr.alias(new_column))
 
-
     # -- New nodes (derive / analytics) --------------------------------
 
     def filter_expr(self, df: pl.DataFrame, expression: str) -> pl.DataFrame:
@@ -570,9 +570,9 @@ class PolarsEngine:
         keep_original: bool,
     ) -> pl.DataFrame:
         # fill_null("") keeps the separator for null cells (matches the pandas backend).
-        expr = pl.concat_str(
-            [pl.col(c).cast(pl.Utf8).fill_null("") for c in columns], separator=separator
-        ).alias(new_column)
+        expr = pl.concat_str([pl.col(c).cast(pl.Utf8).fill_null("") for c in columns], separator=separator).alias(
+            new_column
+        )
         result = df.with_columns(expr)
         if not keep_original:
             result = result.drop([c for c in columns if c != new_column])

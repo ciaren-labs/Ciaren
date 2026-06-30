@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A small forward-migration framework for ``.flow`` documents.
 
 Migrations are registered as ``from_version -> (to_version, fn)`` and applied as a

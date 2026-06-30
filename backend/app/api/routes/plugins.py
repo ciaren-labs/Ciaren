@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Installed-plugin introspection and management.
 
 Lists what loaded, what was gated (disabled or pending permission approval), and

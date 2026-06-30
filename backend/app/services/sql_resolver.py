@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Resolve ``sqlInput`` / ``sqlOutput`` nodes against database connections.
 
 The DB read/write runs in the **parent** (async) layer — it needs the Connection

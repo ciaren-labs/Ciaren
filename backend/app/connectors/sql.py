@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """SQLAlchemy-backed connector for relational databases (PostgreSQL, MySQL,
 SQLite, SQL Server, …).
 

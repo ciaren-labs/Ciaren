@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from __future__ import annotations
 
 import asyncio
@@ -202,9 +203,7 @@ class ConnectionService:
         conn = await self._get_or_raise(connection_id)
         provider = get_provider(conn.provider)
         if is_storage_provider(provider):
-            raise ValidationError(
-                f"'{provider.label}' is a storage connection — use list_objects instead."
-            )
+            raise ValidationError(f"'{provider.label}' is a storage connection — use list_objects instead.")
         if not driver_available(provider):
             raise ValidationError(
                 f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
@@ -221,9 +220,7 @@ class ConnectionService:
         conn = await self._get_or_raise(connection_id)
         provider = get_provider(conn.provider)
         if not is_storage_provider(provider):
-            raise ValidationError(
-                f"'{provider.label}' is not a storage connection — use list_tables instead."
-            )
+            raise ValidationError(f"'{provider.label}' is not a storage connection — use list_tables instead.")
         if not driver_available(provider):
             raise ValidationError(
                 f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
@@ -251,9 +248,7 @@ class ConnectionService:
         p = get_provider(provider)
         if is_mlflow_provider(p):
             if not database:
-                raise ValidationError(
-                    "MLflow needs a tracking URI (a folder path, sqlite:///…, or http://host:5000)."
-                )
+                raise ValidationError("MLflow needs a tracking URI (a folder path, sqlite:///…, or http://host:5000).")
             return
         if is_storage_provider(p):
             if p.name == "local":
@@ -272,9 +267,7 @@ class ConnectionService:
             raise ValidationError(f"{p.label} needs a database name.")
 
     async def _by_name(self, name: str) -> Connection | None:
-        result = await self.db.execute(
-            select(Connection).where(func.lower(Connection.name) == name.lower())
-        )
+        result = await self.db.execute(select(Connection).where(func.lower(Connection.name) == name.lower()))
         return result.scalar_one_or_none()
 
     async def _get_or_raise(self, connection_id: str) -> Connection:

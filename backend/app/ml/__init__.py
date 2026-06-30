@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """FlowFrame ML extension.
 
 Kept import-light: nothing here imports scikit-learn, xgboost, lightgbm, or

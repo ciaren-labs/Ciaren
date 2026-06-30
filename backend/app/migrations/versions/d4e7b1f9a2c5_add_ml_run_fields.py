@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add ML run fields: flow_runs.graph_snapshot_json, schedules.run_timeout_seconds
 
 Revision ID: d4e7b1f9a2c5

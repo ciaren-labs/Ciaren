@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Feature-engineering ML nodes: scaleFeatures, encodeCategories,
 selectFeatures, reduceDimensions.
 
