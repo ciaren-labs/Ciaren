@@ -6,7 +6,7 @@
 > recurring runs, and export the equivalent pandas **or** polars code whenever you
 > need it.
 
-[![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
@@ -15,7 +15,8 @@
 
 > ⚠️ **Alpha software.** FlowFrame is in early development. APIs, the data model,
 > and generated code may change without notice between releases, and there is no
-> stability guarantee yet. Use it for experimentation — not production pipelines.
+> long-term stability guarantee yet. Use it for experimentation, prototypes, and
+> controlled internal workflows before relying on it for critical production jobs.
 
 ---
 
@@ -238,23 +239,25 @@ via `DATABASE_URL` — **always use an async driver** (`sqlite+aiosqlite://`,
 
 ---
 
-## 📋 Important Disclaimers
+## Security and Maturity
 
-### ⚠️ AI-Generated Code
+FlowFrame is alpha software. It is designed for local-first experimentation,
+analysis, prototyping, and self-hosted workflows where the operator controls the
+environment.
 
-This project includes code generated or heavily assisted by AI tools. While every
-effort is made to ensure correctness and quality, **we cannot guarantee**:
+Parts of the project have been developed with AI assistance and human review.
+FlowFrame has not yet completed a formal independent third-party security audit.
+Security-sensitive areas are tested and reviewed, but teams using FlowFrame with
+sensitive data or production workflows should perform their own review and add
+appropriate operational controls.
 
-- **Security** — Code may contain vulnerabilities. Review before use in production.
-- **Performance** — Generated code may not be optimal for large or complex transformations.
-- **Reliability** — Bugs may exist despite testing. Always verify output first.
-
-**Best practices:**
+Recommended practices:
 
 - Test flows thoroughly before running on important data
-- Review exported Python code before deploying
+- Review exported Python code before deploying it elsewhere
+- Keep FlowFrame local or behind trusted access controls
 - Report bugs and security issues responsibly (see [SECURITY.md](SECURITY.md))
-- Do not use for mission-critical pipelines without additional validation
+- Add independent validation before using FlowFrame for critical or regulated workflows
 
 ---
 
@@ -272,11 +275,28 @@ or [Issue](https://github.com/rodrigo-arenas/FlowFrame/issues).
 
 ---
 
-## 📜 License
+## Licensing
 
-FlowFrame is licensed under the **Apache License 2.0**. You are free to use,
-modify, distribute, and commercialize this software, provided you include the
-required copyright notices and license text. See [LICENSE](LICENSE) for details.
+FlowFrame uses a dual licensing model:
+
+- **FlowFrame Core** is licensed under **AGPL-3.0-only**. This includes the
+  application, backend, frontend, execution engine, connectors, scheduler,
+  bundled services, and repository content unless a more specific license notice
+  says otherwise.
+- The public **Plugin API/SDK** located at `backend/app/plugin_api/` is licensed
+  separately under **Apache-2.0** so plugin developers can build against a stable
+  public contract without adopting the core license for their own plugins.
+- Plugins created using the public Plugin API may use the license selected by
+  their authors, including MIT, Apache-2.0, GPL, AGPL, commercial, or
+  proprietary licenses.
+- Official Premium Plugins may be distributed under commercial licenses.
+- Marketplace plugins use the license chosen by their authors.
+- Cloud services such as the Marketplace backend, AI Credits backend, licensing
+  server, billing, hosted sync, and related hosted infrastructure are outside
+  the scope of this open-source repository license and may remain proprietary.
+
+See [LICENSE](LICENSE), [NOTICE](NOTICE), and [LICENSES/](LICENSES/) for the
+complete license texts and notices.
 
 ---
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """mlPredict — load a trained model and score a dataframe.
 
 The model comes from the ``model`` input handle (the reference frame mlTrain emits)
@@ -5,6 +6,7 @@ or, for production flows, from a ``model_uri`` in the config (e.g.
 ``models:/churn/Production``). The URI is security-validated before any load, and
 the input columns are checked against the model's expected features.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,9 +53,7 @@ class MLPredictTransformation(MetadataMLTransformation):
         output_column = config.get("output_column", "prediction")
         batch_size = config.get("batch_size")
         if batch_size is None and len(pdf) > _LARGE_FRAME_ROWS:
-            logger.warning(
-                "mlPredict: predicting %d rows at once; set batch_size to bound memory.", len(pdf)
-            )
+            logger.warning("mlPredict: predicting %d rows at once; set batch_size to bound memory.", len(pdf))
         pdf[output_column] = self._predict(model, x, batch_size)
 
         proba_columns = config.get("output_proba_columns")
@@ -84,9 +84,7 @@ class MLPredictTransformation(MetadataMLTransformation):
                 if "task_type" in ref.columns:
                     task = ref.iloc[0]["task_type"]
         if not uri or (isinstance(uri, float)):  # float catches a NaN cell
-            raise ValueError(
-                "mlPredict: no model to load — connect the 'model' input or set 'model_uri'."
-            )
+            raise ValueError("mlPredict: no model to load — connect the 'model' input or set 'model_uri'.")
         return str(uri), task
 
     def _align_features(self, model: Any, pdf: Any) -> Any:
@@ -96,10 +94,7 @@ class MLPredictTransformation(MetadataMLTransformation):
         expected = list(expected)
         missing = [c for c in expected if c not in pdf.columns]
         if missing:
-            raise ValueError(
-                f"mlPredict: input is missing model features {missing}. "
-                f"Model expects {expected}."
-            )
+            raise ValueError(f"mlPredict: input is missing model features {missing}. Model expects {expected}.")
         extra = [c for c in pdf.columns if c not in expected]
         if extra:
             logger.warning("mlPredict: dropping columns not seen in training: %s", extra)
@@ -110,12 +105,10 @@ class MLPredictTransformation(MetadataMLTransformation):
 
         if not batch_size or len(x) <= batch_size:
             return model.predict(x)
-        chunks = [model.predict(x.iloc[i:i + batch_size]) for i in range(0, len(x), batch_size)]
+        chunks = [model.predict(x.iloc[i : i + batch_size]) for i in range(0, len(x), batch_size)]
         return np.concatenate(chunks)
 
-    def _add_probabilities(
-        self, model: Any, x: Any, pdf: Any, proba_columns: list[str], task: str | None
-    ) -> None:
+    def _add_probabilities(self, model: Any, x: Any, pdf: Any, proba_columns: list[str], task: str | None) -> None:
         if not hasattr(model, "predict_proba"):
             logger.warning("mlPredict: model has no predict_proba (task=%s); skipping probabilities.", task)
             return
@@ -128,9 +121,7 @@ class MLPredictTransformation(MetadataMLTransformation):
         for i, col in enumerate(proba_columns):
             pdf[col] = proba[:, i]
 
-    def to_python_code(
-        self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]
-    ) -> str:
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         output_column = config.get("output_column", "prediction")
         # Prefer the upstream trained-model variable; fall back to loading a URI.

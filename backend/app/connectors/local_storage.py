@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Local-folder storage connector.
 
 Treats a directory as an object store: files inside it are objects, the

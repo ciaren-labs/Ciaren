@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Resolve database credentials from environment variables.
 
 Security model: FlowFrame **never persists a database password**. A ``Connection``

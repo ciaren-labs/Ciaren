@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Azure Blob Storage connector via azure-storage-blob.
 
 Security:

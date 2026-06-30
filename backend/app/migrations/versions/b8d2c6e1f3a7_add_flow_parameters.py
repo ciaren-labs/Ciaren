@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add flow parameters: flow_runs.parameters_json, schedules.parameters_json
 
 Revision ID: b8d2c6e1f3a7

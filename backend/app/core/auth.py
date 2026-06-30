@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Optional bearer-token authentication for the REST API.
 
 FlowFrame is local-first and unauthenticated by default (safe bound to

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """baseline schema
 
 Revision ID: 58ef4348266a

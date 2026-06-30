@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The plugin manifest: a plugin's declared identity, compatibility, and the
 permissions/capabilities it contributes.
 

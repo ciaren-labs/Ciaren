@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Cron parsing helpers, isolated so both the service (validation, scheduling)
 and the runner (advancing schedules) share one implementation.
 

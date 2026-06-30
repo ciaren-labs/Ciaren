@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """A tiny, dependency-free flag for "we are computing a preview, not a real run".
 
 Preview computes the whole graph in memory to show one node's output. For ETL
@@ -6,6 +7,7 @@ otherwise fit models and log MLflow runs on every preview. They consult
 :func:`in_preview` to short-circuit to a cheap passthrough instead. The flag is a
 ``ContextVar`` so it is safe under concurrent async previews.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager

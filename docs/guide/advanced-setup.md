@@ -201,9 +201,11 @@ Because the browser then talks to a single origin, you usually don't need to
 touch `CORS_ORIGINS` for this layout.
 
 ::: warning Alpha software
-FlowFrame is in early development with no stability guarantee. If you deploy it,
-treat it as experimental, review the [security notes](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md),
-and don't expose it to untrusted users or place mission-critical pipelines on it.
+FlowFrame is in early development and has not completed a formal independent
+third-party security audit. If you deploy it beyond localhost, review the
+[security notes](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md),
+set `FLOWFRAME_API_TOKEN`, place it behind trusted access controls, and validate
+the deployment against your own data and operational requirements.
 :::
 
 ### Frontend dev overrides

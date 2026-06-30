@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """A tiny, dependency-free event bus so plugins extend behaviour without
 modifying the core.
 

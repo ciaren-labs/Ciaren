@@ -24,7 +24,9 @@ FlowFrame was created and is maintained by **Rodrigo Arenas** —
 
 ### How much does FlowFrame cost?
 
-FlowFrame is **free and open-source** under the Apache License 2.0. You can use it for personal and commercial projects.
+FlowFrame Core is **free and open-source** under AGPL-3.0-only. The public
+Plugin API/SDK at `backend/app/plugin_api/` is Apache-2.0 so plugin authors can
+choose their own plugin licenses.
 
 ### Is FlowFrame production-ready?
 
@@ -32,7 +34,10 @@ FlowFrame is in **active development**. It's suitable for learning, exploration,
 
 ### Can I use FlowFrame at work?
 
-Yes! The Apache 2.0 license allows commercial use. However, note the [security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md) about AI-generated code.
+Yes, subject to the AGPL-3.0-only terms for FlowFrame Core and the separate
+Apache-2.0 terms for the public Plugin API/SDK. Review the
+[security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md)
+before using FlowFrame with important data.
 
 ## Installation & Setup
 

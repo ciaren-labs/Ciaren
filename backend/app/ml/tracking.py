@@ -1,6 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """MLflow configuration shared by mlTrain (logging) and mlPredict/featureImportance
 (loading). Centralizes the local-file-store opt-in and URI normalization so both
 sides agree on where artifacts live."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -76,9 +78,7 @@ async def resolve_tracking_uri(db: Any) -> str:
     from app.core.config import get_settings
     from app.db.models.connection import Connection
 
-    result = await db.execute(
-        select(Connection).where(Connection.provider == "mlflow").limit(1)
-    )
+    result = await db.execute(select(Connection).where(Connection.provider == "mlflow").limit(1))
     conn = result.scalars().first()
     if conn is not None and conn.database:
         return str(conn.database)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Security guardrails for ML model loading and hyperparameters.
 
 Two attack surfaces are covered (see docs/ml-architecture.md §6):

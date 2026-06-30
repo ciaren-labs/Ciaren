@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """FlowFrame ``.flow`` schema package — the versioned, public flow-document
 contract, its validation, and a migration framework. Importable without the
 engine or FastAPI so external tooling can validate flow files.

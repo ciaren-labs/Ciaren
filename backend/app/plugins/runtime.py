@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The process-wide :class:`ServiceRegistry` and how it is assembled.
 
 ``build_registry()`` returns the core built-ins only (deterministic, used by

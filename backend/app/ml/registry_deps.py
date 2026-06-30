@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Find registered models that depend on a dataset (for the deletion guard).
 
 A model "depends on" a dataset when a registered version aliased ``production`` was
@@ -5,6 +6,7 @@ trained by an mlTrain run tagged with that dataset id (see the reproducibility t
 in mlTrain). Best-effort: any MLflow problem yields an empty result rather than
 blocking a delete on an unreachable registry.
 """
+
 from __future__ import annotations
 
 import json

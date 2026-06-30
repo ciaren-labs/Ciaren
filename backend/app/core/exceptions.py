@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 class NotFoundError(Exception):
     def __init__(self, resource: str, resource_id: str) -> None:
         self.resource = resource

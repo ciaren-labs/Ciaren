@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Central definitions for the app's closed-set string options.
 
 Previously these lived as bare string literals scattered across models, services,

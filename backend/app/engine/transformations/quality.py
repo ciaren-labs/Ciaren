@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Data-quality assertion nodes.
 
 Each node is a pass-through: the output frame is always identical to the
@@ -402,10 +403,7 @@ class AssertValuesInSetTransformation(_BaseAssertion):
         msg = f'f"assertValuesInSet: {{_set_violations}} row(s) in {col!r} outside the allowed set"'
         action = self._violation_action(mode, msg)
         return (
-            f"{dst} = {src}\n"
-            f"_set_violations = {dst}.filter(~({in_set})).height\n"
-            f"if _set_violations > 0:\n"
-            f"    {action}"
+            f"{dst} = {src}\n_set_violations = {dst}.filter(~({in_set})).height\nif _set_violations > 0:\n    {action}"
         )
 
 

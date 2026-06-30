@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared helpers for the pandas / polars code generators.
 
 The only non-trivial bit is liveness analysis for the optional ``del``

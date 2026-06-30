@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Per-run context (flow id, run id, input dataset ids) made available to nodes
 during execution without threading it through every signature.
 
@@ -7,6 +8,7 @@ check relies on). It is a ``ContextVar`` so it is correct under concurrent runs 
 is copied into the worker thread by ``asyncio.to_thread``; for process execution
 the dict is passed explicitly and re-established in the worker.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager

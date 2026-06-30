@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from app.engine.transformations.base import BaseTransformation
 from app.engine.transformations.columns import (
     CastDtypesTransformation,

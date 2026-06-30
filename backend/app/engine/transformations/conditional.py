@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Conditional column node: CASE-WHEN-style if/elif/else rules that compute a new
 column. The first matching rule wins; unmatched rows take the default."""
 

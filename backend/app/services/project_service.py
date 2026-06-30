@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update

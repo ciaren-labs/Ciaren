@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Idempotent seeding of the built-in demo project.
 
 :func:`seed_demo` creates or synchronizes a ``Demo`` project containing sample

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Local license tokens for premium plugins — signed, cached, offline-tolerant.
 
 This is reusable infrastructure, **not** wired into the open-source core: a

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Validation and conversion for ``.flow`` documents.
 
 Schema validation here is *contract-level* (shape + structural integrity of the

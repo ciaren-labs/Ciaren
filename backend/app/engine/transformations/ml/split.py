@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """trainTestSplit — split a dataframe into train and test outputs.
 
 A two-output node: ``{"train": ..., "test": ...}``. The seed is **required** (no

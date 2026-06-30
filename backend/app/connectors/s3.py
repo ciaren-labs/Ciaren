@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """AWS S3 (and S3-compatible) storage connector via boto3.
 
 Security:

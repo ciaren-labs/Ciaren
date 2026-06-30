@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Numeric cleaning/shaping nodes: outlier handling, rounding, binning."""
 
 from typing import Any, Callable

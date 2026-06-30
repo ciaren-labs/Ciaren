@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Provider interfaces — the stable extension contracts.
 
 A plugin contributes capabilities by implementing one or more of these provider

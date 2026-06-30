@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Custom Python transform node.
 
 The user writes the body of ``def transform(df): …``. FlowFrame wraps it,

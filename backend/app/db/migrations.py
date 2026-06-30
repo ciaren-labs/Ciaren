@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Programmatic Alembic access for the ``flowframe db`` commands.
 
 Builds an Alembic ``Config`` pointing at the migration environment packaged

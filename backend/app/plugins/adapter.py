@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Adapt a plugin's :class:`NodeRuntime` to the engine's ``BaseTransformation``.
 
 This is the bridge that makes a plugin-contributed node executable end-to-end:
