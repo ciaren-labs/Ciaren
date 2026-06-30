@@ -1,7 +1,7 @@
 [project]
 name = "flowframe"
 version = "0.1.0"
-description = "Visual ETL builder — local-first, pandas-based"
+description = "Visual ETL builder — local-first, dataframe-based"
 requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -87,7 +87,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 # The web UI is bundled into app/web by the build hook (generated, not in VCS).
-artifacts = ["app/web/**"]
+artifacts = ["app/web/**", "app/bundled_plugins/**"]
 
 # Build the frontend into the wheel so `flowframe serve` serves the UI with no Node.
 # Runs for wheel builds only — editable/dev installs serve the live frontend/dist.

@@ -5,14 +5,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
 import type { Dataset } from "@/lib/types";
 
-function dataset(id: string, source: Dataset["source_type"]): Dataset {
+function dataset(id: string, source: Dataset["source_type"], projectId: string | null = null): Dataset {
   return {
     id,
     name: `${id}.${source}`,
     source_type: source,
     dataset_kind: "input",
     is_disabled: false,
-    project_id: null,
+    project_id: projectId,
     latest_version: 1,
     version_count: 1,
     column_schema: [{ name: "a", type: "string" }],
@@ -63,6 +63,90 @@ describe("NodeConfigForm", () => {
     const options = screen.getAllByRole("option").map((o) => o.textContent);
     expect(options).toContain("report.excel");
     expect(options).not.toContain("sales.csv");
+  });
+
+  it("filters File Input datasets by selected file type and clears stale dataset on type change", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "fileInput",
+      config: { dataset_id: "sales", dataset_version: 1, format: "csv" },
+      datasets: [dataset("sales", "csv"), dataset("warehouse", "parquet")],
+      onChange,
+    });
+
+    let options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("sales.csv");
+    expect(options).not.toContain("warehouse.parquet");
+
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "parquet" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ format: "parquet", dataset_id: "", dataset_version: null }),
+    );
+  });
+
+  it("offers compatible datasets for File Input parquet format", () => {
+    renderForm({
+      type: "fileInput",
+      config: { dataset_id: "", format: "parquet" },
+      datasets: [dataset("sales", "csv"), dataset("warehouse", "parquet")],
+    });
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("warehouse.parquet");
+    expect(options).not.toContain("sales.csv");
+  });
+
+  it("filters File Input datasets by exact TSV and JSONL source types", () => {
+    const { rerender } = render(
+      <Wrap>
+        <NodeConfigForm
+          type="fileInput"
+          config={{ dataset_id: "", format: "tsv" }}
+          datasets={[dataset("sales", "csv"), dataset("events", "tsv")]}
+          columns={[]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </Wrap>,
+    );
+
+    let options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("events.tsv");
+    expect(options).not.toContain("sales.csv");
+
+    rerender(
+      <Wrap>
+        <NodeConfigForm
+          type="fileInput"
+          config={{ dataset_id: "", format: "jsonl" }}
+          datasets={[dataset("payloads", "json"), dataset("stream", "jsonl")]}
+          columns={[]}
+          onChange={() => {}}
+          onErrors={() => {}}
+        />
+      </Wrap>,
+    );
+
+    options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("stream.jsonl");
+    expect(options).not.toContain("payloads.json");
+  });
+
+  it("limits File Input datasets to the active project", () => {
+    renderForm({
+      type: "fileInput",
+      config: { dataset_id: "", format: "csv" },
+      projectId: "p1",
+      datasets: [
+        dataset("sales", "csv", "p1"),
+        dataset("other-project", "csv", "p2"),
+        dataset("report", "excel", "p1"),
+      ],
+    });
+
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("sales.csv");
+    expect(options).not.toContain("other-project.csv");
+    expect(options).not.toContain("report.excel");
   });
 
   it("warns when no compatible dataset exists for an input node", () => {
@@ -161,6 +245,22 @@ describe("NodeConfigForm", () => {
     });
     expect(screen.getByText("From (lower bound)")).toBeInTheDocument();
     expect(screen.getByText("To (upper bound)")).toBeInTheDocument();
+  });
+
+  it("builds a filter expression from guided controls", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "filterExpression",
+      config: { expression: "" },
+      columns: ["amount", "status"],
+      onChange,
+    });
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], { target: { value: "amount" } });
+    fireEvent.change(selects[1], { target: { value: ">=" } });
+    fireEvent.change(screen.getByPlaceholderText("value"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use condition" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expression: "amount >= 100" }));
   });
 
   it("shows method-specific fields for Remove Outliers", () => {

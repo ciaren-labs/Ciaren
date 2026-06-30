@@ -135,9 +135,10 @@ class Settings(BaseSettings):
     ML_MAX_FEATURE_COLUMNS: int = 500
 
     # Source for the "Explore" plugin catalog. Today a local JSON file path (the
-    # MarketplaceIndex shape); empty disables the catalog. A hosted index is a
-    # drop-in later — the same setting will accept an https:// URL once network
-    # fetch lands, with no change to the API contract or the frontend.
+    # MarketplaceIndex shape); empty uses FlowFrame's bundled community catalog
+    # so users can try installing a plugin. Set to "none" to disable Explore.
+    # A hosted index is a drop-in later — the same setting will accept an https://
+    # URL once network fetch lands, with no change to the API contract or frontend.
     MARKETPLACE_INDEX: str = ""
     # Require a trusted signature for marketplace/UI installs (hand-installed
     # community plugins via the CLI can still opt out). Off by default to keep

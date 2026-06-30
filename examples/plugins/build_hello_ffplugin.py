@@ -17,8 +17,10 @@ the signed artifact. A real publisher would keep their private key secret
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
+from app.plugins.marketplace import add_to_index_file
 from app.plugins.package import pack_directory, sign_package, verify_package
 
 # DEMO ONLY — do not use this key for real plugins. See the module docstring.
@@ -27,8 +29,10 @@ DEMO_PUBLIC_KEY = "b827f3795467a701b018a0d57ab5900af43669d3622340905559d86ae2ec4
 DEMO_KEY_ID = "flowframe-demo"
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
 SRC = HERE / "hello-node-plugin"
 DIST = HERE / "dist"
+BUNDLED = ROOT / "backend" / "app" / "bundled_plugins"
 
 
 def main() -> None:
@@ -40,7 +44,13 @@ def main() -> None:
     sig = sign_package(out, DEMO_PRIVATE_KEY, key_id=DEMO_KEY_ID, publisher="community")
 
     result = verify_package(out, trusted_keys={DEMO_KEY_ID: DEMO_PUBLIC_KEY})
-    print(f"Built  {out.relative_to(HERE.parent.parent)}")
+    BUNDLED.mkdir(parents=True, exist_ok=True)
+    bundled_out = BUNDLED / out.name
+    shutil.copy2(out, bundled_out)
+    add_to_index_file(BUNDLED / "marketplace.json", bundled_out)
+
+    print(f"Built  {out.relative_to(ROOT)}")
+    print(f"Bundled {bundled_out.relative_to(ROOT)}")
     print(f"Digest {sig.digest}")
     print(f"Verify {result.outcome} ({result.reason})")
     print("\nTrust this demo key to verify/install it:")

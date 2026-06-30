@@ -1,8 +1,9 @@
 """Idempotent seeding of the built-in demo project.
 
-:func:`seed_demo` creates a ``Demo`` project containing four sample datasets and
-several example flows. It is safe to call on every boot: if a project named
-``Demo`` already exists it returns immediately without touching anything.
+:func:`seed_demo` creates or synchronizes a ``Demo`` project containing sample
+datasets and example flows. It is safe to call on every boot: if a project named
+``Demo`` already exists, missing demo datasets are added and demo flows are
+upserted by name without touching non-demo projects.
 
 Datasets are registered exactly like a real upload — the CSV file is written
 under ``DATA_DIR/uploads`` and a :class:`Dataset` + :class:`DatasetVersion` row
@@ -37,17 +38,22 @@ _SAMPLE_ROWS = 100
 
 
 async def seed_demo(db: AsyncSession) -> Project | None:
-    """Create the demo project if it does not already exist.
+    """Create or synchronize the demo project.
 
     Returns the created :class:`Project`, or ``None`` when seeding was skipped
-    because the demo project (or a name clash) already exists. Idempotent.
+    because the demo project already existed. Idempotent.
     """
-    if await _demo_exists(db):
+    existing = await _get_demo_project(db)
+    if existing is not None:
+        await _sync_demo_content(db, existing)
+        await db.commit()
         return None
 
     project = Project(
         name=DEMO_PROJECT_NAME,
-        description="A built-in tour of FlowFrame: sample data and example cleaning, aggregation, and join pipelines.",
+        description=(
+            "A built-in tour of FlowFrame: sample data and varied example ETL, quality, analytics, and ML flows."
+        ),
         color="emerald",
         is_default=False,
     )
@@ -56,7 +62,7 @@ async def seed_demo(db: AsyncSession) -> Project | None:
 
     include_ml = _ml_available()
     dataset_ids = await _seed_datasets(db, project.id, include_ml=include_ml)
-    _seed_flows(db, project.id, dataset_ids, include_ml=include_ml)
+    await _seed_flows(db, project.id, dataset_ids, include_ml=include_ml)
 
     await db.commit()
     return project
@@ -74,8 +80,26 @@ def _ml_available() -> bool:
 
 
 async def _demo_exists(db: AsyncSession) -> bool:
+    return (await _get_demo_project(db)) is not None
+
+
+async def _get_demo_project(db: AsyncSession) -> Project | None:
     result = await db.execute(select(Project).where(func.lower(Project.name) == DEMO_PROJECT_NAME.lower()))
-    return result.scalar_one_or_none() is not None
+    return result.scalar_one_or_none()
+
+
+async def _sync_demo_content(db: AsyncSession, project: Project) -> None:
+    """Bring an existing Demo project up to the current built-in content.
+
+    User-created projects are not touched. Demo flows are keyed by name so a
+    current build can refresh their graph/description when the sample set evolves.
+    """
+    project.description = (
+        "A built-in tour of FlowFrame: sample data and varied example ETL, quality, analytics, and ML flows."
+    )
+    include_ml = _ml_available()
+    dataset_ids = await _seed_datasets(db, project.id, include_ml=include_ml)
+    await _seed_flows(db, project.id, dataset_ids, include_ml=include_ml)
 
 
 async def _seed_datasets(db: AsyncSession, project_id: str, include_ml: bool = False) -> dict[str, str]:
@@ -87,8 +111,16 @@ async def _seed_datasets(db: AsyncSession, project_id: str, include_ml: bool = F
     upload_dir = Path(settings.DATA_DIR) / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
+    existing_result = await db.execute(select(Dataset).where(Dataset.project_id == project_id))
+    existing = {dataset.name: dataset for dataset in existing_result.scalars().all()}
+
     dataset_ids: dict[str, str] = {}
     for filename, df in build_demo_frames(include_ml=include_ml).items():
+        existing_dataset = existing.get(filename)
+        if existing_dataset is not None:
+            dataset_ids[filename] = existing_dataset.id
+            continue
+
         dataset = Dataset(
             name=filename,
             source_type="csv",
@@ -119,18 +151,15 @@ async def _seed_datasets(db: AsyncSession, project_id: str, include_ml: bool = F
     return dataset_ids
 
 
-def _seed_flows(
-    db: AsyncSession, project_id: str, dataset_ids: dict[str, str], include_ml: bool = False
-) -> None:
+async def _seed_flows(db: AsyncSession, project_id: str, dataset_ids: dict[str, str], include_ml: bool = False) -> None:
+    existing_result = await db.execute(select(Flow).where(Flow.project_id == project_id))
+    existing = {flow.name: flow for flow in existing_result.scalars().all()}
     for name, description, graph in build_demo_flows(dataset_ids, include_ml=include_ml):
-        db.add(
-            Flow(
-                name=name,
-                description=description,
-                project_id=project_id,
-                graph_json=graph,
-            )
-        )
+        if name in existing:
+            existing[name].description = description
+            existing[name].graph_json = graph
+            continue
+        db.add(Flow(name=name, description=description, project_id=project_id, graph_json=graph))
 
 
 def _write_csv(df: pd.DataFrame, path: Path) -> None:

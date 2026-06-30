@@ -125,11 +125,11 @@ driver).
 
 ### What transformations are available?
 
-28 transformation nodes plus file and SQL input/output, including:
+42 transformation nodes plus file, SQL, and storage input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample
-- Reshape & combine: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, extract date parts, bin a column
+- Reshape, analytics & quality: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, rolling/window operations, date differences, and assertion nodes
 
 [See full list →](/transformations/overview)
 

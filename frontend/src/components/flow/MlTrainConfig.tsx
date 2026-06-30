@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Settings2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { mlApi } from "@/lib/api";
 import {
   Dialog,
   DialogClose,
@@ -94,9 +96,16 @@ const IMPUTE_CATEGORICAL = [
 
 export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props) {
   const [open, setOpen] = useState(false);
+  const { data: catalog = [] } = useQuery({
+    queryKey: ["ml", "model-catalog"],
+    queryFn: mlApi.modelCatalog,
+    staleTime: 60_000,
+  });
+  const availability = new Map(catalog.map((m) => [m.model_type, m]));
   const models = modelsForNodeType(nodeType);
   const task = TRAIN_NODE_TASKS[nodeType];
   const modelDef = getModelDef(config.model_type) ?? models[0];
+  const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
   // No models for this task yet (e.g. the Train Forecaster scaffold).
   const noModels = models.length === 0;
   const supervised = modelDef ? isSupervisedModel(modelDef.value) : task === "timeseries";
@@ -128,18 +137,27 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
           onChange={(e) => set({ model_type: e.target.value, hyperparameters: {} })}
         >
           {models.map((m) => (
-            <option key={m.value} value={m.value}>
+            <option key={m.value} value={m.value} disabled={availability.get(m.value)?.available === false}>
               {m.label}
+              {availability.get(m.value)?.available === false ? " (not installed)" : ""}
             </option>
           ))}
         </Select>
       </Field>
 
-      {modelDef?.requires && (
+      {selectedAvailability?.available === false ? (
+        <p
+          className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800"
+          title={selectedAvailability.warning ?? "Required dependency was not found."}
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>Required dependency not installed for {modelDef?.label}.</span>
+        </p>
+      ) : modelDef?.requires ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
           Needs the <strong>{modelDef.requires}</strong> library (installed with the <code>ml</code> extra).
         </p>
-      )}
+      ) : null}
 
       {isTimeseries && (
         <Field label="Time column" error={errors.time_column} help="The column that orders rows in time.">

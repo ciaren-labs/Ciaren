@@ -14,7 +14,7 @@ format from a dropdown and give it a name.
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input"},
+    {"type":"input","label":"File Input"},
     {"type":"clean","label":"Fill Nulls"},
     {"type":"transform","label":"Calculated Column"},
     {"type":"output","label":"File Output","detail":"format + name → dataset"}

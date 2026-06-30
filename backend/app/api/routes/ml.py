@@ -1,9 +1,11 @@
 """ML-specific run endpoints: read a run's ML metrics and promote its model to the
 MLflow registry. Registration requires the ML extension (501 otherwise); reading
 metrics is a pure read of stored run data and always works."""
+
 from fastapi import APIRouter
 
 from app.api.deps import MLServiceDep
+from app.ml.models import model_catalog_status
 from app.schemas.run import MLAliasRequest, MLNodeMetrics, MLRegisterRequest
 
 router = APIRouter()
@@ -16,9 +18,7 @@ async def get_run_ml_metrics(run_id: str, service: MLServiceDep) -> list[MLNodeM
 
 
 @router.post("/runs/{run_id}/ml/register")
-async def register_run_model(
-    run_id: str, body: MLRegisterRequest, service: MLServiceDep
-) -> dict[str, object]:
+async def register_run_model(run_id: str, body: MLRegisterRequest, service: MLServiceDep) -> dict[str, object]:
     return await service.register_model(run_id, body.model_name, body.stage)
 
 
@@ -34,10 +34,14 @@ async def list_registered_models(service: MLServiceDep) -> list[dict[str, object
     return await service.list_registered_models()
 
 
+@router.get("/ml/model-catalog")
+async def list_model_catalog() -> list[dict[str, object]]:
+    """Trainable model types annotated with optional dependency availability."""
+    return model_catalog_status()
+
+
 @router.post("/ml/models/{model_name}/alias")
-async def set_model_alias(
-    model_name: str, body: MLAliasRequest, service: MLServiceDep
-) -> dict[str, object]:
+async def set_model_alias(model_name: str, body: MLAliasRequest, service: MLServiceDep) -> dict[str, object]:
     """Point an alias (e.g. production) at a registered model version."""
     return await service.set_model_alias(model_name, body.version, body.alias)
 

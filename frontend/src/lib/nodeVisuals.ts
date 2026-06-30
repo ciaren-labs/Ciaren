@@ -65,6 +65,7 @@ import {
 import type { NodeCategory } from "./nodeCatalog";
 
 export const NODE_ICONS: Record<string, LucideIcon> = {
+  fileInput: FileText,
   csvInput: FileText,
   excelInput: FileSpreadsheet,
   parquetInput: Boxes,

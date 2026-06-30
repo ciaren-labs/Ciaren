@@ -22,6 +22,7 @@ import type {
   MlExperiment,
   MlExperimentRun,
   MlExperimentSummary,
+  MlModelCatalogItem,
   MlNodeMetrics,
   MlRegisteredModel,
   MlRegisterResult,
@@ -239,6 +240,7 @@ export const mlApi = {
   experiments: (flowId: string) => request<MlExperiment[]>(`/flows/${flowId}/ml/experiments`),
   // ML Models page: registry + experiment leaderboard (server-wide, not per-flow).
   registeredModels: () => request<MlRegisteredModel[]>(`/ml/models`),
+  modelCatalog: () => request<MlModelCatalogItem[]>(`/ml/model-catalog`),
   allExperiments: () => request<MlExperimentSummary[]>(`/ml/experiments`),
   experimentRuns: (experimentId: string) =>
     request<MlExperimentRun[]>(`/ml/experiments/${experimentId}/runs`),

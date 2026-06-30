@@ -31,6 +31,11 @@ def build_demo_frames(include_ml: bool = False) -> dict[str, pd.DataFrame]:
         "orders.csv": _build_orders(rng),
         "products.csv": _build_products(rng),
         "order_items.csv": _build_order_items(rng),
+        "leads.csv": _build_leads(rng),
+        "web_events.csv": _build_web_events(rng),
+        "survey_responses.csv": _build_survey_responses(rng),
+        "regional_targets.csv": _build_regional_targets(rng),
+        "regional_actuals.csv": _build_regional_actuals(rng),
     }
     if include_ml:
         frames["iris.csv"] = _build_iris(rng)
@@ -82,6 +87,7 @@ _LAST_NAMES = [
 ]
 _STATUSES = ["completed", "completed", "completed", "pending", "cancelled", "refunded"]
 _CATEGORIES = ["Electronics", "Home", "Toys", "Books", "Sports"]
+_REGIONS = ["North", "South", "East", "West"]
 
 
 def _build_customers(rng: np.random.Generator) -> pd.DataFrame:
@@ -205,19 +211,12 @@ def _build_iris(rng: np.random.Generator) -> pd.DataFrame:
 def _build_house_prices(rng: np.random.Generator) -> pd.DataFrame:
     """A clean regression dataset: price is a noisy linear function of features."""
     n = 200
-    area = rng.uniform(50, 250, size=n)           # m²
+    area = rng.uniform(50, 250, size=n)  # m²
     bedrooms = rng.integers(1, 6, size=n)
-    age = rng.uniform(0, 40, size=n)              # years
+    age = rng.uniform(0, 40, size=n)  # years
     distance_to_city = rng.uniform(1, 30, size=n)  # km
     noise = rng.normal(0, 15_000, size=n)
-    price = (
-        30_000
-        + area * 3_000
-        + bedrooms * 12_000
-        - age * 1_500
-        - distance_to_city * 2_000
-        + noise
-    )
+    price = 30_000 + area * 3_000 + bedrooms * 12_000 - age * 1_500 - distance_to_city * 2_000 + noise
     return pd.DataFrame(
         {
             "area": np.round(area, 1),
@@ -244,4 +243,117 @@ def _build_order_items(rng: np.random.Generator) -> pd.DataFrame:
                     "unit_price": float(np.round(rng.uniform(5, 250), 2)),
                 }
             )
+    return pd.DataFrame(rows)
+
+
+def _build_leads(rng: np.random.Generator) -> pd.DataFrame:
+    """Messy inbound leads for column cleanup, mapping, coalescing, and casting."""
+    sources = ["web", "WEB", "partner", "referral", "ad", "event"]
+    countries = ["US", "CA", "MX", "UK"]
+    rows: list[dict[str, str | int | None]] = []
+    for idx in range(1, 46):
+        first = _FIRST_NAMES[int(rng.integers(len(_FIRST_NAMES)))]
+        last = _LAST_NAMES[int(rng.integers(len(_LAST_NAMES)))]
+        country = countries[int(rng.integers(len(countries)))]
+        primary = f"{first.lower()}.{last.lower()}{idx}@example.com"
+        backup = f"{first.lower()}{idx}@backup.example.com"
+        rows.append(
+            {
+                "lead_id": f"L-{idx:03d}",
+                "full_name": f"{first} {last}",
+                "email": primary if idx % 7 else None,
+                "backup_email": backup if idx % 7 == 0 else None,
+                "country": country,
+                "source": sources[int(rng.integers(len(sources)))],
+                "age_text": str(int(rng.normal(36, 9))) if idx % 11 else "unknown",
+                "score": int(rng.integers(20, 100)),
+                "utm_campaign": f"spring-{idx % 5}",
+            }
+        )
+    rows[5]["email"] = None
+    rows[5]["backup_email"] = None  # one unusable lead for dropNulls
+    return pd.DataFrame(rows)
+
+
+def _build_web_events(rng: np.random.Generator) -> pd.DataFrame:
+    """Session events with dates, comma-separated tags, durations, and revenue."""
+    rows: list[dict[str, str | int | float]] = []
+    start = np.datetime64("2024-01-01")
+    tags = ["pricing", "docs", "trial", "upgrade", "support"]
+    for user_id in range(1, 16):
+        signup = start + np.timedelta64(int(rng.integers(0, 20)), "D")
+        base_revenue = float(rng.uniform(5, 50))
+        for event_idx in range(1, 5):
+            event_time = signup + np.timedelta64(event_idx * int(rng.integers(2, 9)), "D")
+            chosen = rng.choice(tags, size=int(rng.integers(1, 4)), replace=False)
+            rows.append(
+                {
+                    "user_id": user_id,
+                    "session_id": f"S-{user_id:02d}-{event_idx}",
+                    "signup_date": str(signup),
+                    "event_time": str(event_time),
+                    "channel": ["organic", "paid", "email", "partner"][int(rng.integers(4))],
+                    "duration_sec": int(rng.integers(20, 900)),
+                    "revenue": round(base_revenue * event_idx + float(rng.normal(0, 4)), 2),
+                    "tags": ",".join(chosen),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _build_survey_responses(rng: np.random.Generator) -> pd.DataFrame:
+    """Wide survey scores that intentionally satisfy quality contracts."""
+    plans = ["free", "team", "enterprise"]
+    rows: list[dict[str, str | int]] = []
+    for response_id in range(1, 41):
+        q1 = int(rng.integers(3, 6))
+        q2 = int(rng.integers(2, 6))
+        q3 = int(rng.integers(2, 6))
+        rows.append(
+            {
+                "response_id": response_id,
+                "account_id": f"A-{1000 + response_id}",
+                "plan": plans[int(rng.integers(len(plans)))],
+                "q1": q1,
+                "q2": q2,
+                "q3": q3,
+                "satisfaction": int(round((q1 + q2 + q3) / 3)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _build_regional_targets(rng: np.random.Generator) -> pd.DataFrame:
+    """Quarterly targets in a wide shape for unpivot/concat/pivot examples."""
+    rows: list[dict[str, str | int]] = []
+    for region in _REGIONS:
+        base = int(rng.integers(70_000, 110_000))
+        rows.append(
+            {
+                "region": region,
+                "metric": "target",
+                "q1": base,
+                "q2": int(base * 1.08),
+                "q3": int(base * 1.14),
+                "q4": int(base * 1.20),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _build_regional_actuals(rng: np.random.Generator) -> pd.DataFrame:
+    """Quarterly actuals in the same wide shape as targets."""
+    rows: list[dict[str, str | int]] = []
+    for region in _REGIONS:
+        base = int(rng.integers(65_000, 115_000))
+        rows.append(
+            {
+                "region": region,
+                "metric": "actual",
+                "q1": base,
+                "q2": int(base * float(rng.uniform(0.96, 1.13))),
+                "q3": int(base * float(rng.uniform(1.00, 1.20))),
+                "q4": int(base * float(rng.uniform(1.05, 1.25))),
+            }
+        )
     return pd.DataFrame(rows)

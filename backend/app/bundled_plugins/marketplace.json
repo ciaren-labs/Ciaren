@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "plugins": [
+    {
+      "id": "community.hello",
+      "name": "Hello Plugin",
+      "version": "0.1.0",
+      "publisher": "community",
+      "description": "A minimal example plugin that contributes one catalog node.",
+      "license": "community",
+      "trust": "community",
+      "capabilities": [
+        "node.hello"
+      ],
+      "permissions": [],
+      "downloadUrl": "community.hello-0.1.0.ffplugin",
+      "digest": "08cc65c1cdaa742e308938ad2a13cc5967df30914f7d8090b535f8cfc9b4f0d6",
+      "keyId": "flowframe-demo",
+      "licenseRequired": false
+    }
+  ]
+}

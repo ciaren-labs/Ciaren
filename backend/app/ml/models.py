@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.ml.availability import LIGHTGBM, XGBOOST, MLLibrary, require_library
+from app.ml.availability import LIGHTGBM, XGBOOST, MLLibrary, install_hint, library_available, require_library
 from app.ml.security import sanitize_hyperparameters
 
 CLASSIFICATION = "classification"
@@ -195,6 +195,24 @@ def get_model_spec(model_type: str) -> ModelSpec:
 def models_for_tasks(tasks: tuple[str, ...]) -> list[str]:
     """Model-type names whose task is in ``tasks`` (sorted, stable)."""
     return sorted(name for name, spec in MODEL_CATALOG.items() if spec.task in tasks)
+
+
+def model_catalog_status() -> list[dict[str, Any]]:
+    """Serializable model catalog annotated with optional-library availability."""
+    rows: list[dict[str, Any]] = []
+    for model_type, spec in sorted(MODEL_CATALOG.items()):
+        missing = [lib for lib in spec.requires if not library_available(lib)]
+        rows.append(
+            {
+                "model_type": model_type,
+                "task": spec.task,
+                "available": not missing,
+                "requires": [lib.module for lib in spec.requires],
+                "missing": [lib.module for lib in missing],
+                "warning": "; ".join(install_hint(lib) for lib in missing) if missing else None,
+            }
+        )
+    return rows
 
 
 def build_estimator(model_type: str, hyperparameters: dict[str, Any] | None, seed: int | None) -> Any:

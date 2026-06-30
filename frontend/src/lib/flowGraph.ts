@@ -20,11 +20,22 @@ export interface GraphEdgeLike {
 
 /** Input node type -> the dataset source_type it is allowed to read. */
 export const INPUT_SOURCE_TYPE: Record<string, DatasetSourceType> = {
+  fileInput: "csv",
   csvInput: "csv",
   excelInput: "excel",
   parquetInput: "parquet",
   jsonInput: "json",
   textInput: "text",
+};
+
+export const FILE_INPUT_FORMAT_TO_SOURCE: Record<string, DatasetSourceType> = {
+  csv: "csv",
+  tsv: "tsv",
+  excel: "excel",
+  parquet: "parquet",
+  json: "json",
+  jsonl: "jsonl",
+  text: "text",
 };
 
 export function isInputType(type: string | undefined): boolean {

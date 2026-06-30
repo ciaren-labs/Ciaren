@@ -1,5 +1,6 @@
 """ML availability + feature-gate logic. No ML libraries are imported here, so
 these pass whether or not the [ml] extra is installed."""
+
 import pytest
 
 from app.core.config import get_settings
@@ -14,6 +15,7 @@ from app.ml.availability import (
     ml_status,
     require_library,
 )
+from app.ml.models import model_catalog_status
 
 
 @pytest.fixture
@@ -89,3 +91,15 @@ def test_ml_status_shape(ml_off):
 
 def test_ml_core_available_is_bool():
     assert isinstance(ml_core_available(), bool)
+
+
+def test_model_catalog_status_marks_missing_optional_dependencies(monkeypatch):
+    monkeypatch.setattr(availability, "library_available", lambda lib: lib.module != "xgboost")
+    import app.ml.models as models
+
+    monkeypatch.setattr(models, "library_available", lambda lib: lib.module != "xgboost")
+    status = {row["model_type"]: row for row in model_catalog_status()}
+    assert status["random_forest_classifier"]["available"] is True
+    assert status["xgboost_classifier"]["available"] is False
+    assert status["xgboost_classifier"]["missing"] == ["xgboost"]
+    assert "flowframe[ml]" in status["xgboost_classifier"]["warning"]

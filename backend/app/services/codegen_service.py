@@ -10,7 +10,8 @@ from app.db.models.flow import Flow
 from app.engine.codegen import CodeGenerator
 from app.engine.codegen_params import parameter_block_lines, substitute_for_codegen
 from app.engine.graph import GraphValidationError
-from app.engine.node_kinds import INPUT_SOURCE_TYPES as _FILE_INPUT_TYPES
+from app.engine.node_kinds import FILE_INPUT_TYPE
+from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.polars_codegen import PolarsCodeGenerator
 from app.engine.sql_codegen import SQL_NODE_TYPES
@@ -92,7 +93,10 @@ class CodegenService:
         dataset_ids = {
             ds_id
             for n in graph.get("nodes", [])
-            if n.get("type") in _FILE_INPUT_TYPES and (ds_id := n.get("data", {}).get("config", {}).get("dataset_id"))
+            if (
+                (n.get("type") in _LEGACY_FILE_INPUT_TYPES or n.get("type") == FILE_INPUT_TYPE)
+                and (ds_id := n.get("data", {}).get("config", {}).get("dataset_id"))
+            )
         }
         if not dataset_ids:
             return {}

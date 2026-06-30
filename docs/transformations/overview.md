@@ -6,10 +6,11 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-FlowFrame ships with file input/output nodes plus **34 transformation nodes** for
-cleaning, reshaping, combining, validating, and scripting data. Each node maps to
-one clear dataframe operation and contributes to the exported Python — both the
-**pandas** and the **polars** version.
+FlowFrame ships with file/storage/SQL input/output nodes plus **42 registered
+transformation nodes** for cleaning, reshaping, combining, validating, analytics,
+and scripting data. Each node maps to one clear dataframe operation and
+contributes to the exported Python — both the **pandas** and the **polars**
+version.
 
 This page is the map. **Each node also has its own reference page** with use
 cases, full configuration, generated code, and tips — follow the links below or
@@ -43,11 +44,11 @@ ends with at least one **Output** node. Everything in between is optional cleani
 and transformation.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"Input node","detail":"CSV · Excel · Parquet · SQL · Storage"},
+  {"type":"input","label":"Input node","detail":"File · SQL · Storage"},
   {"type":"clean","label":"Clean nodes","detail":"columns · nulls · rows · text · numeric"},
   {"type":"transform","label":"Transform nodes","detail":"reshape · combine · analytics"},
   {"type":"quality","label":"Quality nodes","detail":"assert contracts on your data"},
-  {"type":"output","label":"Output node","detail":"CSV · Excel · Parquet · SQL · Storage"}
+  {"type":"output","label":"Output node","detail":"File · SQL · Storage"}
 ]' />
 
 ## Choosing the right node
@@ -72,6 +73,7 @@ and transformation.
 | Assert values are in an allowed set | [Assert values in set](./assert-values-in-set.md) |
 | Create a new computed column | [Calculated column](./calculated-column.md) |
 | Sum / count / average by group | [Group by + aggregate](./group-by-aggregate.md) |
+| Read an uploaded file | [File input](./file-input.md) |
 | Read from S3 / GCS / Azure Blob | [Storage input](./storage-input.md) |
 | Write to S3 / GCS / Azure Blob | [Storage output](./storage-output.md) |
 | Read from a database | [SQL input](./sql-input.md) |
