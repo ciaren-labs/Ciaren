@@ -2,14 +2,19 @@
 
 ## ⚠️ Important Disclaimers
 
-### AI-Generated Code Warning
+### AI-Assisted Development
 
-**This project contains code generated or heavily assisted by AI tools (Claude).** While every effort is made to ensure correctness and quality through testing and review, **we cannot guarantee**:
+Parts of this project have been written or reviewed with AI assistance. All
+contributions still need human review, tests, and security-minded maintenance.
+FlowFrame is alpha software and has not completed a formal third-party security
+audit.
 
-- **Security** — Code may contain vulnerabilities, logic errors, or unsafe patterns
-- **Performance** — Generated code may be inefficient or have hidden costs
-- **Reliability** — Bugs may exist despite testing
-- **Privacy** — No audit of data handling practices beyond code review
+Known risks include:
+
+- Security bugs, logic errors, or unsafe patterns may still exist.
+- Performance may vary on large or unusual datasets.
+- Reliability is not guaranteed for production or mission-critical pipelines.
+- Privacy controls are limited to the local-first trust model described below.
 
 **Users and contributors should:**
 
@@ -28,7 +33,9 @@
 FlowFrame is in active development. Known limitations include:
 
 - **No encryption at rest** — data is stored in plaintext (use SQLite for local-only setups)
-- **No authentication** — assumes trusted local environment
+- **No authentication by default** — assumes a trusted local environment; set
+  `FLOWFRAME_API_TOKEN` when binding outside loopback or placing FlowFrame behind
+  an authenticating reverse proxy
 - **Limited input validation** — some edge cases not yet handled
 - **No audit logging** — runs/changes are not logged
 - **Pandas dataframe limits** — no compression, large datasets may be slow or fail
@@ -62,7 +69,7 @@ FlowFrame is in active development. Known limitations include:
 4. **Follow OWASP top 10** — don't introduce common vulnerabilities
 5. **Use type hints** — helps catch many bugs early
 6. **Write tests** — especially for security-sensitive code
-7. **Review AI-generated code carefully** — verify it does what you expect
+7. **Review AI-assisted code carefully** — verify it does what you expect
 
 ---
 

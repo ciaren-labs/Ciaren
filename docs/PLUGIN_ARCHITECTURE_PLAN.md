@@ -1309,30 +1309,32 @@ Recommended answers for now:
 
 ---
 
-## 23. Immediate Codex / Claude Implementation Prompt
+## 23. Immediate Implementation Notes
 
-Use this prompt for the next coding-agent task:
+Prepare the architecture for a future open-core plugin marketplace while keeping
+the current product local-first and open source.
 
-```text
-You are working on FlowFrame. Your task is to prepare the architecture for a future open-core plugin marketplace while keeping the current product local-first and open source.
+Do not implement premium billing or marketplace UI yet. Focus on architectural
+foundations:
 
-Do not implement premium billing or marketplace UI yet.
-
-Focus on architectural foundations:
-
-1. Identify all static registries for nodes, connectors, providers, validators, exporters, and ML features.
+1. Identify all static registries for nodes, connectors, providers, validators,
+   exporters, and ML features.
 2. Propose a minimal `flowframe-schema` package for the `.flow` format.
-3. Propose a minimal `flowframe-plugin-api` package with interfaces for Plugin, NodeProvider, ConnectorProvider, StorageProvider, ExecutionProvider, ExporterProvider, ValidatorProvider, AIProvider, AuthProvider, and LicenseProvider.
-4. Propose a minimal `flowframe-plugin-loader` that can discover plugins via Python entry points and local plugin directories.
-5. Propose backend catalog endpoints so the frontend can receive node metadata dynamically instead of hard-coding all nodes in React.
-6. Do not break existing functionality.
-7. Keep basic ETL and basic ML community-friendly.
-8. Do not move code to private packages yet; first create boundaries and interfaces.
-9. Add tests proving that a sample plugin can register a node and that the frontend/backend catalog can see it.
-10. Return a detailed implementation plan before editing files.
+3. Propose a minimal `flowframe-plugin-api` package with interfaces for Plugin,
+   NodeProvider, ConnectorProvider, StorageProvider, ExecutionProvider,
+   ExporterProvider, ValidatorProvider, AIProvider, AuthProvider, and
+   LicenseProvider.
+4. Propose a minimal `flowframe-plugin-loader` that can discover plugins via
+   Python entry points and local plugin directories.
+5. Propose backend catalog endpoints so the frontend can receive node metadata
+   dynamically instead of hard-coding all nodes in React.
+6. Keep basic ETL and basic ML community-friendly.
+7. Do not move code to private packages yet; first create boundaries and
+   interfaces.
+8. Add tests proving that a sample plugin can register a node and that the
+   frontend/backend catalog can see it.
 
 Prioritize safe incremental refactoring over large rewrites.
-```
 
 ---
 

@@ -78,7 +78,7 @@ npm run lint
 
 ## Writing Documentation
 
-See [CLAUDE.md](./CLAUDE.md) for detailed documentation standards.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution standards.
 
 ### Front Matter
 
@@ -244,7 +244,7 @@ Search is built at build time from page titles, descriptions, and content.
 
 ## Questions?
 
-See [CLAUDE.md](./CLAUDE.md) for complete documentation standards.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete contribution standards.
 
 ---
 
