@@ -985,3 +985,10 @@ export function isModelInputHandle(
   if (!handles || handles.length === 0) return false;
   return handles.includes(handle ?? "in");
 }
+
+const CV_MODEL_SOURCE_TYPES = new Set(["mlClassifierModel", "mlRegressorModel"]);
+
+export function canConnectModelToTarget(sourceDef: NodeTypeDef, targetDef: NodeTypeDef): boolean {
+  if (targetDef.type !== "mlCrossValidate") return true;
+  return CV_MODEL_SOURCE_TYPES.has(sourceDef.type);
+}

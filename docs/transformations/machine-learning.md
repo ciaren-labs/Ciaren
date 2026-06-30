@@ -103,6 +103,21 @@ Supported models:
 Guardrails: the seed is required, the target can't also be a feature (leakage),
 and row/feature/model-size limits are enforced before training starts.
 
+## Model definition nodes
+
+**Classifier Model** and **Regressor Model** configure an estimator without
+fitting it or logging a model. Use them when another node should own the fitting
+loop, especially **Cross-Validate**. This avoids a common ambiguity:
+cross-validation must fit one clone per fold, while a Train node fits one final
+model on its full input. Keeping those responsibilities separate prevents a flow
+from accidentally training a final model and then training fold models again.
+
+Use:
+
+- **Classifier/Regressor Model → Cross-Validate** to estimate generalization.
+- **Train Classifier/Regressor → Predict / Feature Importance** when you want a
+  fitted model artifact and MLflow tracking.
+
 ## Predict
 
 Scores rows with a trained model, adding a prediction column.

@@ -3,7 +3,12 @@
 // Export / Preview actions. Pure and dependency-light so it is unit-tested
 // directly and reused by the editor header and node sidebar.
 
-import { getNodeTypeDef } from "./nodeCatalog";
+import {
+  canConnectModelToTarget,
+  getNodeTypeDef,
+  isModelInputHandle,
+  isModelOutputHandle,
+} from "./nodeCatalog";
 import { getConfigSchema } from "./validators";
 import {
   FILE_INPUT_FORMAT_TO_SOURCE,
@@ -65,6 +70,7 @@ export function validateFlow(
 ): FlowValidation {
   const issues: FlowIssue[] = [];
   const datasetById = new Map(datasets.map((d) => [d.id, d]));
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
   if (nodes.length === 0) {
     issues.push({
@@ -203,7 +209,28 @@ export function validateFlow(
     }
   }
 
-  // 4. Whole-graph checks ---------------------------------------------------
+  // 4. Model-wire compatibility --------------------------------------------
+  for (const edge of edges) {
+    const source = nodeById.get(edge.source);
+    const target = nodeById.get(edge.target);
+    const sourceDef = source ? getNodeTypeDef(source.type ?? "") : undefined;
+    const targetDef = target ? getNodeTypeDef(target.type ?? "") : undefined;
+    if (!sourceDef || !targetDef) continue;
+    const carriesModel = isModelOutputHandle(sourceDef, edge.sourceHandle);
+    const wantsModel = isModelInputHandle(targetDef, edge.targetHandle);
+    if (carriesModel && wantsModel && !canConnectModelToTarget(sourceDef, targetDef)) {
+      issues.push({
+        severity: "error",
+        code: "MODEL_SOURCE_MISMATCH",
+        nodeId: edge.target,
+        message:
+          `${targetDef.label}: connect Classifier Model or Regressor Model to cross-validate. ` +
+          "Train nodes fit a final model and would make cross-validation do extra work.",
+      });
+    }
+  }
+
+  // 5. Whole-graph checks ---------------------------------------------------
   if (nodes.length > 0 && outputCount === 0) {
     issues.push({
       severity: "error",
