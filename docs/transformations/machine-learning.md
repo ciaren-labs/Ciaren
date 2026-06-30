@@ -85,9 +85,10 @@ MLflow, and each emits a single `model` output (the purple wire) — wire it int
 nodes), feature columns (empty = all but the target), the model's common
 hyperparameters, and the required seed.
 
-**Advanced options** (modal): the full hyperparameter set, k-fold cross-validation,
-preprocessing (numeric scaling + imputation, categorical imputation + one-hot),
-and the MLflow experiment name.
+**Advanced options** (modal): the full hyperparameter set, preprocessing
+(numeric scaling + imputation, categorical imputation + one-hot), and the MLflow
+experiment name. Use the dedicated **Cross-Validate** node when you want fold
+scores without first training a final model on the full dataset.
 
 Supported models:
 
@@ -133,22 +134,23 @@ supported.
 
 ## Cross-Validate
 
-Estimates how well a model **generalizes** by re-fitting and scoring it across
-resampling folds, rather than reporting a single train score. It does not persist
-a model — it returns a tidy `fold | <metric> …` frame (one row per fold) and
-surfaces the per-fold scores plus the mean/std on the run's ML view. Like the
-train nodes, preprocessing is bundled into the pipeline and refit **inside each
-fold**, so the scores aren't inflated by leakage.
+Estimates how well a connected classifier or regressor **generalizes** by
+re-fitting and scoring it across resampling folds, rather than reporting a single
+train score. It takes a **Classifier Model** or **Regressor Model** node's `model` output, reuses that model's
+algorithm, target, feature columns, hyperparameters, and preprocessing, and does
+not persist another model. It returns a tidy `fold | <metric> …` frame (one row
+per fold) and surfaces the per-fold scores plus the mean/std on the run's ML
+view. Preprocessing from the connected model is refit **inside each fold**, so
+the scores aren't inflated by leakage.
 
-It connects after your cleaning/feature steps and is a valid flow terminal on its
+It has two inputs: `in` for the data to resample and `model` for a Classifier
+Model or Regressor Model reference. It is a valid flow terminal on its
 own (no output node required), or you can wire its scores frame onward to an
 output.
 
 | Field | Notes |
 | --- | --- |
-| Model | The classification or regression model to evaluate. |
-| Target column | The column the model learns to predict. |
-| Feature columns | Optional. Empty = every column except the target. |
+| Model input | Connect the `model` output from Classifier Model or Regressor Model. |
 | Strategy | The resampling scheme (see below). |
 | Folds / Splits | How many folds to evaluate (ignored by Leave-One-Out). |
 | Test size | For Shuffle Split strategies — fraction held out each split. |

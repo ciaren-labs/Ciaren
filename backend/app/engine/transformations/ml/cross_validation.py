@@ -1,12 +1,13 @@
-"""mlCrossValidate — estimate how well a model generalizes with cross-validation.
+"""mlCrossValidate — estimate how well a connected model generalizes with cross-validation.
 
-Unlike the ``cross_validate`` *option* on the train nodes (plain k-fold only),
-this is a dedicated node that supports several resampling strategies — k-fold,
+This dedicated node consumes a model reference from a train node and supports
+several resampling strategies — k-fold,
 stratified k-fold, shuffle-split, time-series split, group k-fold, repeated
 k-fold, and leave-one-out — so the right scheme can be picked per problem
 (stratify imbalanced classes, respect time order, keep groups intact, …).
 
-It does **not** persist a model: it fits/scores the chosen estimator on each fold
+It does **not** persist another model: it reconstructs the connected train node's
+estimator definition, fits/scores it on each fold
 and returns a tidy ``fold | <metric> …`` frame (one row per fold) so the scores
 feed an output node or show in the inspector. The per-fold scores for the primary
 metric plus the mean/std land on the NodeResult metadata (``cv_scores`` and the
@@ -19,6 +20,7 @@ from fitting on the held-out data.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -100,7 +102,7 @@ def _friendly_metric(scoring: str) -> str:
 
 class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation):
     type = "mlCrossValidate"
-    input_handles = ("in",)
+    input_handles = ("in", "model")
 
     # -- validation ----------------------------------------------------------
 
@@ -110,34 +112,9 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         if not isinstance(seed, int) or isinstance(seed, bool):
             raise ValueError(f"{nm} requires an integer 'seed' for reproducibility.")
 
-        model_type = config.get("model_type")
-        if not isinstance(model_type, str) or not model_type:
-            raise ValueError(f"{nm} requires a 'model_type'.")
-        spec = get_model_spec(model_type)  # raises with the supported list if unknown
-        if not spec.supervised or spec.task not in (CLASSIFICATION, REGRESSION):
-            raise ValueError(
-                f"{nm}: model_type {model_type!r} is a {spec.task} model; cross-validation supports "
-                f"classification and regression models only."
-            )
-
-        target = config.get("target_column")
-        if not isinstance(target, str) or not target:
-            raise ValueError(f"{nm} requires a 'target_column'.")
-        features = config.get("feature_columns")
-        if features is not None:
-            if not isinstance(features, list) or not all(isinstance(c, str) for c in features):
-                raise ValueError(f"{nm} 'feature_columns' must be a list of column names.")
-            if target in features:
-                raise ValueError(f"{nm}: target_column {target!r} is also in feature_columns — data leakage.")
-
         strategy = config.get("cv_strategy", "kfold")
         if strategy not in CV_STRATEGIES:
             raise ValueError(f"{nm} 'cv_strategy' must be one of {sorted(CV_STRATEGIES)}.")
-        if strategy in _STRATIFIED and spec.task != CLASSIFICATION:
-            raise ValueError(
-                f"{nm}: {CV_STRATEGIES[strategy]} stratifies on class labels and needs a classification model."
-            )
-
         if strategy != "leave_one_out":
             folds = config.get("n_splits", 5)
             if not isinstance(folds, int) or isinstance(folds, bool) or folds < 2:
@@ -154,34 +131,19 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             group = config.get("group_column")
             if not isinstance(group, str) or not group:
                 raise ValueError(f"{nm}: Group K-Fold needs a 'group_column' to keep each group within one fold.")
-            if group == target:
-                raise ValueError(f"{nm}: group_column cannot be the target column.")
 
         scoring = config.get("scoring")
         if scoring is not None:
             if not isinstance(scoring, list) or not all(isinstance(s, str) for s in scoring):
                 raise ValueError(f"{nm} 'scoring' must be a list of metric names.")
-            allowed = _SCORING[spec.task]
+            allowed = set(_SCORING[CLASSIFICATION]) | set(_SCORING[REGRESSION])
             bad = [s for s in scoring if s not in allowed]
             if bad:
-                raise ValueError(f"{nm}: unsupported scoring {bad} for a {spec.task} model. Allowed: {list(allowed)}.")
+                raise ValueError(f"{nm}: unsupported scoring {bad}. Allowed: {sorted(allowed)}.")
 
     def validate_with_schema(self, config: dict[str, Any], schema: MLSchema) -> None:
         nm = self.type
         settings = get_settings()
-        spec = get_model_spec(config["model_type"])
-        target = config.get("target_column")
-        if target and target not in schema.columns:
-            raise ValueError(f"{nm}: target_column {target!r} not in input columns {schema.columns}.")
-        features = self._resolve_features(config, schema.columns, spec.supervised, target)
-        missing = [c for c in features if c not in schema.columns]
-        if missing:
-            raise ValueError(f"{nm}: feature columns not found: {missing}.")
-        if len(features) > settings.ML_MAX_FEATURE_COLUMNS:
-            raise ValueError(
-                f"{nm}: {len(features)} feature columns exceeds the limit of "
-                f"{settings.ML_MAX_FEATURE_COLUMNS} (ML_MAX_FEATURE_COLUMNS)."
-            )
         group = config.get("group_column")
         if config.get("cv_strategy") == "group_kfold" and group and group not in schema.columns:
             raise ValueError(f"{nm}: group_column {group!r} not in input columns {schema.columns}.")
@@ -210,7 +172,19 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
 
-        spec = get_model_spec(config["model_type"])
+        model_config = self._model_config_from_input(engine, inputs)
+        spec = get_model_spec(model_config["model_type"])
+        if not spec.supervised or spec.task not in (CLASSIFICATION, REGRESSION):
+            raise ValueError(
+                f"{self.type}: connected model {model_config['model_type']!r} is a {spec.task} model; "
+                "cross-validation supports classification and regression models only."
+            )
+        strategy_name = config.get("cv_strategy", "kfold")
+        if strategy_name in _STRATIFIED and spec.task != CLASSIFICATION:
+            raise ValueError(
+                f"{self.type}: {CV_STRATEGIES[strategy_name]} stratifies on class labels and "
+                "needs a classification model."
+            )
         # During preview we don't fit anything — hand back an empty scores frame so
         # the graph still resolves and downstream column inference has a shape.
         if in_preview():
@@ -219,7 +193,6 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             return {"out": engine.from_pandas(pd.DataFrame(columns=cols))}, NodeMetadata(task_type=spec.task)
 
         settings = get_settings()
-        seed = config["seed"]
         pdf = engine.to_pandas(inputs["in"])
         n = len(pdf)
         if n < MIN_ROWS:
@@ -228,10 +201,12 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             raise ValueError(f"{self.type}: {n} rows exceeds ML_MAX_TRAINING_ROWS ({settings.ML_MAX_TRAINING_ROWS}).")
         self._check_folds_fit_rows(config, n)
 
-        target = config["target_column"]
+        target = model_config.get("target_column")
+        if not isinstance(target, str) or not target:
+            raise ValueError(f"{self.type}: connected model is missing a target_column.")
         if target not in pdf.columns:
             raise ValueError(f"{self.type}: target_column {target!r} not found.")
-        features = self._resolve_features(config, list(pdf.columns), spec.supervised, target)
+        features = self._resolve_features(model_config, list(pdf.columns), spec.supervised, target)
         missing = [c for c in features if c not in pdf.columns]
         if missing:
             raise ValueError(f"{self.type}: feature columns not found: {missing}.")
@@ -247,14 +222,40 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         y = pdf[target]
         scoring = self._resolve_scoring(config, spec.task)
         splitter, groups = self._build_splitter(config, pdf, n)
-        pipeline = self._build_pipeline(config, features, pdf, spec, seed)
+        pipeline = self._build_pipeline(model_config, features, pdf, spec, int(model_config.get("seed") or 0))
 
         frame, metadata = self._run_cv(pipeline, x, y, splitter, groups, scoring, spec.task)
         return {"out": engine.from_pandas(frame)}, metadata
 
+    def _model_config_from_input(self, engine: EngineBackend, inputs: dict[str, AnyFrame]) -> dict[str, Any]:
+        import pandas as pd
+
+        if "model" not in inputs:
+            raise ValueError(f"{self.type}: connect a Train Model node to the 'model' input.")
+        ref = engine.to_pandas(inputs["model"])
+        if ref.empty:
+            raise ValueError(f"{self.type}: model input is empty.")
+        row = ref.iloc[0]
+        raw = row.get("model_config_json") if isinstance(row, pd.Series) else None
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError(
+                f"{self.type}: connected model reference has no model_config_json. "
+                "Re-run the upstream Train node with the current FlowFrame version."
+            )
+        try:
+            cfg = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{self.type}: connected model_config_json is invalid JSON.") from exc
+        if not isinstance(cfg, dict) or not isinstance(cfg.get("model_type"), str):
+            raise ValueError(f"{self.type}: connected model reference is missing model_type.")
+        return cfg
+
     def _resolve_scoring(self, config: dict[str, Any], task: str) -> list[str]:
         chosen = config.get("scoring")
         if chosen:
+            bad = [s for s in chosen if s not in _SCORING[task]]
+            if bad:
+                raise ValueError(f"{self.type}: scoring {bad} is not valid for a {task} model.")
             return list(chosen)
         return list(_DEFAULT_SCORING[task])
 
@@ -298,9 +299,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         import pandas as pd
         from sklearn.model_selection import cross_validate
 
-        results = cross_validate(
-            pipeline, x, y, cv=splitter, scoring=scoring, groups=groups, return_train_score=False
-        )
+        results = cross_validate(pipeline, x, y, cv=splitter, scoring=scoring, groups=groups, return_train_score=False)
 
         # One row per fold; negate sklearn's neg_* scores and drop the prefix so the
         # report reads naturally (e.g. RMSE as a positive number).
@@ -335,28 +334,65 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src = input_vars["in"]
+        model_ref = input_vars["model"]
         dst = output_vars["out"]
-        spec = get_model_spec(config["model_type"])
-        target = config["target_column"]
-        features = config.get("feature_columns")
-        feat_expr = repr(features) if features else f"[c for c in {src}.columns if c != {target!r}]"
-        scoring = self._resolve_scoring(config, spec.task)
-        est_repr = self._estimator_repr(config)
+        chosen_scoring = config.get("scoring") or []
 
         lines = [
-            f"_features = {feat_expr}",
+            f"_model_ref = {model_ref}.iloc[0]",
+            "_model_config = json.loads(_model_ref['model_config_json'])",
+            "_task = _model_ref.get('task_type')",
+            "_target = _model_config['target_column']",
+            f"_features = _model_config.get('feature_columns') or [c for c in {src}.columns if c != _target]",
             f"X = {src}[_features]",
-            f"y = {src}[{target!r}]",
+            f"y = {src}[_target]",
+            "_pre = _model_config.get('preprocessing') or {}",
+            "if 'numeric_columns' in _pre:",
+            "    _numeric = _pre.get('numeric_columns')",
+            "else:",
+            "    _numeric = [c for c in _features if pd.api.types.is_numeric_dtype(X[c])]",
+            "if 'categorical_columns' in _pre:",
+            "    _categorical = _pre.get('categorical_columns')",
+            "else:",
+            "    _categorical = [c for c in _features if c not in _numeric]",
+            "_num_strategy = _pre.get('numeric_strategy', 'standard_scaler')",
+            "_scalers = {",
+            "    'standard_scaler': StandardScaler,",
+            "    'minmax_scaler': MinMaxScaler,",
+            "    'robust_scaler': RobustScaler,",
+            "}",
+            "_transformers = []",
+            "if _numeric:",
+            "    _num_steps = [('impute', SimpleImputer(strategy=_pre.get('impute_numeric', 'median')))]",
+            "    if _num_strategy in _scalers:",
+            "        _num_steps.append(('scale', _scalers[_num_strategy]()))",
+            "    _transformers.append(('num', Pipeline(_num_steps), _numeric))",
+            "if _categorical:",
+            "    _cat_steps = [",
+            "        ('impute', SimpleImputer(strategy=_pre.get('impute_categorical', 'most_frequent'))),",
+            "        ('encode', OneHotEncoder(handle_unknown='ignore')),",
+            "    ]",
+            "    _transformers.append(('cat', Pipeline(_cat_steps), _categorical))",
+            "_steps = []",
+            "if _transformers:",
+            "    _steps.append(('preprocessor', ColumnTransformer(_transformers, remainder='drop')))",
+            "_estimator = build_estimator(",
+            "    _model_config['model_type'],",
+            "    _model_config.get('hyperparameters'),",
+            "    _model_config.get('seed'),",
+            ")",
+            "_steps.append(('model', _estimator))",
+            "_pipeline = Pipeline(_steps)",
         ]
-        pre_lines, steps = self._preprocessor_code(config)
-        lines += pre_lines
-        steps.append(f"('model', {est_repr})")
-        pipeline_expr = "Pipeline([" + ", ".join(steps) + "])"
-        lines.append(f"_pipeline = {pipeline_expr}")
 
         splitter_expr, group_col = self._splitter_code(config)
         lines.append(f"_cv = {splitter_expr}")
-        lines.append(f"_scoring = {scoring!r}")
+        lines.append(f"_scoring = {chosen_scoring!r}")
+        lines.append("if not _scoring:")
+        lines.append("    if _task == 'classification':")
+        lines.append("        _scoring = ['accuracy', 'f1_weighted']")
+        lines.append("    else:")
+        lines.append("        _scoring = ['r2', 'neg_root_mean_squared_error']")
         groups_arg = f", groups={src}[{group_col!r}]" if group_col else ""
         lines.append(
             f"_scores = cross_validate(_pipeline, X, y, cv=_cv, scoring=_scoring{groups_arg}, return_train_score=False)"
@@ -407,6 +443,11 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         strategy = config.get("cv_strategy", "kfold")
         splitter = _SPLITTER_CLASSES.get(strategy, "KFold")
         return [
-            *self._pipeline_imports(config),
+            "import json",
+            "from app.ml.models import build_estimator",
+            "from sklearn.compose import ColumnTransformer",
+            "from sklearn.impute import SimpleImputer",
+            "from sklearn.pipeline import Pipeline",
+            "from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, RobustScaler, StandardScaler",
             f"from sklearn.model_selection import cross_validate, {splitter}",
         ]

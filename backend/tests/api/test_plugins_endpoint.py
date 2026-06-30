@@ -15,7 +15,12 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "plugins"
 
 
 @pytest.fixture(autouse=True)
-def _isolate_registry():
+def _isolate_registry(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
     reset_registry()
     yield
     reset_registry()
@@ -37,6 +42,8 @@ async def test_plugin_discovered_from_dir_shows_in_endpoints(client, monkeypatch
     listing = await client.get("/api/plugins")
     hello = next(p for p in listing.json() if p["id"] == "community.hello")
     assert hello["status"] == "needs_permissions"
+    assert hello["nodes"] == ["hello.greeting"]
+    assert hello["node_categories"] == {"hello.greeting": "columns"}
     catalog = await client.get("/api/catalog/nodes")
     assert "hello.greeting" not in {n["id"] for n in catalog.json()}
 

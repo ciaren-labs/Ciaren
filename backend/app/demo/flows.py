@@ -858,8 +858,6 @@ def _iris_train_validate_evaluate(ds: dict[str, str]) -> DemoFlow:
                     "target_column": "species",
                     "feature_columns": _IRIS_FEATURES,
                     "hyperparameters": {},
-                    "cross_validate": True,
-                    "cv_folds": 5,
                     "seed": 42,
                 },
                 720,
@@ -992,34 +990,57 @@ def _iris_pca_explore(ds: dict[str, str]) -> DemoFlow:
 
 # 9. Iris — Cross-Validation Report: dedicated CV node with logistic regression.
 def _iris_cross_validation_report(ds: dict[str, str]) -> DemoFlow:
+    model_columns = [*_IRIS_FEATURES, "species"]
     graph = {
         "nodes": [
             _input("in_iris", ds["iris.csv"], 0, 0),
+            _node("model_columns", "selectColumns", {"columns": model_columns}, 240, 0),
             _node(
-                "cross_validate",
-                "mlCrossValidate",
+                "model",
+                "mlClassifierModel",
                 {
                     "model_type": "logistic_regression",
                     "target_column": "species",
                     "feature_columns": _IRIS_FEATURES,
+                    "hyperparameters": {"max_iter": 1000},
+                    "preprocessing": {
+                        "numeric_columns": _IRIS_FEATURES,
+                        "categorical_columns": [],
+                        "numeric_strategy": "standard_scaler",
+                    },
+                    "seed": 11,
+                },
+                500,
+                -80,
+            ),
+            _node(
+                "cross_validate",
+                "mlCrossValidate",
+                {
                     "cv_strategy": "stratified_kfold",
                     "n_splits": 5,
                     "shuffle": True,
                     "scoring": ["accuracy", "f1_weighted"],
-                    "hyperparameters": {"max_iter": 1000},
                     "seed": 11,
                 },
-                260,
-                0,
+                500,
+                120,
             ),
-            _output("out_cv", "iris_logistic_cv_scores", 520, 0),
+            _output("out_cv", "iris_logistic_cv_scores", 760, 120),
         ],
-        "edges": [_edge("in_iris", "cross_validate"), _edge("cross_validate", "out_cv")],
+        "edges": [
+            _edge("in_iris", "model_columns"),
+            _edge("model_columns", "model"),
+            _edge("model_columns", "cross_validate"),
+            _edge("model", "cross_validate", source_handle="model", target_handle="model"),
+            _edge("cross_validate", "out_cv"),
+        ],
         "engine": "pandas",
     }
     return (
         "Iris — Logistic CV Report",
-        "Estimate a logistic-regression classifier with stratified cross-validation and export fold-level scores.",
+        "Select the modeling columns, configure a logistic-regression classifier, then cross-validate that model "
+        "model with fold-safe preprocessing and export fold-level scores.",
         graph,
     )
 

@@ -27,6 +27,8 @@ class MarketplaceEntryInfo(BaseModel):
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
+    nodes: list[str] = Field(default_factory=list)
+    node_categories: dict[str, str] = Field(default_factory=dict)
     license_required: bool = False
     #: A plugin with this id is already installed (loaded or gated).
     installed: bool = False
@@ -66,6 +68,8 @@ async def list_marketplace() -> MarketplaceCatalog:
             trust=e.trust,
             capabilities=list(e.capabilities),
             permissions=list(e.permissions),
+            nodes=list(e.nodes),
+            node_categories=dict(e.node_categories),
             license_required=e.license_required,
             installed=e.id in installed,
             installable=bool((p := marketplace.resolve_artifact_path(e, index_path)) and p.is_file()),

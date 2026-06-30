@@ -176,8 +176,8 @@ def _validate_model_handles(nodes: list[dict[str, Any]], edges: list[dict[str, A
         if wants_model and not carries_model:
             expected = ", ".join(sorted(MODEL_INPUT_HANDLES.get(target_type, frozenset())))
             raise GraphValidationError(
-                f"{labels_by_id[edge['target']]}: the {expected!r} input needs a trained "
-                f"model — connect a Train Model node's output."
+                f"{labels_by_id[edge['target']]}: the {expected!r} input needs a "
+                f"model reference — connect a model-producing ML node's output."
             )
 
 

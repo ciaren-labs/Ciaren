@@ -10,7 +10,10 @@
   "permissions": [],
   "capabilities": ["node.hello"],
   "ui": {
-    "nodes": ["hello.greeting"]
+    "nodes": ["hello.greeting"],
+    "nodeCategories": {
+      "hello.greeting": "columns"
+    }
   },
   "trust": "community"
 }

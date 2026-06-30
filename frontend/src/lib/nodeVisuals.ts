@@ -163,6 +163,7 @@ export const CATEGORY_ICONS: Record<NodeCategory, LucideIcon> = {
   quality: ShieldCheck,
   ml: Brain,
   output: Download,
+  plugins: Blocks,
 };
 
 /** Theme used for plugin-contributed categories that aren't one of the built-in
@@ -243,4 +244,5 @@ export const CATEGORY_THEME: Record<NodeCategory, CategoryTheme> = {
     text: "text-amber-700",
     dot: "bg-amber-500",
   },
+  plugins: PLUGIN_CATEGORY_THEME,
 };

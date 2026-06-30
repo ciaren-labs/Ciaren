@@ -21,6 +21,7 @@ import {
   type HyperParam,
 } from "@/lib/mlModels";
 import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
+import { modelInstallWarning, modelOptionLabel } from "./mlModelOptions";
 
 type Config = Record<string, any>;
 
@@ -136,12 +137,15 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
           // Switching models clears stale hyperparameters from the old model.
           onChange={(e) => set({ model_type: e.target.value, hyperparameters: {} })}
         >
-          {models.map((m) => (
-            <option key={m.value} value={m.value} disabled={availability.get(m.value)?.available === false}>
-              {m.label}
-              {availability.get(m.value)?.available === false ? " (not installed)" : ""}
-            </option>
-          ))}
+          {models.map((m) => {
+            const item = availability.get(m.value);
+            const warning = modelInstallWarning(item);
+            return (
+              <option key={m.value} value={m.value} disabled={item?.available === false} title={warning}>
+                {modelOptionLabel(m.label, item)}
+              </option>
+            );
+          })}
         </Select>
       </Field>
 
@@ -206,7 +210,7 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
           <DialogHeader>
             <DialogTitle>Advanced options — {modelDef?.label}</DialogTitle>
             <DialogDescription>
-              Fine-tune hyperparameters, cross-validation, and preprocessing. Defaults are sensible — only change what you need.
+              Fine-tune hyperparameters, preprocessing, and tracking. Defaults are sensible — only change what you need.
             </DialogDescription>
           </DialogHeader>
 
@@ -221,30 +225,6 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
                 ))
               )}
             </section>
-
-            {supervised && (
-              <section className="flex flex-col gap-3 border-t border-border pt-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cross-validation</h4>
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(config.cross_validate)}
-                    onChange={(e) => set({ cross_validate: e.target.checked })}
-                  />
-                  Run k-fold cross-validation
-                </label>
-                {config.cross_validate && (
-                  <Field label="Folds" error={errors.cv_folds} help="How many folds to split the training data into.">
-                    <Input
-                      type="number"
-                      min={2}
-                      value={config.cv_folds ?? 5}
-                      onChange={(e) => set({ cv_folds: Number(e.target.value) })}
-                    />
-                  </Field>
-                )}
-              </section>
-            )}
 
             <section className="flex flex-col gap-3 border-t border-border pt-3">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preprocessing</h4>

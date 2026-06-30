@@ -33,6 +33,7 @@ export function nodeSpecToDef(spec: CatalogNode): NodeTypeDef {
     type: spec.id,
     label: spec.label,
     category: toCategory(spec.category),
+    provider: spec.provider,
     description: spec.description,
     defaultConfig: { ...spec.default_config },
     inputHandles: requiredInputs,

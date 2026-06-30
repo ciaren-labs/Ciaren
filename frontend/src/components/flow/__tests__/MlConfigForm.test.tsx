@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
 
 const testQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+beforeEach(() => {
+  testQueryClient.clear();
+});
 
 function renderForm(props: Partial<React.ComponentProps<typeof NodeConfigForm>>) {
   return render(
@@ -204,10 +208,30 @@ describe("mlTrain config form", () => {
     expect(screen.getByText(/Needs the/i)).toBeInTheDocument();
   });
 
-  it("opens the Advanced options modal with cross-validation", () => {
+  it("disables missing optional dependency models in the picker with a warning marker", () => {
+    testQueryClient.setQueryData(["ml", "model-catalog"], [
+      {
+        model_type: "xgboost_classifier",
+        task: "classification",
+        available: false,
+        requires: ["xgboost"],
+        missing: ["xgboost"],
+        warning: "Install with pip install xgboost.",
+      },
+    ]);
+
+    renderForm({ type: "mlTrainClassifier", config: baseConfig, columns: ["a"] });
+
+    const option = screen.getByRole("option", { name: /XGBoost/i }) as HTMLOptionElement;
+    expect(option).toBeDisabled();
+    expect(option.textContent).toContain("⚠");
+    expect(option).toHaveAttribute("title", "Install with pip install xgboost.");
+  });
+
+  it("opens the Advanced options modal with preprocessing", () => {
     renderForm({ type: "mlTrainClassifier", config: baseConfig, columns: ["a"] });
     fireEvent.click(screen.getByRole("button", { name: /Advanced options/i }));
-    expect(screen.getByText("Cross-validation")).toBeInTheDocument();
     expect(screen.getByText("Preprocessing")).toBeInTheDocument();
+    expect(screen.getByText("Tracking")).toBeInTheDocument();
   });
 });

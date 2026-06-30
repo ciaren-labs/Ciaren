@@ -81,8 +81,12 @@ appear in the catalog without a restart.
 from FlowFrame's bundled community catalog, which includes a Hello Plugin package
 as `installable: true` and `installed: false`. Installing it uses the same
 verification and permission-gated path as uploading a `.ffplugin`; the plugin is
-not imported until the user approves it. Set `FLOWFRAME_MARKETPLACE_INDEX=none`
-to disable Explore, or point it at a custom local marketplace JSON.
+not imported until the user approves it. Plugin and marketplace responses include
+`nodes` and `node_categories`, derived from the plugin manifest's `ui.nodes` and
+`ui.nodeCategories`, so the UI can show where the plugin will appear in the
+editor. Missing or invalid node categories default to `plugins`. Set
+`FLOWFRAME_MARKETPLACE_INDEX=none` to disable Explore, or point it at a custom
+local marketplace JSON.
 
 ## See also
 
