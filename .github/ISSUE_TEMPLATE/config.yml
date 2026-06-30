@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, setup help, and troubleshooting
+    url: https://github.com/rodrigo-arenas/FlowFrame/discussions
+    about: Please use Discussions for usage questions, setup help, design ideas, and open-ended troubleshooting.
+  - name: Security vulnerability report
+    url: https://github.com/rodrigo-arenas/FlowFrame/security/advisories/new
+    about: Please report suspected vulnerabilities privately. Do not open a public issue for security problems.
+  - name: Documentation site
+    url: https://github.com/rodrigo-arenas/FlowFrame/tree/development/docs
+    about: Browse the docs before opening a documentation issue or question.

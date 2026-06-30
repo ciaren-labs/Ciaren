@@ -1,66 +1,121 @@
 ## Summary
 
-Brief description of what this PR does (1-2 sentences).
+<!-- Describe the change in 1-3 sentences. Focus on user-visible behavior or maintainer impact. -->
 
-## Related Issue
+## Related Work
 
-Closes #[issue number] (if applicable)
+<!-- Link issues, discussions, design notes, or prior PRs. Use "Closes #123" when this should close an issue. -->
+
+- Closes #
+- Related to #
+
+## Preflight
+
+- [ ] I searched existing issues and PRs to avoid duplicate work.
+- [ ] This PR targets `development`, not `main`.
+- [ ] This PR is focused on one bug, feature, documentation update, or maintenance task.
+- [ ] Large or breaking changes were discussed in an issue or discussion before implementation.
+- [ ] I have read and followed [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Type of Change
 
 - [ ] Bug fix
 - [ ] New feature
-- [ ] Improvement/refactor
+- [ ] Transformation node
+- [ ] Connector, storage, or plugin change
+- [ ] UI/UX improvement
+- [ ] Performance improvement
+- [ ] Refactor or internal cleanup
 - [ ] Documentation
-- [ ] Test addition
-- [ ] Dependency update
+- [ ] Tests only
+- [ ] Dependency, build, or CI maintenance
 
-## Changes
+## Area
 
-Describe the specific changes made:
-- What was added?
-- What was changed?
-- What was removed?
+- [ ] Frontend/UI
+- [ ] Backend/API
+- [ ] Flow editor
+- [ ] Transformation engine
+- [ ] Data connectors/storage
+- [ ] Plugins/marketplace
+- [ ] CLI/client
+- [ ] Documentation site
+- [ ] Docker/deployment
+- [ ] CI/release tooling
+
+## What Changed
+
+<!-- Use concise bullets. Mention important files, APIs, behavior, migrations, or docs. -->
+
+-
+-
+-
+
+## Behavior and Compatibility
+
+- [ ] No breaking changes
+- [ ] Breaking change, documented below
+- [ ] User-facing behavior changed
+- [ ] Database, flow format, API, or plugin contract changed
+- [ ] Requires documentation updates
+
+**Compatibility notes:**
+
+<!-- Explain migration steps, deprecations, changed defaults, or why this is safe. -->
 
 ## Testing
 
-How was this tested?
-- [ ] Unit tests added/updated
-- [ ] Integration tests pass
-- [ ] Manual testing completed
+<!-- Mark what was actually run. Include commands and relevant manual steps. -->
 
-**Steps to test:**
-1. 
-2. 
-3. 
+- [ ] Backend tests: `pytest`
+- [ ] Frontend tests: `npm run test`
+- [ ] Frontend lint/build: `npm run lint` / `npm run build`
+- [ ] Docs build: `npm run docs:build` or VitePress equivalent
+- [ ] Connector integration tests
+- [ ] Manual testing
+- [ ] Not run; explained below
 
-**Test data:** (e.g., "CSV with 1000 rows", "null values in column X")
+**Commands run:**
 
-## Checklist
+```text
 
-- [ ] PR targets `development` (not `main`) — see [branching strategy](../CONTRIBUTING.md#-branching-strategy)
-- [ ] Code follows [CONTRIBUTING.md](../CONTRIBUTING.md) standards
-- [ ] Type hints on all functions
-- [ ] No breaking changes (or discussed in issue)
-- [ ] Tests pass (`pytest` for backend, `npm run test` for frontend)
-- [ ] Documentation updated (if applicable)
-- [ ] No new warnings or errors
-- [ ] Reviewed for AI code quality (if applicable)
+```
 
-## Screenshots (if UI changes)
+**Manual test steps and data:**
 
-<!-- Add screenshots or GIFs of the new/changed behavior -->
+1.
+2.
+3.
 
-## Performance Impact
+## Screenshots or Recordings
 
-- [ ] No performance impact
-- [ ] Improved performance
-- [ ] Potential impact (describe): 
+<!-- Required for UI changes. Include before/after when possible. -->
 
-## Notes for Reviewers
+## Performance, Security, and Data Notes
 
-Anything specific reviewers should check or be aware of?
+- [ ] No meaningful performance impact
+- [ ] Performance impact measured or explained below
+- [ ] No new user input, file, network, or credential handling
+- [ ] Security-sensitive behavior reviewed
+- [ ] Secrets, tokens, and private data are not included
 
----
+**Notes:**
 
-**Thank you for contributing to FlowFrame! 🚀**
+<!-- Include timings, dataset sizes, security assumptions, or privacy considerations. -->
+
+## Reviewer Guide
+
+<!-- Tell reviewers where to start and what deserves extra attention. -->
+
+- Start with:
+- Pay close attention to:
+- Known follow-ups:
+
+## Final Checklist
+
+- [ ] Type hints are present for new Python functions.
+- [ ] TypeScript changes avoid unexplained `any`.
+- [ ] Tests cover the main success and failure paths.
+- [ ] Documentation, examples, or changelog notes were updated when needed.
+- [ ] Error messages are actionable for users.
+- [ ] AI-assisted code was reviewed carefully for correctness and edge cases.

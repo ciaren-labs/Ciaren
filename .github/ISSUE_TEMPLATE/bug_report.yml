@@ -1,0 +1,112 @@
+name: Bug report
+description: Report reproducible incorrect behavior, crashes, regressions, or errors.
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve FlowFrame. Before opening a bug, please search existing issues and PRs so we can keep duplicate reports together.
+
+        Security issue? Stop here and use the private security advisory link from the issue chooser.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues and pull requests for a duplicate.
+          required: true
+        - label: I confirmed this is not a question, setup help request, or security report.
+          required: true
+        - label: I can reproduce this on the latest `development` branch or can explain why I cannot.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Pick the primary area affected. Choose the closest one if unsure.
+      options:
+        - Frontend/UI
+        - Backend/API
+        - Flow editor
+        - Transformation engine
+        - Data connectors/storage
+        - Plugins/marketplace
+        - CLI/client
+        - Documentation site
+        - Docker/deployment
+        - CI/release tooling
+        - Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocks normal use
+        - Major feature broken
+        - Minor feature broken
+        - Cosmetic or confusing behavior
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and include the user-visible impact.
+      placeholder: "Example: Preview fails when a CSV has an empty column name."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give exact steps. A minimal flow, sample file, or screenshot is very helpful.
+      placeholder: |
+        1. Start the backend with ...
+        2. Upload ...
+        3. Add ...
+        4. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: "What should FlowFrame do instead?"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior, logs, or screenshots
+      description: Paste logs as fenced code blocks and redact secrets before attaching files.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Fill in everything you know.
+      value: |
+        - OS:
+        - Browser:
+        - Python:
+        - Node:
+        - FlowFrame branch/commit:
+        - Install method: source / Docker / package / other
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Minimal data or flow
+      description: Attach anonymized data, a minimal flow JSON, or a short code/data sample when relevant.
+      placeholder: "Attach files or paste a minimal example here."
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Links to related issues, suspected cause, workaround, or recent regression window.
