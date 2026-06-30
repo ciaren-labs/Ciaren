@@ -224,7 +224,20 @@ __marimo__/
 .CLAUDE.md
 .architecture.md
 
+# Local AI assistant/tooling state (personal workspace only)
+.claude/
+.codex/
+.codex_tmp/
+.agents/
+backend/.claude/
+
 # Local dev databases / data dirs (SQLite default; not for VCS)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+.data/
 backend/*.db
 backend/.dev_data/
 backend/.data/

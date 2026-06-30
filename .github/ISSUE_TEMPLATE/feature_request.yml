@@ -1,0 +1,88 @@
+name: Feature request
+description: Propose a new capability or meaningful behavior change.
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for concrete product or engineering proposals. For early brainstorming, usage questions, or "would this be useful?" conversations, please start in Discussions first.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues, PRs, and docs for this request.
+          required: true
+        - label: This is a concrete feature request, not a support question.
+          required: true
+        - label: I am willing to clarify requirements or help test the feature.
+          required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend/UI
+        - Backend/API
+        - Flow editor
+        - Transformation engine
+        - Data connectors/storage
+        - Plugins/marketplace
+        - CLI/client
+        - Documentation
+        - Docker/deployment
+        - CI/release tooling
+        - Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Expected scope
+      description: This helps maintainers route the request.
+      options:
+        - Small improvement
+        - New option or setting
+        - New transformation node
+        - New connector or integration
+        - Large architecture or product change
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Explain the workflow pain, user need, or missing capability.
+      placeholder: "When I ..., I cannot ..., which means ..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe how this should work from a user's point of view.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and workarounds
+      description: Mention existing nodes, scripts, exports, plugins, or external tools that partially solve it.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples, references, or mockups
+      description: Link similar tools, attach sketches, or provide sample input/output.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List what must be true for this to be considered done.
+      placeholder: |
+        - Users can ...
+        - Invalid input shows ...
+        - Docs include ...
