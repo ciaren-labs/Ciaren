@@ -72,8 +72,8 @@ async def test_install_records_signature_outcome(client, monkeypatch, tmp_path, 
 
 
 async def test_license_endpoint_defaults_to_licensed(client):
-    # With no license provider registered (the OSS default), any plugin reports
-    # licensed so the core never gates on premium licensing.
+    # The endpoint is informational for non-required licenses. Manifest plugins
+    # with license_required=True are enforced by the loader before import.
     resp = await client.get("/api/plugins/anything/license")
     assert resp.status_code == 200
     body = resp.json()

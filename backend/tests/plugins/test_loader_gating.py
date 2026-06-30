@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from app.plugin_api import (
+    LicenseProvider,
+    LicenseStatus,
     NodeProvider,
     NodeSpec,
     Permission,
@@ -44,13 +46,15 @@ def _manifest(perms: list[Permission]) -> PluginManifest:
     )
 
 
-def _candidate(perms: list[Permission]) -> PluginCandidate:
+def _candidate(perms: list[Permission], *, license_required: bool = False) -> PluginCandidate:
     _GatedPlugin.loaded = False
-    return PluginCandidate(source="dir:gated", load=lambda: _GatedPlugin(), manifest=_manifest(perms))
+    manifest = _manifest(perms)
+    manifest.license_required = license_required
+    return PluginCandidate(source="dir:gated", load=lambda: _GatedPlugin(), manifest=manifest)
 
 
-def _load(perms: list[Permission], state: PluginStateStore):
-    registry = ServiceRegistry()
+def _load(perms: list[Permission], state: PluginStateStore, *, registry: ServiceRegistry | None = None):
+    registry = registry or ServiceRegistry()
     result = load_plugins(
         registry,
         include_entry_points=False,
@@ -59,6 +63,16 @@ def _load(perms: list[Permission], state: PluginStateStore):
         flowframe_version_str="0.1.0",
     )
     return registry, result
+
+
+class _AllowLicense(LicenseProvider):
+    def validate_license(self, plugin_id: str) -> LicenseStatus:
+        return LicenseStatus(plugin_id=plugin_id, valid=True, license_type="pro")
+
+
+class _DenyLicense(LicenseProvider):
+    def validate_license(self, plugin_id: str) -> LicenseStatus:
+        return LicenseStatus(plugin_id=plugin_id, valid=False, reason="unlicensed")
 
 
 def test_plugin_with_ungranted_permission_is_gated_not_loaded(tmp_path):
@@ -138,3 +152,54 @@ def test_manifestless_candidate_is_not_gated(tmp_path):
         flowframe_version_str="0.1.0",
     )
     assert len(result.loaded) == 1
+
+
+def test_license_required_plugin_without_provider_is_not_loaded(tmp_path):
+    state = PluginStateStore(tmp_path / "s.json")
+    state.grant(PLUGIN_ID, [Permission.network])
+    registry = ServiceRegistry()
+    result = load_plugins(
+        registry,
+        include_entry_points=False,
+        extra=[_candidate([Permission.network], license_required=True)],
+        state=state,
+        flowframe_version_str="0.1.0",
+    )
+    assert result.loaded == []
+    assert result.errors
+    assert "requires a license" in result.errors[0].error
+    assert _GatedPlugin.loaded is False
+
+
+def test_license_required_plugin_with_invalid_license_is_not_loaded(tmp_path):
+    state = PluginStateStore(tmp_path / "s.json")
+    state.grant(PLUGIN_ID, [Permission.network])
+    registry = ServiceRegistry()
+    registry.register_license_provider(_DenyLicense())
+    result = load_plugins(
+        registry,
+        include_entry_points=False,
+        extra=[_candidate([Permission.network], license_required=True)],
+        state=state,
+        flowframe_version_str="0.1.0",
+    )
+    assert result.loaded == []
+    assert "unlicensed" in result.errors[0].error
+    assert _GatedPlugin.loaded is False
+
+
+def test_license_required_plugin_with_valid_license_loads(tmp_path):
+    state = PluginStateStore(tmp_path / "s.json")
+    state.grant(PLUGIN_ID, [Permission.network])
+    registry = ServiceRegistry()
+    registry.register_license_provider(_AllowLicense())
+    result = load_plugins(
+        registry,
+        include_entry_points=False,
+        extra=[_candidate([Permission.network], license_required=True)],
+        state=state,
+        flowframe_version_str="0.1.0",
+    )
+    assert len(result.loaded) == 1
+    assert result.errors == []
+    assert _GatedPlugin.loaded is True

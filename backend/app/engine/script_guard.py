@@ -1,7 +1,7 @@
 """Opt-in static checks for user-supplied ``pythonTransform`` code.
 
 ``pythonTransform`` runs arbitrary Python and is **not** sandboxed (see
-SECURITY-AUDIT.md #1/#2). When ``PYTHON_TRANSFORM_STRICT`` is enabled, this module
+the public security policy. When ``PYTHON_TRANSFORM_STRICT`` is enabled, this module
 adds two defense-in-depth layers applied *before/around* execution:
 
 1. :func:`check_script` — an AST scan that refuses obviously dangerous constructs

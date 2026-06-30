@@ -10,7 +10,7 @@ execute arbitrary code, exactly like a raw ``.pkl``. Rejecting ``.pkl``/``.pickl
 is only cosmetic defense-in-depth; the real protection is that the file must
 already live under the trusted artifact root (``validate_model_uri``). A size cap
 (``ML_MAX_MODEL_SIZE_MB``) bounds the obvious resource-exhaustion case before the
-deserializer runs. See SECURITY-AUDIT.md (#3).
+deserializer runs.
 """
 
 from __future__ import annotations

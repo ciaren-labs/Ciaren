@@ -25,7 +25,7 @@ _ALLOWED_MODEL_URI_SCHEMES = ("runs:/", "models:/")
 # still allow it because sklearn pipelines need it, but the only thing protecting
 # this path is the artifact-root confinement in ``validate_model_uri`` (the file
 # must already live under a trusted server directory). Do not treat ``.joblib`` as
-# "safe because it isn't a pickle" — it is a pickle. See SECURITY-AUDIT.md (#3).
+# "safe because it isn't a pickle" — it is a pickle. Keep artifact roots trusted.
 _ALLOWED_MODEL_SUFFIXES = (".joblib", ".json")
 # Refused outright: the bare pickle extensions, so an attacker can't drop a model
 # with an obviously-executable suffix. (This does not make ``.joblib`` safe.)

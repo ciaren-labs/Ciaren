@@ -189,7 +189,7 @@ async def install_plugin(
 
     # Stream the upload to disk in bounded chunks, aborting as soon as the size
     # limit is crossed — so an oversized package can't be buffered whole in memory
-    # before it is rejected (a cheap DoS otherwise). See SECURITY-AUDIT.md (#7).
+    # before it is rejected (a cheap DoS otherwise).
     tmp = tempfile.NamedTemporaryFile(suffix=".ffplugin", delete=False)
     try:
         total = 0

@@ -132,6 +132,7 @@ def test_license_defaults_to_valid_without_providers():
     reg = ServiceRegistry()
     status = reg.validate_license("anything")
     assert status.valid is True
+    assert reg.has_license_provider() is False
 
 
 def test_license_provider_can_reject():
@@ -142,6 +143,7 @@ def test_license_provider_can_reject():
             return LicenseStatus(plugin_id=plugin_id, valid=False, reason="unpaid")
 
     reg.register_license_provider(DenyProvider())
+    assert reg.has_license_provider() is True
     status = reg.validate_license("premium.plugin")
     assert status.valid is False
     assert status.reason == "unpaid"
