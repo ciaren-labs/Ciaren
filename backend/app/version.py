@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single source for the running FlowFrame version.
 
 Resolved from the installed package metadata, falling back to the in-repo version

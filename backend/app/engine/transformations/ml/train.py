@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Train nodes — fit a model and log it to MLflow.
 
 One node per learning task (classification, regression, clustering, timeseries,

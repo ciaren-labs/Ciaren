@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Machine-learning transformation nodes (scikit-learn / XGBoost / LightGBM).
 
 Import-light by contract: modules in this package must not import sklearn,

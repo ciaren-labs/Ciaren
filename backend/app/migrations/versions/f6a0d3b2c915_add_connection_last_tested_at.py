@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add connections.last_tested_at
 
 Revision ID: f6a0d3b2c915

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """DataFrame engine backends.
 
 Importing this package registers every available engine. ``pandas`` is always

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """MongoDB connector (document store). ``pymongo`` is imported lazily so this
 module loads even when the optional driver isn't installed — availability is
 reported to the UI, which disables the provider with a warning.

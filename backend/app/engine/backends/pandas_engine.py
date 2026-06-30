@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from __future__ import annotations
 
 import json
@@ -483,7 +484,6 @@ class PandasEngine:
         # np.select picks the first matching condition (CASE-WHEN priority order).
         result = np.select(conditions, choices, default=default)  # type: ignore[type-var]
         return df.assign(**{new_column: result})
-
 
     # -- New nodes (derive / analytics) --------------------------------
 

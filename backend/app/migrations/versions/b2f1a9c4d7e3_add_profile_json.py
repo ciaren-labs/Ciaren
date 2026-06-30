@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """add profile_json to dataset_versions
 
 Revision ID: b2f1a9c4d7e3

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Helpers for emitting SQL source/sink code in the exported scripts.
 
 The generated code reads the password from ``os.environ`` (matching FlowFrame's
@@ -44,9 +45,7 @@ def engine_url_expr(info: dict[str, Any]) -> str:
     pw_env = info.get("password_env")
     if pw_env:
         if not _ENV_VAR_RE.match(pw_env):
-            raise ValueError(
-                f"password_env {pw_env!r} is not a valid environment variable name."
-            )
+            raise ValueError(f"password_env {pw_env!r} is not a valid environment variable name.")
         # Produces the literal:  user:{os.environ['ENV_VAR']}@
         auth = f"{user}:{{os.environ[{pw_env!r}]}}@"
     elif user:

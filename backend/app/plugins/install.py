@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Install and uninstall plugins from ``.ffplugin`` packages (or source dirs).
 
 Installation extracts a verified package into the user plugin directory

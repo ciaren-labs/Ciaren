@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The "Explore" plugin catalog — a read-only view over the configured marketplace
 index, plus one-click install of an entry whose ``.ffplugin`` is available locally.
 

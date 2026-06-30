@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared types and the connector interface for external data sources.
 
 A connector turns a :class:`ConnectionSpec` (structured connection fields + an

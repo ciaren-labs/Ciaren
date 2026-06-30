@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Google Cloud Storage connector via google-cloud-storage.
 
 Security:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Built-in providers: the open-source core's contributions to the registry.
 
 These bridge the existing static registries (``app.engine.registry``,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """mlCrossValidate — estimate how well a connected model generalizes with cross-validation.
 
 This dedicated node consumes a model reference from a train node and supports

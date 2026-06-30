@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
@@ -301,8 +302,7 @@ class ExplodeRowsTransformation(BaseTransformation):
         delimiter = config.get("delimiter") or None
         if delimiter:
             return (
-                f"{dst} = {src}.with_columns(pl.col({col!r}).cast(pl.Utf8).str.split({delimiter!r}))"
-                f".explode({col!r})"
+                f"{dst} = {src}.with_columns(pl.col({col!r}).cast(pl.Utf8).str.split({delimiter!r})).explode({col!r})"
             )
         return f"{dst} = {src}.explode({col!r})"
 

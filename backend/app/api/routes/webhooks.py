@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Webhook trigger endpoint.
 
 POST /api/flows/{id}/trigger — starts a flow run authenticated by a

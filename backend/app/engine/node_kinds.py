@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Single source of truth for input/output node types and their file formats.
 
 Input and output node types used to be duplicated as literal sets/dicts across

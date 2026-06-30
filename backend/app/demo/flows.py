@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """React-Flow-compatible graph builders for the demo flows.
 
 Each builder takes the demo dataset ids (keyed by CSV file name) and returns a

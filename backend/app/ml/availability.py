@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Detect which ML libraries are installed and whether the ML extension is usable.
 
 Mirrors ``app/connectors/providers.py``: an import-spec check (never importing the
@@ -6,6 +7,7 @@ ML node registry and ML routes consult :func:`ml_extension_ready` so a base
 install behaves exactly as before — ML simply stays invisible until both the
 ``[ml]`` extra is installed and ``ML_ENABLED`` is set.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -14,8 +16,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class MLLibrary:
-    name: str        # distribution/display name (for messages)
-    module: str      # importable module name (for the availability check)
+    name: str  # distribution/display name (for messages)
+    module: str  # importable module name (for the availability check)
     extra: str = "ml"  # pip extra that provides it
 
 

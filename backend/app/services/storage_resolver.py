@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Resolve ``storageInput`` / ``storageOutput`` nodes against storage connections.
 
 Mirrors the sql_resolver pattern exactly:
@@ -9,6 +10,7 @@ Mirrors the sql_resolver pattern exactly:
 - ``storageOutput`` results are pushed to the target storage location after a
   successful run. A write failure marks the run as failed (output never left).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -58,9 +60,7 @@ async def materialize_storage_inputs(
         conn = await _load_connection(db, config.get("connection_id"))
         provider = get_provider(conn.provider)
         if not is_storage_provider(provider):
-            raise ValidationError(
-                f"Connection '{conn.name}' (provider '{conn.provider}') is not a storage connection."
-            )
+            raise ValidationError(f"Connection '{conn.name}' (provider '{conn.provider}') is not a storage connection.")
         connector = get_connector(provider)
         spec = build_storage_spec(conn)
         file_path = config.get("path", "")
@@ -82,9 +82,7 @@ async def materialize_storage_inputs(
     return paths
 
 
-async def push_storage_outputs(
-    db: AsyncSession, graph: dict[str, Any], output_paths: dict[str, Path]
-) -> int:
+async def push_storage_outputs(db: AsyncSession, graph: dict[str, Any], output_paths: dict[str, Path]) -> int:
     """Upload each ``storageOutput`` node's parquet to its target location.
 
     Returns the number of files written. A connector failure propagates so the
@@ -100,9 +98,7 @@ async def push_storage_outputs(
         conn = await _load_connection(db, config.get("connection_id"))
         provider = get_provider(conn.provider)
         if not is_storage_provider(provider):
-            raise ValidationError(
-                f"Connection '{conn.name}' is not a storage connection."
-            )
+            raise ValidationError(f"Connection '{conn.name}' is not a storage connection.")
         connector = get_connector(provider)
         spec = build_storage_spec(conn)
         df = pd.read_parquet(path)

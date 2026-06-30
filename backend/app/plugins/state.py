@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Local, persisted plugin state: which plugins are enabled and which
 permissions the user has granted them.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Shared resolution of input-node dataset references to concrete files.
 
 Both the preview and execution services need to turn the ``dataset_id`` (and

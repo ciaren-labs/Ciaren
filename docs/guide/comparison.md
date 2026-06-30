@@ -59,7 +59,7 @@ license-gated, and lock your logic into a proprietary format.
 
 | | Closed visual ETL | FlowFrame |
 | --- | --- | --- |
-| License | Commercial / closed | Apache 2.0, open source |
+| License | Commercial / closed | Core AGPL-3.0; Plugin API/SDK Apache-2.0 |
 | Where it runs | Vendor desktop/cloud | Your machine, local-first |
 | Lock-in | Proprietary format | Exports standalone Python |
 | Extensibility | Vendor plugins only | Plugin-first — add nodes, connectors, engines |

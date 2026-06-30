@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Built-in demo project seeding.
 
 On first server boot (gated by ``settings.SEED_DEMO``) the FastAPI lifespan

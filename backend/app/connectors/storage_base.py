@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Base types and protocol for file / object-storage connectors.
 
 Storage connectors are intentionally separate from DataConnector (SQL/Mongo):

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """The marketplace index format — how a catalog of installable plugins is
 described, searched, and pointed at downloadable artifacts.
 

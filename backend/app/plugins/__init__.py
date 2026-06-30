@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """FlowFrame plugin runtime: built-in providers, the global ServiceRegistry, and
 (Phase 1d) the external plugin loader.
 

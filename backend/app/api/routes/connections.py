@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from fastapi import APIRouter, status
 
 from app.api.deps import ConnectionServiceDep
@@ -62,8 +63,6 @@ async def list_connection_tables(connection_id: str, service: ConnectionServiceD
 
 
 @router.get("/{connection_id}/objects", response_model=list[str])
-async def list_connection_objects(
-    connection_id: str, service: ConnectionServiceDep, prefix: str = ""
-) -> list[str]:
+async def list_connection_objects(connection_id: str, service: ConnectionServiceDep, prefix: str = "") -> list[str]:
     """List files/objects in a storage connection (S3 bucket, local folder, …)."""
     return await service.list_objects(connection_id, prefix)

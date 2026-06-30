@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Presentational metadata for the built-in node catalog.
 
 This used to live only in the frontend (``frontend/src/lib/nodeCatalog.ts``).

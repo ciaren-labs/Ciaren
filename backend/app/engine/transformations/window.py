@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Window / analytics node: ranking, cumulative aggregates, and lag/lead over an
 optional partition and order. Maps to pandas ``groupby`` + ordered ops and polars
 ``over``."""
@@ -242,9 +243,7 @@ class RowDifferenceTransformation(BaseTransformation):
     ) -> dict[str, AnyFrame]:
         target, method, periods, partition_by, order_by, descending, new = self._args(config)
         return {
-            "out": engine.row_difference(
-                inputs["in"], target, method, periods, partition_by, order_by, descending, new
-            )
+            "out": engine.row_difference(inputs["in"], target, method, periods, partition_by, order_by, descending, new)
         }
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:

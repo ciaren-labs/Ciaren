@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Generate readable **pandas** code for a flow graph.
 
 The counterpart to :class:`app.engine.polars_codegen.PolarsCodeGenerator`: it walks

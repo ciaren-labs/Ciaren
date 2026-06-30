@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Render flow parameters as real variables in exported code.
 
 The code generators format every config value through ``{value!r}``. To make a

@@ -1,8 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Dependency license scanning — surface copyleft/unknown licenses before release.
 
 A lightweight, dependency-free check (stdlib ``importlib.metadata`` only) that
 reads each installed distribution's declared license and flags ones that may be
-incompatible with shipping FlowFrame's Apache-2.0 core or a commercial plugin
+incompatible with redistribution, FlowFrame's AGPL-3.0 core, or a commercial plugin
 (GPL/AGPL/LGPL family, or undeclared). It is advisory: license metadata is often
 imprecise, so treat hits as "review these," not "these are forbidden".
 

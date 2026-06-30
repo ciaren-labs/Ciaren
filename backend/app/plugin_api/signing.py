@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Detached Ed25519 signatures for plugin artifacts — the verification half of
 the marketplace trust model.
 

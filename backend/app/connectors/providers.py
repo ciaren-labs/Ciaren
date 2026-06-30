@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Registry of supported providers, their driver requirements, and availability
 detection. The frontend uses this to disable providers whose driver isn't
 installed (with a clear install hint).

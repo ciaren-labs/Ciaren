@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """External data-source connectors (SQL databases, MongoDB, object storage)."""
 
 from app.connectors.base import (

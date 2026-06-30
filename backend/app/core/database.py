@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 from collections.abc import AsyncGenerator
 from typing import Any
 

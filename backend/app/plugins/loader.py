@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """Discover, validate, and register external plugins.
 
 Discovery sources (Phase 1d):

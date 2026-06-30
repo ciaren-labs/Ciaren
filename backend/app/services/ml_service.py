@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
 """ML-specific run operations: reading per-node ML metrics off a finished run and
 promoting a run's trained model into the MLflow registry."""
 

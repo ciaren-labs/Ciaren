@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The capability/service registry plugins register into.
 
 This replaces scattered global registries and ``import``-time wiring with one
