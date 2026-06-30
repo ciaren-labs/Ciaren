@@ -1,0 +1,59 @@
+name: Documentation issue
+description: Report missing, confusing, outdated, or incorrect documentation.
+title: "docs: "
+labels: ["documentation", "needs-triage"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched the docs and existing issues for this topic.
+          required: true
+        - label: This is about documentation, examples, or learning material.
+          required: true
+  - type: dropdown
+    id: doc_area
+    attributes:
+      label: Documentation area
+      options:
+        - Getting started / installation
+        - User guide
+        - Transformations
+        - Recipes or examples
+        - API reference
+        - Plugins
+        - Architecture
+        - Security
+        - Contributing
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page or file
+      description: Link the page, file, heading, or route if known.
+      placeholder: "docs/guide/installation.md"
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+      description: Be specific about what confused you or what needs to be added.
+    validations:
+      required: true
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested improvement
+      description: If you know the fix, describe it here.
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you interested in contributing this documentation update?
+      options:
+        - "Yes"
+        - "Maybe, with guidance"
+        - "No"
+    validations:
+      required: true

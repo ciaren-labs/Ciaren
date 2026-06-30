@@ -1,0 +1,72 @@
+name: Performance report
+description: Report slow previews, expensive transformations, memory issues, or scaling bottlenecks.
+title: "perf: "
+labels: ["performance", "needs-triage"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues and PRs for similar performance reports.
+          required: true
+        - label: I can share enough dataset shape and timing information for maintainers to investigate.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend/UI responsiveness
+        - Preview execution
+        - Transformation engine
+        - File import/export
+        - Data connectors/storage
+        - API/backend
+        - Docker/deployment
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload
+      description: Describe dataset size, column count, transformation graph, connector type, and file format.
+      placeholder: |
+        - Rows:
+        - Columns:
+        - File/connector:
+        - Transformations:
+        - Local or Docker:
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed performance
+      description: Include timing, memory, CPU, browser behavior, or logs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected performance
+      description: What would be acceptable for this workload?
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - OS:
+        - CPU/RAM:
+        - Browser:
+        - Python:
+        - Node:
+        - FlowFrame branch/commit:
+    validations:
+      required: true
+  - type: textarea
+    id: profile
+    attributes:
+      label: Profiling data or reproduction
+      description: Attach anonymized data, profiling output, a minimal flow, or exact reproduction steps.

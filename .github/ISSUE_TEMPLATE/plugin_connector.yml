@@ -1,0 +1,63 @@
+name: Plugin or connector request
+description: Request, discuss, or report gaps for plugins, marketplace entries, connectors, and storage integrations.
+title: "plugin: "
+labels: ["plugins", "needs-triage"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues, PRs, docs, and bundled plugins for this request.
+          required: true
+        - label: I checked whether this belongs in Discussions as an open-ended design question.
+          required: true
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request type
+      options:
+        - New connector
+        - New plugin capability
+        - Marketplace listing or metadata
+        - Plugin SDK/API gap
+        - Connector bug or compatibility issue
+        - Documentation gap
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target system or plugin
+      placeholder: "Example: BigQuery, Snowflake, dbt, custom storage plugin"
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe the workflow this enables and who needs it.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Required capabilities
+      placeholder: |
+        - Read from ...
+        - Write to ...
+        - Auth method:
+        - Data types:
+        - Expected scale:
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints, auth, and security notes
+      description: Do not paste secrets. Mention local emulators, SDKs, rate limits, or compliance constraints.
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Link official API docs, SDKs, sample data, or similar implementations.
