@@ -160,6 +160,10 @@ class DatasetService:
         updates = data.model_dump(exclude_unset=True)
         for field, value in updates.items():
             setattr(dataset, field, value)
+        # Re-enabling a soft-deleted dataset is a restore — leaving deleted_at set
+        # would make it purgeable while appearing live.
+        if updates.get("is_disabled") is False:
+            dataset.deleted_at = None
         dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         return await self._read(dataset.id)

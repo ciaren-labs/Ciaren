@@ -83,7 +83,11 @@ class ProjectService:
         # Cascade is_disabled to all datasets and flows in this project.
         if "is_disabled" in updates:
             disabled = updates["is_disabled"]
-            await self.db.execute(update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled))
+            dataset_stmt = update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled)
+            if not disabled:
+                # Re-enabling the project must not revive soft-deleted datasets.
+                dataset_stmt = dataset_stmt.where(Dataset.deleted_at.is_(None))
+            await self.db.execute(dataset_stmt)
             await self.db.execute(update(Flow).where(Flow.project_id == project_id).values(is_disabled=disabled))
         await self.db.commit()
         await self.db.refresh(project)
