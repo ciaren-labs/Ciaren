@@ -1,0 +1,132 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import type { NodeChange } from "@xyflow/react";
+import { useFlowEditorStore, type FlowNodeType } from "../flowEditorStore";
+
+function node(id: string, config: Record<string, unknown> = {}): FlowNodeType {
+  return {
+    id,
+    type: "dropNulls",
+    position: { x: 0, y: 0 },
+    data: { label: id, config },
+  };
+}
+
+beforeEach(() => {
+  useFlowEditorStore.getState().reset();
+});
+
+describe("flowEditorStore undo/redo", () => {
+  it("undoes and redoes addNode", () => {
+    const { addNode, undo, redo } = useFlowEditorStore.getState();
+    addNode(node("a"));
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(0);
+    expect(useFlowEditorStore.getState().future).toHaveLength(1);
+
+    redo();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().future).toHaveLength(0);
+  });
+
+  it("undo/redo are no-ops on empty stacks", () => {
+    const { undo, redo } = useFlowEditorStore.getState();
+    undo();
+    redo();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(0);
+  });
+
+  it("removeNode is undoable and restores edges to that node", () => {
+    const { setGraph, removeNode, undo } = useFlowEditorStore.getState();
+    setGraph(
+      [node("a"), node("b")],
+      [{ id: "e1", source: "a", target: "b" }],
+    );
+    removeNode("a");
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().edges).toHaveLength(0);
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(2);
+    expect(useFlowEditorStore.getState().edges).toHaveLength(1);
+  });
+
+  it("coalesces rapid config edits to the same node into one undo step", () => {
+    const { setGraph, updateNodeConfig, undo } = useFlowEditorStore.getState();
+    setGraph([node("a", { value: "" })], []);
+
+    updateNodeConfig("a", { value: "h" });
+    updateNodeConfig("a", { value: "he" });
+    updateNodeConfig("a", { value: "hel" });
+    updateNodeConfig("a", { value: "hello" });
+
+    expect(useFlowEditorStore.getState().past).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes[0].data.config.value).toBe("hello");
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes[0].data.config.value).toBe("");
+  });
+
+  it("does not coalesce edits to different nodes", () => {
+    const { setGraph, updateNodeConfig } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], []);
+
+    updateNodeConfig("a", { value: "1" });
+    updateNodeConfig("b", { value: "2" });
+
+    expect(useFlowEditorStore.getState().past).toHaveLength(2);
+  });
+
+  it("coalesces a node drag (position changes) into one undo step", () => {
+    const { setGraph, onNodesChange, undo } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    const drag = (x: number, dragging: boolean): NodeChange<FlowNodeType>[] => [
+      { id: "a", type: "position", position: { x, y: 0 }, dragging },
+    ];
+    onNodesChange(drag(10, true));
+    onNodesChange(drag(20, true));
+    onNodesChange(drag(30, false));
+
+    expect(useFlowEditorStore.getState().past).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes[0].position.x).toBe(30);
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes[0].position.x).toBe(0);
+  });
+
+  it("does not push history for selection-only changes", () => {
+    const { setGraph, onNodesChange } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    onNodesChange([{ id: "a", type: "select", selected: true }]);
+
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+  });
+
+  it("clears history on setGraph and reset", () => {
+    const { addNode, setGraph, reset } = useFlowEditorStore.getState();
+    addNode(node("a"));
+    expect(useFlowEditorStore.getState().past.length).toBeGreaterThan(0);
+
+    setGraph([], []);
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+
+    addNode(node("b"));
+    reset();
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+    expect(useFlowEditorStore.getState().future).toHaveLength(0);
+  });
+
+  it("a new undo-able edit clears the redo stack", () => {
+    const { addNode, undo } = useFlowEditorStore.getState();
+    addNode(node("a"));
+    addNode(node("b"));
+    undo();
+    expect(useFlowEditorStore.getState().future).toHaveLength(1);
+
+    addNode(node("c"));
+    expect(useFlowEditorStore.getState().future).toHaveLength(0);
+  });
+});

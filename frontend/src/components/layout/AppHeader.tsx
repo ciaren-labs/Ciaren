@@ -7,11 +7,14 @@ import {
   FolderKanban,
   Globe,
   History,
+  Moon,
   Plug,
+  Sun,
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTimezoneStore, COMMON_TIMEZONES } from "@/stores/timezoneStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useMlEnabled } from "@/features/models/hooks";
 
@@ -39,6 +42,7 @@ function isActive(pathname: string, to: string): boolean {
 export function AppHeader() {
   const { pathname } = useLocation();
   const { timezone, setTimezone } = useTimezoneStore();
+  const { theme, toggleTheme } = useThemeStore();
   const mlEnabled = useMlEnabled();
   const nav = [
     ...NAV_BEFORE_MODELS,
@@ -94,6 +98,15 @@ export function AppHeader() {
           }))}
         />
       </div>
+
+      <button
+        onClick={toggleTheme}
+        title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </button>
     </header>
   );
 }
