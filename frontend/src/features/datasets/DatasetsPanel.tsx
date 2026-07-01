@@ -35,8 +35,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ApiError } from "@/lib/api";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import type { Dataset, DatasetSourceType } from "@/lib/types";
@@ -77,7 +78,7 @@ interface DatasetsPanelProps {
 
 export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const scoped = projectId !== undefined;
-  const { data: datasets, isLoading } = useDatasets();
+  const { data: datasets, isLoading, isError, error, refetch } = useDatasets();
   const { data: projects } = useProjects();
   const upload = useUploadDataset();
   const patchDataset = usePatchDataset();
@@ -249,18 +250,8 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         </div>
       </FilterBar>
 
-      {isLoading && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
-      )}
-
-      {(deleteDataset.isError || patchDataset.isError) && (
-        <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {((deleteDataset.error || patchDataset.error) as Error)?.message ?? "Operation failed. Check the console for details."}
-        </div>
-      )}
+      {isLoading && <LoadingState label="Loading datasets…" />}
+      {isError && <ErrorState error={error} title="Couldn't load datasets" onRetry={() => refetch()} />}
 
       {groups ? (
         <div className="flex flex-col gap-4">
@@ -287,12 +278,29 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         )
       )}
 
-      {!isLoading && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {search || projectFilter
-            ? "No datasets match your filters."
-            : "No datasets yet. Upload one to get started."}
-        </p>
+      {!isLoading && !isError && filtered.length === 0 && (
+        search || projectFilter || kindFilter ? (
+          <EmptyState
+            icon={Database}
+            title="No datasets match your filters"
+            description="Try a different search, or clear the filters."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setSearch(""); setProjectFilter(""); setKindFilter(""); }}
+              >
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={UploadCloud}
+            title="Add your first dataset"
+            description="Drop a CSV, Excel, Parquet, or JSON file in the box above — it becomes a versioned dataset your flows can read."
+          />
+        )
       )}
 
       <DatasetDetailDialog
@@ -612,7 +620,7 @@ function UploadDropzone({
       {upload.isError && (
         <span className="mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
           <AlertCircle className="h-3.5 w-3.5" />
-          {(upload.error as ApiError)?.message ?? "Upload failed."}
+          {friendlyErrorMessage(upload.error, "Upload failed.")}
         </span>
       )}
       {upload.isSuccess && !upload.isPending && (

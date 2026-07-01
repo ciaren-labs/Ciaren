@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import type { Flow } from "@/lib/types";
 
 interface FlowEditDialogProps {
@@ -70,9 +70,9 @@ export function FlowEditDialog({
               placeholder="What this flow does (optional)"
             />
           </div>
-          {error instanceof ApiError && (
+          {error != null && (
             <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
-              <AlertCircle className="h-3.5 w-3.5" /> {error.message}
+              <AlertCircle className="h-3.5 w-3.5" /> {friendlyErrorMessage(error)}
             </p>
           )}
           <Button type="submit" disabled={submitting || !name.trim()}>
