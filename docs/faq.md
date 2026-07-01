@@ -22,7 +22,7 @@ machine-learning engineer and open-source creator —
 [personal site](https://www.rodrigo-arenas.com/) ·
 [GitHub](https://github.com/rodrigo-arenas) ·
 [LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/). It is open-core and
-[contributions are welcome](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
+[contributions are welcome](https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md).
 
 ### How much does Ciaren cost?
 
@@ -38,7 +38,7 @@ Ciaren is in **active development**. It's suitable for learning, exploration, an
 
 Yes, subject to the AGPL-3.0-only terms for Ciaren Core and the separate
 Apache-2.0 terms for the public Plugin API/SDK. Review the
-[security disclaimers](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md)
+[security disclaimers](https://github.com/rodrigo-arenas/Ciaren/blob/main/SECURITY.md)
 before using Ciaren with important data.
 
 ## Installation & Setup
@@ -210,7 +210,7 @@ ciaren serve --port 8001
 
 ### How do I report a bug?
 
-[Open an issue on GitHub](https://github.com/rodrigo-arenas/FlowFrame/issues) with:
+[Open an issue on GitHub](https://github.com/rodrigo-arenas/Ciaren/issues) with:
 
 - What you expected to happen
 - What actually happened
@@ -219,7 +219,7 @@ ciaren serve --port 8001
 
 ### How do I suggest a feature?
 
-[Open a discussion on GitHub](https://github.com/rodrigo-arenas/FlowFrame/discussions) or [an issue](https://github.com/rodrigo-arenas/FlowFrame/issues).
+[Open a discussion on GitHub](https://github.com/rodrigo-arenas/Ciaren/discussions) or [an issue](https://github.com/rodrigo-arenas/Ciaren/issues).
 
 ### Can I contribute code?
 
@@ -236,10 +236,10 @@ Yes! We welcome contributions, feedback, and ideas from the community.
 
 ## More Questions?
 
-- **[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — Ask the community
-- **[GitHub Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)** — Report bugs
+- **[GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)** — Ask the community
+- **[GitHub Issues](https://github.com/rodrigo-arenas/Ciaren/issues)** — Report bugs
 - **[Troubleshooting Guide](/guide/troubleshooting)** — Common issues
 
 ---
 
-Can't find your answer? [Open a discussion →](https://github.com/rodrigo-arenas/FlowFrame/discussions)
+Can't find your answer? [Open a discussion →](https://github.com/rodrigo-arenas/Ciaren/discussions)

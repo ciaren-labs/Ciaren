@@ -9,7 +9,7 @@ export function AppFooter() {
       </span>
       <div className="flex items-center gap-4">
         <a
-          href="https://github.com/rodrigo-arenas/flowframe"
+          href="https://github.com/rodrigo-arenas/ciaren"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 transition-colors hover:text-foreground"
@@ -17,7 +17,7 @@ export function AppFooter() {
           <Github className="h-3 w-3" /> GitHub
         </a>
         <a
-          href="https://github.com/rodrigo-arenas/flowframe#readme"
+          href="https://github.com/rodrigo-arenas/ciaren#readme"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-colors hover:text-foreground"
@@ -25,7 +25,7 @@ export function AppFooter() {
           Docs
         </a>
         <a
-          href="https://github.com/rodrigo-arenas/flowframe/issues"
+          href="https://github.com/rodrigo-arenas/ciaren/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-colors hover:text-foreground"

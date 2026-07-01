@@ -14,14 +14,14 @@ Use GitHub Discussions for:
 - Early feature ideas
 - General troubleshooting
 
-Start here: <https://github.com/rodrigo-arenas/FlowFrame/discussions>
+Start here: <https://github.com/rodrigo-arenas/Ciaren/discussions>
 
 ## Bugs
 
 Use GitHub Issues for reproducible bugs, regressions, crashes, or incorrect
 behavior:
 
-<https://github.com/rodrigo-arenas/FlowFrame/issues/new/choose>
+<https://github.com/rodrigo-arenas/Ciaren/issues/new/choose>
 
 Before opening an issue, search existing issues and PRs. Include reproduction
 steps, environment details, logs, and anonymized sample data when possible.

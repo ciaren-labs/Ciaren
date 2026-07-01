@@ -203,7 +203,7 @@ touch `CORS_ORIGINS` for this layout.
 ::: warning Alpha software
 Ciaren is in early development and has not completed a formal independent
 third-party security audit. If you deploy it beyond localhost, review the
-[security notes](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md),
+[security notes](https://github.com/rodrigo-arenas/Ciaren/blob/main/SECURITY.md),
 set `CIAREN_API_TOKEN`, place it behind trusted access controls, and validate
 the deployment against your own data and operational requirements.
 :::

@@ -8,10 +8,10 @@ automation. Upload a file, connect SQL, clean and reshape data, train models on
 a canvas, preview every step, schedule runs, and take the generated Python with
 you.
 
-[![Backend Tests](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml)
-[![Frontend CI](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml)
-[![Docker](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docker.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docker.yml)
-[![Docs](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docs-deploy.yml)
+[![Backend Tests](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/backend-tests.yml)
+[![Frontend CI](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/frontend-tests.yml)
+[![Docker](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/docker.yml/badge.svg)](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/docker.yml)
+[![Docs](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/rodrigo-arenas/Ciaren/actions/workflows/docs-deploy.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Plugin API: Apache-2.0](https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg)](backend/app/plugin_api/)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -32,8 +32,8 @@ you.
 ## Try It In 5 Minutes
 
 ```bash
-git clone https://github.com/rodrigo-arenas/FlowFrame.git
-cd FlowFrame/backend
+git clone https://github.com/rodrigo-arenas/Ciaren.git
+cd Ciaren/backend
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .
@@ -43,7 +43,7 @@ ciaren serve
 In another terminal:
 
 ```bash
-cd FlowFrame/frontend
+cd Ciaren/frontend
 npm install
 npm run dev
 ```
@@ -97,7 +97,7 @@ engineering and machine learning on **small and medium datasets**. It lets you:
 Each visual node maps to **one clear dataframe operation** — so the generated
 code is readable whenever you export it, and execution is transparent. Ciaren
 is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
-and does not do distributed or streaming execution.
+and does not currently target real-time streaming execution.
 
 Built for **data analysts, data engineers, and developers** who want repeatable
 data and ML workflows without the infrastructure overhead — and accessible enough for
@@ -154,8 +154,8 @@ for pushdown and join optimization on large files.
 ### 1. Clone and start the backend
 
 ```bash
-git clone https://github.com/rodrigo-arenas/FlowFrame.git
-cd FlowFrame/backend
+git clone https://github.com/rodrigo-arenas/Ciaren.git
+cd Ciaren/backend
 
 # Create and activate a virtual environment
 python -m venv .venv
@@ -197,18 +197,19 @@ on port `8055`.
 5. Run the flow, then export the generated Python code
 
 Prefer the API? Everything above is also available over REST — see the
-[Quick Start guide](https://rodrigo-arenas.github.io/FlowFrame/guide/quick-start).
+[Quick Start guide](https://rodrigo-arenas.github.io/Ciaren/guide/quick-start).
 
 ---
 
 ## 📚 Documentation
 
 Full docs (guides, transformation reference, examples, API) are published at
-**<https://rodrigo-arenas.github.io/FlowFrame>**.
+**<https://rodrigo-arenas.github.io/Ciaren>**.
 
-- **[Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/quick-start)** — Install, run, and build your first flow
-- **[Examples](https://rodrigo-arenas.github.io/FlowFrame/examples/sales-analysis)** — Sales analysis, data quality, feature engineering, ML, and more
-- **[Plugin Guide](https://rodrigo-arenas.github.io/FlowFrame/plugins/first-plugin)** — Build your first custom plugin
+- **[Quick Start](https://rodrigo-arenas.github.io/Ciaren/guide/quick-start)** — Install, run, and build your first flow
+- **[Examples](https://rodrigo-arenas.github.io/Ciaren/examples/sales-analysis)** — Sales analysis, data quality, feature engineering, ML, and more
+- **[Plugin Guide](https://rodrigo-arenas.github.io/Ciaren/plugins/first-plugin)** — Build your first custom plugin
+- **[Roadmap](https://rodrigo-arenas.github.io/Ciaren/guide/roadmap)** — Direction for stability, plugins, connectors, exports, data quality, ML, AI, and trust
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Development workflow, standards, and review process
 - **[CHANGELOG.md](CHANGELOG.md)** — Release notes and public alpha readiness changes
 - **[docs/architecture/current-architecture-map.md](docs/architecture/current-architecture-map.md)** — System design, entity models, and execution flow
@@ -283,7 +284,7 @@ a validated artifact directory.
 The demo project ships ML example flows too (classification, train/validate,
 regression, PCA); `ciaren serve --run-seed-flows` runs every demo flow once
 on first boot so the Runs and Models views aren't empty. See the
-[ML Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/ml-quickstart).
+[ML Quick Start](https://rodrigo-arenas.github.io/Ciaren/guide/ml-quickstart).
 
 ---
 
@@ -338,15 +339,15 @@ new contributors. Useful contributions include:
 
 **First time?** See [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup, code
 style, testing expectations, and the PR process. Look for issues labeled
-[`good first issue`](https://github.com/rodrigo-arenas/FlowFrame/labels/good%20first%20issue)
-or [`help wanted`](https://github.com/rodrigo-arenas/FlowFrame/labels/help%20wanted).
+[`good first issue`](https://github.com/rodrigo-arenas/Ciaren/labels/good%20first%20issue)
+or [`help wanted`](https://github.com/rodrigo-arenas/Ciaren/labels/help%20wanted).
 Every new transformation must include tests.
 
-**Ideas?** Open a [GitHub Discussion](https://github.com/rodrigo-arenas/FlowFrame/discussions)
-or [Issue](https://github.com/rodrigo-arenas/FlowFrame/issues).
+**Ideas?** Open a [GitHub Discussion](https://github.com/rodrigo-arenas/Ciaren/discussions)
+or [Issue](https://github.com/rodrigo-arenas/Ciaren/issues).
 
 Want to build an ecosystem around Ciaren? Start with the
-[plugin docs](https://rodrigo-arenas.github.io/FlowFrame/plugins/overview) and
+[plugin docs](https://rodrigo-arenas.github.io/Ciaren/plugins/overview) and
 the Apache-2.0 public SDK in `backend/app/plugin_api/`.
 
 ---
@@ -397,8 +398,8 @@ marketplace guidance.
 
 ## 📞 Support
 
-- **Questions?** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
-- **Found a bug?** [Open an Issue](https://github.com/rodrigo-arenas/FlowFrame/issues)
+- **Questions?** [GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
+- **Found a bug?** [Open an Issue](https://github.com/rodrigo-arenas/Ciaren/issues)
 - **Security concern?** See [SECURITY.md](SECURITY.md)
 
 ---
