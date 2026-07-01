@@ -79,8 +79,8 @@ No! Ciaren is designed for non-programmers. The visual editor guides you through
 
 Yes — via the **SQL input** node and a reusable [Connection](/guide/connections).
 PostgreSQL, MySQL, SQLite, and MongoDB are supported. S3, Azure Blob, and GCS are
-also available as storage input/output nodes. Plain file formats (CSV, Excel, Parquet,
-JSON, text) are supported via file input nodes.
+also available as storage input/output nodes. Plain file formats (CSV, TSV,
+Excel, Parquet, JSON/JSONL, text) are supported via file input nodes.
 
 ### What's the maximum dataset size?
 

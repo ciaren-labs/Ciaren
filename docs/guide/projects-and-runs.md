@@ -37,8 +37,8 @@ You can scope dataset and flow listings to a project with `?project_id=...`.
 
 ![Dataset detail dialog — Preview tab showing column data, with Profile / Versions / Used by tabs](/screenshots/dataset-detail.png)
 
-Upload CSV, Excel, or Parquet files on the **Datasets** page. Ciaren infers a
-column schema and stores a small sample for previews.
+Upload CSV, TSV, Excel, Parquet, JSON/JSONL, or text files on the **Datasets**
+page. Ciaren infers a column schema and stores a small sample for previews.
 
 ```bash
 curl -F "file=@sales.csv" "http://localhost:8055/api/datasets/upload?project_id={id}"
@@ -80,7 +80,7 @@ curl http://localhost:8055/api/runs/{run_id}
 ```
 
 `GET /api/runs` is filterable by `flow_id`, `project_id`, `dataset_id`, `status`,
-`schedule_id`, and date range.
+`schedule_id`, and start-time range (`started_after` / `started_before`).
 
 ### Run detail & per-node results
 

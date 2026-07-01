@@ -23,6 +23,10 @@ Flow-compatible graph (`nodes` and `edges`).
 The export response carries `code` (pandas), `polars`, `polars_lazy`, and a
 portable `flow_document`. See [Engines → Code export](/guide/engines#code-export).
 
+Previews run against the saved flow graph, not unsaved canvas edits. The preview
+path uses the same graph validation and ML feature gate as a full run, so invalid
+graphs return `400` and flows with ML nodes require ML support to be enabled.
+
 ## See also
 
 - [Runs API](./runs.md) · [Transformations API](./transformations.md)

@@ -40,7 +40,7 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
         "cron": "0 7 * * *",
         "timezone": "America/New_York",
         "engine": "polars",
-        "enabled": true,
+        "is_enabled": true,
         "catch_up": false,
         "max_retries": 2,
         "retry_delay_seconds": 60
@@ -53,7 +53,7 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
 | `timezone` | `UTC` | IANA timezone used to interpret the cron |
 | `name` / `description` | null | Optional labels |
 | `engine` | null | Engine for scheduled runs; falls back to the server default |
-| `enabled` | `true` | Whether the schedule is active |
+| `is_enabled` | `true` | Whether the schedule is active |
 | `catch_up` | `false` | Run slots missed while the server was down |
 | `max_retries` | `0` | Retries for a failed run before giving up to the next slot |
 | `retry_delay_seconds` | `60` | Base backoff between retries |
