@@ -61,15 +61,21 @@ Ciaren is currently alpha software. Releases should include:
 - Pre-1.0, versions are `0.MINOR.PATCH` with an `-alpha`/`-beta` suffix as
   needed (e.g. `0.1.0-alpha`); breaking changes can happen between them.
   Semantic versioning applies strictly from `1.0.0` onward.
-- `backend/pyproject.toml` is the source of truth for the current version.
-- Cutting a release: merge `development → main`, bump the version, update
-  `CHANGELOG.md`, then push a `vX.Y.Z` tag on `main`. The tag triggers the
-  `Package` workflow, which builds and uploads the wheel/sdist as a CI
-  artifact.
-- Publishing to PyPI is not yet automated — the `Package` workflow does not
-  push to PyPI. Until that's wired up (trusted publishing or an API token),
-  treat tagged releases as "artifact available on the run," not "installable
-  via pip."
+- Two packages are versioned in lockstep: `backend/pyproject.toml` (`ciaren`)
+  and `client/pyproject.toml` (`ciaren-client`). Bump both together before
+  tagging — the `Package` workflow verifies each independently against the
+  tag and fails the corresponding build job if either is out of sync.
+- Cutting a release: merge `development → main`, bump both `pyproject.toml`
+  versions, update `CHANGELOG.md`, then push a bare `X.Y.Z` tag (e.g. `0.1.0`,
+  or a pre-release like `0.1.0-alpha.1`) on `main` — **no `v` prefix**; the
+  `Package` workflow's tag trigger only matches the unprefixed pattern. The
+  tag builds both wheels/sdists and publishes both to PyPI via trusted
+  publishing (OIDC), no API token needed.
+- PyPI trusted publishing must be configured once per package on pypi.org
+  (Owner `ciaren-labs`, Repository `Ciaren`, Workflow `package.yml`,
+  Environment `pypi` for `ciaren` / `pypi-client` for `ciaren-client`) before
+  the first tag push — until then, `publish-server`/`publish-client` will
+  fail with an OIDC/permission error even though the build jobs succeed.
 
 ## Becoming a Maintainer
 
