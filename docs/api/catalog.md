@@ -7,7 +7,7 @@ search: api catalog nodes connectors categories plugins diagnostics extension
 # Catalog & Plugins API
 
 The **catalog** is the backend's description of every node, connector, and
-category the editor can render — sourced from the open-source core and any
+category the editor can render — sourced from the open core and any
 installed plugins. The visual editor's palette is built from it, so a plugin that
 contributes a node makes it appear without a frontend rebuild.
 

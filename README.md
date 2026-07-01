@@ -1,15 +1,74 @@
 # FlowFrame
 
-> **Build, run, and schedule data pipelines — and train ML models — visually, no boilerplate required.**
-> Upload a file, clean and reshape it on a drag-and-drop canvas, train and track
-> machine-learning models, preview every step, execute with one click, schedule
-> recurring runs, and export the equivalent pandas **or** polars code whenever you
-> need it.
+**Build data pipelines visually. Run them locally. Export clean pandas or polars code.**
 
+FlowFrame is an open-core, local-first visual ETL builder for people who want
+repeatable data workflows without Airflow-level infrastructure or opaque desktop
+automation. Upload a file, connect SQL, clean and reshape data on a canvas,
+preview every step, schedule runs, and take the generated Python with you.
+
+[![Backend Tests](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml)
+[![Frontend CI](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml)
+[![Docker](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docker.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docker.yml)
+[![Docs](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/docs-deploy.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![Plugin API: Apache-2.0](https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg)](backend/app/plugin_api/)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
+
+![FlowFrame visual editor](docs/public/screenshots/editor-full.png)
+
+## Why People Try It
+
+- **See every step**: preview intermediate data instead of guessing what a script did.
+- **Keep ownership**: run locally with SQLite by default; no SaaS lock-in.
+- **Export real code**: pandas, polars, and optimized lazy polars output.
+- **Automate without ceremony**: schedule recurring flows from the same local app.
+- **Extend it**: build plugins against the Apache-2.0 public Plugin API/SDK.
+- **Teach and collaborate**: visual flows make data logic easier to review than one-off notebooks.
+
+## Try It In 5 Minutes
+
+```bash
+git clone https://github.com/rodrigo-arenas/FlowFrame.git
+cd FlowFrame/backend
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e .
+flowframe serve
+```
+
+In another terminal:
+
+```bash
+cd FlowFrame/frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`, upload a CSV/Excel/Parquet file, build a flow,
+preview the data, run it, and export Python.
+
+Prefer Docker?
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8055`. The image uses the same `flowframe` CLI as
+the pip install path: it applies migrations with `flowframe db upgrade` and
+starts the app with `flowframe serve`.
+
+## Who It Is For
+
+| If you are... | FlowFrame helps you... |
+|---------------|------------------------|
+| Data analyst | Clean, reshape, validate, and export datasets without writing every step by hand |
+| Data engineer | Prototype repeatable transformations locally before turning them into code |
+| Python learner | See how visual dataframe operations become readable pandas/polars code |
+| ML practitioner | Build simple preprocessing/training flows with optional MLflow tracking |
+| Plugin author | Ship custom nodes and integrations through a stable public SDK/API |
 
 ---
 
@@ -22,7 +81,7 @@
 
 ## What is FlowFrame?
 
-FlowFrame is an open-source, **local-first** visual ETL (Extract, Transform, Load)
+FlowFrame is an open-core, **local-first** visual ETL (Extract, Transform, Load)
 builder — with an optional **machine-learning** extension — for **small and medium
 datasets**. It lets you:
 
@@ -44,7 +103,7 @@ Built for **data analysts, data engineers, and developers** who want repeatable
 ETL pipelines without the infrastructure overhead — and accessible enough for
 business analysts and Python beginners who are just getting started.
 
-### See it: build visually, run instantly, export when you need to
+### Build visually, run instantly, export when you need to
 
 A three-step flow (read → drop nulls → group & sum) runs with one click and
 produces clean Python you can take anywhere:
@@ -147,6 +206,9 @@ Prefer the API? Everything above is also available over REST — see the
 Full docs (guides, transformation reference, examples, API) are published at
 **<https://rodrigo-arenas.github.io/FlowFrame>**.
 
+- **[Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/quick-start)** — Install, run, and build your first flow
+- **[Examples](https://rodrigo-arenas.github.io/FlowFrame/examples/sales-analysis)** — Sales analysis, data quality, feature engineering, ML, and more
+- **[Plugin Guide](https://rodrigo-arenas.github.io/FlowFrame/plugins/first-plugin)** — Build your first custom plugin
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Development workflow, standards, and review process
 - **[architecture.md](architecture.md)** — System design, entity models, and execution flow
 - **[SUPPORT.md](SUPPORT.md)** — Where to ask questions, report bugs, and request features
@@ -263,15 +325,28 @@ Recommended practices:
 
 ## 🤝 Contributing
 
-We welcome contributions! Whether you're fixing bugs, adding transformations,
-improving docs, or building features — your work helps make FlowFrame better.
+We want FlowFrame to be easy to try, easy to extend, and genuinely welcoming to
+new contributors. Useful contributions include:
+
+- New transformation nodes and examples
+- Plugin SDK/API improvements
+- Frontend workflow polish
+- Docker and install experience improvements
+- Documentation, tutorials, screenshots, and recipes
+- Bug reports with reproducible flows or sample data
 
 **First time?** See [CONTRIBUTING.md](CONTRIBUTING.md) for environment setup, code
-style, testing expectations, and the PR process. Every new transformation must
-include tests.
+style, testing expectations, and the PR process. Look for issues labeled
+[`good first issue`](https://github.com/rodrigo-arenas/FlowFrame/labels/good%20first%20issue)
+or [`help wanted`](https://github.com/rodrigo-arenas/FlowFrame/labels/help%20wanted).
+Every new transformation must include tests.
 
 **Ideas?** Open a [GitHub Discussion](https://github.com/rodrigo-arenas/FlowFrame/discussions)
 or [Issue](https://github.com/rodrigo-arenas/FlowFrame/issues).
+
+Want to build an ecosystem around FlowFrame? Start with the
+[plugin docs](https://rodrigo-arenas.github.io/FlowFrame/plugins/overview) and
+the Apache-2.0 public SDK in `backend/app/plugin_api/`.
 
 ---
 

@@ -19,12 +19,12 @@ Python.
 
 FlowFrame was created and is maintained by **Rodrigo Arenas** —
 [personal site](https://www.rodrigo-arenas.com/) ·
-[GitHub](https://github.com/rodrigo-arenas). It is open-source and
+[GitHub](https://github.com/rodrigo-arenas). It is open-core and
 [contributions are welcome](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
 
 ### How much does FlowFrame cost?
 
-FlowFrame Core is **free and open-source** under AGPL-3.0-only. The public
+FlowFrame Core is **free and open** under AGPL-3.0-only. The public
 Plugin API/SDK at `backend/app/plugin_api/` is Apache-2.0 so plugin authors can
 choose their own plugin licenses.
 

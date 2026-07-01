@@ -1,6 +1,6 @@
 # FlowFrame Plugin Marketplace & Open-Core Architecture Plan
 
-> **Purpose:** This document is a practical implementation guide to refactor FlowFrame toward a local-first, open-source core with a future premium plugin marketplace.
+> **Purpose:** This document is a practical implementation guide to refactor FlowFrame toward a local-first, open core with a future premium plugin marketplace.
 >
 > The goal is to make FlowFrame extensible, monetizable, and secure without requiring FlowFrame to host customer datasets, execute heavy jobs, run clusters, or manage large customer databases.
 
@@ -106,7 +106,7 @@ Current risks:
 - Connector/provider registration is static.
 - Frontend node metadata is hard-coded.
 - ML is optional by dependency, not by package boundary.
-- Premium features would currently require changes to the open-source core.
+- Premium features would currently require changes to the open core.
 - There is no plugin loader.
 - There is no plugin manifest.
 - There is no signature verification.
@@ -124,7 +124,7 @@ FlowFrame should be designed around three layers:
 
 ```text
 FlowFrame Community
-  Open-source, local-first, useful by itself
+  Open core, local-first, useful by itself
 
 FlowFrame Marketplace
   Optional plugins, some free and some premium
@@ -135,11 +135,11 @@ FlowFrame Enterprise / Cloud Services
 
 ---
 
-## 4. Open-Source vs Premium Boundary
+## 4. Open Core vs Premium Boundary
 
-### 4.1 Keep in open-source core
+### 4.1 Keep in the open core
 
-These features should remain open source because they drive adoption:
+These features should remain in the open core because they drive adoption:
 
 - Visual workflow editor
 - DAG model
@@ -161,7 +161,7 @@ These features should remain open source because they drive adoption:
 - Examples
 - Community templates
 
-### 4.2 Keep open source but isolate as optional plugins
+### 4.2 Keep open but isolate as optional plugins
 
 These can remain free but should be separated from the core:
 
@@ -205,7 +205,7 @@ These have clear commercial value:
 
 ### 4.4 Recommendation on ML
 
-Do **not** remove all ML from the open-source product too early.
+Do **not** remove all ML from the open-core product too early.
 
 FlowFrame's differentiation is ETL + ML. If ML is removed from the community version, FlowFrame risks becoming just another visual ETL or automation tool.
 
@@ -1308,7 +1308,7 @@ Recommended answers for now:
 ## 23. Immediate Implementation Notes
 
 Prepare the architecture for a future open-core plugin marketplace while keeping
-the current product local-first and open source.
+the current product local-first and open core.
 
 Do not implement premium billing or marketplace UI yet. Focus on architectural
 foundations:
@@ -1348,7 +1348,7 @@ This architecture effort is successful when:
 - Plugin manifests are validated.
 - Plugin compatibility is checked.
 - Permissions are represented in the manifest, even if enforcement is basic.
-- Premium/private plugins are architecturally possible without changing the open-source core.
+- Premium/private plugins are architecturally possible without changing the open core.
 - Existing community features still work.
 
 ---
@@ -1359,7 +1359,7 @@ Do not start monetization by hiding the whole product.
 
 Instead:
 
-1. Keep FlowFrame useful and open source.
+1. Keep FlowFrame useful and open core.
 2. Make the architecture plugin-first.
 3. Make `.flow` a stable public format.
 4. Keep execution local.
@@ -1368,4 +1368,4 @@ Instead:
 7. Start with one premium connector or one AI capability.
 8. Add cloud services only when they support licensing, metadata sync, collaboration, or AI—not core execution.
 
-This gives FlowFrame the best chance to grow as an open-source project while still leaving a realistic path to a sustainable business.
+This gives FlowFrame the best chance to grow as an open-core project while still leaving a realistic path to a sustainable business.

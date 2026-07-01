@@ -8,7 +8,7 @@
 #   EXTRAS=ml docker compose build          # ML nodes (scikit-learn, XGBoost, MLflow)
 #   EXTRAS=postgres docker compose build    # PostgreSQL connector
 #   EXTRAS=ml,postgres docker compose build # both
-#   EXTRAS=all-connectors docker compose build  # all DB connectors
+#   EXTRAS=all-connectors docker compose build  # common DB/object-storage connectors
 #
 # All FLOWFRAME_* env vars below map to `flowframe serve` flags.
 # Run `docker compose exec flowframe flowframe info` to inspect resolved settings.
@@ -19,7 +19,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Comma-separated optional extras: ml, postgres, mysql, mongo, all-connectors
+        # Comma-separated optional extras: ml, postgres, mysql, mongo, s3, gcs,
+        # azure, signing, all-connectors, all
         EXTRAS: ${EXTRAS:-}
     image: flowframe:latest
     ports:
@@ -46,7 +47,7 @@ services:
 
       # ── Database (SQLite default, zero setup) ───────────────────────────────
       # PostgreSQL: set DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
-      #   and rebuild with EXTRAS=postgres
+      #   and rebuild with EXTRAS=postgres or EXTRAS=all-connectors
       FLOWFRAME_DATABASE_URL: ${FLOWFRAME_DATABASE_URL:-sqlite+aiosqlite:////data/flowframe.db}
 
       # ── Upload limit ────────────────────────────────────────────────────────

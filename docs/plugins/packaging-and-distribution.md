@@ -9,7 +9,7 @@ search: plugin package ffplugin sign signature verify install marketplace licens
 FlowFrame plugins distribute as **`.ffplugin`** packages — a plain zip containing
 the plugin's manifest, its Python package, and an optional detached Ed25519
 signature. The same format works for free community plugins and signed premium
-plugins; the open-source core never needs to change to support either.
+plugins; the open core never needs to change to support either.
 
 ::: warning Install only plugins you trust
 A plugin runs unsandboxed Python on your machine with your access. Install only
@@ -184,7 +184,7 @@ working offline until an expiry/grace date:
 
 A premium plugin registers its own `TokenLicenseProvider` (from
 `app.plugins.licensing`) pointed at the issuer's public key; the core's
-`ServiceRegistry.validate_license` then consults it. The open-source core ships no
+`ServiceRegistry.validate_license` then consults it. The open core ships no
 premium licensing of its own — this is reusable infrastructure for plugin authors.
 Local licensing deters casual misuse; it is not unbreakable DRM.
 

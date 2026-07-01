@@ -871,6 +871,7 @@ all = [
     { name = "pyodbc" },
 ]
 all-connectors = [
+    { name = "asyncpg" },
     { name = "azure-storage-blob" },
     { name = "boto3" },
     { name = "google-cloud-storage" },
@@ -931,6 +932,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.14" },
     { name = "asyncpg", marker = "extra == 'all'", specifier = ">=0.30" },
+    { name = "asyncpg", marker = "extra == 'all-connectors'", specifier = ">=0.30" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.30" },
     { name = "azure-storage-blob", marker = "extra == 'all'", specifier = ">=12.19" },
     { name = "azure-storage-blob", marker = "extra == 'all-connectors'", specifier = ">=12.19" },

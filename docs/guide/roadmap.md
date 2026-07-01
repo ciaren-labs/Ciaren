@@ -44,7 +44,7 @@ from the outside — without bloating or forking the core:
 - **Plugin distribution** — discovery and trusted, signed installation
 
 These are designed extension points, not promises of specific dated features. The
-core stays fully open-source and useful on its own.
+core stays open and useful on its own.
 
 ## What FlowFrame won't become
 

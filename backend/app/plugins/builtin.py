@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Built-in providers: the open-source core's contributions to the registry.
+"""Built-in providers: the open core's contributions to the registry.
 
 These bridge the existing static registries (``app.engine.registry``,
 ``app.engine.node_kinds``, ``app.connectors.providers``, the engine backends, and
@@ -132,7 +132,7 @@ def _ml_transform_types() -> list[str]:
 
 
 class BuiltinNodeProvider(NodeProvider):
-    """The open-source ETL core: I/O nodes plus every non-ML transform. ML nodes
+    """The open-core ETL core: I/O nodes plus every non-ML transform. ML nodes
     are contributed separately by :class:`MlNodeProvider`, so the core node set is
     independent of whether the ML extension is installed."""
 
@@ -149,7 +149,7 @@ class BuiltinNodeProvider(NodeProvider):
 class MlNodeProvider(NodeProvider):
     """The optional ML node set, isolated as its own provider. Registered only when
     the ``[ml]`` extra is importable (see ``runtime.build_registry``), so the
-    open-source core never depends on it — exactly how a third-party plugin would
+    open core never depends on it — exactly how a third-party plugin would
     contribute nodes. Mirrors the "ML basic stays community, but optional" split in
     the architecture plan."""
 

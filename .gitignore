@@ -230,6 +230,7 @@ __marimo__/
 .codex_tmp/
 .agents/
 backend/.claude/
+local.claude.md
 
 # Local dev databases / data dirs (SQLite default; not for VCS)
 *.db
