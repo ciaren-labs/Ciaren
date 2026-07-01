@@ -1,6 +1,6 @@
 """ML nodes are contributed by an independent, optional provider.
 
-This proves the Phase 5 goal: the open-source ETL core (BuiltinNodeProvider) is
+This proves the Phase 5 goal: the open-core ETL core (BuiltinNodeProvider) is
 complete on its own, and ML plugs in like any other provider — registerable and
 unregisterable without touching the core.
 """

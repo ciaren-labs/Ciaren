@@ -59,7 +59,7 @@ export function LandingPage() {
       {/* Hero */}
       <section className="flex flex-col items-center text-center">
         <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-          <Github className="h-3.5 w-3.5" /> Open-source · local-first
+          <Github className="h-3.5 w-3.5" /> Open-core · local-first
         </span>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
           The simplest visual <span className="brand-text-gradient">data &amp; ML</span> builder
@@ -135,7 +135,7 @@ export function LandingPage() {
       </section>
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
-        FlowFrame is free and open source ·{" "}
+        FlowFrame Core is free and open ·{" "}
         <a href={REPO_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
           Contribute on GitHub
         </a>

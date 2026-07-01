@@ -131,7 +131,7 @@ def _all_infos(result: LoadResult, state: PluginStateStore) -> list[PluginInfo]:
 
 @router.get("", response_model=list[PluginInfo])
 async def list_plugins() -> list[PluginInfo]:
-    """Every discovered plugin (loaded + gated) with its status. The open-source
+    """Every discovered plugin (loaded + gated) with its status. The open core
     core is not listed — it is always present."""
     return _all_infos(get_load_result(), get_plugin_state())
 
@@ -211,7 +211,7 @@ async def plugin_license(plugin_id: str) -> LicenseStatus:
     """The license status for a plugin, resolved through any registered license
     provider. A premium plugin registers a ``TokenLicenseProvider`` (backed by a
     locally-cached signed token); with no provider, a plugin reports licensed (the
-    open-source default)."""
+    open-core default)."""
     return get_registry().validate_license(plugin_id)
 
 

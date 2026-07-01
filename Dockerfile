@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ─── Stage 1: Build the frontend ─────────────────────────────────────────────
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -13,7 +13,7 @@ FROM python:3.13-slim AS runtime
 
 LABEL org.opencontainers.image.title="FlowFrame" \
       org.opencontainers.image.description="Visual ETL builder — local-first, dataframe-based" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 
 # Install uv from its official distroless image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -30,11 +30,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# xgboost / lightgbm (the ml extra) link against the GNU OpenMP runtime, which the
-# slim base image doesn't ship. Install it only when an ml build is requested.
-RUN if echo "$EXTRAS" | tr ',' ' ' | grep -qw ml; then \
+# xgboost / lightgbm (the ml extra) link against the GNU OpenMP runtime. pyodbc
+# (the mssql extra) needs unixODBC. Install only when those extras are requested.
+RUN packages=""; \
+    if echo "$EXTRAS" | tr ',' ' ' | grep -qw ml; then packages="$packages libgomp1"; fi; \
+    if echo "$EXTRAS" | tr ',' ' ' | grep -Eqw 'mssql|all-connectors|all'; then packages="$packages unixodbc"; fi; \
+    if [ -n "$packages" ]; then \
         apt-get update && \
-        apt-get install -y --no-install-recommends libgomp1 && \
+        apt-get install -y --no-install-recommends $packages && \
         rm -rf /var/lib/apt/lists/*; \
     fi
 
@@ -72,7 +75,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # unauthenticated by default and can execute code (pythonTransform, plugin
 # install), so set FLOWFRAME_API_TOKEN (and/or front it with an authenticating
 # reverse proxy) before exposing this container beyond a trusted host. The CLI
-# prints a warning at startup when it binds wide with no token. See SECURITY-AUDIT.md.
+# prints a warning at startup when it binds wide with no token. See SECURITY.md.
 RUN printf '#!/bin/sh\nset -e\nflowframe db upgrade\nexec flowframe serve --host 0.0.0.0 "$@"\n' \
     > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
