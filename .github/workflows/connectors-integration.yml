@@ -310,3 +310,21 @@ jobs:
       - name: Stop fake-gcs-server
         if: always()
         run: docker rm -f fake-gcs || true
+
+  summary:
+    name: Connectors Integration Summary
+    runs-on: ubuntu-latest
+    needs: [s3, mongo, azure, gcs]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.s3.result }}" != "success" ] \
+            || [ "${{ needs.mongo.result }}" != "success" ] \
+            || [ "${{ needs.azure.result }}" != "success" ] \
+            || [ "${{ needs.gcs.result }}" != "success" ]; then
+            echo "❌ One or more connector integration suites failed"
+            exit 1
+          fi
+          echo "✅ All connector integration suites passed"
