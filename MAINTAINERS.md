@@ -25,6 +25,29 @@ made as the contributor base grows.
 - New contributors are encouraged to start with focused fixes, docs, tests, or
   `good-first-issue` tasks.
 
+## Branch Protection
+
+See [CONTRIBUTING.md#-branching-strategy](CONTRIBUTING.md#-branching-strategy)
+for the contributor-facing branch diagram. This section covers who can push
+where and what GitHub branch protection should enforce.
+
+| Branch | Direct pushes | Required for merge | Force-push / delete |
+|---|---|---|---|
+| `main` | Nobody — PR only, from `development` or `hotfix/*` | Passing CI (all workflows), 1 approving review from a CODEOWNER, branch up to date with `main` | Blocked |
+| `development` | Nobody — PR only, from `feature/*`/`fix/*`/`docs/*`/`chore/*` | Passing lightweight CI; review recommended once there is more than one active maintainer | Blocked |
+| `release/x.y.z` | Maintainers, via PR from `development` | Passing CI | Blocked while open; deleted after merging to `main` |
+| `hotfix/*` | Maintainers | Passing CI before merging to `main` | Allowed — short-lived, deleted after merge |
+| `feature/*`, `fix/*`, `docs/*`, `chore/*` | Anyone, on their own branch/fork | N/A | Allowed — contributor's own branch |
+
+**Release branch flow:** cut `release/x.y.z` from `development` when stabilizing
+a release. Only bugfixes land on it — no new features. When it's ready, merge
+it into `main` (which ships the release) and back into `development` (so the
+fixes aren't lost for the next cycle), then delete the branch.
+
+**Hotfix flow:** cut `hotfix/*` from `main` for an urgent fix to
+already-released code that can't wait for the normal `development` soak. Merge
+it into `main` directly, then back-merge into `development`.
+
 ## Release Policy
 
 FlowFrame is currently alpha software. Releases should include:

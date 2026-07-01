@@ -27,26 +27,41 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 
 ## 🌿 Branching Strategy
 
-FlowFrame uses a three-tier model to keep `main` stable and CI costs low:
+FlowFrame keeps `main` stable and CI costs low with a small set of long-lived
+branches, plus two maintainer-only branch types used around releases:
 
 ```
-main          ← stable, released code only
-  └── development  ← integration branch; all features land here first
+main            ← stable, released code only
+  └── development    ← integration branch; all features land here first
         └── feature/your-feature   ← your work
+
+release/x.y.z   ← cut from development to stabilize a release (maintainers)
+hotfix/*        ← cut from main for urgent post-release fixes (maintainers)
 ```
 
-| Branch | Purpose | Who pushes |
-|---|---|---|
-| `main` | Stable releases; what users install | Merged from `development` only |
-| `development` | Integration of completed features | Merged from feature branches |
-| `feature/*`, `fix/*`, `docs/*` | Your daily work | You (freely) |
+| Branch | Purpose | Who pushes | Lives on GitHub as |
+|---|---|---|---|
+| `main` | Stable releases; what users install | Merged via PR only, from `development` or `hotfix/*` | Protected |
+| `development` | Integration of completed features | Merged via PR only, from `feature/*`/`fix/*` | Protected |
+| `release/x.y.z` | Stabilize a cut before it ships — bugfixes only, no new features | Maintainers, via PR | Protected, short-lived |
+| `hotfix/*` | Urgent fix to already-released code, skips the normal `development` soak | Maintainers | Unprotected, short-lived |
+| `feature/*`, `fix/*`, `docs/*`, `chore/*` | Your daily work | You (freely, usually from your fork) | Unprotected |
 
-**The flow:**
+**The flow for most contributions:**
 1. Branch off `development` (not `main`)
 2. Open a PR targeting `development` — a lightweight CI check runs (single OS, no cloud infra)
-3. Once `development` accumulates a set of stable changes, a maintainer opens a `development → main` PR, which runs the full CI suite (cross-platform matrix, Docker, connector integration tests)
+3. Once `development` accumulates a set of stable changes, a maintainer either
+   opens a `development → main` PR directly, or cuts a `release/x.y.z` branch
+   first to stabilize (bugfixes only) before it merges to `main`. Either path
+   runs the full CI suite (cross-platform matrix, Docker, connector
+   integration tests) before merging to `main`.
 
 **Why not branch from `main`?** It keeps your feature branch current with other in-progress work and avoids surprises when your PR merges into `development`.
+
+You won't normally create a `release/*` or `hotfix/*` branch yourself — they're
+described here so the diagram matches what you'll see in the branch list.
+Maintainer responsibilities and branch protection rules are documented in
+[MAINTAINERS.md](MAINTAINERS.md#branch-protection).
 
 ---
 
