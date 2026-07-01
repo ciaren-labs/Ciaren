@@ -83,4 +83,4 @@ pip install -e .
 
 - [Installation Guide](/guide/installation)
 - [FAQ](/faq)
-- [GitHub Issues](https://github.com/rodrigo-arenas/Ciaren/issues)
+- [GitHub Issues](https://github.com/ciaren/ciaren/issues)

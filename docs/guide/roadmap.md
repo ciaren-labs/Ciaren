@@ -8,7 +8,7 @@ search: roadmap direction future plugins marketplace ecosystem status alpha conn
 
 Ciaren is **alpha** (currently `0.1.x`). This page describes the direction, not
 a dated release schedule. For exactly what's shipped, the code is authoritative and
-releases are tracked on **[GitHub](https://github.com/rodrigo-arenas/Ciaren/releases)**.
+releases are tracked on **[GitHub](https://github.com/ciaren/ciaren/releases)**.
 
 ::: warning Alpha software
 The public API, data model, and generated code may change between releases, with no
@@ -152,7 +152,7 @@ See [How Ciaren Compares](/guide/comparison) for where it fits.
 This is a community-driven project — the best way to influence direction is to get
 involved:
 
-- 💬 [Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions) — propose features and ideas
-- 🐛 [Issues](https://github.com/rodrigo-arenas/Ciaren/issues) — report bugs, request features
+- 💬 [Discussions](https://github.com/ciaren/ciaren/discussions) — propose features and ideas
+- 🐛 [Issues](https://github.com/ciaren/ciaren/issues) — report bugs, request features
 - 🧩 [Build a plugin](/plugins/overview) — extend the platform yourself
-- 🤝 [Contribute](https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md) — good first issues are labelled
+- 🤝 [Contribute](https://github.com/ciaren/ciaren/blob/main/CONTRIBUTING.md) — good first issues are labelled
