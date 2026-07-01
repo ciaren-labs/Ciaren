@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// No props — this is a static wireframe of the FlowFrame editor UI.
+// No props — this is a static wireframe of the Ciaren editor UI.
 </script>
 
 <template>
   <div class="el-wrapper">
-    <div class="el-caption">FlowFrame Editor Layout</div>
+    <div class="el-caption">Ciaren Editor Layout</div>
 
     <div class="el-editor">
       <!-- Left: Node Palette -->

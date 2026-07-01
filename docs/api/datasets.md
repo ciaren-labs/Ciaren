@@ -29,7 +29,7 @@ immutable version, so flows pinned to an earlier version stay reproducible.
 `POST /api/datasets/upload` uses multipart form data. Re-uploading under an
 existing name appends a version rather than replacing the file.
 
-Soft deletes retain files for `FLOWFRAME_DATASET_RETENTION_DAYS` days by default.
+Soft deletes retain files for `CIAREN_DATASET_RETENTION_DAYS` days by default.
 Immediate purge refuses if a Production model was trained from the dataset unless
 `?force=true` is supplied.
 

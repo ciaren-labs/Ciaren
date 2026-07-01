@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""FlowFrame command-line entry point.
+"""Ciaren command-line entry point.
 
-Exposed as the ``flowframe`` console script (see ``[project.scripts]``), so a
-``pip install flowframe`` is followed by a single command to run everything:
+Exposed as the ``ciaren`` console script (see ``[project.scripts]``), so a
+``pip install ciaren`` is followed by a single command to run everything:
 
-    flowframe serve
+    ciaren serve
 
 ``serve`` boots the FastAPI app in one process; the app's lifespan starts the
 background scheduler, so the API and scheduled runs share that single process —
@@ -27,79 +27,79 @@ from typing import Any
 _ASYNC_SCHEMES = ("sqlite+aiosqlite", "postgresql+asyncpg", "mysql+aiomysql")
 
 _ENV_TEMPLATE = """\
-# FlowFrame configuration. Uncomment and edit as needed; every key is optional
-# and falls back to the default shown. Values can also be passed as `flowframe
-# serve` flags. See `flowframe info` for the currently resolved settings.
+# Ciaren configuration. Uncomment and edit as needed; every key is optional
+# and falls back to the default shown. Values can also be passed as `ciaren
+# serve` flags. See `ciaren info` for the currently resolved settings.
 
 # Database (must use an async driver):
-#   sqlite+aiosqlite:///./flowframe.db | postgresql+asyncpg://user:pass@host/db
-# FLOWFRAME_DATABASE_URL=sqlite+aiosqlite:///./flowframe.db
+#   sqlite+aiosqlite:///./ciaren.db | postgresql+asyncpg://user:pass@host/db
+# CIAREN_DATABASE_URL=sqlite+aiosqlite:///./ciaren.db
 
 # Where uploads and run outputs are stored:
-# FLOWFRAME_DATA_DIR=.data
+# CIAREN_DATA_DIR=.data
 
 # Dataframe engine for runs that don't request one: polars | pandas
-# FLOWFRAME_DEFAULT_ENGINE=polars
+# CIAREN_DEFAULT_ENGINE=polars
 
 # How flow compute is offloaded off the event loop: thread | process
-# FLOWFRAME_EXECUTION_MODE=thread
+# CIAREN_EXECUTION_MODE=thread
 
 # Log output format: auto (color on a TTY, else plain) | text | json
 # Use "json" for structured logs when shipping to a log collector.
-# FLOWFRAME_LOG_FORMAT=auto
+# CIAREN_LOG_FORMAT=auto
 
 # Background scheduler:
-# FLOWFRAME_SCHEDULER_ENABLED=true
-# FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS=30
-# FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS=1
-# FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES=5
+# CIAREN_SCHEDULER_ENABLED=true
+# CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS=30
+# CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS=1
+# CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES=5
 
 # Abandon a run after this many seconds (0 = no limit):
-# FLOWFRAME_RUN_TIMEOUT_SECONDS=0
+# CIAREN_RUN_TIMEOUT_SECONDS=0
 
 # --- Security -----------------------------------------------------------------
 # The API is unauthenticated by default (fine bound to 127.0.0.1). If you expose
 # it on a network — e.g. binding 0.0.0.0, like the Docker image — set a token so
 # every /api request must send `Authorization: Bearer <token>`. The web UI sends
 # it automatically (seed it once via the app URL with `?api_token=<token>`).
-# FLOWFRAME_API_TOKEN=
+# CIAREN_API_TOKEN=
 
 # Pre-shared secret for the POST /api/flows/{id}/trigger webhook (CI/CD, Airflow).
 # Unset = the webhook is disabled (404).
-# FLOWFRAME_WEBHOOK_SECRET=
+# CIAREN_WEBHOOK_SECRET=
 
 # Block connector hosts/endpoints that resolve to internal addresses (loopback,
 # link-local incl. cloud metadata, RFC1918). Off by default so local databases
 # work; turn on for shared deployments where connection configs aren't trusted.
-# FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS=false
+# CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=false
 
 # Confine the local-folder storage connector to these directories (JSON list).
 # Empty = any folder is allowed (default). Set on shared deployments to stop a
 # connection from reading/writing arbitrary server files.
-# FLOWFRAME_STORAGE_ALLOWED_ROOTS=["/srv/flowframe/data"]
+# CIAREN_STORAGE_ALLOWED_ROOTS=["/srv/ciaren/data"]
 
 # Strict static checks for the pythonTransform node: reject dangerous imports/
 # builtins/dunders at save/run time and run with restricted builtins. Defense in
 # depth, not a sandbox. Off by default so existing scripts keep working.
-# FLOWFRAME_PYTHON_TRANSFORM_STRICT=false
+# CIAREN_PYTHON_TRANSFORM_STRICT=false
 
-# --- Machine learning (optional; requires `pip install flowframe[ml]`) --------
-# `flowframe init` provisions a default LOCAL MLflow instance below. To use an
+# --- Machine learning (optional; requires `pip install ciaren[ml]`) --------
+# `ciaren init` provisions a default LOCAL MLflow instance below. To use an
 # existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
-#   FLOWFRAME_MLFLOW_TRACKING_URI=http://mlflow.internal:5000
+#   CIAREN_MLFLOW_TRACKING_URI=http://mlflow.internal:5000
 # or a database-backed store: sqlite:///./mlflow.db
-FLOWFRAME_ML_ENABLED=true
-FLOWFRAME_MLFLOW_TRACKING_URI=./mlruns
+CIAREN_ML_ENABLED=true
+CIAREN_MLFLOW_TRACKING_URI=./mlruns
 # Model registry; leave unset to reuse the tracking store:
-# FLOWFRAME_MLFLOW_REGISTRY_URI=
+# CIAREN_MLFLOW_REGISTRY_URI=
 # Where trained model artifacts are stored (under DATA_DIR when relative):
-# FLOWFRAME_ML_ARTIFACT_DIR=ml_artifacts
+# CIAREN_ML_ARTIFACT_DIR=ml_artifacts
 """
 
 
 def _package_version() -> str:
     try:
-        return version("flowframe")
+        return version("ciaren")
     except PackageNotFoundError:  # pragma: no cover - running from a source checkout
         return "0.0.0"
 
@@ -111,10 +111,10 @@ def _redact_url(url: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="flowframe",
-        description="FlowFrame — local-first visual data and ML workflow builder.",
+        prog="ciaren",
+        description="Ciaren — local-first visual data and ML workflow builder.",
     )
-    parser.add_argument("--version", action="version", version=f"flowframe {_package_version()}")
+    parser.add_argument("--version", action="version", version=f"ciaren {_package_version()}")
 
     sub = parser.add_subparsers(dest="command")
 
@@ -148,24 +148,24 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument(
         "--db-url",
         default=None,
-        help="Async database URL; overrides FLOWFRAME_DATABASE_URL.",
+        help="Async database URL; overrides CIAREN_DATABASE_URL.",
     )
     serve.add_argument(
         "--data-dir",
         default=None,
-        help="Directory for uploads/outputs; overrides FLOWFRAME_DATA_DIR.",
+        help="Directory for uploads/outputs; overrides CIAREN_DATA_DIR.",
     )
     serve.add_argument(
         "--engine",
         choices=["polars", "pandas"],
         default=None,
-        help="Default dataframe engine; overrides FLOWFRAME_DEFAULT_ENGINE.",
+        help="Default dataframe engine; overrides CIAREN_DEFAULT_ENGINE.",
     )
     serve.add_argument(
         "--execution-mode",
         choices=["thread", "process"],
         default=None,
-        help="Compute offload mode; overrides FLOWFRAME_EXECUTION_MODE.",
+        help="Compute offload mode; overrides CIAREN_EXECUTION_MODE.",
     )
     serve.add_argument(
         "--log-level",
@@ -266,13 +266,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the migrated document back in place (a .bak backup is kept).",
     )
 
-    plugin = sub.add_parser("plugin", help="Install, inspect, and sign FlowFrame plugins.")
+    plugin = sub.add_parser("plugin", help="Install, inspect, and sign Ciaren plugins.")
     plugin_sub = plugin.add_subparsers(dest="plugin_command")
 
     plugin_sub.add_parser("list", help="List discovered plugins and their status.", parents=[output_parent])
 
-    p_install = plugin_sub.add_parser("install", help="Install a .ffplugin package (or a source dir with --dir).")
-    p_install.add_argument("path", help="Path to the .ffplugin file (or plugin source directory with --dir).")
+    p_install = plugin_sub.add_parser("install", help="Install a .ciarenplugin package (or a source dir with --dir).")
+    p_install.add_argument("path", help="Path to the .ciarenplugin file (or plugin source directory with --dir).")
     p_install.add_argument("--dir", action="store_true", help="Install from an unpacked source directory.")
     p_install.add_argument("--trusted", action="store_true", help="Refuse unless signed by a trusted key.")
     p_install.add_argument("--force", action="store_true", help="Overwrite an existing install.")
@@ -281,9 +281,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_uninstall.add_argument("plugin_id", help="The plugin id to remove.")
 
     p_verify = plugin_sub.add_parser(
-        "verify", help="Verify a .ffplugin's signature and integrity.", parents=[output_parent]
+        "verify", help="Verify a .ciarenplugin's signature and integrity.", parents=[output_parent]
     )
-    p_verify.add_argument("path", help="Path to the .ffplugin file.")
+    p_verify.add_argument("path", help="Path to the .ciarenplugin file.")
 
     p_enable = plugin_sub.add_parser("enable", help="Enable a plugin.")
     p_enable.add_argument("plugin_id")
@@ -292,9 +292,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     plugin_sub.add_parser("keygen", help="Generate an Ed25519 signing keypair (for publishers).")
 
-    p_pack = plugin_sub.add_parser("pack", help="Package a plugin source directory into an (unsigned) .ffplugin.")
-    p_pack.add_argument("src_dir", help="Plugin source directory (contains flowframe-plugin.json).")
-    p_pack.add_argument("out", help="Output .ffplugin path.")
+    p_pack = plugin_sub.add_parser("pack", help="Package a plugin source directory into an (unsigned) .ciarenplugin.")
+    p_pack.add_argument("src_dir", help="Plugin source directory (contains ciaren-plugin.json).")
+    p_pack.add_argument("out", help="Output .ciarenplugin path.")
     p_pack.add_argument(
         "--compile",
         action="store_true",
@@ -303,8 +303,8 @@ def build_parser() -> argparse.ArgumentParser:
         "inspection of paid plugins; locks the package to this Python version).",
     )
 
-    p_sign = plugin_sub.add_parser("sign", help="Sign a .ffplugin in place with an Ed25519 private key.")
-    p_sign.add_argument("path", help="Path to the .ffplugin file.")
+    p_sign = plugin_sub.add_parser("sign", help="Sign a .ciarenplugin in place with an Ed25519 private key.")
+    p_sign.add_argument("path", help="Path to the .ciarenplugin file.")
     p_sign.add_argument("--key", required=True, help="Hex-encoded Ed25519 private key.")
     p_sign.add_argument(
         "--key-id", required=True, dest="key_id", help="Identifier clients use to look up the public key."
@@ -318,7 +318,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_index = plugin_sub.add_parser("index", help="Author a local marketplace index (the 'Explore' catalog).")
     index_sub = p_index.add_subparsers(dest="index_command")
     p_index_add = index_sub.add_parser("add", help="Add/replace a plugin entry in a marketplace index.")
-    p_index_add.add_argument("package", help="Path to the .ffplugin to add.")
+    p_index_add.add_argument("package", help="Path to the .ciarenplugin to add.")
     p_index_add.add_argument("--index", required=True, help="Marketplace index JSON file (created if absent).")
     p_index_add.add_argument(
         "--download-url",
@@ -373,20 +373,20 @@ def _apply_serve_env(args: argparse.Namespace) -> None:
     """Translate serve flags into the env vars the Settings layer reads, before the
     app (and its cached settings) are imported."""
     overrides = {
-        "FLOWFRAME_DATABASE_URL": args.db_url,
-        "FLOWFRAME_DATA_DIR": args.data_dir,
-        "FLOWFRAME_DEFAULT_ENGINE": args.engine,
-        "FLOWFRAME_EXECUTION_MODE": args.execution_mode,
+        "CIAREN_DATABASE_URL": args.db_url,
+        "CIAREN_DATA_DIR": args.data_dir,
+        "CIAREN_DEFAULT_ENGINE": args.engine,
+        "CIAREN_EXECUTION_MODE": args.execution_mode,
     }
     for key, value in overrides.items():
         if value:
             os.environ[key] = value
     if args.no_scheduler:
-        os.environ["FLOWFRAME_SCHEDULER_ENABLED"] = "false"
+        os.environ["CIAREN_SCHEDULER_ENABLED"] = "false"
     if getattr(args, "no_demo", False):
-        os.environ["FLOWFRAME_SEED_DEMO"] = "false"
+        os.environ["CIAREN_SEED_DEMO"] = "false"
     if getattr(args, "run_seed_flows", False):
-        os.environ["FLOWFRAME_SEED_RUN_FLOWS"] = "true"
+        os.environ["CIAREN_SEED_RUN_FLOWS"] = "true"
 
 
 def _serve(args: argparse.Namespace) -> None:
@@ -427,7 +427,7 @@ def _warn_if_exposed_without_token(args: argparse.Namespace) -> None:
     print(
         f"  WARNING: serving on {args.host} with no API token. The API is "
         "unauthenticated and can execute code (pythonTransform, plugin install).\n"
-        "     Set FLOWFRAME_API_TOKEN to require a bearer token, or bind to "
+        "     Set CIAREN_API_TOKEN to require a bearer token, or bind to "
         "127.0.0.1 and use a reverse proxy.\n"
     )
 
@@ -451,7 +451,7 @@ def _print_serve_banner(args: argparse.Namespace) -> None:
     except (UnicodeEncodeError, LookupError):
         arrow = ">"
 
-    print("\n  FlowFrame")
+    print("\n  Ciaren")
     if serves_ui:
         print(f"  {arrow} Open the app:  {base}")
         print(f"    API + docs:    {base}/docs")
@@ -493,7 +493,7 @@ def _info(args: argparse.Namespace) -> None:
         print(json.dumps(rows, indent=2))
         return
     width = max(len(k) for k in rows)
-    print("FlowFrame resolved configuration:")
+    print("Ciaren resolved configuration:")
     for key, value in rows.items():
         print(f"  {key.ljust(width)}  {value}")
 
@@ -510,7 +510,7 @@ def _check(args: argparse.Namespace) -> None:
     data_dir = Path(s.DATA_DIR)
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
-        probe = data_dir / ".flowframe-write-test"
+        probe = data_dir / ".ciaren-write-test"
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
         checks.append({"name": "data_dir", "status": "ok", "detail": str(data_dir.resolve())})
@@ -549,7 +549,7 @@ def _check(args: argparse.Namespace) -> None:
                 {
                     "name": "ml",
                     "status": "warn",
-                    "detail": "ML_ENABLED but [ml] extra not installed — pip install flowframe[ml]",
+                    "detail": "ML_ENABLED but [ml] extra not installed — pip install ciaren[ml]",
                 }
             )
     else:
@@ -600,18 +600,18 @@ def _init(args: argparse.Namespace) -> None:
         print(f"{path} already exists — use --force to overwrite.")
         return
     path.write_text(_ENV_TEMPLATE, encoding="utf-8")
-    print(f"Wrote {path}. Edit it, then run `flowframe serve`.")
+    print(f"Wrote {path}. Edit it, then run `ciaren serve`.")
 
     # Provision a default local MLflow instance so ML flows work out of the box.
     # This is just a directory the local MLflow file store writes into; pointing
-    # FLOWFRAME_MLFLOW_TRACKING_URI at an existing server overrides it entirely.
+    # CIAREN_MLFLOW_TRACKING_URI at an existing server overrides it entirely.
     if not getattr(args, "no_ml", False):
         mlruns = Path(_DEFAULT_MLFLOW_DIR)
         try:
             mlruns.mkdir(parents=True, exist_ok=True)
             print(
                 f"Provisioned a local MLflow store at {mlruns.resolve()} "
-                f"(override with FLOWFRAME_MLFLOW_TRACKING_URI to use an existing MLflow)."
+                f"(override with CIAREN_MLFLOW_TRACKING_URI to use an existing MLflow)."
             )
         except OSError as exc:  # pragma: no cover - unusual fs error
             print(f"Could not create {mlruns}: {exc}")
@@ -640,12 +640,12 @@ def _db(args: argparse.Namespace) -> None:
         migrations.reset()
         print("Database reset: all tables dropped and rebuilt from migrations.")
     else:
-        print("usage: flowframe db {upgrade,current,reset}")
+        print("usage: ciaren db {upgrade,current,reset}")
 
 
 def _transformations(args: argparse.Namespace) -> None:
     if getattr(args, "transformations_command", None) != "list":
-        print("usage: flowframe transformations list")
+        print("usage: ciaren transformations list")
         return
     from app.engine.registry import get_transformation, list_transformation_types
 
@@ -681,7 +681,7 @@ def _flow(args: argparse.Namespace) -> None:
 
     command = getattr(args, "flow_command", None)
     if command not in ("validate", "migrate"):
-        print("usage: flowframe flow {validate,migrate}")
+        print("usage: ciaren flow {validate,migrate}")
         return
 
     path = Path(args.path)
@@ -752,7 +752,7 @@ def _plugin(args: argparse.Namespace) -> None:
         _plugin_licenses(args)
     else:
         print(
-            "usage: flowframe plugin "
+            "usage: ciaren plugin "
             "{list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,index,license,licenses}"
         )
 
@@ -783,14 +783,14 @@ def _plugin_list(args: argparse.Namespace) -> None:
 
 
 def _plugin_install(args: argparse.Namespace) -> None:
-    from app.plugins.install import InstallError, install_directory, install_ffplugin
+    from app.plugins.install import InstallError, install_ciarenplugin, install_directory
     from app.plugins.package import PackageError
 
     try:
         if args.dir:
             res = install_directory(args.path, force=args.force)
         else:
-            res = install_ffplugin(args.path, require_trusted=args.trusted, force=args.force)
+            res = install_ciarenplugin(args.path, require_trusted=args.trusted, force=args.force)
     except (InstallError, PackageError) as exc:
         raise SystemExit(f"install failed: {exc}") from exc
     v = res.verification
@@ -802,7 +802,7 @@ def _plugin_install(args: argparse.Namespace) -> None:
     state.save()
     print(f"Installed {res.plugin_id} -> {res.location}")
     print(f"  signature: {v.outcome} ({v.reason})")
-    print("Run `flowframe serve` (or restart) to load it.")
+    print("Run `ciaren serve` (or restart) to load it.")
 
 
 def _plugin_uninstall(args: argparse.Namespace) -> None:
@@ -851,7 +851,7 @@ def _plugin_toggle(args: argparse.Namespace, *, enable: bool) -> None:
         # Enabling is an explicit opt-in to run the plugin's (unsandboxed) code.
         state.set_approved(args.plugin_id, True)
     state.save()
-    print(f"{'Enabled' if enable else 'Disabled'} {args.plugin_id}. Restart `flowframe serve` to apply.")
+    print(f"{'Enabled' if enable else 'Disabled'} {args.plugin_id}. Restart `ciaren serve` to apply.")
 
 
 def _plugin_keygen() -> None:
@@ -865,7 +865,7 @@ def _plugin_keygen() -> None:
     print(f"  private_key: {private_hex}")
     print(f"  public_key:  {public_hex}")
     print("\nPublish the public key as a trusted key, e.g.:")
-    print(f'  FLOWFRAME_TRUSTED_PLUGIN_KEYS=\'{{"your-key-id": "{public_hex}"}}\'')
+    print(f'  CIAREN_TRUSTED_PLUGIN_KEYS=\'{{"your-key-id": "{public_hex}"}}\'')
 
 
 def _plugin_pack(args: argparse.Namespace) -> None:
@@ -876,7 +876,7 @@ def _plugin_pack(args: argparse.Namespace) -> None:
     except PackageError as exc:
         raise SystemExit(f"pack failed: {exc}") from exc
     note = " (compiled bytecode)" if getattr(args, "compile_python", False) else ""
-    print(f"Wrote {out} (unsigned{note}). Sign it with `flowframe plugin sign`.")
+    print(f"Wrote {out} (unsigned{note}). Sign it with `ciaren plugin sign`.")
     if getattr(args, "compile_python", False):
         print(f"  Built for Python {sys.version_info.major}.{sys.version_info.minor}; rebuild per Python version.")
 
@@ -898,7 +898,7 @@ def _plugin_sign(args: argparse.Namespace) -> None:
 
 def _plugin_index(args: argparse.Namespace) -> None:
     if getattr(args, "index_command", None) != "add":
-        print("usage: flowframe plugin index add <package.ffplugin> --index <index.json>")
+        print("usage: ciaren plugin index add <package.ciarenplugin> --index <index.json>")
         return
     from app.plugins.marketplace import add_to_index_file
     from app.plugins.package import PackageError
@@ -944,7 +944,7 @@ def _plugin_license(args: argparse.Namespace) -> None:
     elif command == "status":
         _plugin_license_status(args)
     else:
-        print("usage: flowframe plugin license {issue,import,status}")
+        print("usage: ciaren plugin license {issue,import,status}")
 
 
 def _plugin_license_issue(args: argparse.Namespace) -> None:

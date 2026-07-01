@@ -18,7 +18,7 @@ from app.flow_schema.document import (
     FlowGraph,
     FlowSchemaDocument,
 )
-from app.version import flowframe_version
+from app.version import ciaren_version
 
 
 class FlowSchemaError(ValueError):
@@ -80,14 +80,14 @@ def missing_node_types(document: FlowSchemaDocument, available_types: set[str]) 
 
 
 def from_legacy_document(doc: dict[str, Any]) -> FlowSchemaDocument:
-    """Upgrade a legacy ``flowframe.flow/v1`` export (``name`` / ``description`` /
+    """Upgrade a legacy ``ciaren.flow/v1`` export (``name`` / ``description`` /
     ``graph_json``) into the versioned document."""
     graph_json = doc.get("graph_json") or {}
     return FlowSchemaDocument.model_validate(
         {
             "project": {"name": doc.get("name", "Untitled"), "description": doc.get("description")},
             "graph": graph_json,
-            "flowframeVersion": flowframe_version(),
+            "ciarenVersion": ciaren_version(),
         }
     )
 

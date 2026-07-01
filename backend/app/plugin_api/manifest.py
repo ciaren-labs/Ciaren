@@ -47,8 +47,8 @@ class PluginManifest(BaseModel):
     publisher: str = "community"
     description: str = ""
     license: LicenseKind = "community"
-    #: PEP 440 specifier set describing compatible FlowFrame versions.
-    flowframe: str = ">=0.1"
+    #: PEP 440 specifier set describing compatible Ciaren versions.
+    ciaren: str = ">=0.1"
     #: Dotted entry point: ``module.path:ClassName``.
     entrypoint: str | None = None
     permissions: list[Permission] = Field(default_factory=list)
@@ -67,13 +67,13 @@ class PluginManifest(BaseModel):
             raise ValueError(f"invalid plugin version {v!r}: {exc}") from exc
         return v
 
-    @field_validator("flowframe")
+    @field_validator("ciaren")
     @classmethod
     def _valid_specifier(cls, v: str) -> str:
         try:
             SpecifierSet(v)
         except InvalidSpecifier as exc:
-            raise ValueError(f"invalid flowframe compatibility spec {v!r}: {exc}") from exc
+            raise ValueError(f"invalid ciaren compatibility spec {v!r}: {exc}") from exc
         return v
 
     @field_validator("entrypoint")
@@ -83,11 +83,11 @@ class PluginManifest(BaseModel):
             raise ValueError(f"entrypoint must be 'module.path:Attribute', got {v!r}")
         return v
 
-    def is_compatible_with(self, flowframe_version: str) -> bool:
-        """Whether this plugin declares compatibility with ``flowframe_version``.
+    def is_compatible_with(self, ciaren_version: str) -> bool:
+        """Whether this plugin declares compatibility with ``ciaren_version``.
         Pre-releases are allowed so a plugin can target a dev build."""
         try:
-            return Version(flowframe_version) in SpecifierSet(self.flowframe, prereleases=True)
+            return Version(ciaren_version) in SpecifierSet(self.ciaren, prereleases=True)
         except (InvalidVersion, InvalidSpecifier):
             return False
 

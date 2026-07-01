@@ -39,8 +39,8 @@ async def test_experiments_501_when_disabled(client: AsyncClient) -> None:
 
 
 async def test_experiments_empty_before_any_run(client: AsyncClient, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -54,8 +54,8 @@ async def test_experiments_empty_before_any_run(client: AsyncClient, tmp_path, m
 
 
 async def test_experiments_listed_after_run(client: AsyncClient, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -74,8 +74,8 @@ async def test_experiments_listed_after_run(client: AsyncClient, tmp_path, monke
 
 
 async def test_experiments_empty_for_non_ml_flow(client: AsyncClient, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
     get_settings.cache_clear()
     try:
         graph = {

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Helpers for emitting SQL source/sink code in the exported scripts.
 
-The generated code reads the password from ``os.environ`` (matching FlowFrame's
+The generated code reads the password from ``os.environ`` (matching Ciaren's
 "never store secrets" model), so exported scripts are runnable and safe to share.
 """
 

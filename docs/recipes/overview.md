@@ -1,12 +1,12 @@
 ---
 title: Recipes
-description: Short, copy-paste task recipes for common data jobs in FlowFrame — convert formats, remove duplicates, pivot, fill missing values, and more.
+description: Short, copy-paste task recipes for common data jobs in Ciaren — convert formats, remove duplicates, pivot, fill missing values, and more.
 search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values
 ---
 
 # Recipes
 
-Quick, focused answers to *"how do I do X in FlowFrame?"* Each recipe is a single
+Quick, focused answers to *"how do I do X in Ciaren?"* Each recipe is a single
 small task you can build in a minute or two — no long walkthrough. For end-to-end
 projects, see the [Examples](/examples/sales-analysis).
 

@@ -58,7 +58,7 @@ async def test_webhook_status_unconfigured(client: AsyncClient) -> None:
 
 
 async def test_webhook_status_configured(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         r = await client.get("/api/settings/webhook")
@@ -74,7 +74,7 @@ async def test_webhook_status_configured(client: AsyncClient, monkeypatch: pytes
 
 
 async def test_trigger_disabled_when_no_secret(client: AsyncClient) -> None:
-    r = await client.post("/api/flows/any-id/trigger", headers={"X-FlowFrame-Secret": SECRET})
+    r = await client.post("/api/flows/any-id/trigger", headers={"X-Ciaren-Secret": SECRET})
     assert r.status_code == 404
     assert "not configured" in r.json()["detail"].lower()
 
@@ -85,31 +85,31 @@ async def test_trigger_disabled_when_no_secret(client: AsyncClient) -> None:
 
 
 async def test_trigger_missing_secret_header(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         r = await client.post("/api/flows/any-id/trigger")
         assert r.status_code == 403
-        assert "x-flowframe-secret" in r.json()["detail"].lower()
+        assert "x-ciaren-secret" in r.json()["detail"].lower()
     finally:
         get_settings.cache_clear()
 
 
 async def test_trigger_wrong_secret(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
-        r = await client.post("/api/flows/any-id/trigger", headers={"X-FlowFrame-Secret": "wrong"})
+        r = await client.post("/api/flows/any-id/trigger", headers={"X-Ciaren-Secret": "wrong"})
         assert r.status_code == 403
     finally:
         get_settings.cache_clear()
 
 
 async def test_trigger_empty_secret(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
-        r = await client.post("/api/flows/any-id/trigger", headers={"X-FlowFrame-Secret": ""})
+        r = await client.post("/api/flows/any-id/trigger", headers={"X-Ciaren-Secret": ""})
         assert r.status_code == 403
     finally:
         get_settings.cache_clear()
@@ -121,12 +121,12 @@ async def test_trigger_empty_secret(client: AsyncClient, monkeypatch: pytest.Mon
 
 
 async def test_trigger_flow_not_found(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         r = await client.post(
             "/api/flows/nonexistent-id/trigger",
-            headers={"X-FlowFrame-Secret": SECRET},
+            headers={"X-Ciaren-Secret": SECRET},
         )
         assert r.status_code == 404
     finally:
@@ -142,7 +142,7 @@ async def test_trigger_runs_flow_and_returns_result(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -150,7 +150,7 @@ async def test_trigger_runs_flow_and_returns_result(
 
         r = await client.post(
             f"/api/flows/{flow['id']}/trigger",
-            headers={"X-FlowFrame-Secret": SECRET},
+            headers={"X-Ciaren-Secret": SECRET},
         )
         assert r.status_code == 200, r.text
         run = r.json()
@@ -167,7 +167,7 @@ async def test_trigger_with_empty_body(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -175,7 +175,7 @@ async def test_trigger_with_empty_body(
 
         r = await client.post(
             f"/api/flows/{flow['id']}/trigger",
-            headers={"X-FlowFrame-Secret": SECRET},
+            headers={"X-Ciaren-Secret": SECRET},
             content=b"",
         )
         assert r.status_code == 200, r.text
@@ -188,7 +188,7 @@ async def test_trigger_accepts_engine_override(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -197,7 +197,7 @@ async def test_trigger_accepts_engine_override(
         r = await client.post(
             f"/api/flows/{flow['id']}/trigger",
             json={"engine": "pandas"},
-            headers={"X-FlowFrame-Secret": SECRET},
+            headers={"X-Ciaren-Secret": SECRET},
         )
         assert r.status_code == 200, r.text
         assert r.json()["engine"] == "pandas"
@@ -210,7 +210,7 @@ async def test_trigger_wait_false_still_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """wait=false is accepted; Phase 1 always blocks and returns the result."""
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         ds = await _upload(client)
@@ -218,7 +218,7 @@ async def test_trigger_wait_false_still_succeeds(
 
         r = await client.post(
             f"/api/flows/{flow['id']}/trigger?wait=false",
-            headers={"X-FlowFrame-Secret": SECRET},
+            headers={"X-Ciaren-Secret": SECRET},
         )
         assert r.status_code == 200, r.text
         assert r.json()["status"] == "success"
@@ -235,7 +235,7 @@ async def test_webhook_status_never_returns_secret(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
     get_settings.cache_clear()
     try:
         r = await client.get("/api/settings/webhook")

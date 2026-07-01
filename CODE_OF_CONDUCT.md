@@ -2,7 +2,7 @@
 
 ## Our Commitment
 
-We are committed to providing a welcoming and inspiring community for all. We pledge that everyone participating in the FlowFrame community will be treated with respect and dignity.
+We are committed to providing a welcoming and inspiring community for all. We pledge that everyone participating in the Ciaren community will be treated with respect and dignity.
 
 ---
 
@@ -61,4 +61,4 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 
 If you have questions about this Code of Conduct, please open a discussion in [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions).
 
-**Thank you for helping make FlowFrame a respectful, inclusive community.**
+**Thank you for helping make Ciaren a respectful, inclusive community.**

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""FlowFrame plugin API — the stable extension contract.
+"""Ciaren plugin API — the stable extension contract.
 
 This package is intentionally self-contained (only Pydantic as a dependency) so
-it can become the independently published ``flowframe-plugin-api`` package. A
+it can become the independently published ``ciaren-plugin-api`` package. A
 plugin depends on this and on the public schema; it never imports private
-internals of the FlowFrame app, engine, or FastAPI layer.
+internals of the Ciaren app, engine, or FastAPI layer.
 """
 
 from app.plugin_api.events import EventBus, Hook

@@ -20,7 +20,7 @@ def _isolate_registry(monkeypatch, tmp_path):
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
+    monkeypatch.setenv("CIAREN_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
     reset_registry()
     yield
     reset_registry()
@@ -34,7 +34,7 @@ async def test_plugins_empty_by_default(client):
 
 
 async def test_plugin_discovered_from_dir_shows_in_endpoints(client, monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(EXAMPLES_DIR))
     reset_registry()  # rebuild with the env now set
 
     # Discovered but pending approval: it's listed, but its code isn't loaded yet,
@@ -58,8 +58,8 @@ async def test_plugin_discovered_from_dir_shows_in_endpoints(client, monkeypatch
 async def test_diagnostics_reports_invalid_plugin(client, monkeypatch, tmp_path):
     broken = tmp_path / "broken"
     broken.mkdir()
-    (broken / "flowframe-plugin.json").write_text("{ bad json", encoding="utf-8")
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(tmp_path))
+    (broken / "ciaren-plugin.json").write_text("{ bad json", encoding="utf-8")
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(tmp_path))
     reset_registry()
 
     resp = await client.get("/api/plugins/diagnostics")

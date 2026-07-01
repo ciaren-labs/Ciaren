@@ -184,7 +184,7 @@ def create_app() -> FastAPI:
         description="Visual data and ML workflow builder — local-first, dataframe-based",
         version="0.1.0",
         lifespan=lifespan,
-        # Optional API-token gate (no-op unless FLOWFRAME_API_TOKEN is set). As a
+        # Optional API-token gate (no-op unless CIAREN_API_TOKEN is set). As a
         # dependency rather than middleware, a 401 still passes through CORS.
         dependencies=[Depends(verify_api_token)],
     )
@@ -194,7 +194,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Accept", "X-FlowFrame-Secret"],
+        allow_headers=["Content-Type", "Authorization", "Accept", "X-Ciaren-Secret"],
     )
     # Compress responses (the served JS/CSS bundle and large JSON payloads).
     app.add_middleware(GZipMiddleware, minimum_size=1024)

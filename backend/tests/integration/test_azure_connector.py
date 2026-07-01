@@ -4,12 +4,12 @@ These exercise the real azure-storage-blob code path (``app/connectors/
 azure_blob.py``) against the Azurite emulator — in CI (see ``.github/workflows/
 connectors-integration.yml``) or locally.
 
-The whole module self-skips unless ``FLOWFRAME_TEST_AZURE_ENDPOINT`` is set, so
+The whole module self-skips unless ``CIAREN_TEST_AZURE_ENDPOINT`` is set, so
 the default infra-free suite is unaffected. To run locally against Azurite::
 
     docker run -d -p 10000:10000 mcr.microsoft.com/azure-storage/azurite \\
         azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
-    FLOWFRAME_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \\
+    CIAREN_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \\
         pytest tests/integration/test_azure_connector.py -m connectors
 
 Defaults match Azurite's well-known development account; override the account /
@@ -33,18 +33,18 @@ pytestmark = pytest.mark.connectors
 _AZURITE_ACCOUNT = "devstoreaccount1"
 _AZURITE_KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 
-_ENDPOINT = os.environ.get("FLOWFRAME_TEST_AZURE_ENDPOINT")
-_ACCOUNT = os.environ.get("FLOWFRAME_TEST_AZURE_ACCOUNT", _AZURITE_ACCOUNT)
-_KEY = os.environ.get("FLOWFRAME_TEST_AZURE_KEY", _AZURITE_KEY)
+_ENDPOINT = os.environ.get("CIAREN_TEST_AZURE_ENDPOINT")
+_ACCOUNT = os.environ.get("CIAREN_TEST_AZURE_ACCOUNT", _AZURITE_ACCOUNT)
+_KEY = os.environ.get("CIAREN_TEST_AZURE_KEY", _AZURITE_KEY)
 
 if not _ENDPOINT:
     pytest.skip(
-        "FLOWFRAME_TEST_AZURE_ENDPOINT not set; skipping live Azure Blob connector tests.",
+        "CIAREN_TEST_AZURE_ENDPOINT not set; skipping live Azure Blob connector tests.",
         allow_module_level=True,
     )
 
 azure_blob = pytest.importorskip(
-    "azure.storage.blob", reason="azure-storage-blob not installed (pip install flowframe[azure])"
+    "azure.storage.blob", reason="azure-storage-blob not installed (pip install ciaren[azure])"
 )
 
 

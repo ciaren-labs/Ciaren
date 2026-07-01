@@ -16,7 +16,7 @@ function spec(overrides: Partial<CatalogNode> = {}): CatalogNode {
     label: "X",
     category: "columns",
     description: "",
-    provider: "flowframe.core",
+    provider: "ciaren.core",
     version: "1.0.0",
     inputs: [{ id: "in", type: "dataframe", required: true, multi: false }],
     outputs: [{ id: "out", type: "dataframe", required: true, multi: false }],
@@ -41,7 +41,7 @@ describe("nodeSpecToDef", () => {
     expect(def.label).toBe("Filter Rows");
     expect(def.inputHandles).toEqual(["in"]);
     expect(def.hasOutput).toBe(true);
-    expect(def.provider).toBe("flowframe.core");
+    expect(def.provider).toBe("ciaren.core");
     // A single implicit "out" is left undefined (static convention).
     expect(def.outputHandles).toBeUndefined();
     expect(def.defaultConfig).toEqual({ column: "" });
@@ -127,8 +127,8 @@ describe("nodeSpecToDef", () => {
 
 describe("isPluginNodeDef", () => {
   it("does not treat core or ML providers as plugins", () => {
-    const core = nodeSpecToDef(spec({ provider: "flowframe.core" }));
-    const ml = nodeSpecToDef(spec({ provider: "flowframe.ml" }));
+    const core = nodeSpecToDef(spec({ provider: "ciaren.core" }));
+    const ml = nodeSpecToDef(spec({ provider: "ciaren.ml" }));
     const plugin = nodeSpecToDef(spec({ provider: "community.hello" }));
 
     expect(isPluginNodeDef(core)).toBe(false);

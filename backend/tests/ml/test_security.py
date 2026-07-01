@@ -1,5 +1,6 @@
 """Security guardrails: model URI path validation, pickle rejection, and
 hyperparameter sanitization."""
+
 import pytest
 
 from app.ml.security import (
@@ -70,9 +71,16 @@ def test_unknown_suffix_rejected(name):
 
 
 def test_valid_hyperparameters_pass():
-    params = {"n_estimators": 200, "max_depth": 10, "class_weight": "balanced",
-              "alpha": 0.1, "fit_intercept": True, "missing": None,
-              "weights": [1, 2, 3], "nested": {"a": 1}}
+    params = {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "class_weight": "balanced",
+        "alpha": 0.1,
+        "fit_intercept": True,
+        "missing": None,
+        "weights": [1, 2, 3],
+        "nested": {"a": 1},
+    }
     assert sanitize_hyperparameters(params) == params
 
 
@@ -121,8 +129,8 @@ def test_load_model_rejects_oversized_joblib(tmp_path, monkeypatch):
     model = artifacts / "model.joblib"
     model.write_bytes(b"\x00" * (2 * 1024 * 1024))  # 2 MiB
 
-    monkeypatch.setenv("FLOWFRAME_ML_ARTIFACT_DIR", str(artifacts))
-    monkeypatch.setenv("FLOWFRAME_ML_MAX_MODEL_SIZE_MB", "1")  # 1 MiB cap < file
+    monkeypatch.setenv("CIAREN_ML_ARTIFACT_DIR", str(artifacts))
+    monkeypatch.setenv("CIAREN_ML_MAX_MODEL_SIZE_MB", "1")  # 1 MiB cap < file
     get_settings.cache_clear()
     try:
         with pytest.raises(ModelSecurityError, match="over the .* MB limit"):

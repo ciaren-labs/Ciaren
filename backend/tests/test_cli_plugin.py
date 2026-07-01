@@ -1,4 +1,4 @@
-"""CLI tests for `flowframe plugin` — pack/sign/verify/install/uninstall/keygen/search."""
+"""CLI tests for `ciaren plugin` — pack/sign/verify/install/uninstall/keygen/search."""
 
 from __future__ import annotations
 
@@ -24,13 +24,13 @@ _MANIFEST = {
 def src(tmp_path):
     d = tmp_path / "src"
     d.mkdir()
-    (d / "flowframe-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
+    (d / "ciaren-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
     (d / "cli_plugin.py").write_text("CliPlugin = object\n", encoding="utf-8")
     return d
 
 
 def test_pack_and_verify_unsigned(src, tmp_path, capsys):
-    out = tmp_path / "p.ffplugin"
+    out = tmp_path / "p.ciarenplugin"
     main(["plugin", "pack", str(src), str(out)])
     assert out.is_file()
     capsys.readouterr()
@@ -42,7 +42,7 @@ def test_pack_and_verify_unsigned(src, tmp_path, capsys):
 
 
 def test_verify_json_output(src, tmp_path, capsys):
-    out = tmp_path / "p.ffplugin"
+    out = tmp_path / "p.ciarenplugin"
     main(["plugin", "pack", str(src), str(out)])
     capsys.readouterr()
     main(["plugin", "verify", str(out), "--output", "json"])
@@ -53,7 +53,7 @@ def test_verify_json_output(src, tmp_path, capsys):
 
 def test_install_and_uninstall_dir(src, tmp_path, monkeypatch, capsys):
     install_dir = tmp_path / "installed"
-    monkeypatch.setenv("FLOWFRAME_PLUGIN_INSTALL_DIR", str(install_dir))
+    monkeypatch.setenv("CIAREN_PLUGIN_INSTALL_DIR", str(install_dir))
     main(["plugin", "install", str(src), "--dir"])
     out = capsys.readouterr().out
     assert "Installed community.cli" in out
@@ -73,7 +73,7 @@ def test_search_local_index(tmp_path, capsys):
 
 
 def test_index_add_then_search(src, tmp_path, capsys):
-    pkg = tmp_path / "p.ffplugin"
+    pkg = tmp_path / "p.ciarenplugin"
     main(["plugin", "pack", str(src), str(pkg)])
     capsys.readouterr()
 
@@ -88,7 +88,7 @@ def test_index_add_then_search(src, tmp_path, capsys):
     payload = json.loads(index.read_text(encoding="utf-8"))
     entry = payload["plugins"][0]
     assert entry["id"] == "community.cli"
-    assert entry["downloadUrl"] == "p.ffplugin"
+    assert entry["downloadUrl"] == "p.ciarenplugin"
     assert entry["digest"]
 
     main(["plugin", "search", "community", "--index", str(index)])
@@ -104,30 +104,30 @@ def test_keygen_pack_sign_verify_trusted(src, tmp_path, monkeypatch, capsys):
     public_hex = next(line.split(":", 1)[1].strip() for line in keygen_out.splitlines() if "public_key" in line)
 
     # pack + sign
-    pkg = tmp_path / "p.ffplugin"
+    pkg = tmp_path / "p.ciarenplugin"
     main(["plugin", "pack", str(src), str(pkg)])
     capsys.readouterr()
     main(["plugin", "sign", str(pkg), "--key", private_hex, "--key-id", "kid-1", "--publisher", "acme"])
     assert "Signed" in capsys.readouterr().out
 
     # verify trusts the key via env
-    monkeypatch.setenv("FLOWFRAME_TRUSTED_PLUGIN_KEYS", json.dumps({"kid-1": public_hex}))
+    monkeypatch.setenv("CIAREN_TRUSTED_PLUGIN_KEYS", json.dumps({"kid-1": public_hex}))
     main(["plugin", "verify", str(pkg)])
     assert "trusted" in capsys.readouterr().out
 
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_install_trusted_only_rejects_unsigned(src, tmp_path, monkeypatch):
-    pkg = tmp_path / "p.ffplugin"
+    pkg = tmp_path / "p.ciarenplugin"
     main(["plugin", "pack", str(src), str(pkg)])
-    monkeypatch.setenv("FLOWFRAME_PLUGIN_INSTALL_DIR", str(tmp_path / "i"))
+    monkeypatch.setenv("CIAREN_PLUGIN_INSTALL_DIR", str(tmp_path / "i"))
     with pytest.raises(SystemExit):
         main(["plugin", "install", str(pkg), "--trusted"])
 
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_license_issue_import_status_roundtrip(tmp_path, monkeypatch, capsys):
-    # Isolate the license cache (LicenseCache defaults to ~/.flowframe/licenses).
+    # Isolate the license cache (LicenseCache defaults to ~/.ciaren/licenses).
     monkeypatch.setenv("HOME", str(tmp_path))
     main(["plugin", "keygen"])
     keygen_out = capsys.readouterr().out
@@ -135,12 +135,25 @@ def test_license_issue_import_status_roundtrip(tmp_path, monkeypatch, capsys):
     pub = next(line.split(":", 1)[1].strip() for line in keygen_out.splitlines() if "public_key" in line)
 
     token_path = tmp_path / "token.json"
-    main([
-        "plugin", "license", "issue",
-        "--key", priv, "--user", "u-1", "--plugin", "acme.db",
-        "--expires", "2099-01-01T00:00:00Z", "--grace", "2099-02-01T00:00:00Z",
-        "--out", str(token_path),
-    ])
+    main(
+        [
+            "plugin",
+            "license",
+            "issue",
+            "--key",
+            priv,
+            "--user",
+            "u-1",
+            "--plugin",
+            "acme.db",
+            "--expires",
+            "2099-01-01T00:00:00Z",
+            "--grace",
+            "2099-02-01T00:00:00Z",
+            "--out",
+            str(token_path),
+        ]
+    )
     assert token_path.is_file()
     capsys.readouterr()
 

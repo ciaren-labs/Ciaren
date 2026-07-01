@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 
 /** MIME-ish key used to carry the node type across a drag from palette → canvas. */
-export const NODE_DND_MIME = "application/flowframe-node";
+export const NODE_DND_MIME = "application/ciaren-node";
 
 const PALETTE_MIN_WIDTH = 200;
 const PALETTE_MAX_WIDTH = 480;

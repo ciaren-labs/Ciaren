@@ -27,7 +27,7 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "plugins"
 def _load_example_plugin(monkeypatch):
     from app.plugins.state import PluginStateStore
 
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(EXAMPLES_DIR))
     # Plugins now require explicit approval before their code is imported, even
     # with zero declared permissions. Pre-approve the example so it loads.
     state = PluginStateStore()
@@ -47,7 +47,7 @@ def _graph():
             {
                 "id": "greet",
                 "type": "hello.greeting",
-                "data": {"config": {"column": "msg", "name": "FlowFrame"}},
+                "data": {"config": {"column": "msg", "name": "Ciaren"}},
             },
             {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
         ],
@@ -83,14 +83,14 @@ def test_run_pipeline_with_plugin_node(tmp_path, engine_name):
         engine_name=engine_name,
     )
     result = pd.read_csv(outputs["out1"])
-    assert list(result["msg"]) == ["Hello, FlowFrame!"] * 3
+    assert list(result["msg"]) == ["Hello, Ciaren!"] * 3
     assert list(result["a"]) == [1, 2, 3]
 
 
 def test_export_python_with_plugin_node():
     code = CodeGenerator().generate(_graph(), {"ds1": "in.csv"})
     assert ".assign(" in code
-    assert "'msg': 'Hello, FlowFrame!'" in code
+    assert "'msg': 'Hello, Ciaren!'" in code
 
 
 def test_export_polars_with_plugin_node():
@@ -98,7 +98,7 @@ def test_export_polars_with_plugin_node():
     # The pandas-emitting plugin node is bridged in the polars script.
     assert "to_pandas()" in code
     assert "from_pandas(" in code
-    assert "'msg': 'Hello, FlowFrame!'" in code
+    assert "'msg': 'Hello, Ciaren!'" in code
 
 
 def test_reset_unregisters_plugin_node():

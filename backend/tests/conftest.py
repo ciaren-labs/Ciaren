@@ -16,7 +16,7 @@ def _isolate_plugin_state(tmp_path, monkeypatch):
     leak between tests. Runs before module-level autouse fixtures that build the
     plugin registry. The registry is reset afterwards so its cached state (and any
     bridged plugin nodes) don't bleed into the next test."""
-    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
+    monkeypatch.setenv("CIAREN_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
     yield
     from app.plugins import reset_registry
 
@@ -51,11 +51,11 @@ async def client(db_session, tmp_path, monkeypatch):
     # and cleaned up automatically after each test.
     from app.core.config import get_settings
 
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
     # Pin ML off by default for API tests so gating behavior is deterministic
     # regardless of the product default (which is now true). ML tests opt in by
-    # setting FLOWFRAME_ML_ENABLED=true + clearing the settings cache.
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
+    # setting CIAREN_ML_ENABLED=true + clearing the settings cache.
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "false")
     get_settings.cache_clear()
 
     # ASGITransport does not send lifespan events, so create the data dirs manually.

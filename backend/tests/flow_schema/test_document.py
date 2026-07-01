@@ -37,9 +37,9 @@ def test_validate_minimal_document_defaults_version():
 
 
 def test_validate_accepts_camelcase_aliases():
-    doc = validate_document({**_doc(), "schemaVersion": "1.0.0", "flowframeVersion": "0.1.0"})
+    doc = validate_document({**_doc(), "schemaVersion": "1.0.0", "ciarenVersion": "0.1.0"})
     assert doc.schema_version == "1.0.0"
-    assert doc.flowframe_version == "0.1.0"
+    assert doc.ciaren_version == "0.1.0"
 
 
 def test_to_json_dict_uses_aliases():

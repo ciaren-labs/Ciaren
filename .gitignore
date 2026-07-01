@@ -13,7 +13,7 @@ develop-eggs/
 dist/
 # …but keep the committed example signed plugin artifact (reproducible demo).
 !examples/plugins/dist/
-!examples/plugins/dist/*.ffplugin
+!examples/plugins/dist/*.ciarenplugin
 downloads/
 eggs/
 .eggs/
@@ -246,7 +246,7 @@ backend/*.db
 backend/.dev_data/
 backend/.data/
 
-# MLflow local store + model artifacts (created by `flowframe init` / training)
+# MLflow local store + model artifacts (created by `ciaren init` / training)
 mlruns/
 mlartifacts/
 backend/mlruns/

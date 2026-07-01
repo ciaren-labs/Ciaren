@@ -167,16 +167,16 @@ describe("PluginsPage", () => {
     expect(screen.getByText("dir:broken")).toBeInTheDocument();
   });
 
-  it("uploads a selected .ffplugin file via the Install button", async () => {
+  it("uploads a selected .ciarenplugin file via the Install button", async () => {
     diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
     renderPage();
 
     await screen.findByText("No plugins installed");
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File([new Uint8Array([1, 2, 3])], "acme.ffplugin");
+    const file = new File([new Uint8Array([1, 2, 3])], "acme.ciarenplugin");
     await userEvent.upload(input, file);
     await waitFor(() => expect(installPlugin).toHaveBeenCalledTimes(1));
-    expect(installPlugin.mock.calls[0][0].name).toBe("acme.ffplugin");
+    expect(installPlugin.mock.calls[0][0].name).toBe("acme.ciarenplugin");
   });
 
   it("shows a configured catalog and installs an entry", async () => {

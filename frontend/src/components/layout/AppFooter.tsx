@@ -4,8 +4,7 @@ export function AppFooter() {
   return (
     <footer className="flex shrink-0 items-center justify-between border-t border-border bg-background/80 px-5 py-2 text-[11px] text-muted-foreground backdrop-blur">
       <span>
-        <span className="font-medium text-brand-600">Flow</span>
-        <span>Frame</span>
+        <span className="font-medium text-brand-600">Ciaren</span>
         {" — "}open-core local-first data and ML workflow builder
       </span>
       <div className="flex items-center gap-4">

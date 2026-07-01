@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve FlowFrame. Before opening a bug, please search existing issues and PRs so we can keep duplicate reports together.
+        Thanks for helping improve Ciaren. Before opening a bug, please search existing issues and PRs so we can keep duplicate reports together.
 
         Security issue? Stop here and use the private security advisory link from the issue chooser.
   - type: checkboxes
@@ -74,7 +74,7 @@ body:
     id: expected
     attributes:
       label: Expected behavior
-      placeholder: "What should FlowFrame do instead?"
+      placeholder: "What should Ciaren do instead?"
     validations:
       required: true
   - type: textarea
@@ -95,7 +95,7 @@ body:
         - Browser:
         - Python:
         - Node:
-        - FlowFrame branch/commit:
+        - Ciaren branch/commit:
         - Install method: source / Docker / package / other
     validations:
       required: true

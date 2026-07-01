@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
 // public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
-// Plugins are a first-class concept in FlowFrame, so this sidebar leads with the
+// Plugins are a first-class concept in Ciaren, so this sidebar leads with the
 // overview (the extension-points map) before the how-to and reference pages.
 const extendingSidebar = [
   {
@@ -32,7 +32,7 @@ const extendingSidebar = [
 ]
 
 export default defineConfig({
-  title: 'FlowFrame',
+  title: 'Ciaren',
   description:
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
@@ -42,8 +42,8 @@ export default defineConfig({
     // Open Graph — controls how links render on GitHub, Reddit, HN, Slack, etc.
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:locale', content: 'en' }],
-    ['meta', { property: 'og:site_name', content: 'FlowFrame' }],
-    ['meta', { property: 'og:title', content: 'FlowFrame — Visual Data Engineering & ML, exported to clean Python' }],
+    ['meta', { property: 'og:site_name', content: 'Ciaren' }],
+    ['meta', { property: 'og:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
     ['meta', {
       property: 'og:description',
       content:
@@ -53,7 +53,7 @@ export default defineConfig({
     ['meta', { property: 'og:url', content: 'https://rodrigo-arenas.github.io/FlowFrame/' }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'FlowFrame — Visual Data Engineering & ML, exported to clean Python' }],
+    ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
     ['meta', {
       name: 'twitter:description',
       content:
@@ -78,7 +78,7 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: 'FlowFrame',
+    siteTitle: 'Ciaren',
 
     nav: [
       {
@@ -137,7 +137,7 @@ export default defineConfig({
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
             { text: 'Interface Tour', link: '/guide/interface' },
-            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
+            { text: 'How Ciaren Compares', link: '/guide/comparison' },
           ],
         },
         {
@@ -191,7 +191,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Roadmap', link: '/guide/roadmap' },
-            { text: 'How FlowFrame Compares', link: '/guide/comparison' },
+            { text: 'How Ciaren Compares', link: '/guide/comparison' },
           ],
         },
         {

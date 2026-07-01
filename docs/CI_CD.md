@@ -1,6 +1,6 @@
 # CI/CD Pipeline
 
-FlowFrame uses GitHub Actions to automate testing, linting, coverage, and
+Ciaren uses GitHub Actions to automate testing, linting, coverage, and
 documentation deployment.
 
 ## Backend Testing
@@ -74,15 +74,15 @@ Runs on every pull request and push to `main` that touches `Dockerfile`,
 2. Verifies `/app/app/web/index.html` is present inside the image (frontend bundled)
 3. Starts a container and waits up to 90 s for `/health` to respond
 4. Hits `GET /` and checks for an HTML response (frontend served)
-5. Runs `flowframe info` inside the live container (settings resolve correctly)
-6. Runs `flowframe check` inside the live container (DB reachable, engines available)
+5. Runs `ciaren info` inside the live container (settings resolve correctly)
+6. Runs `ciaren check` inside the live container (DB reachable, engines available)
 
 #### `build-ml` job (ML extras, push only)
 
 Rebuilds with `--build-arg EXTRAS=ml` and verifies:
 
 - `scikit-learn`, `xgboost`, `lightgbm`, `mlflow` are importable
-- `flowframe check` passes with ML enabled
+- `ciaren check` passes with ML enabled
 
 #### Local equivalent
 
@@ -95,7 +95,7 @@ docker compose up
 
 # smoke-test
 curl http://localhost:8055/health
-docker compose exec flowframe flowframe check
+docker compose exec ciaren ciaren check
 ```
 
 ## Security Scanning

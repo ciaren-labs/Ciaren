@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""The ``.ffplugin`` package format and its signature verification.
+"""The ``.ciarenplugin`` package format and its signature verification.
 
-A ``.ffplugin`` is a plain zip archive containing:
+A ``.ciarenplugin`` is a plain zip archive containing:
 
-- ``flowframe-plugin.json`` — the manifest (required).
+- ``ciaren-plugin.json`` — the manifest (required).
 - the plugin's Python package (the module the manifest ``entrypoint`` points at).
-- ``flowframe-signature.json`` — optional detached Ed25519 signature.
+- ``ciaren-signature.json`` — optional detached Ed25519 signature.
 
 The package **digest** is a deterministic SHA-256 over every entry except the
 signature file (sorted by name, length-delimited), so two byte-identical payloads
 always hash the same regardless of zip ordering. A publisher signs that digest;
-FlowFrame verifies it against a trusted public key before installing.
+Ciaren verifies it against a trusted public key before installing.
 
 Signed but with an untrusted key, or unsigned, is *allowed by default* for
 community plugins — the installer can require a trusted signature via policy.
@@ -33,9 +33,9 @@ from pydantic import BaseModel
 from app.plugin_api import PluginManifest, validate_manifest
 from app.plugin_api.signing import SigningUnavailableError, sign, verify
 
-MANIFEST_FILENAME = "flowframe-plugin.json"
-SIGNATURE_FILENAME = "flowframe-signature.json"
-TRUSTED_KEYS_ENV = "FLOWFRAME_TRUSTED_PLUGIN_KEYS"
+MANIFEST_FILENAME = "ciaren-plugin.json"
+SIGNATURE_FILENAME = "ciaren-signature.json"
+TRUSTED_KEYS_ENV = "CIAREN_TRUSTED_PLUGIN_KEYS"
 
 logger = logging.getLogger("app.plugins.package")
 
@@ -44,7 +44,7 @@ TrustOutcome = Literal["trusted", "untrusted", "unsigned", "invalid"]
 
 
 class PackageSignature(BaseModel):
-    """The detached signature stored in ``flowframe-signature.json``."""
+    """The detached signature stored in ``ciaren-signature.json``."""
 
     algorithm: Literal["ed25519"] = "ed25519"
     publisher: str = ""
@@ -70,12 +70,12 @@ class PackageSignature(BaseModel):
 
 
 class PackageError(ValueError):
-    """A malformed ``.ffplugin`` (not a zip, missing/invalid manifest)."""
+    """A malformed ``.ciarenplugin`` (not a zip, missing/invalid manifest)."""
 
 
 @dataclass
 class VerifyResult:
-    """Outcome of verifying a ``.ffplugin``."""
+    """Outcome of verifying a ``.ciarenplugin``."""
 
     outcome: TrustOutcome
     digest: str
@@ -112,7 +112,7 @@ def _open_zip(path: str | os.PathLike[str]) -> ZipFile:
     try:
         return ZipFile(path)
     except (BadZipFile, OSError) as exc:
-        raise PackageError(f"{path} is not a valid .ffplugin (zip) archive: {exc}") from exc
+        raise PackageError(f"{path} is not a valid .ciarenplugin (zip) archive: {exc}") from exc
 
 
 def read_manifest(path: str | os.PathLike[str]) -> PluginManifest:
@@ -137,11 +137,11 @@ def read_signature(path: str | os.PathLike[str]) -> PackageSignature | None:
 def load_trusted_keys() -> dict[str, str]:
     """Trusted publisher public keys, ``key_id -> public_hex``.
 
-    Read from ``FLOWFRAME_TRUSTED_PLUGIN_KEYS`` (a JSON object) and, if present,
-    ``~/.flowframe/trusted_keys.json``. Env entries win on conflict.
+    Read from ``CIAREN_TRUSTED_PLUGIN_KEYS`` (a JSON object) and, if present,
+    ``~/.ciaren/trusted_keys.json``. Env entries win on conflict.
     """
     keys: dict[str, str] = {}
-    file_path = Path.home() / ".flowframe" / "trusted_keys.json"
+    file_path = Path.home() / ".ciaren" / "trusted_keys.json"
     if file_path.is_file():
         try:
             keys.update(json.loads(file_path.read_text(encoding="utf-8")))
@@ -159,7 +159,7 @@ def load_trusted_keys() -> dict[str, str]:
 
 
 def verify_package(path: str | os.PathLike[str], trusted_keys: dict[str, str] | None = None) -> VerifyResult:
-    """Verify a ``.ffplugin``'s integrity and signature trust.
+    """Verify a ``.ciarenplugin``'s integrity and signature trust.
 
     Outcomes: ``unsigned`` (no signature), ``invalid`` (digest mismatch or bad
     signature — reject), ``untrusted`` (valid signature but key not in
@@ -218,9 +218,9 @@ def pack_directory(
     *,
     compile_python: bool = False,
 ) -> Path:
-    """Zip a plugin source directory into an (unsigned) ``.ffplugin``.
+    """Zip a plugin source directory into an (unsigned) ``.ciarenplugin``.
 
-    The directory must contain a valid ``flowframe-plugin.json`` at its root.
+    The directory must contain a valid ``ciaren-plugin.json`` at its root.
     Returns the written path.
 
     When ``compile_python`` is set, every ``.py`` is compiled to optimized
@@ -262,8 +262,8 @@ def sign_package(
     key_id: str,
     publisher: str = "",
 ) -> PackageSignature:
-    """Sign a ``.ffplugin`` in place: compute its digest, sign it, and embed
-    ``flowframe-signature.json``. Rewrites the archive (zips can't update entries).
+    """Sign a ``.ciarenplugin`` in place: compute its digest, sign it, and embed
+    ``ciaren-signature.json``. Rewrites the archive (zips can't update entries).
     """
     src = Path(path)
     with _open_zip(src) as zf:

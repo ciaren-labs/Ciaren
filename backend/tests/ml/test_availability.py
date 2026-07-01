@@ -20,7 +20,7 @@ from app.ml.models import model_catalog_status
 
 @pytest.fixture
 def ml_on(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -28,7 +28,7 @@ def ml_on(monkeypatch):
 
 @pytest.fixture
 def ml_off(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -45,12 +45,12 @@ def test_library_available_false_for_missing():
 
 def test_install_hint_points_at_extra():
     hint = install_hint(MLLibrary("XGBoost", "xgboost"))
-    assert "flowframe[ml]" in hint
+    assert "ciaren[ml]" in hint
     assert "XGBoost" in hint
 
 
 def test_require_library_raises_for_missing():
-    with pytest.raises(RuntimeError, match="flowframe\\[ml\\]"):
+    with pytest.raises(RuntimeError, match="ciaren\\[ml\\]"):
         require_library(MLLibrary("Ghost", "totally_not_a_real_module_xyz"))
 
 
@@ -102,4 +102,4 @@ def test_model_catalog_status_marks_missing_optional_dependencies(monkeypatch):
     assert status["random_forest_classifier"]["available"] is True
     assert status["xgboost_classifier"]["available"] is False
     assert status["xgboost_classifier"]["missing"] == ["xgboost"]
-    assert "flowframe[ml]" in status["xgboost_classifier"]["warning"]
+    assert "ciaren[ml]" in status["xgboost_classifier"]["warning"]

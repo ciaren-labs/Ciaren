@@ -39,7 +39,7 @@ df_5.to_sql("cleaned_orders", _engine_1, if_exists="replace", index=False)
 ```
 
 ::: tip Security
-Exported code reads the password from `os.environ` — FlowFrame never stores or
+Exported code reads the password from `os.environ` — Ciaren never stores or
 embeds secrets. See [Connections](/guide/connections).
 :::
 

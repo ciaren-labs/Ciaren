@@ -30,7 +30,7 @@ from app.scheduler.cron import compute_next_run
 from app.schemas.run import FlowRunCreate
 from app.services.execution_service import ExecutionService
 
-logger = logging.getLogger("flowframe.scheduler")
+logger = logging.getLogger("ciaren.scheduler")
 
 # Upper bound on exponential backoff so a long-failing schedule still retries
 # roughly hourly rather than drifting to absurd delays.
@@ -56,7 +56,7 @@ class SchedulerRunner:
     async def start(self) -> None:
         await self._recover_orphaned_runs()
         await self._reconcile_on_startup()
-        self._task = asyncio.create_task(self._loop(), name="flowframe-scheduler")
+        self._task = asyncio.create_task(self._loop(), name="ciaren-scheduler")
         logger.info(
             "Scheduler started (poll=%ss, max_concurrent=%s)",
             self._settings.SCHEDULER_POLL_INTERVAL_SECONDS,

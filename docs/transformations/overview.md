@@ -6,7 +6,7 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-FlowFrame ships with file/storage/SQL input/output nodes plus **42 registered
+Ciaren ships with file/storage/SQL input/output nodes plus **42 registered
 transformation nodes** for cleaning, reshaping, combining, validating, analytics,
 and scripting data. Each node maps to one clear dataframe operation and
 contributes to the exported Python — both the **pandas** and the **polars**
@@ -109,7 +109,7 @@ are kept at parity by a test suite that runs each node on both.
 | Join takes two inputs at a time | Chain multiple join nodes |
 | `rank`/`dense_rank` rank by a single order column | Pre-sort, or use a calculated key |
 | `calculatedColumn` evaluates arithmetic expressions | For complex logic, use [Conditional column](./conditional-column.md), [Python transform](./python-transform.md), or export and edit the Python |
-| `pythonTransform` scripts run without sandboxing | FlowFrame is local-first — only run scripts from sources you trust |
+| `pythonTransform` scripts run without sandboxing | Ciaren is local-first — only run scripts from sources you trust |
 
 ## Custom transformations
 

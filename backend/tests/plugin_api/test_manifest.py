@@ -4,13 +4,13 @@ from pydantic import ValidationError
 from app.plugin_api import Permission, PluginManifest, validate_manifest
 
 VALID = {
-    "id": "flowframe.databricks",
+    "id": "ciaren.databricks",
     "name": "Databricks Connector",
     "version": "1.0.0",
-    "publisher": "flowframe",
+    "publisher": "ciaren",
     "license": "commercial",
-    "flowframe": ">=0.1,<1.0",
-    "entrypoint": "flowframe_databricks.plugin:DatabricksPlugin",
+    "ciaren": ">=0.1,<1.0",
+    "entrypoint": "ciaren_databricks.plugin:DatabricksPlugin",
     "permissions": ["network", "credentials"],
     "capabilities": ["connector.databricks"],
     "ui": {"nodes": ["databricks.read_table"], "nodeCategories": {"databricks.read_table": "input"}},
@@ -21,7 +21,7 @@ VALID = {
 
 def test_valid_manifest_parses():
     m = validate_manifest(VALID)
-    assert m.id == "flowframe.databricks"
+    assert m.id == "ciaren.databricks"
     assert m.license == "commercial"
     assert Permission.network in m.permissions
     assert m.ui.nodes == ["databricks.read_table"]
@@ -34,7 +34,7 @@ def test_manifest_defaults():
     assert m.version == "0.0.0"
     assert m.publisher == "community"
     assert m.license == "community"
-    assert m.flowframe == ">=0.1"
+    assert m.ciaren == ">=0.1"
     assert m.permissions == []
     assert m.trust == "community"
 
@@ -62,7 +62,7 @@ def test_invalid_version_rejected():
 
 def test_invalid_compat_spec_rejected():
     with pytest.raises(ValidationError):
-        validate_manifest({"id": "x", "name": "X", "flowframe": ">>>bad"})
+        validate_manifest({"id": "x", "name": "X", "ciaren": ">>>bad"})
 
 
 def test_invalid_entrypoint_rejected():
@@ -81,10 +81,10 @@ def test_invalid_entrypoint_rejected():
     ],
 )
 def test_compatibility_check(spec, version, expected):
-    m = PluginManifest(id="x", name="X", flowframe=spec)
+    m = PluginManifest(id="x", name="X", ciaren=spec)
     assert m.is_compatible_with(version) is expected
 
 
 def test_compatibility_with_garbage_version_is_false():
-    m = PluginManifest(id="x", name="X", flowframe=">=0.1")
+    m = PluginManifest(id="x", name="X", ciaren=">=0.1")
     assert m.is_compatible_with("not-a-version") is False

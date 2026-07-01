@@ -3,26 +3,26 @@
 > Status: **draft**. Implemented as `PluginManifest` in
 > `backend/app/plugin_api/manifest.py`.
 
-Every FlowFrame plugin declares a manifest. The loader validates it — and checks
-FlowFrame version compatibility — **before importing any plugin code**, so a
+Every Ciaren plugin declares a manifest. The loader validates it — and checks
+Ciaren version compatibility — **before importing any plugin code**, so a
 malformed or incompatible plugin is rejected without ever running.
 
-For local-directory discovery the manifest is a `flowframe-plugin.json` file at
+For local-directory discovery the manifest is a `ciaren-plugin.json` file at
 the root of the plugin directory. For installed packages the same information is
-conveyed by the `flowframe.plugins` entry point plus the package's own metadata.
+conveyed by the `ciaren.plugins` entry point plus the package's own metadata.
 
 ## Example
 
 ```json
 {
-  "id": "flowframe.databricks",
+  "id": "ciaren.databricks",
   "name": "Databricks Connector",
   "version": "1.0.0",
-  "publisher": "flowframe",
+  "publisher": "ciaren",
   "description": "Read/write Delta tables and export Databricks jobs.",
   "license": "commercial",
-  "flowframe": ">=1.0,<2.0",
-  "entrypoint": "flowframe_databricks.plugin:DatabricksPlugin",
+  "ciaren": ">=1.0,<2.0",
+  "entrypoint": "ciaren_databricks.plugin:DatabricksPlugin",
   "permissions": ["network", "credentials"],
   "capabilities": ["connector.databricks", "exporter.databricks_job"],
   "ui": {
@@ -42,13 +42,13 @@ conveyed by the `flowframe.plugins` entry point plus the package's own metadata.
 
 | Field | Required | Default | Notes |
 |---|---|---|---|
-| `id` | yes | — | Unique plugin id, e.g. `flowframe.databricks`. |
+| `id` | yes | — | Unique plugin id, e.g. `ciaren.databricks`. |
 | `name` | yes | — | Display name. |
 | `version` | no | `0.0.0` | PEP 440 version. |
 | `publisher` | no | `community` | — |
 | `description` | no | `""` | — |
 | `license` | no | `community` | `community` or `commercial`. |
-| `flowframe` | no | `>=0.1` | PEP 440 specifier set for compatible FlowFrame versions. |
+| `ciaren` | no | `>=0.1` | PEP 440 specifier set for compatible Ciaren versions. |
 | `entrypoint` | no | — | `module.path:Attribute` resolving to a `Plugin`. |
 | `permissions` | no | `[]` | See below. |
 | `capabilities` | no | `[]` | Capability strings the plugin provides. |
@@ -68,6 +68,6 @@ plugin. Values: `filesystem_read`, `filesystem_write`, `network`, `credentials`,
 
 ## Compatibility
 
-`PluginManifest.is_compatible_with(flowframe_version)` returns whether the running
-build satisfies the `flowframe` specifier (pre-releases allowed). The loader skips
+`PluginManifest.is_compatible_with(ciaren_version)` returns whether the running
+build satisfies the `ciaren` specifier (pre-releases allowed). The loader skips
 incompatible plugins and records the reason in `GET /api/plugins/diagnostics`.

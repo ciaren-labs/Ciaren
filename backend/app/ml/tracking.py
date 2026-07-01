@@ -45,7 +45,7 @@ def _effective_tracking_uri(explicit: str | None) -> str:
 
 
 def configure_mlflow(tracking_uri: str | None = None) -> Any:
-    """Point the MLflow client at FlowFrame's effective tracking/registry URIs and
+    """Point the MLflow client at Ciaren's effective tracking/registry URIs and
     return the imported ``mlflow`` module. Opts into the local file store so the
     zero-setup ``./mlruns`` default keeps working on MLflow 3.14+.
 

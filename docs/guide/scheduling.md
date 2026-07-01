@@ -1,21 +1,21 @@
 ---
 title: Scheduling
-description: Run flows automatically with FlowFrame's built-in cron scheduler
+description: Run flows automatically with Ciaren's built-in cron scheduler
 search: scheduling cron schedule retries catch up auto-disable timezone
 ---
 
 # Scheduling
 
-FlowFrame includes a lightweight, **in-process** scheduler that runs a flow
+Ciaren includes a lightweight, **in-process** scheduler that runs a flow
 automatically on a cron schedule — no broker, no extra services. It is meant for
-simple recurring jobs, not heavy orchestration; FlowFrame is not an Airflow/dbt
+simple recurring jobs, not heavy orchestration; Ciaren is not an Airflow/dbt
 replacement.
 
 ::: info How it runs
 The scheduler is a single asyncio poller started inside the API process (via the
-FastAPI lifespan). `flowframe serve` runs the API and the scheduler together. Run
-the API without it using `flowframe serve --no-scheduler` (or
-`FLOWFRAME_SCHEDULER_ENABLED=false`). The scheduler is always disabled in tests.
+FastAPI lifespan). `ciaren serve` runs the API and the scheduler together. Run
+the API without it using `ciaren serve --no-scheduler` (or
+`CIAREN_SCHEDULER_ENABLED=false`). The scheduler is always disabled in tests.
 :::
 
 ## Creating a schedule
@@ -104,10 +104,10 @@ Scheduled runs are recorded like any other run, tagged with their
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `FLOWFRAME_SCHEDULER_ENABLED` | `true` | Master on/off switch |
-| `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the poller wakes |
-| `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
-| `FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before auto-disable (0 = never) |
+| `CIAREN_SCHEDULER_ENABLED` | `true` | Master on/off switch |
+| `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the poller wakes |
+| `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
+| `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before auto-disable (0 = never) |
 
 ## Limitations
 

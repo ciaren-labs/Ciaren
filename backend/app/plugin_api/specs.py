@@ -6,7 +6,7 @@ form that is JSON-serializable for the backend catalog endpoints and stable
 enough to commit to a public contract. They deliberately carry no executable
 behavior — the opaque implementations live behind
 :class:`~app.plugin_api.registry.ServiceRegistry` and are duck-typed by the
-engine, so this module never imports anything from the FlowFrame app, engine, or
+engine, so this module never imports anything from the Ciaren app, engine, or
 FastAPI. Its only dependency is Pydantic.
 """
 
@@ -86,8 +86,8 @@ class NodeSpec(BaseModel):
     #: UI grouping, e.g. ``"input"``, ``"clean"``, ``"reshape"``, ``"ml"``.
     category: str = DEFAULT_PLUGIN_NODE_CATEGORY
     description: str = ""
-    #: Namespaced provider id, e.g. ``"flowframe.core"`` or ``"flowframe.ml"``.
-    provider: str = "flowframe.core"
+    #: Namespaced provider id, e.g. ``"ciaren.core"`` or ``"ciaren.ml"``.
+    provider: str = "ciaren.core"
     version: str = "1.0.0"
     inputs: tuple[PortSpec, ...] = ()
     outputs: tuple[PortSpec, ...] = ()
@@ -128,7 +128,7 @@ class ConnectorSpec(BaseModel):
     extra: str | None = None
     capabilities: tuple[str, ...] = ()
     permissions: tuple[Permission, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
     #: Raw provider flags the connection form needs (host/port/auth/bucket/…).
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -141,7 +141,7 @@ class StorageSpec(BaseModel):
     available: bool = True
     capabilities: tuple[str, ...] = ()
     permissions: tuple[Permission, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class ExecutionSpec(BaseModel):
@@ -152,7 +152,7 @@ class ExecutionSpec(BaseModel):
     label: str
     available: bool = True
     capabilities: tuple[str, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class ExporterSpec(BaseModel):
@@ -164,7 +164,7 @@ class ExporterSpec(BaseModel):
     format: str
     file_extension: str = ""
     capabilities: tuple[str, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class ValidatorSpec(BaseModel):
@@ -174,7 +174,7 @@ class ValidatorSpec(BaseModel):
     label: str
     description: str = ""
     capabilities: tuple[str, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class AICapabilitySpec(BaseModel):
@@ -184,7 +184,7 @@ class AICapabilitySpec(BaseModel):
     label: str
     description: str = ""
     capabilities: tuple[str, ...] = ()
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class AuthMethodSpec(BaseModel):
@@ -192,7 +192,7 @@ class AuthMethodSpec(BaseModel):
 
     id: str
     label: str
-    provider: str = "flowframe.core"
+    provider: str = "ciaren.core"
 
 
 class LicenseStatus(BaseModel):

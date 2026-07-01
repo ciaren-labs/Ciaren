@@ -34,7 +34,7 @@ def test_classifier_takes_precedence_over_free_text():
 
 def test_scan_installed_includes_known_permissive_deps():
     packages = {p.name.lower() for p in scan_installed()}
-    # FlowFrame depends on these; they are installed in the test environment.
+    # Ciaren depends on these; they are installed in the test environment.
     assert "fastapi" in packages
     assert "pydantic" in packages
 

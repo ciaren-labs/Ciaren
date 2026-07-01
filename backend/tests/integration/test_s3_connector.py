@@ -4,14 +4,14 @@ These exercise the real boto3 code path (``app/connectors/s3.py``) against an
 S3-compatible endpoint — MinIO in CI (see ``.github/workflows/connectors-
 integration.yml``), or any endpoint you point the env vars at locally.
 
-The whole module self-skips unless ``FLOWFRAME_TEST_S3_ENDPOINT`` is set, so the
+The whole module self-skips unless ``CIAREN_TEST_S3_ENDPOINT`` is set, so the
 default infra-free suite is unaffected. To run locally against MinIO::
 
     docker run -d -p 9000:9000 -e MINIO_ROOT_USER=minioadmin \\
         -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
-    FLOWFRAME_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \\
-    FLOWFRAME_TEST_S3_ACCESS_KEY=minioadmin \\
-    FLOWFRAME_TEST_S3_SECRET_KEY=minioadmin \\
+    CIAREN_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \\
+    CIAREN_TEST_S3_ACCESS_KEY=minioadmin \\
+    CIAREN_TEST_S3_SECRET_KEY=minioadmin \\
         pytest tests/integration/test_s3_connector.py -m connectors
 """
 
@@ -28,18 +28,18 @@ from app.connectors.storage_base import StorageSpec
 
 pytestmark = pytest.mark.connectors
 
-_ENDPOINT = os.environ.get("FLOWFRAME_TEST_S3_ENDPOINT")
-_ACCESS_KEY = os.environ.get("FLOWFRAME_TEST_S3_ACCESS_KEY", "minioadmin")
-_SECRET_KEY = os.environ.get("FLOWFRAME_TEST_S3_SECRET_KEY", "minioadmin")
-_REGION = os.environ.get("FLOWFRAME_TEST_S3_REGION", "us-east-1")
+_ENDPOINT = os.environ.get("CIAREN_TEST_S3_ENDPOINT")
+_ACCESS_KEY = os.environ.get("CIAREN_TEST_S3_ACCESS_KEY", "minioadmin")
+_SECRET_KEY = os.environ.get("CIAREN_TEST_S3_SECRET_KEY", "minioadmin")
+_REGION = os.environ.get("CIAREN_TEST_S3_REGION", "us-east-1")
 
 if not _ENDPOINT:
     pytest.skip(
-        "FLOWFRAME_TEST_S3_ENDPOINT not set; skipping live S3 connector tests.",
+        "CIAREN_TEST_S3_ENDPOINT not set; skipping live S3 connector tests.",
         allow_module_level=True,
     )
 
-boto3 = pytest.importorskip("boto3", reason="boto3 not installed (pip install flowframe[s3])")
+boto3 = pytest.importorskip("boto3", reason="boto3 not installed (pip install ciaren[s3])")
 
 
 def _spec(bucket: str) -> StorageSpec:
@@ -56,7 +56,7 @@ def _spec(bucket: str) -> StorageSpec:
 @pytest.fixture
 def bucket():
     """Create a unique bucket for the test and tear it down afterwards."""
-    name = f"flowframe-test-{uuid.uuid4().hex[:12]}"
+    name = f"ciaren-test-{uuid.uuid4().hex[:12]}"
     client = boto3.client(
         "s3",
         endpoint_url=_ENDPOINT,

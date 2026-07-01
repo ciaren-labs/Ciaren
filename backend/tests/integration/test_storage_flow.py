@@ -10,7 +10,7 @@ connections into the execution engine. Specifically it exercises:
 * ``push_storage_outputs`` — upload the result back to S3
 
 It runs against MinIO (the same emulator as test_s3_connector) and self-skips
-unless ``FLOWFRAME_TEST_S3_ENDPOINT`` is set, under the ``connectors`` marker.
+unless ``CIAREN_TEST_S3_ENDPOINT`` is set, under the ``connectors`` marker.
 """
 
 from __future__ import annotations
@@ -28,18 +28,18 @@ from app.db.models.connection import Connection
 
 pytestmark = pytest.mark.connectors
 
-_ENDPOINT = os.environ.get("FLOWFRAME_TEST_S3_ENDPOINT")
-_ACCESS_KEY = os.environ.get("FLOWFRAME_TEST_S3_ACCESS_KEY", "minioadmin")
-_SECRET_KEY = os.environ.get("FLOWFRAME_TEST_S3_SECRET_KEY", "minioadmin")
-_REGION = os.environ.get("FLOWFRAME_TEST_S3_REGION", "us-east-1")
+_ENDPOINT = os.environ.get("CIAREN_TEST_S3_ENDPOINT")
+_ACCESS_KEY = os.environ.get("CIAREN_TEST_S3_ACCESS_KEY", "minioadmin")
+_SECRET_KEY = os.environ.get("CIAREN_TEST_S3_SECRET_KEY", "minioadmin")
+_REGION = os.environ.get("CIAREN_TEST_S3_REGION", "us-east-1")
 
 if not _ENDPOINT:
     pytest.skip(
-        "FLOWFRAME_TEST_S3_ENDPOINT not set; skipping storage-backed flow test.",
+        "CIAREN_TEST_S3_ENDPOINT not set; skipping storage-backed flow test.",
         allow_module_level=True,
     )
 
-boto3 = pytest.importorskip("boto3", reason="boto3 not installed (pip install flowframe[s3])")
+boto3 = pytest.importorskip("boto3", reason="boto3 not installed (pip install ciaren[s3])")
 
 
 def _s3_client():
@@ -55,7 +55,7 @@ def _s3_client():
 @pytest.fixture
 def bucket():
     """A unique MinIO bucket, removed (with its objects) after the test."""
-    name = f"flowframe-flow-{uuid.uuid4().hex[:12]}"
+    name = f"ciaren-flow-{uuid.uuid4().hex[:12]}"
     client = _s3_client()
     client.create_bucket(Bucket=name)
     try:

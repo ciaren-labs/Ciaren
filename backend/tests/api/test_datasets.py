@@ -220,7 +220,7 @@ async def test_upload_too_large_returns_413(client: AsyncClient, monkeypatch) ->
     # Setting the env var and clearing the LRU cache ensures DatasetService picks
     # it up at request time. Using setattr on the module wouldn't work because
     # dataset_service.py already holds a direct reference to the original function.
-    monkeypatch.setenv("FLOWFRAME_MAX_UPLOAD_SIZE_MB", "0")
+    monkeypatch.setenv("CIAREN_MAX_UPLOAD_SIZE_MB", "0")
     get_settings.cache_clear()
 
     r = await client.post(

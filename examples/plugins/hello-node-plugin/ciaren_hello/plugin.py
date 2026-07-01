@@ -3,8 +3,8 @@
 It demonstrates the full pipeline — discovery → manifest → registry → catalog —
 **and** execution: the node ships a :class:`NodeRuntime` so it runs in previews
 and runs and exports to code like a built-in. The runtime works on pandas;
-FlowFrame bridges it to the active engine (polars/pandas). The plugin depends
-only on the FlowFrame plugin contract (``app.plugin_api``) and pandas.
+Ciaren bridges it to the active engine (polars/pandas). The plugin depends
+only on the Ciaren plugin contract (``app.plugin_api``) and pandas.
 """
 
 from __future__ import annotations

@@ -1,12 +1,12 @@
 ---
 title: REST API Reference
-description: FlowFrame REST API — overview and conventions
+description: Ciaren REST API — overview and conventions
 search: api rest endpoints overview conventions base url swagger webhook trigger
 ---
 
 # REST API Reference
 
-FlowFrame is a FastAPI service. The visual editor is built entirely on this REST
+Ciaren is a FastAPI service. The visual editor is built entirely on this REST
 API, and you can drive every feature with it directly. All endpoints are served
 under `http://localhost:8055` by default.
 
@@ -34,13 +34,13 @@ Each resource has its own reference page:
 ## Webhook trigger
 
 `POST /api/flows/{id}/trigger` starts a run authenticated by a pre-shared secret
-(`FLOWFRAME_WEBHOOK_SECRET`). Designed for CI/CD pipelines and external
+(`CIAREN_WEBHOOK_SECRET`). Designed for CI/CD pipelines and external
 orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/settings/webhook` | Returns `{"configured": true/false}` (never the secret) |
-| `POST` | `/api/flows/{id}/trigger` | Trigger a run; requires `X-FlowFrame-Secret` header |
+| `POST` | `/api/flows/{id}/trigger` | Trigger a run; requires `X-Ciaren-Secret` header |
 
 ## Conventions
 
@@ -54,8 +54,8 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
   `200` `{"status": "ok", "database": "up"}` when ready, or `503`
   `{"status": "unavailable", "database": "down"}` so a load balancer drains the
   instance.
-- **Optional API auth:** when `FLOWFRAME_API_TOKEN` is set, `/api/*` requests must
-  send `Authorization: Bearer <token>` or `X-FlowFrame-Token: <token>`. Static UI,
+- **Optional API auth:** when `CIAREN_API_TOKEN` is set, `/api/*` requests must
+  send `Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`. Static UI,
   `/health`, `/ready`, OpenAPI docs, and the webhook trigger's own secret are exempt.
 
 ## Typical workflow

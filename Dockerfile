@@ -11,7 +11,7 @@ RUN npm run build
 # ─── Stage 2: Runtime image ───────────────────────────────────────────────────
 FROM python:3.13-slim AS runtime
 
-LABEL org.opencontainers.image.title="FlowFrame" \
+LABEL org.opencontainers.image.title="Ciaren" \
       org.opencontainers.image.description="Visual ETL builder — local-first, dataframe-based" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
@@ -73,20 +73,20 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ── Startup script: apply migrations then start the server ────────────────────
 # The server binds 0.0.0.0 so the container is reachable. The API is
 # unauthenticated by default and can execute code (pythonTransform, plugin
-# install), so set FLOWFRAME_API_TOKEN (and/or front it with an authenticating
+# install), so set CIAREN_API_TOKEN (and/or front it with an authenticating
 # reverse proxy) before exposing this container beyond a trusted host. The CLI
 # prints a warning at startup when it binds wide with no token. See SECURITY.md.
-RUN printf '#!/bin/sh\nset -e\nflowframe db upgrade\nexec flowframe serve --host 0.0.0.0 "$@"\n' \
+RUN printf '#!/bin/sh\nset -e\nciaren db upgrade\nexec ciaren serve --host 0.0.0.0 "$@"\n' \
     > /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 
 # ── Security: drop to a non-root user ────────────────────────────────────────
-RUN groupadd --system flowframe && \
-    useradd --system --gid flowframe --no-create-home flowframe && \
+RUN groupadd --system ciaren && \
+    useradd --system --gid ciaren --no-create-home ciaren && \
     mkdir -p /data && \
-    chown -R flowframe:flowframe /app /data
+    chown -R ciaren:ciaren /app /data
 
-USER flowframe
+USER ciaren
 
 # ── Port & persistent-data volume ─────────────────────────────────────────────
 EXPOSE 8055
@@ -94,11 +94,11 @@ VOLUME ["/data"]
 
 # ── Runtime defaults — all overridable via -e / --env-file ───────────────────
 # DATA_DIR and DATABASE_URL live inside the /data volume so they survive restarts.
-# FLOWFRAME_CORS_ORIGINS is unset; same-origin serving (frontend + API on 8055)
+# CIAREN_CORS_ORIGINS is unset; same-origin serving (frontend + API on 8055)
 # needs no CORS config. Set it if you expose the API to other origins.
-ENV FLOWFRAME_DATA_DIR=/data \
-    FLOWFRAME_DATABASE_URL=sqlite+aiosqlite:////data/flowframe.db \
-    FLOWFRAME_ENVIRONMENT=production \
+ENV CIAREN_DATA_DIR=/data \
+    CIAREN_DATABASE_URL=sqlite+aiosqlite:////data/ciaren.db \
+    CIAREN_ENVIRONMENT=production \
     PATH="/app/.venv/bin:$PATH"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Shared base classes for ML nodes.
 
-``MLTransformation`` bridges FlowFrame's engine-agnostic frame world to sklearn,
+``MLTransformation`` bridges Ciaren's engine-agnostic frame world to sklearn,
 which only speaks pandas/numpy: subclasses work in pandas via ``engine.to_pandas``
 and hand results back with ``engine.from_pandas`` (Arrow-backed for polars), so an
 ML node can sit inside a polars flow and still return a frame of the active engine.

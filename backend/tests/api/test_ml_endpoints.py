@@ -89,7 +89,7 @@ async def test_register_501_when_ml_disabled(client: AsyncClient, db_session) ->
 
 
 async def test_register_400_when_no_model(client: AsyncClient, db_session, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         run_id = await _run_with_results(
@@ -106,7 +106,7 @@ async def test_register_400_when_no_model(client: AsyncClient, db_session, monke
 
 
 async def test_register_validation_empty_name(client: AsyncClient, db_session, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         run_id = await _run_with_results(
@@ -122,7 +122,7 @@ async def test_register_validation_empty_name(client: AsyncClient, db_session, m
 
 
 async def _train_register(db_session, tmp_path, name: str = "iris-model") -> dict:
-    """Train a real model (with FlowFrame lineage tags) and register it; returns
+    """Train a real model (with Ciaren lineage tags) and register it; returns
     the register response. Caller must have ML enabled + tracking URI set."""
     from app.engine.backends import get_engine
     from app.engine.run_context import run_context
@@ -159,8 +159,8 @@ async def _train_register(db_session, tmp_path, name: str = "iris-model") -> dic
 
 
 async def test_registered_models_listing(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         await _train_register(db_session, tmp_path, name="iris-model")
@@ -171,7 +171,7 @@ async def test_registered_models_listing(client: AsyncClient, db_session, tmp_pa
         v = models["iris-model"]["versions"][0]
         assert v["version"] == "1"
         assert "train_accuracy" in v["metrics"]
-        # FlowFrame lineage threaded through MLflow tags.
+        # Ciaren lineage threaded through MLflow tags.
         assert v["lineage"]["flow_id"] == "flow-123"
         assert v["lineage"]["run_id"] == "run-456"
         assert v["lineage"]["dataset_ids"] == ["ds-789"]
@@ -180,14 +180,14 @@ async def test_registered_models_listing(client: AsyncClient, db_session, tmp_pa
 
 
 async def test_experiments_and_runs_listing(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         await _train_register(db_session, tmp_path)
         exps = (await client.get("/api/ml/experiments")).json()
-        assert any(e["name"] == "flowframe" for e in exps)
-        exp_id = next(e["experiment_id"] for e in exps if e["name"] == "flowframe")
+        assert any(e["name"] == "ciaren" for e in exps)
+        exp_id = next(e["experiment_id"] for e in exps if e["name"] == "ciaren")
         runs = (await client.get(f"/api/ml/experiments/{exp_id}/runs")).json()
         assert runs
         assert "train_accuracy" in runs[0]["metrics"]
@@ -204,8 +204,8 @@ async def test_models_501_when_ml_disabled(client: AsyncClient) -> None:
 
 
 async def test_set_and_clear_model_alias(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         await _train_register(db_session, tmp_path, name="alias-model")
@@ -226,8 +226,8 @@ async def test_set_and_clear_model_alias(client: AsyncClient, db_session, tmp_pa
 
 async def test_register_happy_path(client: AsyncClient, db_session, tmp_path, monkeypatch) -> None:
     # Train a real model so we have a resolvable MLflow model_uri.
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         from app.engine.backends import get_engine

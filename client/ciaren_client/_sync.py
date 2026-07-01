@@ -1,4 +1,4 @@
-"""Synchronous FlowFrame client backed by httpx.Client."""
+"""Synchronous Ciaren client backed by httpx.Client."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ from typing import Any
 import httpx
 
 
-class FlowFrame:
-    """Synchronous client for the FlowFrame API.
+class Ciaren:
+    """Synchronous client for the Ciaren API.
 
     Can be used as a context manager::
 
-        with FlowFrame(base_url, webhook_secret=secret) as ff:
+        with Ciaren(base_url, webhook_secret=secret) as ff:
             run = ff.trigger(flow_id)
 
     Or managed manually::
 
-        ff = FlowFrame(base_url)
+        ff = Ciaren(base_url)
         ff.close()
     """
 
@@ -37,7 +37,7 @@ class FlowFrame:
     # Context manager
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> FlowFrame:
+    def __enter__(self) -> Ciaren:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -90,9 +90,9 @@ class FlowFrame:
         if self._secret is None:
             raise ValueError(
                 "webhook_secret is required to call trigger(). "
-                "Pass it when constructing FlowFrame(webhook_secret=...)."
+                "Pass it when constructing Ciaren(webhook_secret=...)."
             )
-        return {"X-FlowFrame-Secret": self._secret}
+        return {"X-Ciaren-Secret": self._secret}
 
     def trigger(
         self,

@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for FlowFrame backend tests.
+Pytest configuration and fixtures for Ciaren backend tests.
 
 Supports testing against different database backends:
 - SQLite (default, no setup needed)

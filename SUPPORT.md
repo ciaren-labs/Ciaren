@@ -1,6 +1,6 @@
 # Support
 
-FlowFrame is alpha software maintained by a small open-source team. Please use
+Ciaren is alpha software maintained by a small open-source team. Please use
 the right channel so questions, bugs, and security reports do not get mixed
 together.
 
@@ -38,6 +38,6 @@ process in [SECURITY.md](SECURITY.md).
 
 ## Maintenance Expectations
 
-FlowFrame does not currently offer commercial support or guaranteed response
+Ciaren does not currently offer commercial support or guaranteed response
 times. Maintainers prioritize security reports, regressions, and issues with
 clear reproductions.

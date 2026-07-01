@@ -6,7 +6,7 @@ search: example time series date parts monthly aggregate temporal
 
 # Time Series Analysis
 
-Turn a stream of time-stamped events into a tidy monthly summary. FlowFrame does
+Turn a stream of time-stamped events into a tidy monthly summary. Ciaren does
 this by **extracting date parts** and grouping by them.
 
 **You'll use:** CSV Input → Cast Types → Extract Date Parts → Group by + Aggregate
@@ -23,7 +23,7 @@ this by **extracting date parts** and grouping by them.
 ]' />
 
 ::: info Scope
-FlowFrame aggregates time data by calendar period (year, month, day, weekday,
+Ciaren aggregates time data by calendar period (year, month, day, weekday,
 hour). It does not do rolling windows or `resample`-style smoothing — for those,
 export the Python and add a `.rolling(...)` step. See *Next steps* below.
 :::

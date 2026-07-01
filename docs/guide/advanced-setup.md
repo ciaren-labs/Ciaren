@@ -17,73 +17,73 @@ The backend (`Settings`) reads configuration in this order — **later wins**:
 
 1. **Built-in defaults** (shown below).
 2. **`.env` file** in the backend working directory.
-3. **Environment variables** (prefixed `FLOWFRAME_`).
-4. **`flowframe serve` flags** (e.g. `--port`, `--db-url`, `--engine`,
+3. **Environment variables** (prefixed `CIAREN_`).
+4. **`ciaren serve` flags** (e.g. `--port`, `--db-url`, `--engine`,
    `--execution-mode`, `--data-dir`, `--no-scheduler`), which are applied as env
    vars before the app loads.
 
-Scaffold a commented file with `flowframe init`, confirm the resolved values with
-`flowframe info`, and validate the environment with `flowframe check`.
+Scaffold a commented file with `ciaren init`, confirm the resolved values with
+`ciaren info`, and validate the environment with `ciaren check`.
 
 ## Environment variables
 
-All settings use the `FLOWFRAME_` prefix.
+All settings use the `CIAREN_` prefix.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `FLOWFRAME_APP_NAME` | `FlowFrame` | Display name |
-| `FLOWFRAME_ENVIRONMENT` | `development` | Environment label (`development`, `production`, …) |
-| `FLOWFRAME_DEBUG` | `false` | Extra debug behavior |
-| `FLOWFRAME_LOG_FORMAT` | `auto` | Log output: `auto` (color on a TTY, else plain) \| `text` \| `json` |
-| `FLOWFRAME_DATABASE_URL` | `sqlite+aiosqlite:///./flowframe.db` | Async database URL (see below) |
-| `FLOWFRAME_DATA_DIR` | `.data` | Directory for uploads, run outputs, and previews |
-| `FLOWFRAME_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) |
-| `FLOWFRAME_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) |
-| `FLOWFRAME_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) |
-| `FLOWFRAME_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list) |
-| `FLOWFRAME_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB |
-| `FLOWFRAME_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
-| `FLOWFRAME_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-FlowFrame-Secret` |
-| `FLOWFRAME_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
-| `FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS` | `false` | Block connector endpoints resolving to private/internal addresses |
-| `FLOWFRAME_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage connector roots to these directories |
-| `FLOWFRAME_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
-| `FLOWFRAME_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
-| `FLOWFRAME_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
-| `FLOWFRAME_SEED_RUN_FLOWS` | `false` | Run newly seeded demo flows once |
-| `FLOWFRAME_SCHEDULER_ENABLED` | `true` | Run the background scheduler |
-| `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs |
-| `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
-| `FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) |
-| `FLOWFRAME_ML_ENABLED` | `true` | Enable ML routes/nodes when the `[ml]` extra is installed |
-| `FLOWFRAME_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
-| `FLOWFRAME_MLFLOW_REGISTRY_URI` | — | Optional MLflow registry URI; defaults to tracking URI |
-| `FLOWFRAME_ML_ARTIFACT_DIR` | `ml_artifacts` | Local model artifact root, under `DATA_DIR` when relative |
-| `FLOWFRAME_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails |
-| `FLOWFRAME_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
-| `FLOWFRAME_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
-| `FLOWFRAME_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
-| `FLOWFRAME_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
+| `CIAREN_APP_NAME` | `Ciaren` | Display name |
+| `CIAREN_ENVIRONMENT` | `development` | Environment label (`development`, `production`, …) |
+| `CIAREN_DEBUG` | `false` | Extra debug behavior |
+| `CIAREN_LOG_FORMAT` | `auto` | Log output: `auto` (color on a TTY, else plain) \| `text` \| `json` |
+| `CIAREN_DATABASE_URL` | `sqlite+aiosqlite:///./ciaren.db` | Async database URL (see below) |
+| `CIAREN_DATA_DIR` | `.data` | Directory for uploads, run outputs, and previews |
+| `CIAREN_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) |
+| `CIAREN_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) |
+| `CIAREN_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) |
+| `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list) |
+| `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB |
+| `CIAREN_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
+| `CIAREN_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-Ciaren-Secret` |
+| `CIAREN_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
+| `CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS` | `false` | Block connector endpoints resolving to private/internal addresses |
+| `CIAREN_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage connector roots to these directories |
+| `CIAREN_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
+| `CIAREN_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
+| `CIAREN_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
+| `CIAREN_SEED_RUN_FLOWS` | `false` | Run newly seeded demo flows once |
+| `CIAREN_SCHEDULER_ENABLED` | `true` | Run the background scheduler |
+| `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs |
+| `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
+| `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) |
+| `CIAREN_ML_ENABLED` | `true` | Enable ML routes/nodes when the `[ml]` extra is installed |
+| `CIAREN_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
+| `CIAREN_MLFLOW_REGISTRY_URI` | — | Optional MLflow registry URI; defaults to tracking URI |
+| `CIAREN_ML_ARTIFACT_DIR` | `ml_artifacts` | Local model artifact root, under `DATA_DIR` when relative |
+| `CIAREN_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails |
+| `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
+| `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
+| `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
+| `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 
 Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
 
 ## Database
 
-FlowFrame uses **async SQLAlchemy**, so the URL must use an async driver.
+Ciaren uses **async SQLAlchemy**, so the URL must use an async driver.
 
 | Database | URL form | Driver to install |
 | --- | --- | --- |
-| SQLite (default) | `sqlite+aiosqlite:///./flowframe.db` | bundled |
+| SQLite (default) | `sqlite+aiosqlite:///./ciaren.db` | bundled |
 | PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/dbname` | `pip install asyncpg` |
 | MySQL / MariaDB | `mysql+aiomysql://user:pass@host:3306/dbname` | `pip install aiomysql` |
 
 ```bash
 # backend/.env
-FLOWFRAME_DATABASE_URL=postgresql+asyncpg://flowframe:secret@localhost:5432/flowframe
+CIAREN_DATABASE_URL=postgresql+asyncpg://ciaren:secret@localhost:5432/ciaren
 ```
 
 The schema is **created automatically** on startup — there is no separate
-migration step. `flowframe check` verifies the driver is async and that the
+migration step. `ciaren check` verifies the driver is async and that the
 database is reachable.
 
 :::warning Async driver required
@@ -93,29 +93,29 @@ Always use the `+aiosqlite` / `+asyncpg` / `+aiomysql` variant.
 
 ## Data directory
 
-`FLOWFRAME_DATA_DIR` (default `.data`) is where uploaded files, run outputs, and
+`CIAREN_DATA_DIR` (default `.data`) is where uploaded files, run outputs, and
 previews are written. In production, point it at a persistent, writable volume —
-`flowframe check` confirms it's writable. The database stores metadata; the data
+`ciaren check` confirms it's writable. The database stores metadata; the data
 dir stores the actual files.
 
 ## Execution tuning
 
-FlowFrame runs synchronous dataframe work off the event loop so the API stays
+Ciaren runs synchronous dataframe work off the event loop so the API stays
 responsive. See [Engines](/guide/engines) for the full picture.
 
-- **`FLOWFRAME_EXECUTION_MODE=thread`** (default) — a worker thread; simplest.
-- **`FLOWFRAME_EXECUTION_MODE=process`** — a `ProcessPoolExecutor` for true
+- **`CIAREN_EXECUTION_MODE=thread`** (default) — a worker thread; simplest.
+- **`CIAREN_EXECUTION_MODE=process`** — a `ProcessPoolExecutor` for true
   multi-core parallelism. Only picklable arguments cross the process boundary, so
   the database session always stays in the parent process.
 
-- **`FLOWFRAME_RUN_TIMEOUT_SECONDS`** abandons an over-running run. In `process`
+- **`CIAREN_RUN_TIMEOUT_SECONDS`** abandons an over-running run. In `process`
   mode the worker is recycled to reclaim the CPU; in `thread` mode the run is
   abandoned but the thread finishes. `0` disables the limit.
 
 ```bash
-flowframe serve --execution-mode process
+ciaren serve --execution-mode process
 # with a 5-minute cap per run:
-FLOWFRAME_RUN_TIMEOUT_SECONDS=300 flowframe serve --execution-mode process
+CIAREN_RUN_TIMEOUT_SECONDS=300 ciaren serve --execution-mode process
 ```
 
 ## Scheduler tuning
@@ -123,10 +123,10 @@ FLOWFRAME_RUN_TIMEOUT_SECONDS=300 flowframe serve --execution-mode process
 The background scheduler runs inside the API process. See
 [Scheduling](/guide/scheduling) for behavior. Relevant settings:
 
-- `FLOWFRAME_SCHEDULER_ENABLED` — master switch (or `flowframe serve --no-scheduler`).
-- `FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS` — lower = more responsive, more wakeups.
-- `FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS` — cap on simultaneous scheduled runs.
-- `FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES` — auto-disable threshold.
+- `CIAREN_SCHEDULER_ENABLED` — master switch (or `ciaren serve --no-scheduler`).
+- `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` — lower = more responsive, more wakeups.
+- `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` — cap on simultaneous scheduled runs.
+- `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` — auto-disable threshold.
 
 :::tip Run the API without the scheduler
 If you run multiple API replicas, enable the scheduler on **only one** of them
@@ -137,29 +137,29 @@ to coordinate across replicas.
 ## CORS
 
 When the frontend is served from a different origin than the API, add that origin
-to `FLOWFRAME_CORS_ORIGINS` (a JSON list):
+to `CIAREN_CORS_ORIGINS` (a JSON list):
 
 ```bash
-FLOWFRAME_CORS_ORIGINS=["https://flowframe.example.com","http://localhost:5173"]
+CIAREN_CORS_ORIGINS=["https://ciaren.example.com","http://localhost:5173"]
 ```
 
 ## Production deployment
 
-FlowFrame is local-first, but you can host it. A typical setup:
+Ciaren is local-first, but you can host it. A typical setup:
 
 ### Backend
 
 ```bash
 pip install -e .
 # bind to all interfaces, no reload, info logs
-flowframe serve --host 0.0.0.0 --port 8055 --log-level info
+ciaren serve --host 0.0.0.0 --port 8055 --log-level info
 ```
 
-- Set `FLOWFRAME_ENVIRONMENT=production`.
-- Use a managed PostgreSQL/MySQL via `FLOWFRAME_DATABASE_URL`.
+- Set `CIAREN_ENVIRONMENT=production`.
+- Use a managed PostgreSQL/MySQL via `CIAREN_DATABASE_URL`.
 - Put the data dir on a persistent volume.
 - Run it under a process manager (systemd, Docker, etc.).
-- Set `FLOWFRAME_LOG_FORMAT=json` to emit one JSON object per log line
+- Set `CIAREN_LOG_FORMAT=json` to emit one JSON object per log line
   (level, logger, message, timestamp, plus any structured fields) for a log
   collector. The default `auto` prints human-readable lines.
 - Point your orchestrator's **liveness** probe at `/health` and its
@@ -184,9 +184,9 @@ Serve `frontend/dist/` and route `/api/*` to the backend. Example nginx:
 ```nginx
 server {
   listen 80;
-  server_name flowframe.example.com;
+  server_name ciaren.example.com;
 
-  root /srv/flowframe/dist;            # frontend build
+  root /srv/ciaren/dist;            # frontend build
   location / { try_files $uri /index.html; }
 
   location /api/ {                      # proxy to the backend
@@ -201,10 +201,10 @@ Because the browser then talks to a single origin, you usually don't need to
 touch `CORS_ORIGINS` for this layout.
 
 ::: warning Alpha software
-FlowFrame is in early development and has not completed a formal independent
+Ciaren is in early development and has not completed a formal independent
 third-party security audit. If you deploy it beyond localhost, review the
 [security notes](https://github.com/rodrigo-arenas/FlowFrame/blob/main/SECURITY.md),
-set `FLOWFRAME_API_TOKEN`, place it behind trusted access controls, and validate
+set `CIAREN_API_TOKEN`, place it behind trusted access controls, and validate
 the deployment against your own data and operational requirements.
 :::
 
@@ -224,8 +224,8 @@ VITE_PORT=3000 VITE_API_TARGET=http://localhost:8001 npm run dev
 ## Verifying
 
 ```bash
-flowframe info     # print resolved settings (DB password redacted)
-flowframe check    # data dir writable? async driver? DB reachable? engines present?
+ciaren info     # print resolved settings (DB password redacted)
+ciaren check    # data dir writable? async driver? DB reachable? engines present?
 ```
 
 ## See also

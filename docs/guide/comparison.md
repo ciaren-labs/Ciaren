@@ -1,12 +1,12 @@
 ---
-title: How FlowFrame Compares
-description: Where FlowFrame fits versus notebooks and scripts, heavyweight orchestrators like Airflow/dbt/Spark, and traditional visual ETL tools.
-search: comparison flowframe vs notebooks jupyter airflow dbt spark alteryx knime visual etl alternative
+title: How Ciaren Compares
+description: Where Ciaren fits versus notebooks and scripts, heavyweight orchestrators like Airflow/dbt/Spark, and traditional visual ETL tools.
+search: comparison ciaren vs notebooks jupyter airflow dbt spark alteryx knime visual etl alternative
 ---
 
-# How FlowFrame Compares
+# How Ciaren Compares
 
-FlowFrame fills a specific gap: a **visual, plugin-first, local-first** way to build
+Ciaren fills a specific gap: a **visual, plugin-first, local-first** way to build
 Data Engineering and ML workflows for small and medium datasets — that still exports
 **clean, portable Python**. Here's how it relates to the tools you might already use.
 
@@ -23,7 +23,7 @@ Data Engineering and ML workflows for small and medium datasets — that still e
 Notebooks are great for exploration but hard to keep repeatable: cells run out of
 order, state leaks, and "rerun this monthly" turns into copy-paste.
 
-| | Notebooks / scripts | FlowFrame |
+| | Notebooks / scripts | Ciaren |
 | --- | --- | --- |
 | Build experience | Write code cell by cell | Visual canvas, one node = one operation |
 | Repeatability | Easy to run out of order | Topologically sorted, deterministic runs |
@@ -31,7 +31,7 @@ order, state leaks, and "rerun this monthly" turns into copy-paste.
 | Reuse | Copy-paste | Saved flows, parameters, schedules, run history |
 | Output | The notebook | A saved flow **and** exported `.py` |
 
-**Use FlowFrame when** you want a notebook's flexibility but a pipeline's
+**Use Ciaren when** you want a notebook's flexibility but a pipeline's
 repeatability — and you still want the Python at the end.
 
 ## vs. Orchestrators (Airflow, dbt, Spark)
@@ -39,7 +39,7 @@ repeatability — and you still want the Python at the end.
 These solve a different problem: scheduling large DAGs across infrastructure, SQL
 transformation graphs on a warehouse, or distributed compute.
 
-| | Airflow / dbt / Spark | FlowFrame |
+| | Airflow / dbt / Spark | Ciaren |
 | --- | --- | --- |
 | Scope | Cluster-scale orchestration / warehouse / big data | Single-machine ETL + ML |
 | Setup | Servers, schedulers, warehouses | `pip install`, runs locally |
@@ -47,8 +47,8 @@ transformation graphs on a warehouse, or distributed compute.
 | Transformations | SQL models / Python operators | Visual nodes → pandas/polars |
 | Scheduling | Full DAG orchestration | Built-in single-flow cron scheduler |
 
-**Use FlowFrame when** your data fits on one machine and you want to move fast
-without standing up infrastructure. FlowFrame is **not** a replacement for these
+**Use Ciaren when** your data fits on one machine and you want to move fast
+without standing up infrastructure. Ciaren is **not** a replacement for these
 tools at warehouse or cluster scale, and doesn't do distributed or streaming
 execution.
 
@@ -57,7 +57,7 @@ execution.
 Traditional drag-and-drop ETL tools can be powerful but are often closed-source,
 license-gated, and lock your logic into a proprietary format.
 
-| | Closed visual ETL | FlowFrame |
+| | Closed visual ETL | Ciaren |
 | --- | --- | --- |
 | License | Commercial / closed | Core AGPL-3.0; Plugin API/SDK Apache-2.0 |
 | Where it runs | Vendor desktop/cloud | Your machine, local-first |
@@ -65,12 +65,12 @@ license-gated, and lock your logic into a proprietary format.
 | Extensibility | Vendor plugins only | Plugin-first — add nodes, connectors, engines |
 | ML | Add-on / separate | Built-in optional ML extension, MLflow-tracked |
 
-**Use FlowFrame when** you want the approachability of a visual tool without giving
+**Use Ciaren when** you want the approachability of a visual tool without giving
 up ownership of your data, your execution, or your code.
 
-## When *not* to use FlowFrame
+## When *not* to use Ciaren
 
-Be honest about the boundaries — FlowFrame is intentionally lightweight and is
+Be honest about the boundaries — Ciaren is intentionally lightweight and is
 **not** designed for:
 
 - Distributed or streaming pipelines (Spark, Flink, Kafka)
@@ -79,7 +79,7 @@ Be honest about the boundaries — FlowFrame is intentionally lightweight and is
 - Multi-user collaboration and enterprise permissions
 
 For those, reach for the orchestrators above. For everything that fits on one
-machine, FlowFrame keeps you fast and in control.
+machine, Ciaren keeps you fast and in control.
 
 ## Next steps
 

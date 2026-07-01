@@ -1,12 +1,12 @@
 ---
 title: Build Your First Plugin (10 minutes)
-description: A step-by-step tutorial — create a FlowFrame plugin that adds a working node to the canvas, runs end-to-end, and exports to Python.
+description: A step-by-step tutorial — create a Ciaren plugin that adds a working node to the canvas, runs end-to-end, and exports to Python.
 search: plugin tutorial first plugin getting started node provider runtime hello quickstart build
 ---
 
 # Build Your First Plugin in 10 Minutes
 
-By the end of this tutorial you'll have a working FlowFrame plugin that adds a new
+By the end of this tutorial you'll have a working Ciaren plugin that adds a new
 node to the canvas — one that runs in previews and runs, and exports to Python,
 exactly like a built-in node. We'll build a small **"Add Greeting"** node that adds
 a constant column.
@@ -23,11 +23,11 @@ discovery → canvas**. Once you've done it once, every other extension point
 
 ## Prerequisites
 
-- FlowFrame installed and runnable (`flowframe serve` works). See
+- Ciaren installed and runnable (`ciaren serve` works). See
   [Installation](/guide/installation).
 - Python 3.12+.
 - A plugin depends only on the public plugin API (`app.plugin_api`) and pandas —
-  never on FlowFrame's internals.
+  never on Ciaren's internals.
 
 ## 1. Create the package
 
@@ -35,26 +35,26 @@ Make a folder with a Python package inside it:
 
 ```text
 my-greeting-plugin/
-├── flowframe_greeting/
+├── ciaren_greeting/
 │   ├── __init__.py
 │   └── plugin.py
-├── flowframe-plugin.json
+├── ciaren-plugin.json
 └── pyproject.toml
 ```
 
 ```bash
-mkdir -p my-greeting-plugin/flowframe_greeting
+mkdir -p my-greeting-plugin/ciaren_greeting
 cd my-greeting-plugin
-touch flowframe_greeting/__init__.py
+touch ciaren_greeting/__init__.py
 ```
 
 ## 2. Implement the plugin
 
 A plugin contributes nodes through a **`NodeProvider`**. To make the node *run*
-(not just appear in the catalog), the provider also hands FlowFrame a
+(not just appear in the catalog), the provider also hands Ciaren a
 **`NodeRuntime`** keyed by node id.
 
-Put this in `flowframe_greeting/plugin.py`:
+Put this in `ciaren_greeting/plugin.py`:
 
 ```python
 from __future__ import annotations
@@ -134,7 +134,7 @@ catalog), and a **`Plugin`** that registers the provider.
 ## 3. Add a manifest
 
 The loader validates a manifest **before importing any plugin code**. Create
-`flowframe-plugin.json`:
+`ciaren-plugin.json`:
 
 ```json
 {
@@ -143,8 +143,8 @@ The loader validates a manifest **before importing any plugin code**. Create
   "version": "0.1.0",
   "publisher": "community",
   "description": "Adds one node that writes a greeting column.",
-  "flowframe": ">=0.1",
-  "entrypoint": "flowframe_greeting.plugin:GreetingPlugin",
+  "ciaren": ">=0.1",
+  "entrypoint": "ciaren_greeting.plugin:GreetingPlugin",
   "permissions": [],
   "capabilities": ["node.greeting"],
   "ui": { "nodes": ["greeting.add"] },
@@ -156,18 +156,18 @@ See the [Plugin Manifest](/specs/plugin-manifest) reference for every field.
 
 ## 4. Load it (no install needed)
 
-The fastest loop during development: point FlowFrame at the folder that *contains*
+The fastest loop during development: point Ciaren at the folder that *contains*
 your plugin and start the server.
 
 ```bash
-export FLOWFRAME_PLUGINS_DIR=/path/to   # the directory that holds my-greeting-plugin/
-flowframe serve
+export CIAREN_PLUGINS_DIR=/path/to   # the directory that holds my-greeting-plugin/
+ciaren serve
 ```
 
 Confirm it loaded:
 
 ```bash
-flowframe plugin list
+ciaren plugin list
 # community.greeting should appear
 ```
 
@@ -180,7 +180,7 @@ the node palette under the **columns** category.
 2. Drag in **Add Greeting** and wire the input into it.
 3. **Preview** — you'll see the new `greeting` column.
 4. **Export → Python** — the node emits the `assign(...)` line from
-   `to_python_code`, so the exported script runs without FlowFrame.
+   `to_python_code`, so the exported script runs without Ciaren.
 
 You just built a plugin node that runs end-to-end. 🎉
 
@@ -194,25 +194,25 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "flowframe-greeting-plugin"
+name = "ciaren-greeting-plugin"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = []
 
-[project.entry-points."flowframe.plugins"]
-greeting = "flowframe_greeting.plugin:GreetingPlugin"
+[project.entry-points."ciaren.plugins"]
+greeting = "ciaren_greeting.plugin:GreetingPlugin"
 
 [tool.hatch.build.targets.wheel]
-packages = ["flowframe_greeting"]
+packages = ["ciaren_greeting"]
 ```
 
-…then build a portable, signable `.ffplugin` package:
+…then build a portable, signable `.ciarenplugin` package:
 
 ```bash
-flowframe plugin keygen                                   # one-time: a signing key
-flowframe plugin pack ./my-greeting-plugin ./greeting.ffplugin
-flowframe plugin sign ./greeting.ffplugin
-flowframe plugin install ./greeting.ffplugin --trusted
+ciaren plugin keygen                                   # one-time: a signing key
+ciaren plugin pack ./my-greeting-plugin ./greeting.ciarenplugin
+ciaren plugin sign ./greeting.ciarenplugin
+ciaren plugin install ./greeting.ciarenplugin --trusted
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full

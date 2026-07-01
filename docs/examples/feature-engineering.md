@@ -7,12 +7,12 @@ search: example feature engineering scale encode one-hot select features pca dim
 # Feature Engineering
 
 Before training a model, you usually reshape the raw columns into good features.
-FlowFrame's **Machine Learning** nodes cover the common steps — scaling, encoding,
+Ciaren's **Machine Learning** nodes cover the common steps — scaling, encoding,
 selection, and dimensionality reduction — and each one previews on real rows so you
 can see the effect immediately.
 
 :::tip Requires the ML extension
-These nodes appear once you install `pip install "flowframe[ml]"`. See the
+These nodes appear once you install `pip install "ciaren[ml]"`. See the
 [ML Quick Start](/guide/ml-quickstart).
 :::
 
@@ -79,7 +79,7 @@ Preview after each node to watch the feature space change, then **Run**.
 
 For modeling, you often want the *same* transformations reapplied automatically at
 predict time. Rather than wiring scaling/encoding/imputation as separate nodes,
-open a **train node's Advanced → Preprocessing** options — FlowFrame bundles numeric
+open a **train node's Advanced → Preprocessing** options — Ciaren bundles numeric
 scaling, imputation, and one-hot encoding into the model `Pipeline`, so the exported
 scikit-learn script reproduces them exactly when scoring new data.
 

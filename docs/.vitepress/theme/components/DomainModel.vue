@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// Static diagram of the FlowFrame domain model
+// Static diagram of the Ciaren domain model
 </script>
 
 <template>
   <div class="dm-wrapper">
-    <div class="dm-caption">FlowFrame Domain Model</div>
+    <div class="dm-caption">Ciaren Domain Model</div>
 
     <div class="dm-graph">
       <!-- Row 1 -->

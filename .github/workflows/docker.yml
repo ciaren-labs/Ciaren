@@ -47,13 +47,13 @@ jobs:
           context: .
           push: false
           load: true
-          tags: flowframe:ci
+          tags: ciaren:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Verify frontend is bundled in the image
         run: |
-          docker run --rm --entrypoint sh flowframe:ci -c \
+          docker run --rm --entrypoint sh ciaren:ci -c \
             '[ -f /app/app/web/index.html ] \
               && echo "✅ index.html present" \
               || (echo "❌ index.html missing from /app/app/web/" && exit 1)'
@@ -61,13 +61,13 @@ jobs:
       - name: Start container
         run: |
           docker run -d \
-            --name flowframe-ci \
+            --name ciaren-ci \
             -p 8055:8055 \
-            flowframe:ci
+            ciaren:ci
 
       - name: Wait for the health endpoint to be ready
         run: |
-          echo "Waiting for FlowFrame to start..."
+          echo "Waiting for Ciaren to start..."
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8055/health > /dev/null 2>&1; then
               echo "✅ Ready after $((i * 3))s"
@@ -77,7 +77,7 @@ jobs:
             sleep 3
           done
           echo "❌ Health check timed out after 90s"
-          docker logs flowframe-ci
+          docker logs ciaren-ci
           exit 1
 
       - name: Verify /health response
@@ -89,23 +89,23 @@ jobs:
             && echo "✅ Frontend served" \
             || (echo "❌ Unexpected response from /"; exit 1)
 
-      - name: flowframe info (resolve settings)
+      - name: ciaren info (resolve settings)
         run: |
-          docker exec flowframe-ci flowframe info \
-            && echo "✅ flowframe info succeeded"
+          docker exec ciaren-ci ciaren info \
+            && echo "✅ ciaren info succeeded"
 
-      - name: flowframe check (validate environment)
+      - name: ciaren check (validate environment)
         run: |
-          docker exec flowframe-ci flowframe check \
-            && echo "✅ flowframe check passed"
+          docker exec ciaren-ci ciaren check \
+            && echo "✅ ciaren check passed"
 
       - name: Show container logs on failure
         if: failure()
-        run: docker logs flowframe-ci
+        run: docker logs ciaren-ci
 
       - name: Stop container
         if: always()
-        run: docker stop flowframe-ci || true
+        run: docker stop ciaren-ci || true
 
   build-ml:
     name: Build with ML extras
@@ -127,7 +127,7 @@ jobs:
           context: .
           push: false
           load: true
-          tags: flowframe:ci-ml
+          tags: ciaren:ci-ml
           build-args: |
             EXTRAS=ml
           cache-from: type=gha
@@ -135,13 +135,13 @@ jobs:
 
       - name: Verify ML packages are importable
         run: |
-          docker run --rm --entrypoint python flowframe:ci-ml -c \
+          docker run --rm --entrypoint python ciaren:ci-ml -c \
             "import sklearn, xgboost, lightgbm, mlflow; print('✅ ML packages available')"
 
-      - name: flowframe check with ML extras
+      - name: ciaren check with ML extras
         run: |
-          docker run --rm --entrypoint flowframe flowframe:ci-ml check \
-            && echo "✅ flowframe check passed with ML extras"
+          docker run --rm --entrypoint ciaren ciaren:ci-ml check \
+            && echo "✅ ciaren check passed with ML extras"
 
   summary:
     name: Docker Summary

@@ -84,7 +84,7 @@ async def test_catalog_nodes_shows_ml_when_enabled(client, monkeypatch):
     if not ml_core_available():
         pytest.skip("[ml] extra not installed")
 
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
     try:
         resp = await client.get("/api/catalog/nodes")

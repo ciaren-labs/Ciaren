@@ -7,7 +7,7 @@ serializable *specs* (for the catalog) and, where relevant, opaque
 *implementations* (duck-typed by the engine — e.g. a node's
 ``BaseTransformation``). Keeping implementations opaque is what lets this module
 stay free of any engine/app import, so a plugin only ever depends on
-``app.plugin_api`` (the future ``flowframe-plugin-api`` package).
+``app.plugin_api`` (the future ``ciaren-plugin-api`` package).
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ class Plugin(ABC):
 
     The loader instantiates this and calls :meth:`register`, where the plugin
     registers its providers on the supplied registry. A plugin must not import
-    private internals of the FlowFrame app — only ``app.plugin_api`` and the
+    private internals of the Ciaren app — only ``app.plugin_api`` and the
     public schema package.
     """
 

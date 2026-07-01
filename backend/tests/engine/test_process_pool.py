@@ -87,7 +87,7 @@ async def test_run_with_unknown_execution_mode_is_400(client, monkeypatch) -> No
 
     from app.core.config import get_settings
 
-    monkeypatch.setenv("FLOWFRAME_EXECUTION_MODE", "bogus")
+    monkeypatch.setenv("CIAREN_EXECUTION_MODE", "bogus")
     get_settings.cache_clear()
 
     buf = io.BytesIO()

@@ -60,7 +60,7 @@ def _load(perms: list[Permission], state: PluginStateStore, *, registry: Service
         include_entry_points=False,
         extra=[_candidate(perms)],
         state=state,
-        flowframe_version_str="0.1.0",
+        ciaren_version_str="0.1.0",
     )
     return registry, result
 
@@ -149,7 +149,7 @@ def test_manifestless_candidate_is_not_gated(tmp_path):
         include_entry_points=False,
         extra=[PluginCandidate(source="entry_point:x", load=lambda: _GatedPlugin(), manifest=None)],
         state=state,
-        flowframe_version_str="0.1.0",
+        ciaren_version_str="0.1.0",
     )
     assert len(result.loaded) == 1
 
@@ -163,7 +163,7 @@ def test_license_required_plugin_without_provider_is_not_loaded(tmp_path):
         include_entry_points=False,
         extra=[_candidate([Permission.network], license_required=True)],
         state=state,
-        flowframe_version_str="0.1.0",
+        ciaren_version_str="0.1.0",
     )
     assert result.loaded == []
     assert result.errors
@@ -181,7 +181,7 @@ def test_license_required_plugin_with_invalid_license_is_not_loaded(tmp_path):
         include_entry_points=False,
         extra=[_candidate([Permission.network], license_required=True)],
         state=state,
-        flowframe_version_str="0.1.0",
+        ciaren_version_str="0.1.0",
     )
     assert result.loaded == []
     assert "unlicensed" in result.errors[0].error
@@ -198,7 +198,7 @@ def test_license_required_plugin_with_valid_license_loads(tmp_path):
         include_entry_points=False,
         extra=[_candidate([Permission.network], license_required=True)],
         state=state,
-        flowframe_version_str="0.1.0",
+        ciaren_version_str="0.1.0",
     )
     assert len(result.loaded) == 1
     assert result.errors == []

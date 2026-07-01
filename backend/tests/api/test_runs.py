@@ -196,7 +196,7 @@ async def test_run_times_out(client: AsyncClient, monkeypatch: pytest.MonkeyPatc
         return RunResult({}, [], None)
 
     monkeypatch.setattr(FlowExecutor, "run_with_results", slow)
-    monkeypatch.setenv("FLOWFRAME_RUN_TIMEOUT_SECONDS", "1")
+    monkeypatch.setenv("CIAREN_RUN_TIMEOUT_SECONDS", "1")
     from app.core.config import get_settings
 
     get_settings.cache_clear()

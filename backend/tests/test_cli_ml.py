@@ -1,5 +1,6 @@
-"""CLI: `flowframe init` provisions a default local MLflow, and info/check report
+"""CLI: `ciaren init` provisions a default local MLflow, and info/check report
 ML status. Overridable by env vars / editing the .env."""
+
 import json
 
 from app import cli
@@ -15,8 +16,8 @@ def test_init_writes_ml_defaults_and_provisions_mlflow(monkeypatch, tmp_path, ca
     monkeypatch.chdir(tmp_path)
     cli.main(["init"])
     env = (tmp_path / ".env").read_text(encoding="utf-8")
-    assert "FLOWFRAME_ML_ENABLED=true" in env
-    assert "FLOWFRAME_MLFLOW_TRACKING_URI=./mlruns" in env
+    assert "CIAREN_ML_ENABLED=true" in env
+    assert "CIAREN_MLFLOW_TRACKING_URI=./mlruns" in env
     # a default local MLflow store directory is created
     assert (tmp_path / "mlruns").is_dir()
     out = capsys.readouterr().out
@@ -42,12 +43,12 @@ def test_init_force_overwrites(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("EXISTING=1", encoding="utf-8")
     cli.main(["init", "--force"])
-    assert "FLOWFRAME_ML_ENABLED=true" in (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "CIAREN_ML_ENABLED=true" in (tmp_path / ".env").read_text(encoding="utf-8")
 
 
 def test_mlflow_tracking_uri_is_overridable(monkeypatch, tmp_path):
     # The init default can be overridden to point at an existing MLflow server.
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", "http://mlflow.internal:5000")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", "http://mlflow.internal:5000")
     _clear_settings_cache()
     try:
         from app.core.config import get_settings
@@ -58,8 +59,8 @@ def test_mlflow_tracking_uri_is_overridable(monkeypatch, tmp_path):
 
 
 def test_info_includes_ml_fields(monkeypatch, capsys):
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     _clear_settings_cache()
     try:
         cli.main(["info", "--output", "json"])
@@ -72,9 +73,9 @@ def test_info_includes_ml_fields(monkeypatch, capsys):
 
 
 def test_check_reports_ml_enabled(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     _clear_settings_cache()
     try:
         cli.main(["check", "--output", "json"])
@@ -87,9 +88,9 @@ def test_check_reports_ml_enabled(monkeypatch, tmp_path, capsys):
 
 
 def test_check_reports_ml_disabled(monkeypatch, tmp_path, capsys):
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "false")
     _clear_settings_cache()
     try:
         cli.main(["check", "--output", "json"])

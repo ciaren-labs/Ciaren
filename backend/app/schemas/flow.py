@@ -21,7 +21,7 @@ class FlowUpdate(BaseModel):
 
 
 # Versioned tag on the portable flow document so importers can sanity-check it.
-FLOW_DOCUMENT_FORMAT = "flowframe.flow/v1"
+FLOW_DOCUMENT_FORMAT = "ciaren.flow/v1"
 
 
 class FlowDocument(BaseModel):

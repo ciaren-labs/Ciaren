@@ -41,7 +41,7 @@ def test_ml_provider_contributes_only_ml_nodes():
     specs = reg.node_specs()
     assert specs, "expected ML nodes when [ml] is installed"
     assert all(s.requires_ml for s in specs)
-    assert all(s.provider == "flowframe.ml" for s in specs)
+    assert all(s.provider == "ciaren.ml" for s in specs)
     # Implementations are present so ML nodes execute once registered.
     assert reg.node_implementation("mlTrainClassifier") is not None
 

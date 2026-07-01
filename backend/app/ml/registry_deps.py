@@ -54,7 +54,7 @@ def _production_version(client: Any, name: str) -> Any:
 def _run_dataset_ids(client: Any, run_id: str) -> list[str]:
     try:
         run = client.get_run(run_id)
-        raw = run.data.tags.get("flowframe_dataset_ids")
+        raw = run.data.tags.get("ciaren_dataset_ids")
         return list(json.loads(raw)) if raw else []
     except Exception:  # noqa: BLE001 - missing run/tag or bad json -> no dependency
         return []

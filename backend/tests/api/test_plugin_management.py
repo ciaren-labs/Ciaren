@@ -54,12 +54,12 @@ def _plugin_dir(tmp_path, monkeypatch):
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("FLOWFRAME_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
+    monkeypatch.setenv("CIAREN_PLUGIN_STATE_FILE", str(tmp_path / "plugin_state.json"))
     plugin = tmp_path / "mgmt-plugin"
     plugin.mkdir()
     (plugin / "mgmt_plugin.py").write_text(_MODULE, encoding="utf-8")
-    (plugin / "flowframe-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(tmp_path))
+    (plugin / "ciaren-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(tmp_path))
     reset_registry()
     yield
     reset_registry()

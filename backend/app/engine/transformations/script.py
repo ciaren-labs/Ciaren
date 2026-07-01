@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Custom Python transform node.
 
-The user writes the body of ``def transform(df): …``. FlowFrame wraps it,
+The user writes the body of ``def transform(df): …``. Ciaren wraps it,
 injects the engine-appropriate namespace (``pd`` / ``pl``), and calls it.
 
-No sandboxing: FlowFrame is local-first. Document that scripts run with full
+No sandboxing: Ciaren is local-first. Document that scripts run with full
 user permissions.
 """
 

@@ -53,8 +53,8 @@ async def demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
     """
     from app.core.config import get_settings
 
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "false")
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "false")
     get_settings.cache_clear()
     (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
 
@@ -85,9 +85,9 @@ async def ml_demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
     pytest.importorskip("sklearn")
     from app.core.config import get_settings
 
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
     get_settings.cache_clear()
     (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
 

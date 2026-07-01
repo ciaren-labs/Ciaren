@@ -99,12 +99,12 @@ return df
 ## Security note
 
 ::: warning No sandboxing
-The script runs with the **same permissions as the FlowFrame server process** —
+The script runs with the **same permissions as the Ciaren server process** —
 full access to the filesystem, network, and any installed packages. This is
-intentional: FlowFrame is local-first and sandboxing would break legitimate use
+intentional: Ciaren is local-first and sandboxing would break legitimate use
 cases (file access, custom library calls).
 
-Only run scripts from sources you trust, and never expose the FlowFrame API
+Only run scripts from sources you trust, and never expose the Ciaren API
 publicly without authentication when Python Transform nodes are in use.
 :::
 

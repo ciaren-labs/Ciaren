@@ -1,19 +1,19 @@
 ---
 title: Python SDK
-description: Control FlowFrame from Python scripts, notebooks, and orchestrators
-search: sdk python client flowframe-client trigger run stream logs async httpx
+description: Control Ciaren from Python scripts, notebooks, and orchestrators
+search: sdk python client ciaren-client trigger run stream logs async httpx
 ---
 
 # Python SDK
 
-`flowframe-client` is a thin Python package that wraps the FlowFrame REST API
-with a friendly interface. It ships both a synchronous (`FlowFrame`) and an
-async (`AsyncFlowFrame`) client, and depends only on `httpx`.
+`ciaren-client` is a thin Python package that wraps the Ciaren REST API
+with a friendly interface. It ships both a synchronous (`Ciaren`) and an
+async (`AsyncCiaren`) client, and depends only on `httpx`.
 
 ## Installation
 
 ```bash
-pip install flowframe-client
+pip install ciaren-client
 ```
 
 Or from the repository during development:
@@ -25,9 +25,9 @@ pip install -e path/to/FlowFrame/client
 ## Quick start
 
 ```python
-from flowframe_client import FlowFrame
+from ciaren_client import Ciaren
 
-ff = FlowFrame("http://localhost:8055", webhook_secret="my-secret")
+ff = Ciaren("http://localhost:8055", webhook_secret="my-secret")
 
 # Trigger a run and wait for it to complete
 run = ff.trigger("your-flow-id")
@@ -36,17 +36,17 @@ print(run["status"])  # "success" or "failed"
 
 ::: info Webhook secret required for trigger()
 `trigger()` calls `POST /api/flows/{id}/trigger` which requires
-`FLOWFRAME_WEBHOOK_SECRET` to be set on the server. See the
+`CIAREN_WEBHOOK_SECRET` to be set on the server. See the
 [Webhook guide](/guide/webhook) for setup instructions. The other methods
 (`list_flows`, `get_run`, etc.) work without a secret.
 :::
 
-## Sync client — `FlowFrame`
+## Sync client — `Ciaren`
 
 ```python
-from flowframe_client import FlowFrame
+from ciaren_client import Ciaren
 
-ff = FlowFrame(
+ff = Ciaren(
     base_url="http://localhost:8055",
     webhook_secret="my-secret",   # required only for trigger()
     timeout=30.0,                 # httpx request timeout in seconds
@@ -56,7 +56,7 @@ ff = FlowFrame(
 Use it as a context manager to ensure the underlying `httpx.Client` is closed:
 
 ```python
-with FlowFrame("http://localhost:8055", webhook_secret="my-secret") as ff:
+with Ciaren("http://localhost:8055", webhook_secret="my-secret") as ff:
     run = ff.trigger("flow-id")
 ```
 
@@ -113,12 +113,12 @@ for entry in ff.stream_logs("run-id"):
     print(f"[{entry['level']}] {entry['message']}")
 ```
 
-## Async client — `AsyncFlowFrame`
+## Async client — `AsyncCiaren`
 
 ```python
-from flowframe_client import AsyncFlowFrame
+from ciaren_client import AsyncCiaren
 
-async with AsyncFlowFrame("http://localhost:8055", webhook_secret="my-secret") as ff:
+async with AsyncCiaren("http://localhost:8055", webhook_secret="my-secret") as ff:
     run = await ff.trigger("flow-id")
 ```
 
@@ -140,9 +140,9 @@ async for entry in ff.stream_logs("run-id"):
 ## Notebook example
 
 ```python
-from flowframe_client import FlowFrame
+from ciaren_client import Ciaren
 
-ff = FlowFrame("http://localhost:8055", webhook_secret="my-secret")
+ff = Ciaren("http://localhost:8055", webhook_secret="my-secret")
 
 run = ff.trigger("my-etl-flow", parameters={"month": "2026-05"})
 print(f"Status: {run['status']}")
@@ -157,21 +157,21 @@ for entry in ff.stream_logs(run["id"]):
 
 ```python
 # Airflow PythonOperator
-from flowframe_client import FlowFrame
+from ciaren_client import Ciaren
 
 def run_etl(**context):
-    ff = FlowFrame("http://flowframe:8055", webhook_secret="{{ var.value.ff_secret }}")
+    ff = Ciaren("http://ciaren:8055", webhook_secret="{{ var.value.ff_secret }}")
     run = ff.trigger("pipeline-flow")
     if run["status"] != "success":
-        raise ValueError(f"FlowFrame run failed: {run['error_message']}")
+        raise ValueError(f"Ciaren run failed: {run['error_message']}")
 
 # Prefect task
 from prefect import task
-from flowframe_client import AsyncFlowFrame
+from ciaren_client import AsyncCiaren
 
 @task
 async def trigger_flow(flow_id: str):
-    async with AsyncFlowFrame("http://flowframe:8055", webhook_secret=...) as ff:
+    async with AsyncCiaren("http://ciaren:8055", webhook_secret=...) as ff:
         return await ff.trigger(flow_id)
 ```
 
@@ -183,9 +183,9 @@ configured on the client.
 
 ```python
 import httpx
-from flowframe_client import FlowFrame
+from ciaren_client import Ciaren
 
-ff = FlowFrame("http://localhost:8055", webhook_secret="my-secret")
+ff = Ciaren("http://localhost:8055", webhook_secret="my-secret")
 try:
     run = ff.trigger("flow-id")
 except httpx.HTTPStatusError as e:

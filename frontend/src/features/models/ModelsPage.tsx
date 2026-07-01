@@ -121,8 +121,8 @@ function MlDisabledNotice() {
       <BrainCircuit className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
       <p className="text-sm font-medium">The ML extension isn’t enabled</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Install it with <code className="font-mono">pip install &quot;flowframe[ml]&quot;</code> and set{" "}
-        <code className="font-mono">FLOWFRAME_ML_ENABLED=true</code> to train and track models.
+        Install it with <code className="font-mono">pip install &quot;ciaren[ml]&quot;</code> and set{" "}
+        <code className="font-mono">CIAREN_ML_ENABLED=true</code> to train and track models.
       </p>
     </div>
   );
