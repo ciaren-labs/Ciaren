@@ -312,9 +312,9 @@ class ExecutionService:
         if status is not None:
             stmt = stmt.where(FlowRun.status == status)
         if started_after is not None:
-            stmt = stmt.where(FlowRun.created_at >= started_after)
+            stmt = stmt.where(FlowRun.started_at >= started_after)
         if started_before is not None:
-            stmt = stmt.where(FlowRun.created_at <= started_before)
+            stmt = stmt.where(FlowRun.started_at <= started_before)
         stmt = stmt.offset(offset).limit(limit)
 
         result = await self.db.execute(stmt)
@@ -357,24 +357,10 @@ class ExecutionService:
 
     def _guard_ml_enabled(self, graph: dict[str, Any] | None) -> None:
         """Reject running a graph that uses ML nodes when the ML extension is off.
+        Shared with the preview path — see :func:`guard_graph_ml_enabled`."""
+        from app.ml.availability import guard_graph_ml_enabled
 
-        ML node types are registered whenever the [ml] libraries are importable, so
-        without this a crafted graph could execute ML nodes even with ML_ENABLED
-        false. Keeps the feature flag a real gate, not just a UI/palette toggle.
-        """
-        from app.core.exceptions import MLNotEnabledError
-        from app.engine.registry import ml_node_types
-        from app.ml.availability import ml_extension_ready
-
-        ml_types = ml_node_types()
-        if not ml_types:
-            return
-        graph_types = {n.get("type") for n in (graph or {}).get("nodes", [])}
-        if graph_types & ml_types and not ml_extension_ready():
-            raise MLNotEnabledError(
-                "This flow uses machine-learning nodes, but ML support is not enabled "
-                "on this server (set ML_ENABLED and install the [ml] extra)."
-            )
+        guard_graph_ml_enabled(graph)
 
     async def _resolve_tracking_uri(self) -> str | None:
         """The MLflow tracking URI to use for this run (connection > setting).

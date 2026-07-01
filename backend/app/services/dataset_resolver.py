@@ -49,10 +49,19 @@ async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None
 def _input_refs(graph: dict[str, Any]) -> set[tuple[str, int | None]]:
     refs: set[tuple[str, int | None]] = set()
     for node in graph.get("nodes", []):
-        if node["type"] not in _LEGACY_FILE_INPUT_TYPES and node["type"] != FILE_INPUT_TYPE:
+        node_type = node.get("type")
+        if node_type not in _LEGACY_FILE_INPUT_TYPES and node_type != FILE_INPUT_TYPE:
             continue
         config = node.get("data", {}).get("config", {})
-        refs.add((config["dataset_id"], config.get("dataset_version")))
+        dataset_id = config.get("dataset_id")
+        if not dataset_id:
+            # E.g. a freshly imported flow whose bindings were stripped — surface a
+            # clear message instead of a bare KeyError('dataset_id').
+            raise ValidationError(
+                f"Input node {node.get('id', '?')!r} has no dataset selected. "
+                "Open the flow and choose a dataset for every input node."
+            )
+        refs.add((dataset_id, config.get("dataset_version")))
     return refs
 
 

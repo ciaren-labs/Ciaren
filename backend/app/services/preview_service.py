@@ -10,7 +10,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
 from app.engine.executor import FlowExecutor
-from app.engine.graph import topological_sort
+from app.engine.graph import GraphValidationError, topological_sort
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
@@ -57,6 +57,10 @@ class PreviewService:
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
+        # Same ML feature gate as a run — previewing executes the graph too.
+        from app.ml.availability import guard_graph_ml_enabled
+
+        guard_graph_ml_enabled(flow.graph_json)
         # Resolve flow parameters so the preview reflects the values a run would use.
         try:
             graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
@@ -78,15 +82,20 @@ class PreviewService:
                 else {}
             )
             # preview_mode keeps ML nodes from fitting/logging during a preview.
-            with preview_mode():
-                frames = FlowExecutor().compute_frames(
-                    graph,
-                    dataset_paths,
-                    self.engine,
-                    require_output=False,
-                    sql_input_paths=sql_input_paths,
-                    storage_input_paths=storage_input_paths,
-                )
+            try:
+                with preview_mode():
+                    frames = FlowExecutor().compute_frames(
+                        graph,
+                        dataset_paths,
+                        self.engine,
+                        require_output=False,
+                        sql_input_paths=sql_input_paths,
+                        storage_input_paths=storage_input_paths,
+                    )
+            except GraphValidationError as exc:
+                # An invalid graph (no nodes, dangling edge, cycle) is a bad
+                # request, not a server error.
+                raise ValidationError(str(exc)) from exc
             node_id = req.node_id or self._default_node(graph)
             if node_id not in frames:
                 raise NotFoundError("Node", node_id)
@@ -131,6 +140,8 @@ class PreviewService:
     def _default_node(self, graph: dict[str, Any]) -> str:
         # The deepest node in topological order is the natural preview target.
         order = topological_sort(graph)
+        if not order:
+            raise ValidationError("The flow has no nodes to preview.")
         return order[-1]
 
     async def _get_flow(self, flow_id: str) -> Flow:

@@ -1,8 +1,13 @@
-"""Edge cases found in the 2026-07 backend audit (Phase 2: routes & services).
+"""Edge cases found in the 2026-07 backend audit (Phases 2-3).
 
-Covers: flow moves to nonexistent projects, soft-delete state consistency when
-re-enabling datasets (directly or via project cascade), pagination bounds on the
-schedule-runs listing, and the upload error message listing every allowed type.
+Phase 2 (routes & services): flow moves to nonexistent projects, soft-delete
+state consistency when re-enabling datasets (directly or via project cascade),
+pagination bounds on the schedule-runs listing, and the upload error message
+listing every allowed type.
+
+Phase 3 (execution pipeline): empty-graph preview, unconfigured input nodes,
+SQL nodes bound to non-database connections, and the started_after/-before
+run filters actually filtering on started_at.
 """
 
 import io
@@ -109,3 +114,83 @@ async def test_unsupported_upload_error_lists_all_allowed_types(client: AsyncCli
     detail = r.json()["detail"]
     for ext in (".csv", ".tsv", ".xlsx", ".parquet", ".json", ".jsonl", ".txt"):
         assert ext in detail, f"{ext} missing from: {detail}"
+
+
+# -- Phase 3: preview / execution edge cases ------------------------------------
+
+
+async def test_preview_empty_flow_is_400_not_500(client: AsyncClient) -> None:
+    flow = await _create_flow(client)  # empty graph
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={})
+    assert r.status_code == 400, r.text
+    assert "no nodes" in r.json()["detail"].lower()
+
+
+async def test_preview_dangling_edge_is_400_not_500(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    graph = {
+        "nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}}],
+        "edges": [{"id": "e1", "source": "in1", "target": "ghost"}],
+    }
+    flow = await _create_flow(client, graph_json=graph)
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={})
+    assert r.status_code == 400, r.text
+
+
+async def test_preview_unconfigured_input_node_gives_clear_400(client: AsyncClient) -> None:
+    """An input node without a dataset (e.g. a freshly imported flow) must fail
+    with a clear message, not a bare KeyError('dataset_id')."""
+    graph = {
+        "nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}],
+        "edges": [],
+    }
+    flow = await _create_flow(client, graph_json=graph)
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={})
+    assert r.status_code == 400, r.text
+    assert "no dataset selected" in r.json()["detail"]
+
+
+async def test_sql_node_bound_to_storage_connection_gives_clear_error(client: AsyncClient, tmp_path) -> None:
+    conn = (
+        await client.post(
+            "/api/connections",
+            json={"name": "audit local storage", "provider": "local", "database": str(tmp_path / "store")},
+        )
+    ).json()
+    graph = {
+        "nodes": [
+            {
+                "id": "sql1",
+                "type": "sqlInput",
+                "data": {"config": {"connection_id": conn["id"], "mode": "table", "table": "t"}},
+            }
+        ],
+        "edges": [],
+    }
+    flow = await _create_flow(client, graph_json=graph)
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={})
+    assert r.status_code == 400, r.text
+    assert "not a database connection" in r.json()["detail"]
+
+
+async def test_started_after_filter_uses_started_at(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [{"id": "e1", "source": "in1", "target": "out1"}],
+    }
+    flow = await _create_flow(client, graph_json=graph)
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["status"] == "success"
+
+    listed = (await client.get("/api/runs", params={"started_after": "2000-01-01T00:00:00"})).json()
+    assert run["id"] in [x["id"] for x in listed]
+    listed = (await client.get("/api/runs", params={"started_after": "2100-01-01T00:00:00"})).json()
+    assert run["id"] not in [x["id"] for x in listed]
+    listed = (await client.get("/api/runs", params={"started_before": "2000-01-01T00:00:00"})).json()
+    assert run["id"] not in [x["id"] for x in listed]
