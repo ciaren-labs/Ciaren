@@ -17,7 +17,7 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: ⭐ Star on GitHub
-      link: https://github.com/ciaren/ciaren
+      link: https://github.com/ciaren-labs/Ciaren
     - theme: alt
       text: Explore Plugins
       link: /plugins/overview
@@ -142,7 +142,7 @@ signed** — install only what you trust.
 ### Installation (2 minutes)
 
 ```bash
-git clone https://github.com/ciaren/ciaren
+git clone https://github.com/ciaren-labs/Ciaren
 cd Ciaren/backend
 pip install -e .
 ciaren serve
@@ -207,11 +207,11 @@ Ciaren fills the gap between throwaway notebooks and heavyweight orchestrators:
 
 Ciaren is an open, community-driven project. The best ways to get involved:
 
-- ⭐ **[Star us on GitHub](https://github.com/ciaren/ciaren)** — it helps others discover the project
-- 💬 **[Ask in Discussions](https://github.com/ciaren/ciaren/discussions)** — questions and ideas welcome
-- 🐛 **[Report a bug](https://github.com/ciaren/ciaren/issues)** — or request a feature
+- ⭐ **[Star us on GitHub](https://github.com/ciaren-labs/Ciaren)** — it helps others discover the project
+- 💬 **[Ask in Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — questions and ideas welcome
+- 🐛 **[Report a bug](https://github.com/ciaren-labs/Ciaren/issues)** — or request a feature
 - 🧩 **[Build a plugin](/plugins/overview)** — extend the platform and share it
-- 🤝 **[Contribute](https://github.com/ciaren/ciaren/blob/main/CONTRIBUTING.md)** — good first issues are labelled
+- 🤝 **[Contribute](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md)** — good first issues are labelled
 
 Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/), machine-learning engineer and open-source creator ([GitHub](https://github.com/rodrigo-arenas), [LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/)).
 
