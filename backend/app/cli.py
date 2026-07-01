@@ -797,13 +797,8 @@ def _plugin_install(args: argparse.Namespace) -> None:
             res = install_ciarenplugin(args.path, require_trusted=args.trusted, force=args.force)
     except (InstallError, PackageError) as exc:
         raise SystemExit(f"install failed: {exc}") from exc
+    # install_* already persisted how it verified (trust badge + TOFU signer pin).
     v = res.verification
-    # Persist how it verified so the app can show a trust badge later.
-    from app.plugins import get_plugin_state
-
-    state = get_plugin_state()
-    state.set_signature(res.plugin_id, v.outcome)
-    state.save()
     print(f"Installed {res.plugin_id} -> {res.location}")
     print(f"  signature: {v.outcome} ({v.reason})")
     print("Run `ciaren serve` (or restart) to load it.")

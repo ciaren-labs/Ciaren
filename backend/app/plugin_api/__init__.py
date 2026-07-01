@@ -50,7 +50,14 @@ from app.plugin_api.specs import (
     ValidatorSpec,
 )
 
+#: Version of the plugin *contract* (this package), independent of the app
+#: version. Bump the minor for compatible additions and the major for breaking
+#: changes; plugins can pin against this instead of coupling to app releases
+#: once the contract ships as the standalone ``ciaren-plugin-api`` package.
+PLUGIN_API_VERSION = "1.0"
+
 __all__ = [
+    "PLUGIN_API_VERSION",
     # registry
     "ServiceRegistry",
     "DuplicateRegistrationError",

@@ -8,6 +8,8 @@ no change to this contract or the frontend. Installing an entry reuses the exact
 verified, permission-gated path as a hand-uploaded package.
 """
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -25,6 +27,11 @@ class MarketplaceEntryInfo(BaseModel):
     publisher: str = ""
     description: str = ""
     license: str = "community"
+    #: Derived by *verifying* the artifact against the trusted keys — never echoed
+    #: from the index/manifest, which are publisher-controlled and could otherwise
+    #: claim a "trusted" badge for anything. ``trusted`` only when a local artifact
+    #: carries a valid signature from a trusted key; everything else (unsigned,
+    #: untrusted key, or remote/unverifiable) is ``community``.
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
@@ -49,6 +56,22 @@ def _installed_ids() -> set[str]:
     return {p.metadata.id for p in result.loaded} | {g.plugin_id for g in result.gated}
 
 
+def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path) -> str:
+    """The trust tier we can actually stand behind for a catalog entry: verify the
+    local artifact's signature against the trusted keys and report ``trusted`` only
+    on a positive result. An entry we cannot verify (remote-only, missing file,
+    unreadable) is ``community`` no matter what the index claims."""
+    from app.plugins.package import PackageError, verify_package
+
+    artifact = marketplace.resolve_artifact_path(entry, index_path)
+    if artifact is None or not artifact.is_file():
+        return "community"
+    try:
+        return "trusted" if verify_package(artifact).outcome == "trusted" else "community"
+    except (PackageError, OSError):
+        return "community"
+
+
 @router.get("", response_model=MarketplaceCatalog)
 async def list_marketplace() -> MarketplaceCatalog:
     """The catalog entries from the configured index, each annotated with whether
@@ -66,7 +89,7 @@ async def list_marketplace() -> MarketplaceCatalog:
             publisher=e.publisher,
             description=e.description,
             license=e.license,
-            trust=e.trust,
+            trust=_derived_trust(e, index_path),
             capabilities=list(e.capabilities),
             permissions=list(e.permissions),
             nodes=list(e.nodes),
@@ -103,6 +126,15 @@ async def install_from_marketplace(plugin_id: str) -> PluginInstallResult:
         )
     if not artifact.is_file():
         raise HTTPException(status_code=404, detail=f"artifact for {plugin_id!r} not found at {artifact}")
-    if entry.digest and compute_package_digest(artifact) != entry.digest:
+    # The digest is what binds the catalog entry to the artifact bytes — without
+    # it a swapped artifact would install silently, so its absence is an error in
+    # the index, not a reason to skip verification. (`ciaren plugin index add`
+    # always records one.)
+    if not entry.digest:
+        raise HTTPException(
+            status_code=400,
+            detail=f"catalog entry for {plugin_id!r} has no digest; refusing to install an unverifiable artifact",
+        )
+    if compute_package_digest(artifact) != entry.digest:
         raise HTTPException(status_code=400, detail="artifact digest does not match the catalog entry")
     return install_package_and_report(str(artifact), require_trusted=get_settings().REQUIRE_TRUSTED_PLUGINS)

@@ -168,3 +168,75 @@ def test_install_refuses_tampered_package(src, tmp_path):
             zf.writestr(n, d)
     with pytest.raises(InstallError):
         install_ciarenplugin(pkg, install_dir=tmp_path / "i")
+
+
+# -- TOFU signer pinning -------------------------------------------------------
+
+
+def _state():
+    from app.plugins.state import PluginStateStore
+
+    return PluginStateStore()
+
+
+def _approve(plugin_id):
+    s = _state()
+    s.set_approved(plugin_id, True)
+    s.save()
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_reinstall_same_key_keeps_approval(src, tmp_path):
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    priv, pub = signing.generate_keypair()
+    package.sign_package(pkg, priv, key_id="kid-1")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i", trusted_keys={"kid-1": pub})
+    _approve("community.inst")
+
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i", trusted_keys={"kid-1": pub}, force=True)
+    s = _state()
+    assert s.is_approved("community.inst") is True
+    assert s.entry("community.inst").key_id == "kid-1"
+    assert s.signature("community.inst") == "trusted"
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_reinstall_under_different_key_withdraws_approval(src, tmp_path):
+    """A plugin id is claimable: approval given to key A's code must not carry
+    over to a replacement signed by key B."""
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    priv_a, pub_a = signing.generate_keypair()
+    package.sign_package(pkg, priv_a, key_id="key-a")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i", trusted_keys={"key-a": pub_a})
+    _approve("community.inst")
+
+    priv_b, pub_b = signing.generate_keypair()
+    package.sign_package(pkg, priv_b, key_id="key-b")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i", trusted_keys={"key-b": pub_b}, force=True)
+    s = _state()
+    assert s.is_approved("community.inst") is False
+    assert s.entry("community.inst").key_id == "key-b"
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_trust_downgrade_withdraws_approval(src, tmp_path):
+    """trusted -> unsigned on reinstall is a publisher-identity break, not an update."""
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    priv, pub = signing.generate_keypair()
+    package.sign_package(pkg, priv, key_id="kid-1")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i", trusted_keys={"kid-1": pub})
+    _approve("community.inst")
+
+    unsigned = package.pack_directory(src, tmp_path / "p2.ciarenplugin")
+    install_ciarenplugin(unsigned, install_dir=tmp_path / "i", trusted_keys={"kid-1": pub}, force=True)
+    s = _state()
+    assert s.is_approved("community.inst") is False
+    assert s.signature("community.inst") == "unsigned"
+
+
+def test_install_records_signature_state(src, tmp_path):
+    """Installs (package or directory) persist the verification outcome so the UI
+    trust badge works without the original archive."""
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i")
+    assert _state().signature("community.inst") == "unsigned"
