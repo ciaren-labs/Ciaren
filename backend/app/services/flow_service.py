@@ -154,6 +154,10 @@ class FlowService:
         updates = data.model_dump(exclude_unset=True)
         if "graph_json" in updates:
             self._validate_parameters(updates["graph_json"])
+        # A move to another project must point at a real one — with SQLite FK
+        # enforcement off, a bogus id would otherwise silently orphan the flow.
+        if updates.get("project_id") is not None:
+            updates["project_id"] = await ProjectService(self.db).resolve_id(updates["project_id"])
         for field, value in updates.items():
             setattr(flow, field, value)
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,

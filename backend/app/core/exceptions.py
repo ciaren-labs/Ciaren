@@ -35,7 +35,8 @@ class MLNotEnabledError(Exception):
 
 
 class UnsupportedFileTypeError(Exception):
-    ALLOWED = (".csv", ".xlsx", ".xls", ".parquet")
+    # Kept in sync with dataset_service._ALLOWED_EXTENSIONS (the upload gate).
+    ALLOWED = (".csv", ".tsv", ".xlsx", ".xls", ".parquet", ".json", ".jsonl", ".txt")
 
     def __init__(self, filename: str) -> None:
         self.filename = filename
