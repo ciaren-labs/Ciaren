@@ -287,6 +287,21 @@ async def test_delete_flow_twice_second_is_404(client: AsyncClient) -> None:
     assert r.status_code == 404
 
 
+async def test_delete_flow_cascades_to_its_schedules(client: AsyncClient) -> None:
+    """Deleting a flow deletes its schedules too — there is no valid state for a
+    schedule whose flow no longer exists."""
+    created = await _create_flow(client)
+    sched = await client.post(f"/api/flows/{created['id']}/schedules", json={"cron": "0 9 * * *"})
+    assert sched.status_code == 201, sched.text
+    schedule_id = sched.json()["id"]
+
+    r = await client.delete(f"/api/flows/{created['id']}")
+    assert r.status_code == 204
+
+    r = await client.get(f"/api/schedules/{schedule_id}")
+    assert r.status_code == 404
+
+
 # ---------------------------------------------------------------------------
 # Response shape
 # ---------------------------------------------------------------------------

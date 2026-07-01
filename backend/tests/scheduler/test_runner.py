@@ -47,7 +47,7 @@ async def _make_schedule(
 
 async def test_reconcile_sets_next_run_when_missing(engine: AsyncEngine) -> None:
     factory = _factory(engine)
-    sid = await _make_schedule(factory, next_run_at=None, enabled=True)
+    sid = await _make_schedule(factory, next_run_at=None, is_enabled=True)
 
     await SchedulerRunner(factory, get_settings())._reconcile_on_startup()
 
@@ -61,7 +61,7 @@ async def test_reconcile_sets_next_run_when_missing(engine: AsyncEngine) -> None
 async def test_reconcile_skips_missed_slot_without_catch_up(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
-    sid = await _make_schedule(factory, next_run_at=past, catch_up=False, enabled=True)
+    sid = await _make_schedule(factory, next_run_at=past, catch_up=False, is_enabled=True)
 
     await SchedulerRunner(factory, get_settings())._reconcile_on_startup()
 
@@ -76,7 +76,7 @@ async def test_reconcile_skips_missed_slot_without_catch_up(engine: AsyncEngine)
 async def test_reconcile_keeps_missed_slot_with_catch_up(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
-    sid = await _make_schedule(factory, next_run_at=past, catch_up=True, enabled=True)
+    sid = await _make_schedule(factory, next_run_at=past, catch_up=True, is_enabled=True)
 
     await SchedulerRunner(factory, get_settings())._reconcile_on_startup()
 
@@ -156,7 +156,7 @@ async def test_auto_disable_after_consecutive_failures(engine: AsyncEngine) -> N
         schedule = await db.get(Schedule, sid)
         assert schedule is not None
         assert schedule.consecutive_failures == 5
-        assert schedule.enabled is False
+        assert schedule.is_enabled is False
         assert schedule.next_run_at is None
         assert schedule.disabled_reason is not None
         assert "Auto-disabled" in schedule.disabled_reason
@@ -173,7 +173,7 @@ async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: Asyn
         async with factory() as db:
             schedule = await db.get(Schedule, sid)
             assert schedule is not None
-            assert schedule.enabled is True
+            assert schedule.is_enabled is True
             assert schedule.retry_count == expected_retry
             assert schedule.next_run_at is not None
             assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
@@ -185,13 +185,13 @@ async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: Asyn
         assert schedule is not None
         assert schedule.retry_count == 0
         assert schedule.consecutive_failures == 3
-        assert schedule.enabled is True
+        assert schedule.is_enabled is True
 
 
 async def test_tick_skips_in_flight_schedule(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
-    sid = await _make_schedule(factory, cron="* * * * *", next_run_at=past, enabled=True)
+    sid = await _make_schedule(factory, cron="* * * * *", next_run_at=past, is_enabled=True)
 
     runner = SchedulerRunner(factory, get_settings())
     runner._in_flight.add(sid)  # pretend a previous run is still going

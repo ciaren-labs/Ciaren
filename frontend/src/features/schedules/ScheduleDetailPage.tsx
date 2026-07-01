@@ -102,11 +102,11 @@ export function ScheduleDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => updateSchedule.mutate({ id: schedule.id, body: { enabled: !schedule.enabled } })}
+            onClick={() => updateSchedule.mutate({ id: schedule.id, body: { is_enabled: !schedule.is_enabled } })}
             disabled={updateSchedule.isPending}
           >
-            {schedule.enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {schedule.enabled ? "Pause" : "Resume"}
+            {schedule.is_enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {schedule.is_enabled ? "Pause" : "Resume"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" /> Edit
@@ -149,7 +149,7 @@ export function ScheduleDetailPage() {
           {schedule.engine ?? "Server default"}
         </InfoCard>
         <InfoCard icon={CalendarClock} label="Next run">
-          {schedule.enabled ? fmt(schedule.next_run_at) : "Paused"}
+          {schedule.is_enabled ? fmt(schedule.next_run_at) : "Paused"}
         </InfoCard>
         <InfoCard icon={Clock} label="Last fired">
           {schedule.last_fired_at ? (

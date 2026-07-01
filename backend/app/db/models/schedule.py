@@ -29,7 +29,7 @@ class Schedule(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     # Dataframe engine for fired runs; NULL falls back to settings.DEFAULT_ENGINE.
     engine: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # When True, a slot missed while the server was down fires once on startup;
     # when False, the scheduler skips straight to the next future slot.
     catch_up: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
