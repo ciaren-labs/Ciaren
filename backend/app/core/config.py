@@ -58,13 +58,14 @@ class Settings(BaseSettings):
     # Opt-in SSRF guard for connector hosts/endpoints.
     CONNECTOR_BLOCK_PRIVATE_HOSTS: bool = False
 
-    # Optional confinement for the local-folder storage connector. Empty (default)
-    # keeps the historical behavior: a Local Storage connection may point at any
-    # folder the server process can access. When set to one or more absolute
-    # directories, a Local Storage connection's root must resolve *inside* one of
-    # them — otherwise the connection is refused. Use this on shared/networked
-    # deployments to stop a connection from reading or writing arbitrary server
-    # files (e.g. /etc, ~/.aws).
+    # Optional confinement for connector-reachable filesystem paths. Empty
+    # (default) keeps the historical behavior: a Local Storage connection may
+    # point at any folder the server process can access. When set to one or more
+    # absolute directories, a Local Storage connection's root — and the database
+    # file of file-based SQL connections (SQLite / DuckDB) — must resolve *inside*
+    # one of them, otherwise the connection is refused. Use this on
+    # shared/networked deployments to stop a connection from reading or writing
+    # arbitrary server files (e.g. /etc, ~/.aws, Ciaren's own database).
     STORAGE_ALLOWED_ROOTS: list[str] = []
 
     # Path to the built frontend (frontend/dist). When set/auto-detected, the
