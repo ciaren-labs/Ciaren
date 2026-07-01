@@ -31,32 +31,32 @@ MOCK_RUNS = [MOCK_RUN]
 def test_sync_list_flows():
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/flows").mock(return_value=httpx.Response(200, json=[MOCK_FLOW]))
-        with Ciaren(BASE) as ff:
-            flows = ff.list_flows()
+        with Ciaren(BASE) as client:
+            flows = client.list_flows()
     assert flows == [MOCK_FLOW]
 
 
 def test_sync_get_flow():
     with respx.mock(base_url=BASE) as mock:
         mock.get(f"/api/flows/{FLOW_ID}").mock(return_value=httpx.Response(200, json=MOCK_FLOW))
-        with Ciaren(BASE) as ff:
-            flow = ff.get_flow(FLOW_ID)
+        with Ciaren(BASE) as client:
+            flow = client.get_flow(FLOW_ID)
     assert flow["id"] == FLOW_ID
 
 
 def test_sync_list_runs():
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/runs").mock(return_value=httpx.Response(200, json=MOCK_RUNS))
-        with Ciaren(BASE) as ff:
-            runs = ff.list_runs()
+        with Ciaren(BASE) as client:
+            runs = client.list_runs()
     assert runs == MOCK_RUNS
 
 
 def test_sync_get_run():
     with respx.mock(base_url=BASE) as mock:
         mock.get(f"/api/runs/{RUN_ID}").mock(return_value=httpx.Response(200, json=MOCK_RUN))
-        with Ciaren(BASE) as ff:
-            run = ff.get_run(RUN_ID)
+        with Ciaren(BASE) as client:
+            run = client.get_run(RUN_ID)
     assert run["id"] == RUN_ID
 
 
@@ -65,16 +65,16 @@ def test_sync_trigger_sends_secret_header():
         route = mock.post(f"/api/flows/{FLOW_ID}/trigger").mock(
             return_value=httpx.Response(200, json=MOCK_RUN)
         )
-        with Ciaren(BASE, webhook_secret=SECRET) as ff:
-            run = ff.trigger(FLOW_ID)
+        with Ciaren(BASE, webhook_secret=SECRET) as client:
+            run = client.trigger(FLOW_ID)
     assert run["status"] == "success"
     assert route.calls[0].request.headers["x-ciaren-secret"] == SECRET
 
 
 def test_sync_trigger_raises_without_secret():
-    with Ciaren(BASE) as ff:
+    with Ciaren(BASE) as client:
         with pytest.raises(ValueError, match="webhook_secret"):
-            ff.trigger(FLOW_ID)
+            client.trigger(FLOW_ID)
 
 
 def test_sync_trigger_with_engine():
@@ -82,8 +82,8 @@ def test_sync_trigger_with_engine():
         route = mock.post(f"/api/flows/{FLOW_ID}/trigger").mock(
             return_value=httpx.Response(200, json=MOCK_RUN)
         )
-        with Ciaren(BASE, webhook_secret=SECRET) as ff:
-            ff.trigger(FLOW_ID, engine="pandas")
+        with Ciaren(BASE, webhook_secret=SECRET) as client:
+            client.trigger(FLOW_ID, engine="pandas")
     body = json.loads(route.calls[0].request.content)
     assert body["engine"] == "pandas"
 
@@ -93,9 +93,9 @@ def test_sync_trigger_http_error_raises():
         mock.post(f"/api/flows/{FLOW_ID}/trigger").mock(
             return_value=httpx.Response(403, json={"detail": "Invalid secret"})
         )
-        with Ciaren(BASE, webhook_secret=SECRET) as ff:
+        with Ciaren(BASE, webhook_secret=SECRET) as client:
             with pytest.raises(httpx.HTTPStatusError):
-                ff.trigger(FLOW_ID)
+                client.trigger(FLOW_ID)
 
 
 def test_sync_stream_logs():
@@ -108,8 +108,8 @@ def test_sync_stream_logs():
         mock.get(f"/api/runs/{RUN_ID}/logs/stream").mock(
             return_value=httpx.Response(200, text=sse_body, headers={"content-type": "text/event-stream"})
         )
-        with Ciaren(BASE) as ff:
-            entries = list(ff.stream_logs(RUN_ID))
+        with Ciaren(BASE) as client:
+            entries = list(client.stream_logs(RUN_ID))
     assert entries == [{"level": "info", "message": "done"}]
 
 
@@ -122,8 +122,8 @@ def test_sync_stream_logs():
 async def test_async_list_flows():
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/flows").mock(return_value=httpx.Response(200, json=[MOCK_FLOW]))
-        async with AsyncCiaren(BASE) as ff:
-            flows = await ff.list_flows()
+        async with AsyncCiaren(BASE) as client:
+            flows = await client.list_flows()
     assert flows == [MOCK_FLOW]
 
 
@@ -131,8 +131,8 @@ async def test_async_list_flows():
 async def test_async_get_flow():
     with respx.mock(base_url=BASE) as mock:
         mock.get(f"/api/flows/{FLOW_ID}").mock(return_value=httpx.Response(200, json=MOCK_FLOW))
-        async with AsyncCiaren(BASE) as ff:
-            flow = await ff.get_flow(FLOW_ID)
+        async with AsyncCiaren(BASE) as client:
+            flow = await client.get_flow(FLOW_ID)
     assert flow["id"] == FLOW_ID
 
 
@@ -140,8 +140,8 @@ async def test_async_get_flow():
 async def test_async_list_runs():
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/runs").mock(return_value=httpx.Response(200, json=MOCK_RUNS))
-        async with AsyncCiaren(BASE) as ff:
-            runs = await ff.list_runs()
+        async with AsyncCiaren(BASE) as client:
+            runs = await client.list_runs()
     assert runs == MOCK_RUNS
 
 
@@ -149,8 +149,8 @@ async def test_async_list_runs():
 async def test_async_get_run():
     with respx.mock(base_url=BASE) as mock:
         mock.get(f"/api/runs/{RUN_ID}").mock(return_value=httpx.Response(200, json=MOCK_RUN))
-        async with AsyncCiaren(BASE) as ff:
-            run = await ff.get_run(RUN_ID)
+        async with AsyncCiaren(BASE) as client:
+            run = await client.get_run(RUN_ID)
     assert run["id"] == RUN_ID
 
 
@@ -160,17 +160,17 @@ async def test_async_trigger_sends_secret_header():
         route = mock.post(f"/api/flows/{FLOW_ID}/trigger").mock(
             return_value=httpx.Response(200, json=MOCK_RUN)
         )
-        async with AsyncCiaren(BASE, webhook_secret=SECRET) as ff:
-            run = await ff.trigger(FLOW_ID)
+        async with AsyncCiaren(BASE, webhook_secret=SECRET) as client:
+            run = await client.trigger(FLOW_ID)
     assert run["status"] == "success"
     assert route.calls[0].request.headers["x-ciaren-secret"] == SECRET
 
 
 @pytest.mark.asyncio
 async def test_async_trigger_raises_without_secret():
-    async with AsyncCiaren(BASE) as ff:
+    async with AsyncCiaren(BASE) as client:
         with pytest.raises(ValueError, match="webhook_secret"):
-            await ff.trigger(FLOW_ID)
+            await client.trigger(FLOW_ID)
 
 
 @pytest.mark.asyncio
@@ -179,8 +179,8 @@ async def test_async_trigger_with_parameters():
         route = mock.post(f"/api/flows/{FLOW_ID}/trigger").mock(
             return_value=httpx.Response(200, json=MOCK_RUN)
         )
-        async with AsyncCiaren(BASE, webhook_secret=SECRET) as ff:
-            await ff.trigger(FLOW_ID, parameters={"env": "prod"})
+        async with AsyncCiaren(BASE, webhook_secret=SECRET) as client:
+            await client.trigger(FLOW_ID, parameters={"env": "prod"})
     body = json.loads(route.calls[0].request.content)
     assert body["parameters"] == {"env": "prod"}
 
@@ -197,8 +197,8 @@ async def test_async_stream_logs():
         mock.get(f"/api/runs/{RUN_ID}/logs/stream").mock(
             return_value=httpx.Response(200, text=sse_body, headers={"content-type": "text/event-stream"})
         )
-        async with AsyncCiaren(BASE) as ff:
-            entries = [entry async for entry in ff.stream_logs(RUN_ID)]
+        async with AsyncCiaren(BASE) as client:
+            entries = [entry async for entry in client.stream_logs(RUN_ID)]
     assert entries == [
         {"level": "info", "message": "step 1"},
         {"level": "info", "message": "step 2"},

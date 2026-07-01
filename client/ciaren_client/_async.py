@@ -13,13 +13,13 @@ class AsyncCiaren:
 
     Can be used as an async context manager::
 
-        async with AsyncCiaren(base_url, webhook_secret=secret) as ff:
-            run = await ff.trigger(flow_id)
+        async with AsyncCiaren(base_url, webhook_secret=secret) as client:
+            run = await client.trigger(flow_id)
 
     Or managed manually::
 
-        ff = AsyncCiaren(base_url)
-        await ff.aclose()
+        client = AsyncCiaren(base_url)
+        await client.aclose()
     """
 
     def __init__(

@@ -10,7 +10,7 @@
       // no flash of the wrong theme while React boots. Mirrors themeStore.ts.
       (function () {
         try {
-          var stored = localStorage.getItem("ff-theme");
+          var stored = localStorage.getItem("ciaren-theme");
           var theme = stored ? JSON.parse(stored).state.theme : null;
           var dark = theme
             ? theme === "dark"

@@ -61,7 +61,7 @@ def _spec(container: str) -> StorageSpec:
 @pytest.fixture
 def container():
     """Create a unique container for the test and tear it down afterwards."""
-    name = f"ff-test-{uuid.uuid4().hex[:12]}"
+    name = f"ciaren-test-{uuid.uuid4().hex[:12]}"
     svc = azure_blob.BlobServiceClient(account_url=_ENDPOINT, credential=_KEY)
     svc.create_container(name)
     try:

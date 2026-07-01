@@ -52,7 +52,7 @@ def test_serve_flags_are_parsed() -> None:
             "--db-url",
             "sqlite+aiosqlite:///x.db",
             "--data-dir",
-            "/tmp/ff",
+            "/tmp/ciaren",
             "--engine",
             "pandas",
             "--execution-mode",
@@ -66,7 +66,7 @@ def test_serve_flags_are_parsed() -> None:
     assert args.reload is True
     assert args.no_scheduler is True
     assert args.db_url == "sqlite+aiosqlite:///x.db"
-    assert args.data_dir == "/tmp/ff"
+    assert args.data_dir == "/tmp/ciaren"
     assert args.engine == "pandas"
     assert args.execution_mode == "process"
     assert args.log_level == "debug"
@@ -108,7 +108,7 @@ def test_apply_serve_env_sets_all_overrides(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.delenv(key, raising=False)
     args = argparse.Namespace(
         db_url="postgresql+asyncpg://x",
-        data_dir="/data/ff",
+        data_dir="/data/ciaren",
         engine="pandas",
         execution_mode="process",
         no_scheduler=True,
@@ -117,7 +117,7 @@ def test_apply_serve_env_sets_all_overrides(monkeypatch: pytest.MonkeyPatch) -> 
     cli._apply_serve_env(args)
 
     assert os.environ["CIAREN_DATABASE_URL"] == "postgresql+asyncpg://x"
-    assert os.environ["CIAREN_DATA_DIR"] == "/data/ff"
+    assert os.environ["CIAREN_DATA_DIR"] == "/data/ciaren"
     assert os.environ["CIAREN_DEFAULT_ENGINE"] == "pandas"
     assert os.environ["CIAREN_EXECUTION_MODE"] == "process"
     assert os.environ["CIAREN_SCHEDULER_ENABLED"] == "false"
@@ -295,7 +295,7 @@ def _table_names(db: Path) -> set[str]:
 
 
 def test_db_upgrade_creates_schema_from_migrations(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    db = tmp_path / "ff.db"
+    db = tmp_path / "ciaren.db"
     monkeypatch.setenv("CIAREN_DATABASE_URL", _sqlite_url(db))
     _clear_settings_cache()
     try:
@@ -311,7 +311,7 @@ def test_db_upgrade_adopts_create_all_schema(
 ) -> None:
     """A DB with the app tables but no alembic_version (bootstrapped by the
     startup create_all) must be adopted, not have its tables re-created."""
-    db = tmp_path / "ff.db"
+    db = tmp_path / "ciaren.db"
     monkeypatch.setenv("CIAREN_DATABASE_URL", _sqlite_url(db))
     _clear_settings_cache()
     try:

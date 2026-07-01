@@ -52,13 +52,13 @@ placement are caught early.
 ## Generated Python code (pandas)
 
 ```python
-def _ff_transform(df):
+def _transform(df):
     # your script body — e.g.:
     df = df[df['amount'] > 0].copy()
     df['margin'] = df['revenue'] - df['cost']
     return df
 
-df_2 = _ff_transform(df_1)
+df_2 = _transform(df_1)
 ```
 
 The polars export is identical in structure (the script body is inlined as-is;

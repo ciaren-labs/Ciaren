@@ -97,7 +97,7 @@ class PythonTransformTransformation(BaseTransformation):
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         script = config.get("script", "return df")
-        return f"def _ff_transform(df):\n{_indent(script)}\n\n{dst} = _ff_transform({src})"
+        return f"def _transform(df):\n{_indent(script)}\n\n{dst} = _transform({src})"
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         return ["import pandas as pd"]
@@ -110,4 +110,4 @@ class PythonTransformTransformation(BaseTransformation):
     ) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         script = config.get("script", "return df")
-        return f"def _ff_transform(df):\n{_indent(script)}\n\n{dst} = _ff_transform({src})"
+        return f"def _transform(df):\n{_indent(script)}\n\n{dst} = _transform({src})"
