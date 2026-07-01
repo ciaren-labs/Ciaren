@@ -68,6 +68,9 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
+    ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
+    ['link', { rel: 'alternate icon', href: '/favicon.ico' }],
+    ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon-180.png' }],
     ...(gaMeasurementId
       ? [
           ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}` }],
