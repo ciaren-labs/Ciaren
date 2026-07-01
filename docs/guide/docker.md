@@ -47,6 +47,15 @@ the server starts, so the initial boot takes a few extra seconds.
 The `/data` volume is the only path that changes at runtime. Mount it as a
 named volume (default) or a bind-mount to control where data lives on the host.
 
+:::warning Keep MLflow data inside /data
+The image sets `CIAREN_MLFLOW_TRACKING_URI=/data/mlruns` by default so trained
+models and run history survive container recreation. If you override this
+variable, use an **absolute path under `/data`** (or a remote tracking server
+URI) — a relative path resolves against the container's working directory
+(`/app`), which is *not* part of the `/data` volume and is discarded the next
+time the container is recreated.
+:::
+
 ## Configuration
 
 Every `CIAREN_*` setting can be passed as an environment variable. The
@@ -88,7 +97,7 @@ no extra. `EXTRAS` only adds:
 | `postgres` | asyncpg + psycopg — PostgreSQL support |
 | `mysql` | pymysql — MySQL SQL-node connector support |
 | `mongo` | pymongo — MongoDB support |
-| `mssql` | pyodbc — MSSQL support *(also needs `unixodbc` system pkg)* |
+| `mssql` | pyodbc — MSSQL support *(also installs the `unixodbc` driver manager and Microsoft's `msodbcsql18` driver)* |
 | `all-connectors` | postgres + mysql + mongo + s3 + gcs + azure + mssql |
 
 ```bash
@@ -101,6 +110,16 @@ EXTRAS=postgres docker compose build && docker compose up
 # Both
 EXTRAS=ml,postgres docker compose build && docker compose up
 ```
+
+:::info mssql and the Microsoft EULA
+Building with `EXTRAS=mssql` (or `all-connectors`/`all`) pulls Microsoft's
+`msodbcsql18` package from Microsoft's own apt repository and passes
+`ACCEPT_EULA=Y` to accept the [ODBC Driver for SQL Server license
+terms](https://learn.microsoft.com/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+on your behalf during the build. Without it, `pyodbc` has a driver *manager*
+(`unixodbc`) but no actual driver, so every SQL Server connection fails with
+"Data source name not found and no default driver specified."
+:::
 
 :::warning Rebuild required
 Changing `EXTRAS` requires a rebuild (`docker compose build`). The extra
@@ -262,6 +281,25 @@ docker compose exec ciaren ciaren check
 A `[warn] ml: ...` line means either `CIAREN_ML_ENABLED` is off, or the image
 wasn't built normally — rebuild without a custom `--no-deps`-style override.
 Missing XGBoost/LightGBM specifically means rebuild with `EXTRAS=ml`.
+
+### Trained models / MLflow run history disappeared after a redeploy
+
+`CIAREN_MLFLOW_TRACKING_URI` must point somewhere inside the `/data` volume
+(the default, `/data/mlruns`, already does). If it was overridden to a relative
+path or a path outside `/data`, MLflow wrote into the container's writable
+layer instead of the volume, and that layer is gone once the container is
+recreated. Set it back to an absolute `/data/...` path (or point it at an
+external MLflow tracking server) and re-train.
+
+### SQL Server connection fails with "no default driver specified"
+
+The image only ships the `msodbcsql18` driver when built with `EXTRAS=mssql`
+(or `all-connectors`/`all`) — `unixodbc` alone is just the driver manager, with
+nothing registered in it. Rebuild with the extra:
+
+```bash
+EXTRAS=mssql docker compose build && docker compose up
+```
 
 ### Port already in use
 

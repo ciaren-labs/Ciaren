@@ -64,6 +64,17 @@ Drivers are **optional**. If one isn't installed, that provider appears disabled
 on the Connections page with an "install …" hint, so the core stays lightweight.
 SQLite needs no driver and is great for trying things out.
 
+:::info SQL Server needs a system-level ODBC driver too
+`pip install ciaren[mssql]` (or `EXTRAS=mssql` in [Docker](./docker.md)) only
+gets you `pyodbc`, the Python DB-API wrapper — it also needs the unixODBC
+driver manager and an actual SQL Server ODBC driver (e.g. Microsoft's
+`msodbcsql18`) installed at the OS level, or connections fail with "no default
+driver specified." The official Docker image installs both automatically when
+built with `EXTRAS=mssql`. Running Ciaren outside Docker, follow [Microsoft's
+install instructions](https://learn.microsoft.com/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+for your OS.
+:::
+
 ## Creating a connection
 
 ![Connections page — list of saved database connections with test/edit actions](/screenshots/connections.png)
