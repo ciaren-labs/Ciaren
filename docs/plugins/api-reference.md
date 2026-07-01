@@ -14,6 +14,10 @@ internals.
 New to plugins? Start with the [Overview](/plugins/overview) and the
 [10-minute tutorial](/plugins/first-plugin); this page is the detailed contract.
 
+The contract itself is versioned independently of the app:
+`app.plugin_api.PLUGIN_API_VERSION` (currently `"1.0"`) bumps its minor for
+compatible additions and its major for breaking changes.
+
 ```python
 from app.plugin_api import (
     Plugin, PluginMetadata, ServiceRegistry,

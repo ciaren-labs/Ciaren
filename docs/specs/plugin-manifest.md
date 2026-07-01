@@ -56,7 +56,7 @@ conveyed by the `ciaren.plugins` entry point plus the package's own metadata.
 | `ui.nodeCategories` | no | `{}` | Palette subgroup for each node id. Valid values are `input`, `clean`, `columns`, `reshape`, `analytics`, `quality`, `ml`, `output`, and `plugins`; missing/invalid values default to `plugins`. |
 | `dependencies` | no | `[]` | Other plugin ids it depends on. |
 | `license_required` | no | `false` | Whether a license check must pass to enable it. |
-| `trust` | no | `community` | `trusted` / `verified` / `community` (informational). |
+| `trust` | no | `community` | `trusted` / `verified` / `community`. Self-declared and **never displayed as-is**: the trust badge shown in the app is derived by verifying the package signature against the user's trusted keys. |
 
 ## Permissions
 

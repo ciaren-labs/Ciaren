@@ -158,14 +158,12 @@ def install_package_and_report(package_path: str, *, require_trusted: bool) -> P
     from app.plugins.package import PackageError
 
     try:
+        # install_ciarenplugin records the verification outcome + signing key in the
+        # plugin state (trust badge, TOFU pin) and withdraws approval if the signer
+        # changed or the trust level dropped since the previous install.
         result = install_ciarenplugin(package_path, require_trusted=require_trusted, force=True)
     except (InstallError, PackageError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # Remember how it verified so the UI can show a trust badge for the installed
-    # plugin (the package itself is gone after extraction).
-    state = get_plugin_state()
-    state.set_signature(result.plugin_id, result.verification.outcome)
-    state.save()
     reload_plugins()
     return PluginInstallResult(
         plugin=_find_info(result.plugin_id),

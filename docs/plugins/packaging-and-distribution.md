@@ -55,9 +55,11 @@ export CIAREN_TRUSTED_PLUGIN_KEYS='{"acme-2026": "<public_hex>"}'
 ```
 
 Trusted keys are read from `CIAREN_TRUSTED_PLUGIN_KEYS` (a JSON object) and
-`~/.ciaren/trusted_keys.json`. The signature covers the package digest **and**
-the signer metadata (`key_id`, `publisher`, `algorithm`), so a valid signature
-can't be relabelled to impersonate a different key.
+`~/.ciaren/trusted_keys.json`, on top of the official marketplace publisher keys
+pinned into the app itself (which user configuration cannot override). The
+signature covers the package digest **and** the signer metadata (`key_id`,
+`publisher`, `algorithm`), so a valid signature can't be relabelled to
+impersonate a different key.
 
 ### Shipping compiled bytecode (paid plugins)
 
@@ -103,6 +105,12 @@ Installation extracts into `~/.ciaren/plugins` (override with
 on the next start. Path-traversal entries are rejected. A drop-in plugin that
 declares permissions still starts **pending** until you approve it — see
 [plugin security](/security/plugin-security).
+
+Reinstalling over an existing plugin keeps your approval only when the package
+is signed by the **same key** as before: a different key, an unsigned
+replacement of a previously signed install, or a drop from `trusted` re-gates
+the plugin to pending (TOFU signer pinning — see
+[plugin security](/security/plugin-security)).
 
 ## Install from the app
 
@@ -158,7 +166,10 @@ catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose
 artifact is available locally install in one click
 (`POST /api/marketplace/{id}/install`) — Ciaren re-checks the advertised
-digest and verifies the signature before installing. Catalog entries also expose
+digest (an entry **must** carry one; a digest-less entry is refused) and verifies
+the signature before installing. The `trust` tier shown for an entry is derived by
+verifying the artifact against your trusted keys — a value claimed in the index
+is ignored. Catalog entries also expose
 the manifest's `ui.nodes` as `nodes` and `ui.nodeCategories` as `node_categories`,
 so users can see which editor node types and palette subgroups will appear after
 install and approval. Missing or invalid categories default to `plugins`. Entries that point at a

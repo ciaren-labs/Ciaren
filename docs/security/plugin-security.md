@@ -74,8 +74,11 @@ keys** before installing:
 | `invalid` | Digest mismatch or bad signature | ❌ always refused |
 
 Require a trusted signature with `ciaren plugin install pkg.ciarenplugin --trusted`.
-Trusted keys come from `CIAREN_TRUSTED_PLUGIN_KEYS` and
-`~/.ciaren/trusted_keys.json`. Signing/verifying needs `ciaren[signing]`.
+Trusted keys come from three sources: keys **pinned into the app itself** (the
+official marketplace publisher keys — these verify as trusted out of the box and
+can never be overridden by configuration), plus your own additions via
+`CIAREN_TRUSTED_PLUGIN_KEYS` and `~/.ciaren/trusted_keys.json`.
+Signing/verifying needs `ciaren[signing]`.
 
 What signatures protect against: tampered packages, swapped downloads, and
 unofficial builds presented as official. What they **don't**: a signed-but-buggy
@@ -85,6 +88,23 @@ The signature covers the package digest **and** the signer metadata (`key_id`,
 `publisher`, `algorithm`), and trust is matched strictly by `key_id` — a
 package-supplied `publisher` name can never select which trusted key is checked.
 So a validly-signed package can't be relabelled to impersonate a trusted key.
+
+### Reinstalls re-gate on identity change (TOFU)
+
+Plugin ids are claimable, so approval is pinned to the **signer**, not the id:
+Ciaren records which key signed a plugin at install time, and a reinstall that is
+signed by a *different* key, arrives *unsigned* where the previous install was
+signed, or drops from `trusted` sends the plugin back to **pending** — its new
+code stays un-imported until you approve the new publisher. A normal update
+(same key) keeps your approval.
+
+### Marketplace trust badges are earned, not claimed
+
+The `trust` tier shown for an Explore catalog entry is **derived by verifying
+the artifact's signature against your trusted keys** — a `trust` value written
+into the index or manifest by the publisher is ignored. Likewise, a catalog
+entry without a `digest` is refused at install rather than skipped: the digest
+is what binds the entry to the artifact bytes.
 
 ### Install-time hardening
 
