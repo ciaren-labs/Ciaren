@@ -55,7 +55,7 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs |
 | `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
 | `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) |
-| `CIAREN_ML_ENABLED` | `true` | Enable ML routes/nodes when the `[ml]` extra is installed |
+| `CIAREN_ML_ENABLED` | `true` | Enable ML routes/nodes (built in; set `false` to disable) |
 | `CIAREN_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
 | `CIAREN_MLFLOW_REGISTRY_URI` | — | Optional MLflow registry URI; defaults to tracking URI |
 | `CIAREN_ML_ARTIFACT_DIR` | `ml_artifacts` | Local model artifact root, under `DATA_DIR` when relative |

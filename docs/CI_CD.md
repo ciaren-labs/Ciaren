@@ -73,15 +73,17 @@ Runs on every pull request and push to `main` that touches `Dockerfile`,
 1. Builds the image with Docker BuildKit (GitHub Actions cache)
 2. Verifies `/app/app/web/index.html` is present inside the image (frontend bundled)
 3. Starts a container and waits up to 90 s for `/health` to respond
-4. Hits `GET /` and checks for an HTML response (frontend served)
-5. Runs `ciaren info` inside the live container (settings resolve correctly)
-6. Runs `ciaren check` inside the live container (DB reachable, engines available)
+4. Verifies `scikit-learn`, `mlflow`, `joblib` are importable (core deps, no extra needed)
+5. Hits `GET /` and checks for an HTML response (frontend served)
+6. Runs `ciaren info` inside the live container (settings resolve correctly)
+7. Runs `ciaren check` inside the live container (DB reachable, engines available)
 
-#### `build-ml` job (ML extras, push only)
+#### `build-ml` job (XGBoost/LightGBM, push only)
 
 Rebuilds with `--build-arg EXTRAS=ml` and verifies:
 
-- `scikit-learn`, `xgboost`, `lightgbm`, `mlflow` are importable
+- `xgboost`, `lightgbm` are importable (the only libraries this extra adds now —
+  `scikit-learn`/`mlflow`/`joblib` are already covered by the base `build` job)
 - `ciaren check` passes with ML enabled
 
 #### Local equivalent

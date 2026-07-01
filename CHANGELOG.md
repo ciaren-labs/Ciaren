@@ -42,6 +42,12 @@ release, breaking changes may still happen between alpha versions.
   `ciaren db upgrade` + `ciaren serve` CLI path.
 - `all-connectors` now includes `asyncpg` so PostgreSQL app database URLs work
   with `postgresql+asyncpg://`.
+- scikit-learn, MLflow, and joblib are now core dependencies — `pip install
+  ciaren` alone gives you a working Machine Learning palette (train/predict/
+  evaluate, MLflow tracking). The `ml` extra is narrowed to just XGBoost and
+  LightGBM (`pip install "ciaren[ml]"`), since those are the two
+  native-compiled, optional model choices. `CIAREN_ML_ENABLED` still exists as
+  an on/off switch for the feature as a whole.
 
 ### Fixed
 

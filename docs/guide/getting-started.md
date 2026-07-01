@@ -25,7 +25,7 @@ and lets you:
 - **Build** transformation pipelines visually on a drag-and-drop canvas
 - **Validate** data with built-in quality/contract checks
 - **Preview** results in real-time at every step
-- **Train** machine-learning models on the same canvas, tracked with MLflow (optional)
+- **Train** machine-learning models on the same canvas, tracked with MLflow
 - **Export** the equivalent, readable Python — pandas or polars, no lock-in
 - **Schedule** flows to run automatically with a built-in cron scheduler
 - **Extend** almost everything — nodes, connectors, engines, exporters, and more —

@@ -7,9 +7,9 @@ layout: doc
 
 # Machine Learning Quick Start
 
-Ciaren's optional ML extension adds nodes for the full tabular ML lifecycle —
-clean → engineer features → split → train → evaluate → predict — on the same
-drag-and-drop canvas. Models are tracked with [MLflow](https://mlflow.org).
+Ciaren has nodes for the full tabular ML lifecycle built in — clean → engineer
+features → split → train → evaluate → predict — on the same drag-and-drop
+canvas. Models are tracked with [MLflow](https://mlflow.org).
 
 This guide builds a churn classifier in about 10 minutes.
 
@@ -17,10 +17,12 @@ This guide builds a churn classifier in about 10 minutes.
 
 ## Prerequisites
 
-The ML nodes only appear when the extension is **installed and enabled**:
+None — a plain `pip install ciaren` already includes scikit-learn, MLflow, and
+joblib, so the **Machine Learning** palette is there from the start. The only
+optional piece is gradient boosting:
 
 ```bash
-pip install "ciaren[ml]"     # scikit-learn, xgboost, lightgbm, mlflow, joblib
+pip install "ciaren[ml]"     # adds XGBoost and LightGBM model choices
 ```
 
 `ciaren init` provisions a local MLflow store (`./mlruns`) and enables ML by
@@ -33,9 +35,9 @@ CIAREN_MLFLOW_TRACKING_URI=http://your-mlflow:5000   # or sqlite:///./mlflow.db
 …or edit the built-in **Local MLflow** connection in the **Connections** page
 (see below) — the connection is the source of truth and overrides the env var.
 
-Check it's ready with `ciaren check` — you should see `ml: ok`. When ML is
-off or the extra isn't installed, the **Machine Learning** palette section is
-simply hidden.
+Check it's ready with `ciaren check` — you should see `ml: ok`. If it isn't (or
+the **Machine Learning** palette section is missing), `CIAREN_ML_ENABLED` was
+probably set to `false`, or the install is broken/stripped-down.
 
 ### The MLflow connection
 
@@ -180,7 +182,7 @@ dedicated view over everything MLflow tracked:
 
 ## Try the demo flows
 
-When the `[ml]` extra is installed, the built-in **Demo** project includes four
+With ML enabled (the default), the built-in **Demo** project includes four
 ready-to-run ML flows: *Iris — Quick Classifier*, *Iris — Train, Validate &
 Evaluate*, *House Prices — Regression*, and *Iris — PCA Explore*. Boot with
 `ciaren serve --run-seed-flows` to run them all once on first start, so the

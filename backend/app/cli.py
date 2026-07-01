@@ -83,7 +83,7 @@ _ENV_TEMPLATE = """\
 # depth, not a sandbox. Off by default so existing scripts keep working.
 # CIAREN_PYTHON_TRANSFORM_STRICT=false
 
-# --- Machine learning (optional; requires `pip install ciaren[ml]`) --------
+# --- Machine learning (built in; XGBoost/LightGBM need `pip install ciaren[ml]`) --
 # `ciaren init` provisions a default LOCAL MLflow instance below. To use an
 # existing MLflow server instead, point MLFLOW_TRACKING_URI at it, e.g.
 #   CIAREN_MLFLOW_TRACKING_URI=http://mlflow.internal:5000
@@ -538,7 +538,8 @@ def _check(args: argparse.Namespace) -> None:
 
     checks.append({"name": "engines", "status": "ok", "detail": ", ".join(available_engines())})
 
-    # ML extension: report whether the feature is enabled and its libraries present.
+    # ML: scikit-learn/MLflow/joblib are core deps, so this only warns on a
+    # broken or stripped-down install (e.g. installed with --no-deps).
     if s.ML_ENABLED:
         from app.ml.availability import ml_core_available
 
@@ -549,7 +550,10 @@ def _check(args: argparse.Namespace) -> None:
                 {
                     "name": "ml",
                     "status": "warn",
-                    "detail": "ML_ENABLED but [ml] extra not installed — pip install ciaren[ml]",
+                    "detail": (
+                        "ML_ENABLED but scikit-learn/mlflow/joblib not importable — "
+                        "reinstall with `pip install --force-reinstall ciaren` (these are core dependencies)"
+                    ),
                 }
             )
     else:
