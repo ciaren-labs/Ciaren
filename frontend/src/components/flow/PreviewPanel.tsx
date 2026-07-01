@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ApiError } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { ColumnProfileList } from "@/components/data/ColumnProfileList";
 import { categoricalColumns, numericColumns, type Aggregate } from "@/lib/chartData";
 import { DataTable } from "./DataTable";
@@ -100,7 +100,7 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
       <div className="min-h-0 flex-1 overflow-auto">
         {preview.isError && (
           <p className="p-3 text-sm text-destructive">
-            {(preview.error as ApiError)?.message ?? "Preview failed."}
+            {friendlyErrorMessage(preview.error, "Preview failed.")}
           </p>
         )}
         {preview.data ? (

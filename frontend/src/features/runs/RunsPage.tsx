@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
-  Loader2,
   MousePointerClick,
   RotateCcw,
   SquarePen,
@@ -15,6 +14,8 @@ import { useFlows } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { ViewToggle } from "@/components/filters/ViewToggle";
@@ -111,7 +112,7 @@ export function RunsPage() {
     [flowId, status, datasetId, projectId, after, before, sortBy, sortOrder, page],
   );
 
-  const { data: runs, isLoading } = useRuns(filters);
+  const { data: runs, isLoading, isError, error, refetch } = useRuns(filters);
 
   const flowName = useMemo(
     () => new Map((flows ?? []).map((f) => [f.id, f.name])),
@@ -245,9 +246,9 @@ export function RunsPage() {
       </FilterBar>
 
       {isLoading ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading runs…
-        </p>
+        <LoadingState label="Loading runs…" />
+      ) : isError ? (
+        <ErrorState error={error} title="Couldn't load runs" onRetry={() => refetch()} />
       ) : !isEmpty ? (
         <>
           {layout === "table" ? (
@@ -350,14 +351,28 @@ export function RunsPage() {
             </div>
           </div>
         </>
+      ) : hasFilters ? (
+        <EmptyState
+          icon={History}
+          title="No runs match these filters"
+          description="Try widening the date range, or clear the filters."
+          action={
+            <Button variant="outline" size="sm" onClick={reset}>
+              Clear filters
+            </Button>
+          }
+        />
       ) : (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            {hasFilters
-              ? "No runs match these filters."
-              : "No runs yet. Execute a flow to see its history here."}
-          </p>
-        </div>
+        <EmptyState
+          icon={History}
+          title="No runs yet"
+          description="Run a flow and every execution shows up here, with its status, duration, and results."
+          action={
+            <Button variant="outline" size="sm" onClick={() => navigate("/flows")}>
+              Go to flows
+            </Button>
+          }
+        />
       )}
     </div>
   );

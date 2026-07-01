@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useExportPython } from "./hooks";
-import { ApiError } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 interface ExportCodeDialogProps {
   flowId: string;
@@ -43,7 +43,7 @@ export function ExportCodeDialog({
         )}
         {exportPython.isError && (
           <p className="text-sm text-destructive">
-            {(exportPython.error as ApiError)?.message ?? "Export failed."}
+            {friendlyErrorMessage(exportPython.error, "Export failed.")}
           </p>
         )}
         {exportPython.data && (

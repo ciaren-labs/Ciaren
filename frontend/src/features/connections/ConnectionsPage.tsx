@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -252,7 +253,7 @@ function mkProvider(
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ConnectionsPage() {
-  const { data: connections = [], isLoading } = useConnections();
+  const { data: connections = [], isLoading, isError, error, refetch } = useConnections();
   const { data: fetchedProviders = [] } = useConnectionProviders();
   const providers = fetchedProviders.length ? fetchedProviders : FALLBACK_PROVIDERS;
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -274,16 +275,20 @@ export function ConnectionsPage() {
       </div>
 
       {isLoading ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
+        <LoadingState label="Loading connections…" />
+      ) : isError ? (
+        <ErrorState error={error} title="Couldn't load connections" onRetry={() => refetch()} />
       ) : connections.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-10 text-center">
-          <Database className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No connections yet. Add one to read from or write to a database or cloud storage.
-          </p>
-        </div>
+        <EmptyState
+          icon={Database}
+          title="Connect a database or cloud storage"
+          description="Connections let SQL and storage nodes read from and write to your databases. Passwords stay in environment variables — never stored here."
+          action={
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" /> Add connection
+            </Button>
+          }
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {connections.map((c) => (

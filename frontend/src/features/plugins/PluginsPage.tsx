@@ -16,6 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorState, LoadingState } from "@/components/ui/PageState";
 import { cn } from "@/lib/utils";
 import { getCategoryLabel } from "@/lib/nodeCatalog";
 import { getCategoryTheme } from "@/lib/nodeVisuals";
@@ -67,7 +68,7 @@ const STATUS_META: Record<PluginStatus, { label: string; className: string }> = 
 };
 
 export function PluginsPage() {
-  const { data, isLoading } = usePluginDiagnostics();
+  const { data, isLoading, isError, error, refetch } = usePluginDiagnostics();
   const plugins = [...(data?.loaded ?? []), ...(data?.gated ?? [])];
   const errors = data?.errors ?? [];
 
@@ -89,9 +90,9 @@ export function PluginsPage() {
       <TrustWarning />
 
       {isLoading ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
+        <LoadingState label="Loading plugins…" />
+      ) : isError ? (
+        <ErrorState error={error} title="Couldn't load plugins" onRetry={() => refetch()} />
       ) : plugins.length === 0 && errors.length === 0 ? (
         <EmptyState />
       ) : (
