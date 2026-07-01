@@ -4,13 +4,19 @@ name: Package & Publish (PyPI)
 # package (app/web) by the hatch build hook, so `pip install` + `ciaren serve`
 # ships and serves the web UI with no Node on the user's machine.
 #
-# Pushing a version tag (e.g. "0.1.0", matching pyproject.toml's version)
+# Pushing a version tag (e.g. "0.1.0", or a pre-release like "0.1.0-alpha.1",
+# "0.1.0-beta.2", "0.1.0-rc.1" — matching pyproject.toml's version exactly)
 # additionally publishes the build to PyPI via trusted publishing (OIDC) —
-# no long-lived API token stored in the repo.
+# no long-lived API token stored in the repo. hatchling normalizes these to
+# PEP 440 at build time (e.g. "0.1.0-alpha.1" -> "0.1.0a1"), and PyPI/pip
+# already treat any pre-release identifier as non-final: `pip install ciaren`
+# skips them unless run with `--pre` or an exact version pin.
 
 on:
   push:
-    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
   workflow_dispatch:
 
 permissions:
@@ -51,14 +57,34 @@ jobs:
       - name: Verify tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
         working-directory: backend
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        # Compares normalized (PEP 440) versions, not raw strings, so a tag like
+        # "0.1.0-alpha.1" matches a pyproject.toml version of either "0.1.0-alpha.1"
+        # or the canonical "0.1.0a1" — same for -beta./-rc. pre-releases.
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          if [ "$TAG" != "$VERSION" ]; then
-            echo "❌ Tag ($TAG) does not match pyproject.toml version ($VERSION)"
-            exit 1
-          fi
-          echo "✅ Tag matches package version: $VERSION"
+          python -m pip install -q packaging
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          from packaging.version import InvalidVersion, Version
+
+          tag = os.environ["GIT_TAG"]
+          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          try:
+              tag_version, pkg_version = Version(tag), Version(version)
+          except InvalidVersion as exc:
+              print(f"❌ {exc}")
+              sys.exit(1)
+
+          if tag_version != pkg_version:
+              print(f"❌ Tag ({tag} -> {tag_version}) does not match pyproject.toml version ({version} -> {pkg_version})")
+              sys.exit(1)
+
+          print(f"✅ Tag matches package version: {version} (normalized: {tag_version})")
+          PY
 
       - name: Build wheel + sdist
         working-directory: backend
