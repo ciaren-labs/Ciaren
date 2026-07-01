@@ -1,28 +1,28 @@
 ---
 title: Webhook Trigger
-description: Trigger FlowFrame flows from CI/CD pipelines, Airflow DAGs, and any HTTP client
+description: Trigger Ciaren flows from CI/CD pipelines, Airflow DAGs, and any HTTP client
 search: webhook trigger secret ci cd airflow pipeline http external automation
 ---
 
 # Webhook Trigger
 
-FlowFrame exposes a `POST /api/flows/{id}/trigger` endpoint that lets any
+Ciaren exposes a `POST /api/flows/{id}/trigger` endpoint that lets any
 HTTP-capable system start a run with a single request — no knowledge of the full
 REST API needed. Access is controlled by a pre-shared secret.
 
 ## Configuration
 
-Set `FLOWFRAME_WEBHOOK_SECRET` to any non-empty string before starting the server:
+Set `CIAREN_WEBHOOK_SECRET` to any non-empty string before starting the server:
 
 ```bash
 # .env file (recommended)
-FLOWFRAME_WEBHOOK_SECRET=my-strong-secret-here
+CIAREN_WEBHOOK_SECRET=my-strong-secret-here
 ```
 
 or inline:
 
 ```bash
-FLOWFRAME_WEBHOOK_SECRET=my-strong-secret-here flowframe serve
+CIAREN_WEBHOOK_SECRET=my-strong-secret-here ciaren serve
 ```
 
 When the variable is unset the trigger endpoint returns **404** — there is no
@@ -48,11 +48,11 @@ The response never includes the secret itself.
 ## Triggering a run
 
 Send a `POST` to `/api/flows/{flow_id}/trigger` with the secret in the
-`X-FlowFrame-Secret` header. The body is optional.
+`X-Ciaren-Secret` header. The body is optional.
 
 ```bash
 curl -X POST http://localhost:8055/api/flows/FLOW_ID/trigger \
-  -H "X-FlowFrame-Secret: my-strong-secret-here" \
+  -H "X-Ciaren-Secret: my-strong-secret-here" \
   -H "Content-Type: application/json"
 ```
 
@@ -79,7 +79,7 @@ Check `status` to know whether the run succeeded (`"success"`) or failed
 
 ```bash
 curl -X POST http://localhost:8055/api/flows/FLOW_ID/trigger \
-  -H "X-FlowFrame-Secret: my-strong-secret-here" \
+  -H "X-Ciaren-Secret: my-strong-secret-here" \
   -H "Content-Type: application/json" \
   -d '{
     "engine": "pandas",
@@ -96,17 +96,17 @@ curl -X POST http://localhost:8055/api/flows/FLOW_ID/trigger \
 
 | Status | Reason |
 | --- | --- |
-| `404` | `FLOWFRAME_WEBHOOK_SECRET` is not configured |
+| `404` | `CIAREN_WEBHOOK_SECRET` is not configured |
 | `403` | Header missing or value does not match the configured secret |
 | `404` | Flow ID not found |
 
 ## GitHub Actions example
 
 ```yaml
-- name: Trigger FlowFrame pipeline
+- name: Trigger Ciaren pipeline
   run: |
-    curl -f -X POST ${{ vars.FLOWFRAME_URL }}/api/flows/${{ vars.FLOW_ID }}/trigger \
-      -H "X-FlowFrame-Secret: ${{ secrets.FLOWFRAME_WEBHOOK_SECRET }}" \
+    curl -f -X POST ${{ vars.CIAREN_URL }}/api/flows/${{ vars.FLOW_ID }}/trigger \
+      -H "X-Ciaren-Secret: ${{ secrets.CIAREN_WEBHOOK_SECRET }}" \
       -H "Content-Type: application/json"
 ```
 
@@ -119,11 +119,11 @@ secret.
 from airflow.providers.http.operators.http import SimpleHttpOperator
 
 trigger = SimpleHttpOperator(
-    task_id="trigger_flowframe",
+    task_id="trigger_ciaren",
     method="POST",
-    http_conn_id="flowframe_server",           # configured in Airflow connections
+    http_conn_id="ciaren_server",           # configured in Airflow connections
     endpoint=f"/api/flows/{FLOW_ID}/trigger",
-    headers={"X-FlowFrame-Secret": "{{ var.value.flowframe_webhook_secret }}"},
+    headers={"X-Ciaren-Secret": "{{ var.value.ciaren_webhook_secret }}"},
     response_check=lambda r: r.json()["status"] == "success",
 )
 ```
@@ -132,7 +132,7 @@ trigger = SimpleHttpOperator(
 
 - The secret is compared with `hmac.compare_digest` to prevent timing attacks.
 - Use HTTPS in production so the secret is never sent in plain text.
-- Rotate the secret by updating `FLOWFRAME_WEBHOOK_SECRET` and restarting the
+- Rotate the secret by updating `CIAREN_WEBHOOK_SECRET` and restarting the
   server — all callers must update their copy simultaneously.
 
 ## See also

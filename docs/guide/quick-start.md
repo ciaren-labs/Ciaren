@@ -1,6 +1,6 @@
 ---
 title: Quick Start (5 Minutes)
-description: Build and run your first data workflow in the FlowFrame editor
+description: Build and run your first data workflow in the Ciaren editor
 search: quick start tutorial first flow editor api
 ---
 
@@ -13,7 +13,7 @@ the bottom.
 ## Prerequisites
 
 - The backend and frontend running locally (see [Installation](/guide/installation)).
-  In short: `flowframe serve` in `backend/`, and `npm run dev` in `frontend/`.
+  In short: `ciaren serve` in `backend/`, and `npm run dev` in `frontend/`.
 - A small CSV to upload. Any file with a header row works — for example
   `sales.csv`:
 
@@ -43,7 +43,7 @@ aggregates, and outputs a summary CSV — plus the equivalent Python script.
 1. Open `http://localhost:5173` and go to **Datasets**.
 2. Click **Upload**, choose your file, and confirm.
 
-FlowFrame infers the column schema and stores a sample. Datasets are
+Ciaren infers the column schema and stores a sample. Datasets are
 **versioned** — re-uploading a file with the same name adds a new version rather
 than overwriting the old one, so existing flows stay reproducible.
 
@@ -66,7 +66,7 @@ and the [Transformations Reference](/transformations/overview) for every node.
 
 ## 3. Run the flow
 
-Click **Run**. FlowFrame executes the whole pipeline on the
+Click **Run**. Ciaren executes the whole pipeline on the
 [default engine](/guide/engines) (polars), writes the output file, and records a
 **run** with status, logs, and per-node results (row/column counts and a sample).
 
@@ -74,9 +74,9 @@ Open the run from the **Runs** page to inspect each node and download the output
 
 ## 4. Export Python
 
-Click **Export → Python**. FlowFrame returns standalone, readable code for your
+Click **Export → Python**. Ciaren returns standalone, readable code for your
 flow — both the **polars** and the **pandas** version. Paste it into a script or
-a Jupyter notebook and it runs on its own, no FlowFrame required.
+a Jupyter notebook and it runs on its own, no Ciaren required.
 
 ## 5. (Optional) Schedule it
 

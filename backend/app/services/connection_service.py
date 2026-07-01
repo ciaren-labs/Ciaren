@@ -139,7 +139,7 @@ class ConnectionService:
         if not driver_available(provider):
             return ConnectionTestResult(
                 ok=False,
-                message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
+                message=f"The {provider.label} driver isn't installed (pip install ciaren[{provider.extra}]).",
             )
         if is_mlflow_provider(provider):
             return await self._test_mlflow(data.database)
@@ -182,7 +182,7 @@ class ConnectionService:
         if not driver_available(provider):
             return ConnectionTestResult(
                 ok=False,
-                message=f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}]).",
+                message=f"The {provider.label} driver isn't installed (pip install ciaren[{provider.extra}]).",
             )
         if is_mlflow_provider(provider):
             return await self._test_mlflow(conn.database)
@@ -206,7 +206,7 @@ class ConnectionService:
             raise ValidationError(f"'{provider.label}' is a storage connection — use list_objects instead.")
         if not driver_available(provider):
             raise ValidationError(
-                f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
+                f"The {provider.label} driver isn't installed (pip install ciaren[{provider.extra}])."
             )
         connector = cast(DataConnector, get_connector(provider))  # SQL/Mongo (guarded above)
         try:
@@ -223,7 +223,7 @@ class ConnectionService:
             raise ValidationError(f"'{provider.label}' is not a storage connection — use list_tables instead.")
         if not driver_available(provider):
             raise ValidationError(
-                f"The {provider.label} driver isn't installed (pip install flowframe[{provider.extra}])."
+                f"The {provider.label} driver isn't installed (pip install ciaren[{provider.extra}])."
             )
         connector = cast(StorageConnector, get_connector(provider))  # storage (guarded above)
         try:

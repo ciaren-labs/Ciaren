@@ -7,12 +7,12 @@ search: example duckdb sql analytics connection query local database olap parque
 # DuckDB Analytics
 
 DuckDB is a fast, in-process analytical (OLAP) database — perfect for local
-analytics on files and tables. In FlowFrame, DuckDB is available as a **SQL
+analytics on files and tables. In Ciaren, DuckDB is available as a **SQL
 connection**, so you can read from it with a **SQL Input** node, transform the
 result on the canvas, and write back with a **SQL Output** node.
 
 :::tip DuckDB is a connector, not the run engine
-Your flow still executes on FlowFrame's dataframe engine (**polars** by default, or
+Your flow still executes on Ciaren's dataframe engine (**polars** by default, or
 pandas). DuckDB is the *source/sink* — a great place to keep analytical tables and
 to push heavy filtering/joins down to before the data reaches the canvas.
 :::

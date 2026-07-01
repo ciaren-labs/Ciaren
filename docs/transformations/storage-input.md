@@ -54,7 +54,7 @@ df_1 = pd.read_csv(io.BytesIO(obj["Body"].read()))
 
 - **Create the connection first.** Go to **Connections → Add connection** and
   pick the storage provider. Set `secret_env` to the environment-variable name
-  holding your key — FlowFrame never stores the secret itself.
+  holding your key — Ciaren never stores the secret itself.
 - **Path is relative to the bucket/container root.** Do not include the
   `s3://bucket-name/` prefix — that comes from the connection.
 - **Preview uses a bounded sample.** Preview and profile read the first N rows

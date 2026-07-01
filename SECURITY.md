@@ -6,7 +6,7 @@
 
 Parts of this project have been written or reviewed with AI assistance. All
 contributions still need human review, tests, and security-minded maintenance.
-FlowFrame is alpha software and has not yet completed a formal independent
+Ciaren is alpha software and has not yet completed a formal independent
 third-party security audit.
 
 What this means in practice:
@@ -16,12 +16,12 @@ What this means in practice:
 - The recommended deployment model is local-first or behind your own trusted
   access controls.
 - For production or regulated environments, run your own review, threat model,
-  and operational controls before relying on FlowFrame.
+  and operational controls before relying on Ciaren.
 - Privacy protections follow the local-first trust model described below.
 
 **Users and contributors should:**
 
-1. **Review changes carefully** when using FlowFrame in sensitive environments.
+1. **Review changes carefully** when using Ciaren in sensitive environments.
 2. **Test thoroughly** with representative data and edge cases before deploying.
 3. **Use trusted access controls** if binding outside localhost.
 4. **Report security issues responsibly** using the process below.
@@ -33,11 +33,11 @@ What this means in practice:
 
 ### Alpha Phase
 
-FlowFrame is in active development. Known limitations include:
+Ciaren is in active development. Known limitations include:
 
 - **No encryption at rest** — data is stored in plaintext (use SQLite for local-only setups)
 - **No authentication by default** — assumes a trusted local environment; set
-  `FLOWFRAME_API_TOKEN` when binding outside loopback or placing FlowFrame behind
+  `CIAREN_API_TOKEN` when binding outside loopback or placing Ciaren behind
   an authenticating reverse proxy
 - **Evolving input validation** — edge cases continue to be hardened as the
   project matures
@@ -49,7 +49,7 @@ FlowFrame is in active development. Known limitations include:
 
 - **Personal identifiable information (PII)** — add your own data protection,
   retention, and access controls
-- **HIPAA/GDPR regulated data** — FlowFrame does not currently provide a
+- **HIPAA/GDPR regulated data** — Ciaren does not currently provide a
   compliance program or certification
 - **High-volume production ETL** — not designed for 100GB+ datasets
 - **Real-time pipelines** — batch-only, no streaming support
@@ -110,4 +110,4 @@ For non-security issues:
 - **Questions:** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
 - **Performance concerns:** Include dataset size, transformation complexity, timing info
 
-**Thank you for helping keep FlowFrame safe and secure.**
+**Thank you for helping keep Ciaren safe and secure.**

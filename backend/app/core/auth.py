@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Optional bearer-token authentication for the REST API.
 
-FlowFrame is local-first and unauthenticated by default (safe bound to
-``127.0.0.1``). Setting ``FLOWFRAME_API_TOKEN`` turns on a single shared-secret
+Ciaren is local-first and unauthenticated by default (safe bound to
+``127.0.0.1``). Setting ``CIAREN_API_TOKEN`` turns on a single shared-secret
 gate so a network-exposed instance (e.g. the Docker image, which binds
 ``0.0.0.0``) isn't an open door to flow execution / plugin install — both of which
 reach arbitrary code execution. See SECURITY.md for the deployment posture.
@@ -10,7 +10,7 @@ reach arbitrary code execution. See SECURITY.md for the deployment posture.
 The check is wired as a global FastAPI dependency (``create_app``), so a rejection
 is a normal ``HTTPException`` that still flows through the CORS middleware. The
 token may be presented as ``Authorization: Bearer <token>`` or in the
-``X-FlowFrame-Token`` header, and is compared in constant time.
+``X-Ciaren-Token`` header, and is compared in constant time.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from fastapi import HTTPException, Request
 from app.core.config import get_settings
 
 #: Header carrying the token, as an alternative to ``Authorization: Bearer``.
-API_TOKEN_HEADER = "X-FlowFrame-Token"
+API_TOKEN_HEADER = "X-Ciaren-Token"
 
 #: Non-``/api`` paths plus these exact routes are always reachable without a token:
 #: health/readiness probes and the API schema/docs (needed to load the UI and to
@@ -44,7 +44,7 @@ def _is_exempt(path: str, method: str) -> bool:
 
     Exempt: CORS preflight (carries no auth header), the static web UI / SPA shell
     (everything outside ``/api/``), the health/docs endpoints, and the webhook
-    surface — the trigger authenticates with its own ``X-FlowFrame-Secret`` and the
+    surface — the trigger authenticates with its own ``X-Ciaren-Secret`` and the
     status endpoint reveals only a boolean, so an orchestrator using just the
     webhook secret keeps working.
     """

@@ -91,7 +91,7 @@ class LicenseCache:
     """A directory of cached license tokens, one JSON file per plugin id."""
 
     def __init__(self, directory: Path | None = None) -> None:
-        self.directory = directory or (Path.home() / ".flowframe" / "licenses")
+        self.directory = directory or (Path.home() / ".ciaren" / "licenses")
 
     def _path(self, plugin_id: str) -> Path:
         safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in plugin_id)

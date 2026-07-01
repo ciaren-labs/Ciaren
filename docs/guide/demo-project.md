@@ -1,12 +1,12 @@
 ---
 title: Demo Project & Tutorials
-description: The sample datasets and example flows FlowFrame ships with, walked through step by step
+description: The sample datasets and example flows Ciaren ships with, walked through step by step
 search: demo project sample data tutorial example flows customers orders products clean join aggregate
 ---
 
 # Demo Project & Tutorials
 
-FlowFrame ships with a built-in **Demo** project so you have something real to
+Ciaren ships with a built-in **Demo** project so you have something real to
 explore the first time you open it. It contains four sample datasets and four
 example flows — from a simple linear cleanup to a three-input sales mart — and
 every tutorial below walks through a flow **that is already in your Demo
@@ -23,8 +23,8 @@ exact same rows**. That's what makes these tutorials reproducible: the numbers
 you see are the numbers described here.
 
 ::: tip Don't want it?
-Skip seeding with `flowframe serve --no-demo`, or set
-`FLOWFRAME_SEED_DEMO=false`. Seeding is also idempotent — once the Demo project
+Skip seeding with `ciaren serve --no-demo`, or set
+`CIAREN_SEED_DEMO=false`. Seeding is also idempotent — once the Demo project
 exists it's never recreated, so deleting it keeps it gone.
 :::
 

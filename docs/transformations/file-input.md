@@ -18,7 +18,7 @@ node in a pipeline — the entry point for a file-based ETL flow.
   ]'
 />
 
-FlowFrame now uses one uploaded-file input node with a format selector:
+Ciaren now uses one uploaded-file input node with a format selector:
 
 | Node type | Format setting | Reads |
 | --- | --- | --- |

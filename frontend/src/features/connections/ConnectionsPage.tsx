@@ -505,7 +505,7 @@ function ProviderCard({
 
       {/* Install hint — outside the disabled button so the copy action still works */}
       {!provider.available && provider.extra && (
-        <InstallHint command={`pip install flowframe[${provider.extra}]`} />
+        <InstallHint command={`pip install ciaren[${provider.extra}]`} />
       )}
     </div>
   );
@@ -739,7 +739,7 @@ function ConnectionDialog({
                   <DialogTitle>{isEdit ? "Edit connection" : "Configure connection"}</DialogTitle>
                   <DialogDescription>
                     {isMlflow
-                      ? "Where FlowFrame logs experiments and models. Used by all ML flows."
+                      ? "Where Ciaren logs experiments and models. Used by all ML flows."
                       : isStorage
                         ? "Secret keys are read at runtime from env vars and never stored."
                         : "Passwords are read at runtime from env vars and never stored."}
@@ -771,7 +771,7 @@ function ConnectionDialog({
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1">
                   Driver not installed.{" "}
-                  <code className="font-mono">pip install flowframe[{provider.extra}]</code>
+                  <code className="font-mono">pip install ciaren[{provider.extra}]</code>
                 </span>
               </div>
             )}

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Install and uninstall plugins from ``.ffplugin`` packages (or source dirs).
+"""Install and uninstall plugins from ``.ciarenplugin`` packages (or source dirs).
 
 Installation extracts a verified package into the user plugin directory
-(``~/.flowframe/plugins`` by default, a directory the loader already scans), so
+(``~/.ciaren/plugins`` by default, a directory the loader already scans), so
 the plugin is picked up on the next registry build. Verification runs *before*
 extraction: a tampered/invalid package is always refused, and ``require_trusted``
 refuses anything not signed by a trusted key.
@@ -26,7 +26,7 @@ from app.plugins.package import (
     verify_package,
 )
 
-INSTALL_DIR_ENV = "FLOWFRAME_PLUGIN_INSTALL_DIR"
+INSTALL_DIR_ENV = "CIAREN_PLUGIN_INSTALL_DIR"
 
 #: Anti zip-bomb / runaway-package limits applied during extraction.
 MAX_ENTRY_BYTES = 256 * 1024 * 1024  # 256 MiB per file
@@ -52,10 +52,10 @@ class InstallResult:
 
 
 def user_plugins_dir() -> Path:
-    """Directory new plugins are installed into. ``FLOWFRAME_PLUGIN_INSTALL_DIR``
-    overrides the default ``~/.flowframe/plugins`` (which the loader scans)."""
+    """Directory new plugins are installed into. ``CIAREN_PLUGIN_INSTALL_DIR``
+    overrides the default ``~/.ciaren/plugins`` (which the loader scans)."""
     override = os.environ.get(INSTALL_DIR_ENV)
-    return Path(override).expanduser() if override else Path.home() / ".flowframe" / "plugins"
+    return Path(override).expanduser() if override else Path.home() / ".ciaren" / "plugins"
 
 
 def _safe_target_name(plugin_id: str) -> str:
@@ -108,7 +108,7 @@ def _extract_safely(zf: ZipFile, target: Path) -> None:
         dest.write_bytes(zf.read(name))
 
 
-def install_ffplugin(
+def install_ciarenplugin(
     package_path: str | os.PathLike[str],
     *,
     install_dir: Path | None = None,
@@ -116,7 +116,7 @@ def install_ffplugin(
     trusted_keys: dict[str, str] | None = None,
     force: bool = False,
 ) -> InstallResult:
-    """Verify and install a ``.ffplugin``. Returns where it landed + the
+    """Verify and install a ``.ciarenplugin``. Returns where it landed + the
     verification result. Raises :class:`InstallError` on a bad/untrusted package
     or an existing install (unless ``force``)."""
     manifest = read_manifest(package_path)  # raises PackageError if malformed

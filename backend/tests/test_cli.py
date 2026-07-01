@@ -1,4 +1,4 @@
-"""Tests for the `flowframe` CLI entry point.
+"""Tests for the `ciaren` CLI entry point.
 
 These exercise argument parsing, env wiring, and the helper commands without
 booting a real server (uvicorn.run is stubbed) or mutating real config/DB files.
@@ -78,7 +78,7 @@ def test_run_seed_flows_flag() -> None:
 
 
 def test_apply_serve_env_sets_run_seed_flows(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("FLOWFRAME_SEED_RUN_FLOWS", raising=False)
+    monkeypatch.delenv("CIAREN_SEED_RUN_FLOWS", raising=False)
     args = argparse.Namespace(
         db_url=None,
         data_dir=None,
@@ -89,7 +89,7 @@ def test_apply_serve_env_sets_run_seed_flows(monkeypatch: pytest.MonkeyPatch) ->
         run_seed_flows=True,
     )
     cli._apply_serve_env(args)
-    assert os.environ["FLOWFRAME_SEED_RUN_FLOWS"] == "true"
+    assert os.environ["CIAREN_SEED_RUN_FLOWS"] == "true"
 
 
 def test_engine_choice_is_validated() -> None:
@@ -99,11 +99,11 @@ def test_engine_choice_is_validated() -> None:
 
 def test_apply_serve_env_sets_all_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
-        "FLOWFRAME_DATABASE_URL",
-        "FLOWFRAME_DATA_DIR",
-        "FLOWFRAME_DEFAULT_ENGINE",
-        "FLOWFRAME_EXECUTION_MODE",
-        "FLOWFRAME_SCHEDULER_ENABLED",
+        "CIAREN_DATABASE_URL",
+        "CIAREN_DATA_DIR",
+        "CIAREN_DEFAULT_ENGINE",
+        "CIAREN_EXECUTION_MODE",
+        "CIAREN_SCHEDULER_ENABLED",
     ):
         monkeypatch.delenv(key, raising=False)
     args = argparse.Namespace(
@@ -116,22 +116,22 @@ def test_apply_serve_env_sets_all_overrides(monkeypatch: pytest.MonkeyPatch) -> 
 
     cli._apply_serve_env(args)
 
-    assert os.environ["FLOWFRAME_DATABASE_URL"] == "postgresql+asyncpg://x"
-    assert os.environ["FLOWFRAME_DATA_DIR"] == "/data/ff"
-    assert os.environ["FLOWFRAME_DEFAULT_ENGINE"] == "pandas"
-    assert os.environ["FLOWFRAME_EXECUTION_MODE"] == "process"
-    assert os.environ["FLOWFRAME_SCHEDULER_ENABLED"] == "false"
+    assert os.environ["CIAREN_DATABASE_URL"] == "postgresql+asyncpg://x"
+    assert os.environ["CIAREN_DATA_DIR"] == "/data/ff"
+    assert os.environ["CIAREN_DEFAULT_ENGINE"] == "pandas"
+    assert os.environ["CIAREN_EXECUTION_MODE"] == "process"
+    assert os.environ["CIAREN_SCHEDULER_ENABLED"] == "false"
 
 
 def test_apply_serve_env_noop_without_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("FLOWFRAME_DATABASE_URL", raising=False)
-    monkeypatch.delenv("FLOWFRAME_SCHEDULER_ENABLED", raising=False)
+    monkeypatch.delenv("CIAREN_DATABASE_URL", raising=False)
+    monkeypatch.delenv("CIAREN_SCHEDULER_ENABLED", raising=False)
     args = argparse.Namespace(db_url=None, data_dir=None, engine=None, execution_mode=None, no_scheduler=False)
 
     cli._apply_serve_env(args)
 
-    assert "FLOWFRAME_DATABASE_URL" not in os.environ
-    assert "FLOWFRAME_SCHEDULER_ENABLED" not in os.environ
+    assert "CIAREN_DATABASE_URL" not in os.environ
+    assert "CIAREN_SCHEDULER_ENABLED" not in os.environ
 
 
 def test_main_serve_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,7 +154,7 @@ def test_main_serve_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_without_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     cli.main([])
     out = capsys.readouterr().out
-    assert "usage: flowframe" in out
+    assert "usage: ciaren" in out
     assert "serve" in out
 
 
@@ -168,29 +168,29 @@ def test_env_file_is_parsed_for_serve_info_check() -> None:
 
 
 def test_load_env_file_noop_without_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("FLOWFRAME_DEFAULT_ENGINE", raising=False)
+    monkeypatch.delenv("CIAREN_DEFAULT_ENGINE", raising=False)
     cli._load_env_file(argparse.Namespace(env_file=None))
-    assert "FLOWFRAME_DEFAULT_ENGINE" not in os.environ
+    assert "CIAREN_DEFAULT_ENGINE" not in os.environ
 
 
 def test_load_env_file_loads_values(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv("FLOWFRAME_DEFAULT_ENGINE", raising=False)
+    monkeypatch.delenv("CIAREN_DEFAULT_ENGINE", raising=False)
     env = tmp_path / "custom.env"
-    env.write_text("FLOWFRAME_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
+    env.write_text("CIAREN_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
 
     cli._load_env_file(argparse.Namespace(env_file=str(env)))
 
-    assert os.environ["FLOWFRAME_DEFAULT_ENGINE"] == "pandas"
+    assert os.environ["CIAREN_DEFAULT_ENGINE"] == "pandas"
 
 
 def test_load_env_file_does_not_override_existing_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("FLOWFRAME_DEFAULT_ENGINE", "polars")
+    monkeypatch.setenv("CIAREN_DEFAULT_ENGINE", "polars")
     env = tmp_path / "custom.env"
-    env.write_text("FLOWFRAME_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
+    env.write_text("CIAREN_DEFAULT_ENGINE=pandas\n", encoding="utf-8")
 
     cli._load_env_file(argparse.Namespace(env_file=str(env)))
 
-    assert os.environ["FLOWFRAME_DEFAULT_ENGINE"] == "polars"
+    assert os.environ["CIAREN_DEFAULT_ENGINE"] == "polars"
 
 
 def test_load_env_file_missing_path_exits() -> None:
@@ -202,7 +202,7 @@ def test_load_env_file_missing_path_exits() -> None:
 
 
 def test_info_prints_and_redacts_password(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "postgresql+asyncpg://user:s3cret@host/db")
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "postgresql+asyncpg://user:s3cret@host/db")
     _clear_settings_cache()
     try:
         cli.main(["info"])
@@ -216,14 +216,14 @@ def test_info_prints_and_redacts_password(monkeypatch: pytest.MonkeyPatch, capsy
 
 
 def test_info_json_output(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     _clear_settings_cache()
     try:
         cli.main(["info", "--output", "json"])
     finally:
         _clear_settings_cache()
     data = json.loads(capsys.readouterr().out)
-    assert data["app_name"] == "FlowFrame"
+    assert data["app_name"] == "Ciaren"
     assert data["default_engine"] in ("polars", "pandas")
 
 
@@ -233,8 +233,8 @@ def test_info_json_output(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
 def test_check_passes_with_reachable_db(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
     _clear_settings_cache()
     try:
         cli.main(["check"])  # must not raise
@@ -246,8 +246,8 @@ def test_check_passes_with_reachable_db(
 
 
 def test_check_json_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
     _clear_settings_cache()
     try:
         cli.main(["check", "--output", "json"])
@@ -261,7 +261,7 @@ def test_check_json_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caps
 def test_check_fails_when_db_unreachable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("FLOWFRAME_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("CIAREN_DATA_DIR", str(tmp_path))
 
     def boom(_url: str) -> None:
         raise RuntimeError("connection refused")
@@ -296,7 +296,7 @@ def _table_names(db: Path) -> set[str]:
 
 def test_db_upgrade_creates_schema_from_migrations(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     db = tmp_path / "ff.db"
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", _sqlite_url(db))
+    monkeypatch.setenv("CIAREN_DATABASE_URL", _sqlite_url(db))
     _clear_settings_cache()
     try:
         cli.main(["db", "upgrade"])
@@ -312,7 +312,7 @@ def test_db_upgrade_adopts_create_all_schema(
     """A DB with the app tables but no alembic_version (bootstrapped by the
     startup create_all) must be adopted, not have its tables re-created."""
     db = tmp_path / "ff.db"
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", _sqlite_url(db))
+    monkeypatch.setenv("CIAREN_DATABASE_URL", _sqlite_url(db))
     _clear_settings_cache()
     try:
         cli.main(["db", "upgrade"])  # build full schema + version table
@@ -340,7 +340,7 @@ def test_db_reset_requires_yes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_db_reset_refuses_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FLOWFRAME_ENVIRONMENT", "production")
+    monkeypatch.setenv("CIAREN_ENVIRONMENT", "production")
     monkeypatch.setattr("app.db.migrations.reset", lambda: None)
     _clear_settings_cache()
     try:
@@ -392,7 +392,7 @@ def test_init_writes_env_file(capsys: pytest.CaptureFixture[str], tmp_path: Path
     target = tmp_path / ".env"
     cli.main(["init", "--path", str(target)])
     assert target.exists()
-    assert "FLOWFRAME_DATABASE_URL" in target.read_text(encoding="utf-8")
+    assert "CIAREN_DATABASE_URL" in target.read_text(encoding="utf-8")
     assert "Wrote" in capsys.readouterr().out
 
 
@@ -409,34 +409,34 @@ def test_init_force_overwrites(tmp_path: Path) -> None:
     cli.main(["init", "--path", str(target), "--force"])
     contents = target.read_text(encoding="utf-8")
     assert "KEEP_ME=1" not in contents
-    assert "FLOWFRAME_DATABASE_URL" in contents
+    assert "CIAREN_DATABASE_URL" in contents
 
 
 # -- serve: API-token exposure warning ---------------------------------
 
 
 def test_warn_when_exposed_without_token(monkeypatch, capsys):
-    monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+    monkeypatch.delenv("CIAREN_API_TOKEN", raising=False)
     _clear_settings_cache()
     cli._warn_if_exposed_without_token(argparse.Namespace(host="0.0.0.0"))
     out = capsys.readouterr().out
     assert "WARNING" in out
-    assert "FLOWFRAME_API_TOKEN" in out
+    assert "CIAREN_API_TOKEN" in out
 
 
 def test_no_warning_on_loopback(monkeypatch, capsys):
-    monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+    monkeypatch.delenv("CIAREN_API_TOKEN", raising=False)
     _clear_settings_cache()
     cli._warn_if_exposed_without_token(argparse.Namespace(host="127.0.0.1"))
     assert capsys.readouterr().out == ""
 
 
 def test_no_warning_when_token_set(monkeypatch, capsys):
-    monkeypatch.setenv("FLOWFRAME_API_TOKEN", "secret")
+    monkeypatch.setenv("CIAREN_API_TOKEN", "secret")
     _clear_settings_cache()
     try:
         cli._warn_if_exposed_without_token(argparse.Namespace(host="0.0.0.0"))
         assert capsys.readouterr().out == ""
     finally:
-        monkeypatch.delenv("FLOWFRAME_API_TOKEN", raising=False)
+        monkeypatch.delenv("CIAREN_API_TOKEN", raising=False)
         _clear_settings_cache()

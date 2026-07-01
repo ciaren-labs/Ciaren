@@ -1,22 +1,22 @@
 ---
 title: Plugins Overview
-description: FlowFrame is plugin-first — nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points you can build, package, sign, and share.
-search: plugins extensibility providers nodes connectors engines exporters validators ai marketplace ffplugin
+description: Ciaren is plugin-first — nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points you can build, package, sign, and share.
+search: plugins extensibility providers nodes connectors engines exporters validators ai marketplace ciarenplugin
 ---
 
 # Plugins & Extensibility
 
-FlowFrame is **plugin-first**. Almost every capability — the nodes on the canvas,
+Ciaren is **plugin-first**. Almost every capability — the nodes on the canvas,
 the databases you connect to, the engine your flow runs on, the code it exports —
 is defined as a **stable provider contract** that a plugin can implement. A plugin
 is a small Python package that depends only on the public plugin API
-(`app.plugin_api`), never on FlowFrame's internals.
+(`app.plugin_api`), never on Ciaren's internals.
 
 That means the core stays lean and open, while the community can extend it
 from the outside — without forking.
 
 :::tip In one sentence
-If FlowFrame doesn't do something you need, you can add it as a plugin — and ship
+If Ciaren doesn't do something you need, you can add it as a plugin — and ship
 it as a portable, optionally **signed** package.
 :::
 
@@ -40,31 +40,31 @@ implement one or several of them.
 > **storage**, and the **polars / pandas** engines. The remaining contracts
 > (engines beyond the defaults, custom exporters/validators, AI capabilities, and
 > auth methods) are stable extension points designed for plugins — they are how
-> FlowFrame grows without bloating the core. Always check the
+> Ciaren grows without bloating the core. Always check the
 > [API reference](/api/catalog) for what the running instance currently exposes.
 
 ## How a plugin is discovered
 
-FlowFrame finds plugins two ways:
+Ciaren finds plugins two ways:
 
-1. **Local directory** — point `FLOWFRAME_PLUGINS_DIR` at a folder of plugins
+1. **Local directory** — point `CIAREN_PLUGINS_DIR` at a folder of plugins
    (great for development, no install needed).
-2. **Installed package** — a plugin that declares the `flowframe.plugins` entry
+2. **Installed package** — a plugin that declares the `ciaren.plugins` entry
    point is discovered automatically once `pip install`-ed.
 
 Fresh installs also include a small **bundled Explore catalog** with a Hello
 Plugin package. Bundled catalog entries are not loaded automatically: they are
 shown as installable examples so users can try the install and approval flow.
-Set `FLOWFRAME_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
+Set `CIAREN_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
 marketplace JSON.
 
 ```bash
 # Develop against a local folder
-export FLOWFRAME_PLUGINS_DIR=/path/to/your/plugins
-flowframe serve
+export CIAREN_PLUGINS_DIR=/path/to/your/plugins
+ciaren serve
 
 # Inspect what's loaded
-flowframe plugin list
+ciaren plugin list
 ```
 
 Disabled plugins and plugins with ungranted permissions are **not imported** until
@@ -73,19 +73,19 @@ you approve them — code never runs behind your back. See
 
 ## Packaging & signing
 
-Plugins can be packaged as portable `.ffplugin` files and **cryptographically
+Plugins can be packaged as portable `.ciarenplugin` files and **cryptographically
 signed** (Ed25519). Installing with `--trusted` refuses any package not signed by
 a key you trust.
 
 ```bash
 # Publisher: generate a key, package, and sign
-flowframe plugin keygen
-flowframe plugin pack ./my-plugin ./my-plugin.ffplugin
-flowframe plugin sign ./my-plugin.ffplugin
+ciaren plugin keygen
+ciaren plugin pack ./my-plugin ./my-plugin.ciarenplugin
+ciaren plugin sign ./my-plugin.ciarenplugin
 
 # Consumer: install only trusted, signed packages
-flowframe plugin install ./my-plugin.ffplugin --trusted
-flowframe plugin verify  ./my-plugin.ffplugin
+ciaren plugin install ./my-plugin.ciarenplugin --trusted
+ciaren plugin verify  ./my-plugin.ciarenplugin
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full

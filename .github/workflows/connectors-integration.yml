@@ -46,10 +46,10 @@ jobs:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
       # Consumed by tests/integration/test_s3_connector.py (it self-skips without these).
-      FLOWFRAME_TEST_S3_ENDPOINT: http://127.0.0.1:9000
-      FLOWFRAME_TEST_S3_ACCESS_KEY: minioadmin
-      FLOWFRAME_TEST_S3_SECRET_KEY: minioadmin
-      FLOWFRAME_TEST_S3_REGION: us-east-1
+      CIAREN_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+      CIAREN_TEST_S3_ACCESS_KEY: minioadmin
+      CIAREN_TEST_S3_SECRET_KEY: minioadmin
+      CIAREN_TEST_S3_REGION: us-east-1
 
     steps:
       - name: Checkout code
@@ -127,8 +127,8 @@ jobs:
 
     env:
       # Consumed by tests/integration/test_mongo_connector.py (it self-skips without these).
-      FLOWFRAME_TEST_MONGO_HOST: 127.0.0.1
-      FLOWFRAME_TEST_MONGO_PORT: "27017"
+      CIAREN_TEST_MONGO_HOST: 127.0.0.1
+      CIAREN_TEST_MONGO_PORT: "27017"
 
     steps:
       - name: Checkout code
@@ -185,7 +185,7 @@ jobs:
 
     env:
       # Consumed by tests/integration/test_azure_connector.py (it self-skips without this).
-      FLOWFRAME_TEST_AZURE_ENDPOINT: http://127.0.0.1:10000/devstoreaccount1
+      CIAREN_TEST_AZURE_ENDPOINT: http://127.0.0.1:10000/devstoreaccount1
 
     steps:
       - name: Checkout code
@@ -255,7 +255,7 @@ jobs:
       # The google-cloud-storage client honours STORAGE_EMULATOR_HOST (anonymous
       # creds); the connector and tests both rely on it being set.
       STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
-      FLOWFRAME_TEST_GCS_PROJECT: test-project
+      CIAREN_TEST_GCS_PROJECT: test-project
 
     steps:
       - name: Checkout code

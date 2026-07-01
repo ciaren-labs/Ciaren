@@ -2,7 +2,7 @@
 """The versioned ``.flow`` document — a public, stable description of a flow.
 
 Today a flow persists in the DB as React Flow ``graph_json`` and is exported as
-the unversioned ``flowframe.flow/v1`` ``FlowDocument`` (``app/schemas/flow.py``).
+the unversioned ``ciaren.flow/v1`` ``FlowDocument`` (``app/schemas/flow.py``).
 This module formalizes that into a versioned, JSON-schema-able contract with an
 explicit ``schemaVersion``, a place to declare required plugins/capabilities, and
 a migration path — without changing how flows are stored or how the existing
@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 CURRENT_SCHEMA_VERSION = "1.0.0"
 
 #: The unversioned export tag the current backend emits (kept for reconciliation).
-LEGACY_FORMAT = "flowframe.flow/v1"
+LEGACY_FORMAT = "ciaren.flow/v1"
 
 
 class FlowProject(BaseModel):
@@ -62,7 +62,7 @@ class FlowSchemaDocument(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     schema_version: str = Field(default=CURRENT_SCHEMA_VERSION, alias="schemaVersion")
-    flowframe_version: str | None = Field(default=None, alias="flowframeVersion")
+    ciaren_version: str | None = Field(default=None, alias="ciarenVersion")
     project: FlowProject
     graph: FlowGraph
     metadata: dict[str, Any] = Field(default_factory=dict)

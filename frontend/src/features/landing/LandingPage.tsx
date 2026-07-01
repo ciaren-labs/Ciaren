@@ -104,7 +104,7 @@ export function LandingPage() {
 
       {/* Features */}
       <section className="mt-12">
-        <h2 className="text-center text-xl font-semibold">What FlowFrame gives you</h2>
+        <h2 className="text-center text-xl font-semibold">What Ciaren gives you</h2>
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div
@@ -125,7 +125,7 @@ export function LandingPage() {
       <section className="brand-gradient mt-14 flex flex-col items-center gap-4 rounded-2xl px-6 py-10 text-center text-white">
         <h2 className="text-2xl font-semibold">Build your first flow in minutes</h2>
         <p className="max-w-xl text-sm text-white/90">
-          FlowFrame runs locally — your data never leaves your machine.
+          Ciaren runs locally — your data never leaves your machine.
         </p>
         <Button asChild size="lg" variant="secondary">
           <Link to="/flows">
@@ -135,7 +135,7 @@ export function LandingPage() {
       </section>
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
-        FlowFrame Core is free and open ·{" "}
+        Ciaren Core is free and open ·{" "}
         <a href={REPO_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
           Contribute on GitHub
         </a>

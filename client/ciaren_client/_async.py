@@ -1,4 +1,4 @@
-"""Async FlowFrame client backed by httpx.AsyncClient."""
+"""Async Ciaren client backed by httpx.AsyncClient."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ from typing import Any
 import httpx
 
 
-class AsyncFlowFrame:
-    """Async client for the FlowFrame API.
+class AsyncCiaren:
+    """Async client for the Ciaren API.
 
     Can be used as an async context manager::
 
-        async with AsyncFlowFrame(base_url, webhook_secret=secret) as ff:
+        async with AsyncCiaren(base_url, webhook_secret=secret) as ff:
             run = await ff.trigger(flow_id)
 
     Or managed manually::
 
-        ff = AsyncFlowFrame(base_url)
+        ff = AsyncCiaren(base_url)
         await ff.aclose()
     """
 
@@ -37,7 +37,7 @@ class AsyncFlowFrame:
     # Context manager
     # ------------------------------------------------------------------
 
-    async def __aenter__(self) -> AsyncFlowFrame:
+    async def __aenter__(self) -> AsyncCiaren:
         return self
 
     async def __aexit__(self, *args: object) -> None:
@@ -90,9 +90,9 @@ class AsyncFlowFrame:
         if self._secret is None:
             raise ValueError(
                 "webhook_secret is required to call trigger(). "
-                "Pass it when constructing AsyncFlowFrame(webhook_secret=...)."
+                "Pass it when constructing AsyncCiaren(webhook_secret=...)."
             )
-        return {"X-FlowFrame-Secret": self._secret}
+        return {"X-Ciaren-Secret": self._secret}
 
     async def trigger(
         self,

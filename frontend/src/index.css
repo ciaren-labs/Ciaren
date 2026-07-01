@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * FlowFrame design tokens — a purple-based, minimalist system.
+ * Ciaren design tokens — a purple-based, minimalist system.
  * See docs/guide/design-system.md for the documented palette and usage rules.
  * All colours are HSL channels so they compose with Tailwind's `hsl(var(--x))`.
  */

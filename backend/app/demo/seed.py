@@ -53,7 +53,7 @@ async def seed_demo(db: AsyncSession) -> Project | None:
     project = Project(
         name=DEMO_PROJECT_NAME,
         description=(
-            "A built-in tour of FlowFrame: sample data and varied example ETL, quality, analytics, and ML flows."
+            "A built-in tour of Ciaren: sample data and varied example ETL, quality, analytics, and ML flows."
         ),
         color="emerald",
         is_default=False,
@@ -96,7 +96,7 @@ async def _sync_demo_content(db: AsyncSession, project: Project) -> None:
     current build can refresh their graph/description when the sample set evolves.
     """
     project.description = (
-        "A built-in tour of FlowFrame: sample data and varied example ETL, quality, analytics, and ML flows."
+        "A built-in tour of Ciaren: sample data and varied example ETL, quality, analytics, and ML flows."
     )
     include_ml = _ml_available()
     dataset_ids = await _seed_datasets(db, project.id, include_ml=include_ml)

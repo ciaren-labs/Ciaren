@@ -159,7 +159,7 @@ def test_local_storage_absolute_path_rejected(tmp_path):
         conn.read_file(_local_spec(tmp_path), evil_path, "csv")
 
 
-# -- local storage root confinement (FLOWFRAME_STORAGE_ALLOWED_ROOTS) -------
+# -- local storage root confinement (CIAREN_STORAGE_ALLOWED_ROOTS) -------
 
 
 def test_local_storage_root_unrestricted_by_default(tmp_path, monkeypatch):
@@ -167,7 +167,7 @@ def test_local_storage_root_unrestricted_by_default(tmp_path, monkeypatch):
     behavior — the connector's whole purpose is reading local folders)."""
     from app.core.config import get_settings
 
-    monkeypatch.delenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", raising=False)
+    monkeypatch.delenv("CIAREN_STORAGE_ALLOWED_ROOTS", raising=False)
     get_settings.cache_clear()
     try:
         outside = tmp_path / "anywhere"
@@ -183,7 +183,7 @@ def test_local_storage_root_inside_allowlist_allowed(tmp_path, monkeypatch):
 
     base = tmp_path / "allowed"
     base.mkdir()
-    monkeypatch.setenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    monkeypatch.setenv("CIAREN_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
     get_settings.cache_clear()
     try:
         spec = StorageSpec(provider="local", bucket=str(base / "sub"))
@@ -197,7 +197,7 @@ def test_local_storage_root_outside_allowlist_rejected(tmp_path, monkeypatch):
 
     base = tmp_path / "allowed"
     base.mkdir()
-    monkeypatch.setenv("FLOWFRAME_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    monkeypatch.setenv("CIAREN_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
     get_settings.cache_clear()
     try:
         spec = StorageSpec(provider="local", bucket=str(tmp_path / "elsewhere"))

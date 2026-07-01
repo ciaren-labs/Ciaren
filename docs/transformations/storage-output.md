@@ -57,7 +57,7 @@ s3.put_object(Bucket="reports", Key="summary.parquet", Body=buf.read())
   rather than overwrite an existing file, which is useful in append-style
   workflows where you'd rather fail loud than silently clobber old data.
 - **The run is marked failed if the upload fails.** No partial writes are left
-  behind — FlowFrame pushes the output only after every upstream node succeeds.
+  behind — Ciaren pushes the output only after every upstream node succeeds.
 
 ## See also
 

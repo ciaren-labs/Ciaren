@@ -85,9 +85,9 @@ def test_incompatible_plugin_is_rejected_before_loading():
         loaded_flag["ran"] = True
         return _plugin("future", "n")
 
-    manifest = PluginManifest(id="future", name="Future", flowframe=">=99.0")
+    manifest = PluginManifest(id="future", name="Future", ciaren=">=99.0")
     cand = PluginCandidate(source="dir:future", load=_load, manifest=manifest)
-    result = load_plugins(reg, include_entry_points=False, extra=[cand], flowframe_version_str="0.1.0")
+    result = load_plugins(reg, include_entry_points=False, extra=[cand], ciaren_version_str="0.1.0")
     assert result.loaded == []
     assert len(result.errors) == 1
     assert loaded_flag["ran"] is False  # entry point never imported
@@ -153,14 +153,14 @@ def test_load_entrypoint_resolves_example():
     plugin_dir = EXAMPLES_DIR / "hello-node-plugin"
     if str(plugin_dir) not in sys.path:
         sys.path.insert(0, str(plugin_dir))
-    plugin = load_entrypoint("flowframe_hello.plugin:HelloPlugin")
+    plugin = load_entrypoint("ciaren_hello.plugin:HelloPlugin")
     assert plugin.metadata().id == "community.hello"
 
 
 def test_invalid_manifest_in_dir_is_an_error(tmp_path):
     plugin_dir = tmp_path / "broken"
     plugin_dir.mkdir()
-    (plugin_dir / "flowframe-plugin.json").write_text("{ not valid json", encoding="utf-8")
+    (plugin_dir / "ciaren-plugin.json").write_text("{ not valid json", encoding="utf-8")
     reg = ServiceRegistry()
     result = load_plugins(reg, include_entry_points=False, plugin_dirs=[tmp_path])
     assert result.loaded == []
@@ -170,7 +170,7 @@ def test_invalid_manifest_in_dir_is_an_error(tmp_path):
 def test_manifest_without_entrypoint_in_dir_is_an_error(tmp_path):
     plugin_dir = tmp_path / "noentry"
     plugin_dir.mkdir()
-    (plugin_dir / "flowframe-plugin.json").write_text(json.dumps({"id": "x", "name": "X"}), encoding="utf-8")
+    (plugin_dir / "ciaren-plugin.json").write_text(json.dumps({"id": "x", "name": "X"}), encoding="utf-8")
     reg = ServiceRegistry()
     result = load_plugins(reg, include_entry_points=False, plugin_dirs=[tmp_path])
     assert result.loaded == []
@@ -186,7 +186,7 @@ def test_nonexistent_plugin_dir_is_skipped():
 
 
 def test_default_plugin_dirs_respects_env(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", "/a/b")
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", "/a/b")
     dirs = default_plugin_dirs()
     assert "/a/b" in dirs
-    assert any(d.endswith(".flowframe/plugins") or d.endswith(".flowframe\\plugins") for d in dirs)
+    assert any(d.endswith(".ciaren/plugins") or d.endswith(".ciaren\\plugins") for d in dirs)

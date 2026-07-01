@@ -73,7 +73,7 @@ def validate_model_file_suffix(path: str) -> None:
     if suffix in _REJECTED_MODEL_SUFFIXES:
         raise ModelSecurityError(
             f"Refusing to load {path!r}: pickle files execute arbitrary code on load. "
-            f"FlowFrame only loads {', '.join(_ALLOWED_MODEL_SUFFIXES)} artifacts."
+            f"Ciaren only loads {', '.join(_ALLOWED_MODEL_SUFFIXES)} artifacts."
         )
     if suffix not in _ALLOWED_MODEL_SUFFIXES:
         raise ModelSecurityError(

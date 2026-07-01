@@ -5,6 +5,7 @@ malformed payloads, unknown node types, environment-binding stripping across nod
 kinds, unicode, large graphs, dangling edges, project targeting, and stability of
 a re-exported imported flow.
 """
+
 import io
 
 import pandas as pd
@@ -34,8 +35,7 @@ async def _export_doc(client: AsyncClient, flow_id: str) -> dict:
 def _basic_graph(dataset_id: str) -> dict:
     return {
         "nodes": [
-            {"id": "in1", "type": "csvInput",
-             "data": {"config": {"dataset_id": dataset_id, "dataset_version": 3}}},
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": dataset_id, "dataset_version": 3}}},
             {"id": "drop", "type": "dropNulls", "data": {"config": {}}},
             {"id": "out1", "type": "csvOutput", "data": {"config": {"path": "clean.csv"}}},
         ],
@@ -61,9 +61,7 @@ async def test_full_roundtrip_export_import_reexport_is_stable(client: AsyncClie
     assert "dataset_id" not in in_node["data"]["config"]
     assert "dataset_version" not in in_node["data"]["config"]
     # structure preserved
-    assert [n["id"] for n in imported["graph_json"]["nodes"]] == [
-        n["id"] for n in doc["graph_json"]["nodes"]
-    ]
+    assert [n["id"] for n in imported["graph_json"]["nodes"]] == [n["id"] for n in doc["graph_json"]["nodes"]]
     # importing the same document again is idempotent in shape (new flow each time)
     again = await client.post("/api/flows/import", json=doc)
     assert again.status_code == 201, again.text
@@ -111,12 +109,13 @@ async def test_import_unknown_node_type_is_400_and_names_it(client: AsyncClient)
 async def test_import_strips_bindings_across_node_kinds_but_keeps_other_config(client: AsyncClient) -> None:
     graph = {
         "nodes": [
-            {"id": "in1", "type": "csvInput",
-             "data": {"config": {"dataset_id": "ds-x", "dataset_version": 2}}},
-            {"id": "sqlin", "type": "sqlInput",
-             "data": {"config": {"connection_id": "c1", "table": "users", "mode": "table"}}},
-            {"id": "t1", "type": "dropNulls",
-             "data": {"config": {"model_uri": "models:/m@production", "keep_me": 42}}},
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds-x", "dataset_version": 2}}},
+            {
+                "id": "sqlin",
+                "type": "sqlInput",
+                "data": {"config": {"connection_id": "c1", "table": "users", "mode": "table"}},
+            },
+            {"id": "t1", "type": "dropNulls", "data": {"config": {"model_uri": "models:/m@production", "keep_me": 42}}},
             {"id": "out1", "type": "csvOutput", "data": {"config": {"path": "o.csv"}}},
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "t1"}],
@@ -155,13 +154,12 @@ async def test_import_preserves_unicode_name_and_config(client: AsyncClient) -> 
     graph = {
         "nodes": [
             {"id": "in1", "type": "csvInput", "data": {"config": {}}},
-            {"id": "ren", "type": "renameColumns",
-             "data": {"config": {"mapping": {"café": "naïve_Ω"}}}},
+            {"id": "ren", "type": "renameColumns", "data": {"config": {"mapping": {"café": "naïve_Ω"}}}},
             {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
         ],
         "edges": [{"id": "e1", "source": "in1", "target": "ren"}],
     }
-    doc = {"format": "flowframe.flow/v1", "name": "café ☕ flow", "graph_json": graph}
+    doc = {"format": "ciaren.flow/v1", "name": "café ☕ flow", "graph_json": graph}
     imported = (await client.post("/api/flows/import", json=doc)).json()
     assert imported["name"] == "café ☕ flow"
     ren = next(n for n in imported["graph_json"]["nodes"] if n["id"] == "ren")
@@ -202,9 +200,7 @@ async def test_import_assigns_default_project_without_target(client: AsyncClient
 async def test_import_into_explicit_project(client: AsyncClient) -> None:
     proj = (await client.post("/api/projects", json={"name": "Target"})).json()
     graph = {"nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}], "edges": []}
-    imported = (
-        await client.post("/api/flows/import", json={"graph_json": graph, "project_id": proj["id"]})
-    ).json()
+    imported = (await client.post("/api/flows/import", json={"graph_json": graph, "project_id": proj["id"]})).json()
     assert imported["project_id"] == proj["id"]
 
 
@@ -223,7 +219,7 @@ async def test_exported_document_graph_matches_flow(client: AsyncClient) -> None
     flow = await _create_flow(client, graph, name="exact")
     doc = await _export_doc(client, flow["id"])
     assert doc["name"] == "exact"
-    assert doc["format"] == "flowframe.flow/v1"
+    assert doc["format"] == "ciaren.flow/v1"
     assert doc["graph_json"] == flow["graph_json"]
 
 

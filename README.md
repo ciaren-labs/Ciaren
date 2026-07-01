@@ -1,8 +1,8 @@
-# FlowFrame
+# Ciaren
 
 **Build data pipelines visually. Run them locally. Export clean pandas or polars code.**
 
-FlowFrame is an open-core, local-first platform for building data and ML
+Ciaren is an open-core, local-first platform for building data and ML
 workflows visually, without Airflow-level infrastructure or opaque desktop
 automation. Upload a file, connect SQL, clean and reshape data, train models on
 a canvas, preview every step, schedule runs, and take the generated Python with
@@ -18,7 +18,7 @@ you.
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
-![FlowFrame visual editor](docs/public/screenshots/editor-full.png)
+![Ciaren visual editor](docs/public/screenshots/editor-full.png)
 
 ## Why People Try It
 
@@ -37,7 +37,7 @@ cd FlowFrame/backend
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e .
-flowframe serve
+ciaren serve
 ```
 
 In another terminal:
@@ -57,13 +57,13 @@ Prefer Docker?
 docker compose up --build
 ```
 
-Then open `http://localhost:8055`. The image uses the same `flowframe` CLI as
-the pip install path: it applies migrations with `flowframe db upgrade` and
-starts the app with `flowframe serve`.
+Then open `http://localhost:8055`. The image uses the same `ciaren` CLI as
+the pip install path: it applies migrations with `ciaren db upgrade` and
+starts the app with `ciaren serve`.
 
 ## Who It Is For
 
-| If you are... | FlowFrame helps you... |
+| If you are... | Ciaren helps you... |
 |---------------|------------------------|
 | Data analyst | Clean, reshape, validate, and export datasets without writing every step by hand |
 | Data engineer | Prototype repeatable transformations locally before turning them into code |
@@ -73,16 +73,16 @@ starts the app with `flowframe serve`.
 
 ---
 
-> ⚠️ **Alpha software.** FlowFrame is in early development. APIs, the data model,
+> ⚠️ **Alpha software.** Ciaren is in early development. APIs, the data model,
 > and generated code may change without notice between releases, and there is no
 > long-term stability guarantee yet. Use it for experimentation, prototypes, and
 > controlled internal workflows before relying on it for critical production jobs.
 
 ---
 
-## What is FlowFrame?
+## What is Ciaren?
 
-FlowFrame is an open-core, **local-first** visual workflow builder for data
+Ciaren is an open-core, **local-first** visual workflow builder for data
 engineering and machine learning on **small and medium datasets**. It lets you:
 
 - **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
@@ -92,10 +92,10 @@ engineering and machine learning on **small and medium datasets**. It lets you:
 - **Export** the equivalent, readable Python — pandas, polars, or optimized lazy polars
 - **Schedule** flows to run automatically with a built-in cron scheduler
 - **Train** machine-learning models visually and track them with MLflow — an
-  optional extension (`pip install "flowframe[ml]"`)
+  optional extension (`pip install "ciaren[ml]"`)
 
 Each visual node maps to **one clear dataframe operation** — so the generated
-code is readable whenever you export it, and execution is transparent. FlowFrame
+code is readable whenever you export it, and execution is transparent. Ciaren
 is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
 and does not do distributed or streaming execution.
 
@@ -149,7 +149,7 @@ for pushdown and join optimization on large files.
 - **Python 3.12+**
 - **Node.js 18+** (only for the visual editor / frontend)
 - **SQLite** is the zero-setup default. PostgreSQL / MySQL are optional, via
-  `FLOWFRAME_DATABASE_URL` (async driver required).
+  `CIAREN_DATABASE_URL` (async driver required).
 
 ### 1. Clone and start the backend
 
@@ -161,20 +161,20 @@ cd FlowFrame/backend
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# Install FlowFrame (add the optional ML extension with: pip install -e ".[ml]")
+# Install Ciaren (add the optional ML extension with: pip install -e ".[ml]")
 pip install -e .
 
 # Run the API + background scheduler in one process
-flowframe serve
+ciaren serve
 ```
 
 The backend starts on `http://localhost:8055` and **creates its database
 automatically** on first start — there is no migration step to run. Open the
 interactive API docs at `http://localhost:8055/docs`.
 
-> `flowframe serve` is the recommended entry point. It also accepts flags such as
-> `--port`, `--db-url`, `--engine`, and `--no-scheduler`. See `flowframe --help`,
-> or use `flowframe init` / `info` / `check` to scaffold and validate config.
+> `ciaren serve` is the recommended entry point. It also accepts flags such as
+> `--port`, `--db-url`, `--engine`, and `--no-scheduler`. See `ciaren --help`,
+> or use `ciaren init` / `info` / `check` to scaffold and validate config.
 
 ### 2. Start the frontend (visual editor)
 
@@ -219,7 +219,7 @@ Full docs (guides, transformation reference, examples, API) are published at
 
 ## 🛠️ Transformation Nodes
 
-FlowFrame ships with file & SQL input/output plus **42 transformation nodes**. The
+Ciaren ships with file & SQL input/output plus **42 transformation nodes**. The
 authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engine/registry.py).
 
 ### Input / Output
@@ -251,15 +251,15 @@ authoritative list lives in [`backend/app/engine/registry.py`](backend/app/engin
 
 ## 🤖 Machine Learning (optional extension)
 
-FlowFrame includes an optional, **high-guardrail** ML extension so you can go
+Ciaren includes an optional, **high-guardrail** ML extension so you can go
 from raw data to a tracked model without leaving the canvas. It is off by default
 and ships as an extra:
 
 ```bash
-pip install "flowframe[ml]"      # adds scikit-learn, XGBoost, LightGBM, MLflow
+pip install "ciaren[ml]"      # adds scikit-learn, XGBoost, LightGBM, MLflow
 ```
 
-Once installed and enabled (`FLOWFRAME_ML_ENABLED=true`, the default), a
+Once installed and enabled (`CIAREN_ML_ENABLED=true`, the default), a
 **Machine Learning** category appears in the node palette:
 
 - **Train / Test Split** — one node, two clearly-labelled `train` / `test` outputs
@@ -281,7 +281,7 @@ that produced them) and an experiment leaderboard. Model loading is sandboxed to
 a validated artifact directory.
 
 The demo project ships ML example flows too (classification, train/validate,
-regression, PCA); `flowframe serve --run-seed-flows` runs every demo flow once
+regression, PCA); `ciaren serve --run-seed-flows` runs every demo flow once
 on first boot so the Runs and Models views aren't empty. See the
 [ML Quick Start](https://rodrigo-arenas.github.io/FlowFrame/guide/ml-quickstart).
 
@@ -304,13 +304,13 @@ via `DATABASE_URL` — **always use an async driver** (`sqlite+aiosqlite://`,
 
 ## Security and Maturity
 
-FlowFrame is alpha software. It is designed for local-first experimentation,
+Ciaren is alpha software. It is designed for local-first experimentation,
 analysis, prototyping, and self-hosted workflows where the operator controls the
 environment.
 
 Parts of the project have been developed with AI assistance and human review.
-FlowFrame has not yet completed a formal independent third-party security audit.
-Security-sensitive areas are tested and reviewed, but teams using FlowFrame with
+Ciaren has not yet completed a formal independent third-party security audit.
+Security-sensitive areas are tested and reviewed, but teams using Ciaren with
 sensitive data or production workflows should perform their own review and add
 appropriate operational controls.
 
@@ -318,15 +318,15 @@ Recommended practices:
 
 - Test flows thoroughly before running on important data
 - Review exported Python code before deploying it elsewhere
-- Keep FlowFrame local or behind trusted access controls
+- Keep Ciaren local or behind trusted access controls
 - Report bugs and security issues responsibly (see [SECURITY.md](SECURITY.md))
-- Add independent validation before using FlowFrame for critical or regulated workflows
+- Add independent validation before using Ciaren for critical or regulated workflows
 
 ---
 
 ## 🤝 Contributing
 
-We want FlowFrame to be easy to try, easy to extend, and genuinely welcoming to
+We want Ciaren to be easy to try, easy to extend, and genuinely welcoming to
 new contributors. Useful contributions include:
 
 - New transformation nodes and examples
@@ -345,7 +345,7 @@ Every new transformation must include tests.
 **Ideas?** Open a [GitHub Discussion](https://github.com/rodrigo-arenas/FlowFrame/discussions)
 or [Issue](https://github.com/rodrigo-arenas/FlowFrame/issues).
 
-Want to build an ecosystem around FlowFrame? Start with the
+Want to build an ecosystem around Ciaren? Start with the
 [plugin docs](https://rodrigo-arenas.github.io/FlowFrame/plugins/overview) and
 the Apache-2.0 public SDK in `backend/app/plugin_api/`.
 
@@ -353,9 +353,9 @@ the Apache-2.0 public SDK in `backend/app/plugin_api/`.
 
 ## Licensing
 
-FlowFrame uses a dual licensing model:
+Ciaren uses a dual licensing model:
 
-- **FlowFrame Core** is licensed under **AGPL-3.0-only**. This includes the
+- **Ciaren Core** is licensed under **AGPL-3.0-only**. This includes the
   application, backend, frontend, execution engine, connectors, scheduler,
   bundled services, and repository content unless a more specific license notice
   says otherwise.
@@ -376,7 +376,7 @@ complete license texts and notices.
 
 ## Brand and Trademarks
 
-The FlowFrame name and logo identify the official project. Community plugins,
+The Ciaren name and logo identify the official project. Community plugins,
 forks, tutorials, and integrations are welcome, but they must not imply official
 status or endorsement unless that is true.
 

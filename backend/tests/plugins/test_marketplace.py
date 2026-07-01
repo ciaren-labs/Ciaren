@@ -18,7 +18,7 @@ _INDEX = {
             "license": "commercial",
             "capabilities": ["connector.databricks"],
             "permissions": ["network", "credentials"],
-            "downloadUrl": "https://example/acme-databricks-1.2.0.ffplugin",
+            "downloadUrl": "https://example/acme-databricks-1.2.0.ciarenplugin",
             "keyId": "acme-key",
             "licenseRequired": True,
         },
@@ -39,7 +39,7 @@ def test_parse_index_aliases():
     index = parse_index(_INDEX)
     entry = index.find("acme.databricks")
     assert entry is not None
-    assert entry.download_url.endswith(".ffplugin")
+    assert entry.download_url.endswith(".ciarenplugin")
     assert entry.key_id == "acme-key"
     assert entry.license_required is True
     assert entry.permissions == ["network", "credentials"]

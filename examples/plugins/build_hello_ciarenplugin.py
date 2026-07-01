@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Build and sign the Hello plugin into a distributable ``.ffplugin``.
+"""Build and sign the Hello plugin into a distributable ``.ciarenplugin``.
 
-Run from anywhere (needs FlowFrame installed):
+Run from anywhere (needs Ciaren installed):
 
-    python examples/plugins/build_hello_ffplugin.py
+    python examples/plugins/build_hello_ciarenplugin.py
 
-It packs ``hello-node-plugin/`` into ``dist/community.hello-<version>.ffplugin``
+It packs ``hello-node-plugin/`` into ``dist/community.hello-<version>.ciarenplugin``
 and signs it with the **demo** key below, so the committed artifact verifies
 against the public key documented in the plugin README.
 
 The key here is a throwaway DEMO key committed on purpose so anyone can reproduce
 the signed artifact. A real publisher would keep their private key secret
-(generate one with ``flowframe plugin keygen``) and never commit it.
+(generate one with ``ciaren plugin keygen``) and never commit it.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from app.plugins.package import pack_directory, sign_package, verify_package
 # DEMO ONLY — do not use this key for real plugins. See the module docstring.
 DEMO_PRIVATE_KEY = "71e08038bfe55013640eb49a0f7faeaf5fd99bae76654217a67987e71cc4fb5b"
 DEMO_PUBLIC_KEY = "b827f3795467a701b018a0d57ab5900af43669d3622340905559d86ae2ec4bdd"
-DEMO_KEY_ID = "flowframe-demo"
+DEMO_KEY_ID = "ciaren-demo"
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -37,7 +37,7 @@ BUNDLED = ROOT / "backend" / "app" / "bundled_plugins"
 
 def main() -> None:
     manifest = read_manifest_from_dir(SRC)
-    out = DIST / f"{manifest.id}-{manifest.version}.ffplugin"
+    out = DIST / f"{manifest.id}-{manifest.version}.ciarenplugin"
     DIST.mkdir(parents=True, exist_ok=True)
 
     pack_directory(SRC, out)
@@ -54,7 +54,7 @@ def main() -> None:
     print(f"Digest {sig.digest}")
     print(f"Verify {result.outcome} ({result.reason})")
     print("\nTrust this demo key to verify/install it:")
-    print(f"  FLOWFRAME_TRUSTED_PLUGIN_KEYS='{json.dumps({DEMO_KEY_ID: DEMO_PUBLIC_KEY})}'")
+    print(f"  CIAREN_TRUSTED_PLUGIN_KEYS='{json.dumps({DEMO_KEY_ID: DEMO_PUBLIC_KEY})}'")
 
 
 def read_manifest_from_dir(src: Path):  # noqa: ANN201
@@ -62,7 +62,7 @@ def read_manifest_from_dir(src: Path):  # noqa: ANN201
 
     from app.plugin_api import validate_manifest
 
-    return validate_manifest(_json.loads((src / "flowframe-plugin.json").read_text(encoding="utf-8")))
+    return validate_manifest(_json.loads((src / "ciaren-plugin.json").read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":

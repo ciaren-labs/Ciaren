@@ -1,12 +1,12 @@
 ---
 title: Packaging & Distribution
-description: Build, sign, verify, install, and distribute FlowFrame plugins
-search: plugin package ffplugin sign signature verify install marketplace license
+description: Build, sign, verify, install, and distribute Ciaren plugins
+search: plugin package ciarenplugin sign signature verify install marketplace license
 ---
 
 # Packaging & Distribution
 
-FlowFrame plugins distribute as **`.ffplugin`** packages — a plain zip containing
+Ciaren plugins distribute as **`.ciarenplugin`** packages — a plain zip containing
 the plugin's manifest, its Python package, and an optional detached Ed25519
 signature. The same format works for free community plugins and signed premium
 plugins; the open core never needs to change to support either.
@@ -14,22 +14,22 @@ plugins; the open core never needs to change to support either.
 ::: warning Install only plugins you trust
 A plugin runs unsandboxed Python on your machine with your access. Install only
 plugins from sources you trust and whose code you can review — prefer signed
-packages from a trusted key. FlowFrame cannot vet third-party plugins and is not
+packages from a trusted key. Ciaren cannot vet third-party plugins and is not
 responsible for their behaviour. See [Plugin Security](/security/plugin-security).
 :::
 
 > Signing/verifying needs the optional `cryptography` dependency:
-> `pip install "flowframe[signing]"`. Hashing and unsigned packages work without it.
+> `pip install "ciaren[signing]"`. Hashing and unsigned packages work without it.
 
-## The `.ffplugin` format
+## The `.ciarenplugin` format
 
 A zip archive with:
 
 | Entry | Required | Purpose |
 | --- | --- | --- |
-| `flowframe-plugin.json` | ✅ | The [manifest](/specs/plugin-manifest). |
+| `ciaren-plugin.json` | ✅ | The [manifest](/specs/plugin-manifest). |
 | your package (e.g. `acme_hello/…`) | ✅ | The code the manifest `entrypoint` points at. |
-| `flowframe-signature.json` | optional | Detached signature `{algorithm, publisher, key_id, digest, signature}`. |
+| `ciaren-signature.json` | optional | Detached signature `{algorithm, publisher, key_id, digest, signature}`. |
 
 The **digest** is a deterministic SHA-256 over every entry except the signature
 file, so a tampered package never matches its signature.
@@ -38,34 +38,34 @@ file, so a tampered package never matches its signature.
 
 ```bash
 # 1. Generate a signing keypair once; keep the private key secret.
-flowframe plugin keygen
+ciaren plugin keygen
 
-# 2. Package a plugin source directory into an unsigned .ffplugin.
-flowframe plugin pack ./my-plugin ./my-plugin-1.0.0.ffplugin
+# 2. Package a plugin source directory into an unsigned .ciarenplugin.
+ciaren plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin
 
 # 3. Sign it in place.
-flowframe plugin sign ./my-plugin-1.0.0.ffplugin \
+ciaren plugin sign ./my-plugin-1.0.0.ciarenplugin \
   --key <private_hex> --key-id acme-2026 --publisher acme
 ```
 
 Publish the **public** key so users can trust it:
 
 ```bash
-export FLOWFRAME_TRUSTED_PLUGIN_KEYS='{"acme-2026": "<public_hex>"}'
+export CIAREN_TRUSTED_PLUGIN_KEYS='{"acme-2026": "<public_hex>"}'
 ```
 
-Trusted keys are read from `FLOWFRAME_TRUSTED_PLUGIN_KEYS` (a JSON object) and
-`~/.flowframe/trusted_keys.json`. The signature covers the package digest **and**
+Trusted keys are read from `CIAREN_TRUSTED_PLUGIN_KEYS` (a JSON object) and
+`~/.ciaren/trusted_keys.json`. The signature covers the package digest **and**
 the signer metadata (`key_id`, `publisher`, `algorithm`), so a valid signature
 can't be relabelled to impersonate a different key.
 
 ### Shipping compiled bytecode (paid plugins)
 
-By default a `.ffplugin` carries your `.py` source — anyone can unzip and read it.
+By default a `.ciarenplugin` carries your `.py` source — anyone can unzip and read it.
 For a paid plugin you can ship compiled bytecode instead:
 
 ```bash
-flowframe plugin pack ./my-plugin ./my-plugin-1.0.0.ffplugin --compile
+ciaren plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin --compile
 ```
 
 With `--compile`, every `.py` is compiled to optimized `.pyc` (docstrings and
@@ -84,11 +84,11 @@ calls, rather than shipping it to the user's disk at all. See the architecture p
 ## Verify and install (users)
 
 ```bash
-flowframe plugin verify ./my-plugin-1.0.0.ffplugin   # trusted | untrusted | unsigned | invalid
-flowframe plugin install ./my-plugin-1.0.0.ffplugin  # extracts to ~/.flowframe/plugins/<id>
-flowframe plugin install ./my-plugin-1.0.0.ffplugin --trusted   # refuse unless signed by a trusted key
-flowframe plugin list
-flowframe plugin uninstall acme.myplugin
+ciaren plugin verify ./my-plugin-1.0.0.ciarenplugin   # trusted | untrusted | unsigned | invalid
+ciaren plugin install ./my-plugin-1.0.0.ciarenplugin  # extracts to ~/.ciaren/plugins/<id>
+ciaren plugin install ./my-plugin-1.0.0.ciarenplugin --trusted   # refuse unless signed by a trusted key
+ciaren plugin list
+ciaren plugin uninstall acme.myplugin
 ```
 
 Verification outcomes:
@@ -98,8 +98,8 @@ Verification outcomes:
 - **unsigned** — no signature (fine for community plugins).
 - **invalid** — digest mismatch or bad signature → **install is always refused**.
 
-Installation extracts into `~/.flowframe/plugins` (override with
-`FLOWFRAME_PLUGIN_INSTALL_DIR`), a directory the loader scans, so the plugin loads
+Installation extracts into `~/.ciaren/plugins` (override with
+`CIAREN_PLUGIN_INSTALL_DIR`), a directory the loader scans, so the plugin loads
 on the next start. Path-traversal entries are rejected. A drop-in plugin that
 declares permissions still starts **pending** until you approve it — see
 [plugin security](/security/plugin-security).
@@ -107,10 +107,10 @@ declares permissions still starts **pending** until you approve it — see
 ## Install from the app
 
 The **Plugins** page has an **Install plugin** button that uploads a local
-`.ffplugin` (`POST /api/plugins/install`). It runs the same verification and
+`.ciarenplugin` (`POST /api/plugins/install`). It runs the same verification and
 permission gating as the CLI — a tampered/invalid package is refused, and a
 plugin that declares permissions stays pending until you approve it. Set
-`FLOWFRAME_REQUIRE_TRUSTED_PLUGINS=true` to refuse unsigned/untrusted uploads.
+`CIAREN_REQUIRE_TRUSTED_PLUGINS=true` to refuse unsigned/untrusted uploads.
 
 ## Marketplace index
 
@@ -131,7 +131,7 @@ billing in the core):
       "nodes": ["databricks.query"],
       "nodeCategories": { "databricks.query": "input" },
       "permissions": ["network", "credentials"],
-      "downloadUrl": "https://example/acme-databricks-1.2.0.ffplugin",
+      "downloadUrl": "https://example/acme-databricks-1.2.0.ciarenplugin",
       "keyId": "acme-2026",
       "licenseRequired": true
     }
@@ -144,20 +144,20 @@ are recorded automatically, and the artifact is referenced relative to the index
 file so the catalog stays portable:
 
 ```bash
-flowframe plugin index add ./acme-databricks-1.2.0.ffplugin --index ./marketplace.json
-flowframe plugin search databricks --index ./marketplace.json
+ciaren plugin index add ./acme-databricks-1.2.0.ciarenplugin --index ./marketplace.json
+ciaren plugin search databricks --index ./marketplace.json
 ```
 
 ### The "Explore" catalog
 
-By default, FlowFrame ships a small bundled **Explore** catalog with an installable
+By default, Ciaren ships a small bundled **Explore** catalog with an installable
 Hello Plugin so users can try the plugin installation flow without downloading
-anything. Point `FLOWFRAME_MARKETPLACE_INDEX` at a local `marketplace.json` to
+anything. Point `CIAREN_MARKETPLACE_INDEX` at a local `marketplace.json` to
 replace that catalog, or set it to `none` to hide Explore. The Plugins page lists
 catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose
 artifact is available locally install in one click
-(`POST /api/marketplace/{id}/install`) — FlowFrame re-checks the advertised
+(`POST /api/marketplace/{id}/install`) — Ciaren re-checks the advertised
 digest and verifies the signature before installing. Catalog entries also expose
 the manifest's `ui.nodes` as `nodes` and `ui.nodeCategories` as `node_categories`,
 so users can see which editor node types and palette subgroups will appear after
@@ -193,12 +193,12 @@ token, only to *issue* it:
 
 ```bash
 # Publisher mints a signed token (after a purchase, server-side):
-flowframe plugin license issue --key <private_hex> --user u-123 --plugin acme.databricks \
+ciaren plugin license issue --key <private_hex> --user u-123 --plugin acme.databricks \
   --expires 2027-01-01T00:00:00Z --grace 2027-01-15T00:00:00Z --out token.json
 
 # User caches it locally; the plugin's provider then validates it offline:
-flowframe plugin license import token.json
-flowframe plugin license status acme.databricks --key <issuer_public_hex>
+ciaren plugin license import token.json
+ciaren plugin license status acme.databricks --key <issuer_public_hex>
 ```
 
 `GET /api/plugins/{id}/license` reports the resolved status, and the Plugins page

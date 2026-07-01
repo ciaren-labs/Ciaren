@@ -1,13 +1,13 @@
 ---
 title: Docker
-description: Run FlowFrame with Docker — single-command setup, optional ML and database extras
+description: Run Ciaren with Docker — single-command setup, optional ML and database extras
 search: docker container compose deployment
 layout: doc
 ---
 
 # Docker
 
-FlowFrame ships a multi-stage Docker image that bundles the React frontend and
+Ciaren ships a multi-stage Docker image that bundles the React frontend and
 the FastAPI backend into a single container. You get one port, one volume for
 data persistence, and zero Node.js or Python tooling required on the host.
 
@@ -40,7 +40,7 @@ the server starts, so the initial boot takes a few extra seconds.
 
 | Path inside container | Purpose |
 | ----------------------- | --------- |
-| `/app/` | FlowFrame source + virtual environment (`/app/.venv/`) |
+| `/app/` | Ciaren source + virtual environment (`/app/.venv/`) |
 | `/app/app/web/` | Built React frontend (served by FastAPI at runtime) |
 | `/data/` | **Persistent volume** — SQLite DB, uploads, run outputs, MLflow |
 
@@ -49,29 +49,29 @@ named volume (default) or a bind-mount to control where data lives on the host.
 
 ## Configuration
 
-Every `FLOWFRAME_*` setting can be passed as an environment variable. The
+Every `CIAREN_*` setting can be passed as an environment variable. The
 `docker-compose.yml` already wires the most common ones through shell variables
 with sensible defaults, so you can override without editing the file:
 
 ```bash
 # examples — pass on the command line
-FLOWFRAME_DEFAULT_ENGINE=pandas docker compose up
-FLOWFRAME_MAX_UPLOAD_SIZE_MB=500 docker compose up
-FLOWFRAME_SCHEDULER_ENABLED=false docker compose up
+CIAREN_DEFAULT_ENGINE=pandas docker compose up
+CIAREN_MAX_UPLOAD_SIZE_MB=500 docker compose up
+CIAREN_SCHEDULER_ENABLED=false docker compose up
 ```
 
 Or create a `.env` file next to `docker-compose.yml`:
 
 ```bash
 # .env  (never commit this file)
-FLOWFRAME_MAX_UPLOAD_SIZE_MB=500
-FLOWFRAME_DEFAULT_ENGINE=pandas
-FLOWFRAME_EXECUTION_MODE=process
-FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS=3
-FLOWFRAME_RUN_TIMEOUT_SECONDS=300
+CIAREN_MAX_UPLOAD_SIZE_MB=500
+CIAREN_DEFAULT_ENGINE=pandas
+CIAREN_EXECUTION_MODE=process
+CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS=3
+CIAREN_RUN_TIMEOUT_SECONDS=300
 ```
 
-See `flowframe info` (below) for the full list of resolved settings, or
+See `ciaren info` (below) for the full list of resolved settings, or
 `docs/guide/cli.md` for a description of every variable.
 
 ## Optional feature extras
@@ -107,18 +107,18 @@ packages are baked into the image layer, not installed at runtime.
 ## Changing the port
 
 ```bash
-FLOWFRAME_PORT=9000 docker compose up
+CIAREN_PORT=9000 docker compose up
 ```
 
 Or override directly:
 
 ```bash
-docker run -p 9000:8055 flowframe:latest
+docker run -p 9000:8055 ciaren:latest
 ```
 
 ## Data persistence
 
-By default `docker-compose.yml` uses a named Docker volume (`flowframe-data`).
+By default `docker-compose.yml` uses a named Docker volume (`ciaren-data`).
 All uploads, run outputs, the SQLite database, and MLflow run data live there.
 
 To use a **bind mount** instead (easier to inspect/backup):
@@ -126,9 +126,9 @@ To use a **bind mount** instead (easier to inspect/backup):
 ```yaml
 # docker-compose.override.yml
 services:
-  flowframe:
+  ciaren:
     volumes:
-      - ./my-flowframe-data:/data
+      - ./my-ciaren-data:/data
 ```
 
 ## Using PostgreSQL
@@ -142,7 +142,7 @@ services:
 2. Set the database URL at runtime:
 
    ```bash
-   FLOWFRAME_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/flowframe \
+   CIAREN_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/ciaren \
      docker compose up
    ```
 
@@ -159,50 +159,50 @@ extra is for SQL-node connectors and does not add `aiomysql` to the image.
 
 ```bash
 # inspect resolved settings
-docker compose exec flowframe flowframe info
+docker compose exec ciaren ciaren info
 
 # validate the environment (data dir, database, engines, ML)
-docker compose exec flowframe flowframe check
+docker compose exec ciaren ciaren check
 
 # check the current migration revision
-docker compose exec flowframe flowframe db current
+docker compose exec ciaren ciaren db current
 
 # list available transformation node types
-docker compose exec flowframe flowframe transformations list
+docker compose exec ciaren ciaren transformations list
 ```
 
 For a one-off container (no Compose):
 
 ```bash
 docker run --rm \
-  -e FLOWFRAME_DATABASE_URL=sqlite+aiosqlite:////data/flowframe.db \
-  -v flowframe-data:/data \
-  --entrypoint flowframe \
-  flowframe:latest info
+  -e CIAREN_DATABASE_URL=sqlite+aiosqlite:////data/ciaren.db \
+  -v ciaren-data:/data \
+  --entrypoint ciaren \
+  ciaren:latest info
 ```
 
 ## Building the image manually
 
 ```bash
 # base image (SQLite + polars + pandas)
-docker build -t flowframe:latest .
+docker build -t ciaren:latest .
 
 # with ML extras
-docker build --build-arg EXTRAS=ml -t flowframe:ml .
+docker build --build-arg EXTRAS=ml -t ciaren:ml .
 
 # with multiple extras
-docker build --build-arg EXTRAS=ml,postgres -t flowframe:full .
+docker build --build-arg EXTRAS=ml,postgres -t ciaren:full .
 ```
 
 ## Production checklist
 
-- **Set `FLOWFRAME_ENVIRONMENT=production`** — already the default in
+- **Set `CIAREN_ENVIRONMENT=production`** — already the default in
   `docker-compose.yml`; disables debug output and the `db reset` guard.
 - **Mount `/data` as a named volume or bind-mount** — so data survives
   container replacement.
-- **Set `FLOWFRAME_CORS_ORIGINS`** if your frontend and API are on different
+- **Set `CIAREN_CORS_ORIGINS`** if your frontend and API are on different
   origins (unnecessary when both are served from the same port).
-- **Pin the image tag** — use `flowframe:v0.1.0` rather than `latest` in
+- **Pin the image tag** — use `ciaren:v0.1.0` rather than `latest` in
   production compose files.
 - **Run behind a reverse proxy** (nginx, Caddy, Traefik) for TLS and
   compression. The image does not include TLS termination.
@@ -229,7 +229,7 @@ docker logs <container-id>
 ```
 
 Common causes: the `/data` directory isn't writable, or `DATABASE_URL` uses a
-sync driver. Check with `flowframe check` before starting.
+sync driver. Check with `ciaren check` before starting.
 
 ### Health check fails
 
@@ -244,11 +244,11 @@ probe so a hung process is restarted without being masked by a transient DB blip
 
 ### ML nodes not visible
 
-ML nodes only appear when `FLOWFRAME_ML_ENABLED=true` **and** the `[ml]` extra
+ML nodes only appear when `CIAREN_ML_ENABLED=true` **and** the `[ml]` extra
 was installed at build time. Verify with:
 
 ```bash
-docker compose exec flowframe flowframe check
+docker compose exec ciaren ciaren check
 ```
 
 A `[warn] ml: ML_ENABLED but [ml] extra not installed` line means you need to
@@ -257,11 +257,11 @@ rebuild with `EXTRAS=ml`.
 ### Port already in use
 
 ```bash
-FLOWFRAME_PORT=9001 docker compose up
+CIAREN_PORT=9001 docker compose up
 ```
 
 ## See also
 
-- [CLI Reference](./cli.md) — all `flowframe` sub-commands and flags
+- [CLI Reference](./cli.md) — all `ciaren` sub-commands and flags
 - [Advanced Setup](./advanced-setup.md) — environment variables, database config
 - [CI/CD Pipeline](../CI_CD.md) — how Docker builds are tested in GitHub Actions

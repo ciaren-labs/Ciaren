@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """The "Explore" plugin catalog — a read-only view over the configured marketplace
-index, plus one-click install of an entry whose ``.ffplugin`` is available locally.
+index, plus one-click install of an entry whose ``.ciarenplugin`` is available locally.
 
 The catalog source is a local JSON file today (``settings.MARKETPLACE_INDEX``); a
 hosted index is a drop-in later (same shape, with a network fetch added) and needs

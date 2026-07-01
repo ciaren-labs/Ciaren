@@ -41,7 +41,7 @@ def library_available(library: MLLibrary) -> bool:
 
 
 def install_hint(library: MLLibrary) -> str:
-    return f"{library.name} is not installed. Run: pip install flowframe[{library.extra}]"
+    return f"{library.name} is not installed. Run: pip install ciaren[{library.extra}]"
 
 
 def require_library(library: MLLibrary) -> None:

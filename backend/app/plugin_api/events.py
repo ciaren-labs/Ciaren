@@ -9,7 +9,7 @@ execution, export, plugin lifecycle). Emission is **error-isolated**: a buggy
 subscriber is logged and skipped, never breaking a run.
 
 This module is part of the stable contract package — it imports only the stdlib,
-so a plugin can depend on it without pulling in the FlowFrame app or engine.
+so a plugin can depend on it without pulling in the Ciaren app or engine.
 """
 
 from __future__ import annotations

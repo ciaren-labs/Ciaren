@@ -241,7 +241,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         if not isinstance(raw, str) or not raw.strip():
             raise ValueError(
                 f"{self.type}: connected model reference has no model_config_json. "
-                "Re-run the upstream Train node with the current FlowFrame version."
+                "Re-run the upstream Train node with the current Ciaren version."
             )
         try:
             cfg = json.loads(raw)

@@ -44,8 +44,8 @@ def node_for(config):
 
 @pytest.fixture
 def ml_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
-    monkeypatch.setenv("FLOWFRAME_ML_ARTIFACT_DIR", str(tmp_path / "artifacts"))
+    monkeypatch.setenv("CIAREN_MLFLOW_TRACKING_URI", str(tmp_path / "mlruns"))
+    monkeypatch.setenv("CIAREN_ML_ARTIFACT_DIR", str(tmp_path / "artifacts"))
     get_settings.cache_clear()
     yield tmp_path
     get_settings.cache_clear()
@@ -241,14 +241,14 @@ def test_too_few_rows_rejected(ml_env):
 
 
 def test_model_size_limit_enforced(ml_env, monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_MAX_MODEL_SIZE_MB", "0")
+    monkeypatch.setenv("CIAREN_ML_MAX_MODEL_SIZE_MB", "0")
     get_settings.cache_clear()
     with pytest.raises(ValueError, match="MB limit"):
         _train(_classification_df(), {"model_type": "random_forest_classifier", "target_column": "target", "seed": 1})
 
 
 def test_feature_column_limit_via_schema(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_MAX_FEATURE_COLUMNS", "2")
+    monkeypatch.setenv("CIAREN_ML_MAX_FEATURE_COLUMNS", "2")
     get_settings.cache_clear()
     schema = MLSchema(columns=["a", "b", "c", "target"], row_count=100)
     with pytest.raises(ValueError, match="ML_MAX_FEATURE_COLUMNS"):
@@ -257,7 +257,7 @@ def test_feature_column_limit_via_schema(monkeypatch):
 
 
 def test_training_row_limit_via_schema(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_MAX_TRAINING_ROWS", "50")
+    monkeypatch.setenv("CIAREN_ML_MAX_TRAINING_ROWS", "50")
     get_settings.cache_clear()
     schema = MLSchema(columns=["a", "target"], row_count=100)
     with pytest.raises(ValueError, match="ML_MAX_TRAINING_ROWS"):

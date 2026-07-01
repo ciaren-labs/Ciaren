@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""FlowFrame ML extension.
+"""Ciaren ML extension.
 
 Kept import-light: nothing here imports scikit-learn, xgboost, lightgbm, or
 mlflow at module load. Availability is detected lazily so the base install stays

@@ -39,8 +39,8 @@ from app.plugin_api import (
     ValidatorSpec,
 )
 
-CORE_PROVIDER = "flowframe.core"
-ML_PROVIDER = "flowframe.ml"
+CORE_PROVIDER = "ciaren.core"
+ML_PROVIDER = "ciaren.ml"
 
 
 def _port(handle: str, model_handles: frozenset[str], *, required: bool = True, multi: bool = False) -> PortSpec:

@@ -1,4 +1,4 @@
-""".ffplugin packaging, digest determinism, and signature verification."""
+""".ciarenplugin packaging, digest determinism, and signature verification."""
 
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ _MANIFEST = {
 def plugin_src(tmp_path):
     src = tmp_path / "src"
     src.mkdir()
-    (src / "flowframe-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
+    (src / "ciaren-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
     (src / "pkg_plugin.py").write_text("# plugin module\nPkgPlugin = object\n", encoding="utf-8")
     return src
 
 
 def test_pack_directory_creates_readable_package(plugin_src, tmp_path):
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     assert pkg.is_file()
     manifest = package.read_manifest(pkg)
     assert manifest.id == "community.pkg"
@@ -41,24 +41,24 @@ def test_pack_directory_creates_readable_package(plugin_src, tmp_path):
 def test_pack_refuses_dir_without_manifest(tmp_path):
     (tmp_path / "empty").mkdir()
     with pytest.raises(package.PackageError):
-        package.pack_directory(tmp_path / "empty", tmp_path / "out.ffplugin")
+        package.pack_directory(tmp_path / "empty", tmp_path / "out.ciarenplugin")
 
 
 def test_digest_is_deterministic(plugin_src, tmp_path):
-    a = package.pack_directory(plugin_src, tmp_path / "a.ffplugin")
-    b = package.pack_directory(plugin_src, tmp_path / "b.ffplugin")
+    a = package.pack_directory(plugin_src, tmp_path / "a.ciarenplugin")
+    b = package.pack_directory(plugin_src, tmp_path / "b.ciarenplugin")
     assert package.compute_package_digest(a) == package.compute_package_digest(b)
 
 
 def test_verify_unsigned_package(plugin_src, tmp_path):
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     result = package.verify_package(pkg, trusted_keys={})
     assert result.outcome == "unsigned"
     assert result.ok is True  # unsigned is acceptable (installer may still require trusted)
 
 
 def test_read_manifest_rejects_non_zip(tmp_path):
-    bogus = tmp_path / "bad.ffplugin"
+    bogus = tmp_path / "bad.ciarenplugin"
     bogus.write_text("not a zip", encoding="utf-8")
     with pytest.raises(package.PackageError):
         package.read_manifest(bogus)
@@ -66,7 +66,7 @@ def test_read_manifest_rejects_non_zip(tmp_path):
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_sign_then_verify_trusted(plugin_src, tmp_path):
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     priv, pub = signing.generate_keypair()
     sig = package.sign_package(pkg, priv, key_id="kid-1", publisher="acme")
 
@@ -84,7 +84,7 @@ def test_sign_then_verify_trusted(plugin_src, tmp_path):
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_tampered_package_is_invalid(plugin_src, tmp_path):
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     priv, pub = signing.generate_keypair()
     package.sign_package(pkg, priv, key_id="kid-1")
 
@@ -103,7 +103,7 @@ def test_tampered_package_is_invalid(plugin_src, tmp_path):
 
 @pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
 def test_wrong_key_signature_is_invalid(plugin_src, tmp_path):
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     priv, _ = signing.generate_keypair()
     package.sign_package(pkg, priv, key_id="kid-1")
     # Trust kid-1 but map it to a DIFFERENT public key → signature won't verify.
@@ -116,7 +116,7 @@ def test_wrong_key_signature_is_invalid(plugin_src, tmp_path):
 def test_publisher_is_not_a_trust_fallback(plugin_src, tmp_path):
     # Trust is keyed strictly by key_id; the attacker-controlled publisher name
     # must NOT select a trusted key (the removed fallback).
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     priv, pub = signing.generate_keypair()
     package.sign_package(pkg, priv, key_id="kid-1", publisher="acme")
     # The pub key is trusted only under the publisher name, never under key_id.
@@ -128,7 +128,7 @@ def test_publisher_is_not_a_trust_fallback(plugin_src, tmp_path):
 def test_relabelling_signer_metadata_breaks_signature(plugin_src, tmp_path):
     # The signature binds key_id/publisher, so taking a validly-signed package and
     # relabelling who signed it (to impersonate a trusted key) is rejected.
-    pkg = package.pack_directory(plugin_src, tmp_path / "out.ffplugin")
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
     priv, pub = signing.generate_keypair()
     package.sign_package(pkg, priv, key_id="real-kid", publisher="real")
 
@@ -152,20 +152,20 @@ def test_pack_compiled_ships_bytecode_not_source(tmp_path):
     src = tmp_path / "src"
     pkg_dir = src / "compiled_plugin"
     pkg_dir.mkdir(parents=True)
-    (src / "flowframe-plugin.json").write_text(
+    (src / "ciaren-plugin.json").write_text(
         json.dumps({**_MANIFEST, "entrypoint": "compiled_plugin:CompiledPlugin"}), encoding="utf-8"
     )
     (pkg_dir / "__init__.py").write_text("from .impl import CompiledPlugin\n", encoding="utf-8")
     (pkg_dir / "impl.py").write_text("CompiledPlugin = object\n", encoding="utf-8")
 
-    pkg = package.pack_directory(src, tmp_path / "out.ffplugin", compile_python=True)
+    pkg = package.pack_directory(src, tmp_path / "out.ciarenplugin", compile_python=True)
     with zipfile.ZipFile(pkg) as zf:
         names = set(zf.namelist())
     # No .py source ships; the compiled .pyc takes its place at the import path.
     assert not any(n.endswith(".py") for n in names)
     assert "compiled_plugin/__init__.pyc" in names
     assert "compiled_plugin/impl.pyc" in names
-    assert "flowframe-plugin.json" in names  # non-Python assets untouched
+    assert "ciaren-plugin.json" in names  # non-Python assets untouched
 
 
 def test_pack_compiled_pyc_is_importable(tmp_path):
@@ -177,11 +177,11 @@ def test_pack_compiled_pyc_is_importable(tmp_path):
     src = tmp_path / "src"
     pkg_dir = src / "byc_plugin"
     pkg_dir.mkdir(parents=True)
-    (src / "flowframe-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
+    (src / "ciaren-plugin.json").write_text(json.dumps(_MANIFEST), encoding="utf-8")
     (pkg_dir / "__init__.py").write_text("VALUE = 41\n", encoding="utf-8")
     (pkg_dir / "thing.py").write_text("def answer():\n    return 42\n", encoding="utf-8")
 
-    pkg = package.pack_directory(src, tmp_path / "out.ffplugin", compile_python=True)
+    pkg = package.pack_directory(src, tmp_path / "out.ciarenplugin", compile_python=True)
     install_root = tmp_path / "installed"
     install_root.mkdir()
     with zipfile.ZipFile(pkg) as zf:

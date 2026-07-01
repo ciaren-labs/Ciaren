@@ -19,9 +19,9 @@
       "nodeCategories": {
         "hello.greeting": "columns"
       },
-      "downloadUrl": "community.hello-0.1.0.ffplugin",
-      "digest": "a488506f08f245c99bd356f5627100915a17d842299dae93a885e594ab93b314",
-      "keyId": "flowframe-demo",
+      "downloadUrl": "community.hello-0.1.0.ciarenplugin",
+      "digest": "dc5fe60165bf9543eacb197be436eaca16562aff6726bb3d4a3d3f2f002ed008",
+      "keyId": "ciaren-demo",
       "licenseRequired": false
     }
   ]

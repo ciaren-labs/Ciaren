@@ -1,12 +1,12 @@
 ---
 title: Installation
-description: Install and run FlowFrame locally in minutes
+description: Install and run Ciaren locally in minutes
 search: install setup download run requirements frontend backend
 ---
 
 # Installation Guide
 
-Get FlowFrame running on your machine in a few minutes. FlowFrame has two parts:
+Get Ciaren running on your machine in a few minutes. Ciaren has two parts:
 
 - a **backend** (FastAPI + the execution engine and scheduler), and
 - a **frontend** (the React visual editor).
@@ -41,11 +41,11 @@ python -m venv .venv
 source .venv/bin/activate    # macOS/Linux
 # .venv\Scripts\activate     # Windows (PowerShell)
 
-# Install FlowFrame (exposes the `flowframe` command)
+# Install Ciaren (exposes the `ciaren` command)
 pip install -e .
 
 # Run the API + background scheduler in one process
-flowframe serve
+ciaren serve
 ```
 
 The backend runs on `http://localhost:8055`. The database schema is **created
@@ -57,13 +57,13 @@ The core install stays lightweight. To use external databases from SQL Input /
 SQL Output nodes, install the matching connector extra — e.g.
 `pip install -e ".[mysql]"`, or grab the connector set with
 `pip install -e ".[all]"`. These connector extras are separate from the async
-driver used by `FLOWFRAME_DATABASE_URL`; if you want FlowFrame's own metadata
+driver used by `CIAREN_DATABASE_URL`; if you want Ciaren's own metadata
 database on MySQL, install `aiomysql` and use a `mysql+aiomysql://` URL. See
 [Connections](/guide/connections) for the connector list.
 :::
 
-:::tip flowframe serve vs. uvicorn
-`flowframe serve` is the recommended entry point — it boots the API and the
+:::tip ciaren serve vs. uvicorn
+`ciaren serve` is the recommended entry point — it boots the API and the
 background scheduler together. It accepts flags like `--port`, `--reload`,
 `--db-url`, `--engine`, and `--no-scheduler`. See the
 [CLI reference](/guide/cli) for all of them. (Under the hood it runs the same
@@ -93,16 +93,16 @@ is the URL to open — **not** the backend's `:8055`, which serves the API.)
 ![Projects page — the first screen you see after installation, with the Demo project ready to explore](/screenshots/projects.png)
 
 :::tip One-command app (no separate frontend server)
-Build the frontend once and `flowframe serve` will serve the web UI too, so the
+Build the frontend once and `ciaren serve` will serve the web UI too, so the
 whole app lives at a single URL:
 
 ```bash
 cd frontend && npm run build      # produces frontend/dist
-cd ../backend && flowframe serve  # banner: "Open the app: http://localhost:8055"
+cd ../backend && ciaren serve  # banner: "Open the app: http://localhost:8055"
 ```
 
-`flowframe serve` auto-detects `frontend/dist`; override its location with
-`FLOWFRAME_FRONTEND_DIST`. Its startup banner always tells you the exact URL to open.
+`ciaren serve` auto-detects `frontend/dist`; override its location with
+`CIAREN_FRONTEND_DIST`. Its startup banner always tells you the exact URL to open.
 :::
 
 :::tip Enable Machine Learning
@@ -111,11 +111,11 @@ The ML nodes (Train / Predict / Evaluate …) only appear once you install the e
 
 ```bash
 pip install -e ".[ml]"
-# .env  (flowframe init writes these for you)
-FLOWFRAME_ML_ENABLED=true
+# .env  (ciaren init writes these for you)
+CIAREN_ML_ENABLED=true
 ```
 
-If the **Machine Learning** palette section is missing, check `flowframe check`
+If the **Machine Learning** palette section is missing, check `ciaren check`
 (it reports `ml: ok`) and that the frontend you're viewing is up to date. See the
 [ML Quick Start](/guide/ml-quickstart).
 :::
@@ -129,7 +129,7 @@ If the **Machine Learning** palette section is missing, check `flowframe check`
 ```bash
 cd backend
 uv sync                       # install dependencies
-uv run flowframe serve        # run the server
+uv run ciaren serve        # run the server
 ```
 
 For development dependencies (tests, linting, type-checking):
@@ -160,37 +160,37 @@ VITE_PORT=3000 VITE_API_TARGET=http://localhost:8001 npm run dev
 
 ## Configuration
 
-The backend reads environment variables (prefixed with `FLOWFRAME_`) and an
+The backend reads environment variables (prefixed with `CIAREN_`) and an
 optional `.env` file. The fastest way to create one is:
 
 ```bash
 cd backend
-flowframe init        # writes a commented starter .env
+ciaren init        # writes a commented starter .env
 ```
 
 A minimal `.env`:
 
 ```bash
-# Database — FlowFrame is async, so the URL must use an async driver.
-FLOWFRAME_DATABASE_URL=sqlite+aiosqlite:///./flowframe.db
-# PostgreSQL: postgresql+asyncpg://user:password@localhost/flowframe
-# MySQL:      mysql+aiomysql://user:password@localhost/flowframe
+# Database — Ciaren is async, so the URL must use an async driver.
+CIAREN_DATABASE_URL=sqlite+aiosqlite:///./ciaren.db
+# PostgreSQL: postgresql+asyncpg://user:password@localhost/ciaren
+# MySQL:      mysql+aiomysql://user:password@localhost/ciaren
 
 # Where uploads, outputs, and previews are written
-FLOWFRAME_DATA_DIR=.data
+CIAREN_DATA_DIR=.data
 
 # Default dataframe engine for runs that don't request one: polars | pandas
-FLOWFRAME_DEFAULT_ENGINE=polars
+CIAREN_DEFAULT_ENGINE=polars
 
 # Allowed CORS origins (JSON list)
-FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
+CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 
 # Max upload size in MB
-FLOWFRAME_MAX_UPLOAD_SIZE_MB=100
+CIAREN_MAX_UPLOAD_SIZE_MB=100
 ```
 
-Run `flowframe info` to print the resolved configuration (the database password
-is redacted), and `flowframe check` to validate it (writable data dir, async
+Run `ciaren info` to print the resolved configuration (the database password
+is redacted), and `ciaren check` to validate it (writable data dir, async
 driver, database reachable, engines available). For the full settings reference,
 alternate databases, execution tuning, and production deployment, see
 **[Advanced Setup](/guide/advanced-setup)** (and the [CLI reference](/guide/cli#environment-variables)).
@@ -206,19 +206,19 @@ Keep secrets out of version control — `.env` is already in `.gitignore`.
 :::
 
 When no `.env` is present, the backend defaults to
-`sqlite+aiosqlite:///./flowframe.db`, so it runs with zero configuration.
+`sqlite+aiosqlite:///./ciaren.db`, so it runs with zero configuration.
 
 ## Database Setup
 
 ### SQLite (default)
 
-SQLite requires no setup — it uses a local file (`flowframe.db`), and the schema
+SQLite requires no setup — it uses a local file (`ciaren.db`), and the schema
 is created automatically the first time the backend starts. Tests run against
 in-memory SQLite regardless of `DATABASE_URL`.
 
 ### PostgreSQL
 
-Install the async driver and point FlowFrame at your database:
+Install the async driver and point Ciaren at your database:
 
 ```bash
 pip install asyncpg
@@ -226,7 +226,7 @@ pip install asyncpg
 
 ```bash
 # in backend/.env
-FLOWFRAME_DATABASE_URL=postgresql+asyncpg://flowframe:password@localhost/flowframe_dev
+CIAREN_DATABASE_URL=postgresql+asyncpg://ciaren:password@localhost/ciaren_dev
 ```
 
 The backend creates its tables on startup, so there is no manual migration step.
@@ -243,7 +243,7 @@ curl http://localhost:8055/health
 
 Expected response: `{"status":"ok"}`
 
-You can also run `flowframe check` for a fuller diagnostic.
+You can also run `ciaren check` for a fuller diagnostic.
 
 ### Explore the API
 
@@ -255,7 +255,7 @@ list datasets, create flows, run them, and export Python code.
 ### "Port 8055 already in use"
 
 ```bash
-flowframe serve --port 8001
+ciaren serve --port 8001
 ```
 
 ### "Port 5173 already in use"
@@ -266,12 +266,12 @@ VITE_PORT=3000 npm run dev
 
 ### "Database connection failed"
 
-1. `FLOWFRAME_DATABASE_URL` must use an **async** driver
+1. `CIAREN_DATABASE_URL` must use an **async** driver
    (`sqlite+aiosqlite://`, `postgresql+asyncpg://`, `mysql+aiomysql://`).
 2. The database server is running (for PostgreSQL / MySQL).
 3. The matching async driver package is installed (`asyncpg`, `aiomysql`).
 
-`flowframe check` reports all three at once.
+`ciaren check` reports all three at once.
 
 ### Module not found errors
 
@@ -295,10 +295,10 @@ npm install
 
 ### CORS errors
 
-Add the calling origin to `FLOWFRAME_CORS_ORIGINS` (a JSON list) in `backend/.env`:
+Add the calling origin to `CIAREN_CORS_ORIGINS` (a JSON list) in `backend/.env`:
 
 ```bash
-FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
+CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
 ## Next Steps

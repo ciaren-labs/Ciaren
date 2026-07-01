@@ -32,7 +32,7 @@ def _client(spec: StorageSpec) -> Any:
     try:
         import boto3
     except ImportError as exc:
-        raise ConnectorError("boto3 is not installed. Run: pip install flowframe[s3]") from exc
+        raise ConnectorError("boto3 is not installed. Run: pip install ciaren[s3]") from exc
 
     # A user-supplied custom endpoint (MinIO/R2/…) could point at an internal host;
     # refuse internal targets when the SSRF guard is enabled (no-op otherwise).

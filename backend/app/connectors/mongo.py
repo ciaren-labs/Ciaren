@@ -32,9 +32,7 @@ class MongoConnector:
         try:
             from pymongo import MongoClient
         except ImportError as exc:  # pragma: no cover - exercised only without pymongo
-            raise ConnectorError(
-                "MongoDB support requires the 'pymongo' package (pip install flowframe[mongo])."
-            ) from exc
+            raise ConnectorError("MongoDB support requires the 'pymongo' package (pip install ciaren[mongo]).") from exc
         # Refuse internal hosts when the SSRF guard is enabled (no-op otherwise).
         guard_host(spec.host)
         # Credentials are passed as keyword args, never interpolated into a URI

@@ -81,7 +81,7 @@ class LocalStorageConnector:
             raise ConnectorError(
                 f"Storage folder {root} is outside the allowed roots "
                 f"({', '.join(str(b) for b in allowed)}). "
-                "Adjust FLOWFRAME_STORAGE_ALLOWED_ROOTS or the connection folder."
+                "Adjust CIAREN_STORAGE_ALLOWED_ROOTS or the connection folder."
             )
         return root
 

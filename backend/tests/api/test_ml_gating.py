@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 
 def _enable_ml(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_ENABLED", "true")
+    monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()
 
 

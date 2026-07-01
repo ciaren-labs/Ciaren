@@ -5,8 +5,8 @@
   "publisher": "community",
   "description": "A minimal example plugin that contributes one catalog node.",
   "license": "community",
-  "flowframe": ">=0.1",
-  "entrypoint": "flowframe_hello.plugin:HelloPlugin",
+  "ciaren": ">=0.1",
+  "entrypoint": "ciaren_hello.plugin:HelloPlugin",
   "permissions": [],
   "capabilities": ["node.hello"],
   "ui": {

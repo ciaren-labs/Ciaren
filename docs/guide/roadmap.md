@@ -1,18 +1,18 @@
 ---
 title: Roadmap
-description: Where FlowFrame is today and the direction it's heading — toward a community ecosystem of plugins, connectors, engines, and AI capabilities.
+description: Where Ciaren is today and the direction it's heading — toward a community ecosystem of plugins, connectors, engines, and AI capabilities.
 search: roadmap direction future plugins marketplace ecosystem status alpha
 ---
 
 # Roadmap
 
-FlowFrame is **alpha** (currently `0.1.x`). This page describes the direction, not
+Ciaren is **alpha** (currently `0.1.x`). This page describes the direction, not
 a dated release schedule. For exactly what's shipped, the code is authoritative and
 releases are tracked on **[GitHub](https://github.com/rodrigo-arenas/FlowFrame/releases)**.
 
 ::: warning Alpha software
 The public API, data model, and generated code may change between releases, with no
-backward-compatibility guarantee yet. Use FlowFrame for experimentation,
+backward-compatibility guarantee yet. Use Ciaren for experimentation,
 prototypes, and controlled internal workflows before relying on it for critical
 production jobs.
 :::
@@ -29,11 +29,11 @@ The core platform works end to end:
   predict, evaluate, with MLflow tracking and a Models page
 - **Scheduling** — built-in cron scheduler with retries, catch-up, and auto-disable
 - **Plugin platform** — stable provider contracts, local + entry-point discovery,
-  and signed `.ffplugin` packaging
+  and signed `.ciarenplugin` packaging
 
 ## The direction
 
-FlowFrame is built to become an **extensible ecosystem**. The plugin
+Ciaren is built to become an **extensible ecosystem**. The plugin
 [provider contracts](/plugins/overview) are the foundation for growing the platform
 from the outside — without bloating or forking the core:
 
@@ -46,11 +46,11 @@ from the outside — without bloating or forking the core:
 These are designed extension points, not promises of specific dated features. The
 core stays open and useful on its own.
 
-## What FlowFrame won't become
+## What Ciaren won't become
 
-By design, FlowFrame stays focused. It is **not** aiming to be a distributed/streaming
+By design, Ciaren stays focused. It is **not** aiming to be a distributed/streaming
 engine, a warehouse-scale orchestrator, or a multi-tenant SaaS. See
-[How FlowFrame Compares](/guide/comparison) for where it fits.
+[How Ciaren Compares](/guide/comparison) for where it fits.
 
 ## Shape the roadmap
 

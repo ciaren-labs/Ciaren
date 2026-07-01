@@ -79,7 +79,7 @@ def guard_host(host: str | None) -> None:
     if blocked:
         raise ConnectorError(
             f"Connection to {host!r} is blocked: it resolves to a private/internal "
-            f"address ({blocked[0]}). Set FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS=false "
+            f"address ({blocked[0]}). Set CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=false "
             "to allow internal hosts."
         )
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Resolve database credentials from environment variables.
 
-Security model: FlowFrame **never persists a database password**. A ``Connection``
+Security model: Ciaren **never persists a database password**. A ``Connection``
 stores only the *name* of an environment variable (``password_env``); the secret
 is read from the process environment at connect time and is never written to the
 database, returned in an API response, or emitted into exported code.
@@ -27,7 +27,7 @@ def resolve_secret(env_var: str | None) -> str | None:
     if value is None:
         raise ValidationError(
             f"Environment variable '{env_var}' is not set. Define it before "
-            "connecting — FlowFrame never stores the password itself."
+            "connecting — Ciaren never stores the password itself."
         )
     return value
 

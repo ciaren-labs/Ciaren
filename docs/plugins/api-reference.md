@@ -1,14 +1,14 @@
 ---
 title: Plugin API Reference
-description: The stable plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a FlowFrame plugin depends on.
+description: The stable plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a Ciaren plugin depends on.
 search: plugin api reference provider nodeprovider nodespec noderuntime serviceregistry specs permissions contract
 ---
 
 # Plugin API Reference
 
 This is the reference for `app.plugin_api` — the stable contract a plugin depends
-on (and which will publish separately as `flowframe-plugin-api`). A plugin imports
-**only** from this package, never from FlowFrame's app, engine, or FastAPI
+on (and which will publish separately as `ciaren-plugin-api`). A plugin imports
+**only** from this package, never from Ciaren's app, engine, or FastAPI
 internals.
 
 New to plugins? Start with the [Overview](/plugins/overview) and the
@@ -84,7 +84,7 @@ but isn't executable); return a `{node_id: NodeRuntime}` map to make it run.
 
 The runnable side of a plugin node. The contract is **pandas-based and
 engine-agnostic**: you receive and return pandas DataFrames keyed by handle, and
-FlowFrame converts to/from the active engine (polars/pandas) around the call.
+Ciaren converts to/from the active engine (polars/pandas) around the call.
 
 | Method | Signature | Notes |
 | --- | --- | --- |
@@ -117,7 +117,7 @@ contributes. They carry no executable behavior.
 | `label` | `str` | — | Display name. |
 | `category` | `str` | — | UI grouping (`"input"`, `"clean"`, `"columns"`, `"reshape"`, `"ml"`, …). |
 | `description` | `str` | `""` | Shown in the palette/inspector. |
-| `provider` | `str` | `"flowframe.core"` | Namespaced provider id. |
+| `provider` | `str` | `"ciaren.core"` | Namespaced provider id. |
 | `version` | `str` | `"1.0.0"` | Node version. |
 | `inputs` | `tuple[PortSpec, …]` | `()` | Input handles. |
 | `outputs` | `tuple[PortSpec, …]` | `()` | Output handles. |

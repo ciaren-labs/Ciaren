@@ -1,22 +1,22 @@
 ---
 title: Getting Started
-description: Learn what FlowFrame is and how to get started in minutes
-search: getting started introduction what is flowframe
+description: Learn what Ciaren is and how to get started in minutes
+search: getting started introduction what is ciaren
 ---
 
-# Getting Started with FlowFrame
+# Getting Started with Ciaren
 
-Welcome to FlowFrame! This guide will help you understand what FlowFrame is and get you up and running in minutes.
+Welcome to Ciaren! This guide will help you understand what Ciaren is and get you up and running in minutes.
 
 :::warning Alpha software
-FlowFrame is in early development. APIs and generated code may change between
+Ciaren is in early development. APIs and generated code may change between
 releases. Use it for learning, experimentation, and controlled internal
 workflows before relying on it for critical production jobs.
 :::
 
-## What is FlowFrame?
+## What is Ciaren?
 
-FlowFrame is an open-core, **plugin-first, local-first platform** for building
+Ciaren is an open-core, **plugin-first, local-first platform** for building
 **Data Engineering and Machine Learning workflows** visually — and turning them
 into clean, portable Python. It runs on **polars** by default (or pandas, per run)
 and lets you:
@@ -46,10 +46,10 @@ pipeline and export readable Python — all without writing a line of code.
   {"type":"clean","label":"Build Your Pipeline","detail":"drag nodes · connect handles · configure each step"},
   {"type":"clean","label":"Live Preview","detail":"see your data transform on real rows instantly"},
   {"type":"transform","label":"Run the Full Flow","detail":"executes on polars (or pandas) · saves a run record"},
-  {"type":"output","label":"Download Results + Python Code","detail":"standalone script — runs anywhere without FlowFrame"}
+  {"type":"output","label":"Download Results + Python Code","detail":"standalone script — runs anywhere without Ciaren"}
 ]' />
 
-## Who is FlowFrame For?
+## Who is Ciaren For?
 
 - **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
 - **Developers** — Prototype visually, then export and version the generated Python
@@ -67,7 +67,7 @@ pipeline and export readable Python — all without writing a line of code.
 
 ## What You Can't Do (Yet)
 
-FlowFrame is designed for **local, single-machine data transformation**. It is
+Ciaren is designed for **local, single-machine data transformation**. It is
 **not** an Airflow/Spark/dbt replacement and doesn't support:
 
 - Distributed computing (Spark, Dask)
@@ -81,7 +81,7 @@ schedule — see [Scheduling](/guide/scheduling).
 
 ## Next Steps
 
-1. **[Install FlowFrame](/guide/installation)** — get it running locally (2 minutes)
+1. **[Install Ciaren](/guide/installation)** — get it running locally (2 minutes)
 2. **[5-Minute Quick Start](/guide/quick-start)** — build your first flow
 3. **[Interface Tour](/guide/interface)** — learn the UI
 4. **[Transformation Reference](/transformations/overview)** — all available operations
@@ -89,11 +89,11 @@ schedule — see [Scheduling](/guide/scheduling).
 
 ## Quick Preview
 
-Here's what FlowFrame looks like in action — a flow with real data loaded in the preview panel:
+Here's what Ciaren looks like in action — a flow with real data loaded in the preview panel:
 
-![FlowFrame editor with data preview — canvas, node palette, and 116-row preview table](/screenshots/editor-data-preview.png)
+![Ciaren editor with data preview — canvas, node palette, and 116-row preview table](/screenshots/editor-data-preview.png)
 
-Here is what a typical sales-summary pipeline looks like in FlowFrame. Each colored
+Here is what a typical sales-summary pipeline looks like in Ciaren. Each colored
 card is one node; you drag them from the palette and connect them on the canvas.
 
 <FlowPipeline :nodes='[
@@ -110,7 +110,7 @@ card is one node; you drag them from the palette and connect them on the canvas.
 
 ### Do I need to know Python?
 
-No! FlowFrame is designed for non-programmers. The visual editor guides you through each step.
+No! Ciaren is designed for non-programmers. The visual editor guides you through each step.
 
 ### Can I save my flows?
 
@@ -122,7 +122,7 @@ Yes! Every flow generates readable **polars and pandas** code you can use in scr
 
 ### Is my data secure?
 
-FlowFrame runs entirely locally on your machine. No data is sent anywhere. (No SaaS, no cloud uploads.)
+Ciaren runs entirely locally on your machine. No data is sent anywhere. (No SaaS, no cloud uploads.)
 
 ### Can I use my own database?
 

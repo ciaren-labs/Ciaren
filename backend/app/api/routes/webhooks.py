@@ -2,11 +2,11 @@
 """Webhook trigger endpoint.
 
 POST /api/flows/{id}/trigger — starts a flow run authenticated by a
-pre-shared secret (FLOWFRAME_WEBHOOK_SECRET). Designed for CI/CD pipelines,
+pre-shared secret (CIAREN_WEBHOOK_SECRET). Designed for CI/CD pipelines,
 Airflow DAGs, and other HTTP-capable orchestrators that don't need the full
 REST API.
 
-The endpoint is disabled (returns 404) when FLOWFRAME_WEBHOOK_SECRET is not
+The endpoint is disabled (returns 404) when CIAREN_WEBHOOK_SECRET is not
 configured so there is no accidental open trigger surface on fresh installs.
 """
 
@@ -46,12 +46,12 @@ async def trigger_flow(
     flow_id: str,
     service: ExecutionServiceDep,
     body: TriggerBody | None = None,
-    x_flowframe_secret: Annotated[str | None, Header()] = None,
+    x_ciaren_secret: Annotated[str | None, Header()] = None,
 ) -> FlowRunRead:
     """Trigger a flow run via webhook secret.
 
-    Requires ``FLOWFRAME_WEBHOOK_SECRET`` to be configured. The caller must
-    supply the same value in the ``X-FlowFrame-Secret`` request header.
+    Requires ``CIAREN_WEBHOOK_SECRET`` to be configured. The caller must
+    supply the same value in the ``X-Ciaren-Secret`` request header.
 
     Blocks until the run completes and returns the resulting ``FlowRunRead``.
     """
@@ -59,14 +59,12 @@ async def trigger_flow(
     if settings.WEBHOOK_SECRET is None:
         raise HTTPException(
             status_code=404,
-            detail="Webhook trigger is not configured. Set FLOWFRAME_WEBHOOK_SECRET to enable it.",
+            detail="Webhook trigger is not configured. Set CIAREN_WEBHOOK_SECRET to enable it.",
         )
-    if x_flowframe_secret is None or not hmac.compare_digest(
-        x_flowframe_secret.encode(), settings.WEBHOOK_SECRET.encode()
-    ):
+    if x_ciaren_secret is None or not hmac.compare_digest(x_ciaren_secret.encode(), settings.WEBHOOK_SECRET.encode()):
         raise HTTPException(
             status_code=403,
-            detail="Invalid or missing X-FlowFrame-Secret header.",
+            detail="Invalid or missing X-Ciaren-Secret header.",
         )
 
     run_create = FlowRunCreate(

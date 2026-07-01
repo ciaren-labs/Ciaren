@@ -1,20 +1,20 @@
 ---
 title: Local-First Trust Model
-description: What FlowFrame trusts, what it does not, and where the boundaries are
+description: What Ciaren trusts, what it does not, and where the boundaries are
 search: security trust model local-first sandbox permissions secrets
 ---
 
 # Local-First Trust Model
 
-FlowFrame runs on **your** machine and executes **your** pipelines against **your**
+Ciaren runs on **your** machine and executes **your** pipelines against **your**
 data. That shapes the security model: the primary trust boundary is "code and data
 you chose to run," not a multi-tenant server.
 
-## What FlowFrame assumes
+## What Ciaren assumes
 
 - A single, trusted local user operates the app.
 - The user owns the data, the database, and the execution environment.
-- No FlowFrame-hosted service is required to run pipelines.
+- No Ciaren-hosted service is required to run pipelines.
 
 Under those assumptions some power-user features (custom Python nodes, custom SQL)
 are intentionally available. They run with the privileges of the local process.
@@ -22,7 +22,7 @@ are intentionally available. They run with the privileges of the local process.
 ## What is *not* a hard boundary
 
 - **Plugins and `pythonTransform` are not sandboxed.** Python code a plugin or a
-  custom node runs has the same access as the FlowFrame process. The
+  custom node runs has the same access as the Ciaren process. The
   [permission model](/security/plugin-security) is a *trust and consent* boundary
   (what loads, after you approve it), not an OS-level sandbox.
 - **Local license checks are not unbreakable DRM.** They deter casual misuse of
@@ -31,7 +31,7 @@ are intentionally available. They run with the privileges of the local process.
   can still be poorly written; signing only proves it wasn't tampered with and came
   from a key you trust.
 
-## Where FlowFrame *does* enforce boundaries
+## Where Ciaren *does* enforce boundaries
 
 - **Secrets stay out of artifacts.** Connection passwords are referenced by
   environment-variable name (`password_env`), never stored in the flow graph,
@@ -46,7 +46,7 @@ are intentionally available. They run with the privileges of the local process.
   elsewhere); otherwise an MLflow `runs:/` / `models:/` URI is required.
 - **Plugin code is gated before import.** A drop-in plugin that declares
   permissions is not imported until you approve it.
-- **Tampered packages are refused.** A `.ffplugin` whose contents don't match its
+- **Tampered packages are refused.** A `.ciarenplugin` whose contents don't match its
   signature digest never installs.
 
 ## Hardening for shared / team use (future)

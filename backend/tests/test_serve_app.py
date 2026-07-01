@@ -1,4 +1,4 @@
-"""The server can also serve the built web UI (single-URL `flowframe serve`)."""
+"""The server can also serve the built web UI (single-URL `ciaren serve`)."""
 
 import httpx
 
@@ -13,7 +13,7 @@ def test_frontend_dist_path_prefers_configured(tmp_path, monkeypatch) -> None:
     from app.main import frontend_dist_path
 
     (tmp_path / "index.html").write_text("<div id='root'></div>", encoding="utf-8")
-    monkeypatch.setenv("FLOWFRAME_FRONTEND_DIST", str(tmp_path))
+    monkeypatch.setenv("CIAREN_FRONTEND_DIST", str(tmp_path))
     _clear()
     try:
         assert frontend_dist_path() == tmp_path
@@ -27,7 +27,7 @@ def test_frontend_dist_path_falls_back_when_configured_invalid(tmp_path, monkeyp
     # bogus configured path.
     from app.main import frontend_dist_path
 
-    monkeypatch.setenv("FLOWFRAME_FRONTEND_DIST", str(tmp_path / "does-not-exist"))
+    monkeypatch.setenv("CIAREN_FRONTEND_DIST", str(tmp_path / "does-not-exist"))
     _clear()
     try:
         resolved = frontend_dist_path()
@@ -44,8 +44,8 @@ async def test_serves_spa_and_keeps_api_json_404(tmp_path, monkeypatch) -> None:
     (dist / "index.html").write_text("<div id='root'></div>", encoding="utf-8")
     (dist / "assets" / "app.js").write_text("// bundle", encoding="utf-8")
 
-    monkeypatch.setenv("FLOWFRAME_FRONTEND_DIST", str(dist))
-    monkeypatch.setenv("FLOWFRAME_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("CIAREN_FRONTEND_DIST", str(dist))
+    monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     _clear()
     try:
         from app.main import create_app

@@ -17,7 +17,7 @@ from app.db.models.run import FlowRun
 from app.ml.availability import ml_extension_ready
 
 # mlTrain's default experiment name when a node sets no mlflow_experiment.
-_DEFAULT_EXPERIMENT = "flowframe"
+_DEFAULT_EXPERIMENT = "ciaren"
 
 # NodeResult keys that make a node "ML" for the metrics view.
 _ML_KEYS = ("ml_metrics", "model_uri", "task_type", "cv_scores", "mlflow_run_id")
@@ -31,14 +31,14 @@ def _ms_to_iso(ms: int | None) -> str | None:
 
 
 def _lineage_from_tags(tags: dict[str, str]) -> dict[str, Any]:
-    """Pull FlowFrame back-pointer tags (set by mlTrain) into a small lineage dict
+    """Pull Ciaren back-pointer tags (set by mlTrain) into a small lineage dict
     so the UI can link a model/run back to the flow, run, and datasets."""
     lineage: dict[str, Any] = {}
-    if tags.get("flowframe_flow_id"):
-        lineage["flow_id"] = tags["flowframe_flow_id"]
-    if tags.get("flowframe_run_id"):
-        lineage["run_id"] = tags["flowframe_run_id"]
-    raw = tags.get("flowframe_dataset_ids")
+    if tags.get("ciaren_flow_id"):
+        lineage["flow_id"] = tags["ciaren_flow_id"]
+    if tags.get("ciaren_run_id"):
+        lineage["run_id"] = tags["ciaren_run_id"]
+    raw = tags.get("ciaren_dataset_ids")
     if raw:
         try:
             lineage["dataset_ids"] = list(json.loads(raw))
@@ -142,10 +142,10 @@ class MLService:
 
     async def list_registered_models(self) -> list[dict[str, Any]]:
         """Every registered model with its versions, aliases, key metrics, and the
-        FlowFrame lineage (flow/run/dataset) that produced each version.
+        Ciaren lineage (flow/run/dataset) that produced each version.
 
         This is the value-add over MLflow's own UI: each version links back to the
-        FlowFrame flow and run that trained it via the reproducibility tags."""
+        Ciaren flow and run that trained it via the reproducibility tags."""
         if not ml_extension_ready():
             raise MLNotEnabledError("The model registry requires the ML extension (ML_ENABLED + [ml] extra).")
 
@@ -251,7 +251,7 @@ class MLService:
         return experiments
 
     async def list_experiment_runs(self, experiment_id: str, limit: int = 100) -> list[dict[str, Any]]:
-        """Runs in an experiment with metrics, params, and FlowFrame lineage — the
+        """Runs in an experiment with metrics, params, and Ciaren lineage — the
         data behind the leaderboard and side-by-side comparison."""
         if not ml_extension_ready():
             raise MLNotEnabledError("Listing runs requires the ML extension (ML_ENABLED + [ml] extra).")

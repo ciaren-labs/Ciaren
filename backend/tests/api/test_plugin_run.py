@@ -19,7 +19,7 @@ def _example_plugin(monkeypatch):
     from app.plugins.state import PluginStateStore
 
     # ASGITransport doesn't run lifespan, so bridge the example plugin explicitly.
-    monkeypatch.setenv("FLOWFRAME_PLUGINS_DIR", str(EXAMPLES_DIR))
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(EXAMPLES_DIR))
     # Plugins require explicit approval before their code loads; pre-approve the
     # example so the catalog/run flow has its node available.
     state = PluginStateStore()
@@ -38,7 +38,7 @@ def _graph(dataset_id: str) -> dict:
             {
                 "id": "greet",
                 "type": "hello.greeting",
-                "data": {"config": {"column": "msg", "name": "FlowFrame"}},
+                "data": {"config": {"column": "msg", "name": "Ciaren"}},
             },
             {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
         ],
@@ -71,7 +71,7 @@ async def test_plugin_node_appears_in_catalog_and_runs(client: AsyncClient, tmp_
     assert run["status"] == "success", run
 
     out = pd.read_csv(tmp_path / "outputs" / run["output_location"])
-    assert list(out["msg"]) == ["Hello, FlowFrame!"] * 3
+    assert list(out["msg"]) == ["Hello, Ciaren!"] * 3
     assert list(out["a"]) == [1, 2, 3]
 
 
@@ -89,5 +89,5 @@ async def test_export_python_endpoint_with_plugin_node(client: AsyncClient) -> N
     r = await client.post(f"/api/flows/{flow['id']}/export/python")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert "'msg': 'Hello, FlowFrame!'" in body["code"]  # pandas export
-    assert "'msg': 'Hello, FlowFrame!'" in body["polars"]  # bridged polars export
+    assert "'msg': 'Hello, Ciaren!'" in body["code"]  # pandas export
+    assert "'msg': 'Hello, Ciaren!'" in body["polars"]  # bridged polars export

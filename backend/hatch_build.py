@@ -1,7 +1,7 @@
 """Hatchling build hook: bundle the built web UI into the wheel.
 
 Runs only for the ``wheel`` target (not editable installs), so a regular
-``pip install flowframe`` ships the frontend and ``flowframe serve`` serves it
+``pip install ciaren`` ships the frontend and ``ciaren serve`` serves it
 with no Node on the user's machine. Editable/dev installs skip this and fall back
 to serving the live ``frontend/dist`` (see app.main.frontend_dist_path).
 
@@ -9,6 +9,7 @@ The frontend must be built first (``npm run build`` in ``frontend/``). If a buil
 isn't present and npm is available, the hook builds it; otherwise it warns and the
 wheel ships API-only.
 """
+
 from __future__ import annotations
 
 import shutil

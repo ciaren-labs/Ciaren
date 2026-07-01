@@ -8,12 +8,12 @@ from app.core.enums import Engine, ExecutionMode
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="FLOWFRAME_",
+        env_prefix="CIAREN_",
         env_file=".env",
         env_file_encoding="utf-8",
     )
 
-    APP_NAME: str = "FlowFrame"
+    APP_NAME: str = "Ciaren"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # collectors (Docker/k8s/ELK); "text" forces plain lines regardless of TTY.
     LOG_FORMAT: str = "auto"
 
-    DATABASE_URL: str = "sqlite+aiosqlite:///./flowframe.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./ciaren.db"
     DATA_DIR: str = ".data"
 
     # Default dataframe engine for runs that don't request one explicitly.
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     STORAGE_ALLOWED_ROOTS: list[str] = []
 
     # Path to the built frontend (frontend/dist). When set/auto-detected, the
-    # server also serves the web UI so `flowframe serve` is a single URL. None +
+    # server also serves the web UI so `ciaren serve` is a single URL. None +
     # no auto-detected dist = API only (run the Vite dev server separately).
     FRONTEND_DIST: str | None = None
 
@@ -79,13 +79,13 @@ class Settings(BaseSettings):
 
     # On first boot (when no "Demo" project exists yet) seed a built-in demo
     # project with sample datasets and example flows so the app isn't empty.
-    # Idempotent and skippable via `flowframe serve --no-demo`.
+    # Idempotent and skippable via `ciaren serve --no-demo`.
     SEED_DEMO: bool = True
 
     # After the demo project is first seeded, run every demo flow once so run
     # history (and MLflow models for the ML flows) aren't empty out of the box.
     # Off by default: it adds startup time and the ML flows need the [ml] extra.
-    # Enable with `flowframe serve --run-seed-flows` or this env var.
+    # Enable with `ciaren serve --run-seed-flows` or this env var.
     SEED_RUN_FLOWS: bool = False
 
     # Background cron scheduler. Disabled in tests (ASGITransport skips lifespan).
@@ -100,19 +100,19 @@ class Settings(BaseSettings):
     RUN_TIMEOUT_SECONDS: int = 0
 
     # -- API authentication ----------------------------------------------------
-    # Optional bearer token for the REST API. Unset (default) keeps FlowFrame's
+    # Optional bearer token for the REST API. Unset (default) keeps Ciaren's
     # local-first, no-auth posture — safe when bound to 127.0.0.1. When set, every
     # /api/* request must present the token via `Authorization: Bearer <token>` or
-    # the `X-FlowFrame-Token` header (constant-time compared). The static web UI,
+    # the `X-Ciaren-Token` header (constant-time compared). The static web UI,
     # health probes, OpenAPI, and the webhook trigger (which has its own
-    # X-FlowFrame-Secret) are exempt. Set this whenever the API is reachable from a
+    # X-Ciaren-Secret) are exempt. Set this whenever the API is reachable from a
     # network you don't fully trust — e.g. the Docker image binds 0.0.0.0. See
     # Optional shared-token gate for non-local deployments.
     API_TOKEN: str | None = None
 
     # -- Webhook trigger -------------------------------------------------------
     # When set, POST /api/flows/{id}/trigger is enabled and the caller must
-    # provide this value in the X-FlowFrame-Secret header. Uses constant-time
+    # provide this value in the X-Ciaren-Secret header. Uses constant-time
     # comparison (hmac.compare_digest) to prevent timing attacks. Unset by
     # default so the endpoint is disabled on fresh installs (no secret = 404).
     WEBHOOK_SECRET: str | None = None
@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     ML_MAX_FEATURE_COLUMNS: int = 500
 
     # Source for the "Explore" plugin catalog. Today a local JSON file path (the
-    # MarketplaceIndex shape); empty uses FlowFrame's bundled community catalog
+    # MarketplaceIndex shape); empty uses Ciaren's bundled community catalog
     # so users can try installing a plugin. Set to "none" to disable Explore.
     # A hosted index is a drop-in later — the same setting will accept an https://
     # URL once network fetch lands, with no change to the API contract or frontend.

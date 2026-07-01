@@ -51,7 +51,7 @@ use collection selection (no custom query).
 ## Tips & common mistakes
 
 - **Passwords come from the environment.** Exported code reads the secret from
-  `os.environ` — FlowFrame never stores or embeds it.
+  `os.environ` — Ciaren never stores or embeds it.
 - **Test the connection first.** Use the connection's *Test* action to confirm
   credentials and reachability before wiring it into a flow.
 

@@ -2,14 +2,14 @@
 """Detached Ed25519 signatures for plugin artifacts — the verification half of
 the marketplace trust model.
 
-A publisher signs an artifact's SHA-256 digest with their private key; FlowFrame
+A publisher signs an artifact's SHA-256 digest with their private key; Ciaren
 verifies the signature against a *trusted* public key before trusting the
 artifact. This protects against tampered packages and unofficial builds presented
 as official (see the architecture plan §13). It does **not** sandbox plugin code —
 that's the permission model's job.
 
 Signing/verifying needs the optional ``cryptography`` dependency
-(``pip install flowframe[signing]``); hashing is stdlib-only and always works.
+(``pip install ciaren[signing]``); hashing is stdlib-only and always works.
 This module is part of the stable contract package, so an external signing tool
 can reuse it. It imports only the stdlib and (lazily) ``cryptography``.
 """
@@ -46,7 +46,7 @@ def _ed25519() -> Any:
         return ed25519
     except Exception as exc:  # noqa: BLE001
         raise SigningUnavailableError(
-            "plugin signing/verification needs the 'cryptography' package — install flowframe[signing]"
+            "plugin signing/verification needs the 'cryptography' package — install ciaren[signing]"
         ) from exc
 
 
