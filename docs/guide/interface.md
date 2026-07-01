@@ -67,6 +67,10 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 - **Run** — executes the whole flow and records a run.
 - **Export** — generates standalone Python (polars and pandas) for the flow.
 
+Building a pipeline is drag, configure, connect — no code required to start:
+
+![Dragging a File Input node onto the canvas, picking a dataset, then dragging a Fill Nulls node and connecting the two](/screenshots/flow-editor-build-pipeline.gif)
+
 ## Node handles
 
 Most nodes have a single input handle (`in`) and a single output handle (`out`).

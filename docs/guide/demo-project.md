@@ -48,7 +48,7 @@ the preview to **Chart → Histogram** on `amount` to *see* the outliers, or to
 [Visualizations](./visualizations.md).)
 :::
 
-![Flows list showing the Demo project — 9 flows including Clean Customers, ML flows, and the Full Sales Mart](/screenshots/flows.png)
+![Flows list showing the Demo project's flows, including Clean Customers, ML flows, and the Full Sales Mart](/screenshots/flows.png)
 
 ---
 

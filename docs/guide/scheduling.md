@@ -26,6 +26,10 @@ Click **Schedule** in the flow editor toolbar (or go to the **Schedules** page) 
 
 ![Schedules page — list of saved schedules with cron expressions, next run times, and status](/screenshots/schedules.png)
 
+The frequency picker updates its human-readable summary and cron expression live as you switch between Weekly and Custom (cron):
+
+![Switching the schedule frequency from Weekly to Custom (cron) — the "Every Monday at 09:00" summary and cron expression update live](/screenshots/schedule-frequency-picker.gif)
+
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
 expression and timezone. Over the API:
 
