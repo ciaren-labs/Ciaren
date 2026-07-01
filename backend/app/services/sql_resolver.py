@@ -18,7 +18,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.connectors import get_connector, get_provider
+from app.connectors import get_connector, get_provider, is_mlflow_provider, is_storage_provider
 from app.core.exceptions import ValidationError
 from app.db.models.connection import Connection
 from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE
@@ -32,6 +32,14 @@ async def _load_connection(db: AsyncSession, connection_id: str | None) -> Conne
     conn = result.scalar_one_or_none()
     if conn is None:
         raise ValidationError(f"Connection '{connection_id}' not found.")
+    provider = get_provider(conn.provider)
+    if is_storage_provider(provider) or is_mlflow_provider(provider):
+        # A storage/MLflow connection has no read_query/write_table — fail with a
+        # clear 400 instead of an AttributeError from deep inside the connector.
+        raise ValidationError(
+            f"Connection '{conn.name}' (provider '{conn.provider}') is not a database "
+            "connection — SQL nodes need a SQL or MongoDB connection."
+        )
     return conn
 
 

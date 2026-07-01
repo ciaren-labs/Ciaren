@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import importlib.util
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,29 @@ def ml_extension_ready() -> bool:
     The single gate for registering ML nodes and serving ML routes.
     """
     return ml_enabled() and ml_core_available()
+
+
+def guard_graph_ml_enabled(graph: dict[str, Any] | None) -> None:
+    """Reject executing/previewing a graph that uses ML nodes when the ML
+    extension is off.
+
+    ML node types are registered whenever the [ml] libraries are importable, so
+    without this a crafted graph could reach ML nodes even with ML_ENABLED false.
+    Shared by run and preview so the feature flag is a real gate everywhere.
+    """
+    from app.core.exceptions import MLNotEnabledError
+    from app.engine.registry import ml_node_types
+
+    ml_types = ml_node_types()
+    if not ml_types:
+        return
+    nodes = (graph or {}).get("nodes", [])
+    graph_types = {n.get("type") for n in nodes if isinstance(n, dict)}
+    if graph_types & ml_types and not ml_extension_ready():
+        raise MLNotEnabledError(
+            "This flow uses machine-learning nodes, but ML support is not enabled "
+            "on this server (set ML_ENABLED and install the [ml] extra)."
+        )
 
 
 def ml_status() -> dict[str, object]:
