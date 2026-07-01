@@ -1,7 +1,7 @@
 # Current Architecture Map (Phase 0)
 
 > Inventory of the extension points that the plugin/open-core refactor
-> (`docs/PLUGIN_ARCHITECTURE_PLAN.md`) needs to formalize. This is a snapshot of
+> (`internal/PLUGIN_ARCHITECTURE_PLAN.md`) needs to formalize. This is a snapshot of
 > **where knowledge lives today** so later phases can replace static wiring with
 > provider registration without missing a spot.
 
