@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { connectionsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
+import { toast } from "@/stores/toastStore";
 import type { ConnectionCreate, ConnectionUpdate } from "@/lib/types";
 
 export function useConnections() {
@@ -33,7 +34,12 @@ export function useCreateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: ConnectionCreate) => connectionsApi.create(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
+    // The connection form dialog renders failures inline.
+    meta: { suppressErrorToast: true },
+    onSuccess: (connection) => {
+      qc.invalidateQueries({ queryKey: queryKeys.connections });
+      toast.success(`Connection "${connection.name}" created`);
+    },
   });
 }
 
@@ -42,7 +48,12 @@ export function useUpdateConnection() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ConnectionUpdate }) =>
       connectionsApi.update(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
+    // The connection form dialog renders failures inline.
+    meta: { suppressErrorToast: true },
+    onSuccess: (connection) => {
+      qc.invalidateQueries({ queryKey: queryKeys.connections });
+      toast.success(`Connection "${connection.name}" updated`);
+    },
   });
 }
 
@@ -50,7 +61,11 @@ export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => connectionsApi.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
+    meta: { errorMessage: "Couldn't delete the connection" },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.connections });
+      toast.success("Connection deleted");
+    },
   });
 }
 
@@ -58,6 +73,8 @@ export function useTestConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => connectionsApi.test(id),
+    // Test results (pass and fail) are rendered inline next to the button.
+    meta: { suppressErrorToast: true },
     // Refresh the list so the "last tested" timestamp updates immediately.
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.connections }),
   });
@@ -66,6 +83,8 @@ export function useTestConnection() {
 export function useTestConnectionConfig() {
   return useMutation({
     mutationFn: (body: ConnectionCreate) => connectionsApi.testConfig(body),
+    // Test results (pass and fail) are rendered inline in the form dialog.
+    meta: { suppressErrorToast: true },
   });
 }
 

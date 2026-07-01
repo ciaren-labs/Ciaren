@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { datasetsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
+import { toast } from "@/stores/toastStore";
 
 export function useDatasets(projectId?: string) {
   return useQuery({
@@ -60,9 +61,15 @@ export function usePatchDataset() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: { is_disabled?: boolean } }) =>
       datasetsApi.patch(id, body),
-    onSuccess: () => {
+    meta: { errorMessage: "Couldn't update the dataset" },
+    onSuccess: (dataset) => {
       qc.invalidateQueries({ queryKey: queryKeys.datasets });
       qc.invalidateQueries({ queryKey: queryKeys.flows }); // cascade may disable flows
+      toast.success(
+        dataset.is_disabled
+          ? `Dataset "${dataset.name}" disabled`
+          : `Dataset "${dataset.name}" enabled`,
+      );
     },
   });
 }
@@ -71,9 +78,11 @@ export function useDeleteDataset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => datasetsApi.remove(id),
+    meta: { errorMessage: "Couldn't delete the dataset" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.datasets });
       qc.invalidateQueries({ queryKey: queryKeys.projects });
+      toast.success("Dataset deleted");
     },
   });
 }
@@ -83,9 +92,12 @@ export function useUploadDataset() {
   return useMutation({
     mutationFn: ({ file, projectId }: { file: File; projectId?: string }) =>
       datasetsApi.upload(file, projectId),
-    onSuccess: () => {
+    // The upload dropzone shows failures inline, next to where the file was dropped.
+    meta: { suppressErrorToast: true },
+    onSuccess: (dataset) => {
       qc.invalidateQueries({ queryKey: queryKeys.datasets });
       qc.invalidateQueries({ queryKey: queryKeys.projects });
+      toast.success(`Dataset "${dataset.name}" uploaded`);
     },
   });
 }

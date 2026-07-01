@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { runsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
+import { toast } from "@/stores/toastStore";
 import type { RunListFilters } from "@/lib/types";
 
 /** Filterable run history for the runs page. */
@@ -32,9 +33,13 @@ export function useRetryRun() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runsApi.retry(id),
-    onSuccess: () => {
+    meta: { errorMessage: "Couldn't retry the run" },
+    onSuccess: (run) => {
       qc.invalidateQueries({ queryKey: ["runs"] });
       qc.invalidateQueries({ queryKey: ["flows"] }); // refresh last_run_at
+      toast.success("Retry started", {
+        action: { label: "View run", to: `/runs/${run.id}` },
+      });
     },
   });
 }
