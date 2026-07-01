@@ -19,7 +19,7 @@ heavy orchestration stack.
 ![React](https://img.shields.io/badge/React-19-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
-![Ciaren visual workflow editor showing a data pipeline canvas](docs/public/screenshots/editor-full.png)
+![Ciaren visual workflow editor — Drop Nulls and Remove Duplicates cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline in the same flow](docs/public/screenshots/editor-clean-and-ml.png)
 
 > **Alpha software.** Ciaren is under active development. APIs, workflow
 > formats, generated code, plugin interfaces, and internal data models may
