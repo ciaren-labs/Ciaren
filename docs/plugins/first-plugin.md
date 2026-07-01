@@ -103,7 +103,7 @@ class _GreetingNodeProvider(NodeProvider):
                 category="columns",
                 description="Adds a constant greeting column.",
                 provider=PLUGIN_ID,
-                version="0.1.0",
+                version="0.1.0-alpha.1",
                 inputs=(PortSpec(id="in"),),
                 outputs=(PortSpec(id="out"),),
                 default_config={"column": "greeting", "name": "world"},
@@ -119,7 +119,7 @@ class GreetingPlugin(Plugin):
         return PluginMetadata(
             id=PLUGIN_ID,
             name="Greeting Plugin",
-            version="0.1.0",
+            version="0.1.0-alpha.1",
             publisher="community",
             description="Adds one node that writes a greeting column.",
         )
@@ -140,7 +140,7 @@ The loader validates a manifest **before importing any plugin code**. Create
 {
   "id": "community.greeting",
   "name": "Greeting Plugin",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "publisher": "community",
   "description": "Adds one node that writes a greeting column.",
   "ciaren": ">=0.1",
@@ -195,7 +195,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ciaren-greeting-plugin"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 requires-python = ">=3.12"
 dependencies = []
 
