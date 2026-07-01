@@ -63,13 +63,19 @@ disk today.
 
 ## 5. ML isolation (already partial)
 
-ML is **import-isolated** today: a base install never imports
-`app/engine/transformations/ml/` (gated on `ml_core_available()`), and ML node
-modules import sklearn lazily. ML lives in `app/engine/transformations/ml/` and
-`app/ml/`. The `ML_ENABLED` flag gates the product surface (palette/routes) at
-the service layer; the registry gates on library availability. This is close to
-the target "optional provider" model — Phase 1b expresses it as an explicit
-`NodeProvider` rather than a special-cased registry branch.
+scikit-learn, MLflow, and joblib are core dependencies, so `ml_core_available()`
+is effectively always true and `app/engine/transformations/ml/` loads normally
+on a base install. Import-isolation now matters only for XGBoost/LightGBM: their
+model builders (`_xgboost_classifier`, `_lightgbm_classifier`, etc. in
+`app/ml/models.py`) import those libraries lazily inside function bodies, so a
+base install without the `[ml]` extra never imports them — `ModelSpec.requires`
+gates each of those model types individually. ML lives in
+`app/engine/transformations/ml/` and `app/ml/`. The `ML_ENABLED` flag gates the
+product surface (palette/routes) at the service layer; the registry gates on
+library availability (a defensive check now, since the core libraries are
+guaranteed present). This is close to the target "optional provider" model —
+Phase 1b expresses it as an explicit `NodeProvider` rather than a
+special-cased registry branch.
 
 ## 6. Refactor seams (where providers plug in)
 

@@ -2,10 +2,13 @@
 """Detect which ML libraries are installed and whether the ML extension is usable.
 
 Mirrors ``app/connectors/providers.py``: an import-spec check (never importing the
-heavy library itself) plus a pip install hint surfaced in errors and the UI. The
-ML node registry and ML routes consult :func:`ml_extension_ready` so a base
-install behaves exactly as before — ML simply stays invisible until both the
-``[ml]`` extra is installed and ``ML_ENABLED`` is set.
+heavy library itself) plus a pip install hint surfaced in errors and the UI.
+scikit-learn, MLflow, and joblib are core dependencies, so ``ml_core_available()``
+is effectively always true on a normal install — the check mainly guards against a
+broken/stripped-down environment. XGBoost and LightGBM remain behind the ``[ml]``
+extra and are gated per-model (see ``ModelSpec.requires`` in ``app/ml/models.py``),
+not by this module's overall gate. The ML node registry and ML routes consult
+:func:`ml_extension_ready` as the single on/off switch for the feature as a whole.
 """
 
 from __future__ import annotations
@@ -18,17 +21,18 @@ from dataclasses import dataclass
 class MLLibrary:
     name: str  # distribution/display name (for messages)
     module: str  # importable module name (for the availability check)
-    extra: str = "ml"  # pip extra that provides it
+    extra: str = "ml"  # pip extra that provides it (only meaningful for XGBoost/LightGBM)
 
 
-# Libraries that ship in the ``[ml]`` extra.
 SKLEARN = MLLibrary("scikit-learn", "sklearn")
 MLFLOW = MLLibrary("MLflow", "mlflow")
 JOBLIB = MLLibrary("joblib", "joblib")
+# The two libraries actually gated behind the ``[ml]`` extra.
 XGBOOST = MLLibrary("XGBoost", "xgboost")
 LIGHTGBM = MLLibrary("LightGBM", "lightgbm")
 
-# The minimum set every ML node needs (training/persistence/tracking).
+# The minimum set every ML node needs (training/persistence/tracking) — all core
+# dependencies now, kept as a group for the availability check below.
 CORE_LIBRARIES: tuple[MLLibrary, ...] = (SKLEARN, MLFLOW, JOBLIB)
 
 

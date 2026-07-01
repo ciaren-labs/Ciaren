@@ -32,7 +32,7 @@ const NAV_AFTER_MODELS = [
   { to: "/plugins", label: "Plugins", icon: Blocks },
 ];
 
-// Shown only when the ML extension is enabled (the [ml] extra is installed).
+// Shown only when ML is enabled (CIAREN_ML_ENABLED, on by default).
 const ML_NAV = { to: "/models", label: "Models", icon: BrainCircuit };
 
 function isActive(pathname: string, to: string): boolean {

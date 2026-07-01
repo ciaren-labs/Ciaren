@@ -7,13 +7,13 @@ layout: doc
 
 # Machine Learning Nodes
 
-These nodes appear under **Machine Learning** in the palette when the ML
-extension is installed (`pip install "ciaren[ml]"`) and enabled. See the
+These nodes appear under **Machine Learning** in the palette by default — a
+plain `pip install ciaren` already includes scikit-learn and MLflow. See the
 [ML Quick Start](../guide/ml-quickstart.md) for an end-to-end walkthrough.
 
-All ML nodes run on scikit-learn (with optional XGBoost / LightGBM) and convert
-to pandas at the model boundary, so they work whether the flow's engine is polars
-or pandas.
+All ML nodes run on scikit-learn (with optional XGBoost / LightGBM via
+`pip install "ciaren[ml]"`) and convert to pandas at the model boundary, so
+they work whether the flow's engine is polars or pandas.
 
 <FlowPipeline
   :nodes='[

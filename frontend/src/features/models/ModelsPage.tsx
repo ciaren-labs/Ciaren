@@ -119,10 +119,11 @@ function MlDisabledNotice() {
   return (
     <div className="rounded-lg border border-dashed border-border p-10 text-center">
       <BrainCircuit className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-      <p className="text-sm font-medium">The ML extension isn’t enabled</p>
+      <p className="text-sm font-medium">Machine learning is disabled</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Install it with <code className="font-mono">pip install &quot;ciaren[ml]&quot;</code> and set{" "}
-        <code className="font-mono">CIAREN_ML_ENABLED=true</code> to train and track models.
+        Set <code className="font-mono">CIAREN_ML_ENABLED=true</code> to train and track models.
+        If it's already set, run <code className="font-mono">ciaren check</code> — this usually
+        means scikit-learn, MLflow, or joblib failed to import.
       </p>
     </div>
   );

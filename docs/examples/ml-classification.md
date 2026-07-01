@@ -10,11 +10,8 @@ Build a complete supervised-learning workflow on the canvas: split the data, tra
 a classifier, score the held-out test set, and read the metrics — then export a
 runnable scikit-learn script. Every model is logged to MLflow automatically.
 
-:::tip Requires the ML extension
-ML nodes appear under **Machine Learning** in the palette once you install the
-optional extension: `pip install "ciaren[ml]"`. See the
-[ML Quick Start](/guide/ml-quickstart).
-:::
+ML nodes appear under **Machine Learning** in the palette by default — see the
+[ML Quick Start](/guide/ml-quickstart) for setup details.
 
 **You'll use:** CSV Input → Train / Test Split → Train Classifier → Predict →
 Evaluate → File Output.

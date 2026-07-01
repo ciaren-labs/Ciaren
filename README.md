@@ -98,8 +98,8 @@ Then open `http://localhost:8055`.
   turning them into code.
 - **Python learners:** see how visual dataframe operations become pandas and
   Polars code.
-- **ML practitioners:** try lightweight, optional ML workflows with MLflow
-  tracking.
+- **ML practitioners:** try lightweight ML workflows with MLflow tracking,
+  built in from a plain `pip install ciaren`.
 - **Plugin authors:** build custom nodes and integrations against the public
   Plugin API/SDK.
 
@@ -115,7 +115,8 @@ Then open `http://localhost:8055`.
 - **SQL databases:** early support through saved connections.
 - **Scheduling:** alpha cron scheduler with retries, catch-up, overlap
   protection, and auto-disable.
-- **Machine Learning:** optional/experimental extension with MLflow tracking.
+- **Machine Learning:** built in, MLflow-tracked (alpha); XGBoost/LightGBM
+  models are an optional extra (`pip install ciaren[ml]`).
 - **Plugins:** alpha Plugin API/SDK with local discovery and signed package
   support.
 

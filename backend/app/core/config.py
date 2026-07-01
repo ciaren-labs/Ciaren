@@ -117,10 +117,12 @@ class Settings(BaseSettings):
     # default so the endpoint is disabled on fresh installs (no secret = 404).
     WEBHOOK_SECRET: str | None = None
 
-    # -- Machine learning (optional extension; see docs/ml-architecture.md) ----
-    # Feature flag. ML nodes/routes only activate when this is true AND the ``[ml]``
-    # extra is installed — so this default is safe for the lean base install (no
-    # [ml] = ML stays off regardless). Set false to force ML off even with [ml].
+    # -- Machine learning (core; see app/ml/availability.py) --------------------
+    # Feature flag. scikit-learn, MLflow, and joblib are core dependencies, so a
+    # plain `pip install ciaren` already has a working ML palette — this flag is
+    # just an operator on/off switch. XGBoost/LightGBM model types stay gated on
+    # the ``[ml]`` extra regardless of this flag. Set false to disable ML routes
+    # and hide the palette entirely.
     ML_ENABLED: bool = True
     # MLflow tracking + registry. Local ``./mlruns`` needs no server; accepts any
     # URI MLflow understands (sqlite:///, http://host:5000, databricks, ...).

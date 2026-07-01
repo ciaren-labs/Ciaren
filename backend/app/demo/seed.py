@@ -70,8 +70,8 @@ async def seed_demo(db: AsyncSession) -> Project | None:
 
 
 def _ml_available() -> bool:
-    """Whether to seed the ML demo datasets/flows: the [ml] extra is importable and
-    ML is enabled. Best-effort — any import problem means "no ML demo content"."""
+    """Whether to seed the ML demo datasets/flows: core ML libraries are importable
+    and ML is enabled. Best-effort — any import problem means "no ML demo content"."""
     try:
         from app.ml.availability import ml_extension_ready
 

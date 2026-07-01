@@ -46,7 +46,7 @@ export interface NodeTypeDef {
    *  cross-validation (emits a scores frame). The editor skips the "add an output
    *  node" check for flows ending here. */
   isFlowTerminal?: boolean;
-  /** Only available when the ML extension is installed + enabled on the server. */
+  /** Only available when ML is enabled on the server (CIAREN_ML_ENABLED). */
   requiresMl?: boolean;
   /** Registered for backward-compat but not shown in the palette (superseded). */
   hidden?: boolean;
