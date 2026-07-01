@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -27,11 +28,13 @@ class Ciaren:
         base_url: str,
         *,
         webhook_secret: str | None = None,
+        api_token: str | None = None,
         timeout: float = 30.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._secret = webhook_secret
-        self._client = httpx.Client(base_url=self._base_url, timeout=timeout)
+        headers = {"Authorization": f"Bearer {api_token}"} if api_token else None
+        self._client = httpx.Client(base_url=self._base_url, timeout=timeout, headers=headers)
 
     # ------------------------------------------------------------------
     # Context manager
@@ -68,17 +71,53 @@ class Ciaren:
         self,
         *,
         flow_id: str | None = None,
+        project_id: str | None = None,
+        dataset_id: str | None = None,
+        schedule_id: str | None = None,
+        status: str | None = None,
+        started_after: str | datetime | None = None,
+        started_before: str | datetime | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {
+            "limit": limit,
+            "offset": offset,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        }
         if flow_id:
             params["flow_id"] = flow_id
+        if project_id:
+            params["project_id"] = project_id
+        if dataset_id:
+            params["dataset_id"] = dataset_id
+        if schedule_id:
+            params["schedule_id"] = schedule_id
+        if status:
+            params["status"] = status
+        if started_after:
+            params["started_after"] = started_after.isoformat() if isinstance(started_after, datetime) else started_after
+        if started_before:
+            params["started_before"] = started_before.isoformat() if isinstance(started_before, datetime) else started_before
         r = self._client.get("/api/runs", params=params)
         r.raise_for_status()
         return r.json()
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         r = self._client.get(f"/api/runs/{run_id}")
+        r.raise_for_status()
+        return r.json()
+
+    def retry_run(self, run_id: str) -> dict[str, Any]:
+        """Retry a run via POST /api/runs/{id}/retry.
+
+        Re-runs the same flow with the original run's config, creating a new
+        run with a new id. Returns the newly created run dict.
+        """
+        r = self._client.post(f"/api/runs/{run_id}/retry")
         r.raise_for_status()
         return r.json()
 

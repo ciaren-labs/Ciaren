@@ -49,9 +49,21 @@ from ciaren_client import Ciaren
 client = Ciaren(
     base_url="http://localhost:8055",
     webhook_secret="my-secret",   # required only for trigger()
+    api_token="my-api-token",     # required only if CIAREN_API_TOKEN is set on the server
     timeout=30.0,                 # httpx request timeout in seconds
 )
 ```
+
+::: info API token for network-exposed servers
+Ciaren is unauthenticated by default (local-first). If the server sets
+`CIAREN_API_TOKEN` — recommended whenever it's reachable outside loopback,
+e.g. the Docker image or behind a reverse proxy — every `/api/*` request
+except `trigger()` must carry it, or the server returns `401`. Pass it as
+`api_token` and the client sends `Authorization: Bearer <token>` on every
+request. See [Advanced setup](/guide/advanced-setup) and
+[SECURITY.md](https://github.com/ciaren-labs/Ciaren/blob/main/SECURITY.md)
+for the deployment posture.
+:::
 
 Use it as a context manager to ensure the underlying `httpx.Client` is closed:
 
@@ -75,10 +87,24 @@ flows = client.list_flows()
 flow = client.get_flow("flow-id")
 ```
 
-#### `list_runs(*, flow_id=None, limit=100)`
+#### `list_runs(*, flow_id=None, project_id=None, dataset_id=None, schedule_id=None, status=None, started_after=None, started_before=None, sort_by="created_at", sort_order="desc", limit=100, offset=0)`
+
+Mirrors the filtering, sorting, and pagination options of `GET /api/runs`.
+`started_after`/`started_before` accept either a `datetime` or an ISO 8601
+string.
 
 ```python
 runs = client.list_runs(flow_id="flow-id")
+
+# Filter by schedule and status, sorted oldest-first, paginated
+runs = client.list_runs(
+    schedule_id="schedule-id",
+    status="failed",
+    sort_by="started_at",
+    sort_order="asc",
+    limit=50,
+    offset=50,
+)
 ```
 
 #### `get_run(run_id)`
@@ -86,6 +112,15 @@ runs = client.list_runs(flow_id="flow-id")
 ```python
 run = client.get_run("run-id")
 print(run["status"])  # "pending" | "running" | "success" | "failed"
+```
+
+#### `retry_run(run_id)`
+
+Re-runs the same flow with the original run's config, creating a new run
+(new id). Returns the new run dict.
+
+```python
+new_run = client.retry_run("run-id")
 ```
 
 #### `trigger(flow_id, *, engine=None, parameters=None)`
