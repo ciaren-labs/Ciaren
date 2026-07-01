@@ -33,6 +33,21 @@ FlowFrame is currently alpha software. Releases should include:
 - Passing CI for backend, frontend, docs, packaging, and security checks.
 - Clear notes for breaking changes, migration steps, or known limitations.
 
+### Versioning and Tags
+
+- Pre-1.0, versions are `0.MINOR.PATCH` with an `-alpha`/`-beta` suffix as
+  needed (e.g. `0.1.0-alpha`); breaking changes can happen between them.
+  Semantic versioning applies strictly from `1.0.0` onward.
+- `backend/pyproject.toml` is the source of truth for the current version.
+- Cutting a release: merge `development → main`, bump the version, update
+  `CHANGELOG.md`, then push a `vX.Y.Z` tag on `main`. The tag triggers the
+  `Package` workflow, which builds and uploads the wheel/sdist as a CI
+  artifact.
+- Publishing to PyPI is not yet automated — the `Package` workflow does not
+  push to PyPI. Until that's wired up (trusted publishing or an API token),
+  treat tagged releases as "artifact available on the run," not "installable
+  via pip."
+
 ## Becoming a Maintainer
 
 Maintainer access may be granted to contributors who consistently make high

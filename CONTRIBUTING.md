@@ -138,7 +138,7 @@ Authoritative places to check:
 - I/O node kinds: `backend/app/engine/node_kinds.py`
 - API routes: `backend/app/api/routes/`
 - Frontend features: `frontend/src/features/`
-- System architecture: `architecture.md`
+- System architecture: `docs/architecture/current-architecture-map.md`
 
 ### Backend (Python)
 
@@ -338,6 +338,26 @@ Format:
 - `test:` — tests only
 - `chore:` — dependencies, config, tooling
 
+### Developer Certificate of Origin (DCO)
+
+Every commit must be signed off to certify you have the right to submit the
+change under the project's license (see [Licensing](README.md#licensing)):
+
+```
+git commit -s -m "feat: add pivot table transformation"
+```
+
+This adds a `Signed-off-by: Your Name <you@example.com>` trailer using your
+configured Git identity. If you forgot to sign off, fix it before opening the
+PR:
+
+```
+git commit --amend -s        # last commit
+git rebase --signoff HEAD~3  # last 3 commits
+```
+
+A CI check verifies every commit in the PR is signed off.
+
 ### Create the PR
 
 1. Push your branch to your fork
@@ -424,7 +444,7 @@ Nulls remain unchanged.
 ## ✍️ Improving Documentation
 
 Documentation lives in:
-- **[architecture.md](architecture.md)** — system design
+- **[docs/architecture/current-architecture-map.md](docs/architecture/current-architecture-map.md)** — system design
 - **[README.md](README.md)** — project overview and quick start
 - **[docs/](docs/)** — user guides, API reference, examples, and plugin docs
 - **Code comments** — explain the "why", not the "what"

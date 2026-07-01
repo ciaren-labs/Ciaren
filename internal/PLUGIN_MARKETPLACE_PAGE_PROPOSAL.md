@@ -210,5 +210,5 @@ or authenticated/private** — that single answer shapes the catalog tier.
 
 - [Plugin Architecture Plan](./PLUGIN_ARCHITECTURE_PLAN.md) (§13 signatures, §14
   licensing, §15 distribution)
-- [Packaging & Distribution](./plugins/packaging-and-distribution.md)
-- [Plugin Security & Permissions](./security/plugin-security.md)
+- [Packaging & Distribution](../docs/plugins/packaging-and-distribution.md)
+- [Plugin Security & Permissions](../docs/security/plugin-security.md)
