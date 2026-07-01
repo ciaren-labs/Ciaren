@@ -194,7 +194,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Accept", "X-Ciaren-Secret"],
+        allow_headers=["Content-Type", "Authorization", "Accept", "X-Ciaren-Secret", "X-Ciaren-Token"],
     )
     # Compress responses (the served JS/CSS bundle and large JSON payloads).
     app.add_middleware(GZipMiddleware, minimum_size=1024)
