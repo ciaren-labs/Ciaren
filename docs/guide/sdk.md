@@ -19,7 +19,7 @@ pip install ciaren-client
 Or from the repository during development:
 
 ```bash
-pip install -e path/to/FlowFrame/client
+pip install -e path/to/Ciaren/client
 ```
 
 ## Quick start
