@@ -26,7 +26,7 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
 | Method | Path | Description |
 | --- | --- | --- |
 | `POST` | `/api/flows/{flow_id}/runs` | Execute a flow (optional body `{"engine": "polars"}`) and create a run |
-| `GET` | `/api/runs` | List runs, filterable by `flow_id`, `project_id`, `dataset_id`, `status`, `schedule_id`, and date range |
+| `GET` | `/api/runs` | List runs, filterable by `flow_id`, `project_id`, `dataset_id`, `status`, `schedule_id`, and start-time range |
 | `GET` | `/api/runs/{run_id}` | Get run status, output location, logs, and per-node results |
 | `POST` | `/api/runs/{run_id}/retry` | Re-run this run's flow with the same config; produces a new run (new id) |
 | `GET` | `/api/runs/{run_id}/logs/stream` | Stream run log entries as [server-sent events](#log-streaming-sse) |
@@ -35,6 +35,11 @@ Runs created by a schedule carry a `trigger` and `schedule_id` — filter with
 `GET /api/runs?schedule_id=` or `GET /api/schedules/{id}/runs`.
 
 Runs started via the [webhook endpoint](/guide/webhook) carry `"trigger": "webhook"`.
+
+Date filters are named for the column they use: `started_after` and
+`started_before` compare against `started_at` (ISO 8601 datetimes). The list also
+accepts `sort_by` (`created_at`, `started_at`, `status`), `sort_order` (`asc` or
+`desc`), `limit` (1-10000, default 100), and `offset` (default 0).
 
 ## Log streaming (SSE)
 

@@ -19,8 +19,8 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 - **Projects** (`/projects`) — lightweight workspaces that group related datasets
   and flows. A `Default` project always exists. See
   [Projects & Runs](/guide/projects-and-runs).
-- **Datasets** (`/datasets`) — upload and inspect source files (CSV, Excel,
-  Parquet), with versioning. Each dataset has a **Profile** tab with per-column
+- **Datasets** (`/datasets`) — upload and inspect source files (CSV, TSV, Excel,
+  Parquet, JSON/JSONL, and text), with versioning. Each dataset has a **Profile** tab with per-column
   statistics (nulls, distinct counts, ranges, top values), computed at upload
   time.
 - **Connections** (`/connections`) — reusable database connections for the SQL
@@ -55,7 +55,9 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
   ![Config panel — Fill Nulls node selected, showing Strategy dropdown and column chip selector](/screenshots/editor-node-config.png)
 - **Live preview** — open with the **Preview** button, then click **Run preview**
   to fetch a sample of the output (whole-flow or the selected node). Backed by
-  `POST /api/flows/{id}/preview` and `POST /api/transformations/preview`.
+  `POST /api/flows/{id}/preview` and `POST /api/transformations/preview`. Flow
+  previews use the last saved version of the flow; save before previewing if the
+  canvas has unsaved edits.
 
   ![Data Preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
 - **Profile** — alongside the preview, a one-click **Profile** view shows

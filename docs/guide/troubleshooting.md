@@ -62,6 +62,10 @@ Add the calling origin to `CIAREN_CORS_ORIGINS` (a JSON list) in
 CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
+If API auth is enabled, browser clients can send either
+`Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`; both are allowed by
+the API's CORS preflight handling.
+
 ## Upload rejected as too large
 
 The default upload limit is 100 MB. Raise it with
