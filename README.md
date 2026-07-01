@@ -388,7 +388,7 @@ marketplace guidance.
 
 ## 🙏 Acknowledgments
 
-- Created and maintained by **Rodrigo Arenas** — [rodrigo-arenas.com](https://www.rodrigo-arenas.com/) · [GitHub](https://github.com/rodrigo-arenas)
+- Created and maintained by **Rodrigo Arenas**, machine-learning engineer and open-source creator — [rodrigo-arenas.com](https://www.rodrigo-arenas.com/) · [GitHub](https://github.com/rodrigo-arenas) · [LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/)
 - Built with [FastAPI](https://fastapi.tiangolo.com/), [React Flow](https://reactflow.dev/),
   [pandas](https://pandas.pydata.org/), [polars](https://pola.rs/), and [shadcn/ui](https://ui.shadcn.com/)
 - Inspired by the simplicity of pandas and the visual design of node-based editors
@@ -403,4 +403,4 @@ marketplace guidance.
 
 ---
 
-**Made with ❤️ for data practitioners who value simplicity and reproducibility.**
+**Made for data practitioners who value simplicity, reproducibility, and useful ML workflows.**
