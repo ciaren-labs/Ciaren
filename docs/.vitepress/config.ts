@@ -1,6 +1,18 @@
 import { defineConfig } from 'vitepress'
 
 const gaMeasurementId = process.env.VITEPRESS_GA_ID
+const docsOrigin = 'https://docs.ciaren.com'
+const socialImage = `${docsOrigin}/Ciaren.png`
+
+function pageUrl(page: string) {
+  const path = page
+    .replace(/\\/g, '/')
+    .replace(/(^|\/)index\.md$/, '$1')
+    .replace(/\.md$/, '')
+    .replace(/^\/+/, '')
+
+  return path ? `${docsOrigin}/${path}` : `${docsOrigin}/`
+}
 
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
 // public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
@@ -38,6 +50,7 @@ export default defineConfig({
   description:
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
+  srcExclude: ['README.md'],
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
@@ -64,8 +77,7 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       content:
         'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
     }],
-    ['meta', { property: 'og:image', content: 'https://rodrigo-arenas.github.io/Ciaren/Ciaren.png' }],
-    ['meta', { property: 'og:url', content: 'https://rodrigo-arenas.github.io/Ciaren/' }],
+    ['meta', { property: 'og:image', content: socialImage }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
@@ -74,11 +86,20 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       content:
         'Open-source, plugin-first, local-first platform for Data Engineering and Machine Learning workflows. Build visually, export portable Python.',
     }],
-    ['meta', { name: 'twitter:image', content: 'https://rodrigo-arenas.github.io/Ciaren/Ciaren.png' }],
+    ['meta', { name: 'twitter:image', content: socialImage }],
   ],
 
   sitemap: {
-    hostname: 'https://rodrigo-arenas.github.io/Ciaren/',
+    hostname: docsOrigin,
+  },
+
+  transformHead({ page }) {
+    const url = pageUrl(page)
+
+    return [
+      ['link', { rel: 'canonical', href: url }],
+      ['meta', { property: 'og:url', content: url }],
+    ]
   },
 
   lastUpdated: true,
