@@ -37,18 +37,18 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("ff_palette_collapsed") === "true";
+    return localStorage.getItem("ciaren_palette_collapsed") === "true";
   });
   // User-adjustable panel width (px), persisted. Clamped to a sensible range.
   const [width, setWidth] = useState(() => {
-    const v = Number(localStorage.getItem("ff_palette_width"));
+    const v = Number(localStorage.getItem("ciaren_palette_width"));
     return v >= PALETTE_MIN_WIDTH && v <= PALETTE_MAX_WIDTH ? v : PALETTE_DEFAULT_WIDTH;
   });
 
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
-    localStorage.setItem("ff_palette_collapsed", String(next));
+    localStorage.setItem("ciaren_palette_collapsed", String(next));
   };
 
   // Drag the right edge to resize. Listeners live on the window so the drag keeps
@@ -67,7 +67,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       window.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      localStorage.setItem("ff_palette_width", String(Math.round(latest)));
+      localStorage.setItem("ciaren_palette_width", String(Math.round(latest)));
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";

@@ -75,14 +75,14 @@ async def _make_connection(db: AsyncSession, monkeypatch: pytest.MonkeyPatch, bu
     The secret is resolved from an env var at call time (never persisted), so we
     point ``password_env`` at a variable we set here.
     """
-    monkeypatch.setenv("FF_TEST_FLOW_S3_SECRET", _SECRET_KEY)
+    monkeypatch.setenv("CIAREN_TEST_FLOW_S3_SECRET", _SECRET_KEY)
     conn = Connection(
         name=f"minio-{uuid.uuid4().hex[:8]}",
         provider="s3",
         host=_ENDPOINT,  # -> StorageSpec.endpoint_url
         database=bucket,  # -> StorageSpec.bucket
         username=_ACCESS_KEY,  # -> StorageSpec.access_key
-        password_env="FF_TEST_FLOW_S3_SECRET",
+        password_env="CIAREN_TEST_FLOW_S3_SECRET",
         options_json={"region": _REGION},
     )
     db.add(conn)

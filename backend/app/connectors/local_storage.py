@@ -106,7 +106,7 @@ class LocalStorageConnector:
                 raise ConnectorError(f"Cannot create folder {root}: {exc}") from None
         if not root.is_dir():
             raise ConnectorError(f"{root} exists but is not a directory.")
-        probe = root / ".ff_probe"
+        probe = root / ".ciaren_probe"
         try:
             probe.touch()
             probe.unlink()
