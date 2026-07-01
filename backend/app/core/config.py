@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     MAX_UPLOAD_SIZE_MB: int = 100
 
+    # Extra hostnames trusted by the browser-origin (CSRF) guard, beyond the
+    # always-trusted local ones (localhost / 127.0.0.1 / ::1). A state-changing
+    # /api request whose Origin header is neither a CORS_ORIGINS entry nor from
+    # a trusted hostname is refused — this stops malicious websites from firing
+    # cross-site POSTs at a local, unauthenticated Ciaren (which reaches plugin
+    # install, i.e. code execution). Add the hostname here when serving the UI
+    # from a non-local name without an API token (e.g. ["ciaren.lan"]); when
+    # API_TOKEN is set the guard is unnecessary and steps aside. See app/core/csrf.py.
+    TRUSTED_HOSTS: list[str] = []
+
     # Strict static checks for the pythonTransform node. Off by default so existing
     # scripts (e.g. `import numpy`) keep working. When on, a script is rejected at
     # save/preview/run time if it uses a dangerous import (os/sys/subprocess/…), a

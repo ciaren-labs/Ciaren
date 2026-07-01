@@ -48,6 +48,15 @@ are intentionally available. They run with the privileges of the local process.
   permissions is not imported until you approve it.
 - **Tampered packages are refused.** A `.ciarenplugin` whose contents don't match its
   signature digest never installs.
+- **Cross-site requests can't drive the local API.** Any website you visit can
+  *send* requests to `http://127.0.0.1` — CORS only stops it from reading the
+  responses. Ciaren therefore refuses state-changing `/api` requests whose
+  browser `Origin` is not a `CORS_ORIGINS` entry or a local hostname
+  (`localhost` / `127.0.0.1` / `::1`; extend with `CIAREN_TRUSTED_HOSTS`). This
+  closes the CSRF/DNS-rebinding path where a malicious page installs and enables
+  a plugin behind your back. Non-browser clients (CLI, curl) send no `Origin`
+  and are unaffected; when `CIAREN_API_TOKEN` is set the token gate covers this
+  instead.
 
 ## Hardening for shared / team use (future)
 
