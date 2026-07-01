@@ -106,8 +106,8 @@ npm update
 
 For non-security issues:
 
-- **Bugs:** [Open a GitHub Issue](https://github.com/rodrigo-arenas/FlowFrame/issues)
-- **Questions:** [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
+- **Bugs:** [Open a GitHub Issue](https://github.com/rodrigo-arenas/Ciaren/issues)
+- **Questions:** [GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
 - **Performance concerns:** Include dataset size, transformation complexity, timing info
 
 **Thank you for helping keep Ciaren safe and secure.**

@@ -119,7 +119,7 @@ publicly without authentication when Python Transform nodes are in use.
   is lazy — the engine handles materialization. For complex polars pipelines,
   the polars executor wraps this node's output automatically.
 - For complex transformations that you'll reuse across flows, consider
-  [contributing a new node](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+  [contributing a new node](https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md)
   to the registry so it gains a proper config UI, validation, and test coverage.
 
 ## See also
