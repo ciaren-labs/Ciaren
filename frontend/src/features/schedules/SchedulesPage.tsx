@@ -84,7 +84,7 @@ export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
 export function SchedulesPage() {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
-  const { data: schedules, isLoading, isError, error, refetch } = useSchedules();
+  const { data: schedules, isPending, isError, error, refetch } = useSchedules();
   const { data: flows } = useFlows();
   const { data: projects } = useProjects();
   const createSchedule = useCreateSchedule();
@@ -212,7 +212,7 @@ export function SchedulesPage() {
         </FilterField>
       </FilterBar>
 
-      {isLoading ? (
+      {isPending ? (
         <LoadingState label="Loading schedules…" />
       ) : isError ? (
         <ErrorState error={error} title="Couldn't load schedules" onRetry={() => refetch()} />

@@ -34,7 +34,7 @@ type PendingAction =
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { data: projects, isLoading, isError, error, refetch } = useProjects();
+  const { data: projects, isPending, isError, error, refetch } = useProjects();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
@@ -106,10 +106,10 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      {isLoading && <LoadingState label="Loading projects…" />}
+      {isPending && <LoadingState label="Loading projects…" />}
       {isError && <ErrorState error={error} title="Couldn't load projects" onRetry={() => refetch()} />}
 
-      {!isLoading && !isError && (projects ?? []).length === 0 && (
+      {!isPending && !isError && (projects ?? []).length === 0 && (
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"

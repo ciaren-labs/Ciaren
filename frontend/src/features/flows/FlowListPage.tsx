@@ -49,7 +49,7 @@ const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
 };
 
 export function FlowListPage() {
-  const { data: flows, isLoading, isError, error, refetch } = useFlows();
+  const { data: flows, isPending, isError, error, refetch } = useFlows();
   const { data: projects } = useProjects();
   const createFlow = useCreateFlow();
   const deleteFlow = useDeleteFlow();
@@ -382,7 +382,7 @@ export function FlowListPage() {
         </div>
       )}
 
-      {isLoading && <LoadingState label="Loading flows…" />}
+      {isPending && <LoadingState label="Loading flows…" />}
       {isError && <ErrorState error={error} title="Couldn't load flows" onRetry={() => refetch()} />}
 
       <div className="flex flex-col gap-4">
@@ -428,7 +428,7 @@ export function FlowListPage() {
         })}
       </div>
 
-      {!isLoading && !isError && filtered.length === 0 && (
+      {!isPending && !isError && filtered.length === 0 && (
         search || projectFilter ? (
           <EmptyState
             icon={Workflow}
