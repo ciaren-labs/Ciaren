@@ -61,7 +61,7 @@ async def test_create_schedule_sets_next_run(client: AsyncClient) -> None:
     assert r.status_code == 201, r.text
     sched = r.json()
     assert sched["cron"] == "0 9 * * *"
-    assert sched["enabled"] is True
+    assert sched["is_enabled"] is True
     assert sched["catch_up"] is False
     assert sched["next_run_at"] is not None
     assert sched["engine"] is None
@@ -116,13 +116,13 @@ async def test_disable_clears_next_run_then_reenable_restores(client: AsyncClien
     flow = await _flow(client)
     created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
 
-    disabled = await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})
+    disabled = await client.patch(f"/api/schedules/{created['id']}", json={"is_enabled": False})
     assert disabled.status_code == 200
-    assert disabled.json()["enabled"] is False
+    assert disabled.json()["is_enabled"] is False
     assert disabled.json()["next_run_at"] is None
 
-    enabled = await client.patch(f"/api/schedules/{created['id']}", json={"enabled": True})
-    assert enabled.json()["enabled"] is True
+    enabled = await client.patch(f"/api/schedules/{created['id']}", json={"is_enabled": True})
+    assert enabled.json()["is_enabled"] is True
     assert enabled.json()["next_run_at"] is not None
 
 
@@ -190,10 +190,10 @@ async def test_reenabling_clears_failure_state(client: AsyncClient) -> None:
     assert created["max_retries"] == 0
     assert created["consecutive_failures"] == 0
 
-    disabled = (await client.patch(f"/api/schedules/{created['id']}", json={"enabled": False})).json()
-    assert disabled["enabled"] is False
+    disabled = (await client.patch(f"/api/schedules/{created['id']}", json={"is_enabled": False})).json()
+    assert disabled["is_enabled"] is False
 
-    reenabled = (await client.patch(f"/api/schedules/{created['id']}", json={"enabled": True})).json()
-    assert reenabled["enabled"] is True
+    reenabled = (await client.patch(f"/api/schedules/{created['id']}", json={"is_enabled": True})).json()
+    assert reenabled["is_enabled"] is True
     assert reenabled["consecutive_failures"] == 0
     assert reenabled["disabled_reason"] is None

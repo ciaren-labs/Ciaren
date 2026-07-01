@@ -92,7 +92,7 @@ class SchedulerRunner:
         async with self._session_factory() as db:
             result = await db.execute(
                 select(Schedule).where(
-                    Schedule.enabled.is_(True),
+                    Schedule.is_enabled.is_(True),
                     Schedule.next_run_at.is_not(None),
                     Schedule.next_run_at <= now,
                 )
@@ -111,7 +111,7 @@ class SchedulerRunner:
         try:
             async with self._sem, self._session_factory() as db:
                 schedule = await db.get(Schedule, schedule_id)
-                if schedule is None or not schedule.enabled:
+                if schedule is None or not schedule.is_enabled:
                     return
                 await self._execute(db, schedule)
         except Exception:  # noqa: BLE001 - never let a fire crash the scheduler
@@ -156,7 +156,7 @@ class SchedulerRunner:
         threshold = self._settings.SCHEDULER_MAX_CONSECUTIVE_FAILURES
 
         if threshold > 0 and schedule.consecutive_failures >= threshold:
-            schedule.enabled = False
+            schedule.is_enabled = False
             schedule.next_run_at = None
             schedule.retry_count = 0
             schedule.disabled_reason = f"Auto-disabled after {schedule.consecutive_failures} consecutive failures"
@@ -215,7 +215,7 @@ class SchedulerRunner:
         """
         now = datetime.now(UTC).replace(tzinfo=None)
         async with self._session_factory() as db:
-            result = await db.execute(select(Schedule).where(Schedule.enabled.is_(True)))
+            result = await db.execute(select(Schedule).where(Schedule.is_enabled.is_(True)))
             changed = False
             for schedule in result.scalars().all():
                 if schedule.next_run_at is None:

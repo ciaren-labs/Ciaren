@@ -40,13 +40,13 @@ class ScheduleService:
             cron=data.cron,
             timezone=data.timezone,
             engine=data.engine,
-            enabled=data.enabled,
+            is_enabled=data.is_enabled,
             catch_up=data.catch_up,
             max_retries=data.max_retries,
             retry_delay_seconds=data.retry_delay_seconds,
             run_timeout_seconds=data.run_timeout_seconds,
             parameters_json=data.parameters,
-            next_run_at=(compute_next_run(data.cron, now, data.timezone) if data.enabled else None),
+            next_run_at=(compute_next_run(data.cron, now, data.timezone) if data.is_enabled else None),
         )
         self.db.add(schedule)
         await self.db.commit()
@@ -81,17 +81,20 @@ class ScheduleService:
 
         # Re-enabling clears the failure streak so an auto-disabled schedule gets
         # a clean slate instead of tripping the threshold again immediately.
-        if updates.get("enabled") is True:
+        if updates.get("is_enabled") is True:
             schedule.consecutive_failures = 0
             schedule.retry_count = 0
             schedule.disabled_reason = None
 
         # Recompute the next fire time when the cadence changed or the schedule
         # was just (re)enabled; clear it when disabled so the poller ignores it.
-        if not schedule.enabled:
+        if not schedule.is_enabled:
             schedule.next_run_at = None
         elif (
-            "cron" in updates or "timezone" in updates or updates.get("enabled") is True or schedule.next_run_at is None
+            "cron" in updates
+            or "timezone" in updates
+            or updates.get("is_enabled") is True
+            or schedule.next_run_at is None
         ):
             now = datetime.now(UTC).replace(tzinfo=None)
             schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)

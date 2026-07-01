@@ -91,7 +91,7 @@ export function ScheduleFormDialog({
     setCronModel(schedule ? parseCron(schedule.cron) : DEFAULT_CRON_MODEL);
     setTimezone(schedule?.timezone ?? "UTC");
     setEngine(schedule?.engine ?? "");
-    setEnabled(schedule?.enabled ?? true);
+    setEnabled(schedule?.is_enabled ?? true);
     setCatchUp(schedule?.catch_up ?? false);
     setMaxRetries(schedule?.max_retries ?? 0);
     setRetryDelay(schedule?.retry_delay_seconds ?? 60);
@@ -130,7 +130,7 @@ export function ScheduleFormDialog({
       description: description.trim() || undefined,
       timezone,
       engine: engine || null,
-      enabled,
+      is_enabled: enabled,
       catch_up: catchUp,
       max_retries: maxRetries,
       retry_delay_seconds: retryDelay,
