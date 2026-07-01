@@ -38,7 +38,7 @@ class _MyNodes(NodeProvider):
 
 class AcmePlugin(Plugin):
     def metadata(self) -> PluginMetadata:
-        return PluginMetadata(id="acme.hello", name="Acme Hello", version="0.1.0")
+        return PluginMetadata(id="acme.hello", name="Acme Hello", version="0.1.0-alpha.1")
 
     def register(self, registry: ServiceRegistry) -> None:
         registry.register_node_provider(_MyNodes())

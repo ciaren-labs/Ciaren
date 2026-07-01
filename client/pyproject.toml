@@ -9,17 +9,18 @@ description = "Python client for the Ciaren visual data and ML workflow server"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
-license = { text = "AGPL-3.0-only" }
+license = { text = "Apache-2.0" }
 keywords = ["ciaren", "data", "workflow", "etl", "ml", "api-client", "data-engineering"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -27,7 +28,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://www.rodrigo-arenas.com/"
+Homepage = "https://www.ciaren.com/"
 Repository = "https://github.com/ciaren-labs/Ciaren"
 Documentation = "https://ciaren.com/docs"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"

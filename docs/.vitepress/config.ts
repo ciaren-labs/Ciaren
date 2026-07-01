@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 const gaMeasurementId = process.env.VITEPRESS_GA_ID
-const docsOrigin = 'https://docs.ciaren.com'
+const docsOrigin = 'https://ciaren.com/docs'
 const socialImage = `${docsOrigin}/Ciaren.png`
 
 // Set by CI to build a pinned version snapshot at /v/<tag>/ instead of the

@@ -2,7 +2,7 @@ import { ExternalLink, Github } from "lucide-react";
 
 const WEBSITE_URL = "https://www.ciaren.com";
 const REPO_URL = "https://github.com/ciaren-labs/Ciaren";
-const DOCS_URL = "https://docs.ciaren.com";
+const DOCS_URL = "https://ciaren.com/docs";
 
 export function AppFooter() {
   return (

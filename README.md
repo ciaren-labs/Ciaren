@@ -120,14 +120,14 @@ Then open `http://localhost:8055`.
 - **Plugins:** alpha Plugin API/SDK with local discovery and signed package
   support.
 
-For full details, see the [documentation](https://docs.ciaren.com/).
+For full details, see the [documentation](https://ciaren.com/docs/).
 
 ## Documentation
 
-- [Quick Start](https://docs.ciaren.com/guide/quick-start)
-- [Examples](https://docs.ciaren.com/examples/sales-analysis)
-- [Plugin Guide](https://docs.ciaren.com/plugins/first-plugin)
-- [Roadmap](https://docs.ciaren.com/guide/roadmap)
+- [Quick Start](https://ciaren.com/docs/guide/quick-start)
+- [Examples](https://ciaren.com/docs/examples/sales-analysis)
+- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin)
+- [Roadmap](https://ciaren.com/docs/guide/roadmap)
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 

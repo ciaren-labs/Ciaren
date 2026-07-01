@@ -12,7 +12,8 @@ application, ships both a synchronous (`Ciaren`) and an async (`AsyncCiaren`)
 client, and depends only on `httpx`.
 
 Current alpha version: `0.1.0-alpha.1`. The package is typed and ships
-`py.typed` for editors and type checkers.
+`py.typed` for editors and type checkers. The SDK is licensed under
+Apache-2.0.
 
 ## Installation
 

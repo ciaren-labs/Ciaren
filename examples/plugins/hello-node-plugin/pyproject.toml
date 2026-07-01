@@ -4,9 +4,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ciaren-hello-plugin"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 description = "Example Ciaren plugin contributing one catalog node."
 requires-python = ">=3.12"
+authors = [{ name = "Ciaren contributors" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 # Depends only on the Ciaren plugin contract, never on the app internals.
 # (Until ciaren-plugin-api is published separately, this resolves to the
 # app.plugin_api package inside the Ciaren backend.)

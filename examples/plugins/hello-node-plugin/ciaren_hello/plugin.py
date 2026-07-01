@@ -63,7 +63,7 @@ class _HelloNodeProvider(NodeProvider):
                 category="columns",
                 description="Example plugin node: adds a greeting column.",
                 provider=PLUGIN_ID,
-                version="0.1.0",
+                version="0.1.0-alpha.1",
                 inputs=(PortSpec(id="in"),),
                 outputs=(PortSpec(id="out"),),
                 default_config={"column": "greeting", "name": "world"},
@@ -80,7 +80,7 @@ class HelloPlugin(Plugin):
         return PluginMetadata(
             id=PLUGIN_ID,
             name="Hello Plugin",
-            version="0.1.0",
+            version="0.1.0-alpha.1",
             publisher="community",
             description="A minimal example plugin that contributes one executable node.",
         )
