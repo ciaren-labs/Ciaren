@@ -84,7 +84,9 @@ async def verify_api_token(request: Request) -> None:
     if _is_exempt(request.url.path, request.method):
         return
     presented = _presented_token(request)
-    if presented is None or not hmac.compare_digest(presented, token):
+    # Compare as bytes: compare_digest raises TypeError on non-ASCII str input,
+    # which would turn a malformed token into a 500 instead of a 401.
+    if presented is None or not hmac.compare_digest(presented.encode(), token.encode()):
         raise HTTPException(
             status_code=401,
             detail="Missing or invalid API token.",
