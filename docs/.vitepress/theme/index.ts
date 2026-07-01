@@ -13,12 +13,14 @@ import ScheduleCycle from './components/ScheduleCycle.vue'
 import ParamFlow from './components/ParamFlow.vue'
 import DomainModel from './components/DomainModel.vue'
 import SidebarToggles from './components/SidebarToggles.vue'
+import CookieConsent from './components/CookieConsent.vue'
 
 export default {
   extends: DefaultTheme,
   Layout: () => {
     return h(DefaultTheme.Layout, null, {
       'layout-top': () => h(SidebarToggles),
+      'layout-bottom': () => h(CookieConsent),
     })
   },
   enhanceApp({ app }) {

@@ -71,16 +71,35 @@ export default defineConfig({
     ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
     ['link', { rel: 'alternate icon', href: '/favicon.ico' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon-180.png' }],
+    // Consent-gated Google Analytics: nothing loads and no cookies are set
+    // until the visitor accepts the banner (theme/components/CookieConsent.vue).
+    // A previous "granted" choice in localStorage re-enables it immediately on
+    // return visits, before hydration.
     ...(gaMeasurementId
       ? [
-          ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}` }],
           [
             'script',
             {},
-            `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', ${JSON.stringify(gaMeasurementId)});`,
+            `;(function () {
+  var id = ${JSON.stringify(gaMeasurementId)};
+  window.__ciarenLoadAnalytics = function () {
+    if (window.__ciarenAnalyticsLoaded) return;
+    window.__ciarenAnalyticsLoaded = true;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', id, { anonymize_ip: true });
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
+    document.head.appendChild(s);
+  };
+  try {
+    if (localStorage.getItem('ciaren-analytics-consent') === 'granted') {
+      window.__ciarenLoadAnalytics();
+    }
+  } catch (e) { /* storage unavailable: stay opted out */ }
+})();`,
           ],
         ]
       : []),
@@ -479,8 +498,14 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
         '<a href="https://github.com/ciaren-labs/Ciaren" target="_blank" rel="noreferrer">GitHub</a> · ' +
         '<a href="https://github.com/ciaren-labs/Ciaren/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
         '<a href="https://github.com/ciaren-labs/Ciaren/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
-        '<a href="https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
-        'Released under the Apache License 2.0. Created by ' +
+        '<a href="https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a> · ' +
+        // Fully-qualified docsOrigin links so legal pages resolve correctly
+        // from versioned snapshot builds too (see the Versions nav comment).
+        `<a href="${docsOrigin}/legal/terms">Terms of Use</a> · ` +
+        `<a href="${docsOrigin}/legal/privacy">Privacy</a><br>` +
+        'Released under the <a href="https://github.com/ciaren-labs/Ciaren/blob/main/LICENSE" target="_blank" rel="noreferrer">AGPL-3.0 license</a> ' +
+        '(public Plugin API under <a href="https://github.com/ciaren-labs/Ciaren/blob/main/LICENSES/Apache-2.0.txt" target="_blank" rel="noreferrer">Apache-2.0</a>). ' +
+        'No warranty — provided “as is”. Created by ' +
         '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
         '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',
       copyright:
