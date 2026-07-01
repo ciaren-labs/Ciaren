@@ -2,6 +2,7 @@
 name = "ciaren"
 version = "0.1.0"
 description = "Open-core visual data and ML workflow builder — local-first, dataframe-based"
+dynamic = ["readme"]
 requires-python = ">=3.12"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 classifiers = [
@@ -92,6 +93,11 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Inlines the repo-root README as the long description (see hatch_metadata.py
+# for why this can't just be `readme = "../README.md"`).
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_metadata.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
