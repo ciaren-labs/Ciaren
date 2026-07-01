@@ -1,4 +1,4 @@
-# Writing a FlowFrame plugin
+# Writing a Ciaren plugin
 
 A plugin can contribute to the catalog (nodes/connectors/engines/exporters/
 validators), declare capabilities and permissions, ship **executable** nodes that
@@ -6,9 +6,9 @@ run end-to-end (via `NodeRuntime`), and subscribe to lifecycle/execution
 **events**.
 
 A plugin is a small Python package that implements the `Plugin` contract and
-registers one or more providers. It depends **only** on the FlowFrame plugin API
-(`app.plugin_api`, which will publish separately as `flowframe-plugin-api`) — never
-on FlowFrame's private internals.
+registers one or more providers. It depends **only** on the Ciaren plugin API
+(`app.plugin_api`, which will publish separately as `ciaren-plugin-api`) — never
+on Ciaren's private internals.
 
 See a complete, runnable example in
 [`examples/plugins/hello-node-plugin/`](../../examples/plugins/hello-node-plugin/).
@@ -52,7 +52,7 @@ Other provider interfaces you can register: `ConnectorProvider`,
 
 A `NodeSpec` only *describes* a node. To make it run, ship a `NodeRuntime` and
 return it from the provider's `node_implementations()`, keyed by node id. The
-runtime works on **pandas** frames; FlowFrame bridges to the active engine
+runtime works on **pandas** frames; Ciaren bridges to the active engine
 (pandas/polars) automatically, so a single runtime runs on both.
 
 ```python
@@ -120,27 +120,27 @@ on them firing): `plugin_installed` (install runs in the CLI, a separate process
 
 ## 2. Add a manifest
 
-`flowframe-plugin.json` at the plugin directory root — see
+`ciaren-plugin.json` at the plugin directory root — see
 [plugin-manifest.md](../specs/plugin-manifest.md). The loader validates it and
-checks `flowframe` compatibility before importing your code.
+checks `ciaren` compatibility before importing your code.
 
 ## 3. Make it discoverable
 
 **Installed package** — declare an entry point in `pyproject.toml`:
 
 ```toml
-[project.entry-points."flowframe.plugins"]
+[project.entry-points."ciaren.plugins"]
 acme = "acme_hello.plugin:AcmePlugin"
 ```
 
 **Local directory (no install)** — drop the plugin directory under a path on
-`FLOWFRAME_PLUGINS_DIR` (or `~/.flowframe/plugins`), with its `flowframe-plugin.json`
+`CIAREN_PLUGINS_DIR` (or `~/.ciaren/plugins`), with its `ciaren-plugin.json`
 declaring an `entrypoint`.
 
 ## 4. Verify
 
 ```bash
-flowframe serve
+ciaren serve
 curl localhost:8055/api/plugins
 curl localhost:8055/api/plugins/diagnostics   # shows isolated load errors
 curl localhost:8055/api/catalog/nodes          # your node appears here
@@ -148,7 +148,7 @@ curl localhost:8055/api/catalog/nodes          # your node appears here
 
 ## Rules
 
-- Depend only on `app.plugin_api`; never import FlowFrame internals.
+- Depend only on `app.plugin_api`; never import Ciaren internals.
 - Ids must be unique. A plugin cannot shadow a core node id — the registry rejects
   the collision and rolls the whole plugin back.
 - A failing or incompatible plugin is isolated: it shows up under

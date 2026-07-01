@@ -207,7 +207,7 @@ def test_schema_rejects_missing_target():
 
 
 def test_feature_limit_via_schema(monkeypatch):
-    monkeypatch.setenv("FLOWFRAME_ML_MAX_FEATURE_COLUMNS", "1")
+    monkeypatch.setenv("CIAREN_ML_MAX_FEATURE_COLUMNS", "1")
     get_settings.cache_clear()
     with pytest.raises(ValueError, match="ML_MAX_FEATURE_COLUMNS"):
         _run(_classification_df(), _base(cv_strategy="kfold"))

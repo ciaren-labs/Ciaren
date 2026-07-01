@@ -1,6 +1,6 @@
-# FlowFrame Documentation
+# Ciaren Documentation
 
-User-facing documentation for FlowFrame — built with VitePress and deployed to GitHub Pages.
+User-facing documentation for Ciaren — built with VitePress and deployed to GitHub Pages.
 
 ## Quick Start
 

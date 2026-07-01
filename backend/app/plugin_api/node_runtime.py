@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """Executable behavior for a plugin-contributed node.
 
-A :class:`NodeProvider` can hand FlowFrame a :class:`NodeRuntime` for a node id
-(via ``node_implementations``); FlowFrame wraps it so the node runs in previews
+A :class:`NodeProvider` can hand Ciaren a :class:`NodeRuntime` for a node id
+(via ``node_implementations``); Ciaren wraps it so the node runs in previews
 and runs and exports to code, exactly like a built-in node.
 
 The contract is **pandas-based and engine-agnostic**: a runtime receives and
-returns pandas DataFrames keyed by handle, and FlowFrame converts to/from the
+returns pandas DataFrames keyed by handle, and Ciaren converts to/from the
 active engine (polars/pandas) around the call. This keeps the contract free of
-any FlowFrame engine internals — a plugin depends only on ``app.plugin_api`` and
+any Ciaren engine internals — a plugin depends only on ``app.plugin_api`` and
 pandas (which it already uses as a data plugin). Frames are typed ``Any`` here so
 the contract itself carries no hard pandas dependency.
 """
@@ -46,6 +46,6 @@ class NodeRuntime(ABC):
     ) -> str | None:
         """Readable **pandas** code for this node (``df`` variables), or ``None`` if
         the node cannot be exported. ``input_vars`` / ``output_vars`` map handles to
-        the variable names to read/assign. FlowFrame bridges this into a polars
+        the variable names to read/assign. Ciaren bridges this into a polars
         export automatically."""
         return None

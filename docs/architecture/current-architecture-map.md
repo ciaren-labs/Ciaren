@@ -40,7 +40,7 @@ makes the frontend consume it.
 ## 3. The portable flow document
 
 - `app/schemas/flow.py` already defines `FlowDocument` tagged
-  `format = "flowframe.flow/v1"`, returned by `POST /api/flows/{id}/export/python`
+  `format = "ciaren.flow/v1"`, returned by `POST /api/flows/{id}/export/python`
   (`flow_document`) and accepted by `POST /api/flows/import` (which strips
   environment-specific dataset/connection ids).
 - It is **not** versioned with a semver `schemaVersion`, has no JSON-schema, no

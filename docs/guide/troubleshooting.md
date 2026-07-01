@@ -6,21 +6,21 @@ search: troubleshooting help issues database cors port
 
 # Troubleshooting Guide
 
-Common issues when running FlowFrame. For broader questions, see the [FAQ](/faq).
+Common issues when running Ciaren. For broader questions, see the [FAQ](/faq).
 
 :::tip
-Run `flowframe check` to validate your environment in one shot — it reports a
+Run `ciaren check` to validate your environment in one shot — it reports a
 non-writable data dir, a non-async database URL, an unreachable database, and the
 available engines.
 :::
 
 ## Database connection fails
 
-FlowFrame uses async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or
+Ciaren uses async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or
 `mysql://` URL will not connect. Use the async variant in
-`FLOWFRAME_DATABASE_URL`:
+`CIAREN_DATABASE_URL`:
 
-- `sqlite+aiosqlite:///./flowframe.db` (default)
+- `sqlite+aiosqlite:///./ciaren.db` (default)
 - `postgresql+asyncpg://user:pass@host/db`
 - `mysql+aiomysql://user:pass@host/db`
 
@@ -32,7 +32,7 @@ The schema is created automatically on startup, so there is no migration step.
 Start the server on another port:
 
 ```bash
-flowframe serve --port 8001
+ciaren serve --port 8001
 ```
 
 ## Frontend can't reach the backend
@@ -45,7 +45,7 @@ VITE_API_TARGET=http://localhost:8001 npm run dev
 ```
 
 If the frontend port `5173` is taken, change it with `VITE_PORT=3000 npm run dev`
-— and remember to add the new origin to `FLOWFRAME_CORS_ORIGINS`.
+— and remember to add the new origin to `CIAREN_CORS_ORIGINS`.
 
 ## A scheduled flow stopped running
 
@@ -55,17 +55,17 @@ out of the retry/auto-disable machinery. See [Scheduling](/guide/scheduling).
 
 ## CORS errors
 
-Add the calling origin to `FLOWFRAME_CORS_ORIGINS` (a JSON list) in
+Add the calling origin to `CIAREN_CORS_ORIGINS` (a JSON list) in
 `backend/.env`:
 
 ```
-FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
+CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
 ## Upload rejected as too large
 
 The default upload limit is 100 MB. Raise it with
-`FLOWFRAME_MAX_UPLOAD_SIZE_MB` in `backend/.env`.
+`CIAREN_MAX_UPLOAD_SIZE_MB` in `backend/.env`.
 
 ## Module not found errors
 

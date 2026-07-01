@@ -4,7 +4,7 @@ described, searched, and pointed at downloadable artifacts.
 
 This is just a data contract (no hosting, no billing): an index is a JSON document
 listing plugins with the metadata a client needs to show, verify, and fetch them.
-FlowFrame can read a local index file today; a hosted index is a future drop-in
+Ciaren can read a local index file today; a hosted index is a future drop-in
 that returns the same shape.
 """
 
@@ -41,7 +41,7 @@ class MarketplaceEntry(BaseModel):
     #: Best-known palette category for each declared node id. Manifest-only packages
     #: do not import code, so unknown categories default to ``plugins`` until loaded.
     node_categories: dict[str, str] = Field(default_factory=dict, alias="nodeCategories")
-    #: Where to download the ``.ffplugin`` artifact.
+    #: Where to download the ``.ciarenplugin`` artifact.
     download_url: str = Field(default="", alias="downloadUrl")
     #: Expected package digest (clients re-verify after download).
     digest: str = ""
@@ -95,7 +95,7 @@ def parse_index(data: dict[str, Any] | str) -> MarketplaceIndex:
 
 def configured_index_path() -> Path | None:
     """The local index file the "Explore" catalog reads, from
-    ``settings.MARKETPLACE_INDEX``. When unset, FlowFrame falls back to the
+    ``settings.MARKETPLACE_INDEX``. When unset, Ciaren falls back to the
     bundled community catalog so first-time users can try the plugin install
     flow. Set the value to ``none``, ``off``, or ``disabled`` to disable Explore.
 
@@ -123,7 +123,7 @@ def load_configured_index() -> MarketplaceIndex | None:
 
 
 def resolve_artifact_path(entry: MarketplaceEntry, index_path: Path) -> Path | None:
-    """Local filesystem path to an entry's ``.ffplugin`` when ``download_url`` names
+    """Local filesystem path to an entry's ``.ciarenplugin`` when ``download_url`` names
     a local file — absolute, ``file://``, or relative to the index file. Returns
     ``None`` for an ``http(s)`` URL (remote download is a future drop-in, not done
     here so the catalog stays fully local)."""
@@ -136,11 +136,11 @@ def resolve_artifact_path(entry: MarketplaceEntry, index_path: Path) -> Path | N
     return p if p.is_absolute() else index_path.parent / p
 
 
-# -- index authoring (`flowframe plugin index add`) ---------------------------
+# -- index authoring (`ciaren plugin index add`) ---------------------------
 
 
 def build_entry(package_path: str | os.PathLike[str], *, download_url: str = "") -> MarketplaceEntry:
-    """Build a marketplace entry from a ``.ffplugin``: its manifest metadata plus
+    """Build a marketplace entry from a ``.ciarenplugin``: its manifest metadata plus
     the package digest and signing key id, so a client can re-verify after fetch."""
     from app.plugins.package import compute_package_digest, read_manifest, read_signature
 

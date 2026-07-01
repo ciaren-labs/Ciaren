@@ -17,7 +17,7 @@ export interface NodeTypeDef {
   type: string;
   label: string;
   category: NodeCategory;
-  /** Provider id; plugin nodes use their plugin id instead of flowframe.core. */
+  /** Provider id; plugin nodes use their plugin id instead of ciaren.core. */
   provider?: string;
   /** Default config object for a freshly-created node. */
   defaultConfig: Record<string, unknown>;
@@ -904,7 +904,7 @@ export function getNodeTypeDef(type: string): NodeTypeDef | undefined {
   return RUNTIME_NODE_DEFS[type] ?? NODE_TYPE_MAP[type];
 }
 
-const BUILTIN_PROVIDERS = new Set(["flowframe.core", "flowframe.ml"]);
+const BUILTIN_PROVIDERS = new Set(["ciaren.core", "ciaren.ml"]);
 
 export function isPluginNodeDef(def: NodeTypeDef): boolean {
   return !!def.provider && !BUILTIN_PROVIDERS.has(def.provider);

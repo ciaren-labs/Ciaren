@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Iterator
 
-_run_context: ContextVar[dict[str, Any] | None] = ContextVar("flowframe_run_context", default=None)
+_run_context: ContextVar[dict[str, Any] | None] = ContextVar("ciaren_run_context", default=None)
 
 
 def current_run_context() -> dict[str, Any] | None:

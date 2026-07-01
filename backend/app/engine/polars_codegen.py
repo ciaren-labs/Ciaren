@@ -66,7 +66,7 @@ _INPUT_SCAN_BY_FORMAT = {
     "jsonl": "pl.scan_ndjson",
 }
 # Extra keyword args appended to a read call, per input type. Excel reads via
-# openpyxl to match the engine and FlowFrame's shipped deps (no fastexcel needed).
+# openpyxl to match the engine and Ciaren's shipped deps (no fastexcel needed).
 _INPUT_READ_KWARGS = {"excelInput": ', engine="openpyxl"'}
 _OUTPUT_WRITE = {
     "csvOutput": "write_csv",

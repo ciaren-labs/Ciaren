@@ -5,7 +5,7 @@ install:
 	cd frontend && npm ci
 
 dev-backend:
-	cd backend && uv run flowframe serve --reload
+	cd backend && uv run ciaren serve --reload
 
 dev-frontend:
 	cd frontend && npm run dev

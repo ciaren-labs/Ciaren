@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Iterator
 
-_preview: ContextVar[bool] = ContextVar("flowframe_preview", default=False)
+_preview: ContextVar[bool] = ContextVar("ciaren_preview", default=False)
 
 
 def in_preview() -> bool:

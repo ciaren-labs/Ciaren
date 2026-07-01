@@ -1,4 +1,4 @@
-# FlowFrame — Visual ETL Builder
+# Ciaren — Visual ETL Builder
 #
 # Quick start:
 #   docker compose up --build
@@ -10,11 +10,11 @@
 #   EXTRAS=ml,postgres docker compose build # both
 #   EXTRAS=all-connectors docker compose build  # common DB/object-storage connectors
 #
-# All FLOWFRAME_* env vars below map to `flowframe serve` flags.
-# Run `docker compose exec flowframe flowframe info` to inspect resolved settings.
+# All CIAREN_* env vars below map to `ciaren serve` flags.
+# Run `docker compose exec ciaren ciaren info` to inspect resolved settings.
 
 services:
-  flowframe:
+  ciaren:
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,39 +22,39 @@ services:
         # Comma-separated optional extras: ml, postgres, mysql, mongo, s3, gcs,
         # azure, signing, all-connectors, all
         EXTRAS: ${EXTRAS:-}
-    image: flowframe:latest
+    image: ciaren:latest
     ports:
-      - "${FLOWFRAME_PORT:-8055}:8055"
+      - "${CIAREN_PORT:-8055}:8055"
     volumes:
-      - flowframe-data:/data
+      - ciaren-data:/data
     environment:
-      FLOWFRAME_ENVIRONMENT: ${FLOWFRAME_ENVIRONMENT:-production}
+      CIAREN_ENVIRONMENT: ${CIAREN_ENVIRONMENT:-production}
 
       # ── Dataframe engine & execution ────────────────────────────────────────
-      FLOWFRAME_DEFAULT_ENGINE: ${FLOWFRAME_DEFAULT_ENGINE:-polars}
-      FLOWFRAME_EXECUTION_MODE: ${FLOWFRAME_EXECUTION_MODE:-thread}
-      FLOWFRAME_RUN_TIMEOUT_SECONDS: ${FLOWFRAME_RUN_TIMEOUT_SECONDS:-0}
+      CIAREN_DEFAULT_ENGINE: ${CIAREN_DEFAULT_ENGINE:-polars}
+      CIAREN_EXECUTION_MODE: ${CIAREN_EXECUTION_MODE:-thread}
+      CIAREN_RUN_TIMEOUT_SECONDS: ${CIAREN_RUN_TIMEOUT_SECONDS:-0}
 
       # ── Scheduler ───────────────────────────────────────────────────────────
-      FLOWFRAME_SCHEDULER_ENABLED: ${FLOWFRAME_SCHEDULER_ENABLED:-true}
-      FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS: ${FLOWFRAME_SCHEDULER_POLL_INTERVAL_SECONDS:-30}
-      FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS: ${FLOWFRAME_SCHEDULER_MAX_CONCURRENT_RUNS:-1}
-      FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES: ${FLOWFRAME_SCHEDULER_MAX_CONSECUTIVE_FAILURES:-5}
+      CIAREN_SCHEDULER_ENABLED: ${CIAREN_SCHEDULER_ENABLED:-true}
+      CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS: ${CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS:-30}
+      CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS: ${CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS:-1}
+      CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES: ${CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES:-5}
 
       # ── ML extension (requires EXTRAS=ml at build time) ─────────────────────
-      FLOWFRAME_ML_ENABLED: ${FLOWFRAME_ML_ENABLED:-true}
-      FLOWFRAME_MLFLOW_TRACKING_URI: ${FLOWFRAME_MLFLOW_TRACKING_URI:-/data/mlruns}
+      CIAREN_ML_ENABLED: ${CIAREN_ML_ENABLED:-true}
+      CIAREN_MLFLOW_TRACKING_URI: ${CIAREN_MLFLOW_TRACKING_URI:-/data/mlruns}
 
       # ── Database (SQLite default, zero setup) ───────────────────────────────
       # PostgreSQL: set DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
       #   and rebuild with EXTRAS=postgres or EXTRAS=all-connectors
-      FLOWFRAME_DATABASE_URL: ${FLOWFRAME_DATABASE_URL:-sqlite+aiosqlite:////data/flowframe.db}
+      CIAREN_DATABASE_URL: ${CIAREN_DATABASE_URL:-sqlite+aiosqlite:////data/ciaren.db}
 
       # ── Upload limit ────────────────────────────────────────────────────────
-      FLOWFRAME_MAX_UPLOAD_SIZE_MB: ${FLOWFRAME_MAX_UPLOAD_SIZE_MB:-100}
+      CIAREN_MAX_UPLOAD_SIZE_MB: ${CIAREN_MAX_UPLOAD_SIZE_MB:-100}
 
       # ── CORS (unset = same-origin; set if API is accessed from other origins)
-      # FLOWFRAME_CORS_ORIGINS: '["https://your-domain.com"]'
+      # CIAREN_CORS_ORIGINS: '["https://your-domain.com"]'
 
     restart: unless-stopped
     healthcheck:
@@ -69,4 +69,4 @@ services:
       start_period: 60s
 
 volumes:
-  flowframe-data:
+  ciaren-data:

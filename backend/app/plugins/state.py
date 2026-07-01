@@ -31,7 +31,7 @@ from app.plugin_api import Permission
 logger = logging.getLogger("app.plugins.state")
 
 STATE_FILENAME = "plugin_state.json"
-STATE_ENV_VAR = "FLOWFRAME_PLUGIN_STATE_FILE"
+STATE_ENV_VAR = "CIAREN_PLUGIN_STATE_FILE"
 
 
 class PluginStateEntry(BaseModel):
@@ -60,7 +60,7 @@ class PluginStateEntry(BaseModel):
 
 
 def default_state_path() -> Path:
-    """Where plugin state lives: ``FLOWFRAME_PLUGIN_STATE_FILE`` if set, else
+    """Where plugin state lives: ``CIAREN_PLUGIN_STATE_FILE`` if set, else
     ``<DATA_DIR>/plugin_state.json``."""
     override = os.environ.get(STATE_ENV_VAR)
     if override:

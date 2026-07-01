@@ -3,9 +3,9 @@
 
 Discovery sources (Phase 1d):
 
-- Python entry points in the ``flowframe.plugins`` group (installed packages).
+- Python entry points in the ``ciaren.plugins`` group (installed packages).
 - Local plugin directories: each immediate subdirectory containing a
-  ``flowframe-plugin.json`` manifest.
+  ``ciaren-plugin.json`` manifest.
 
 The loader validates a manifest and checks version compatibility *before*
 importing the plugin's entry point, and isolates every plugin behind a try/except
@@ -30,16 +30,16 @@ from typing import Any
 from app.plugin_api import Permission, Plugin, PluginManifest, ServiceRegistry, validate_manifest
 from app.plugin_api.specs import PluginMetadata
 from app.plugins.state import PluginStateStore
-from app.version import flowframe_version
+from app.version import ciaren_version
 
 logger = logging.getLogger("app.plugins.loader")
 
-ENTRY_POINT_GROUP = "flowframe.plugins"
-MANIFEST_FILENAME = "flowframe-plugin.json"
+ENTRY_POINT_GROUP = "ciaren.plugins"
+MANIFEST_FILENAME = "ciaren-plugin.json"
 
 
 class IncompatiblePluginError(RuntimeError):
-    """Raised when a plugin declares incompatibility with the running FlowFrame."""
+    """Raised when a plugin declares incompatibility with the running Ciaren."""
 
 
 class PluginLicenseError(RuntimeError):
@@ -231,7 +231,7 @@ def _process(
         manifest = candidate.manifest
         if manifest is not None and not manifest.is_compatible_with(version):
             raise IncompatiblePluginError(
-                f"plugin {manifest.id!r} requires FlowFrame {manifest.flowframe!r}, running {version}"
+                f"plugin {manifest.id!r} requires Ciaren {manifest.ciaren!r}, running {version}"
             )
         if manifest is not None and manifest.license_required:
             if not registry.has_license_provider():
@@ -263,7 +263,7 @@ def load_plugins(
     plugin_dirs: Iterable[str | os.PathLike[str]] | None = None,
     include_entry_points: bool = True,
     extra: Iterable[PluginCandidate] | None = None,
-    flowframe_version_str: str | None = None,
+    ciaren_version_str: str | None = None,
     state: PluginStateStore | None = None,
 ) -> LoadResult:
     """Discover and register plugins into ``registry``. Returns a result with the
@@ -274,7 +274,7 @@ def load_plugins(
     and tests) without going through entry points or the filesystem. ``state``,
     when given, enables enable/disable + permission gating for manifest plugins.
     """
-    version = flowframe_version_str or flowframe_version()
+    version = ciaren_version_str or ciaren_version()
     candidates: list[PluginCandidate] = []
     if include_entry_points:
         candidates += _entry_point_candidates()
@@ -292,11 +292,11 @@ def load_plugins(
 
 
 def default_plugin_dirs() -> list[str]:
-    """Plugin directories scanned by default: ``FLOWFRAME_PLUGINS_DIR`` (an
-    ``os.pathsep``-separated list) plus ``~/.flowframe/plugins``."""
+    """Plugin directories scanned by default: ``CIAREN_PLUGINS_DIR`` (an
+    ``os.pathsep``-separated list) plus ``~/.ciaren/plugins``."""
     dirs: list[str] = []
-    env = os.environ.get("FLOWFRAME_PLUGINS_DIR")
+    env = os.environ.get("CIAREN_PLUGINS_DIR")
     if env:
         dirs += [d for d in env.split(os.pathsep) if d]
-    dirs.append(str(Path.home() / ".flowframe" / "plugins"))
+    dirs.append(str(Path.home() / ".ciaren" / "plugins"))
     return dirs

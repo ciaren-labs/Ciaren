@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "flowframe-client"
+name = "ciaren-client"
 version = "0.1.0"
-description = "Python client for the FlowFrame visual data and ML workflow server"
+description = "Python client for the Ciaren visual data and ML workflow server"
 requires-python = ">=3.10"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 license = { text = "AGPL-3.0-only" }

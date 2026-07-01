@@ -1,6 +1,6 @@
-# Contributing to FlowFrame
+# Contributing to Ciaren
 
-Thank you for your interest in FlowFrame! We're excited to have you help us build a simpler ETL tool for everyone.
+Thank you for your interest in Ciaren! We're excited to have you help us build a simpler ETL tool for everyone.
 
 This document explains how to contribute — whether you're fixing bugs, adding features, improving docs, or helping with design.
 
@@ -19,7 +19,7 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 ### Non-Code Contributions
 
 - **Documentation** — tutorials, examples, troubleshooting guides
-- **Testing** — try FlowFrame with real datasets, report edge cases
+- **Testing** — try Ciaren with real datasets, report edge cases
 - **Design feedback** — UI/UX improvements, workflow suggestions
 - **Community** — answer questions in discussions, mentor new contributors
 
@@ -27,7 +27,7 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 
 ## 🌿 Branching Strategy
 
-FlowFrame keeps `main` stable and CI costs low with a small set of long-lived
+Ciaren keeps `main` stable and CI costs low with a small set of long-lived
 branches, plus two maintainer-only branch types used around releases:
 
 ```
@@ -139,11 +139,11 @@ Use descriptive branch names:
 
 ### Product and Architecture Guardrails
 
-- FlowFrame is local-first visual ETL for small and medium datasets.
+- Ciaren is local-first visual ETL for small and medium datasets.
 - Keep the core lightweight; it is not an Airflow, dbt, Spark, or SaaS replacement.
 - The backend is the source of truth for validation, execution, persistence, and code export.
 - Every visual node should map to one clear dataframe operation.
-- Generated Python must be readable and runnable outside FlowFrame.
+- Generated Python must be readable and runnable outside Ciaren.
 - Do not document, demo, or claim a feature unless it is implemented in code.
 - Avoid enterprise-only scope creep such as multi-tenant permissions, cloud sync, distributed execution, or real-time collaboration unless maintainers have accepted the proposal first.
 
@@ -249,9 +249,9 @@ service's env var(s), then run the marked tests.
 
 | Connector  | Emulator        | Extra   | Activating env var             |
 |------------|-----------------|---------|--------------------------------|
-| S3         | MinIO           | `s3`    | `FLOWFRAME_TEST_S3_ENDPOINT`   |
-| MongoDB    | `mongo`         | `mongo` | `FLOWFRAME_TEST_MONGO_HOST`    |
-| Azure Blob | Azurite         | `azure` | `FLOWFRAME_TEST_AZURE_ENDPOINT`|
+| S3         | MinIO           | `s3`    | `CIAREN_TEST_S3_ENDPOINT`   |
+| MongoDB    | `mongo`         | `mongo` | `CIAREN_TEST_MONGO_HOST`    |
+| Azure Blob | Azurite         | `azure` | `CIAREN_TEST_AZURE_ENDPOINT`|
 | GCS        | fake-gcs-server | `gcs`   | `STORAGE_EMULATOR_HOST`        |
 
 ```bash
@@ -264,9 +264,9 @@ pip install -e ".[dev,s3,mongo,azure,gcs]"   # or just the extra you need
 ```bash
 docker run -d -p 9000:9000 -e MINIO_ROOT_USER=minioadmin \
   -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
-FLOWFRAME_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \
-FLOWFRAME_TEST_S3_ACCESS_KEY=minioadmin \
-FLOWFRAME_TEST_S3_SECRET_KEY=minioadmin \
+CIAREN_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \
+CIAREN_TEST_S3_ACCESS_KEY=minioadmin \
+CIAREN_TEST_S3_SECRET_KEY=minioadmin \
   pytest tests/integration/test_s3_connector.py -m connectors
 ```
 
@@ -274,7 +274,7 @@ FLOWFRAME_TEST_S3_SECRET_KEY=minioadmin \
 
 ```bash
 docker run -d -p 27017:27017 mongo:7
-FLOWFRAME_TEST_MONGO_HOST=127.0.0.1 \
+CIAREN_TEST_MONGO_HOST=127.0.0.1 \
   pytest tests/integration/test_mongo_connector.py -m connectors
 ```
 
@@ -283,7 +283,7 @@ FLOWFRAME_TEST_MONGO_HOST=127.0.0.1 \
 ```bash
 docker run -d -p 10000:10000 mcr.microsoft.com/azure-storage/azurite \
   azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
-FLOWFRAME_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \
+CIAREN_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \
   pytest tests/integration/test_azure_connector.py -m connectors
 ```
 
@@ -514,4 +514,4 @@ This project includes code generated or assisted by AI. When contributing:
 
 Whether it's a one-line docs fix or a major feature, every contribution matters. You're helping build a tool that makes data work simpler for thousands of people.
 
-**Welcome to FlowFrame! 🚀**
+**Welcome to Ciaren! 🚀**

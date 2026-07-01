@@ -85,13 +85,13 @@ def test_capabilities_aggregated_from_connectors():
                     label="PostgreSQL",
                     kind="sql",
                     capabilities=("connector.sql",),
-                    provider="flowframe.core",
+                    provider="ciaren.core",
                 )
             ]
         )
     )
     assert reg.has_capability("connector.sql")
-    assert reg.provider_for_capability("connector.sql") == "flowframe.core"
+    assert reg.provider_for_capability("connector.sql") == "ciaren.core"
     assert reg.provided_capabilities() == {"connector.sql"}
     assert reg.has_capability("connector.snowflake") is False
 

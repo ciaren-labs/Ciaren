@@ -352,7 +352,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
     example: "df['margin'] = df['revenue'] - df['cost']\nreturn df",
     tips: [
-      "Use pd with the pandas engine and pl with the polars engine; both are provided by FlowFrame.",
+      "Use pd with the pandas engine and pl with the polars engine; both are provided by Ciaren.",
       "The script runs locally with your app process, so treat it like trusted code.",
     ],
   },

@@ -1,7 +1,7 @@
 """SSRF guard for connector hosts/endpoints (finding #4).
 
 Off by default (local-first connects to localhost); when
-FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS is on, internal addresses are refused.
+CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS is on, internal addresses are refused.
 """
 
 import pytest
@@ -13,7 +13,7 @@ from app.core.config import get_settings
 
 
 def _set_guard(monkeypatch, enabled: bool) -> None:
-    monkeypatch.setenv("FLOWFRAME_CONNECTOR_BLOCK_PRIVATE_HOSTS", "true" if enabled else "false")
+    monkeypatch.setenv("CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS", "true" if enabled else "false")
     get_settings.cache_clear()
 
 

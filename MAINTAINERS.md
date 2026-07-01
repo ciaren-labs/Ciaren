@@ -1,6 +1,6 @@
 # Maintainers
 
-This file documents how FlowFrame is maintained and how project decisions are
+This file documents how Ciaren is maintained and how project decisions are
 made as the contributor base grows.
 
 ## Current Maintainer
@@ -50,7 +50,7 @@ it into `main` directly, then back-merge into `development`.
 
 ## Release Policy
 
-FlowFrame is currently alpha software. Releases should include:
+Ciaren is currently alpha software. Releases should include:
 
 - A short changelog or release notes.
 - Passing CI for backend, frontend, docs, packaging, and security checks.

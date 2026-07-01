@@ -79,7 +79,7 @@ async def test_schedule_run_timeout_round_trips(client: AsyncClient) -> None:
 async def test_effective_timeout_precedence(db_session, monkeypatch) -> None:
     from app.core.config import get_settings
 
-    monkeypatch.setenv("FLOWFRAME_RUN_TIMEOUT_SECONDS", "30")
+    monkeypatch.setenv("CIAREN_RUN_TIMEOUT_SECONDS", "30")
     get_settings.cache_clear()
     try:
         service = ExecutionService(db_session)

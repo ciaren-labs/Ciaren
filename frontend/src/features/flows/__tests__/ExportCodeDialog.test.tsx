@@ -10,7 +10,7 @@ const EXPORT_RESPONSE = {
   polars: 'import polars as pl\ndf_1 = pl.read_csv("sales.csv")\n',
   polars_lazy: 'import polars as pl\ndf_1 = pl.scan_csv("sales.csv")\n',
   flow_document: {
-    format: "flowframe.flow/v1",
+    format: "ciaren.flow/v1",
     name: "Sales",
     description: null,
     graph_json: { nodes: [], edges: [] },
@@ -74,7 +74,7 @@ describe("ExportCodeDialog", () => {
 
     await user.click(screen.getByRole("tab", { name: "Flow JSON" }));
 
-    expect(await screen.findByText(/flowframe\.flow\/v1/, { selector: "code" })).toBeInTheDocument();
+    expect(await screen.findByText(/ciaren\.flow\/v1/, { selector: "code" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
   });
 

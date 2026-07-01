@@ -1,7 +1,7 @@
 {
-  "name": "flowframe-docs",
+  "name": "ciaren-docs",
   "version": "0.1.0",
-  "description": "User-facing documentation for FlowFrame data and ML workflow builder",
+  "description": "User-facing documentation for Ciaren data and ML workflow builder",
   "type": "module",
   "private": true,
   "scripts": {

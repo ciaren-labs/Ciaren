@@ -269,7 +269,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
             mlflow = configure_mlflow()
             import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
 
-            mlflow.set_experiment(config.get("mlflow_experiment") or "flowframe")
+            mlflow.set_experiment(config.get("mlflow_experiment") or "ciaren")
             params = {
                 "model_type": config["model_type"],
                 "target_column": config.get("target_column"),
@@ -353,7 +353,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         return pinned
 
     def _reproducibility_tags(self) -> dict[str, str]:
-        """Back-pointer tags linking the MLflow run to the FlowFrame run/flow and the
+        """Back-pointer tags linking the MLflow run to the Ciaren run/flow and the
         input datasets — used by the dataset-deletion guard and for traceability."""
         from app.engine.run_context import current_run_context
 
@@ -362,11 +362,11 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
             return {}
         tags: dict[str, str] = {}
         if ctx.get("flow_id"):
-            tags["flowframe_flow_id"] = str(ctx["flow_id"])
+            tags["ciaren_flow_id"] = str(ctx["flow_id"])
         if ctx.get("run_id"):
-            tags["flowframe_run_id"] = str(ctx["run_id"])
+            tags["ciaren_run_id"] = str(ctx["run_id"])
         if ctx.get("dataset_ids"):
-            tags["flowframe_dataset_ids"] = json.dumps(ctx["dataset_ids"])
+            tags["ciaren_dataset_ids"] = json.dumps(ctx["dataset_ids"])
         return tags
 
     # -- code export ---------------------------------------------------------

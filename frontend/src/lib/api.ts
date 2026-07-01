@@ -1,4 +1,4 @@
-// Centralized, typed API client for the FlowFrame backend.
+// Centralized, typed API client for the Ciaren backend.
 // All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
@@ -55,12 +55,12 @@ function queryString(params: Record<string, string | number | undefined>): strin
 
 const BASE_URL = "/api";
 
-// ---- API token (optional; matches backend FLOWFRAME_API_TOKEN) --------------
-// When the backend is started with FLOWFRAME_API_TOKEN set, every /api request
+// ---- API token (optional; matches backend CIAREN_API_TOKEN) --------------
+// When the backend is started with CIAREN_API_TOKEN set, every /api request
 // must carry a bearer token. The token is stored in localStorage; it can be
 // seeded once via a `?api_token=…` query param (handy for a bookmarked URL),
 // which is then stripped from the address bar.
-const API_TOKEN_STORAGE_KEY = "flowframe_api_token";
+const API_TOKEN_STORAGE_KEY = "ciaren_api_token";
 
 function captureTokenFromUrl(): void {
   if (typeof window === "undefined") return;

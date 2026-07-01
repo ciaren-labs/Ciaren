@@ -12,7 +12,7 @@ runnable scikit-learn script. Every model is logged to MLflow automatically.
 
 :::tip Requires the ML extension
 ML nodes appear under **Machine Learning** in the palette once you install the
-optional extension: `pip install "flowframe[ml]"`. See the
+optional extension: `pip install "ciaren[ml]"`. See the
 [ML Quick Start](/guide/ml-quickstart).
 :::
 
@@ -107,7 +107,7 @@ model.fit(X, y)
 
 The Predict and Evaluate nodes continue the script — scoring `test_df` and
 computing the metric table — so the whole flow runs anywhere scikit-learn is
-installed, with no FlowFrame dependency.
+installed, with no Ciaren dependency.
 
 ## Variations
 

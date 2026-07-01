@@ -57,8 +57,7 @@ export function AppHeader() {
           <Workflow className="h-4 w-4" strokeWidth={2.5} />
         </span>
         <span className="text-[15px]">
-          <span className="text-brand-600">Flow</span>
-          <span className="text-muted-foreground">Frame</span>
+          <span className="text-brand-600">Ciaren</span>
         </span>
       </Link>
       <nav className="flex items-center gap-1">

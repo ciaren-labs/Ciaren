@@ -30,7 +30,7 @@ pytestmark = pytest.mark.connectors
 
 # Set by the test harness / CI to point the GCS client at the emulator.
 _EMULATOR = os.environ.get("STORAGE_EMULATOR_HOST")
-_PROJECT = os.environ.get("FLOWFRAME_TEST_GCS_PROJECT", "test-project")
+_PROJECT = os.environ.get("CIAREN_TEST_GCS_PROJECT", "test-project")
 
 if not _EMULATOR:
     pytest.skip(
@@ -39,7 +39,7 @@ if not _EMULATOR:
     )
 
 storage = pytest.importorskip(
-    "google.cloud.storage", reason="google-cloud-storage not installed (pip install flowframe[gcs])"
+    "google.cloud.storage", reason="google-cloud-storage not installed (pip install ciaren[gcs])"
 )
 
 

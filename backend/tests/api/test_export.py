@@ -53,7 +53,7 @@ async def test_export_includes_portable_flow_document(client: AsyncClient) -> No
     r = await client.post(f"/api/flows/{flow['id']}/export/python")
     assert r.status_code == 200, r.text
     doc = r.json()["flow_document"]
-    assert doc["format"] == "flowframe.flow/v1"
+    assert doc["format"] == "ciaren.flow/v1"
     assert doc["name"] == "f"
     assert [n["id"] for n in doc["graph_json"]["nodes"]] == ["in1", "drop", "out1"]
 
@@ -88,7 +88,7 @@ async def test_import_flow_honors_target_project(client: AsyncClient) -> None:
 
 async def test_import_flow_rejects_unknown_node_type(client: AsyncClient) -> None:
     doc = {
-        "format": "flowframe.flow/v1",
+        "format": "ciaren.flow/v1",
         "name": "bad",
         "graph_json": {"nodes": [{"id": "x", "type": "totallyNotANode", "data": {}}], "edges": []},
     }
@@ -170,9 +170,7 @@ def test_sql_codegen_rejects_invalid_password_env() -> None:
 
     for bad in ["1STARTS_DIGIT", "has space", "has-dash", "has$dollar"]:
         with pytest.raises(ValueError, match="password_env"):
-            engine_url_expr(
-                {"provider": "postgresql", "host": "localhost", "database": "db", "password_env": bad}
-            )
+            engine_url_expr({"provider": "postgresql", "host": "localhost", "database": "db", "password_env": bad})
 
 
 async def test_export_python_incomplete_graph_is_400(client: AsyncClient) -> None:

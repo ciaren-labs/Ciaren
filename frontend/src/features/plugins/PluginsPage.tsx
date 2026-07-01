@@ -77,10 +77,10 @@ export function PluginsPage() {
         <div>
           <h1 className="text-2xl font-bold">Plugins</h1>
           <p className="text-sm text-muted-foreground">
-            Extend FlowFrame with extra nodes, connectors, and exporters. Install a{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">.ffplugin</code> file below, drop one into{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.flowframe/plugins</code>, or use{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin install</code>.
+            Extend Ciaren with extra nodes, connectors, and exporters. Install a{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">.ciarenplugin</code> file below, drop one into{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.ciaren/plugins</code>, or use{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren plugin install</code>.
           </p>
         </div>
         <InstallButton />
@@ -129,7 +129,7 @@ function InstallButton() {
       <input
         ref={inputRef}
         type="file"
-        accept=".ffplugin"
+        accept=".ciarenplugin"
         className="hidden"
         onChange={(e) => {
           onPick(e.target.files?.[0]);
@@ -165,7 +165,7 @@ function TrustWarning() {
           could read or delete your files, use your saved credentials, or make network
           requests. Permissions shown below are a heads-up, not a security boundary.
           Install only plugins from sources you trust and whose code you can review.
-          FlowFrame cannot vet third-party plugins and is not responsible for what they do.
+          Ciaren cannot vet third-party plugins and is not responsible for what they do.
         </p>
       </div>
     </div>
@@ -178,9 +178,9 @@ function EmptyState() {
       <Blocks className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
       <p className="text-sm font-medium">No plugins installed</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        FlowFrame works great on its own. Plugins add new nodes, connectors, and
+        Ciaren works great on its own. Plugins add new nodes, connectors, and
         exporters. Install one with{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin install &lt;file&gt;.ffplugin</code>,
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren plugin install &lt;file&gt;.ciarenplugin</code>,
         then it appears here.
       </p>
     </div>
@@ -437,10 +437,10 @@ function MarketplaceSection() {
       {!data.configured ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
           No catalog is configured. Point{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">FLOWFRAME_MARKETPLACE_INDEX</code> at a{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">CIAREN_MARKETPLACE_INDEX</code> at a{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">marketplace.json</code> file to browse plugins
           here. Add entries with{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">flowframe plugin index add</code>.
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren plugin index add</code>.
         </div>
       ) : data.plugins.length === 0 ? (
         <p className="text-sm text-muted-foreground">The catalog is empty.</p>
@@ -513,7 +513,7 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
               Install
             </Button>
           ) : (
-            <span className="text-[11px] text-muted-foreground" title="Download the .ffplugin and install it manually">
+            <span className="text-[11px] text-muted-foreground" title="Download the .ciarenplugin and install it manually">
               Manual install
             </span>
           )}

@@ -38,7 +38,7 @@ vi.mock("@/lib/api", () => ({
     ),
     allExperiments: vi.fn(() =>
       Promise.resolve([
-        { experiment_id: "1", name: "flowframe", lifecycle_stage: "active", last_run: null },
+        { experiment_id: "1", name: "ciaren", lifecycle_stage: "active", last_run: null },
       ]),
     ),
     experimentRuns: vi.fn(() =>
@@ -105,7 +105,7 @@ describe("ModelsPage", () => {
     await screen.findAllByText("iris-model");
     await userEvent.click(screen.getByRole("tab", { name: /Experiments/i }));
 
-    expect(await screen.findByText("flowframe")).toBeInTheDocument();
+    expect(await screen.findByText("ciaren")).toBeInTheDocument();
     expect(screen.getByText("run-r2")).toBeInTheDocument();
     // model type shows in both the summary header and the leaderboard row.
     expect(screen.getAllByText("random_forest_classifier").length).toBeGreaterThan(0);

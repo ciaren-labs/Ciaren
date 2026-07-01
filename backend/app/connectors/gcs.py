@@ -30,7 +30,7 @@ def _client(spec: StorageSpec) -> Any:
     try:
         from google.cloud import storage as gcs
     except ImportError as exc:
-        raise ConnectorError("google-cloud-storage is not installed. Run: pip install flowframe[gcs]") from exc
+        raise ConnectorError("google-cloud-storage is not installed. Run: pip install ciaren[gcs]") from exc
 
     project = spec.extra.get("project_id") or None
     credentials_path = spec.secret  # env var resolves to a local file path

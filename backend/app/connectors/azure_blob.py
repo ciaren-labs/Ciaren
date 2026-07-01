@@ -30,7 +30,7 @@ def _service_client(spec: StorageSpec) -> Any:
     try:
         from azure.storage.blob import BlobServiceClient
     except ImportError as exc:
-        raise ConnectorError("azure-storage-blob is not installed. Run: pip install flowframe[azure]") from exc
+        raise ConnectorError("azure-storage-blob is not installed. Run: pip install ciaren[azure]") from exc
 
     account_name = spec.access_key
     account_key = spec.secret

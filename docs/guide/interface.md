@@ -1,17 +1,17 @@
 ---
 title: Interface Tour
-description: A tour of the FlowFrame visual editor
+description: A tour of the Ciaren visual editor
 search: interface ui tour navigation editor canvas
 ---
 
 # Interface Tour
 
-The FlowFrame editor follows the [design system](/guide/design-system) — a
+The Ciaren editor follows the [design system](/guide/design-system) — a
 purple-based, minimalist layout. This page walks through the main screens.
 
 ## Top-level pages
 
-FlowFrame is organized around a few pages, reachable from the navigation bar at the top:
+Ciaren is organized around a few pages, reachable from the navigation bar at the top:
 
 ![Datasets page — card grid showing uploaded CSV/Parquet files with column counts and version labels](/screenshots/datasets.png)
 
@@ -40,7 +40,7 @@ FlowFrame is organized around a few pages, reachable from the navigation bar at 
 Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 [React Flow](https://reactflow.dev/). The layout has three main regions:
 
-![FlowFrame flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
+![Ciaren flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
 
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input

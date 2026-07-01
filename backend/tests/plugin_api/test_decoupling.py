@@ -1,8 +1,8 @@
-"""Guard: the plugin API must stay decoupled from the FlowFrame app internals.
+"""Guard: the plugin API must stay decoupled from the Ciaren app internals.
 
 If this fails, a spec/provider/registry module grew a dependency on the engine,
 API, ORM, or FastAPI — which would break the goal of publishing
-``flowframe-plugin-api`` standalone and would let plugins reach into private
+``ciaren-plugin-api`` standalone and would let plugins reach into private
 internals. Keep the contract pure.
 """
 

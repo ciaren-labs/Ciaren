@@ -24,7 +24,7 @@ def test_node_spec_serializes_to_json():
     # Round-trips through JSON cleanly (catalog endpoint relies on this).
     restored = NodeSpec.model_validate(json.loads(json.dumps(payload)))
     assert restored == spec
-    assert restored.provider == "flowframe.core"
+    assert restored.provider == "ciaren.core"
     assert restored.inputs[0].type == "dataframe"
 
 

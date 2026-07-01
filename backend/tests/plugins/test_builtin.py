@@ -80,7 +80,7 @@ def test_ml_train_emits_model_output_and_is_sink():
     assert [p.id for p in model_outputs] == ["model"]
     assert spec.is_model_sink is True
     assert spec.requires_ml is True
-    assert spec.provider == "flowframe.ml"
+    assert spec.provider == "ciaren.ml"
 
 
 def test_ml_predict_has_optional_model_input():
@@ -97,7 +97,7 @@ def test_core_nodes_not_flagged_ml():
     spec = build_registry().node_spec("filterRows")
     assert spec is not None
     assert spec.requires_ml is False
-    assert spec.provider == "flowframe.core"
+    assert spec.provider == "ciaren.core"
 
 
 def test_connector_specs_and_capabilities():

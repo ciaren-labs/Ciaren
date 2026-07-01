@@ -1,12 +1,12 @@
 ---
 title: Plugin Security & Permissions
-description: How FlowFrame gates, verifies, and isolates plugins
+description: How Ciaren gates, verifies, and isolates plugins
 search: plugin security permissions signature verification approve enable disable
 ---
 
 # Plugin Security & Permissions
 
-Plugins extend FlowFrame with real Python code. FlowFrame's job is to make that
+Plugins extend Ciaren with real Python code. Ciaren's job is to make that
 **explicit and consensual**: you see what a plugin wants, you approve it, and you
 can verify where it came from. It is a trust/consent boundary, **not** an OS
 sandbox — read the [local-first trust model](/security/local-first-trust-model)
@@ -18,7 +18,7 @@ and is **not sandboxed**. A malicious or buggy plugin can read or delete your
 files, use your saved credentials, run other programs, or send data over the
 network — and the permission list is a heads-up, **not** an enforced limit.
 Install only plugins from sources you trust and whose code you can review (prefer
-signed packages from a [trusted key](#signature-verification)). FlowFrame cannot
+signed packages from a [trusted key](#signature-verification)). Ciaren cannot
 vet third-party plugins and is **not responsible** for what they do once you
 install and approve them. You install plugins at your own risk.
 :::
@@ -38,7 +38,7 @@ Recognised permissions include: `filesystem_read`, `filesystem_write`, `network`
 ### Approval gating
 
 For **drop-in** plugins (those discovered from a plugin directory with a
-`flowframe-plugin.json`):
+`ciaren-plugin.json`):
 
 - A plugin that declares permissions starts **pending** — *its entry point is
   never imported* — until you grant those permissions.
@@ -55,15 +55,15 @@ installing the package was the consent step.
 | --- | --- |
 | UI | The **Plugins** page lists each plugin's status, requested vs. granted permissions, and Approve / Revoke / Enable / Disable actions. A loaded plugin shows its permissions as active; revoking the ones you granted sends it back to pending. |
 | API | `POST /api/plugins/{id}/enable\|disable\|grant\|revoke` — see [Catalog & Plugins API](/api/catalog). |
-| CLI | `flowframe plugin enable\|disable <id>` — see [CLI reference](/guide/cli). |
+| CLI | `ciaren plugin enable\|disable <id>` — see [CLI reference](/guide/cli). |
 
 State (enabled + granted permissions) persists in `plugin_state.json` under the
-data dir (override with `FLOWFRAME_PLUGIN_STATE_FILE`).
+data dir (override with `CIAREN_PLUGIN_STATE_FILE`).
 
 ## Signature verification
 
-Plugins distribute as signed [`.ffplugin`](/plugins/packaging-and-distribution)
-packages. FlowFrame verifies a detached Ed25519 signature against your **trusted
+Plugins distribute as signed [`.ciarenplugin`](/plugins/packaging-and-distribution)
+packages. Ciaren verifies a detached Ed25519 signature against your **trusted
 keys** before installing:
 
 | Outcome | Meaning | Installable |
@@ -73,9 +73,9 @@ keys** before installing:
 | `unsigned` | No signature (typical for community plugins) | ✅ (warned) |
 | `invalid` | Digest mismatch or bad signature | ❌ always refused |
 
-Require a trusted signature with `flowframe plugin install pkg.ffplugin --trusted`.
-Trusted keys come from `FLOWFRAME_TRUSTED_PLUGIN_KEYS` and
-`~/.flowframe/trusted_keys.json`. Signing/verifying needs `flowframe[signing]`.
+Require a trusted signature with `ciaren plugin install pkg.ciarenplugin --trusted`.
+Trusted keys come from `CIAREN_TRUSTED_PLUGIN_KEYS` and
+`~/.ciaren/trusted_keys.json`. Signing/verifying needs `ciaren[signing]`.
 
 What signatures protect against: tampered packages, swapped downloads, and
 unofficial builds presented as official. What they **don't**: a signed-but-buggy
@@ -88,7 +88,7 @@ So a validly-signed package can't be relabelled to impersonate a trusted key.
 
 ### Install-time hardening
 
-Installation extracts a `.ffplugin` defensively: entry names are validated
+Installation extracts a `.ciarenplugin` defensively: entry names are validated
 lexically (absolute paths, `..`, and `\`/drive-qualified paths are rejected) and
 again after path resolution, **symlink entries are refused**, and per-entry/total
 uncompressed size and entry-count caps bound a decompression bomb. Plugin ids that
@@ -97,7 +97,7 @@ than silently rewritten, so one plugin can't clobber another's install directory
 
 ## Dangerous capabilities
 
-Some operations execute code or touch credentials. FlowFrame already enforces:
+Some operations execute code or touch credentials. Ciaren already enforces:
 
 - **Pickle model files are refused** — loading a pickle runs arbitrary code; only
   `.joblib` / native `.json` artifacts load, and only from inside the artifact root.
@@ -111,7 +111,7 @@ Some operations execute code or touch credentials. FlowFrame already enforces:
 
 - Prefer signed plugins from trusted publishers; use `--trusted` in shared setups.
 - Review a plugin's requested permissions before approving.
-- Keep `cryptography` installed (`flowframe[signing]`) so signatures are verified
+- Keep `cryptography` installed (`ciaren[signing]`) so signatures are verified
   rather than skipped.
 - Run a dependency license/vulnerability scan before distributing builds (the repo
   ships CodeQL + dependency-audit CI workflows).

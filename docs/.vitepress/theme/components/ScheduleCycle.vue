@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// No props — this is a static diagram of the FlowFrame scheduler lifecycle.
+// No props — this is a static diagram of the Ciaren scheduler lifecycle.
 </script>
 
 <template>

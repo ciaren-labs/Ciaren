@@ -1,31 +1,31 @@
 ---
 title: Engines (polars / pandas)
-description: How FlowFrame runs flows on polars or pandas, and how it exports code
+description: How Ciaren runs flows on polars or pandas, and how it exports code
 search: engines polars pandas default execution mode export code timeout
 ---
 
 # Engines: polars & pandas
 
-FlowFrame executes flows through a small **engine abstraction**, so the same
+Ciaren executes flows through a small **engine abstraction**, so the same
 visual flow runs on either **polars** or **pandas**. Every transformation node is
 engine-agnostic — it knows how to run on both and how to generate code for both.
 
 ## The default is polars
 
 The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE = "polars"`).
-polars is fast and memory-light on small-to-medium data, which suits FlowFrame's
+polars is fast and memory-light on small-to-medium data, which suits Ciaren's
 target use cases. pandas is fully supported and remains a first-class choice.
 
 You can change the server-wide default:
 
 ```bash
 # backend/.env
-FLOWFRAME_DEFAULT_ENGINE=pandas
+CIAREN_DEFAULT_ENGINE=pandas
 ```
 
 ```bash
 # or per process
-flowframe serve --engine pandas
+ciaren serve --engine pandas
 ```
 
 ## Choosing an engine per run
@@ -109,7 +109,7 @@ plans, not materialized data, so there is nothing to free.
 
 ### Streaming reads at runtime (polars)
 
-The above is about *exported code*. Inside FlowFrame, the **polars** engine also
+The above is about *exported code*. Inside Ciaren, the **polars** engine also
 loads CSV and Parquet inputs with a streaming reader (`scan_*` + a streaming
 `collect`), so a large input file is parsed in batches instead of all at once —
 lower peak memory at the point that usually dominates it. The result is identical
@@ -118,7 +118,7 @@ reads eagerly.)
 
 ## Execution mode: thread vs. process
 
-Flow compute is synchronous (pandas/polars), so FlowFrame runs it **off the event
+Flow compute is synchronous (pandas/polars), so Ciaren runs it **off the event
 loop** to avoid blocking the API. `EXECUTION_MODE` selects how:
 
 | Mode | Parallelism | Notes |
@@ -127,7 +127,7 @@ loop** to avoid blocking the API. `EXECUTION_MODE` selects how:
 | **`process`** | True multi-core | `ProcessPoolExecutor`; only picklable args cross the boundary; DB session stays in parent |
 
 ```bash
-flowframe serve --execution-mode process
+ciaren serve --execution-mode process
 ```
 
 ## Run timeouts
@@ -139,7 +139,7 @@ flowframe serve --execution-mode process
 
 ```bash
 # backend/.env
-FLOWFRAME_RUN_TIMEOUT_SECONDS=300
+CIAREN_RUN_TIMEOUT_SECONDS=300
 ```
 
 Each node also records a `duration_ms` in the run, so you can spot the slow step.

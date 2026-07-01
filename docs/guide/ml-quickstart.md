@@ -1,13 +1,13 @@
 ---
 title: Machine Learning Quick Start
-description: Train, evaluate, and use a model visually with FlowFrame's ML nodes.
+description: Train, evaluate, and use a model visually with Ciaren's ML nodes.
 search: machine learning ml train model predict mlflow scikit-learn
 layout: doc
 ---
 
 # Machine Learning Quick Start
 
-FlowFrame's optional ML extension adds nodes for the full tabular ML lifecycle —
+Ciaren's optional ML extension adds nodes for the full tabular ML lifecycle —
 clean → engineer features → split → train → evaluate → predict — on the same
 drag-and-drop canvas. Models are tracked with [MLflow](https://mlflow.org).
 
@@ -18,26 +18,26 @@ This guide builds a churn classifier in about 10 minutes.
 The ML nodes only appear when the extension is **installed and enabled**:
 
 ```bash
-pip install "flowframe[ml]"     # scikit-learn, xgboost, lightgbm, mlflow, joblib
+pip install "ciaren[ml]"     # scikit-learn, xgboost, lightgbm, mlflow, joblib
 ```
 
-`flowframe init` provisions a local MLflow store (`./mlruns`) and enables ML by
+`ciaren init` provisions a local MLflow store (`./mlruns`) and enables ML by
 default. To point at an existing MLflow server, either set the env var:
 
 ```bash
-FLOWFRAME_MLFLOW_TRACKING_URI=http://your-mlflow:5000   # or sqlite:///./mlflow.db
+CIAREN_MLFLOW_TRACKING_URI=http://your-mlflow:5000   # or sqlite:///./mlflow.db
 ```
 
 …or edit the built-in **Local MLflow** connection in the **Connections** page
 (see below) — the connection is the source of truth and overrides the env var.
 
-Check it's ready with `flowframe check` — you should see `ml: ok`. When ML is
+Check it's ready with `ciaren check` — you should see `ml: ok`. When ML is
 off or the extra isn't installed, the **Machine Learning** palette section is
 simply hidden.
 
 ### The MLflow connection
 
-When ML is enabled, FlowFrame seeds a **Local MLflow** connection (under
+When ML is enabled, Ciaren seeds a **Local MLflow** connection (under
 **Connections → Experiment tracking**) pointing at `./mlruns`. It works just
 like the Local Storage connection: click **Test connection** to verify the
 tracking store is reachable, or edit its **Tracking URI** to point at a remote
@@ -168,7 +168,7 @@ dedicated view over everything MLflow tracked:
 ![ML Models page — registered models with version cards, key metrics, production/staging aliases, and Flow+Run lineage links](/screenshots/models.png)
 
 - **Registered Models** — every registered model with its versions, aliases
-  (e.g. `@production`), key metrics, and **lineage links back to the FlowFrame
+  (e.g. `@production`), key metrics, and **lineage links back to the Ciaren
   flow and run** that produced each version.
 - **Experiments** — a leaderboard of training runs per experiment, with the
   best value in each metric column highlighted (RMSE/MAE treated as
@@ -181,7 +181,7 @@ dedicated view over everything MLflow tracked:
 When the `[ml]` extra is installed, the built-in **Demo** project includes four
 ready-to-run ML flows: *Iris — Quick Classifier*, *Iris — Train, Validate &
 Evaluate*, *House Prices — Regression*, and *Iris — PCA Explore*. Boot with
-`flowframe serve --run-seed-flows` to run them all once on first start, so the
+`ciaren serve --run-seed-flows` to run them all once on first start, so the
 Runs history and the Models page are populated out of the box.
 
 ## Reproducibility & safety

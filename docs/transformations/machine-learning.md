@@ -1,6 +1,6 @@
 ---
 title: Machine Learning Nodes
-description: Reference for FlowFrame's ML nodes — split, feature engineering, train, predict, evaluate.
+description: Reference for Ciaren's ML nodes — split, feature engineering, train, predict, evaluate.
 search: ml machine learning train predict evaluate split scale encode pca feature importance
 layout: doc
 ---
@@ -8,7 +8,7 @@ layout: doc
 # Machine Learning Nodes
 
 These nodes appear under **Machine Learning** in the palette when the ML
-extension is installed (`pip install "flowframe[ml]"`) and enabled. See the
+extension is installed (`pip install "ciaren[ml]"`) and enabled. See the
 [ML Quick Start](../guide/ml-quickstart.md) for an end-to-end walkthrough.
 
 All ML nodes run on scikit-learn (with optional XGBoost / LightGBM) and convert
@@ -114,7 +114,7 @@ use later.
 Use these nodes with **Cross-Validate**. Cross-validation needs to fit one fresh
 clone of the estimator per fold, with preprocessing refit inside each fold. If a
 flow used a Train node as the input to Cross-Validate, it would first train a
-final full-data model and then train the fold models too. FlowFrame avoids that
+final full-data model and then train the fold models too. Ciaren avoids that
 ambiguous and wasteful pattern by accepting only **Classifier Model** or
 **Regressor Model** on Cross-Validate's `model` input.
 

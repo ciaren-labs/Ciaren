@@ -22,7 +22,7 @@ CLUSTERING = "clustering"
 DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
 TIMESERIES = "timeseries"
 
-#: Every learning task FlowFrame models. ``timeseries`` is defined but has no
+#: Every learning task Ciaren models. ``timeseries`` is defined but has no
 #: estimators yet (the Train Forecaster node is a scaffold — models land later).
 TASKS = (CLASSIFICATION, REGRESSION, CLUSTERING, DIMENSIONALITY_REDUCTION, TIMESERIES)
 

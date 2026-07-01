@@ -4,10 +4,10 @@ These exercise the real pymongo code path (``app/connectors/mongo.py``) against 
 running MongoDB — the official ``mongo`` service container in CI (see
 ``.github/workflows/connectors-integration.yml``), or a local instance.
 
-The whole module self-skips unless ``FLOWFRAME_TEST_MONGO_HOST`` is set, so the
+The whole module self-skips unless ``CIAREN_TEST_MONGO_HOST`` is set, so the
 default infra-free suite is unaffected. To run locally::
 
-    FLOWFRAME_TEST_MONGO_HOST=127.0.0.1 \\
+    CIAREN_TEST_MONGO_HOST=127.0.0.1 \\
         pytest tests/integration/test_mongo_connector.py -m connectors
 """
 
@@ -23,18 +23,18 @@ from app.connectors.base import ConnectionSpec, ConnectorError
 
 pytestmark = pytest.mark.connectors
 
-_HOST = os.environ.get("FLOWFRAME_TEST_MONGO_HOST")
-_PORT = int(os.environ.get("FLOWFRAME_TEST_MONGO_PORT", "27017"))
-_USER = os.environ.get("FLOWFRAME_TEST_MONGO_USER") or None
-_PASSWORD = os.environ.get("FLOWFRAME_TEST_MONGO_PASSWORD") or None
+_HOST = os.environ.get("CIAREN_TEST_MONGO_HOST")
+_PORT = int(os.environ.get("CIAREN_TEST_MONGO_PORT", "27017"))
+_USER = os.environ.get("CIAREN_TEST_MONGO_USER") or None
+_PASSWORD = os.environ.get("CIAREN_TEST_MONGO_PASSWORD") or None
 
 if not _HOST:
     pytest.skip(
-        "FLOWFRAME_TEST_MONGO_HOST not set; skipping live MongoDB connector tests.",
+        "CIAREN_TEST_MONGO_HOST not set; skipping live MongoDB connector tests.",
         allow_module_level=True,
     )
 
-pymongo = pytest.importorskip("pymongo", reason="pymongo not installed (pip install flowframe[mongo])")
+pymongo = pytest.importorskip("pymongo", reason="pymongo not installed (pip install ciaren[mongo])")
 
 
 def _spec(database: str) -> ConnectionSpec:
@@ -51,7 +51,7 @@ def _spec(database: str) -> ConnectionSpec:
 @pytest.fixture
 def database():
     """A unique database name, dropped after the test so runs don't collide."""
-    name = f"flowframe_test_{uuid.uuid4().hex[:12]}"
+    name = f"ciaren_test_{uuid.uuid4().hex[:12]}"
     client = pymongo.MongoClient(
         host=_HOST,
         port=_PORT,

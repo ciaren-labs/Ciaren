@@ -6,7 +6,7 @@ search: projects runs dataset versioning history run detail node results lineage
 
 # Projects & Runs
 
-Beyond the editor, FlowFrame helps you **organize** work and **monitor** what
+Beyond the editor, Ciaren helps you **organize** work and **monitor** what
 happened when a flow ran.
 
 <DomainModel />
@@ -37,7 +37,7 @@ You can scope dataset and flow listings to a project with `?project_id=...`.
 
 ![Dataset detail dialog — Preview tab showing column data, with Profile / Versions / Used by tabs](/screenshots/dataset-detail.png)
 
-Upload CSV, Excel, or Parquet files on the **Datasets** page. FlowFrame infers a
+Upload CSV, Excel, or Parquet files on the **Datasets** page. Ciaren infers a
 column schema and stores a small sample for previews.
 
 ```bash

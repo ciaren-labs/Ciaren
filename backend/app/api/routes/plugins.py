@@ -71,7 +71,7 @@ class PluginDiagnostics(BaseModel):
 
 
 class PluginInstallResult(BaseModel):
-    """Outcome of installing a ``.ffplugin``: the verification result plus the
+    """Outcome of installing a ``.ciarenplugin``: the verification result plus the
     plugin's resulting status (it usually lands ``needs_permissions`` until the
     user approves it)."""
 
@@ -149,16 +149,16 @@ async def plugin_diagnostics() -> PluginDiagnostics:
 
 
 def install_package_and_report(package_path: str, *, require_trusted: bool) -> PluginInstallResult:
-    """Verify + install a local ``.ffplugin``, rebuild the registry live, and
+    """Verify + install a local ``.ciarenplugin``, rebuild the registry live, and
     report the result. Shared by the upload endpoint and the marketplace install
     endpoint. Installation never imports plugin code — a freshly installed plugin
     stays gated (``needs_permissions``) until the user explicitly approves it, even
     when it declares no permissions, since approving means letting its code run."""
-    from app.plugins.install import InstallError, install_ffplugin
+    from app.plugins.install import InstallError, install_ciarenplugin
     from app.plugins.package import PackageError
 
     try:
-        result = install_ffplugin(package_path, require_trusted=require_trusted, force=True)
+        result = install_ciarenplugin(package_path, require_trusted=require_trusted, force=True)
     except (InstallError, PackageError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Remember how it verified so the UI can show a trust badge for the installed
@@ -179,7 +179,7 @@ async def install_plugin(
     file: UploadFile = File(...),
     require_trusted: bool | None = Form(default=None),
 ) -> PluginInstallResult:
-    """Install an uploaded ``.ffplugin``. Refuses tampered/invalid packages always;
+    """Install an uploaded ``.ciarenplugin``. Refuses tampered/invalid packages always;
     refuses unsigned/untrusted ones when ``require_trusted`` (defaults to the
     ``REQUIRE_TRUSTED_PLUGINS`` setting)."""
     from app.core.config import get_settings
@@ -191,7 +191,7 @@ async def install_plugin(
     # Stream the upload to disk in bounded chunks, aborting as soon as the size
     # limit is crossed — so an oversized package can't be buffered whole in memory
     # before it is rejected (a cheap DoS otherwise).
-    tmp = tempfile.NamedTemporaryFile(suffix=".ffplugin", delete=False)
+    tmp = tempfile.NamedTemporaryFile(suffix=".ciarenplugin", delete=False)
     try:
         total = 0
         while chunk := await file.read(1024 * 1024):

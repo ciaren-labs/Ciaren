@@ -96,7 +96,7 @@ def test_safe_builtins_withholds_dangerous_ones():
 
 
 def _set_strict(monkeypatch, enabled: bool) -> None:
-    monkeypatch.setenv("FLOWFRAME_PYTHON_TRANSFORM_STRICT", "true" if enabled else "false")
+    monkeypatch.setenv("CIAREN_PYTHON_TRANSFORM_STRICT", "true" if enabled else "false")
     get_settings.cache_clear()
 
 

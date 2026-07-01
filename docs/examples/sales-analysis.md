@@ -86,7 +86,7 @@ df_11 = df_10.sort_values(by=['total_sales'], ascending=False)
 df_11.to_csv("sales_summary.csv", index=False)
 ```
 
-FlowFrame also generates the **polars** equivalent — pick whichever you prefer.
+Ciaren also generates the **polars** equivalent — pick whichever you prefer.
 
 ## Result
 

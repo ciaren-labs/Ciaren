@@ -13,7 +13,7 @@ adds two defense-in-depth layers applied *before/around* execution:
 
 These raise the bar and catch accidental or casual misuse; they are **not** a
 sandbox. A determined attacker can still find a bypass, so the real controls remain
-network auth (#1) and running FlowFrame as an unprivileged user. The guard is off by
+network auth (#1) and running Ciaren as an unprivileged user. The guard is off by
 default so existing scripts (e.g. ``import numpy``) keep working; turn it on for
 shared/untrusted deployments.
 """

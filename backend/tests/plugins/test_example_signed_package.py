@@ -1,4 +1,4 @@
-"""Guard: the committed example .ffplugin stays valid and trusted.
+"""Guard: the committed example .ciarenplugin stays valid and trusted.
 
 Catches accidental corruption of the artifact or drift between it and the demo
 public key documented in the example README.
@@ -14,13 +14,13 @@ from app.plugin_api import signing
 from app.plugins.package import read_manifest, read_signature, verify_package
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGE = REPO_ROOT / "examples" / "plugins" / "dist" / "community.hello-0.1.0.ffplugin"
-DEMO_KEY_ID = "flowframe-demo"
+PACKAGE = REPO_ROOT / "examples" / "plugins" / "dist" / "community.hello-0.1.0.ciarenplugin"
+DEMO_KEY_ID = "ciaren-demo"
 DEMO_PUBLIC_KEY = "b827f3795467a701b018a0d57ab5900af43669d3622340905559d86ae2ec4bdd"
 
 
 def test_example_package_exists_and_has_manifest():
-    assert PACKAGE.is_file(), "run examples/plugins/build_hello_ffplugin.py"
+    assert PACKAGE.is_file(), "run examples/plugins/build_hello_ciarenplugin.py"
     assert read_manifest(PACKAGE).id == "community.hello"
 
 

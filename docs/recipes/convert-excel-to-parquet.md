@@ -19,7 +19,7 @@ keeps column types. Converting takes two nodes.
 ## Steps
 
 1. Upload your `.xlsx` file on the **Datasets** page.
-2. **File Input** — select the dataset (FlowFrame reads Excel via `openpyxl`).
+2. **File Input** — select the dataset (Ciaren reads Excel via `openpyxl`).
 3. **File Output** — set `format: parquet` and a name like `data`.
 4. **Run**. Download the `.parquet` from the run output.
 

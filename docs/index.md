@@ -1,16 +1,16 @@
 ---
 layout: home
-title: FlowFrame
+title: Ciaren
 description: Open-core, plugin-first platform for building data engineering and machine-learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
-search: flowframe data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
+search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
 
 hero:
-  name: FlowFrame
+  name: Ciaren
   text: Build data & ML workflows visually. Ship clean Python.
   tagline: An open-core, plugin-first, local-first platform for data engineering and machine learning — design workflows on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
   image:
     src: /logo.svg
-    alt: FlowFrame
+    alt: Ciaren
   actions:
     - theme: brand
       text: Get Started
@@ -49,14 +49,14 @@ features:
 ---
 
 :::warning Alpha software
-FlowFrame is in early development. APIs, the data model, and generated code may
+Ciaren is in early development. APIs, the data model, and generated code may
 change between releases. Use it for experimentation, prototypes, and controlled
 internal workflows before relying on it for critical production jobs.
 :::
 
 ## More Than a Visual Data Tool
 
-FlowFrame covers the **whole workflow lifecycle** on one canvas — and turns it into
+Ciaren covers the **whole workflow lifecycle** on one canvas — and turns it into
 portable Python. It's built on a few principles:
 
 - **🧩 Plugin-first** — almost every capability is an extension point you can build on
@@ -77,7 +77,7 @@ portable Python. It's built on a few principles:
 
 ## What It Looks Like
 
-![FlowFrame editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
+![Ciaren editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
 
 ## Export to Clean, Portable Python
 
@@ -98,7 +98,7 @@ and join optimization on large files. [Learn about engines →](/guide/engines)
 
 ## Extend Everything: the Plugin Platform
 
-FlowFrame is designed as an ecosystem. Its plugin API defines stable **provider
+Ciaren is designed as an ecosystem. Its plugin API defines stable **provider
 contracts** so nearly every capability can be added by a small Python package:
 
 | Extend | Add |
@@ -109,7 +109,7 @@ contracts** so nearly every capability can be added by a small Python package:
 | **Exporters & validators** | New code targets and data-quality checks |
 | **AI capabilities** | Pipeline builders, debuggers, optimizers |
 
-Plugins can be packaged as portable `.ffplugin` files and **cryptographically
+Plugins can be packaged as portable `.ciarenplugin` files and **cryptographically
 signed** — install only what you trust.
 
 [Explore the plugin platform →](/plugins/overview)
@@ -126,7 +126,7 @@ signed** — install only what you trust.
 
 [See all transformations →](/transformations/overview)
 
-## Who Uses FlowFrame?
+## Who Uses Ciaren?
 
 - **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
 - **Developers** — Prototype visually, then export and version the generated Python
@@ -145,7 +145,7 @@ signed** — install only what you trust.
 git clone https://github.com/rodrigo-arenas/FlowFrame
 cd FlowFrame/backend
 pip install -e .
-flowframe serve
+ciaren serve
 ```
 
 The backend starts on `http://localhost:8055` and creates its database
@@ -181,9 +181,9 @@ automatically. To use the visual editor, also run the frontend (`cd frontend
 - [Feature Engineering](/examples/feature-engineering) — Scale, encode, select, reduce
 
 In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
-[how FlowFrame compares](/guide/comparison) to notebooks and orchestrators.
+[how Ciaren compares](/guide/comparison) to notebooks and orchestrators.
 
-## Why FlowFrame?
+## Why Ciaren?
 
 | Capability | Details |
 | --------- | --------- |
@@ -195,9 +195,9 @@ In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
 | **Live Preview** | See data changes at each step before executing the full flow |
 | **Open Core** | Core is AGPL-3.0; the public Plugin API/SDK is Apache-2.0 |
 
-## How FlowFrame Compares
+## How Ciaren Compares
 
-FlowFrame fills the gap between throwaway notebooks and heavyweight orchestrators:
+Ciaren fills the gap between throwaway notebooks and heavyweight orchestrators:
 
 - **vs. notebooks/scripts** — repeatable, reviewable, and visual, with the same code on export
 - **vs. Airflow / dbt / Spark** — local-first and lightweight; no cluster or infra to run a flow
@@ -205,7 +205,7 @@ FlowFrame fills the gap between throwaway notebooks and heavyweight orchestrator
 
 ## Join the Community
 
-FlowFrame is an open, community-driven project. The best ways to get involved:
+Ciaren is an open, community-driven project. The best ways to get involved:
 
 - ⭐ **[Star us on GitHub](https://github.com/rodrigo-arenas/FlowFrame)** — it helps others discover the project
 - 💬 **[Ask in Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — questions and ideas welcome
@@ -217,7 +217,7 @@ Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/), mac
 
 ## License
 
-FlowFrame Core is AGPL-3.0-only. The public Plugin API/SDK is Apache-2.0, and plugins may use the license selected by their authors.
+Ciaren Core is AGPL-3.0-only. The public Plugin API/SDK is Apache-2.0, and plugins may use the license selected by their authors.
 
 ---
 

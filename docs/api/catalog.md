@@ -31,7 +31,7 @@ A node spec looks like:
   "label": "Filter Rows",
   "category": "clean",
   "description": "Keep rows matching a condition.",
-  "provider": "flowframe.core",
+  "provider": "ciaren.core",
   "version": "1.0.0",
   "inputs": [{ "id": "in", "type": "dataframe", "required": true, "multi": false }],
   "outputs": [{ "id": "out", "type": "dataframe", "required": true, "multi": false }],
@@ -66,8 +66,8 @@ Each plugin reports a `status`:
   which). This is the trust/UX boundary — see
   [plugin security](/security/plugin-security).
 
-Plugins are discovered via the `flowframe.plugins` entry-point group and local
-plugin directories (`FLOWFRAME_PLUGINS_DIR`, `~/.flowframe/plugins`). A malformed
+Plugins are discovered via the `ciaren.plugins` entry-point group and local
+plugin directories (`CIAREN_PLUGINS_DIR`, `~/.ciaren/plugins`). A malformed
 or incompatible plugin is reported under `diagnostics` rather than crashing the
 app. Permission gating applies to **drop-in** (manifest) plugins; entry-point
 packages are installed deliberately and load without the gate.
@@ -78,14 +78,14 @@ appear in the catalog without a restart.
 ## Marketplace
 
 `GET /api/marketplace` returns the Explore catalog. By default it is configured
-from FlowFrame's bundled community catalog, which includes a Hello Plugin package
+from Ciaren's bundled community catalog, which includes a Hello Plugin package
 as `installable: true` and `installed: false`. Installing it uses the same
-verification and permission-gated path as uploading a `.ffplugin`; the plugin is
+verification and permission-gated path as uploading a `.ciarenplugin`; the plugin is
 not imported until the user approves it. Plugin and marketplace responses include
 `nodes` and `node_categories`, derived from the plugin manifest's `ui.nodes` and
 `ui.nodeCategories`, so the UI can show where the plugin will appear in the
 editor. Missing or invalid node categories default to `plugins`. Set
-`FLOWFRAME_MARKETPLACE_INDEX=none` to disable Explore, or point it at a custom
+`CIAREN_MARKETPLACE_INDEX=none` to disable Explore, or point it at a custom
 local marketplace JSON.
 
 ## See also

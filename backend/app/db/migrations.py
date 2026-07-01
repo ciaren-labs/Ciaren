@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Programmatic Alembic access for the ``flowframe db`` commands.
+"""Programmatic Alembic access for the ``ciaren db`` commands.
 
 Builds an Alembic ``Config`` pointing at the migration environment packaged
 under ``app/migrations``, so it resolves identically from a source checkout and
 from a ``pip``-installed wheel. The database URL always comes from ``Settings``
 (``env.py`` reads it), so these helpers honour ``--env-file`` and
-``FLOWFRAME_DATABASE_URL``.
+``CIAREN_DATABASE_URL``.
 """
 
 from __future__ import annotations

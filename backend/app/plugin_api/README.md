@@ -1,6 +1,6 @@
-# FlowFrame Plugin API/SDK
+# Ciaren Plugin API/SDK
 
-This directory contains FlowFrame's stable public plugin contract. It is the
+This directory contains Ciaren's stable public plugin contract. It is the
 API/SDK surface intended for plugin developers: manifests, provider interfaces,
 registry contracts, node runtime helpers, events, signing helpers, and public
 specification models.
@@ -15,7 +15,7 @@ This directory, `backend/app/plugin_api/`, is licensed under **Apache-2.0**.
 See [LICENSE](LICENSE) for the complete license text.
 
 This Apache-2.0 license applies only to the files in `backend/app/plugin_api/`.
-The remainder of FlowFrame is licensed under **AGPL-3.0-only** unless a specific
+The remainder of Ciaren is licensed under **AGPL-3.0-only** unless a specific
 file or directory states otherwise.
 
 Plugins created using this API may use any license chosen by their authors,

@@ -31,7 +31,7 @@ async def list_flow_ml_experiments(flow_id: str, service: MLServiceDep) -> list[
 
 @router.get("/ml/models")
 async def list_registered_models(service: MLServiceDep) -> list[dict[str, object]]:
-    """All registered models with versions, aliases, metrics, and FlowFrame lineage."""
+    """All registered models with versions, aliases, metrics, and Ciaren lineage."""
     return await service.list_registered_models()
 
 

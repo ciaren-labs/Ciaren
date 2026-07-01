@@ -1,4 +1,4 @@
-// Shared domain types mirroring the FlowFrame backend REST API.
+// Shared domain types mirroring the Ciaren backend REST API.
 
 export interface DatasetSchemaField {
   name: string;

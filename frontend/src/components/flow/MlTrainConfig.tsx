@@ -296,10 +296,10 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
 
             <section className="flex flex-col gap-3 border-t border-border pt-3">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tracking</h4>
-              <Field label="MLflow experiment (optional)" help="Group these runs under a named experiment. Defaults to 'flowframe'.">
+              <Field label="MLflow experiment (optional)" help="Group these runs under a named experiment. Defaults to 'ciaren'.">
                 <Input
                   value={config.mlflow_experiment ?? ""}
-                  placeholder="flowframe"
+                  placeholder="ciaren"
                   onChange={(e) => set({ mlflow_experiment: e.target.value })}
                 />
               </Field>
