@@ -276,5 +276,5 @@ def test_data_into_model_input_rejected():
             _edge("fi", "out"),
         ],
     }
-    with pytest.raises(GraphValidationError, match="needs a trained model"):
+    with pytest.raises(GraphValidationError, match="needs a model reference"):
         validate_graph(graph)

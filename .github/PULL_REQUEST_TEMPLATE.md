@@ -16,6 +16,7 @@
 - [ ] This PR is focused on one bug, feature, documentation update, or maintenance task.
 - [ ] Large or breaking changes were discussed in an issue or discussion before implementation.
 - [ ] I have read and followed [CONTRIBUTING.md](../CONTRIBUTING.md).
+- [ ] All commits are signed off (DCO): `git commit -s`.
 
 ## Type of Change
 

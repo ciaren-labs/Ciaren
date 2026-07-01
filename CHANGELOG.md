@@ -10,6 +10,15 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- Developer Certificate of Origin (DCO) policy: contributors must sign off
+  commits (`git commit -s`), enforced by a new CI check
+  (`.github/workflows/dco.yml`) and a Preflight checkbox on the PR template.
+- Versioning and release-tag guidance in `MAINTAINERS.md` (alpha semver,
+  `vX.Y.Z` tag convention, and a note that PyPI publishing is not yet
+  automated).
+- `development` integration branch, matching the branching strategy already
+  documented in `CONTRIBUTING.md`/`MAINTAINERS.md` and already targeted by
+  CI workflow triggers.
 - Public GitHub issue templates, pull request template, CODEOWNERS, support
   guidance, maintainer guidance, and community Discussions.
 - Open-core positioning across public documentation: FlowFrame Core remains open
@@ -30,6 +39,21 @@ release, breaking changes may still happen between alpha versions.
   `flowframe db upgrade` + `flowframe serve` CLI path.
 - `all-connectors` now includes `asyncpg` so PostgreSQL app database URLs work
   with `postgresql+asyncpg://`.
+
+### Fixed
+
+- `README.md`/`CONTRIBUTING.md` linked to a deleted root-level `architecture.md`;
+  both now point to `docs/architecture/current-architecture-map.md`.
+- A stale test assertion in `test_graph_validation.py` expected an old
+  validation error message ("needs a trained model") after the message was
+  reworded to "needs a model reference"; updated to match.
+
+### Changed
+
+- Moved internal, pre-launch planning docs (`PLUGIN_ARCHITECTURE_PLAN.md`,
+  `PLUGIN_MARKETPLACE_PAGE_PROPOSAL.md`) out of `docs/` into a new `internal/`
+  folder, since VitePress builds every `.md` file under `docs/` into a public
+  route regardless of nav linkage.
 
 ### Security
 

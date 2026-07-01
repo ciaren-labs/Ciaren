@@ -211,7 +211,7 @@ Full docs (guides, transformation reference, examples, API) are published at
 - **[Plugin Guide](https://rodrigo-arenas.github.io/FlowFrame/plugins/first-plugin)** — Build your first custom plugin
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Development workflow, standards, and review process
 - **[CHANGELOG.md](CHANGELOG.md)** — Release notes and public alpha readiness changes
-- **[architecture.md](architecture.md)** — System design, entity models, and execution flow
+- **[docs/architecture/current-architecture-map.md](docs/architecture/current-architecture-map.md)** — System design, entity models, and execution flow
 - **[SUPPORT.md](SUPPORT.md)** — Where to ask questions, report bugs, and request features
 - **[MAINTAINERS.md](MAINTAINERS.md)** — Maintainer responsibilities and review policy
 
