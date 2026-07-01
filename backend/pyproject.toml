@@ -3,6 +3,7 @@ name = "flowframe"
 version = "0.1.0"
 description = "Open-core visual data and ML workflow builder — local-first, dataframe-based"
 requires-python = ">=3.12"
+authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -67,6 +68,13 @@ all-connectors = ["asyncpg>=0.30", "psycopg[binary]>=3.1", "pymysql>=1.1", "pyod
 
 [project.scripts]
 flowframe = "app.cli:main"
+
+[project.urls]
+Homepage = "https://www.rodrigo-arenas.com/"
+Repository = "https://github.com/rodrigo-arenas/FlowFrame"
+Documentation = "https://rodrigo-arenas.github.io/FlowFrame"
+Issues = "https://github.com/rodrigo-arenas/FlowFrame/issues"
+Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 
 [dependency-groups]
 dev = [

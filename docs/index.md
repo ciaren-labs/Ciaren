@@ -213,7 +213,7 @@ FlowFrame is an open, community-driven project. The best ways to get involved:
 - 🧩 **[Build a plugin](/plugins/overview)** — extend the platform and share it
 - 🤝 **[Contribute](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)** — good first issues are labelled
 
-Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/) ([GitHub](https://github.com/rodrigo-arenas)).
+Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/), machine-learning engineer and open-source creator ([GitHub](https://github.com/rodrigo-arenas), [LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/)).
 
 ## License
 

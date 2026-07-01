@@ -17,9 +17,11 @@ dropping nodes instead of writing code, then run them on **polars** (default) or
 
 ### Who created FlowFrame?
 
-FlowFrame was created and is maintained by **Rodrigo Arenas** —
+FlowFrame was created and is maintained by **Rodrigo Arenas**, a
+machine-learning engineer and open-source creator —
 [personal site](https://www.rodrigo-arenas.com/) ·
-[GitHub](https://github.com/rodrigo-arenas). It is open-core and
+[GitHub](https://github.com/rodrigo-arenas) ·
+[LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/). It is open-core and
 [contributions are welcome](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md).
 
 ### How much does FlowFrame cost?
