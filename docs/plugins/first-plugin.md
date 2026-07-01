@@ -12,7 +12,7 @@ exactly like a built-in node. We'll build a small **"Add Greeting"** node that a
 a constant column.
 
 This mirrors the runnable example in the repo at
-[`examples/plugins/hello-node-plugin/`](https://github.com/rodrigo-arenas/Ciaren/tree/main/examples/plugins/hello-node-plugin)
+[`examples/plugins/hello-node-plugin/`](https://github.com/ciaren/ciaren/tree/main/examples/plugins/hello-node-plugin)
 — open it alongside this page if you'd like the finished version.
 
 ::: tip What you'll learn
@@ -226,6 +226,6 @@ for the trust model.
 - **[Plugins Overview](/plugins/overview)** — all the extension points
 
 ::: tip Built something?
-Share it in [Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
+Share it in [Discussions](https://github.com/ciaren/ciaren/discussions)
 — community plugins help everyone.
 :::

@@ -27,7 +27,7 @@ You can run the backend on its own and drive it through the
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/rodrigo-arenas/Ciaren.git
+git clone https://github.com/ciaren/ciaren.git
 cd Ciaren
 ```
 
@@ -310,8 +310,8 @@ CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ## Need Help?
 
 - **[Troubleshooting Guide](/guide/troubleshooting)**
-- **[GitHub Issues](https://github.com/rodrigo-arenas/Ciaren/issues)** — report bugs
-- **[GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)** — ask questions
+- **[GitHub Issues](https://github.com/ciaren/ciaren/issues)** — report bugs
+- **[GitHub Discussions](https://github.com/ciaren/ciaren/discussions)** — ask questions
 
 ---
 
