@@ -98,6 +98,47 @@ def test_sync_trigger_http_error_raises():
                 client.trigger(FLOW_ID)
 
 
+def test_sync_api_token_sends_bearer_header():
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.get("/api/flows").mock(return_value=httpx.Response(200, json=[MOCK_FLOW]))
+        with Ciaren(BASE, api_token="tok-123") as client:
+            client.list_flows()
+    assert route.calls[0].request.headers["authorization"] == "Bearer tok-123"
+
+
+def test_sync_list_runs_with_filters_and_pagination():
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.get("/api/runs").mock(return_value=httpx.Response(200, json=MOCK_RUNS))
+        with Ciaren(BASE) as client:
+            client.list_runs(
+                project_id="proj-1",
+                dataset_id="ds-1",
+                schedule_id="sched-1",
+                status="failed",
+                started_after="2026-06-01T00:00:00",
+                sort_by="status",
+                sort_order="asc",
+                offset=50,
+            )
+    params = route.calls[0].request.url.params
+    assert params["project_id"] == "proj-1"
+    assert params["dataset_id"] == "ds-1"
+    assert params["schedule_id"] == "sched-1"
+    assert params["status"] == "failed"
+    assert params["started_after"] == "2026-06-01T00:00:00"
+    assert params["sort_by"] == "status"
+    assert params["sort_order"] == "asc"
+    assert params["offset"] == "50"
+
+
+def test_sync_retry_run():
+    with respx.mock(base_url=BASE) as mock:
+        mock.post(f"/api/runs/{RUN_ID}/retry").mock(return_value=httpx.Response(201, json=MOCK_RUN))
+        with Ciaren(BASE) as client:
+            run = client.retry_run(RUN_ID)
+    assert run == MOCK_RUN
+
+
 def test_sync_stream_logs():
     sse_body = (
         'data: {"level": "info", "message": "done"}\n\n'
@@ -183,6 +224,36 @@ async def test_async_trigger_with_parameters():
             await client.trigger(FLOW_ID, parameters={"env": "prod"})
     body = json.loads(route.calls[0].request.content)
     assert body["parameters"] == {"env": "prod"}
+
+
+@pytest.mark.asyncio
+async def test_async_api_token_sends_bearer_header():
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.get("/api/flows").mock(return_value=httpx.Response(200, json=[MOCK_FLOW]))
+        async with AsyncCiaren(BASE, api_token="tok-123") as client:
+            await client.list_flows()
+    assert route.calls[0].request.headers["authorization"] == "Bearer tok-123"
+
+
+@pytest.mark.asyncio
+async def test_async_list_runs_with_filters_and_pagination():
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.get("/api/runs").mock(return_value=httpx.Response(200, json=MOCK_RUNS))
+        async with AsyncCiaren(BASE) as client:
+            await client.list_runs(schedule_id="sched-1", status="success", offset=10)
+    params = route.calls[0].request.url.params
+    assert params["schedule_id"] == "sched-1"
+    assert params["status"] == "success"
+    assert params["offset"] == "10"
+
+
+@pytest.mark.asyncio
+async def test_async_retry_run():
+    with respx.mock(base_url=BASE) as mock:
+        mock.post(f"/api/runs/{RUN_ID}/retry").mock(return_value=httpx.Response(201, json=MOCK_RUN))
+        async with AsyncCiaren(BASE) as client:
+            run = await client.retry_run(RUN_ID)
+    assert run == MOCK_RUN
 
 
 @pytest.mark.asyncio
