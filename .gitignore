@@ -234,6 +234,7 @@ local.claude.md
 
 # Local-only maintainer notes/planning docs (not for VCS)
 internal/
+BRAND_GUIDELINES.md
 
 # Local dev databases / data dirs (SQLite default; not for VCS)
 *.db

@@ -6,7 +6,7 @@ official.
 
 ## Name
 
-Use `Ciaren` with capital `F`s.
+Use `Ciaren` with capital `C`s.
 
 Correct:
 
@@ -18,7 +18,6 @@ Correct:
 Avoid:
 
 - Ciaren
-- Flow Frame
 - ciaren as a product name, except in package names or commands where
   lowercase is conventional
 
