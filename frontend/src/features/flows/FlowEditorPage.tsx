@@ -11,7 +11,9 @@ import {
   Pencil,
   Play,
   Power,
+  Redo2,
   Save,
+  Undo2,
   Variable,
 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
@@ -57,6 +59,10 @@ export function FlowEditorPage() {
   const dirty = useFlowEditorStore((s) => s.dirty);
   const markClean = useFlowEditorStore((s) => s.markClean);
   const markDirty = useFlowEditorStore((s) => s.markDirty);
+  const canUndo = useFlowEditorStore((s) => s.past.length > 0);
+  const canRedo = useFlowEditorStore((s) => s.future.length > 0);
+  const undo = useFlowEditorStore((s) => s.undo);
+  const redo = useFlowEditorStore((s) => s.redo);
   const previewOpen = useFlowEditorStore((s) => s.previewOpen);
   const setPreviewOpen = useFlowEditorStore((s) => s.setPreviewOpen);
   const setInvalidNodeIds = useFlowEditorStore((s) => s.setInvalidNodeIds);
@@ -132,6 +138,32 @@ export function FlowEditorPage() {
     return () => reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow?.id]);
+
+  // Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z or Ctrl+Y to redo. Ignored while
+  // typing in a field (so native text-undo still works) or while the flow is
+  // disabled (read-only).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (flow?.is_disabled) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod || e.key.toLowerCase() !== "z" && e.key.toLowerCase() !== "y") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((key === "z" && e.shiftKey) || key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [flow?.is_disabled, undo, redo]);
 
   const handleAddNode = (def: NodeTypeDef) => addNode(createFlowNode(def));
 
@@ -240,6 +272,42 @@ export function FlowEditorPage() {
               </Button>
             ) : (
               <>
+                <div className="flex items-center overflow-hidden rounded-md border border-input">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-none border-0 border-r border-input"
+                          disabled={!canUndo}
+                          onClick={() => undo()}
+                          aria-label="Undo"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-none border-0"
+                          disabled={!canRedo}
+                          onClick={() => redo()}
+                          aria-label="Redo"
+                        >
+                          <Redo2 className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
+                  </Tooltip>
+                </div>
                 <GatedButton
                   disabled={!validation.canPreview}
                   reason={previewReason}

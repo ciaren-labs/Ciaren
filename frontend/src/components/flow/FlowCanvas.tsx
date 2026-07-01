@@ -45,6 +45,7 @@ export function FlowCanvas() {
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const setEdges = useFlowEditorStore((s) => s.setEdges);
   const setNodes = useFlowEditorStore((s) => s.setNodes);
+  const relayoutNodes = useFlowEditorStore((s) => s.relayoutNodes);
   const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -162,7 +163,7 @@ export function FlowCanvas() {
       setLastLayout(kind);
       setLayoutMenuOpen(false);
       const laid = applyLayout(kind, nodes, edges);
-      setNodes(laid);
+      relayoutNodes(laid);
       // Double-rAF: first frame commits new positions, second lets React Flow
       // measure them, then fitView calculates against the real bounding box.
       requestAnimationFrame(() =>
@@ -171,7 +172,7 @@ export function FlowCanvas() {
         )
       );
     },
-    [nodes, edges, setNodes, fitView],
+    [nodes, edges, relayoutNodes, fitView],
   );
 
   const minimapColor = (_node: Node) => "#a78bfa";
@@ -213,7 +214,12 @@ export function FlowCanvas() {
         fitViewOptions={{ padding: 0.12, maxZoom: 1.5 }}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#cbd5e1" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={18}
+          size={1}
+          color="hsl(var(--canvas-dot))"
+        />
         <Controls className="!rounded-lg !border !border-border !shadow-sm" showInteractive={false} />
         <MiniMap
           pannable

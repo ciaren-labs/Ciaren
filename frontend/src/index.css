@@ -47,6 +47,12 @@
     --input: 270 22% 88%;
     --ring: 262 83% 58%;
 
+    /* Canvas-only accents (dot grid, edge stroke) — not part of the shadcn
+       token set, so they get their own light/dark pair. */
+    --canvas-bg: 266 40% 98%;
+    --canvas-dot: 220 14% 83%;
+    --canvas-edge: 264 22% 72%;
+
     /* Brand scale — for tints, gradients and node accents */
     --brand-50: 270 70% 98%;
     --brand-100: 269 70% 95%;
@@ -92,6 +98,10 @@
     --border: 263 20% 22%;
     --input: 263 20% 24%;
     --ring: 263 84% 68%;
+
+    --canvas-bg: 264 27% 9%;
+    --canvas-dot: 263 18% 28%;
+    --canvas-edge: 263 20% 42%;
   }
 
   * {
@@ -130,12 +140,19 @@
 @layer components {
   /* Soft tinted backdrop for the flow canvas (dots are drawn by React Flow). */
   .canvas-surface {
-    background-color: hsl(266 40% 98%);
+    background-color: hsl(var(--canvas-bg));
     background-image: radial-gradient(
       hsl(var(--brand-200) / 0.5) 1px,
       transparent 0
     );
     background-size: 22px 22px;
+  }
+
+  .dark .canvas-surface {
+    background-image: radial-gradient(
+      hsl(var(--brand-800) / 0.4) 1px,
+      transparent 0
+    );
   }
 
   /* Brand gradient used on hero surfaces and primary marketing chrome. */
@@ -161,7 +178,7 @@
 
 /* Smooth, branded edges in the React Flow canvas. */
 .react-flow__edge-path {
-  stroke: hsl(264 22% 72%);
+  stroke: hsl(var(--canvas-edge));
   stroke-width: 1.5;
 }
 .react-flow__edge.selected .react-flow__edge-path,
