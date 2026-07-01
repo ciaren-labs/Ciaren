@@ -183,7 +183,7 @@ Automatic via `.github/workflows/docs-deploy.yml`:
 1. Push to `main` branch
 2. GitHub Actions builds docs
 3. Deployed to GitHub Pages
-4. Available at `https://rodrigo-arenas.github.io/Ciaren`
+4. Available at `https://docs.ciaren.com`
 
 ### Manual Deployment
 

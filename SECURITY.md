@@ -106,8 +106,8 @@ npm update
 
 For non-security issues:
 
-- **Bugs:** [Open a GitHub Issue](https://github.com/rodrigo-arenas/Ciaren/issues)
-- **Questions:** [GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
+- **Bugs:** [Open a GitHub Issue](https://github.com/ciaren/ciaren/issues)
+- **Questions:** [GitHub Discussions](https://github.com/ciaren/ciaren/discussions)
 - **Performance concerns:** Include dataset size, transformation complexity, timing info
 
 **Thank you for helping keep Ciaren safe and secure.**
