@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import ExecutionServiceDep, ScheduleServiceDep
 from app.schemas.run import FlowRunRead, FlowRunSummary
@@ -56,8 +56,8 @@ async def list_schedule_runs(
     schedule_id: str,
     schedules: ScheduleServiceDep,
     runs: ExecutionServiceDep,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=10000),
+    offset: int = Query(default=0, ge=0),
 ) -> list[FlowRunSummary]:
     await schedules.get(schedule_id)  # 404 if the schedule doesn't exist
     return await runs.list_runs(schedule_id=schedule_id, limit=limit, offset=offset)
