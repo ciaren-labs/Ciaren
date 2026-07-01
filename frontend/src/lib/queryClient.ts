@@ -32,6 +32,14 @@ export const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 30_000,
+      // Local-first app: the backend is typically on localhost, reachable even
+      // when the browser thinks it's offline. The default "online" mode pauses
+      // queries indefinitely on an offline signal, which strands pages in a
+      // pending state that looks like an empty workspace.
+      networkMode: "always",
+    },
+    mutations: {
+      networkMode: "always",
     },
   },
 });
