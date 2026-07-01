@@ -13,6 +13,8 @@ drag-and-drop canvas. Models are tracked with [MLflow](https://mlflow.org).
 
 This guide builds a churn classifier in about 10 minutes.
 
+![Ciaren editor — Drop Nulls and Remove Duplicates cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline in the same flow](/screenshots/editor-clean-and-ml.png)
+
 ## Prerequisites
 
 The ML nodes only appear when the extension is **installed and enabled**:
