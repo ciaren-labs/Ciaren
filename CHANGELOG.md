@@ -19,6 +19,9 @@ release, breaking changes may still happen between alpha versions.
 - `development` integration branch, matching the branching strategy already
   documented in `CONTRIBUTING.md`/`MAINTAINERS.md` and already targeted by
   CI workflow triggers.
+- `release/x.y.z` and `hotfix/*` branch types added to the branching strategy,
+  plus a new `MAINTAINERS.md#branch-protection` section documenting who can
+  push where and the GitHub branch protection each branch should have.
 - Public GitHub issue templates, pull request template, CODEOWNERS, support
   guidance, maintainer guidance, and community Discussions.
 - Open-core positioning across public documentation: FlowFrame Core remains open
