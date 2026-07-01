@@ -6,9 +6,9 @@ search: api datasets upload versions schema sample lineage flows
 
 # Datasets API
 
-Upload and inspect source files (CSV, Excel, Parquet, JSON, and text). Datasets
-are **versioned**: re-uploading a file under the same name appends a new
-immutable version, so flows pinned to an earlier version stay reproducible.
+Upload and inspect source files (CSV, TSV, Excel, Parquet, JSON/JSONL, and text).
+Datasets are **versioned**: re-uploading a file under the same name appends a
+new immutable version, so flows pinned to an earlier version stay reproducible.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -26,8 +26,10 @@ immutable version, so flows pinned to an earlier version stay reproducible.
 | `GET` | `/api/datasets/{dataset_id}/sample` | Sample rows (optionally `?version=`) |
 | `GET` | `/api/datasets/{dataset_id}/profile` | Column profile/statistics (optionally `?version=`) |
 
-`POST /api/datasets/upload` uses multipart form data. Re-uploading under an
-existing name appends a version rather than replacing the file.
+`POST /api/datasets/upload` uses multipart form data. Accepted extensions are
+`.csv`, `.tsv`, `.xlsx`, `.xls`, `.parquet`, `.json`, `.jsonl`, and `.txt`.
+Re-uploading under an existing name appends a version rather than replacing the
+file.
 
 Soft deletes retain files for `CIAREN_DATASET_RETENTION_DAYS` days by default.
 Immediate purge refuses if a Production model was trained from the dataset unless

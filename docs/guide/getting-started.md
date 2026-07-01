@@ -21,7 +21,7 @@ Ciaren is an open-core, **plugin-first, local-first platform** for building
 into clean, portable Python. It runs on **polars** by default (or pandas, per run)
 and lets you:
 
-- **Ingest** from CSV, Excel, Parquet, SQL databases, and cloud storage
+- **Ingest** from CSV, TSV, Excel, Parquet, JSON/JSONL, text, SQL databases, and cloud storage
 - **Build** transformation pipelines visually on a drag-and-drop canvas
 - **Validate** data with built-in quality/contract checks
 - **Preview** results in real-time at every step
@@ -42,7 +42,7 @@ Upload your data, arrange nodes on a canvas, preview every step, then run the fu
 pipeline and export readable Python — all without writing a line of code.
 
 <FlowPipeline :vertical="true" :nodes='[
-  {"type":"input","label":"Upload Data","detail":"CSV, Excel, Parquet, or SQL"},
+  {"type":"input","label":"Upload Data","detail":"CSV, TSV, Excel, Parquet, JSON, or SQL"},
   {"type":"clean","label":"Build Your Pipeline","detail":"drag nodes · connect handles · configure each step"},
   {"type":"clean","label":"Live Preview","detail":"see your data transform on real rows instantly"},
   {"type":"transform","label":"Run the Full Flow","detail":"executes on polars (or pandas) · saves a run record"},

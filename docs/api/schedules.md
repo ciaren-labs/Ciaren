@@ -21,13 +21,16 @@ Blank/omitted values fall back to each parameter's declared default.
 | `POST` | `/api/flows/{flow_id}/schedules` | Create a schedule for a flow |
 | `GET` | `/api/schedules` | List all schedules (optionally `?flow_id=`) |
 | `GET` | `/api/schedules/{schedule_id}` | Get one schedule |
-| `PATCH` | `/api/schedules/{schedule_id}` | Update a schedule (cron, engine, enabled, …) |
+| `PATCH` | `/api/schedules/{schedule_id}` | Update a schedule (cron, engine, `is_enabled`, …) |
 | `DELETE` | `/api/schedules/{schedule_id}` | Delete a schedule |
 | `POST` | `/api/schedules/{schedule_id}/run-now` | Trigger a one-off run immediately |
 | `GET` | `/api/schedules/{schedule_id}/runs` | List runs created by this schedule |
 
 A manual `run-now` stays out of the retry/auto-disable machinery — it's a plain
 one-off execution.
+
+`GET /api/schedules/{schedule_id}/runs` accepts the same pagination shape as
+the runs list: `limit` (1-10000, default 100) and `offset` (default 0).
 
 ## See also
 

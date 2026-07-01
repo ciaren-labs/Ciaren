@@ -57,10 +57,11 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 - **Optional API auth:** when `CIAREN_API_TOKEN` is set, `/api/*` requests must
   send `Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`. Static UI,
   `/health`, `/ready`, OpenAPI docs, and the webhook trigger's own secret are exempt.
+  Browser clients may use either header; CORS preflight allows `X-Ciaren-Token`.
 
 ## Typical workflow
 
-1. `POST /api/datasets/upload` — upload a CSV/Excel/Parquet file.
+1. `POST /api/datasets/upload` — upload a CSV/TSV/Excel/Parquet/JSON/text file.
 2. `POST /api/flows` — save a graph that reads the dataset and applies nodes.
 3. `POST /api/flows/{id}/preview` — check the result on sample data.
 4. `POST /api/flows/{id}/runs` — run the full pipeline.
