@@ -298,6 +298,16 @@ FlowFrame uses a dual licensing model:
 See [LICENSE](LICENSE), [NOTICE](NOTICE), and [LICENSES/](LICENSES/) for the
 complete license texts and notices.
 
+## Brand and Trademarks
+
+The FlowFrame name and logo identify the official project. Community plugins,
+forks, tutorials, and integrations are welcome, but they must not imply official
+status or endorsement unless that is true.
+
+See [TRADEMARKS.md](TRADEMARKS.md) and
+[BRAND_GUIDELINES.md](BRAND_GUIDELINES.md) for naming, logo, plugin, and
+marketplace guidance.
+
 ---
 
 ## 🙏 Acknowledgments

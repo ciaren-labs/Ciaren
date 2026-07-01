@@ -972,14 +972,9 @@ Recommended approach:
 
 The license protects the code. It does not protect the brand strategy.
 
-Create:
-
-```text
-TRADEMARKS.md
-BRAND_GUIDELINES.md
-```
-
-This helps prevent others from offering a confusingly similar “FlowFrame Cloud” using your name.
+The root `TRADEMARKS.md` and `BRAND_GUIDELINES.md` documents define this policy
+and help prevent others from offering a confusingly similar “FlowFrame Cloud”
+using your name.
 
 ---
 
