@@ -4,6 +4,19 @@ const gaMeasurementId = process.env.VITEPRESS_GA_ID
 const docsOrigin = 'https://docs.ciaren.com'
 const socialImage = `${docsOrigin}/Ciaren.png`
 
+// Set by CI to build a pinned version snapshot at /v/<tag>/ instead of the
+// root site. DOCS_VERSIONS_JSON is the full list of stable releases that
+// have a snapshot, shared across every build in a deploy so the "Versions"
+// nav item is identical whether this is the root build or a snapshot build.
+const docsBasePath = process.env.DOCS_BASE_PATH || '/'
+const stableVersions: string[] = (() => {
+  try {
+    return JSON.parse(process.env.DOCS_VERSIONS_JSON || '[]')
+  } catch {
+    return []
+  }
+})()
+
 function pageUrl(page: string) {
   const path = page
     .replace(/\\/g, '/')
@@ -50,6 +63,7 @@ export default defineConfig({
   description:
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
+  base: docsBasePath,
   srcExclude: ['README.md'],
 
   head: [
@@ -156,6 +170,21 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
         text: 'FAQ',
         link: '/faq',
       },
+      // Root-relative nav links get prefixed with *this build's* `base`, so a
+      // /v/0.1.0/ snapshot build would turn '/v/0.2.0/' into
+      // '/v/0.1.0/v/0.2.0/'. Fully-qualified docsOrigin links sidestep that
+      // and resolve the same way from every snapshot.
+      ...(stableVersions.length > 0
+        ? [
+            {
+              text: 'Versions',
+              items: [
+                { text: 'latest', link: `${docsOrigin}/` },
+                ...[...stableVersions].reverse().map((v) => ({ text: v, link: `${docsOrigin}/v/${v}/` })),
+              ],
+            },
+          ]
+        : []),
       {
         text: '⭐ Star on GitHub',
         link: 'https://github.com/ciaren-labs/Ciaren',
