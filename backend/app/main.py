@@ -181,7 +181,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.APP_NAME,
-        description="Visual ETL builder — local-first, dataframe-based",
+        description="Visual data and ML workflow builder — local-first, dataframe-based",
         version="0.1.0",
         lifespan=lifespan,
         # Optional API-token gate (no-op unless FLOWFRAME_API_TOKEN is set). As a

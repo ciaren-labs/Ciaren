@@ -1,6 +1,6 @@
 ---
 title: Quick Start (5 Minutes)
-description: Build and run your first ETL flow in the FlowFrame editor
+description: Build and run your first data workflow in the FlowFrame editor
 search: quick start tutorial first flow editor api
 ---
 

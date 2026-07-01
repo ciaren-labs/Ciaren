@@ -10,10 +10,10 @@ search: faq help questions answers
 
 ### What is FlowFrame?
 
-FlowFrame is a **local-first visual ETL builder**. It lets you build data
-transformation pipelines by dragging and dropping nodes instead of writing code,
-then run them on **polars** (default) or **pandas** and export the equivalent
-Python.
+FlowFrame is a **local-first visual builder for data and ML workflows**. It lets
+you build data transformation and machine-learning pipelines by dragging and
+dropping nodes instead of writing code, then run them on **polars** (default) or
+**pandas** and export the equivalent Python.
 
 ### Who created FlowFrame?
 
@@ -153,7 +153,8 @@ the polars version, so you can use whichever library you prefer.
 
 ### Does FlowFrame support streaming data?
 
-No. FlowFrame is for batch ETL on files. Real-time streaming is not planned.
+No. FlowFrame is for local batch data workflows on files and databases.
+Real-time streaming is not planned.
 
 ## Troubleshooting
 

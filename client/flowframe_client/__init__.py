@@ -1,4 +1,4 @@
-"""flowframe-client — thin HTTP client for the FlowFrame visual ETL server.
+"""flowframe-client — thin HTTP client for the FlowFrame visual data and ML workflow server.
 
 Sync usage::
 

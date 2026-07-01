@@ -2,10 +2,11 @@
 
 **Build data pipelines visually. Run them locally. Export clean pandas or polars code.**
 
-FlowFrame is an open-core, local-first visual ETL builder for people who want
-repeatable data workflows without Airflow-level infrastructure or opaque desktop
-automation. Upload a file, connect SQL, clean and reshape data on a canvas,
-preview every step, schedule runs, and take the generated Python with you.
+FlowFrame is an open-core, local-first platform for building data and ML
+workflows visually, without Airflow-level infrastructure or opaque desktop
+automation. Upload a file, connect SQL, clean and reshape data, train models on
+a canvas, preview every step, schedule runs, and take the generated Python with
+you.
 
 [![Backend Tests](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/backend-tests.yml)
 [![Frontend CI](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/rodrigo-arenas/FlowFrame/actions/workflows/frontend-tests.yml)
@@ -81,9 +82,8 @@ starts the app with `flowframe serve`.
 
 ## What is FlowFrame?
 
-FlowFrame is an open-core, **local-first** visual ETL (Extract, Transform, Load)
-builder — with an optional **machine-learning** extension — for **small and medium
-datasets**. It lets you:
+FlowFrame is an open-core, **local-first** visual workflow builder for data
+engineering and machine learning on **small and medium datasets**. It lets you:
 
 - **Connect** CSV, Excel, or Parquet files — or read straight from a SQL database
 - **Build** transformation pipelines on a drag-and-drop canvas
@@ -100,7 +100,7 @@ is intentionally lightweight — it is **not** an Airflow/dbt/Spark replacement,
 and does not do distributed or streaming execution.
 
 Built for **data analysts, data engineers, and developers** who want repeatable
-ETL pipelines without the infrastructure overhead — and accessible enough for
+data and ML workflows without the infrastructure overhead — and accessible enough for
 business analysts and Python beginners who are just getting started.
 
 ### Build visually, run instantly, export when you need to
@@ -210,6 +210,7 @@ Full docs (guides, transformation reference, examples, API) are published at
 - **[Examples](https://rodrigo-arenas.github.io/FlowFrame/examples/sales-analysis)** — Sales analysis, data quality, feature engineering, ML, and more
 - **[Plugin Guide](https://rodrigo-arenas.github.io/FlowFrame/plugins/first-plugin)** — Build your first custom plugin
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Development workflow, standards, and review process
+- **[CHANGELOG.md](CHANGELOG.md)** — Release notes and public alpha readiness changes
 - **[architecture.md](architecture.md)** — System design, entity models, and execution flow
 - **[SUPPORT.md](SUPPORT.md)** — Where to ask questions, report bugs, and request features
 - **[MAINTAINERS.md](MAINTAINERS.md)** — Maintainer responsibilities and review policy

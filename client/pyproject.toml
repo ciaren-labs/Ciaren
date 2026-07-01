@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "flowframe-client"
 version = "0.1.0"
-description = "Python client for the FlowFrame visual ETL server"
+description = "Python client for the FlowFrame visual data and ML workflow server"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-only" }
 dependencies = [
