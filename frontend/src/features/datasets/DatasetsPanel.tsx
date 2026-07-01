@@ -592,7 +592,7 @@ function UploadDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,.xlsx,.xls,.parquet,.json,.txt"
+        accept=".csv,.tsv,.xlsx,.xls,.parquet,.json,.jsonl,.txt"
         className="hidden"
         onChange={onFile}
       />
@@ -606,7 +606,9 @@ function UploadDropzone({
       <div className="text-sm font-medium">
         {upload.isPending ? "Uploading…" : "Drop a file here, or click to browse"}
       </div>
-      <div className="text-xs text-muted-foreground">CSV, Excel or Parquet</div>
+      <div className="text-xs text-muted-foreground">
+        CSV, TSV, Excel, Parquet, JSON, JSON Lines, or plain text
+      </div>
       {upload.isError && (
         <span className="mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
           <AlertCircle className="h-3.5 w-3.5" />
