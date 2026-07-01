@@ -140,6 +140,11 @@ jobs:
           VITEPRESS_GA_ID: ${{ vars.VITEPRESS_GA_ID }}
           STABLE_TAGS: ${{ steps.versions.outputs.tags }}
           VERSIONS_JSON: ${{ steps.versions.outputs.json }}
+          # PR runs never deploy (the deploy job is push/tag-only, see below), so
+          # rebuilding every historical version snapshot on each docs PR just
+          # burns CI minutes for no observable effect. Only do the full
+          # multi-tag rebuild on the events that can actually publish it.
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
           mkdir -p site
@@ -148,14 +153,18 @@ jobs:
           ( cd docs && npm ci && DOCS_BASE_PATH=/ DOCS_VERSIONS_JSON="$VERSIONS_JSON" npm run build )
           cp -r docs/.vitepress/dist/. site/
 
-          for tag in $STABLE_TAGS; do
-            echo "🔨 Building pinned snapshot for $tag"
-            git worktree add --detach ".worktrees/$tag" "$tag"
-            ( cd ".worktrees/$tag/docs" && npm ci && DOCS_BASE_PATH="/v/$tag/" DOCS_VERSIONS_JSON="$VERSIONS_JSON" npm run build )
-            mkdir -p "site/v/$tag"
-            cp -r ".worktrees/$tag/docs/.vitepress/dist/." "site/v/$tag/"
-            git worktree remove ".worktrees/$tag" --force
-          done
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            echo "Skipping versioned snapshot rebuilds on pull_request (nothing to deploy here)."
+          else
+            for tag in $STABLE_TAGS; do
+              echo "🔨 Building pinned snapshot for $tag"
+              git worktree add --detach ".worktrees/$tag" "$tag"
+              ( cd ".worktrees/$tag/docs" && npm ci && DOCS_BASE_PATH="/v/$tag/" DOCS_VERSIONS_JSON="$VERSIONS_JSON" npm run build )
+              mkdir -p "site/v/$tag"
+              cp -r ".worktrees/$tag/docs/.vitepress/dist/." "site/v/$tag/"
+              git worktree remove ".worktrees/$tag" --force
+            done
+          fi
 
       - name: Verify build artifacts
         run: |

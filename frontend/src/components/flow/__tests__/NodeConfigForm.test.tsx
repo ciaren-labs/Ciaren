@@ -74,7 +74,7 @@ describe("NodeConfigForm", () => {
       onChange,
     });
 
-    let options = screen.getAllByRole("option").map((o) => o.textContent);
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
     expect(options).toContain("sales.csv");
     expect(options).not.toContain("warehouse.parquet");
 
