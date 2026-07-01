@@ -21,41 +21,41 @@
   }
 }
 
-/* ── Left nav collapse (ff-sidebar-collapsed on <html>) ─────── */
+/* ── Left nav collapse (ciaren-sidebar-collapsed on <html>) ─────── */
 @media (min-width: 960px) {
-  html.ff-sidebar-collapsed .VPSidebar {
+  html.ciaren-sidebar-collapsed .VPSidebar {
     transform: translateX(-100%);
     box-shadow: none !important;
   }
 
-  html.ff-sidebar-collapsed .VPContent {
+  html.ciaren-sidebar-collapsed .VPContent {
     padding-left: 32px !important;
   }
 }
 
-/* ── Right aside collapse (ff-aside-collapsed on <html>) ────── */
+/* ── Right aside collapse (ciaren-aside-collapsed on <html>) ────── */
 @media (min-width: 1280px) {
-  html.ff-aside-collapsed .VPDoc.has-aside .container {
+  html.ciaren-aside-collapsed .VPDoc.has-aside .container {
     grid-template-columns: 1fr !important;
   }
 
-  html.ff-aside-collapsed .VPDoc .aside {
+  html.ciaren-aside-collapsed .VPDoc .aside {
     display: none !important;
   }
 
-  html.ff-aside-collapsed .VPDoc.has-aside .content-container {
+  html.ciaren-aside-collapsed .VPDoc.has-aside .content-container {
     max-width: 800px;
   }
 }
 
 :root {
   /* Custom brand colors — purple (see guide/design-system.md) */
-  --ff-primary: hsl(262 83% 58%); /* brand-600 */
-  --ff-primary-light: hsl(262 83% 62%); /* brand-500 */
-  --ff-success: hsl(160 70% 40%);
-  --ff-warning: hsl(38 92% 50%);
-  --ff-danger: hsl(351 75% 53%);
-  --ff-info: hsl(215 85% 56%);
+  --ciaren-primary: hsl(262 83% 58%); /* brand-600 */
+  --ciaren-primary-light: hsl(262 83% 62%); /* brand-500 */
+  --ciaren-success: hsl(160 70% 40%);
+  --ciaren-warning: hsl(38 92% 50%);
+  --ciaren-danger: hsl(351 75% 53%);
+  --ciaren-info: hsl(215 85% 56%);
 }
 
 /* Prose customization */

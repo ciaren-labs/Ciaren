@@ -50,7 +50,7 @@ def _spec(bucket: str) -> StorageSpec:
 @pytest.fixture
 def bucket():
     """Create a unique bucket in the emulator and tear it down afterwards."""
-    name = f"ff-test-{uuid.uuid4().hex[:12]}"
+    name = f"ciaren-test-{uuid.uuid4().hex[:12]}"
     client = storage.Client(project=_PROJECT)  # uses STORAGE_EMULATOR_HOST + anonymous creds
     client.create_bucket(name)
     try:

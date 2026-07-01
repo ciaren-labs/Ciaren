@@ -18,7 +18,7 @@ interface ThemeStore {
 }
 
 // Matches the inline script in index.html, which applies the same choice to
-// <html> before first paint (reading the same "ff-theme" localStorage key) so
+// <html> before first paint (reading the same "ciaren-theme" localStorage key) so
 // there's no flash of the wrong theme while React boots.
 export const useThemeStore = create<ThemeStore>()(
   persist(
@@ -27,6 +27,6 @@ export const useThemeStore = create<ThemeStore>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
     }),
-    { name: "ff-theme" },
+    { name: "ciaren-theme" },
   ),
 );

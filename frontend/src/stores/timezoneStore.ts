@@ -12,7 +12,7 @@ export const useTimezoneStore = create<TimezoneStore>()(
       timezone: "",
       setTimezone: (timezone) => set({ timezone }),
     }),
-    { name: "ff-timezone" },
+    { name: "ciaren-timezone" },
   ),
 );
 
