@@ -23,6 +23,7 @@ import { FlowEditDialog } from "./FlowEditDialog";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import { toast } from "@/stores/toastStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
 import { type NodeTypeDef } from "@/lib/nodeCatalog";
 import { createFlowNode } from "@/lib/createNode";
@@ -186,7 +187,12 @@ export function FlowEditorPage() {
     if (!flowId) return;
     updateFlow.mutate(
       { id: flowId, body: { graph_json: buildGraph() } },
-      { onSuccess: () => markClean() },
+      {
+        onSuccess: () => {
+          markClean();
+          toast.success("Flow saved");
+        },
+      },
     );
   };
 
@@ -198,7 +204,17 @@ export function FlowEditorPage() {
     );
   }
   if (!flow) {
-    return <div className="p-6 text-sm text-destructive">Flow not found.</div>;
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 p-10 text-center">
+        <h2 className="text-sm font-semibold">Flow not found</h2>
+        <p className="text-sm text-muted-foreground">
+          It may have been deleted, or the link is out of date.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => navigate("/flows")}>
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to flows
+        </Button>
+      </div>
+    );
   }
 
   const isDisabled = flow.is_disabled;

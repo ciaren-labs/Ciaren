@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { schedulesApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
+import { toast } from "@/stores/toastStore";
 import type { ScheduleCreate, ScheduleUpdate } from "@/lib/types";
 
 export function useSchedules(flowId?: string) {
@@ -32,7 +33,12 @@ export function useCreateSchedule() {
   return useMutation({
     mutationFn: ({ flowId, body }: { flowId: string; body: ScheduleCreate }) =>
       schedulesApi.create(flowId, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules }),
+    // The schedule form dialog renders failures inline.
+    meta: { suppressErrorToast: true },
+    onSuccess: (schedule) => {
+      qc.invalidateQueries({ queryKey: queryKeys.schedules });
+      toast.success(schedule.name ? `Schedule "${schedule.name}" created` : "Schedule created");
+    },
   });
 }
 
@@ -41,9 +47,11 @@ export function useUpdateSchedule() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ScheduleUpdate }) =>
       schedulesApi.update(id, body),
+    meta: { errorMessage: "Couldn't update the schedule" },
     onSuccess: (schedule) => {
       qc.invalidateQueries({ queryKey: queryKeys.schedules });
       qc.invalidateQueries({ queryKey: queryKeys.schedule(schedule.id) });
+      toast.success(schedule.name ? `Schedule "${schedule.name}" updated` : "Schedule updated");
     },
   });
 }
@@ -52,7 +60,11 @@ export function useDeleteSchedule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => schedulesApi.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.schedules }),
+    meta: { errorMessage: "Couldn't delete the schedule" },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.schedules });
+      toast.success("Schedule deleted");
+    },
   });
 }
 
@@ -61,11 +73,15 @@ export function useRunScheduleNow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => schedulesApi.runNow(id),
-    onSuccess: (_run, id) => {
+    meta: { errorMessage: "Couldn't start the run" },
+    onSuccess: (run, id) => {
       qc.invalidateQueries({ queryKey: ["runs"] });
       qc.invalidateQueries({ queryKey: ["flows"] }); // refresh last_run_at
       qc.invalidateQueries({ queryKey: queryKeys.schedules });
       qc.invalidateQueries({ queryKey: queryKeys.scheduleRuns(id) });
+      toast.success("Run started", {
+        action: { label: "View run", to: `/runs/${run.id}` },
+      });
     },
   });
 }
