@@ -3,6 +3,13 @@ name: Deploy Documentation
 on:
   push:
     branches: [main]
+    # Stable release tags (not pre-releases like "-alpha.1") get a permanent
+    # docs snapshot at /v/<tag>/, built alongside the root site in the build
+    # job below. GitHub does not evaluate `paths` for tag pushes, so a stable
+    # tag always triggers this workflow regardless of whether that commit
+    # touched docs/ — see https://github.com/orgs/community/discussions/165354.
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
     paths:
       - docs/**
       - .github/workflows/docs-deploy.yml
@@ -113,36 +120,64 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - name: Install dependencies
-        working-directory: docs
-        run: npm ci
+      - name: Fetch tags
+        run: git fetch --tags --force
 
-      - name: Build docs
-        working-directory: docs
+      - name: Determine stable versions
+        id: versions
+        # Stable = plain X.Y.Z tags only (excludes -alpha./-beta./-rc. tags
+        # used by package.yml). Each of these gets a permanent /v/<tag>/
+        # snapshot below, rebuilt from that tag's own docs/ source.
+        run: |
+          STABLE_TAGS=$(git tag -l | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tr '\n' ' ')
+          VERSIONS_JSON=$(printf '%s\n' $STABLE_TAGS | jq -R . | jq -sc '[.[] | select(length > 0)]')
+          echo "tags=$STABLE_TAGS" >> "$GITHUB_OUTPUT"
+          echo "json=$VERSIONS_JSON" >> "$GITHUB_OUTPUT"
+          echo "Stable versions to snapshot: $STABLE_TAGS"
+
+      - name: Build docs (root + versioned snapshots)
         env:
           VITEPRESS_GA_ID: ${{ vars.VITEPRESS_GA_ID }}
-        run: npm run build
+          STABLE_TAGS: ${{ steps.versions.outputs.tags }}
+          VERSIONS_JSON: ${{ steps.versions.outputs.json }}
+        run: |
+          set -euo pipefail
+          mkdir -p site
+
+          echo "🔨 Building latest (root) from $(git rev-parse --short HEAD)"
+          ( cd docs && npm ci && DOCS_BASE_PATH=/ DOCS_VERSIONS_JSON="$VERSIONS_JSON" npm run build )
+          cp -r docs/.vitepress/dist/. site/
+
+          for tag in $STABLE_TAGS; do
+            echo "🔨 Building pinned snapshot for $tag"
+            git worktree add --detach ".worktrees/$tag" "$tag"
+            ( cd ".worktrees/$tag/docs" && npm ci && DOCS_BASE_PATH="/v/$tag/" DOCS_VERSIONS_JSON="$VERSIONS_JSON" npm run build )
+            mkdir -p "site/v/$tag"
+            cp -r ".worktrees/$tag/docs/.vitepress/dist/." "site/v/$tag/"
+            git worktree remove ".worktrees/$tag" --force
+          done
 
       - name: Verify build artifacts
         run: |
           echo "🔍 Checking build artifacts..."
-          [ -d "docs/.vitepress/dist" ] || (echo "❌ dist not found" && exit 1)
-          [ -f "docs/.vitepress/dist/index.html" ] || (echo "❌ index.html not found" && exit 1)
+          [ -d "site" ] || (echo "❌ site not found" && exit 1)
+          [ -f "site/index.html" ] || (echo "❌ index.html not found" && exit 1)
           echo "✅ Build artifacts verified"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: site
 
   deploy:
     name: Deploy to GitHub Pages
-    # Only deploy from main, and only when Pages can actually be deployed: on a
-    # private repo (no paid plan / Pages not enabled) the deploy step fails with
-    # "404 — Ensure GitHub Pages has been enabled". Gating on public visibility
-    # keeps CI green and starts deploying automatically once the repo is public
-    # and Pages source is set to GitHub Actions.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.visibility == 'public'
+    # Only deploy from main or a stable release tag, and only when Pages can
+    # actually be deployed: on a private repo (no paid plan / Pages not
+    # enabled) the deploy step fails with "404 — Ensure GitHub Pages has been
+    # enabled". Gating on public visibility keeps CI green and starts
+    # deploying automatically once the repo is public and Pages source is set
+    # to GitHub Actions.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && github.event.repository.visibility == 'public'
     needs: build
     runs-on: ubuntu-latest
     # Serialize Pages deployments across the whole repo, but never cancel a
