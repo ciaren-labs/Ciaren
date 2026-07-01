@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-_FALLBACK = "0.1.0"
+_FALLBACK = "0.1.0-alpha.1"
 
 
 def ciaren_version() -> str:
