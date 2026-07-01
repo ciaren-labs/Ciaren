@@ -4,6 +4,7 @@ import {
   BrainCircuit,
   Code2,
   Database,
+  ExternalLink,
   FolderKanban,
   Github,
   Layers,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 
 const REPO_URL = "https://github.com/ciaren-labs/Ciaren";
 const DOCS_URL = "https://docs.ciaren.com";
+const WEBSITE_URL = "https://www.ciaren.com";
 
 const FEATURES = [
   {
@@ -81,7 +83,12 @@ export function LandingPage() {
               Read the docs
             </a>
           </Button>
-          <Button asChild size="lg" variant="ghost">
+          <Button asChild size="lg" variant="outline">
+            <a href={WEBSITE_URL} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" /> Website
+            </a>
+          </Button>
+          <Button asChild size="lg" variant="outline">
             <a href={REPO_URL} target="_blank" rel="noreferrer">
               <Github className="h-4 w-4" /> GitHub
             </a>
@@ -122,20 +129,31 @@ export function LandingPage() {
       </section>
 
       {/* Closing CTA */}
-      <section className="brand-gradient mt-14 flex flex-col items-center gap-4 rounded-2xl px-6 py-10 text-center text-white">
-        <h2 className="text-2xl font-semibold">Build your first flow in minutes</h2>
-        <p className="max-w-xl text-sm text-white/90">
+      <section className="brand-gradient mt-16 flex flex-col items-center gap-5 rounded-2xl px-8 py-14 text-center text-white shadow-lg sm:px-10 sm:py-16">
+        <h2 className="text-3xl font-semibold tracking-tight">Build your first flow in minutes</h2>
+        <p className="max-w-2xl text-base text-white/90">
           Ciaren runs locally — your data never leaves your machine.
         </p>
-        <Button asChild size="lg" variant="secondary">
-          <Link to="/flows">
-            Open the editor <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button asChild size="lg" variant="secondary">
+            <Link to="/flows">
+              Open the editor <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="secondary">
+            <a href={WEBSITE_URL} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" /> Visit ciaren.com
+            </a>
+          </Button>
+        </div>
       </section>
 
       <footer className="mt-10 text-center text-xs text-muted-foreground">
         Ciaren Core is free and open ·{" "}
+        <a href={WEBSITE_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+          Website
+        </a>{" "}
+        ·{" "}
         <a href={REPO_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
           Contribute on GitHub
         </a>
