@@ -1,4 +1,6 @@
-# Ciaren
+<p align="center">
+  <img src="brand-assets/wordmark-light-800.png" alt="Ciaren" width="320">
+</p>
 
 **Visual workflow builder for local data pipelines and lightweight ML workflows.
 Build visually, run locally, export clean Python.**
