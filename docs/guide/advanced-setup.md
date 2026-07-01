@@ -40,7 +40,8 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) |
 | `CIAREN_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) |
 | `CIAREN_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) |
-| `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list) |
+| `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list); also trusted by the CSRF origin guard |
+| `CIAREN_TRUSTED_HOSTS` | `[]` | Extra hostnames the CSRF origin guard trusts beyond localhost (see [Security](/security/local-first-trust-model)) |
 | `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB |
 | `CIAREN_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
 | `CIAREN_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-Ciaren-Secret` |

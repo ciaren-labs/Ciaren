@@ -58,6 +58,13 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
   send `Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`. Static UI,
   `/health`, `/ready`, OpenAPI docs, and the webhook trigger's own secret are exempt.
   Browser clients may use either header; CORS preflight allows `X-Ciaren-Token`.
+- **Browser origin guard:** without an API token, state-changing (`POST`/`PUT`/
+  `PATCH`/`DELETE`) `/api/*` requests that carry a browser `Origin` header are
+  refused (`403`) unless the origin is in `CIAREN_CORS_ORIGINS` or its hostname
+  is local (`localhost`, `127.0.0.1`, `::1`) or listed in `CIAREN_TRUSTED_HOSTS`.
+  This blocks CSRF/DNS-rebinding against a local, unauthenticated instance;
+  clients that send no `Origin` (curl, scripts, server-to-server) are unaffected.
+  See [Local-first trust model](/security/local-first-trust-model).
 
 ## Typical workflow
 
