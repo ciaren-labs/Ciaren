@@ -54,8 +54,18 @@ class SqlConnector:
         if drivername is None:
             raise ConnectorError(f"Unsupported SQL provider {spec.provider!r}.")
         if spec.provider in ("sqlite", "duckdb"):
-            # File-based databases: no host or credentials.
-            return URL.create(drivername, database=spec.database or "")
+            # File-based databases: no host or credentials. The database file is
+            # subject to the same STORAGE_ALLOWED_ROOTS confinement as the Local
+            # Storage connector — otherwise a "sqlite" connection could read or
+            # write any server file the operator meant to fence off.
+            database = spec.database or ""
+            if database and database != ":memory:":
+                from pathlib import Path
+
+                from app.connectors.confinement import ensure_allowed_path
+
+                ensure_allowed_path(Path(database), "Database file", hint="the database path")
+            return URL.create(drivername, database=database)
         if spec.provider == "snowflake":
             # Snowflake: host = account identifier, options carry warehouse/schema.
             opts = {str(k): str(v) for k, v in (spec.options or {}).items() if v}

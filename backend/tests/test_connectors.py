@@ -205,3 +205,71 @@ def test_local_storage_root_outside_allowlist_rejected(tmp_path, monkeypatch):
             LocalStorageConnector().test_connection(spec)
     finally:
         get_settings.cache_clear()
+
+
+# -- file-based SQL databases share the same confinement ---------------------
+
+
+def test_sqlite_outside_allowlist_rejected(tmp_path, monkeypatch):
+    """With allowed roots configured, a sqlite connection must not reach files
+    outside them — otherwise it bypasses the Local Storage confinement."""
+    from app.connectors.base import ConnectionSpec
+    from app.connectors.sql import SqlConnector
+    from app.core.config import get_settings
+
+    base = tmp_path / "allowed"
+    base.mkdir()
+    monkeypatch.setenv("CIAREN_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    get_settings.cache_clear()
+    try:
+        spec = ConnectionSpec(provider="sqlite", database=str(tmp_path / "elsewhere" / "x.db"))
+        with pytest.raises(ConnectorError, match="outside the allowed roots"):
+            SqlConnector().test_connection(spec)
+    finally:
+        get_settings.cache_clear()
+
+
+def test_sqlite_inside_allowlist_allowed(tmp_path, monkeypatch):
+    from app.connectors.base import ConnectionSpec
+    from app.connectors.sql import SqlConnector
+    from app.core.config import get_settings
+
+    base = tmp_path / "allowed"
+    base.mkdir()
+    monkeypatch.setenv("CIAREN_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    get_settings.cache_clear()
+    try:
+        spec = ConnectionSpec(provider="sqlite", database=str(base / "x.db"))
+        SqlConnector().test_connection(spec)  # no raise
+    finally:
+        get_settings.cache_clear()
+
+
+def test_sqlite_unrestricted_by_default(tmp_path, monkeypatch):
+    from app.connectors.base import ConnectionSpec
+    from app.connectors.sql import SqlConnector
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("CIAREN_STORAGE_ALLOWED_ROOTS", raising=False)
+    get_settings.cache_clear()
+    try:
+        spec = ConnectionSpec(provider="sqlite", database=str(tmp_path / "anywhere.db"))
+        SqlConnector().test_connection(spec)  # no raise
+    finally:
+        get_settings.cache_clear()
+
+
+def test_sqlite_memory_not_confined(monkeypatch, tmp_path):
+    """An in-memory database touches no files, so confinement must not block it."""
+    from app.connectors.base import ConnectionSpec
+    from app.connectors.sql import SqlConnector
+    from app.core.config import get_settings
+
+    base = tmp_path / "allowed"
+    base.mkdir()
+    monkeypatch.setenv("CIAREN_STORAGE_ALLOWED_ROOTS", f'["{base.as_posix()}"]')
+    get_settings.cache_clear()
+    try:
+        SqlConnector().test_connection(ConnectionSpec(provider="sqlite", database=":memory:"))  # no raise
+    finally:
+        get_settings.cache_clear()
