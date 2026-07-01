@@ -18,7 +18,7 @@ use the sidebar.
 
 ::: info Source of truth
 The authoritative list lives in
-[`backend/app/engine/registry.py`](https://github.com/rodrigo-arenas/FlowFrame/blob/main/backend/app/engine/registry.py).
+[`backend/app/engine/registry.py`](https://github.com/rodrigo-arenas/Ciaren/blob/main/backend/app/engine/registry.py).
 Each node's `type` (shown on its page) is the value stored in the flow graph at
 `node.type`; its settings live at `node.data.config`.
 :::
@@ -115,8 +115,8 @@ are kept at parity by a test suite that runs each node on both.
 
 Need a node that isn't built in? Use [Python transform](./python-transform.md)
 as an escape hatch for one-off scripts, or
-[open an issue](https://github.com/rodrigo-arenas/FlowFrame/issues) /
-[contribute one](https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md)
+[open an issue](https://github.com/rodrigo-arenas/Ciaren/issues) /
+[contribute one](https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md)
 to add it to the registry permanently.
 Each transformation implements `validate_config`, `execute`, `to_python_code`,
 and `to_polars_code`, and is registered in `app/engine/registry.py` with tests.

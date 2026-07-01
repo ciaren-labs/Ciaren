@@ -22,8 +22,8 @@ data persistence, and zero Node.js or Python tooling required on the host.
 
 ```bash
 # clone the repo (or download the Dockerfile + docker-compose.yml)
-git clone https://github.com/rodrigo-arenas/FlowFrame.git
-cd FlowFrame
+git clone https://github.com/rodrigo-arenas/Ciaren.git
+cd Ciaren
 
 # build and start (SQLite, no extras — takes ~3 min on first build)
 docker compose up --build

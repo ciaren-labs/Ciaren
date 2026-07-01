@@ -11,7 +11,7 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 ### Code Contributions
 
 - **New transformation nodes** — filters, aggregations, joins, reshaping operations
-- **Bug fixes** — we track these in [Issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
+- **Bug fixes** — we track these in [Issues](https://github.com/rodrigo-arenas/Ciaren/issues)
 - **Performance improvements** — especially in the execution engine and preview system
 - **Frontend improvements** — better UX, accessibility, responsive design
 - **Backend improvements** — better error handling, validation, API design
@@ -69,14 +69,14 @@ Maintainer responsibilities and branch protection rules are documented in
 
 Before starting work, check existing issues and PRs to avoid duplicate effort.
 For questions, setup help, or early design ideas, use
-[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
+[GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
 instead of opening a free-form issue.
 
 ### 1. Fork & Clone
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/FlowFrame.git
-cd FlowFrame
+git clone https://github.com/YOUR_USERNAME/Ciaren.git
+cd Ciaren
 ```
 
 ### 2. Set Up Development Environment
@@ -328,8 +328,8 @@ npm run test:e2e
 
 ### Before You Start
 
-1. **Check existing issues/PRs** — search [open issues](https://github.com/rodrigo-arenas/FlowFrame/issues) to avoid duplicate work
-2. **Open an issue first for big features** — [start a discussion](https://github.com/rodrigo-arenas/FlowFrame/discussions) before coding
+1. **Check existing issues/PRs** — search [open issues](https://github.com/rodrigo-arenas/Ciaren/issues) to avoid duplicate work
+2. **Open an issue first for big features** — [start a discussion](https://github.com/rodrigo-arenas/Ciaren/discussions) before coding
 3. **Keep PRs focused** — one feature or fix per PR, not multiple unrelated changes
 
 ### Commit Messages
@@ -412,7 +412,7 @@ Add pivot table transformation to enable reshaping data by column values.
 
 ## 🎯 Good First Issues
 
-New to the project? Check out [issues labeled `good-first-issue`](https://github.com/rodrigo-arenas/FlowFrame/labels/good-first-issue) or [`help-wanted`](https://github.com/rodrigo-arenas/FlowFrame/labels/help-wanted):
+New to the project? Check out [issues labeled `good-first-issue`](https://github.com/rodrigo-arenas/Ciaren/labels/good-first-issue) or [`help-wanted`](https://github.com/rodrigo-arenas/Ciaren/labels/help-wanted):
 
 - Adding a new transformation node (self-contained)
 - Improving error messages
@@ -424,7 +424,7 @@ New to the project? Check out [issues labeled `good-first-issue`](https://github
 
 ## 🐛 Reporting Bugs
 
-1. **Check if it's already reported** — [search existing issues](https://github.com/rodrigo-arenas/FlowFrame/issues)
+1. **Check if it's already reported** — [search existing issues](https://github.com/rodrigo-arenas/Ciaren/issues)
 2. **Include reproduction steps** — exactly how to trigger the bug
 3. **Share your environment** — OS, Python version, browser, etc.
 4. **Attach sample data** — anonymized CSV/Excel if possible
@@ -504,8 +504,8 @@ This project includes code generated or assisted by AI. When contributing:
 
 ## 💬 Questions?
 
-- **Setup issues?** Open a discussion in [GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)
-- **Design questions?** [Open an issue](https://github.com/rodrigo-arenas/FlowFrame/issues) or [discussion](https://github.com/rodrigo-arenas/FlowFrame/discussions) — we love early feedback
+- **Setup issues?** Open a discussion in [GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)
+- **Design questions?** [Open an issue](https://github.com/rodrigo-arenas/Ciaren/issues) or [discussion](https://github.com/rodrigo-arenas/Ciaren/discussions) — we love early feedback
 - **Stuck on a PR?** Ask in comments — we're here to help
 
 ---

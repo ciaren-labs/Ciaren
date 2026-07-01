@@ -64,8 +64,8 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       content:
         'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
     }],
-    ['meta', { property: 'og:image', content: 'https://rodrigo-arenas.github.io/FlowFrame/FlowFrame.png' }],
-    ['meta', { property: 'og:url', content: 'https://rodrigo-arenas.github.io/FlowFrame/' }],
+    ['meta', { property: 'og:image', content: 'https://rodrigo-arenas.github.io/Ciaren/Ciaren.png' }],
+    ['meta', { property: 'og:url', content: 'https://rodrigo-arenas.github.io/Ciaren/' }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
@@ -74,11 +74,11 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       content:
         'Open-source, plugin-first, local-first platform for Data Engineering and Machine Learning workflows. Build visually, export portable Python.',
     }],
-    ['meta', { name: 'twitter:image', content: 'https://rodrigo-arenas.github.io/FlowFrame/FlowFrame.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://rodrigo-arenas.github.io/Ciaren/Ciaren.png' }],
   ],
 
   sitemap: {
-    hostname: 'https://rodrigo-arenas.github.io/FlowFrame/',
+    hostname: 'https://rodrigo-arenas.github.io/Ciaren/',
   },
 
   lastUpdated: true,
@@ -137,7 +137,7 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       },
       {
         text: '⭐ Star on GitHub',
-        link: 'https://github.com/rodrigo-arenas/FlowFrame',
+        link: 'https://github.com/rodrigo-arenas/Ciaren',
       },
     ],
 
@@ -409,7 +409,7 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/rodrigo-arenas/FlowFrame' },
+      { icon: 'github', link: 'https://github.com/rodrigo-arenas/Ciaren' },
     ],
 
     search: {
@@ -417,16 +417,16 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
     },
 
     editLink: {
-      pattern: 'https://github.com/rodrigo-arenas/FlowFrame/edit/main/docs/:path',
+      pattern: 'https://github.com/rodrigo-arenas/Ciaren/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
     footer: {
       message:
-        '<a href="https://github.com/rodrigo-arenas/FlowFrame" target="_blank" rel="noreferrer">GitHub</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/FlowFrame/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/FlowFrame/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/FlowFrame/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
+        '<a href="https://github.com/rodrigo-arenas/Ciaren" target="_blank" rel="noreferrer">GitHub</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/Ciaren/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/Ciaren/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
+        '<a href="https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
         'Released under the Apache License 2.0. Created by ' +
         '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
         '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',

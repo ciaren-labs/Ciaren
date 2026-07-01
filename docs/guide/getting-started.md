@@ -132,7 +132,7 @@ Yes! Use a **SQL Input** or **SQL Output** node with a saved [Connection](/guide
 
 - **[Troubleshooting Guide](/guide/troubleshooting)** — Common issues and solutions
 - **[FAQ](/faq)** — More frequently asked questions
-- **[GitHub Discussions](https://github.com/rodrigo-arenas/FlowFrame/discussions)** — Ask the community
+- **[GitHub Discussions](https://github.com/rodrigo-arenas/Ciaren/discussions)** — Ask the community
 
 ---
 
