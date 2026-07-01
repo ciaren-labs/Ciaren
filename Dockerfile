@@ -20,7 +20,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Optional extras to install at build time (comma-separated).
 # Examples:  ml  |  postgres  |  ml,postgres  |  all-connectors
-# Note: mssql also requires the unixodbc system package.
+# Note: mssql also pulls in the unixODBC driver manager and Microsoft's
+# msodbcsql18 driver (see the RUN block below) — building with it accepts
+# Microsoft's ODBC Driver for SQL Server EULA on your behalf.
 ARG EXTRAS=""
 
 ENV PYTHONUNBUFFERED=1 \
@@ -38,6 +40,26 @@ RUN packages=""; \
     if [ -n "$packages" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends $packages && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# unixODBC above is only the driver *manager* — pyodbc still needs an actual SQL
+# Server ODBC driver registered with it, or every mssql connection fails at
+# connect time with "no default driver specified". Microsoft ships msodbcsql18
+# only through its own EULA-gated apt repo (ACCEPT_EULA=Y accepts it here on
+# your behalf — this block only runs when EXTRAS opts into mssql support).
+# Pinned to the bookworm (Debian 12) repo rather than this image's own Debian
+# release: Microsoft's per-release repos for newer Debian versions (e.g.
+# trixie/13, which this base image now uses) have had broken/lagging repo
+# signing, while the bookworm package installs and runs fine on newer bases.
+RUN if echo "$EXTRAS" | tr ',' ' ' | grep -Eqw 'mssql|all-connectors|all'; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends curl gnupg && \
+        curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
+        curl -sSL https://packages.microsoft.com/config/debian/12/prod.list -o /etc/apt/sources.list.d/mssql-release.list && \
+        apt-get update && \
+        ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 && \
+        apt-get purge -y --auto-remove curl gnupg && \
         rm -rf /var/lib/apt/lists/*; \
     fi
 
@@ -98,11 +120,15 @@ EXPOSE 8055
 VOLUME ["/data"]
 
 # ── Runtime defaults — all overridable via -e / --env-file ───────────────────
-# DATA_DIR and DATABASE_URL live inside the /data volume so they survive restarts.
+# DATA_DIR, DATABASE_URL, and MLFLOW_TRACKING_URI all live inside the /data
+# volume so they survive restarts. Settings.MLFLOW_TRACKING_URI defaults to the
+# relative "./mlruns", which would resolve against WORKDIR (/app) — outside the
+# volume — if left unset here, so it's pinned explicitly like the other two.
 # CIAREN_CORS_ORIGINS is unset; same-origin serving (frontend + API on 8055)
 # needs no CORS config. Set it if you expose the API to other origins.
 ENV CIAREN_DATA_DIR=/data \
     CIAREN_DATABASE_URL=sqlite+aiosqlite:////data/ciaren.db \
+    CIAREN_MLFLOW_TRACKING_URI=/data/mlruns \
     CIAREN_ENVIRONMENT=production \
     PATH="/app/.venv/bin:$PATH"
 
