@@ -20,5 +20,38 @@ Async usage::
 
 from ciaren_client._async import AsyncCiaren
 from ciaren_client._sync import Ciaren
+from ciaren_client._types import (
+    CodeExport,
+    Connection,
+    ConnectionTestResult,
+    Dataset,
+    DatasetVersion,
+    Flow,
+    FlowDocument,
+    JsonDict,
+    Project,
+    Run,
+    RunStatus,
+    Schedule,
+    WebhookStatus,
+)
 
-__all__ = ["Ciaren", "AsyncCiaren"]
+__version__ = "0.1.0-alpha.1"
+
+__all__ = [
+    "AsyncCiaren",
+    "Ciaren",
+    "CodeExport",
+    "Connection",
+    "ConnectionTestResult",
+    "Dataset",
+    "DatasetVersion",
+    "Flow",
+    "FlowDocument",
+    "JsonDict",
+    "Project",
+    "Run",
+    "RunStatus",
+    "Schedule",
+    "WebhookStatus",
+]

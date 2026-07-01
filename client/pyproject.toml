@@ -4,11 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ciaren-client"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 description = "Python client for the Ciaren visual data and ML workflow server"
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 license = { text = "AGPL-3.0-only" }
+keywords = ["ciaren", "data", "workflow", "etl", "ml", "api-client", "data-engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
 dependencies = [
     "httpx>=0.24",
 ]
@@ -16,7 +29,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://www.rodrigo-arenas.com/"
 Repository = "https://github.com/ciaren-labs/Ciaren"
-Documentation = "https://docs.ciaren.com"
+Documentation = "https://ciaren.com/docs"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"
 Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 
@@ -29,3 +42,14 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ciaren_client"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "ciaren_client",
+    "README.md",
+    "pyproject.toml",
+    "tests",
+]

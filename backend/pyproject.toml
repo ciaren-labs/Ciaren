@@ -1,6 +1,6 @@
 [project]
 name = "ciaren"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 description = "Open-core visual data and ML workflow builder — local-first, dataframe-based"
 dynamic = ["readme"]
 requires-python = ">=3.12"
@@ -13,6 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 license = { text = "AGPL-3.0-only" }
@@ -79,7 +80,7 @@ ciaren = "app.cli:main"
 [project.urls]
 Homepage = "https://www.rodrigo-arenas.com/"
 Repository = "https://github.com/ciaren-labs/Ciaren"
-Documentation = "https://docs.ciaren.com"
+Documentation = "https://ciaren.com/docs"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"
 Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 

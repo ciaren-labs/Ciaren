@@ -11,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from ciaren_client import AsyncCiaren, Ciaren
+from ciaren_client import AsyncCiaren, Ciaren, __version__
 
 BASE = "http://localhost:8055"
 SECRET = "test-secret"
@@ -21,6 +21,13 @@ RUN_ID = "run-xyz"
 MOCK_FLOW = {"id": FLOW_ID, "name": "My Flow"}
 MOCK_RUN = {"id": RUN_ID, "flow_id": FLOW_ID, "status": "success", "trigger": "webhook"}
 MOCK_RUNS = [MOCK_RUN]
+MOCK_PROJECT = {"id": "proj-1", "name": "Default"}
+MOCK_DATASET = {"id": "ds-1", "name": "data.csv", "latest_version": 1}
+MOCK_SCHEDULE = {"id": "sched-1", "flow_id": FLOW_ID, "cron": "0 9 * * *"}
+
+
+def test_package_version():
+    assert __version__ == "0.1.0-alpha.1"
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +41,129 @@ def test_sync_list_flows():
         with Ciaren(BASE) as client:
             flows = client.list_flows()
     assert flows == [MOCK_FLOW]
+
+
+def test_sync_project_methods():
+    with respx.mock(base_url=BASE) as mock:
+        create_route = mock.post("/api/projects").mock(return_value=httpx.Response(201, json=MOCK_PROJECT))
+        mock.get("/api/projects/proj-1").mock(return_value=httpx.Response(200, json=MOCK_PROJECT))
+        mock.put("/api/projects/proj-1").mock(return_value=httpx.Response(200, json={**MOCK_PROJECT, "color": "emerald"}))
+        delete_route = mock.delete("/api/projects/proj-1").mock(return_value=httpx.Response(204))
+
+        with Ciaren(BASE) as client:
+            created = client.create_project("Default", color="emerald")
+            found = client.get_project("proj-1")
+            updated = client.update_project("proj-1", color="emerald")
+            client.delete_project("proj-1")
+
+    assert created["id"] == "proj-1"
+    assert found == MOCK_PROJECT
+    assert updated["color"] == "emerald"
+    assert json.loads(create_route.calls[0].request.content)["color"] == "emerald"
+    assert delete_route.called
+
+
+def test_sync_dataset_methods(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("value\n1\n", encoding="utf-8")
+
+    with respx.mock(base_url=BASE) as mock:
+        upload_route = mock.post("/api/datasets/upload").mock(return_value=httpx.Response(201, json=MOCK_DATASET))
+        list_route = mock.get("/api/datasets").mock(return_value=httpx.Response(200, json=[MOCK_DATASET]))
+        mock.get("/api/datasets/ds-1/schema").mock(return_value=httpx.Response(200, json=[{"name": "value"}]))
+        mock.get("/api/datasets/ds-1/versions").mock(return_value=httpx.Response(200, json=[{"version_number": 1}]))
+        mock.get("/api/datasets/ds-1/versions/1/download").mock(return_value=httpx.Response(200, content=b"value\n1\n"))
+        delete_route = mock.delete("/api/datasets/ds-1").mock(return_value=httpx.Response(204))
+
+        with Ciaren(BASE) as client:
+            uploaded = client.upload_dataset(csv_path, project_id="proj-1")
+            datasets = client.list_datasets(project_id="proj-1", include_deleted=True)
+            schema = client.get_dataset_schema("ds-1", version=1)
+            versions = client.list_dataset_versions("ds-1")
+            content = client.download_dataset_version("ds-1", 1)
+            client.delete_dataset("ds-1", purge=True, force=True)
+
+    assert uploaded["id"] == "ds-1"
+    assert datasets == [MOCK_DATASET]
+    assert schema == [{"name": "value"}]
+    assert versions == [{"version_number": 1}]
+    assert content == b"value\n1\n"
+    assert upload_route.calls[0].request.url.params["project_id"] == "proj-1"
+    assert list_route.calls[0].request.url.params["include_deleted"] == "true"
+    assert delete_route.calls[0].request.url.params["purge"] == "true"
+
+
+def test_sync_flow_run_schedule_connection_and_catalog_methods():
+    with respx.mock(base_url=BASE) as mock:
+        create_flow_route = mock.post("/api/flows").mock(return_value=httpx.Response(201, json=MOCK_FLOW))
+        mock.post(f"/api/flows/{FLOW_ID}/runs").mock(return_value=httpx.Response(201, json=MOCK_RUN))
+        output_route = mock.get(f"/api/runs/{RUN_ID}/output").mock(return_value=httpx.Response(200, content=b"out"))
+        mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
+        mock.get("/api/schedules").mock(return_value=httpx.Response(200, json=[MOCK_SCHEDULE]))
+        mock.post("/api/connections/test-config").mock(return_value=httpx.Response(200, json={"ok": True}))
+        mock.get("/api/catalog/nodes").mock(return_value=httpx.Response(200, json=[{"type": "source"}]))
+        mock.get("/api/transformations").mock(return_value=httpx.Response(200, json={"groups": []}))
+        mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": True}))
+
+        with Ciaren(BASE) as client:
+            flow = client.create_flow("My Flow", project_id="proj-1", graph_json={"nodes": []})
+            run = client.create_run(FLOW_ID, engine="polars", parameters={"sample": True})
+            output = client.download_run_output(RUN_ID, "node-1")
+            schedule = client.create_schedule(FLOW_ID, "0 9 * * *", timezone="UTC")
+            schedules = client.list_schedules(flow_id=FLOW_ID)
+            connection_test = client.test_connection_config(provider="postgres", config={})
+            nodes = client.list_catalog_nodes(category="sources")
+            transformations = client.list_transformations(include_ml=False)
+            webhook = client.webhook_status()
+
+    assert flow["id"] == FLOW_ID
+    assert run == MOCK_RUN
+    assert output == b"out"
+    assert schedule == MOCK_SCHEDULE
+    assert schedules == [MOCK_SCHEDULE]
+    assert connection_test["ok"] is True
+    assert nodes == [{"type": "source"}]
+    assert transformations == {"groups": []}
+    assert webhook["configured"] is True
+    assert json.loads(create_flow_route.calls[0].request.content)["project_id"] == "proj-1"
+    assert output_route.calls[0].request.url.params["node_id"] == "node-1"
+
+
+def test_sync_ml_plugin_and_marketplace_methods():
+    with respx.mock(base_url=BASE) as mock:
+        mock.get(f"/api/runs/{RUN_ID}/ml/metrics").mock(return_value=httpx.Response(200, json=[{"node_id": "n1"}]))
+        register_route = mock.post(f"/api/runs/{RUN_ID}/ml/register").mock(
+            return_value=httpx.Response(200, json={"model_name": "churn"})
+        )
+        alias_route = mock.post("/api/ml/models/churn/alias").mock(
+            return_value=httpx.Response(200, json={"alias": "production"})
+        )
+        mock.delete("/api/ml/models/churn/alias/production").mock(return_value=httpx.Response(200, json={"ok": True}))
+        mock.get("/api/plugins").mock(return_value=httpx.Response(200, json=[{"id": "plugin-1"}]))
+        mock.post("/api/plugins/plugin-1/grant").mock(return_value=httpx.Response(200, json={"id": "plugin-1"}))
+        mock.get("/api/marketplace").mock(return_value=httpx.Response(200, json={"configured": True, "plugins": []}))
+        mock.post("/api/marketplace/plugin-1/install").mock(return_value=httpx.Response(200, json={"outcome": "trusted"}))
+
+        with Ciaren(BASE) as client:
+            metrics = client.get_run_ml_metrics(RUN_ID)
+            registered = client.register_run_model(RUN_ID, "churn", stage="staging")
+            alias = client.set_model_alias("churn", 3, "production")
+            cleared = client.clear_model_alias("churn", "production")
+            plugins = client.list_plugins()
+            granted = client.grant_plugin_permissions("plugin-1", ["network"])
+            marketplace = client.list_marketplace()
+            installed = client.install_marketplace_plugin("plugin-1")
+
+    assert metrics == [{"node_id": "n1"}]
+    assert registered["model_name"] == "churn"
+    assert alias["alias"] == "production"
+    assert cleared["ok"] is True
+    assert plugins == [{"id": "plugin-1"}]
+    assert granted["id"] == "plugin-1"
+    assert marketplace["configured"] is True
+    assert installed["outcome"] == "trusted"
+    assert json.loads(register_route.calls[0].request.content)["stage"] == "staging"
+    assert json.loads(alias_route.calls[0].request.content)["version"] == 3
 
 
 def test_sync_get_flow():
@@ -166,6 +296,91 @@ async def test_async_list_flows():
         async with AsyncCiaren(BASE) as client:
             flows = await client.list_flows()
     assert flows == [MOCK_FLOW]
+
+
+@pytest.mark.asyncio
+async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("value\n1\n", encoding="utf-8")
+
+    with respx.mock(base_url=BASE) as mock:
+        mock.post("/api/projects").mock(return_value=httpx.Response(201, json=MOCK_PROJECT))
+        mock.post("/api/datasets/upload").mock(return_value=httpx.Response(201, json=MOCK_DATASET))
+        mock.post("/api/flows/import").mock(return_value=httpx.Response(201, json=MOCK_FLOW))
+        mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(return_value=httpx.Response(200, json={"code": "print(1)"}))
+        mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
+        mock.post("/api/transformations/preview").mock(return_value=httpx.Response(200, json={"rows": []}))
+
+        async with AsyncCiaren(BASE) as client:
+            project = await client.create_project("Default")
+            dataset = await client.upload_dataset(csv_path)
+            flow = await client.import_flow({"nodes": []}, name="Imported")
+            export = await client.export_flow_python(FLOW_ID)
+            schedule = await client.create_schedule(FLOW_ID, "0 9 * * *")
+            preview = await client.preview_transformation(type="select", config={})
+
+    assert project == MOCK_PROJECT
+    assert dataset == MOCK_DATASET
+    assert flow == MOCK_FLOW
+    assert export["code"] == "print(1)"
+    assert schedule == MOCK_SCHEDULE
+    assert preview == {"rows": []}
+
+
+@pytest.mark.asyncio
+async def test_async_connection_catalog_and_download_methods(tmp_path):
+    target = tmp_path / "output.csv"
+
+    with respx.mock(base_url=BASE) as mock:
+        mock.get("/api/connections/providers").mock(return_value=httpx.Response(200, json=[{"name": "postgres"}]))
+        mock.get("/api/connections/conn-1/objects").mock(return_value=httpx.Response(200, json=["raw/events"]))
+        mock.get("/api/catalog/categories").mock(return_value=httpx.Response(200, json=[{"id": "sources"}]))
+        mock.get("/api/datasets/ds-1/versions/1/download").mock(return_value=httpx.Response(200, content=b"value\n1\n"))
+        mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": False}))
+
+        async with AsyncCiaren(BASE) as client:
+            providers = await client.list_connection_providers()
+            objects = await client.list_connection_objects("conn-1", prefix="raw/")
+            categories = await client.list_catalog_categories()
+            downloaded = await client.download_dataset_version("ds-1", 1, target)
+            webhook = await client.webhook_status()
+
+    assert providers == [{"name": "postgres"}]
+    assert objects == ["raw/events"]
+    assert categories == [{"id": "sources"}]
+    assert downloaded == target
+    assert target.read_bytes() == b"value\n1\n"
+    assert webhook["configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_async_ml_plugin_and_marketplace_methods():
+    with respx.mock(base_url=BASE) as mock:
+        mock.get(f"/api/flows/{FLOW_ID}/ml/experiments").mock(return_value=httpx.Response(200, json=[{"id": "exp-1"}]))
+        mock.get("/api/ml/models").mock(return_value=httpx.Response(200, json=[{"name": "churn"}]))
+        mock.get("/api/ml/model-catalog").mock(return_value=httpx.Response(200, json=[{"id": "random_forest"}]))
+        mock.get("/api/ml/experiments").mock(return_value=httpx.Response(200, json=[{"id": "exp-1"}]))
+        runs_route = mock.get("/api/ml/experiments/exp-1/runs").mock(return_value=httpx.Response(200, json=[{"run_id": RUN_ID}]))
+        mock.get("/api/plugins/diagnostics").mock(return_value=httpx.Response(200, json={"loaded": [], "gated": [], "errors": []}))
+        mock.post("/api/plugins/plugin-1/disable").mock(return_value=httpx.Response(200, json={"id": "plugin-1"}))
+
+        async with AsyncCiaren(BASE) as client:
+            flow_experiments = await client.list_flow_ml_experiments(FLOW_ID)
+            models = await client.list_registered_models()
+            catalog = await client.list_model_catalog()
+            experiments = await client.list_ml_experiments()
+            experiment_runs = await client.list_ml_experiment_runs("exp-1", limit=10)
+            diagnostics = await client.plugin_diagnostics()
+            disabled = await client.disable_plugin("plugin-1")
+
+    assert flow_experiments == [{"id": "exp-1"}]
+    assert models == [{"name": "churn"}]
+    assert catalog == [{"id": "random_forest"}]
+    assert experiments == [{"id": "exp-1"}]
+    assert experiment_runs == [{"run_id": RUN_ID}]
+    assert diagnostics["loaded"] == []
+    assert disabled["id"] == "plugin-1"
+    assert runs_route.calls[0].request.url.params["limit"] == "10"
 
 
 @pytest.mark.asyncio

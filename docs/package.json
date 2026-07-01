@@ -1,6 +1,6 @@
 {
   "name": "ciaren-docs",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "User-facing documentation for Ciaren data and ML workflow builder",
   "type": "module",
   "private": true,
