@@ -1,16 +1,21 @@
 name: Package & Publish (PyPI)
 
-# Builds the distributable wheel: the frontend is built and bundled into the
-# package (app/web) by the hatch build hook, so `pip install` + `ciaren serve`
-# ships and serves the web UI with no Node on the user's machine.
+# Builds distributable wheels for both PyPI packages that live in this repo:
+#   - ciaren        (backend/) — the server. The frontend is built and bundled
+#                     into it (app/web) by the hatch build hook, so `pip install`
+#                     + `ciaren serve` ships and serves the web UI with no Node
+#                     on the user's machine.
+#   - ciaren-client (client/) — the thin httpx-based SDK.
 #
-# Pushing a version tag (e.g. "0.1.0", or a pre-release like "0.1.0-alpha.1",
-# "0.1.0-beta.2", "0.1.0-rc.1" — matching pyproject.toml's version exactly)
-# additionally publishes the build to PyPI via trusted publishing (OIDC) —
-# no long-lived API token stored in the repo. hatchling normalizes these to
-# PEP 440 at build time (e.g. "0.1.0-alpha.1" -> "0.1.0a1"), and PyPI/pip
-# already treat any pre-release identifier as non-final: `pip install ciaren`
-# skips them unless run with `--pre` or an exact version pin.
+# The two packages are versioned in lockstep: pushing a single version tag
+# (e.g. "0.1.0", or a pre-release like "0.1.0-alpha.1", "0.1.0-beta.2",
+# "0.1.0-rc.1") builds and publishes both packages at that version. Each build
+# job verifies its own package's pyproject.toml against the tag independently,
+# so bumping only one of the two before tagging fails that job before anything
+# is published. hatchling normalizes these to PEP 440 at build time (e.g.
+# "0.1.0-alpha.1" -> "0.1.0a1"), and PyPI/pip already treat any pre-release
+# identifier as non-final: `pip install ciaren` skips them unless run with
+# `--pre` or an exact version pin.
 
 on:
   push:
@@ -27,8 +32,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
-    name: Build wheel
+  build-server:
+    name: Build server wheel (ciaren)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -118,9 +123,66 @@ jobs:
           path: backend/dist/*
           retention-days: 30
 
-  publish:
-    name: Publish to PyPI
-    needs: build
+  build-client:
+    name: Build client wheel (ciaren-client)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: client
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          python -m pip install -q packaging
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          from packaging.version import InvalidVersion, Version
+
+          tag = os.environ["GIT_TAG"]
+          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          try:
+              tag_version, pkg_version = Version(tag), Version(version)
+          except InvalidVersion as exc:
+              print(f"❌ {exc}")
+              sys.exit(1)
+
+          if tag_version != pkg_version:
+              print(f"❌ Tag ({tag} -> {tag_version}) does not match pyproject.toml version ({version} -> {pkg_version})")
+              sys.exit(1)
+
+          print(f"✅ Tag matches package version: {version} (normalized: {tag_version})")
+          PY
+
+      - name: Build wheel + sdist
+        working-directory: client
+        run: |
+          python -m pip install build
+          python -m build --sdist
+          python -m build --wheel
+
+      - name: Upload wheel + sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: ciaren-client-dist
+          path: client/dist/*
+          retention-days: 30
+
+  publish-server:
+    name: Publish ciaren to PyPI
+    needs: build-server
     # Only publish on an actual version tag push (not workflow_dispatch), so
     # maintainers can still use workflow_dispatch to sanity-check the build.
     if: startsWith(github.ref, 'refs/tags/')
@@ -138,6 +200,34 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: ciaren-dist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  publish-client:
+    name: Publish ciaren-client to PyPI
+    needs: build-client
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      # Separate environment from `pypi` because PyPI trusted publishing is
+      # registered per (repo, workflow, environment) -> one PyPI project. This
+      # env name must have its own trusted-publisher entry configured on the
+      # ciaren-client PyPI project before this job can succeed.
+      name: pypi-client
+      url: https://pypi.org/project/ciaren-client/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheel + sdist
+        uses: actions/download-artifact@v8
+        with:
+          name: ciaren-client-dist
           path: dist
 
       - name: Publish to PyPI
