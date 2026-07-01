@@ -76,11 +76,11 @@ export function FlowEditorPage() {
   const [editOpen, setEditOpen] = useState(false);
   // Height of the bottom preview pane, drag-resizable and remembered locally.
   const [previewHeight, setPreviewHeight] = useState(() => {
-    const saved = Number(localStorage.getItem("ff_preview_height"));
+    const saved = Number(localStorage.getItem("ciaren_preview_height"));
     return saved >= 180 ? saved : 420;
   });
   useEffect(() => {
-    localStorage.setItem("ff_preview_height", String(previewHeight));
+    localStorage.setItem("ciaren_preview_height", String(previewHeight));
   }, [previewHeight]);
 
   const startPreviewResize = (e: React.MouseEvent) => {

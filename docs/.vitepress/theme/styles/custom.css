@@ -7,10 +7,23 @@
   --vp-sidebar-width: 240px;
 }
 
-/* Give content a bit more room when the aside is present */
+/* Widen the content column — VitePress's own scoped rule
+   (`.content-container[data-v-xxxxxx]`) has higher specificity than a plain
+   class selector despite appearing earlier in the cascade, so `!important`
+   is required to win. The ceiling is intentionally generous: `.content-container`
+   sits in a flex layout and shrinks to whatever room is actually available,
+   so this only matters on viewports wide enough to have slack to give — it
+   never causes overflow on narrower screens. */
+@media (min-width: 960px) {
+  .VPDoc .content-container {
+    max-width: 1040px !important;
+  }
+}
+
+/* Even more room once the right-hand outline is collapsed. */
 @media (min-width: 1280px) {
-  .VPDoc.has-aside .content-container {
-    max-width: 720px;
+  html.ciaren-aside-collapsed .VPDoc.has-aside .content-container {
+    max-width: 1300px !important;
   }
 }
 
@@ -35,16 +48,11 @@
 
 /* ── Right aside collapse (ciaren-aside-collapsed on <html>) ────── */
 @media (min-width: 1280px) {
-  html.ciaren-aside-collapsed .VPDoc.has-aside .container {
-    grid-template-columns: 1fr !important;
-  }
-
+  /* .container is a flex row (not a grid), so hiding .aside below is enough
+     for .content to reclaim the freed space on its own — no grid-template
+     override needed. The wider max-width for this state lives above. */
   html.ciaren-aside-collapsed .VPDoc .aside {
     display: none !important;
-  }
-
-  html.ciaren-aside-collapsed .VPDoc.has-aside .content-container {
-    max-width: 800px;
   }
 }
 

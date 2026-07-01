@@ -66,7 +66,7 @@ function iconFor(type: string): string {
 
 .flow-pipeline--vertical {
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
 }
 
 /* ── Node card ────────────────────────────────────────── */
@@ -81,6 +81,17 @@ function iconFor(type: string): string {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   flex: 1 0 140px;
   position: relative;
+}
+
+/* `flex-basis` sets height (not width) once the container is a column, so the
+   horizontal-mode sizing above would otherwise force every vertical card to a
+   140px min-height regardless of its content. Size to content instead, and
+   cap the width so short label/detail text isn't stretched edge-to-edge
+   across the now-wider content column. */
+.flow-pipeline--vertical .pipeline-node {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 460px;
 }
 
 /* category colours */

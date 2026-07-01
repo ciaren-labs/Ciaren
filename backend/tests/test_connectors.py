@@ -86,8 +86,8 @@ def test_mongo_rejects_custom_query():
 
 
 def test_resolve_secret_from_env(monkeypatch):
-    monkeypatch.setenv("FF_TEST_PW", "s3cret")
-    assert resolve_secret("FF_TEST_PW") == "s3cret"
+    monkeypatch.setenv("CIAREN_TEST_PW", "s3cret")
+    assert resolve_secret("CIAREN_TEST_PW") == "s3cret"
 
 
 def test_resolve_secret_none_when_no_var():
@@ -96,9 +96,9 @@ def test_resolve_secret_none_when_no_var():
 
 
 def test_resolve_secret_unset_raises(monkeypatch):
-    monkeypatch.delenv("FF_MISSING", raising=False)
+    monkeypatch.delenv("CIAREN_MISSING", raising=False)
     with pytest.raises(ValidationError):
-        resolve_secret("FF_MISSING")
+        resolve_secret("CIAREN_MISSING")
 
 
 def test_scrub_redacts_secret():
