@@ -79,6 +79,12 @@ portable Python. It's built on a few principles:
 
 ![Ciaren editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
 
+Cleaning and machine learning aren't separate tools — they're nodes on the same
+canvas. Here a flow drops nulls and duplicates, then feeds straight into a
+train/test split, a Random Forest regressor, prediction, and evaluation:
+
+![Ciaren editor — one flow combining Drop Nulls and Remove Duplicates with Train/Test Split, Train Regressor, Predict, and Evaluate ML nodes](/screenshots/editor-clean-and-ml.png)
+
 ## Export to Clean, Portable Python
 
 There's no black box. Every flow generates a readable, standalone script — copy it
