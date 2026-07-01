@@ -46,7 +46,7 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-Ciaren-Secret` |
 | `CIAREN_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
 | `CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS` | `false` | Block connector endpoints resolving to private/internal addresses |
-| `CIAREN_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage connector roots to these directories |
+| `CIAREN_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage roots and SQLite/DuckDB database files to these directories |
 | `CIAREN_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
 | `CIAREN_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
 | `CIAREN_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
