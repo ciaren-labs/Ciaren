@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Run Ciaren with Docker — single-command setup, optional ML and database extras
+description: Run Ciaren with Docker — single-command setup, built-in ML, optional database extras
 search: docker container compose deployment
 layout: doc
 ---
@@ -79,9 +79,12 @@ See `ciaren info` (below) for the full list of resolved settings, or
 Extras are installed at **build time** via the `EXTRAS` build argument. Pass a
 comma-separated list:
 
+scikit-learn, MLflow, and joblib ship in every image — the ML nodes work with
+no extra. `EXTRAS` only adds:
+
 | Extra | Adds |
 | ------- | ------ |
-| `ml` | scikit-learn, XGBoost, LightGBM, MLflow — enables ML nodes |
+| `ml` | XGBoost, LightGBM — extra gradient-boosting model choices |
 | `postgres` | asyncpg + psycopg — PostgreSQL support |
 | `mysql` | pymysql — MySQL SQL-node connector support |
 | `mongo` | pymongo — MongoDB support |
@@ -89,7 +92,7 @@ comma-separated list:
 | `all-connectors` | postgres + mysql + mongo + s3 + gcs + azure + mssql |
 
 ```bash
-# ML support
+# XGBoost + LightGBM model choices
 EXTRAS=ml docker compose build && docker compose up
 
 # PostgreSQL connector
@@ -184,10 +187,10 @@ docker run --rm \
 ## Building the image manually
 
 ```bash
-# base image (SQLite + polars + pandas)
+# base image (SQLite + polars + pandas + built-in ML)
 docker build -t ciaren:latest .
 
-# with ML extras
+# with XGBoost + LightGBM
 docker build --build-arg EXTRAS=ml -t ciaren:ml .
 
 # with multiple extras
@@ -215,10 +218,13 @@ The image is built in two stages so no Node.js, npm, or build tooling ends up
 in the final layer:
 
 - **Stage 1** (`node:22-alpine`): builds the React frontend → ~200 MB, discarded
-- **Stage 2** (`python:3.13-slim`): runtime only → ~350 MB base, ~600 MB with ML extras
+- **Stage 2** (`python:3.13-slim`): runtime only, now includes scikit-learn,
+  MLflow, and joblib in the base image
 
 To further reduce size, avoid installing extras you don't need. The `ml` extra
-alone adds ~250 MB of ML libraries.
+now only adds XGBoost and LightGBM, so its footprint is smaller than before —
+the base image itself is correspondingly larger since core ML libraries moved
+into it.
 
 ## Troubleshooting
 
@@ -244,15 +250,18 @@ probe so a hung process is restarted without being masked by a transient DB blip
 
 ### ML nodes not visible
 
-ML nodes only appear when `CIAREN_ML_ENABLED=true` **and** the `[ml]` extra
-was installed at build time. Verify with:
+The base image already includes scikit-learn, MLflow, and joblib, so the ML
+nodes only go missing if `CIAREN_ML_ENABLED=false` — or the image is somehow
+broken/stripped-down. XGBoost/LightGBM model *choices* specifically need the
+`ml` extra baked in at build time. Verify with:
 
 ```bash
 docker compose exec ciaren ciaren check
 ```
 
-A `[warn] ml: ML_ENABLED but [ml] extra not installed` line means you need to
-rebuild with `EXTRAS=ml`.
+A `[warn] ml: ...` line means either `CIAREN_ML_ENABLED` is off, or the image
+wasn't built normally — rebuild without a custom `--no-deps`-style override.
+Missing XGBoost/LightGBM specifically means rebuild with `EXTRAS=ml`.
 
 ### Port already in use
 

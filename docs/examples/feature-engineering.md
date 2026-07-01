@@ -11,11 +11,6 @@ Ciaren's **Machine Learning** nodes cover the common steps — scaling, encoding
 selection, and dimensionality reduction — and each one previews on real rows so you
 can see the effect immediately.
 
-:::tip Requires the ML extension
-These nodes appear once you install `pip install "ciaren[ml]"`. See the
-[ML Quick Start](/guide/ml-quickstart).
-:::
-
 **You'll use:** CSV Input → Fill Nulls → Encode Categories → Scale Features →
 Select Features → Reduce Dimensions (PCA).
 

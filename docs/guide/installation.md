@@ -105,19 +105,21 @@ cd ../backend && ciaren serve  # banner: "Open the app: http://localhost:8055"
 `CIAREN_FRONTEND_DIST`. Its startup banner always tells you the exact URL to open.
 :::
 
-:::tip Enable Machine Learning
-The ML nodes (Train / Predict / Evaluate …) only appear once you install the extra
-**and** enable the feature:
+:::tip Machine Learning is built in
+The ML nodes (Train / Predict / Evaluate …) are part of the base install — no
+extra needed. `ciaren init` enables the feature and provisions a local MLflow
+store by default (`CIAREN_ML_ENABLED=true` in `.env`).
+
+Only the XGBoost/LightGBM model types need an extra, since they pull in
+native-compiled gradient-boosting libraries:
 
 ```bash
-pip install -e ".[ml]"
-# .env  (ciaren init writes these for you)
-CIAREN_ML_ENABLED=true
+pip install -e ".[ml]"   # adds XGBoost + LightGBM model choices
 ```
 
-If the **Machine Learning** palette section is missing, check `ciaren check`
-(it reports `ml: ok`) and that the frontend you're viewing is up to date. See the
-[ML Quick Start](/guide/ml-quickstart).
+If the **Machine Learning** palette section is missing entirely, check
+`ciaren check` (it reports `ml: ok`) and that the frontend you're viewing is up
+to date. See the [ML Quick Start](/guide/ml-quickstart).
 :::
 
 ## Detailed Setup

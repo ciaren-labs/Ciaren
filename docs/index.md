@@ -33,7 +33,7 @@ features:
 
   - icon: 🤖
     title: Data Engineering + ML
-    details: One canvas for the whole lifecycle — ingest, clean, validate, engineer features, train, evaluate, and predict. ML tracked with MLflow (optional extension).
+    details: One canvas for the whole lifecycle — ingest, clean, validate, engineer features, train, evaluate, and predict. ML is built in and tracked with MLflow.
 
   - icon: ⚙️
     title: Multi-Engine
@@ -70,7 +70,7 @@ portable Python. It's built on a few principles:
     {"type":"clean","label":"Clean","detail":"nulls · types · dedupe · rename"},
     {"type":"transform","label":"Transform","detail":"join · group · pivot · window"},
     {"type":"clean","label":"Validate","detail":"not-null · unique · ranges · contracts"},
-    {"type":"ml","label":"ML (optional)","detail":"split · train · evaluate · predict"},
+    {"type":"ml","label":"ML","detail":"split · train · evaluate · predict"},
     {"type":"output","label":"Export","detail":"Python code · file · SQL · storage"}
   ]'
 />

@@ -37,6 +37,13 @@ dependencies = [
     # Declared explicitly (not relied on as a transitive dep) so the slim runtime
     # image has it — otherwise `ciaren serve` fails to import in Docker.
     "packaging>=23",
+    # Core ML: scikit-learn models, MLflow tracking/registry, joblib persistence.
+    # Every ML node except the gradient-boosting models below runs on these —
+    # they ship with the base install so `pip install ciaren` already has a
+    # working Machine Learning palette. See app/ml/availability.py.
+    "scikit-learn>=1.5",
+    "mlflow>=3.0",
+    "joblib>=1.3",
 ]
 
 [project.optional-dependencies]
@@ -51,14 +58,13 @@ mongo = ["pymongo>=4.6"]
 s3 = ["boto3>=1.34"]
 gcs = ["google-cloud-storage>=2.16"]
 azure = ["azure-storage-blob>=12.19"]
-# Tabular ML extension (scikit-learn, gradient boosting, MLflow tracking/registry).
-# The base install never imports these; ML nodes are gated on ML_ENABLED + availability.
+# Gradient-boosting models only (XGBoost, LightGBM) — scikit-learn, MLflow, and
+# joblib are core dependencies now, so the base install already has the rest of
+# the Machine Learning palette. These two stay optional because they pull in
+# native-compiled libraries (and, on Linux, need libgomp1 — see Dockerfile).
 ml = [
-    "scikit-learn>=1.5",
     "xgboost>=3.3.0",
     "lightgbm>=4.0",
-    "mlflow>=3.0",
-    "joblib>=1.3",
 ]
 # Plugin signing / verification (Ed25519). Needed only to sign or verify signed
 # `.ciarenplugin` packages; the core runs fine without it (unsigned plugins still load).

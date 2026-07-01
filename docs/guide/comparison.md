@@ -63,7 +63,7 @@ license-gated, and lock your logic into a proprietary format.
 | Where it runs | Vendor desktop/cloud | Your machine, local-first |
 | Lock-in | Proprietary format | Exports standalone Python |
 | Extensibility | Vendor plugins only | Plugin-first — add nodes, connectors, engines |
-| ML | Add-on / separate | Built-in optional ML extension, MLflow-tracked |
+| ML | Add-on / separate | Built in, MLflow-tracked (XGBoost/LightGBM optional) |
 
 **Use Ciaren when** you want the approachability of a visual tool without giving
 up ownership of your data, your execution, or your code.

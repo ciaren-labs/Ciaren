@@ -83,6 +83,11 @@ jobs:
       - name: Verify /health response
         run: curl -sf http://localhost:8055/health
 
+      - name: Verify core ML packages are importable
+        run: |
+          docker exec ciaren-ci python -c \
+            "import sklearn, mlflow, joblib; print('✅ core ML packages available')"
+
       - name: Verify frontend is served at /
         run: |
           curl -sf http://localhost:8055/ | grep -qi '<!doctype html' \
@@ -133,10 +138,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Verify ML packages are importable
+      - name: Verify XGBoost/LightGBM are importable
         run: |
           docker run --rm --entrypoint python ciaren:ci-ml -c \
-            "import sklearn, xgboost, lightgbm, mlflow; print('✅ ML packages available')"
+            "import xgboost, lightgbm; print('✅ XGBoost/LightGBM available')"
 
       - name: ciaren check with ML extras
         run: |

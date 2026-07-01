@@ -30,7 +30,7 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 - **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
 - **Models** (`/models`) — MLflow-tracked model registry: registered models with
   metrics, aliases (`@production`, `@staging`), and lineage back to the flow and
-  run that produced each version. Only visible when the `[ml]` extra is installed.
+  run that produced each version. Only visible when ML is enabled (on by default).
 - **Runs** (`/runs`) — execution history; open a run for status, logs, and
   per-node results.
 - **Schedules** (`/schedules`) — automated flows; see [Scheduling](/guide/scheduling).
