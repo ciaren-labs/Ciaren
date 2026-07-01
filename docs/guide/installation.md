@@ -315,4 +315,4 @@ FLOWFRAME_CORS_ORIGINS=["http://localhost:5173"]
 
 ---
 
-Once it's running, head to [Quick Start](/guide/quick-start) to build your first ETL flow! 🚀
+Once it's running, head to [Quick Start](/guide/quick-start) to build your first data workflow! 🚀

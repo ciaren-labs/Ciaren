@@ -6,7 +6,7 @@ export function AppFooter() {
       <span>
         <span className="font-medium text-brand-600">Flow</span>
         <span>Frame</span>
-        {" — "}open-core local-first ETL builder
+        {" — "}open-core local-first data and ML workflow builder
       </span>
       <div className="flex items-center gap-4">
         <a

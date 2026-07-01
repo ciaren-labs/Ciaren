@@ -112,7 +112,7 @@ def _redact_url(url: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="flowframe",
-        description="FlowFrame — local-first visual ETL builder.",
+        description="FlowFrame — local-first visual data and ML workflow builder.",
     )
     parser.add_argument("--version", action="version", version=f"flowframe {_package_version()}")
 

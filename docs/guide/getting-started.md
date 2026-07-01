@@ -31,7 +31,7 @@ and lets you:
 - **Extend** almost everything — nodes, connectors, engines, exporters, and more —
   through [plugins](/plugins/overview)
 
-It's more than a visual ETL tool: every node maps to one clear dataframe operation,
+It's more than a visual data tool: every node maps to one clear dataframe operation,
 so the generated code is readable and the platform stays transparent and extensible.
 Approachable enough to start without writing code — and Python-native when you want
 full control.
