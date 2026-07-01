@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Local license tokens for premium plugins — signed, cached, offline-tolerant.
 
-This is reusable infrastructure, **not** wired into the open-source core: a
+This is reusable infrastructure, **not** wired into the open core: a
 premium plugin registers its own :class:`TokenLicenseProvider` so the core never
 references premium licensing. A token is a small signed JSON blob the marketplace
 issues after purchase; it is cached locally and keeps working offline until

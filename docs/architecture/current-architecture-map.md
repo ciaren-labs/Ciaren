@@ -88,5 +88,5 @@ the target "optional provider" model — Phase 1b expresses it as an explicit
 - Backend stays the source of truth and validates everything.
 - Engine code must not import FastAPI; the `plugin_api` layer must not import the
   app's FastAPI/ORM internals.
-- ML stays import-isolated; the open-source core must not import premium plugins.
+- ML stays import-isolated; the open core must not import premium plugins.
 - Every change keeps the existing endpoints and the test suite green.

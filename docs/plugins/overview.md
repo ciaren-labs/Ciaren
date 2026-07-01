@@ -12,7 +12,7 @@ is defined as a **stable provider contract** that a plugin can implement. A plug
 is a small Python package that depends only on the public plugin API
 (`app.plugin_api`), never on FlowFrame's internals.
 
-That means the core stays lean and open-source, while the community can extend it
+That means the core stays lean and open, while the community can extend it
 from the outside — without forking.
 
 :::tip In one sentence
@@ -103,7 +103,7 @@ with a pre-built **signed** package in
 
 These contracts are the foundation for a community ecosystem of nodes, connectors,
 execution engines, exporters, AI assistants, templates, and integrations. The core
-stays fully open-source and useful on its own; extensions install from the outside.
+stays open and useful on its own; extensions install from the outside.
 
 ## Next steps
 

@@ -3,7 +3,7 @@
 
 This replaces scattered global registries and ``import``-time wiring with one
 object that accepts provider registration and answers catalog/capability
-queries. The open-source core registers its built-ins here; the plugin loader
+queries. The open core registers its built-ins here; the plugin loader
 registers discovered plugins here. Nothing in this module knows about specific
 connectors, engines, or premium features — only interfaces and specs.
 """
@@ -182,7 +182,7 @@ class ServiceRegistry:
     def validate_license(self, plugin_id: str) -> LicenseStatus:
         """Ask each license provider in turn; the first valid result wins. With no
         license provider registered everything is treated as licensed (the
-        open-source default for plugins that do not require a license)."""
+        open-core default for plugins that do not require a license)."""
         last: LicenseStatus | None = None
         for provider in self._license_providers:
             status = provider.validate_license(plugin_id)

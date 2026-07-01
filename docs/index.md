@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
+description: Open-core, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
 search: flowframe data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
 
 hero:
   name: FlowFrame
   text: Build data & ML workflows visually. Ship clean Python.
-  tagline: An open-source, plugin-first, local-first platform for Data Engineering and Machine Learning — design pipelines on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
+  tagline: An open-core, plugin-first, local-first platform for Data Engineering and Machine Learning — design pipelines on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -193,7 +193,7 @@ In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
 | **Data Engineering + ML** | One canvas for ingest → transform → validate → train → predict |
 | **Multi-Engine** | polars by default, pandas per run, pluggable engine contract for more |
 | **Live Preview** | See data changes at each step before executing the full flow |
-| **Open Source** | Core is AGPL-3.0; the public Plugin API/SDK is Apache-2.0 |
+| **Open Core** | Core is AGPL-3.0; the public Plugin API/SDK is Apache-2.0 |
 
 ## How FlowFrame Compares
 

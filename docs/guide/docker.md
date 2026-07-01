@@ -86,7 +86,7 @@ comma-separated list:
 | `mysql` | pymysql — MySQL SQL-node connector support |
 | `mongo` | pymongo — MongoDB support |
 | `mssql` | pyodbc — MSSQL support *(also needs `unixodbc` system pkg)* |
-| `all-connectors` | postgres + mysql + mongo (no mssql) |
+| `all-connectors` | postgres + mysql + mongo + s3 + gcs + azure + mssql |
 
 ```bash
 # ML support
@@ -214,7 +214,7 @@ docker build --build-arg EXTRAS=ml,postgres -t flowframe:full .
 The image is built in two stages so no Node.js, npm, or build tooling ends up
 in the final layer:
 
-- **Stage 1** (`node:20-alpine`): builds the React frontend → ~200 MB, discarded
+- **Stage 1** (`node:22-alpine`): builds the React frontend → ~200 MB, discarded
 - **Stage 2** (`python:3.13-slim`): runtime only → ~350 MB base, ~600 MB with ML extras
 
 To further reduce size, avoid installing extras you don't need. The `ml` extra

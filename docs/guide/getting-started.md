@@ -16,7 +16,7 @@ workflows before relying on it for critical production jobs.
 
 ## What is FlowFrame?
 
-FlowFrame is an open-source, **plugin-first, local-first platform** for building
+FlowFrame is an open-core, **plugin-first, local-first platform** for building
 **Data Engineering and Machine Learning workflows** visually — and turning them
 into clean, portable Python. It runs on **polars** by default (or pandas, per run)
 and lets you:

@@ -47,7 +47,7 @@ def build_registry() -> ServiceRegistry:
     """Assemble a fresh registry from the built-in providers only.
 
     The ML node provider is registered only when the ``[ml]`` extra is importable,
-    so the open-source ETL core does not depend on it — it plugs in exactly like a
+    so the open-core ETL core does not depend on it — it plugs in exactly like a
     third-party provider would. ``ML_ENABLED`` still gates the *product surface*
     (catalog filtering, run guard) at the service layer.
     """
