@@ -11,6 +11,8 @@ import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +49,7 @@ const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
 };
 
 export function FlowListPage() {
-  const { data: flows, isLoading } = useFlows();
+  const { data: flows, isLoading, isError, error, refetch } = useFlows();
   const { data: projects } = useProjects();
   const createFlow = useCreateFlow();
   const deleteFlow = useDeleteFlow();
@@ -374,24 +376,14 @@ export function FlowListPage() {
         </FilterField>
       </FilterBar>
 
-      {(toggleFlow.isError || deleteFlow.isError) && (
-        <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {((toggleFlow.error || deleteFlow.error) as Error)?.message ?? "Operation failed. Check the console for details."}
-        </div>
-      )}
-
       {importError && (
         <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" /> {importError}
         </div>
       )}
 
-      {isLoading && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
-      )}
+      {isLoading && <LoadingState label="Loading flows…" />}
+      {isError && <ErrorState error={error} title="Couldn't load flows" onRetry={() => refetch()} />}
 
       <div className="flex flex-col gap-4">
         {groups.map(([pid, group]) => {
@@ -436,12 +428,30 @@ export function FlowListPage() {
         })}
       </div>
 
-      {!isLoading && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {search || projectFilter
-            ? "No flows match your filters."
-            : "No flows yet. Create one to start building."}
-        </p>
+      {!isLoading && !isError && filtered.length === 0 && (
+        search || projectFilter ? (
+          <EmptyState
+            icon={Workflow}
+            title="No flows match your filters"
+            description="Try a different search, or clear the project filter."
+            action={
+              <Button variant="outline" size="sm" onClick={() => { setSearch(""); setProjectFilter(""); }}>
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={Workflow}
+            title="Build your first flow"
+            description="A flow is a visual pipeline: load a dataset, add transformations, and run it — no code required."
+            action={
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" /> New flow
+              </Button>
+            }
+          />
+        )
       )}
 
       {/* Quick-run dialog */}
@@ -477,7 +487,7 @@ export function FlowListPage() {
             {runMutation.isError && (
               <p className="flex items-center gap-1.5 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                {(runMutation.error as Error)?.message ?? "Run failed"}
+                {friendlyErrorMessage(runMutation.error, "The run couldn't be started.")}
               </p>
             )}
             <div className="flex justify-end gap-2">

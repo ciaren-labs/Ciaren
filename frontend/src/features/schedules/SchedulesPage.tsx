@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CalendarClock,
-  Loader2,
   Pause,
   Pencil,
   Play,
@@ -25,6 +24,7 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { SortableTh, sortRows, useSort } from "@/components/ui/SortableHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { FilterBar, FilterField } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { ViewToggle } from "@/components/filters/ViewToggle";
@@ -84,7 +84,7 @@ export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
 export function SchedulesPage() {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
-  const { data: schedules, isLoading } = useSchedules();
+  const { data: schedules, isLoading, isError, error, refetch } = useSchedules();
   const { data: flows } = useFlows();
   const { data: projects } = useProjects();
   const createSchedule = useCreateSchedule();
@@ -212,26 +212,34 @@ export function SchedulesPage() {
         </FilterField>
       </FilterBar>
 
-      {(updateSchedule.isError || deleteSchedule.isError || runNow.isError) && (
-        <div className="mb-4 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {((updateSchedule.error || deleteSchedule.error || runNow.error) as Error)?.message ??
-            "Operation failed."}
-        </div>
-      )}
-
       {isLoading ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading schedules…
-        </p>
+        <LoadingState label="Loading schedules…" />
+      ) : isError ? (
+        <ErrorState error={error} title="Couldn't load schedules" onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            {flowId || state
-              ? "No schedules match these filters."
-              : "No schedules yet. Create one to run a flow automatically."}
-          </p>
-        </div>
+        flowId || state ? (
+          <EmptyState
+            icon={CalendarClock}
+            title="No schedules match these filters"
+            description="Try a different flow or state, or clear the filters."
+            action={
+              <Button variant="outline" size="sm" onClick={() => { setFlowId(""); setState(""); }}>
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={CalendarClock}
+            title="Put a flow on a schedule"
+            description="Schedules run a flow automatically on a cron interval — hourly, nightly, or anything in between."
+            action={
+              <Button onClick={() => setFormOpen(true)}>
+                <Plus className="h-4 w-4" /> New schedule
+              </Button>
+            }
+          />
+        )
       ) : layout === "table" ? (
         <div className="flex flex-col gap-4">
           {groups.map(([pid, group]) => {

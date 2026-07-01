@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Database,
   FolderKanban,
-  Loader2,
   Pencil,
   Plus,
   Power,
@@ -19,6 +18,7 @@ import {
 } from "./hooks";
 import { ProjectFormDialog } from "./ProjectFormDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { Button } from "@/components/ui/button";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { projectColor } from "@/lib/projectColors";
@@ -34,7 +34,7 @@ type PendingAction =
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { data: projects, isLoading } = useProjects();
+  const { data: projects, isLoading, isError, error, refetch } = useProjects();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
@@ -106,10 +106,20 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      {isLoading && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
+      {isLoading && <LoadingState label="Loading projects…" />}
+      {isError && <ErrorState error={error} title="Couldn't load projects" onRetry={() => refetch()} />}
+
+      {!isLoading && !isError && (projects ?? []).length === 0 && (
+        <EmptyState
+          icon={FolderKanban}
+          title="No projects yet"
+          description="Projects keep related datasets and flows together — like folders for your pipelines."
+          action={
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" /> New project
+            </Button>
+          }
+        />
       )}
 
       {layout === "cards" ? (

@@ -15,7 +15,7 @@ import { CronBuilder } from "@/components/schedules/CronBuilder";
 import { ParameterValueFields } from "@/components/parameters/ParameterValueFields";
 import { useFlows } from "@/features/flows/hooks";
 import { useProjects } from "@/features/projects/hooks";
-import { ApiError } from "@/lib/api";
+import { friendlyErrorMessage } from "@/lib/errors";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
 import { buildRunValues, defaultText } from "@/lib/parameters";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
@@ -357,9 +357,9 @@ export function ScheduleFormDialog({
             )}
           </div>
 
-          {error instanceof ApiError && (
+          {error != null && (
             <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {error.message}
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {friendlyErrorMessage(error)}
             </p>
           )}
 
