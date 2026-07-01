@@ -119,6 +119,8 @@ jobs:
 
       - name: Build docs
         working-directory: docs
+        env:
+          VITEPRESS_GA_ID: ${{ vars.VITEPRESS_GA_ID }}
         run: npm run build
 
       - name: Verify build artifacts

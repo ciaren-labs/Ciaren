@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitepress'
 
+const gaMeasurementId = process.env.VITEPRESS_GA_ID
+
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
 // public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
 // Plugins are a first-class concept in Ciaren, so this sidebar leads with the
@@ -39,6 +41,19 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
+    ...(gaMeasurementId
+      ? [
+          ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}` }],
+          [
+            'script',
+            {},
+            `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', ${JSON.stringify(gaMeasurementId)});`,
+          ],
+        ]
+      : []),
     // Open Graph — controls how links render on GitHub, Reddit, HN, Slack, etc.
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:locale', content: 'en' }],
