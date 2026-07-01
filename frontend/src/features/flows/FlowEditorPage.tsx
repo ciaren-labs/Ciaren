@@ -38,6 +38,7 @@ import { ExportCodeDialog } from "./ExportCodeDialog";
 import { ParametersDialog } from "./ParametersDialog";
 import { RunParametersDialog } from "./RunParametersDialog";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/PageState";
 import {
   Tooltip,
   TooltipContent,
@@ -47,7 +48,7 @@ import {
 export function FlowEditorPage() {
   const { flowId } = useParams<{ flowId: string }>();
   const navigate = useNavigate();
-  const { data: flow, isLoading } = useFlow(flowId ?? null);
+  const { data: flow, isPending, isError, error, refetch } = useFlow(flowId ?? null);
   const updateFlow = useUpdateFlow();
   const { data: datasets } = useDatasets(flow?.project_id ?? undefined);
   const { data: projects } = useProjects();
@@ -196,12 +197,17 @@ export function FlowEditorPage() {
     );
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…
       </div>
     );
+  }
+  // A request failure (backend down, 500, …) is not the same as a deleted flow —
+  // don't tell the user their flow is gone when we simply couldn't ask.
+  if (isError) {
+    return <ErrorState error={error} title="Couldn't load this flow" onRetry={() => refetch()} />;
   }
   if (!flow) {
     return (

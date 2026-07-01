@@ -95,6 +95,8 @@ export function useToggleFlow() {
 export function useFlowPreview(id: string) {
   return useMutation({
     mutationFn: (body: FlowPreviewRequest) => flowsApi.preview(id, body),
+    // The preview panel renders failures inline, next to the results area.
+    meta: { suppressErrorToast: true },
   });
 }
 
@@ -102,6 +104,8 @@ export function useExportPython(id: string) {
   return useMutation({
     mutationFn: (freeIntermediates: boolean = false) =>
       flowsApi.exportPython(id, freeIntermediates),
+    // The export dialog renders failures inline.
+    meta: { suppressErrorToast: true },
   });
 }
 
