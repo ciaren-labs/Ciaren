@@ -50,6 +50,18 @@ release, breaking changes may still happen between alpha versions.
 - A stale test assertion in `test_graph_validation.py` expected an old
   validation error message ("needs a trained model") after the message was
   reworded to "needs a model reference"; updated to match.
+- Docker image failed to build: `hatch_metadata.py` (the custom metadata hook
+  that inlines the root README as the PyPI description) wasn't copied into the
+  build context, and once added, the hook's `Path(self.root).parent /
+  "README.md"` lookup still failed because `.dockerignore`'s `*.md` rule
+  excluded the README. Both are now copied in; verified with a local
+  `docker build` + container smoke test against `/health`.
+- `MAINTAINERS.md` documented pushing a `vX.Y.Z` release tag, but
+  `package.yml`'s tag trigger only matches the unprefixed `X.Y.Z` pattern — a
+  tag following the documented convention would never trigger a release.
+  Corrected, and updated the section to reflect that PyPI publishing (added
+  this cycle for both `ciaren` and `ciaren-client` via trusted publishing) is
+  no longer manual.
 
 ### Changed
 

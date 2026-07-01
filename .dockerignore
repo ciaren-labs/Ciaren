@@ -35,6 +35,9 @@ frontend/dist/
 docs/
 architecture.md
 *.md
+# ...except the root README: the hatch_metadata.py build hook inlines it as
+# the package's long description, so it must reach the build context.
+!README.md
 
 # ── Root node_modules (shouldn't exist, exclude for safety) ──────────────────
 node_modules/

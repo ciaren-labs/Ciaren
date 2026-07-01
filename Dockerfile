@@ -42,10 +42,15 @@ RUN packages=""; \
     fi
 
 # ── Install Python dependencies (layer cached until lockfile changes) ──────────
-# hatch_build.py is referenced by the wheel build hook in pyproject.toml;
-# hatchling loads it when the project is installed below (even in editable mode),
-# so it must be present in the build context.
-COPY backend/pyproject.toml backend/uv.lock backend/hatch_build.py ./
+# hatch_build.py and hatch_metadata.py are referenced by the wheel build hook and
+# the custom metadata hook in pyproject.toml; hatchling loads both when the
+# project is installed below (even in editable mode), so they must be present
+# in the build context. The metadata hook reads the repo-root README relative
+# to its project root's *parent* (mirroring backend/'s position under the repo
+# root); since this image flattens pyproject.toml straight into /app, that
+# resolves to /README.md, so it's copied there too.
+COPY backend/pyproject.toml backend/uv.lock backend/hatch_build.py backend/hatch_metadata.py ./
+COPY README.md /README.md
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     extra_flags=""; \
