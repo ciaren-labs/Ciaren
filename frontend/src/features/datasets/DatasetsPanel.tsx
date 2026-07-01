@@ -78,7 +78,7 @@ interface DatasetsPanelProps {
 
 export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
   const scoped = projectId !== undefined;
-  const { data: datasets, isLoading, isError, error, refetch } = useDatasets();
+  const { data: datasets, isPending, isError, error, refetch } = useDatasets();
   const { data: projects } = useProjects();
   const upload = useUploadDataset();
   const patchDataset = usePatchDataset();
@@ -250,7 +250,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         </div>
       </FilterBar>
 
-      {isLoading && <LoadingState label="Loading datasets…" />}
+      {isPending && <LoadingState label="Loading datasets…" />}
       {isError && <ErrorState error={error} title="Couldn't load datasets" onRetry={() => refetch()} />}
 
       {groups ? (
@@ -278,7 +278,7 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
         )
       )}
 
-      {!isLoading && !isError && filtered.length === 0 && (
+      {!isPending && !isError && filtered.length === 0 && (
         search || projectFilter || kindFilter ? (
           <EmptyState
             icon={Database}

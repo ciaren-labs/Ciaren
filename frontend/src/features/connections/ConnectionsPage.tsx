@@ -253,7 +253,7 @@ function mkProvider(
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ConnectionsPage() {
-  const { data: connections = [], isLoading, isError, error, refetch } = useConnections();
+  const { data: connections = [], isPending, isError, error, refetch } = useConnections();
   const { data: fetchedProviders = [] } = useConnectionProviders();
   const providers = fetchedProviders.length ? fetchedProviders : FALLBACK_PROVIDERS;
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -274,7 +274,7 @@ export function ConnectionsPage() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isPending ? (
         <LoadingState label="Loading connections…" />
       ) : isError ? (
         <ErrorState error={error} title="Couldn't load connections" onRetry={() => refetch()} />

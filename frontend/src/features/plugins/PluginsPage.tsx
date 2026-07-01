@@ -68,7 +68,7 @@ const STATUS_META: Record<PluginStatus, { label: string; className: string }> = 
 };
 
 export function PluginsPage() {
-  const { data, isLoading, isError, error, refetch } = usePluginDiagnostics();
+  const { data, isPending, isError, error, refetch } = usePluginDiagnostics();
   const plugins = [...(data?.loaded ?? []), ...(data?.gated ?? [])];
   const errors = data?.errors ?? [];
 
@@ -89,7 +89,7 @@ export function PluginsPage() {
 
       <TrustWarning />
 
-      {isLoading ? (
+      {isPending ? (
         <LoadingState label="Loading plugins…" />
       ) : isError ? (
         <ErrorState error={error} title="Couldn't load plugins" onRetry={() => refetch()} />

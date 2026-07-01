@@ -112,7 +112,7 @@ export function RunsPage() {
     [flowId, status, datasetId, projectId, after, before, sortBy, sortOrder, page],
   );
 
-  const { data: runs, isLoading, isError, error, refetch } = useRuns(filters);
+  const { data: runs, isPending, isError, error, refetch } = useRuns(filters);
 
   const flowName = useMemo(
     () => new Map((flows ?? []).map((f) => [f.id, f.name])),
@@ -245,7 +245,7 @@ export function RunsPage() {
         )}
       </FilterBar>
 
-      {isLoading ? (
+      {isPending ? (
         <LoadingState label="Loading runs…" />
       ) : isError ? (
         <ErrorState error={error} title="Couldn't load runs" onRetry={() => refetch()} />
