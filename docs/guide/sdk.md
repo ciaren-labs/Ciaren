@@ -7,8 +7,12 @@ search: sdk python client ciaren-client trigger run stream logs async httpx
 # Python SDK
 
 `ciaren-client` is a thin Python package that wraps the Ciaren REST API
-with a friendly interface. It ships both a synchronous (`Ciaren`) and an
-async (`AsyncCiaren`) client, and depends only on `httpx`.
+with a friendly interface. It installs independently from the full Ciaren
+application, ships both a synchronous (`Ciaren`) and an async (`AsyncCiaren`)
+client, and depends only on `httpx`.
+
+Current alpha version: `0.1.0-alpha.1`. The package is typed and ships
+`py.typed` for editors and type checkers.
 
 ## Installation
 
@@ -74,24 +78,57 @@ with Ciaren("http://localhost:8055", webhook_secret="my-secret") as client:
 
 ### Methods
 
-#### `list_flows()`
+The sync and async clients expose the same API. Async methods use the same
+names and are awaited.
+
+| Area | Common methods |
+|---|---|
+| Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `delete_project` |
+| Datasets | `upload_dataset`, `list_datasets`, `get_dataset`, `update_dataset`, `delete_dataset`, `restore_dataset`, `list_dataset_versions`, `download_dataset_version`, `get_dataset_schema`, `get_dataset_sample`, `get_dataset_profile` |
+| Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `preview_flow`, `export_flow_python` |
+| Runs | `create_run`, `list_runs`, `get_run`, `retry_run`, `download_run_output`, `stream_logs` |
+| Schedules | `create_schedule`, `list_schedules`, `get_schedule`, `update_schedule`, `delete_schedule`, `run_schedule_now`, `list_schedule_runs` |
+| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `list_connection_tables`, `list_connection_objects` |
+| Catalog and transforms | `list_catalog_nodes`, `list_catalog_connectors`, `list_catalog_exporters`, `list_catalog_categories`, `list_transformations`, `preview_transformation` |
+| ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments` |
+| Plugins and marketplace | `list_plugins`, `plugin_diagnostics`, `install_plugin`, `enable_plugin`, `disable_plugin`, `grant_plugin_permissions`, `list_marketplace`, `install_marketplace_plugin` |
+| Webhook | `webhook_status`, `trigger` |
+
+#### Projects
+
+```python
+project = client.create_project("Revenue Ops", color="emerald")
+projects = client.list_projects()
+```
+
+#### Datasets
+
+```python
+dataset = client.upload_dataset("sales.csv", project_id=project["id"])
+schema = client.get_dataset_schema(dataset["id"])
+sample = client.get_dataset_sample(dataset["id"])
+```
+
+#### Flows
 
 ```python
 flows = client.list_flows()
 # → [{"id": "...", "name": "Sales Pipeline", ...}, ...]
+
+flow = client.get_flow("flow-id")
+export = client.export_flow_python("flow-id")
 ```
 
-#### `get_flow(flow_id)`
+#### Runs
+
+`list_runs` mirrors the filtering, sorting, and pagination options of
+`GET /api/runs`. `started_after` and `started_before` accept either a
+`datetime` or an ISO 8601 string.
 
 ```python
-flow = client.get_flow("flow-id")
+run = client.create_run("flow-id", engine="polars")
+output = client.download_run_output(run["id"], "node-id")
 ```
-
-#### `list_runs(*, flow_id=None, project_id=None, dataset_id=None, schedule_id=None, status=None, started_after=None, started_before=None, sort_by="created_at", sort_order="desc", limit=100, offset=0)`
-
-Mirrors the filtering, sorting, and pagination options of `GET /api/runs`.
-`started_after`/`started_before` accept either a `datetime` or an ISO 8601
-string.
 
 ```python
 runs = client.list_runs(flow_id="flow-id")
@@ -107,26 +144,57 @@ runs = client.list_runs(
 )
 ```
 
-#### `get_run(run_id)`
-
 ```python
 run = client.get_run("run-id")
 print(run["status"])  # "pending" | "running" | "success" | "failed"
 ```
 
-#### `retry_run(run_id)`
-
-Re-runs the same flow with the original run's config, creating a new run
-(new id). Returns the new run dict.
+`retry_run` re-runs the same flow with the original run's config, creating a
+new run with a new id.
 
 ```python
 new_run = client.retry_run("run-id")
 ```
 
-#### `trigger(flow_id, *, engine=None, parameters=None)`
+#### Schedules
 
-Start a run via the webhook endpoint. Blocks until the run reaches a terminal
-state and returns the full run dict. Raises `httpx.HTTPStatusError` on 4xx/5xx.
+```python
+schedule = client.create_schedule("flow-id", "0 9 * * *", timezone="America/Bogota")
+client.run_schedule_now(schedule["id"])
+```
+
+#### Connections
+
+```python
+connection = client.create_connection(
+    name="Warehouse",
+    provider="postgres",
+    kind="database",
+    config={"host": "...", "database": "..."},
+)
+tables = client.list_connection_tables(connection["id"])
+```
+
+#### ML
+
+```python
+metrics = client.get_run_ml_metrics("run-id")
+models = client.list_registered_models()
+client.set_model_alias("churn-model", version=3, alias="production")
+```
+
+#### Plugins and marketplace
+
+```python
+plugins = client.list_plugins()
+catalog = client.list_marketplace()
+```
+
+#### Webhook trigger
+
+`trigger(flow_id, *, engine=None, parameters=None)` starts a run via the
+webhook endpoint. It blocks until the run reaches a terminal state and returns
+the full run dict. It raises `httpx.HTTPStatusError` on 4xx/5xx.
 
 ```python
 run = client.trigger(
@@ -138,7 +206,7 @@ if run["status"] != "success":
     raise RuntimeError(f"Flow failed: {run['error_message']}")
 ```
 
-#### `stream_logs(run_id)`
+#### Streaming logs
 
 Yield log entry dicts from the SSE stream of a run. Stops when the server sends
 the `done` event.
@@ -230,5 +298,6 @@ except httpx.HTTPStatusError as e:
 ## See also
 
 - [Webhook Trigger](/guide/webhook) — server-side setup for `trigger()`
+- [REST API](/api/rest-api) — endpoint overview behind the SDK
 - [REST API: Runs](/api/runs) — the underlying run endpoints
 - [Scheduling](/guide/scheduling) — cron-based automation without a caller
