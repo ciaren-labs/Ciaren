@@ -1,7 +1,7 @@
 {
   "id": "community.hello",
   "name": "Hello Plugin",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "publisher": "community",
   "description": "A minimal example plugin that contributes one catalog node.",
   "license": "community",

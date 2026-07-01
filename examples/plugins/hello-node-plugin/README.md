@@ -40,7 +40,7 @@ engine (polars/pandas) automatically.
 ## Signed `.ciarenplugin` package
 
 A pre-built, **signed** package ships at
-[`../dist/community.hello-0.1.0.ciarenplugin`](../dist/). It's signed with a throwaway
+[`../dist/community.hello-0.1.0-alpha.1.ciarenplugin`](../dist/). It's signed with a throwaway
 **demo** key (committed in [`../build_hello_ciarenplugin.py`](../build_hello_ciarenplugin.py)
 so the artifact is reproducible — a real publisher keeps their key secret and uses
 `ciaren plugin keygen`).
@@ -50,8 +50,8 @@ Trust the demo key, then verify and install:
 ```bash
 export CIAREN_TRUSTED_PLUGIN_KEYS='{"ciaren-demo": "b827f3795467a701b018a0d57ab5900af43669d3622340905559d86ae2ec4bdd"}'
 
-ciaren plugin verify  examples/plugins/dist/community.hello-0.1.0.ciarenplugin   # -> trusted
-ciaren plugin install examples/plugins/dist/community.hello-0.1.0.ciarenplugin --trusted
+ciaren plugin verify  examples/plugins/dist/community.hello-0.1.0-alpha.1.ciarenplugin   # -> trusted
+ciaren plugin install examples/plugins/dist/community.hello-0.1.0-alpha.1.ciarenplugin --trusted
 ```
 
 `--trusted` refuses anything not signed by a key you trust. Rebuild the package

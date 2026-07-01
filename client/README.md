@@ -45,4 +45,6 @@ plugins, marketplace endpoints, webhook triggers, and SSE run logs.
 Use `api_token` when the server is configured with `CIAREN_API_TOKEN`.
 Use `webhook_secret` only for `trigger()`, which calls the webhook endpoint.
 
-See the documentation at https://docs.ciaren.com/guide/sdk.
+License: Apache-2.0.
+
+See the documentation at https://ciaren.com/docs/guide/sdk.
