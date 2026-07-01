@@ -178,15 +178,17 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     from app.core.auth import verify_api_token
+    from app.core.csrf import verify_browser_origin
 
     app = FastAPI(
         title=settings.APP_NAME,
         description="Visual data and ML workflow builder — local-first, dataframe-based",
         version="0.1.0",
         lifespan=lifespan,
-        # Optional API-token gate (no-op unless CIAREN_API_TOKEN is set). As a
-        # dependency rather than middleware, a 401 still passes through CORS.
-        dependencies=[Depends(verify_api_token)],
+        # Optional API-token gate (no-op unless CIAREN_API_TOKEN is set) plus the
+        # browser-origin CSRF guard for the unauthenticated local posture. As
+        # dependencies rather than middleware, a 401/403 still passes through CORS.
+        dependencies=[Depends(verify_api_token), Depends(verify_browser_origin)],
     )
 
     app.add_middleware(

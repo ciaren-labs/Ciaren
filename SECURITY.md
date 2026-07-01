@@ -38,7 +38,10 @@ Ciaren is in active development. Known limitations include:
 - **No encryption at rest** — data is stored in plaintext (use SQLite for local-only setups)
 - **No authentication by default** — assumes a trusted local environment; set
   `CIAREN_API_TOKEN` when binding outside loopback or placing Ciaren behind
-  an authenticating reverse proxy
+  an authenticating reverse proxy. State-changing API requests from a browser
+  are protected by an origin guard (CSRF/DNS-rebinding defense): the `Origin`
+  must be a `CIAREN_CORS_ORIGINS` entry or a local/`CIAREN_TRUSTED_HOSTS`
+  hostname
 - **Evolving input validation** — edge cases continue to be hardened as the
   project matures
 - **Limited audit logging** — detailed administrative audit logs are not yet a
