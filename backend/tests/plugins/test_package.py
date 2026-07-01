@@ -196,3 +196,17 @@ def test_pack_compiled_pyc_is_importable(tmp_path):
         sys.path.remove(str(install_root))
         for name in [n for n in sys.modules if n.startswith("byc_plugin")]:
             del sys.modules[name]
+
+
+def test_official_pinned_keys_cannot_be_overridden(monkeypatch, tmp_path):
+    """A pinned official key is always present, and user config (env/file) can add
+    keys but never replace an official key id — that's what a key-substitution
+    attack would look like."""
+    monkeypatch.setattr(package, "OFFICIAL_PUBLISHER_KEYS", {"ciaren-official": "aa" * 32})
+    monkeypatch.setenv(
+        package.TRUSTED_KEYS_ENV,
+        json.dumps({"ciaren-official": "bb" * 32, "community-key": "cc" * 32}),
+    )
+    keys = package.load_trusted_keys()
+    assert keys["ciaren-official"] == "aa" * 32  # pinned value wins
+    assert keys["community-key"] == "cc" * 32  # additions still work

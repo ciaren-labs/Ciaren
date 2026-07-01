@@ -57,6 +57,10 @@ class PluginStateEntry(BaseModel):
     #: How the package verified when it was installed: ``trusted`` | ``untrusted`` |
     #: ``unsigned`` | ``invalid`` | "" (unknown, e.g. a hand-dropped directory).
     signature: str = ""
+    #: The signing key id recorded at install ("" when unsigned/unknown) — the
+    #: trust-on-first-use pin. A reinstall under a different key means a different
+    #: publisher now controls this plugin id, so approval must not carry over.
+    key_id: str = ""
 
 
 def default_state_path() -> Path:
@@ -164,11 +168,13 @@ class PluginStateStore:
             entry.approved = approved
             self._dirty = True
 
-    def set_signature(self, plugin_id: str, outcome: str) -> None:
-        """Record how a package verified at install time, for later display."""
+    def set_signature(self, plugin_id: str, outcome: str, key_id: str = "") -> None:
+        """Record how a package verified at install time (and which key signed it),
+        for later display and TOFU comparison on reinstall."""
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
-        if entry.signature != outcome:
+        if entry.signature != outcome or entry.key_id != key_id:
             entry.signature = outcome
+            entry.key_id = key_id
             self._dirty = True
 
     def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:

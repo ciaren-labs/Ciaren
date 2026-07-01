@@ -214,3 +214,83 @@ async def test_install_rejects_oversized_upload(client, monkeypatch, tmp_path, h
         assert "maximum upload size" in resp.text
     finally:
         get_settings.cache_clear()
+
+
+async def test_marketplace_install_requires_digest(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    """An index entry without a digest is unverifiable — refuse, don't skip."""
+    import json as _json
+
+    from app.core.config import get_settings
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = market / "community.hello-0.1.0.ciarenplugin"
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)
+    raw = _json.loads(index_path.read_text(encoding="utf-8"))
+    raw["plugins"][0]["digest"] = ""
+    index_path.write_text(_json.dumps(raw), encoding="utf-8")
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    resp = await client.post("/api/marketplace/community.hello/install")
+    assert resp.status_code == 400, resp.text
+    assert "digest" in resp.json()["detail"]
+
+
+async def test_marketplace_trust_is_derived_not_echoed(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    """A self-declared "trusted" claim in the index must not surface as the trust
+    badge: the artifact is unsigned, so the API reports community."""
+    import json as _json
+
+    from app.core.config import get_settings
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = market / "community.hello-0.1.0.ciarenplugin"
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)
+    raw = _json.loads(index_path.read_text(encoding="utf-8"))
+    raw["plugins"][0]["trust"] = "trusted"  # publisher-controlled claim
+    index_path.write_text(_json.dumps(raw), encoding="utf-8")
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["trust"] == "community"
+
+
+async def test_marketplace_trust_shows_trusted_for_verified_artifact(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    """Conversely, a valid signature from a trusted key earns the trusted badge."""
+    import json as _json
+
+    from app.core.config import get_settings
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = market / "community.hello-0.1.0.ciarenplugin"
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    priv, pub = signing.generate_keypair()
+    package.sign_package(artifact, priv, key_id="kid-test")
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    monkeypatch.setenv("CIAREN_TRUSTED_PLUGIN_KEYS", _json.dumps({"kid-test": pub}))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["trust"] == "trusted"

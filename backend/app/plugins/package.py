@@ -82,6 +82,9 @@ class VerifyResult:
     signed: bool
     reason: str
     publisher: str | None = None
+    #: The signing key's id ("" when unsigned) — recorded per install so a later
+    #: reinstall under a *different* key can be detected and re-gated (TOFU).
+    key_id: str = ""
 
     @property
     def ok(self) -> bool:
@@ -134,11 +137,27 @@ def read_signature(path: str | os.PathLike[str]) -> PackageSignature | None:
     return PackageSignature.model_validate(data)
 
 
+#: Publisher keys pinned into the application itself — the trust root for the
+#: official marketplace. Shipping the key in the app means officially-signed
+#: plugins verify as ``trusted`` out of the box, instead of every user being
+#: shown the "untrusted key" warning until they hand-edit a keys file (which
+#: would train them to click through the one warning that matters). Populated
+#: when the official marketplace launches; the public key is not a secret.
+#: These entries can be *added to* but never overridden by user configuration —
+#: a config-level swap of an official key id is exactly what a key-substitution
+#: attack looks like.
+OFFICIAL_PUBLISHER_KEYS: dict[str, str] = {
+    # "ciaren-official-2026": "<ed25519 public key hex>",
+}
+
+
 def load_trusted_keys() -> dict[str, str]:
     """Trusted publisher public keys, ``key_id -> public_hex``.
 
-    Read from ``CIAREN_TRUSTED_PLUGIN_KEYS`` (a JSON object) and, if present,
-    ``~/.ciaren/trusted_keys.json``. Env entries win on conflict.
+    Starts from the pinned :data:`OFFICIAL_PUBLISHER_KEYS`, then adds
+    ``~/.ciaren/trusted_keys.json`` (if present) and ``CIAREN_TRUSTED_PLUGIN_KEYS``
+    (a JSON object). Env entries win over the file on conflict, but neither may
+    override a pinned official key id — such an attempt is logged and ignored.
     """
     keys: dict[str, str] = {}
     file_path = Path.home() / ".ciaren" / "trusted_keys.json"
@@ -155,6 +174,13 @@ def load_trusted_keys() -> dict[str, str]:
             keys.update(json.loads(raw))
         except json.JSONDecodeError as exc:
             logger.warning("Ignoring malformed %s: %s", TRUSTED_KEYS_ENV, exc)
+    for key_id, public_hex in OFFICIAL_PUBLISHER_KEYS.items():
+        if keys.get(key_id) not in (None, public_hex):
+            logger.warning(
+                "Ignoring configured override of pinned official key %r — official keys cannot be replaced.",
+                key_id,
+            )
+        keys[key_id] = public_hex
     return keys
 
 
@@ -173,7 +199,11 @@ def verify_package(path: str | os.PathLike[str], trusted_keys: dict[str, str] | 
         return VerifyResult("unsigned", digest, signed=False, reason="package is not signed")
     if sig.digest != digest:
         return VerifyResult(
-            "invalid", digest, signed=True, reason="digest mismatch — package was modified after signing"
+            "invalid",
+            digest,
+            signed=True,
+            reason="digest mismatch — package was modified after signing",
+            key_id=sig.key_id,
         )
     # Trust is keyed strictly by ``key_id``. The earlier ``publisher`` fallback let
     # a package-supplied (attacker-controlled) free-text name select which trusted
@@ -181,16 +211,35 @@ def verify_package(path: str | os.PathLike[str], trusted_keys: dict[str, str] | 
     public_hex = trusted.get(sig.key_id)
     if public_hex is None:
         return VerifyResult(
-            "untrusted", digest, signed=True, reason=f"signed by untrusted key {sig.key_id!r}", publisher=sig.publisher
+            "untrusted",
+            digest,
+            signed=True,
+            reason=f"signed by untrusted key {sig.key_id!r}",
+            publisher=sig.publisher,
+            key_id=sig.key_id,
         )
     try:
         valid = verify(public_hex, sig.signed_message(), sig.signature)
     except SigningUnavailableError as exc:
-        return VerifyResult("untrusted", digest, signed=True, reason=str(exc), publisher=sig.publisher)
+        return VerifyResult(
+            "untrusted", digest, signed=True, reason=str(exc), publisher=sig.publisher, key_id=sig.key_id
+        )
     if not valid:
-        return VerifyResult("invalid", digest, signed=True, reason="signature does not match", publisher=sig.publisher)
+        return VerifyResult(
+            "invalid",
+            digest,
+            signed=True,
+            reason="signature does not match",
+            publisher=sig.publisher,
+            key_id=sig.key_id,
+        )
     return VerifyResult(
-        "trusted", digest, signed=True, reason="valid signature from a trusted key", publisher=sig.publisher
+        "trusted",
+        digest,
+        signed=True,
+        reason="valid signature from a trusted key",
+        publisher=sig.publisher,
+        key_id=sig.key_id,
     )
 
 

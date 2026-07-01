@@ -108,6 +108,26 @@ def _extract_safely(zf: ZipFile, target: Path) -> None:
         dest.write_bytes(zf.read(name))
 
 
+def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
+    """Persist how the package verified (trust badge) and enforce TOFU signer
+    pinning: a plugin id is claimable, so approval the user gave to code signed by
+    one key must not transfer to a replacement signed by a *different* key (or to
+    an unsigned replacement), and must not survive a downgrade from ``trusted``.
+    In those cases the plugin drops back to pending and its new code stays
+    un-imported until the user approves the new publisher."""
+    from app.plugins.state import PluginStateStore
+
+    state = PluginStateStore()
+    prev = state.entry(plugin_id)
+    if prev is not None and prev.approved:
+        key_changed = bool(prev.key_id) and prev.key_id != verification.key_id
+        downgraded = prev.signature == "trusted" and verification.outcome != "trusted"
+        if key_changed or downgraded:
+            state.set_approved(plugin_id, False)
+    state.set_signature(plugin_id, verification.outcome, key_id=verification.key_id)
+    state.save()
+
+
 def install_ciarenplugin(
     package_path: str | os.PathLike[str],
     *,
@@ -138,6 +158,7 @@ def install_ciarenplugin(
     if not (target / MANIFEST_FILENAME).is_file():  # defensive: should always be present
         shutil.rmtree(target, ignore_errors=True)
         raise InstallError(f"installed package for {manifest.id!r} is missing {MANIFEST_FILENAME}")
+    _record_install_state(manifest.id, result)
     return InstallResult(plugin_id=manifest.id, location=target, verification=result)
 
 
@@ -159,11 +180,9 @@ def install_directory(
             raise InstallError(f"{manifest.id!r} is already installed at {target}; pass force to overwrite")
         shutil.rmtree(target)
     shutil.copytree(src, target, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    return InstallResult(
-        plugin_id=manifest.id,
-        location=target,
-        verification=VerifyResult("unsigned", "", signed=False, reason="installed from source directory"),
-    )
+    verification = VerifyResult("unsigned", "", signed=False, reason="installed from source directory")
+    _record_install_state(manifest.id, verification)
+    return InstallResult(plugin_id=manifest.id, location=target, verification=verification)
 
 
 def read_manifest_from_dir(src: Path) -> PluginManifest:
