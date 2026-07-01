@@ -1,7 +1,7 @@
 [project]
 name = "flowframe"
 version = "0.1.0"
-description = "Visual ETL builder — local-first, dataframe-based"
+description = "Open-core visual data and ML workflow builder — local-first, dataframe-based"
 requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",

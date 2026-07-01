@@ -1,13 +1,13 @@
 ---
 layout: home
 title: FlowFrame
-description: Open-core, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
+description: Open-core, plugin-first platform for building data engineering and machine-learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
 search: flowframe data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
 
 hero:
   name: FlowFrame
   text: Build data & ML workflows visually. Ship clean Python.
-  tagline: An open-core, plugin-first, local-first platform for Data Engineering and Machine Learning — design pipelines on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
+  tagline: An open-core, plugin-first, local-first platform for data engineering and machine learning — design workflows on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
   image:
     src: /logo.svg
     alt: FlowFrame
@@ -54,7 +54,7 @@ change between releases. Use it for experimentation, prototypes, and controlled
 internal workflows before relying on it for critical production jobs.
 :::
 
-## More Than a Visual ETL Tool
+## More Than a Visual Data Tool
 
 FlowFrame covers the **whole workflow lifecycle** on one canvas — and turns it into
 portable Python. It's built on a few principles:
