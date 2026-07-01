@@ -61,7 +61,7 @@ buffering disabled).
 curl -N http://localhost:8055/api/runs/RUN_ID/logs/stream
 ```
 
-The [Python SDK](/guide/sdk) wraps this as `ff.stream_logs(run_id)`.
+The [Python SDK](/guide/sdk) wraps this as `client.stream_logs(run_id)`.
 
 ## See also
 

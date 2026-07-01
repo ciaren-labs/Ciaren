@@ -13,13 +13,13 @@ class Ciaren:
 
     Can be used as a context manager::
 
-        with Ciaren(base_url, webhook_secret=secret) as ff:
-            run = ff.trigger(flow_id)
+        with Ciaren(base_url, webhook_secret=secret) as client:
+            run = client.trigger(flow_id)
 
     Or managed manually::
 
-        ff = Ciaren(base_url)
-        ff.close()
+        client = Ciaren(base_url)
+        client.close()
     """
 
     def __init__(

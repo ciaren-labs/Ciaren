@@ -5,25 +5,25 @@ const navOpen = ref(true)
 const asideOpen = ref(true)
 
 function applyState() {
-  document.documentElement.classList.toggle('ff-sidebar-collapsed', !navOpen.value)
-  document.documentElement.classList.toggle('ff-aside-collapsed', !asideOpen.value)
+  document.documentElement.classList.toggle('ciaren-sidebar-collapsed', !navOpen.value)
+  document.documentElement.classList.toggle('ciaren-aside-collapsed', !asideOpen.value)
 }
 
 function toggleNav() {
   navOpen.value = !navOpen.value
-  localStorage.setItem('ff-nav-open', String(navOpen.value))
+  localStorage.setItem('ciaren-nav-open', String(navOpen.value))
   applyState()
 }
 
 function toggleAside() {
   asideOpen.value = !asideOpen.value
-  localStorage.setItem('ff-aside-open', String(asideOpen.value))
+  localStorage.setItem('ciaren-aside-open', String(asideOpen.value))
   applyState()
 }
 
 onMounted(() => {
-  navOpen.value = localStorage.getItem('ff-nav-open') !== 'false'
-  asideOpen.value = localStorage.getItem('ff-aside-open') !== 'false'
+  navOpen.value = localStorage.getItem('ciaren-nav-open') !== 'false'
+  asideOpen.value = localStorage.getItem('ciaren-aside-open') !== 'false'
   applyState()
 })
 </script>
@@ -31,7 +31,7 @@ onMounted(() => {
 <template>
   <!-- Left nav toggle — only on screens ≥ 960px where sidebar is visible -->
   <button
-    class="ff-toggle ff-toggle--nav"
+    class="ciaren-toggle ciaren-toggle--nav"
     :aria-label="navOpen ? 'Collapse navigation' : 'Expand navigation'"
     :title="navOpen ? 'Collapse navigation' : 'Expand navigation'"
     @click="toggleNav"
@@ -55,7 +55,7 @@ onMounted(() => {
 
   <!-- Right aside toggle — only on screens ≥ 1280px where outline is visible -->
   <button
-    class="ff-toggle ff-toggle--aside"
+    class="ciaren-toggle ciaren-toggle--aside"
     :aria-label="asideOpen ? 'Collapse outline' : 'Expand outline'"
     :title="asideOpen ? 'Collapse outline' : 'Expand outline'"
     @click="toggleAside"
@@ -79,9 +79,9 @@ onMounted(() => {
 </template>
 
 <style>
-/* Non-scoped so html.ff-* overrides can apply */
+/* Non-scoped so html.ciaren-* overrides can apply */
 
-.ff-toggle {
+.ciaren-toggle {
   position: fixed;
   z-index: 29;
   top: 50%;
@@ -101,35 +101,35 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-.ff-toggle:hover {
+.ciaren-toggle:hover {
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-1);
   opacity: 1;
 }
 
 /* Nav toggle: right edge of the sidebar */
-.ff-toggle--nav {
+.ciaren-toggle--nav {
   left: calc(var(--vp-sidebar-width) - 10px);
 }
 
-html.ff-sidebar-collapsed .ff-toggle--nav {
+html.ciaren-sidebar-collapsed .ciaren-toggle--nav {
   left: 8px;
 }
 
 /* Aside toggle: fixed at right edge of viewport */
-.ff-toggle--aside {
+.ciaren-toggle--aside {
   right: 8px;
 }
 
 /* Only show on screens where the sidebars are actually visible */
 @media (max-width: 959px) {
-  .ff-toggle--nav {
+  .ciaren-toggle--nav {
     display: none;
   }
 }
 
 @media (max-width: 1279px) {
-  .ff-toggle--aside {
+  .ciaren-toggle--aside {
     display: none;
   }
 }
