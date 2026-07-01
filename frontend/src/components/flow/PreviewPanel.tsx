@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { useFlowPreview } from "@/features/flows/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,15 @@ const AGGREGATES: Aggregate[] = ["sum", "mean", "count", "min", "max"];
 
 export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
   const selectedNodeId = useFlowEditorStore((s) => s.selectedNodeId);
+  const nodes = useFlowEditorStore((s) => s.nodes);
+  const dirty = useFlowEditorStore((s) => s.dirty);
   const preview = useFlowPreview(flowId);
   const [view, setView] = useState<View>("table");
+
+  // Human name for the selected node ("Filter Rows"), not its machine id.
+  const selectedNodeLabel = selectedNodeId
+    ? (nodes.find((n) => n.id === selectedNodeId)?.data.label ?? selectedNodeId)
+    : null;
 
   const runPreview = (mode: View = view) => {
     setView(mode);
@@ -61,9 +69,14 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">Data Preview</h3>
-          {selectedNodeId && (
+          {selectedNodeLabel && (
             <span className="text-xs text-muted-foreground">
-              node: {selectedNodeId}
+              up to "{selectedNodeLabel}"
+            </span>
+          )}
+          {dirty && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+              previews the last saved version
             </span>
           )}
         </div>
@@ -99,9 +112,25 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {preview.isError && (
-          <p className="p-3 text-sm text-destructive">
-            {friendlyErrorMessage(preview.error, "Preview failed.")}
-          </p>
+          <div className="m-3 flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium">
+                {selectedNodeLabel
+                  ? `Preview failed at "${selectedNodeLabel}"`
+                  : "Preview failed"}
+              </p>
+              <p className="mt-0.5 break-words">
+                {friendlyErrorMessage(preview.error, "The preview couldn't be generated.")}
+              </p>
+              {dirty && (
+                <p className="mt-1 text-xs text-destructive/80">
+                  Note: previews run the last saved version of the flow — if you just fixed
+                  this, save and preview again.
+                </p>
+              )}
+            </div>
+          </div>
         )}
         {preview.data ? (
           <>
