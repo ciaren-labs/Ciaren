@@ -13,6 +13,17 @@ import type { GraphNodeData, ParameterSpec } from "@/lib/types";
 export type FlowNodeType = Node<GraphNodeData>;
 export type FlowEdgeType = Edge;
 
+interface HistoryEntry {
+  nodes: FlowNodeType[];
+  edges: FlowEdgeType[];
+}
+
+// Cap the undo stack so a long editing session doesn't grow memory unbounded.
+const HISTORY_LIMIT = 50;
+// Rapid same-kind edits (dragging a node, typing in a config field) within
+// this window collapse into a single undo step instead of one per tick.
+const COALESCE_WINDOW_MS = 700;
+
 interface FlowEditorState {
   nodes: FlowNodeType[];
   edges: FlowEdgeType[];
@@ -27,6 +38,13 @@ interface FlowEditorState {
   /** Parameter specs declared on the current flow (graph_json.parameters). */
   parameters: ParameterSpec[];
 
+  /** Undo/redo stacks. Only nodes/edges are versioned — panel state isn't. */
+  past: HistoryEntry[];
+  future: HistoryEntry[];
+  /** Internal bookkeeping for coalescing rapid edits (see COALESCE_WINDOW_MS). */
+  historyGroupKey: string | null;
+  historyGroupAt: number;
+
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   setParameters: (parameters: ParameterSpec[]) => void;
   setInvalidNodeIds: (ids: string[]) => void;
@@ -39,14 +57,52 @@ interface FlowEditorState {
   patchMultipleNodeConfigs: (patches: Record<string, Record<string, unknown>>) => void;
   updateNodeLabel: (id: string, label: string) => void;
   selectNode: (id: string | null) => void;
+  /** Untracked node positioning — used only for the one-time initial auto-layout
+   *  on load, which isn't a user edit and shouldn't be on the undo stack. */
   setNodes: (nodes: FlowNodeType[]) => void;
+  /** User-triggered re-layout (the Auto-arrange button) — undoable. */
+  relayoutNodes: (nodes: FlowNodeType[]) => void;
   setFlowProjectId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
   setPreviewOpen: (open: boolean) => void;
   markClean: () => void;
   markDirty: () => void;
+  undo: () => void;
+  redo: () => void;
   reset: () => void;
 }
+
+/** Push a checkpoint of the current nodes/edges onto `past`, unless this call
+ *  belongs to the same edit "group" as the last one (e.g. the same drag or
+ *  the same field being typed into) within the coalesce window — in which
+ *  case history is left alone and only the group's timestamp is refreshed. */
+function checkpoint(
+  state: FlowEditorState,
+  key: string,
+): Pick<FlowEditorState, "past" | "future" | "historyGroupKey" | "historyGroupAt"> {
+  const now = Date.now();
+  if (state.historyGroupKey === key && now - state.historyGroupAt < COALESCE_WINDOW_MS) {
+    return {
+      past: state.past,
+      future: state.future,
+      historyGroupKey: key,
+      historyGroupAt: now,
+    };
+  }
+  return {
+    past: [...state.past, { nodes: state.nodes, edges: state.edges }].slice(-HISTORY_LIMIT),
+    future: [],
+    historyGroupKey: key,
+    historyGroupAt: now,
+  };
+}
+
+const HISTORY_RESET = {
+  past: [] as HistoryEntry[],
+  future: [] as HistoryEntry[],
+  historyGroupKey: null,
+  historyGroupAt: 0,
+};
 
 export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   nodes: [],
@@ -58,9 +114,10 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   invalidNodeIds: [],
   flowProjectId: null,
   parameters: [],
+  ...HISTORY_RESET,
 
   setGraph: (nodes, edges) =>
-    set({ nodes, edges, dirty: false, selectedNodeId: null }),
+    set({ nodes, edges, dirty: false, selectedNodeId: null, ...HISTORY_RESET }),
 
   setParameters: (parameters) => set({ parameters }),
 
@@ -77,19 +134,39 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     }),
 
   onNodesChange: (changes) =>
-    set((state) => ({
-      nodes: applyNodeChanges(changes, state.nodes),
-      dirty: true,
-    })),
+    set((state) => {
+      // Selection-only changes aren't edits — don't touch history or `dirty`.
+      const meaningful = changes.filter((c) => c.type !== "select");
+      if (meaningful.length === 0) {
+        return { nodes: applyNodeChanges(changes, state.nodes) };
+      }
+      const isPureDrag = meaningful.every((c) => c.type === "position");
+      const draggedId =
+        isPureDrag && meaningful[0].type === "position" ? meaningful[0].id : null;
+      const key = isPureDrag ? `drag:${draggedId}` : `nodeschange:${Date.now()}`;
+      return {
+        ...checkpoint(state, key),
+        nodes: applyNodeChanges(changes, state.nodes),
+        dirty: true,
+      };
+    }),
 
   onEdgesChange: (changes) =>
-    set((state) => ({
-      edges: applyEdgeChanges(changes, state.edges),
-      dirty: true,
-    })),
+    set((state) => {
+      const meaningful = changes.filter((c) => c.type !== "select");
+      if (meaningful.length === 0) {
+        return { edges: applyEdgeChanges(changes, state.edges) };
+      }
+      return {
+        ...checkpoint(state, `edgeschange:${Date.now()}`),
+        edges: applyEdgeChanges(changes, state.edges),
+        dirty: true,
+      };
+    }),
 
   addNode: (node) =>
     set((state) => ({
+      ...checkpoint(state, `add:${Date.now()}`),
       nodes: [...state.nodes, node],
       selectedNodeId: node.id,
       sidebarOpen: true,
@@ -98,16 +175,23 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
 
   removeNode: (id) =>
     set((state) => ({
+      ...checkpoint(state, `remove:${Date.now()}`),
       nodes: state.nodes.filter((n) => n.id !== id),
       edges: state.edges.filter((e) => e.source !== id && e.target !== id),
       selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
       dirty: true,
     })),
 
-  setEdges: (edges) => set({ edges, dirty: true }),
+  setEdges: (edges) =>
+    set((state) => ({
+      ...checkpoint(state, `edges:${Date.now()}`),
+      edges,
+      dirty: true,
+    })),
 
   updateNodeConfig: (id, config) =>
     set((state) => ({
+      ...checkpoint(state, `config:${id}`),
       nodes: state.nodes.map((n) =>
         n.id === id
           ? { ...n, data: { ...n.data, config } }
@@ -118,6 +202,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
 
   patchMultipleNodeConfigs: (patches) =>
     set((state) => ({
+      ...checkpoint(state, `patch:${Date.now()}`),
       nodes: state.nodes.map((n) =>
         n.id in patches ? { ...n, data: { ...n.data, config: patches[n.id] } } : n,
       ),
@@ -126,6 +211,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
 
   updateNodeLabel: (id, label) =>
     set((state) => ({
+      ...checkpoint(state, `label:${id}`),
       nodes: state.nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, label } } : n,
       ),
@@ -136,11 +222,57 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     set({ selectedNodeId: id, sidebarOpen: id !== null ? true : undefined }),
 
   setNodes: (nodes) => set({ nodes, dirty: true }),
+
+  relayoutNodes: (nodes) =>
+    set((state) => ({
+      ...checkpoint(state, `layout:${Date.now()}`),
+      nodes,
+      dirty: true,
+    })),
+
   setFlowProjectId: (id) => set({ flowProjectId: id }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setPreviewOpen: (open) => set({ previewOpen: open }),
   markClean: () => set({ dirty: false }),
   markDirty: () => set({ dirty: true }),
+
+  undo: () =>
+    set((state) => {
+      if (state.past.length === 0) return state;
+      const previous = state.past[state.past.length - 1];
+      return {
+        past: state.past.slice(0, -1),
+        future: [{ nodes: state.nodes, edges: state.edges }, ...state.future].slice(
+          0,
+          HISTORY_LIMIT,
+        ),
+        nodes: previous.nodes,
+        edges: previous.edges,
+        selectedNodeId: null,
+        dirty: true,
+        historyGroupKey: null,
+        historyGroupAt: 0,
+      };
+    }),
+
+  redo: () =>
+    set((state) => {
+      if (state.future.length === 0) return state;
+      const next = state.future[0];
+      return {
+        future: state.future.slice(1),
+        past: [...state.past, { nodes: state.nodes, edges: state.edges }].slice(
+          -HISTORY_LIMIT,
+        ),
+        nodes: next.nodes,
+        edges: next.edges,
+        selectedNodeId: null,
+        dirty: true,
+        historyGroupKey: null,
+        historyGroupAt: 0,
+      };
+    }),
+
   reset: () =>
     set({
       nodes: [],
@@ -152,5 +284,6 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       invalidNodeIds: [],
       flowProjectId: null,
       parameters: [],
+      ...HISTORY_RESET,
     }),
 }));

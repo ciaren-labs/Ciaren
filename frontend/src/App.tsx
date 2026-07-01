@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useThemeStore } from "@/stores/themeStore";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppFooter } from "@/components/layout/AppFooter";
 import { LandingPage } from "@/features/landing/LandingPage";
@@ -20,6 +22,10 @@ export default function App() {
   // Reset the error boundary on navigation so an error on one page doesn't
   // strand the user — moving to another route clears the fallback.
   const location = useLocation();
+  const theme = useThemeStore((s) => s.theme);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
   return (
     <div className="flex h-full flex-col">
       <AppHeader />
