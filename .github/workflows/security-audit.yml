@@ -1,9 +1,10 @@
 name: Security Audit
 
-# Dependency vulnerability auditing for backend (pip-audit) and frontend
-# (npm audit). Complements Dependabot: Dependabot opens version-bump PRs on a
-# schedule, while this fails CI when a *currently pinned* dependency has a known
-# CVE. Gated at "high" so transitive low/moderate noise doesn't block PRs.
+# Dependency vulnerability auditing for backend (pip-audit) and frontend +
+# docs (npm audit). Complements Dependabot: Dependabot opens version-bump PRs
+# on a schedule, while this fails CI when a *currently pinned* dependency has
+# a known CVE. Gated at "high" so transitive low/moderate noise doesn't block
+# PRs.
 
 on:
   push:
@@ -13,6 +14,8 @@ on:
       - backend/uv.lock
       - frontend/package.json
       - frontend/package-lock.json
+      - docs/package.json
+      - docs/package-lock.json
       - .github/workflows/security-audit.yml
   pull_request:
     branches: [main, development]
@@ -21,6 +24,8 @@ on:
       - backend/uv.lock
       - frontend/package.json
       - frontend/package-lock.json
+      - docs/package.json
+      - docs/package-lock.json
       - .github/workflows/security-audit.yml
   schedule:
     # Weekly so newly disclosed CVEs are caught even without a dependency change.
@@ -82,3 +87,45 @@ jobs:
         # Fail only on high/critical so moderate transitive advisories in dev
         # tooling don't block PRs; review those via the weekly Dependabot run.
         run: npm audit --audit-level=high
+
+  docs:
+    name: npm audit (docs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Audit dependencies
+        working-directory: docs
+        # Fail only on high/critical, same rationale as the frontend job.
+        run: npm audit --audit-level=high
+
+  summary:
+    name: Security Audit Summary
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, docs]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.backend.result }}" != "success" ] \
+            || [ "${{ needs.frontend.result }}" != "success" ] \
+            || [ "${{ needs.docs.result }}" != "success" ]; then
+            echo "❌ Security audit failed"
+            exit 1
+          fi
+          echo "✅ No high/critical vulnerabilities found"

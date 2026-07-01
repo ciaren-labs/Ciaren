@@ -40,6 +40,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Lint with ESLint
+        working-directory: frontend
+        run: npm run lint
+
       - name: Type-check with TypeScript
         working-directory: frontend
         run: npm run type-check

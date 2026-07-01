@@ -3,7 +3,7 @@ import { Select } from "@/components/ui/select";
 import { CV_SCORING, CV_STRATEGIES, CV_STRATEGY_MAP } from "@/lib/mlModels";
 import { Field, ColumnSelect } from "./configFields";
 
-type Config = Record<string, any>;
+type Config = Record<string, unknown>;
 
 interface Props {
   config: Config;
@@ -46,7 +46,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
           <Input
             type="number"
             min={2}
-            value={config.n_splits ?? 5}
+            value={(config.n_splits as number) ?? 5}
             onChange={(e) => set({ n_splits: Number(e.target.value) })}
           />
         </Field>
@@ -58,7 +58,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
             <Input
               type="number"
               min={2}
-              value={config.n_splits ?? 5}
+              value={(config.n_splits as number) ?? 5}
               onChange={(e) => set({ n_splits: Number(e.target.value) })}
             />
           </Field>
@@ -66,7 +66,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
             <Input
               type="number"
               step="0.05"
-              value={config.test_size ?? 0.2}
+              value={(config.test_size as number) ?? 0.2}
               onChange={(e) => set({ test_size: Number(e.target.value) })}
             />
           </Field>
@@ -78,7 +78,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
           <Input
             type="number"
             min={1}
-            value={config.n_repeats ?? 1}
+            value={(config.n_repeats as number) ?? 1}
             onChange={(e) => set({ n_repeats: Number(e.target.value) })}
           />
         </Field>
@@ -91,7 +91,7 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
           help="Rows sharing a group value stay together in one fold."
         >
           <ColumnSelect
-            value={config.group_column ?? ""}
+            value={(config.group_column as string) ?? ""}
             columns={columns.filter((col) => col !== config.target_column)}
             onChange={(v) => set({ group_column: v })}
           />
@@ -142,7 +142,11 @@ export function MlCrossValidateConfig({ config, columns, errors, set }: Props) {
       </Field>
 
       <Field label="Random seed" error={errors.seed} help="Required — reproduces the same folds every run.">
-        <Input type="number" value={config.seed ?? 42} onChange={(e) => set({ seed: Number(e.target.value) })} />
+        <Input
+          type="number"
+          value={(config.seed as number) ?? 42}
+          onChange={(e) => set({ seed: Number(e.target.value) })}
+        />
       </Field>
     </>
   );

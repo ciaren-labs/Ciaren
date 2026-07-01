@@ -182,7 +182,11 @@ jobs:
 
   publish-server:
     name: Publish ciaren to PyPI
-    needs: build-server
+    # Needs both builds, not just its own — the two packages are versioned in
+    # lockstep, so if build-client fails its tag-vs-version check, this job
+    # must not publish either (otherwise ciaren ships while ciaren-client
+    # doesn't, breaking the lockstep guarantee).
+    needs: [build-server, build-client]
     # Only publish on an actual version tag push (not workflow_dispatch), so
     # maintainers can still use workflow_dispatch to sanity-check the build.
     if: startsWith(github.ref, 'refs/tags/')
@@ -209,7 +213,8 @@ jobs:
 
   publish-client:
     name: Publish ciaren-client to PyPI
-    needs: build-client
+    # Needs both builds — see the note on publish-server above.
+    needs: [build-server, build-client]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10

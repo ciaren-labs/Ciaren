@@ -23,7 +23,7 @@ import {
 import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
 import { modelInstallWarning, modelOptionLabel } from "./mlModelOptions";
 
-type Config = Record<string, any>;
+type Config = Record<string, unknown>;
 
 interface Props {
   config: Config;
@@ -107,7 +107,7 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
   const task = TRAIN_NODE_TASKS[nodeType];
   const isModelDefinitionNode = nodeType === "mlClassifierModel" || nodeType === "mlRegressorModel";
   const isFinalTrainNode = nodeType === "mlTrainClassifier" || nodeType === "mlTrainRegressor";
-  const modelDef = getModelDef(config.model_type) ?? models[0];
+  const modelDef = getModelDef(config.model_type as string) ?? models[0];
   const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
   // No models for this task yet (e.g. the Train Forecaster scaffold).
   const noModels = models.length === 0;
@@ -182,13 +182,21 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
 
       {isTimeseries && (
         <Field label="Time column" error={errors.time_column} help="The column that orders rows in time.">
-          <ColumnSelect value={config.time_column ?? ""} columns={columns} onChange={(v) => set({ time_column: v })} />
+          <ColumnSelect
+            value={(config.time_column as string) ?? ""}
+            columns={columns}
+            onChange={(v) => set({ time_column: v })}
+          />
         </Field>
       )}
 
       {supervised && (
         <Field label="Target column" error={errors.target_column} help="The column the model learns to predict.">
-          <ColumnSelect value={config.target_column ?? ""} columns={columns} onChange={(v) => set({ target_column: v })} />
+          <ColumnSelect
+            value={(config.target_column as string) ?? ""}
+            columns={columns}
+            onChange={(v) => set({ target_column: v })}
+          />
         </Field>
       )}
 
@@ -199,7 +207,7 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
         help="The inputs the model is trained on."
       >
         <ColumnMultiSelect
-          value={config.feature_columns}
+          value={config.feature_columns as string[] | undefined}
           columns={columns.filter((col) => col !== config.target_column)}
           onChange={(v) => set({ feature_columns: v })}
         />
@@ -210,7 +218,11 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
       ))}
 
       <Field label="Random seed" error={errors.seed} help="Required — reproduces the same model every run.">
-        <Input type="number" value={config.seed ?? 42} onChange={(e) => set({ seed: Number(e.target.value) })} />
+        <Input
+          type="number"
+          value={(config.seed as number) ?? 42}
+          onChange={(e) => set({ seed: Number(e.target.value) })}
+        />
       </Field>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -298,7 +310,7 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tracking</h4>
               <Field label="MLflow experiment (optional)" help="Group these runs under a named experiment. Defaults to 'ciaren'.">
                 <Input
-                  value={config.mlflow_experiment ?? ""}
+                  value={(config.mlflow_experiment as string) ?? ""}
                   placeholder="ciaren"
                   onChange={(e) => set({ mlflow_experiment: e.target.value })}
                 />
