@@ -95,9 +95,9 @@ publisher workflow.
 
 The smallest possible plugin — it adds one catalog node that runs end-to-end —
 lives in the repository at
-[`examples/plugins/hello-node-plugin/`](https://github.com/ciaren/ciaren/tree/main/examples/plugins/hello-node-plugin),
+[`examples/plugins/hello-node-plugin/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin),
 with a pre-built **signed** package in
-[`examples/plugins/dist/`](https://github.com/ciaren/ciaren/tree/main/examples/plugins/dist).
+[`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist).
 
 ## Where this is heading
 
@@ -118,5 +118,5 @@ stays open and useful on its own; extensions install from the outside.
 ---
 
 **Built something useful?** Open a
-[Discussion](https://github.com/ciaren/ciaren/discussions) to share it
+[Discussion](https://github.com/ciaren-labs/Ciaren/discussions) to share it
 with the community.

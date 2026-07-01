@@ -132,7 +132,7 @@ Yes! Use a **SQL Input** or **SQL Output** node with a saved [Connection](/guide
 
 - **[Troubleshooting Guide](/guide/troubleshooting)** — Common issues and solutions
 - **[FAQ](/faq)** — More frequently asked questions
-- **[GitHub Discussions](https://github.com/ciaren/ciaren/discussions)** — Ask the community
+- **[GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — Ask the community
 
 ---
 

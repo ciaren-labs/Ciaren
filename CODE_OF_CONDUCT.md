@@ -59,6 +59,6 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 
 ## Questions?
 
-If you have questions about this Code of Conduct, please open a discussion in [GitHub Discussions](https://github.com/ciaren/ciaren/discussions).
+If you have questions about this Code of Conduct, please open a discussion in [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions).
 
 **Thank you for helping make Ciaren a respectful, inclusive community.**

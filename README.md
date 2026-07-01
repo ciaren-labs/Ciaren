@@ -9,10 +9,10 @@ or lazy Polars. It is designed for local-first experimentation, repeatable data
 preparation, and lightweight machine-learning workflows without adopting a
 heavy orchestration stack.
 
-[![Backend Tests](https://github.com/ciaren/ciaren/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/ciaren/ciaren/actions/workflows/backend-tests.yml)
-[![Frontend CI](https://github.com/ciaren/ciaren/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/ciaren/ciaren/actions/workflows/frontend-tests.yml)
-[![Docker](https://github.com/ciaren/ciaren/actions/workflows/docker.yml/badge.svg)](https://github.com/ciaren/ciaren/actions/workflows/docker.yml)
-[![Docs](https://github.com/ciaren/ciaren/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/ciaren/ciaren/actions/workflows/docs-deploy.yml)
+[![Backend Tests](https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml)
+[![Frontend CI](https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml)
+[![Docker](https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml)
+[![Docs](https://github.com/ciaren-labs/Ciaren/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/docs-deploy.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Plugin API: Apache-2.0](https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg)](backend/app/plugin_api/)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
@@ -54,7 +54,7 @@ heavy orchestration stack.
 ### Backend Setup
 
 ```bash
-git clone https://github.com/ciaren/ciaren.git
+git clone https://github.com/ciaren-labs/Ciaren.git
 cd ciaren/backend
 
 python -m venv .venv
@@ -137,9 +137,9 @@ reproducible flows, docs improvements, examples, transformation nodes, plugin
 SDK improvements, and frontend workflow polish.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Ideas and support requests can
-go to [GitHub Discussions](https://github.com/ciaren/ciaren/discussions), and
+go to [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
 bugs or feature requests can go to
-[GitHub Issues](https://github.com/ciaren/ciaren/issues).
+[GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues).
 
 ## Security
 

@@ -158,7 +158,7 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
       },
       {
         text: '⭐ Star on GitHub',
-        link: 'https://github.com/rodrigo-arenas/Ciaren',
+        link: 'https://github.com/ciaren-labs/Ciaren',
       },
     ],
 
@@ -430,7 +430,7 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/rodrigo-arenas/Ciaren' },
+      { icon: 'github', link: 'https://github.com/ciaren-labs/Ciaren' },
     ],
 
     search: {
@@ -438,16 +438,16 @@ gtag('config', ${JSON.stringify(gaMeasurementId)});`,
     },
 
     editLink: {
-      pattern: 'https://github.com/rodrigo-arenas/Ciaren/edit/main/docs/:path',
+      pattern: 'https://github.com/ciaren-labs/Ciaren/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
     footer: {
       message:
-        '<a href="https://github.com/rodrigo-arenas/Ciaren" target="_blank" rel="noreferrer">GitHub</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/Ciaren/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/Ciaren/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
-        '<a href="https://github.com/rodrigo-arenas/Ciaren/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
+        '<a href="https://github.com/ciaren-labs/Ciaren" target="_blank" rel="noreferrer">GitHub</a> · ' +
+        '<a href="https://github.com/ciaren-labs/Ciaren/discussions" target="_blank" rel="noreferrer">Discussions</a> · ' +
+        '<a href="https://github.com/ciaren-labs/Ciaren/issues" target="_blank" rel="noreferrer">Issues</a> · ' +
+        '<a href="https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contributing</a><br>' +
         'Released under the Apache License 2.0. Created by ' +
         '<a href="https://www.rodrigo-arenas.com/" target="_blank" rel="noreferrer">Rodrigo Arenas</a> ' +
         '(<a href="https://github.com/rodrigo-arenas" target="_blank" rel="noreferrer">GitHub</a>).',

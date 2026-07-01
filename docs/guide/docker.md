@@ -22,7 +22,7 @@ data persistence, and zero Node.js or Python tooling required on the host.
 
 ```bash
 # clone the repo (or download the Dockerfile + docker-compose.yml)
-git clone https://github.com/ciaren/ciaren.git
+git clone https://github.com/ciaren-labs/Ciaren.git
 cd Ciaren
 
 # build and start (SQLite, no extras — takes ~3 min on first build)
