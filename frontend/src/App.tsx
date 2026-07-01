@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Toaster } from "@/components/ui/Toaster";
 import { useThemeStore } from "@/stores/themeStore";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppFooter } from "@/components/layout/AppFooter";
@@ -49,6 +50,7 @@ export default function App() {
         </ErrorBoundary>
       </main>
       <AppFooter />
+      <Toaster />
     </div>
   );
 }
