@@ -265,7 +265,7 @@ export interface Schedule {
   timezone: string;
   /** null = fall back to the server's default engine when the run fires. */
   engine: string | null;
-  enabled: boolean;
+  is_enabled: boolean;
   catch_up: boolean;
   max_retries: number;
   retry_delay_seconds: number;
@@ -290,7 +290,7 @@ export interface ScheduleCreate {
   description?: string;
   timezone?: string;
   engine?: string | null;
-  enabled?: boolean;
+  is_enabled?: boolean;
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;
@@ -303,7 +303,7 @@ export interface ScheduleUpdate {
   description?: string;
   timezone?: string;
   engine?: string | null;
-  enabled?: boolean;
+  is_enabled?: boolean;
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;

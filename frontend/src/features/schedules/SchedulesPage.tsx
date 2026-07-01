@@ -43,14 +43,14 @@ const ENABLED_OPTIONS = [
 /** Lifecycle rank for sorting the State column (active → paused → auto-disabled). */
 function scheduleState(s: Schedule): string {
   if (s.disabled_reason) return "3 auto-disabled";
-  if (!s.enabled) return "2 paused";
+  if (!s.is_enabled) return "2 paused";
   return "1 active";
 }
 
 type ScheduleSortKey = "name" | "next" | "last" | "state";
 const SCHEDULE_SORT: Record<ScheduleSortKey, (s: Schedule) => string | number | null> = {
   name: (s) => (s.name || "untitled schedule").toLowerCase(),
-  next: (s) => (s.enabled ? s.next_run_at : null), // paused/disabled have no next run → last
+  next: (s) => (s.is_enabled ? s.next_run_at : null), // paused/disabled have no next run → last
   last: (s) => s.last_status ?? null,
   state: scheduleState,
 };
@@ -67,7 +67,7 @@ export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
       </span>
     );
   }
-  if (!schedule.enabled) {
+  if (!schedule.is_enabled) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
         <Pause className="h-3 w-3" /> Paused
@@ -116,8 +116,8 @@ export function SchedulesPage() {
   const filtered = useMemo(() => {
     let list = schedules ?? [];
     if (flowId) list = list.filter((s) => s.flow_id === flowId);
-    if (state === "enabled") list = list.filter((s) => s.enabled);
-    if (state === "paused") list = list.filter((s) => !s.enabled);
+    if (state === "enabled") list = list.filter((s) => s.is_enabled);
+    if (state === "paused") list = list.filter((s) => !s.is_enabled);
     return list;
   }, [schedules, flowId, state]);
 
@@ -157,7 +157,7 @@ export function SchedulesPage() {
   };
 
   const toggle = (s: Schedule) =>
-    updateSchedule.mutate({ id: s.id, body: { enabled: !s.enabled } });
+    updateSchedule.mutate({ id: s.id, body: { is_enabled: !s.is_enabled } });
 
   const actions = {
     open: (s: Schedule) => navigate(`/schedules/${s.id}`),
@@ -269,7 +269,7 @@ export function SchedulesPage() {
                           </td>
                           <td className="px-4 py-2.5 text-muted-foreground">{describeCron(s.cron)}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">
-                            {s.enabled ? fmt(s.next_run_at) : "—"}
+                            {s.is_enabled ? fmt(s.next_run_at) : "—"}
                           </td>
                           <td className="px-4 py-2.5">
                             {s.last_status ? <StatusBadge status={s.last_status} /> : <span className="text-muted-foreground">—</span>}
@@ -371,11 +371,11 @@ function RowActions({ schedule, actions }: { schedule: Schedule; actions: Action
         onClick={() => actions.toggle(schedule)}
         className={cn(
           "rounded-md p-1.5 transition-colors hover:bg-muted",
-          schedule.enabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
+          schedule.is_enabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
         )}
-        title={schedule.enabled ? "Pause" : "Resume"}
+        title={schedule.is_enabled ? "Pause" : "Resume"}
       >
-        {schedule.enabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+        {schedule.is_enabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
       </button>
       <button
         onClick={() => actions.edit(schedule)}
@@ -412,7 +412,7 @@ function ScheduleCard({
         "group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md",
         schedule.disabled_reason
           ? "border-destructive/30"
-          : !schedule.enabled
+          : !schedule.is_enabled
             ? "border-amber-300 opacity-80"
             : "border-border",
       )}
@@ -428,7 +428,7 @@ function ScheduleCard({
         <p className="mt-2 text-sm">{describeCron(schedule.cron)}</p>
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
           <CalendarClock className="h-3.5 w-3.5" />
-          {schedule.enabled ? `Next: ${fmt(schedule.next_run_at)}` : "Paused"}
+          {schedule.is_enabled ? `Next: ${fmt(schedule.next_run_at)}` : "Paused"}
         </div>
       </button>
       <div

@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
@@ -163,7 +164,18 @@ class FlowService:
         return FlowRead.model_validate(flow)
 
     async def delete(self, flow_id: str) -> None:
-        flow = await self._get_or_raise(flow_id)
+        """Delete a flow along with its run history and schedules.
+
+        The cascade is ORM-side (``Flow.runs`` / ``Flow.schedules``), so the
+        relationships must be loaded before ``session.delete`` — an unloaded
+        lazy relationship can't be fetched during the async flush.
+        """
+        result = await self.db.execute(
+            select(Flow).options(selectinload(Flow.runs), selectinload(Flow.schedules)).where(Flow.id == flow_id)
+        )
+        flow = result.scalar_one_or_none()
+        if flow is None:
+            raise NotFoundError("Flow", flow_id)
         await self.db.delete(flow)
         await self.db.commit()
 
