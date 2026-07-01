@@ -1,7 +1,32 @@
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient } from "@tanstack/react-query";
+import { toast } from "@/stores/toastStore";
+import { friendlyErrorMessage } from "@/lib/errors";
 import type { RunListFilters } from "./types";
 
+// Mutation meta contract, enforced app-wide:
+//  - errorMessage: title for the automatic failure toast (default "Action failed").
+//  - suppressErrorToast: opt out for mutations whose errors are rendered inline
+//    (dialog forms, upload dropzones) so the user isn't told twice.
+declare module "@tanstack/react-query" {
+  interface Register {
+    mutationMeta: {
+      errorMessage?: string;
+      suppressErrorToast?: boolean;
+    };
+  }
+}
+
 export const queryClient = new QueryClient({
+  // Every mutation failure surfaces as a toast unless the call site opted out —
+  // no action should ever fail silently.
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (mutation.meta?.suppressErrorToast) return;
+      toast.error(mutation.meta?.errorMessage ?? "Action failed", {
+        description: friendlyErrorMessage(error),
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: 1,
