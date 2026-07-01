@@ -12,7 +12,7 @@ search: api transformations list preview node types sample
 | `POST` | `/api/transformations/preview` | Preview a single transformation against sample data |
 
 `GET /api/transformations` returns the registered node types from
-[`app/engine/registry.py`](https://github.com/ciaren/ciaren/blob/main/backend/app/engine/registry.py).
+[`app/engine/registry.py`](https://github.com/ciaren-labs/Ciaren/blob/main/backend/app/engine/registry.py).
 `POST /api/transformations/preview` runs one node's config against supplied sample
 rows — this powers the editor's live preview without saving a run.
 

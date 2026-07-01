@@ -33,6 +33,6 @@ projects, see the [Examples](/examples/sales-analysis).
 - Need a node that doesn't exist? [Write a plugin](/plugins/overview)
 
 ::: tip Have a recipe to suggest?
-Open a [Discussion](https://github.com/ciaren/ciaren/discussions) — the
+Open a [Discussion](https://github.com/ciaren-labs/Ciaren/discussions) — the
 recipes that get requested most get written first.
 :::

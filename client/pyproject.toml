@@ -15,9 +15,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://www.rodrigo-arenas.com/"
-Repository = "https://github.com/rodrigo-arenas/Ciaren"
-Documentation = "https://rodrigo-arenas.github.io/Ciaren"
-Issues = "https://github.com/rodrigo-arenas/Ciaren/issues"
+Repository = "https://github.com/ciaren-labs/Ciaren"
+Documentation = "https://docs.ciaren.com"
+Issues = "https://github.com/ciaren-labs/Ciaren/issues"
 Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 
 [project.optional-dependencies]
