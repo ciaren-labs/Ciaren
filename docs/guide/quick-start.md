@@ -31,6 +31,10 @@ ready-made example flows — open **Projects → Demo** and you can preview, run
 and export without uploading anything. The
 [Demo Project & Tutorials](/guide/demo-project) page walks through each flow
 step by step.
+
+The demo is optional but recommended for a first install — it's the fastest
+way to see working examples. If you'd rather start empty, launch the backend
+with `ciaren serve --no-demo` (or set `CIAREN_SEED_DEMO=false`).
 :::
 
 ## What you'll build
