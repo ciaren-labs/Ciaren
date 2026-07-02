@@ -46,18 +46,33 @@ heavy orchestration stack.
 
 ## Quickstart
 
-### Requirements
-
-- Python 3.12+
-- Node.js 18+ for the visual editor
-- SQLite by default; PostgreSQL and MySQL are available through
-  `CIAREN_DATABASE_URL` with async drivers
-
-### Backend Setup
+The fastest way to try Ciaren is Docker — one command builds and serves the
+whole app (backend + visual editor) at a single URL:
 
 ```bash
 git clone https://github.com/ciaren-labs/Ciaren.git
-cd ciaren/backend
+cd Ciaren
+docker compose up --build
+```
+
+<!-- Before public launch, verify the clone URL after the repository transfer. -->
+
+Then open `http://localhost:8055`. The first start seeds a **Demo project**
+with sample datasets and example flows, so there is something real to open,
+preview, and run before you upload anything of your own — see the
+[Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project).
+
+### Run From Source
+
+Requirements: Python 3.12+, Node.js 18+ (for the visual editor), and Git.
+SQLite is the zero-setup default database; PostgreSQL and MySQL are available
+through `CIAREN_DATABASE_URL` with async drivers.
+
+**Backend** (terminal 1):
+
+```bash
+git clone https://github.com/ciaren-labs/Ciaren.git
+cd Ciaren/backend
 
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
@@ -66,31 +81,27 @@ pip install -e .
 ciaren serve
 ```
 
-<!-- Before public launch, verify the clone URL after the repository transfer. -->
+The backend starts at `http://localhost:8055`, creates its database
+automatically, and serves interactive API docs at `http://localhost:8055/docs`.
+Run `ciaren check` at any time to validate the setup.
 
-The backend starts at `http://localhost:8055`. Interactive API docs are
-available at `http://localhost:8055/docs`.
-
-### Frontend Setup
-
-In another terminal:
+**Frontend** (terminal 2):
 
 ```bash
-cd ciaren/frontend
+cd Ciaren/frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`, upload a CSV/Excel/Parquet file, build a flow,
-preview the data, run it, and export Python.
+Open `http://localhost:5173`, explore the Demo project or upload your own
+CSV/Excel/Parquet file, build a flow, preview each step, run it, and export
+Python.
 
-### Docker Setup
-
-```bash
-docker compose up --build
-```
-
-Then open `http://localhost:8055`.
+> **Prefer a single URL without a second terminal?** Build the frontend once
+> (`cd frontend && npm run build`) and `ciaren serve` detects and serves the
+> web UI itself at `http://localhost:8055`. See the
+> [Installation guide](https://ciaren.com/docs/guide/installation) for
+> details, configuration, and troubleshooting.
 
 ## Who It Is For
 
@@ -126,9 +137,12 @@ For full details, see the [documentation](https://ciaren.com/docs/).
 
 ## Documentation
 
-- [Quick Start](https://ciaren.com/docs/guide/quick-start)
-- [Examples](https://ciaren.com/docs/examples/sales-analysis)
-- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin)
+- [Installation](https://ciaren.com/docs/guide/installation) — get running locally or with Docker
+- [Quick Start](https://ciaren.com/docs/guide/quick-start) — first flow in 5 minutes
+- [Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project) — walk through the built-in sample flows
+- [Examples](https://ciaren.com/docs/examples/sales-analysis) — end-to-end, real-world workflows
+- [Machine Learning Quick Start](https://ciaren.com/docs/guide/ml-quickstart) — train and evaluate a model on the canvas
+- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin) — build your first plugin
 - [Roadmap](https://ciaren.com/docs/guide/roadmap)
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)

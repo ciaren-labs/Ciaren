@@ -25,6 +25,14 @@ the bottom.
   3,,80,
   ```
 
+:::tip No file handy? Use the built-in Demo project
+Every fresh install seeds a **Demo** project with four sample datasets and four
+ready-made example flows — open **Projects → Demo** and you can preview, run,
+and export without uploading anything. The
+[Demo Project & Tutorials](/guide/demo-project) page walks through each flow
+step by step.
+:::
+
 ## What you'll build
 
 By the end of this walkthrough you will have a running pipeline that cleans,
