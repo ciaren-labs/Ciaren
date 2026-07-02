@@ -7,13 +7,20 @@ plugin depends on this and on the public schema; it never imports private
 internals of the Ciaren app, engine, or FastAPI layer.
 """
 
+from app.plugin_api.connector_runtime import ConnectorRuntime, ConnectorTestResult
 from app.plugin_api.events import EventBus, Hook
 from app.plugin_api.manifest import (
     PluginManifest,
     PluginUI,
     validate_manifest,
 )
-from app.plugin_api.node_runtime import NodeRuntime
+from app.plugin_api.model_ref import MODEL_REF_COLUMNS, ModelRef, is_model_ref_frame
+from app.plugin_api.node_runtime import (
+    EMPTY_NODE_CONTEXT,
+    ModelStore,
+    NodeContext,
+    NodeRuntime,
+)
 from app.plugin_api.providers import (
     AIProvider,
     AuthProvider,
@@ -21,6 +28,7 @@ from app.plugin_api.providers import (
     ExecutionProvider,
     ExporterProvider,
     LicenseProvider,
+    ModelProvider,
     NodeProvider,
     Plugin,
     StorageProvider,
@@ -38,23 +46,30 @@ from app.plugin_api.signing import (
 from app.plugin_api.specs import (
     AICapabilitySpec,
     AuthMethodSpec,
+    ConfigFieldSpec,
     ConnectorSpec,
     ExecutionSpec,
     ExporterSpec,
     LicenseStatus,
+    ModelTypeSpec,
     NodeSpec,
     Permission,
     PluginMetadata,
     PortSpec,
     StorageSpec,
     ValidatorSpec,
+    validate_config_schema,
 )
 
 #: Version of the plugin *contract* (this package), independent of the app
 #: version. Bump the minor for compatible additions and the major for breaking
 #: changes; plugins can pin against this instead of coupling to app releases
 #: once the contract ships as the standalone ``ciaren-plugin-api`` package.
-PLUGIN_API_VERSION = "1.0"
+#:
+#: 1.1 (additive): ``ModelRef`` + model wires, ``ModelProvider``/``ModelTypeSpec``,
+#: ``NodeContext``/``ModelStore`` (``NodeRuntime.execute_with_context``),
+#: ``ConnectorRuntime`` implementations, and ``config_schema`` driven forms.
+PLUGIN_API_VERSION = "1.1"
 
 __all__ = [
     "PLUGIN_API_VERSION",
@@ -65,6 +80,7 @@ __all__ = [
     "Plugin",
     "NodeProvider",
     "ConnectorProvider",
+    "ModelProvider",
     "StorageProvider",
     "ExecutionProvider",
     "ExporterProvider",
@@ -76,6 +92,9 @@ __all__ = [
     "NodeSpec",
     "PortSpec",
     "ConnectorSpec",
+    "ConfigFieldSpec",
+    "validate_config_schema",
+    "ModelTypeSpec",
     "StorageSpec",
     "ExecutionSpec",
     "ExporterSpec",
@@ -91,6 +110,16 @@ __all__ = [
     "validate_manifest",
     # execution
     "NodeRuntime",
+    "NodeContext",
+    "ModelStore",
+    "EMPTY_NODE_CONTEXT",
+    # models
+    "ModelRef",
+    "MODEL_REF_COLUMNS",
+    "is_model_ref_frame",
+    # connectors
+    "ConnectorRuntime",
+    "ConnectorTestResult",
     # events
     "EventBus",
     "Hook",

@@ -22,6 +22,7 @@ from app.plugin_api.specs import (
     ExecutionSpec,
     ExporterSpec,
     LicenseStatus,
+    ModelTypeSpec,
     NodeSpec,
     PluginMetadata,
     StorageSpec,
@@ -51,6 +52,35 @@ class ConnectorProvider(ABC):
 
     @abstractmethod
     def connectors(self) -> list[ConnectorSpec]: ...
+
+    def connector_implementations(self) -> dict[str, Any]:
+        """Map connector id -> executable implementation (a
+        :class:`~app.plugin_api.connector_runtime.ConnectorRuntime`). Catalog-only
+        providers may return ``{}``; the spec is then listed without a runtime
+        (e.g. the core connectors, which execute through their own machinery)."""
+        return {}
+
+
+class ModelProvider(ABC):
+    """Contributes trainable model types to the ML model catalog.
+
+    Contributed types show up in the matching core train node's model picker and
+    train through the core pipeline (preprocessing, limits, MLflow logging, code
+    export) — the provider only supplies the estimator.
+    """
+
+    @abstractmethod
+    def model_types(self) -> list[ModelTypeSpec]:
+        """Catalog metadata for each contributed model type."""
+
+    def model_builders(self) -> dict[str, Any]:
+        """Map model-type id -> builder. A builder is
+        ``(hyperparameters: dict, seed: int | None) -> estimator`` and must return
+        an sklearn-compatible estimator (``fit``/``predict``; ``get_params`` for
+        cross-validation cloning). Hyperparameters arrive already sanitized to
+        JSON-native values; the builder should raise ``ValueError`` (or let a
+        ``TypeError`` surface) on invalid ones."""
+        return {}
 
 
 class StorageProvider(ABC):
