@@ -173,6 +173,15 @@ img {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Ciaren wordmark: purple "C", text-color rest (brand-assets/wordmark-*.svg).
+   Used in the navbar siteTitle and the home hero name (both v-html).
+   The hero clips the name with -webkit-text-fill-color, which inherits into
+   child spans — so the C must reset it, not just `color`. */
+.ciaren-c {
+  color: var(--vp-c-brand-1);
+  -webkit-text-fill-color: var(--vp-c-brand-1);
+}
+
 /* Home hero logo — sit the brand-purple logomark on a surface so it stays
    legible against the purple background glow (the mark shares the brand hue). */
 .VPHero .image-src {

@@ -57,8 +57,8 @@ export function AppHeader() {
         <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-lg shadow-sm shadow-brand-600/30">
           <img src={ciarenSymbol} alt="" className="h-4 w-4" />
         </span>
-        <span className="text-[15px]">
-          <span className="text-brand-600">Ciaren</span>
+        <span className="text-[15px] text-foreground">
+          <span className="text-brand-600">C</span>iaren
         </span>
       </Link>
       <nav className="flex items-center gap-1">
