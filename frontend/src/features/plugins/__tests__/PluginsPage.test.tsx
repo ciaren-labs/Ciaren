@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -9,6 +9,7 @@ const grant = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
 const disable = vi.fn((_id: string) => Promise.resolve({}));
 const enable = vi.fn((_id: string) => Promise.resolve({}));
 const revoke = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
+const uninstall = vi.fn((_id: string) => Promise.resolve({ plugin_id: _id, removed: true }));
 const installPlugin = vi.fn((_file: File) => Promise.resolve({ plugin: { name: "X" }, outcome: "unsigned" }));
 const marketplaceList = vi.fn().mockResolvedValue({ configured: false, plugins: [] });
 const marketplaceInstall = vi.fn((_id: string) => Promise.resolve({}));
@@ -21,6 +22,7 @@ vi.mock("@/lib/api", () => ({
     disable: (id: string) => disable(id),
     enable: (id: string) => enable(id),
     revoke: (id: string, perms: string[]) => revoke(id, perms),
+    uninstall: (id: string) => uninstall(id),
     install: (file: File) => installPlugin(file),
     license: (id: string) =>
       Promise.resolve({ plugin_id: id, valid: true, license_type: null, expires_at: null, reason: "no license provider" }),
@@ -59,6 +61,7 @@ const PENDING = {
   signature: "unsigned",
   nodes: ["hello.greeting"],
   node_categories: { "hello.greeting": "columns" },
+  uninstallable: false,
 };
 
 const LOADED = {
@@ -145,6 +148,31 @@ describe("PluginsPage", () => {
 
     await screen.findByText("Active");
     expect(screen.queryByRole("button", { name: /Revoke/i })).not.toBeInTheDocument();
+  });
+
+  it("uninstalls a managed plugin after confirmation", async () => {
+    diagnostics.mockResolvedValueOnce({
+      loaded: [{ ...LOADED, uninstallable: true }],
+      gated: [],
+      errors: [],
+    });
+    renderPage();
+
+    await screen.findByText("Hello Plugin");
+    await userEvent.click(screen.getByRole("button", { name: /Uninstall/i }));
+    // A destructive confirm dialog gates the delete; nothing happens until confirmed.
+    expect(uninstall).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Uninstall/i }));
+    await waitFor(() => expect(uninstall).toHaveBeenCalledWith("community.hello"));
+  });
+
+  it("does not offer Uninstall for a dev-dir / entry-point plugin", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
+    renderPage();
+
+    await screen.findByText("Active");
+    expect(screen.queryByRole("button", { name: /Uninstall/i })).not.toBeInTheDocument();
   });
 
   it("shows the install-time signature trust badge", async () => {

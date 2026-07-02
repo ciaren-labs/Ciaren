@@ -571,6 +571,9 @@ export interface PluginInfo {
   nodes: string[];
   /** Palette category/subgroup for each contributed node. */
   node_categories: Record<string, string>;
+  /** True when the plugin lives in the managed install dir and can be uninstalled
+   *  via DELETE. False for dev-dir / entry-point plugins (disable-only). */
+  uninstallable: boolean;
 }
 
 export interface LicenseStatus {
@@ -597,6 +600,13 @@ export interface PluginInstallResult {
   /** Signature trust outcome: trusted | untrusted | unsigned | invalid. */
   outcome: string;
   reason: string;
+}
+
+export interface PluginUninstallResult {
+  plugin_id: string;
+  /** True if managed install files were deleted; false if there was nothing to
+   *  remove (dev-dir / entry-point plugin) — its persisted state is still cleared. */
+  removed: boolean;
 }
 
 export interface MarketplaceEntry {

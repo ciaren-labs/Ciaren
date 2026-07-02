@@ -13,9 +13,11 @@ import {
   ShieldCheck,
   ShieldX,
   Store,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/components/ui/PageState";
 import { cn } from "@/lib/utils";
 import { getCategoryLabel } from "@/lib/nodeCatalog";
@@ -32,6 +34,7 @@ import {
   usePluginDiagnostics,
   usePluginLicense,
   useRevokePlugin,
+  useUninstallPlugin,
 } from "./hooks";
 
 // Short, friendly explanations for the permissions a plugin can request. Keeps
@@ -261,8 +264,14 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
   const disable = useDisablePlugin();
   const grant = useGrantPlugin();
   const revoke = useRevokePlugin();
+  const uninstall = useUninstallPlugin();
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
   const busy =
-    enable.isPending || disable.isPending || grant.isPending || revoke.isPending;
+    enable.isPending ||
+    disable.isPending ||
+    grant.isPending ||
+    revoke.isPending ||
+    uninstall.isPending;
 
   // A loaded plugin's declared permissions are in force (its code is running), so
   // show them as active rather than "not granted". For a plugin still pending
@@ -364,8 +373,38 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
               <Power className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Disable
             </Button>
           )}
+          {plugin.uninstallable && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setConfirmUninstall(true)}
+              title="Delete this plugin's files and remove it"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" /> Uninstall
+            </Button>
+          )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmUninstall}
+        onOpenChange={setConfirmUninstall}
+        title={`Uninstall ${plugin.name}?`}
+        variant="destructive"
+        confirmLabel="Uninstall"
+        isPending={uninstall.isPending}
+        description={
+          <>
+            This deletes the plugin's installed files and its contributed nodes leave
+            the palette. Your flows that use those nodes will no longer run until the
+            plugin is reinstalled. This can't be undone.
+          </>
+        }
+        onConfirm={() =>
+          uninstall.mutate(plugin.id, { onSuccess: () => setConfirmUninstall(false) })
+        }
+      />
 
       {plugin.status === "needs_permissions" && (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">

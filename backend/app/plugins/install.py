@@ -193,6 +193,19 @@ def read_manifest_from_dir(src: Path) -> PluginManifest:
     return validate_manifest(json.loads((src / MANIFEST_FILENAME).read_text(encoding="utf-8")))
 
 
+def installed_location(plugin_id: str, *, install_dir: Path | None = None) -> Path | None:
+    """The managed install directory for ``plugin_id`` if it exists on disk — i.e.
+    the plugin was installed through the install flow and can be uninstalled.
+    Returns ``None`` for a dev-dir (``CIAREN_PLUGINS_DIR``) or entry-point plugin,
+    which live outside the managed dir and must be removed by other means."""
+    base = install_dir or user_plugins_dir()
+    try:
+        target = base / _safe_target_name(plugin_id)
+    except InstallError:
+        return None
+    return target if target.is_dir() else None
+
+
 def uninstall_plugin(plugin_id: str, *, install_dir: Path | None = None) -> bool:
     """Remove an installed plugin's directory. Returns True if something was
     removed. Also forgets its persisted state (enable/grants)."""

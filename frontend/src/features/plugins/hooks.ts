@@ -83,6 +83,20 @@ export function useDisablePlugin() {
   });
 }
 
+export function useUninstallPlugin() {
+  const invalidate = useInvalidatePlugins();
+  return useMutation({
+    mutationFn: (id: string) => pluginsApi.uninstall(id),
+    meta: { errorMessage: "Couldn't uninstall the plugin" },
+    onSuccess: (result) => {
+      invalidate();
+      toast.success(
+        result.removed ? "Plugin uninstalled" : "Plugin removed (no managed files to delete)",
+      );
+    },
+  });
+}
+
 export function useGrantPlugin() {
   const invalidate = useInvalidatePlugins();
   return useMutation({

@@ -52,11 +52,22 @@ class PluginInfo(BaseModel):
     nodes: list[str] = Field(default_factory=list)
     #: Palette category/subgroup for each contributed node.
     node_categories: dict[str, str] = Field(default_factory=dict)
+    #: True when the plugin lives in the managed install dir and can be removed via
+    #: DELETE. False for dev-dir (``CIAREN_PLUGINS_DIR``) or entry-point plugins,
+    #: which the UI can only disable, not uninstall.
+    uninstallable: bool = False
 
 
 def _node_categories_for_loaded(loaded: LoadedPlugin) -> dict[str, str]:
     provider = loaded.metadata.id
     return {spec.id: spec.category for spec in get_registry().node_specs() if spec.provider == provider}
+
+
+def _is_uninstallable(plugin_id: str) -> bool:
+    """Whether the plugin lives in the managed install dir (so DELETE can remove it)."""
+    from app.plugins.install import installed_location
+
+    return installed_location(plugin_id) is not None
 
 
 class PluginErrorInfo(BaseModel):
@@ -79,6 +90,14 @@ class PluginInstallResult(BaseModel):
     #: Signature trust outcome: ``trusted`` | ``untrusted`` | ``unsigned`` | ``invalid``.
     outcome: str
     reason: str
+
+
+class PluginUninstallResult(BaseModel):
+    plugin_id: str
+    #: True if a managed install directory was actually deleted. False means the
+    #: plugin was discovered from elsewhere (a dev dir or an entry-point package)
+    #: and has no managed files to remove — its persisted state is still forgotten.
+    removed: bool
 
 
 class GrantRequest(BaseModel):
@@ -106,6 +125,7 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         signature=state.signature(meta.id),
         nodes=list(loaded.manifest.ui.nodes) if loaded.manifest else [],
         node_categories=_node_categories_for_loaded(loaded),
+        uninstallable=_is_uninstallable(meta.id),
     )
 
 
@@ -122,6 +142,7 @@ def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
         signature=state.signature(gated.plugin_id),
         nodes=list(gated.nodes),
         node_categories={node: gated.node_categories.get(node, "plugins") for node in gated.nodes},
+        uninstallable=_is_uninstallable(gated.plugin_id),
     )
 
 
@@ -284,3 +305,20 @@ async def revoke_permissions(plugin_id: str, body: RevokeRequest) -> PluginInfo:
     state.save()
     reload_plugins()
     return _find_info(plugin_id)
+
+
+@router.delete("/{plugin_id}", response_model=PluginUninstallResult)
+async def uninstall_plugin(plugin_id: str) -> PluginUninstallResult:
+    """Uninstall a plugin: delete its managed install directory and forget its
+    persisted state (enable/approval/grants). The registry is rebuilt so its nodes
+    leave the catalog live.
+
+    Only removes files for a plugin installed into the managed dir. A dev-dir
+    (``CIAREN_PLUGINS_DIR``) or entry-point plugin has no managed files, so
+    ``removed`` is False — disable it or remove the package instead."""
+    from app.plugins.install import uninstall_plugin as _uninstall
+
+    _find_info(plugin_id)  # 404 if unknown (must resolve before we delete it)
+    removed = _uninstall(plugin_id)
+    reload_plugins()
+    return PluginUninstallResult(plugin_id=plugin_id, removed=removed)
