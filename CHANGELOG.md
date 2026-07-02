@@ -91,6 +91,29 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- Plugin API 1.1 audit fixes (second iteration over the new extension points):
+  - A plugin model type's `default_hyperparameters` were advertised in the
+    catalog but never applied — an untouched hyperparameter form trained with
+    `{}`. They now merge under the user's values before the builder runs, and
+    surface in exported code.
+  - `ModelTypeSpec.import_lines` were documented but never consumed; exported
+    training scripts now use them for the estimator import when declared
+    (deriving from the estimator's class module otherwise). The unused
+    `seed_param` field was removed before the 1.1 contract ships.
+  - Model references logged through the plugin `ModelStore` now record the
+    full model-wire training config (model type, target, features,
+    hyperparameters, preprocessing, seed) like core train nodes, so core
+    Cross-Validate can rebuild plugin-trained estimators.
+  - A required plugin connector field with a valid falsy value (`False` for a
+    boolean, `0` for a number) was rejected as missing.
+  - A plugin node runtime returning handles that don't match its declared
+    `NodeSpec` outputs (or non-DataFrame values, or a model port without a
+    model reference) now fails with a clear plugin-shaped error instead of an
+    opaque engine error downstream.
+  - The running-version lookup now falls back on any metadata-backend
+    failure, so a source checkout without installed package metadata can
+    still load plugins.
+
 - Code export fidelity — the exported script must behave exactly like the
   in-app run, verified by a new equivalence harness that executes every
   emitted pandas/polars snippet and compares the result frame against
@@ -126,6 +149,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Security
 
+- The connector SSRF guard now also covers plugin connector **options**: any
+  option carrying a URL or sitting under a host/url/endpoint-like key (e.g.
+  `base_url`) is checked before the plugin runtime is invoked, not only the
+  connection's `host` column.
+- The REST API connector's response-size cap now applies cumulatively across
+  the pages of one paginated read, not only per request.
 - Security posture documentation now says Ciaren has not yet completed a
   formal independent third-party security audit, while keeping guidance practical
   for controlled internal workflows.
