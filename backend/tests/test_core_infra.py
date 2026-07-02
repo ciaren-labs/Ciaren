@@ -97,3 +97,28 @@ def test_pending_column_ddl_detects_missing_columns() -> None:
     assert project_alters  # at least one missing column was detected
     # The rendered DDL carries type info and (for NOT NULL defaults) a DEFAULT clause.
     assert any("DEFAULT" in s for s in project_alters)
+
+
+# -- version ------------------------------------------------------------
+
+
+def test_ciaren_version_returns_installed_metadata() -> None:
+    from app import version as version_mod
+
+    assert version_mod.ciaren_version()  # non-empty either way
+
+
+def test_ciaren_version_falls_back_when_metadata_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Any metadata-backend failure falls back — not only the stdlib
+    PackageNotFoundError (backport finders raise their own exception types),
+    so a broken environment can never block plugin loading."""
+    from app import version as version_mod
+
+    class MetadataNotFound(Exception):  # mimics importlib_metadata's exception
+        pass
+
+    def _raise(name: str) -> str:
+        raise MetadataNotFound(name)
+
+    monkeypatch.setattr(version_mod, "version", _raise)
+    assert version_mod.ciaren_version() == version_mod._FALLBACK
