@@ -394,7 +394,7 @@ function DatasetTable({
   return (
     <div className="overflow-auto rounded-lg border border-border">
       <table className="w-full border-collapse text-xs">
-        <thead className="sticky top-0 bg-muted">
+        <thead className="sticky top-0 bg-muted uppercase tracking-wide text-muted-foreground">
           <tr>
             <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className={thClass} />
             <th className={thClass}>Type</th>
