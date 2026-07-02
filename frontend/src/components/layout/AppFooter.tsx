@@ -8,7 +8,9 @@ export function AppFooter() {
   return (
     <footer className="flex shrink-0 items-center justify-between border-t border-border bg-background/80 px-6 py-3 text-xs text-muted-foreground backdrop-blur">
       <span>
-        <span className="font-medium text-brand-600">Ciaren</span>
+        <span className="font-medium text-foreground">
+          <span className="text-brand-600">C</span>iaren
+        </span>
         {" — "}open-core local-first data and ML workflow builder
       </span>
       <div className="flex items-center gap-4">

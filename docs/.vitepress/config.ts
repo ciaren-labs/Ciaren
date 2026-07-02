@@ -150,7 +150,9 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
-    siteTitle: 'Ciaren',
+    // Wordmark treatment (brand-assets/wordmark-*): purple C, text-color rest.
+    // VitePress renders siteTitle with v-html; .ciaren-c is styled in custom.css.
+    siteTitle: '<span class="ciaren-c">C</span>iaren',
 
     nav: [
       {

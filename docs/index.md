@@ -5,7 +5,7 @@ description: Open-core, plugin-first platform for building data engineering and 
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
 
 hero:
-  name: Ciaren
+  name: <span class="ciaren-c">C</span>iaren
   text: Build data & ML workflows visually. Ship clean Python.
   tagline: An open-core, plugin-first, local-first platform for data engineering and machine learning — design workflows on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
   image:
