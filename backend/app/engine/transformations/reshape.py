@@ -66,7 +66,10 @@ class ConcatRowsTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
         srcs = ", ".join(input_vars.values())
-        return f"{dst} = pl.concat([{srcs}])"
+        # vertical_relaxed matches execute() (see PolarsEngine.concat): plain
+        # pl.concat is schema-strict and would fail where the app succeeds,
+        # e.g. concatenating an int column with a float column.
+        return f"{dst} = pl.concat([{srcs}], how='vertical_relaxed')"
 
 
 class CreateCalculatedColumnTransformation(BaseTransformation):
