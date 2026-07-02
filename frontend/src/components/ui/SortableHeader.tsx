@@ -36,7 +36,9 @@ export function SortableTh<K extends string>({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className="flex items-center gap-1 font-semibold hover:text-foreground"
+        // Preflight resets text-transform/letter-spacing on buttons; re-inherit so the
+        // label follows the thead's casing convention like a plain <th> does.
+        className="flex items-center gap-1 font-semibold hover:text-foreground [letter-spacing:inherit] [text-transform:inherit]"
       >
         {label}
         {active ? (

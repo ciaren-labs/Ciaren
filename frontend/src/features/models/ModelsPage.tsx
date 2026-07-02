@@ -376,14 +376,14 @@ function ModelCard({ model, flowName }: { model: MlRegisteredModel; flowName: Ma
       <div className="mt-3 overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="py-1.5 pr-3 font-medium">Version</th>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="py-1.5 pr-3 font-semibold">Version</th>
               {metricKeys.map((k) => (
-                <th key={k} className="py-1.5 pr-3 font-medium">{k}</th>
+                <th key={k} className="py-1.5 pr-3 font-semibold">{k}</th>
               ))}
-              <th className="py-1.5 pr-3 font-medium">Lineage</th>
-              <th className="py-1.5 pr-3 font-medium">Aliases</th>
-              <th className="py-1.5 pr-3 font-medium text-right">Copy</th>
+              <th className="py-1.5 pr-3 font-semibold">Lineage</th>
+              <th className="py-1.5 pr-3 font-semibold">Aliases</th>
+              <th className="py-1.5 pr-3 font-semibold text-right">Copy</th>
             </tr>
           </thead>
           <tbody>
@@ -615,22 +615,25 @@ function ExperimentDetail({ experimentId, flowName }: { experimentId: string; fl
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">#</th>
-              <th className="px-3 py-2 font-medium">Run</th>
-              <th className="px-3 py-2 font-medium">Model</th>
-              <th className="px-3 py-2 font-medium">When</th>
+            <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-2 font-semibold">#</th>
+              <th className="px-3 py-2 font-semibold">Run</th>
+              <th className="px-3 py-2 font-semibold">Model</th>
+              <th className="px-3 py-2 font-semibold">When</th>
               {metricKeys.map((k) => (
-                <th key={k} className="px-3 py-2 font-medium">
+                <th key={k} className="px-3 py-2 font-semibold">
                   <button
                     onClick={() => setPrimary(k)}
-                    className={cn("hover:text-foreground", k === primaryMetric && "text-foreground underline")}
+                    className={cn(
+                      "[letter-spacing:inherit] [text-transform:inherit] hover:text-foreground",
+                      k === primaryMetric && "text-foreground underline",
+                    )}
                   >
                     {k}
                   </button>
                 </th>
               ))}
-              <th className="px-3 py-2 font-medium">Flow &amp; run</th>
+              <th className="px-3 py-2 font-semibold">Flow &amp; run</th>
             </tr>
           </thead>
           <tbody>
