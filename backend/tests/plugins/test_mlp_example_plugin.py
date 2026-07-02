@@ -120,6 +120,72 @@ def test_exported_code_is_valid_python(runtime):
     compile(code, "<generated>", "exec")  # must be syntactically valid
 
 
+@pytest.fixture
+def _loaded_plugin(monkeypatch):
+    """Discover + bridge the MLP plugin into the engine registry (approved)."""
+    from app.plugins import get_registry, reset_registry
+    from app.plugins.state import PluginStateStore
+
+    monkeypatch.setenv("CIAREN_PLUGINS_DIR", str(PLUGIN_DIR.parent))
+    state = PluginStateStore()
+    state.set_approved("community.mlp-classifier", True)
+    state.save()
+    reset_registry()
+    get_registry()
+    yield
+    reset_registry()
+
+
+def _train_graph() -> dict:
+    return {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {
+                "id": "mlp",
+                "type": "sklearn.mlpClassifierTrain",
+                "data": {"config": {"target_column": "label", "hidden_layer_sizes": "16", "max_iter": 300}},
+            },
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "mlp"},
+            {"id": "e2", "source": "mlp", "target": "out1"},
+        ],
+    }
+
+
+@pytest.mark.parametrize("engine_name", ["pandas", "polars"])
+def test_runs_end_to_end_on_both_engines(_loaded_plugin, tmp_path, engine_name):
+    from app.engine.executor import FlowExecutor, dataset_ref_key
+
+    in_csv = tmp_path / "in.csv"
+    _dataset(90).to_csv(in_csv, index=False)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    outputs = FlowExecutor().execute(
+        _train_graph(),
+        dataset_paths={dataset_ref_key("ds1", None): in_csv},
+        output_dir=out_dir,
+        engine_name=engine_name,
+    )
+    result = pd.read_csv(outputs["out1"])
+    assert 0.0 <= result["test_accuracy"].iloc[0] <= 1.0
+    assert result["n_features"].iloc[0] == 2
+
+
+def test_exports_valid_sklearn_code_on_both_engines(_loaded_plugin):
+    from app.engine.codegen import CodeGenerator
+    from app.engine.polars_codegen import PolarsCodeGenerator
+
+    pandas_code = CodeGenerator().generate(_train_graph(), {"ds1": "in.csv"})
+    polars_code = PolarsCodeGenerator().generate(_train_graph(), {"ds1": "in.csv"})
+    assert "from sklearn.neural_network import MLPClassifier" in pandas_code
+    assert "MLPClassifier(" in polars_code and "to_pandas()" in polars_code  # bridged into polars
+    compile(pandas_code, "<pandas>", "exec")
+    compile(polars_code, "<polars>", "exec")
+
+
 def test_signed_package_is_bundled_in_catalog():
     """The build script ships a signed package + catalog entry so a fresh install
     lists the plugin in Explore, ready to install."""
