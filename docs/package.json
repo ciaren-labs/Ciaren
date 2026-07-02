@@ -16,7 +16,7 @@
     "format": "prettier --write '**/*.md' --prose-wrap always"
   },
   "dependencies": {
-    "vue": "^3.4.19"
+    "vue": "^3.5.39"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",
