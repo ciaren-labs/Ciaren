@@ -1,5 +1,6 @@
 """Model catalog: every supported model_type builds a working estimator, the seed
 is injected where supported, and bad inputs are rejected clearly."""
+
 import pytest
 
 from app.ml.models import (
@@ -52,13 +53,16 @@ def test_injection_string_rejected_by_sanitizer():
         build_estimator("random_forest_classifier", {"x": object()}, seed=1)
 
 
-@pytest.mark.parametrize("model_type,task", [
-    ("logistic_regression", CLASSIFICATION),
-    ("xgboost_classifier", CLASSIFICATION),
-    ("linear_regression", REGRESSION),
-    ("lightgbm_regressor", REGRESSION),
-    ("kmeans", CLUSTERING),
-])
+@pytest.mark.parametrize(
+    "model_type,task",
+    [
+        ("logistic_regression", CLASSIFICATION),
+        ("xgboost_classifier", CLASSIFICATION),
+        ("linear_regression", REGRESSION),
+        ("lightgbm_regressor", REGRESSION),
+        ("kmeans", CLUSTERING),
+    ],
+)
 def test_task_classification(model_type, task):
     assert get_model_spec(model_type).task == task
 

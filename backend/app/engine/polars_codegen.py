@@ -40,11 +40,11 @@ from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
-    MODEL_OUTPUT_HANDLES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
     edge_carries_model,
     input_source_type,
+    model_output_handles,
     output_handles,
     output_source_type,
 )
@@ -201,7 +201,7 @@ class PolarsCodeGenerator:
             pdf_outs = {h: next_eager() for h in handles}
             lines.append(transformation.to_polars_code(pdf_inputs, pdf_outs, config))
             node_type = nodes_by_id[node_id]["type"]
-            model_handles = MODEL_OUTPUT_HANDLES.get(node_type, frozenset())
+            model_handles = model_output_handles(node_type)
             outs: dict[str, str] = {}
             for h in handles:
                 if h in model_handles:

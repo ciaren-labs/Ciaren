@@ -1,5 +1,6 @@
 """Dataset soft-delete: retain on delete, restore, purge (files), retention sweep,
 revive-on-reupload, and the clear error when a referenced version file is gone."""
+
 import io
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,9 +22,7 @@ async def _upload(client: AsyncClient, name: str = "people.csv") -> dict:
 
 
 async def _version_path(db_session, dataset_id: str) -> Path:
-    row = await db_session.execute(
-        select(DatasetVersion.location).where(DatasetVersion.dataset_id == dataset_id)
-    )
+    row = await db_session.execute(select(DatasetVersion.location).where(DatasetVersion.dataset_id == dataset_id))
     return Path(row.scalars().first())
 
 

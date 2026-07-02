@@ -13,8 +13,9 @@ from __future__ import annotations
 import logging
 import threading
 
+from app.engine import node_kinds
 from app.engine.registry import register_transformations, unregister_transformations
-from app.plugin_api import NodeRuntime, ServiceRegistry
+from app.plugin_api import NodeContext, NodeRuntime, NodeSpec, ServiceRegistry
 from app.plugins.adapter import PluginTransformation
 from app.plugins.builtin import (
     BuiltinConnectorProvider,
@@ -65,21 +66,57 @@ def build_registry() -> ServiceRegistry:
     return registry
 
 
-def _bridge_plugin_nodes(registry: ServiceRegistry) -> None:
+def _node_context_for(plugin_id: str, state: PluginStateStore) -> NodeContext:
+    """Assemble the host services a plugin's runtimes receive: its *granted*
+    permissions and (when the ML core is importable) a permission-gated
+    MLflow-backed ModelStore."""
+    from app.ml.availability import ml_core_available
+
+    granted = frozenset(state.granted(plugin_id))
+    models = None
+    if ml_core_available():
+        from app.plugins.model_store import MlflowModelStore
+
+        models = MlflowModelStore(plugin_id, granted)
+    return NodeContext(plugin_id=plugin_id, permissions=granted, models=models)
+
+
+def _register_node_kind(spec: NodeSpec) -> None:
+    """Teach the engine's node-kind tables this plugin node's handle topology, so
+    model wires, multi-output edges, and flow-terminal behavior validate and
+    execute exactly like a built-in's."""
+    node_kinds.register_plugin_node_kind(
+        spec.id,
+        output_handles=tuple(p.id for p in spec.outputs) or ("out",),
+        model_input_handles=frozenset(p.id for p in spec.inputs if p.type == "model"),
+        model_output_handles=frozenset(p.id for p in spec.outputs if p.type == "model"),
+        flow_terminal=spec.is_flow_terminal,
+        model_sink=spec.is_model_sink,
+    )
+
+
+def _bridge_plugin_nodes(registry: ServiceRegistry, state: PluginStateStore) -> None:
     """Register a :class:`PluginTransformation` in the engine registry for every
     plugin node that ships an executable :class:`NodeRuntime`, so it runs and
     exports like a built-in. Catalog-only plugin nodes (no runtime) are left as
     pure catalog entries."""
+    contexts: dict[str, NodeContext] = {}
     for spec in registry.node_specs():
         impl = registry.node_implementation(spec.id)
         if not isinstance(impl, NodeRuntime):
             continue
+        if spec.provider not in contexts:
+            contexts[spec.provider] = _node_context_for(spec.provider, state)
         try:
-            register_transformations(PluginTransformation(spec, impl))
+            register_transformations(PluginTransformation(spec, impl, contexts[spec.provider]))
         except ValueError:
             # Already registered (e.g. duplicate) — skip; the catalog spec remains.
             logger.warning("Skipped bridging node %r: already registered", spec.id)
             continue
+        try:
+            _register_node_kind(spec)
+        except ValueError:
+            logger.warning("Node %r shadows a built-in kind; skipping its kind registration", spec.id)
         _bridged_types.append(spec.id)
 
 
@@ -93,12 +130,13 @@ def get_registry() -> ServiceRegistry:
         # Re-check under the lock: another thread may have built it while we waited.
         if _registry is None:
             registry = build_registry()
+            state = PluginStateStore()
             _load_result = load_plugins(
                 registry,
                 plugin_dirs=default_plugin_dirs(),
-                state=PluginStateStore(),
+                state=state,
             )
-            _bridge_plugin_nodes(registry)
+            _bridge_plugin_nodes(registry, state)
             _registry = registry
     return _registry
 
@@ -129,6 +167,7 @@ def reset_registry() -> None:
     with _lock:
         if _bridged_types:
             unregister_transformations(*_bridged_types)
+            node_kinds.unregister_plugin_node_kinds(*_bridged_types)
             _bridged_types = []
         _registry = None
         _load_result = None

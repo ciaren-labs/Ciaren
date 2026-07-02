@@ -15,7 +15,7 @@ from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.transformations.base import BaseTransformation
-from app.plugin_api import NodeRuntime, NodeSpec
+from app.plugin_api import EMPTY_NODE_CONTEXT, NodeContext, NodeRuntime, NodeSpec
 
 
 class PluginNodeExportError(ValueError):
@@ -30,13 +30,18 @@ class PluginTransformation(BaseTransformation):
     frames to pandas and back. Code export reuses the existing pandas→polars
     bridge: ``emits_pandas_code`` tells the polars generator to wrap this node's
     (pandas) code with ``to_pandas`` / ``from_pandas``.
+
+    ``context`` carries the host services (granted permissions, ModelStore) the
+    runtime receives via ``execute_with_context``; the default empty context keeps
+    direct construction in tests working.
     """
 
     emits_pandas_code = True
 
-    def __init__(self, spec: NodeSpec, runtime: NodeRuntime) -> None:
+    def __init__(self, spec: NodeSpec, runtime: NodeRuntime, context: NodeContext = EMPTY_NODE_CONTEXT) -> None:
         self.type = spec.id
         self._runtime = runtime
+        self._context = context
         required = tuple(p.id for p in spec.inputs if p.required)
         self.input_handles = required or ("in",)
         self.optional_input_handles = tuple(p.id for p in spec.inputs if not p.required)
@@ -52,7 +57,7 @@ class PluginTransformation(BaseTransformation):
         config: dict[str, Any],
     ) -> dict[str, AnyFrame]:
         pandas_inputs = {handle: engine.to_pandas(frame) for handle, frame in inputs.items()}
-        result = self._runtime.execute(pandas_inputs, config)
+        result = self._runtime.execute_with_context(pandas_inputs, config, self._context)
         return {handle: engine.from_pandas(frame) for handle, frame in result.items()}
 
     def imports(self, config: dict[str, Any]) -> list[str]:

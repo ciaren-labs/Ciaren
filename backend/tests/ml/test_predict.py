@@ -1,5 +1,6 @@
 """mlPredict: scoring from a model handle or a config URI, feature-mismatch
 handling, probabilities, batching, and the no-model error."""
+
 import numpy as np
 import pytest
 
@@ -34,9 +35,7 @@ def test_predict_blank_uri_falls_back_to_wired_model(trained_classifier):
     engine, model_ref, df = trained_classifier
     data = engine.from_pandas(df.drop(columns=["target"]))
     for blank in ("", "   "):
-        out, meta = NODE.execute_with_metadata(
-            engine, {"in": data, "model": model_ref}, {"model_uri": blank}
-        )
+        out, meta = NODE.execute_with_metadata(engine, {"in": data, "model": model_ref}, {"model_uri": blank})
         result = engine.to_pandas(out["out"])
         assert "prediction" in result.columns
         assert meta.model_uri
@@ -54,7 +53,8 @@ def test_predict_probabilities(trained_classifier):
     engine, model_ref, df = trained_classifier
     data = engine.from_pandas(df.drop(columns=["target"]))
     out, _ = NODE.execute_with_metadata(
-        engine, {"in": data, "model": model_ref},
+        engine,
+        {"in": data, "model": model_ref},
         {"output_proba_columns": ["proba_0", "proba_1"]},
     )
     result = engine.to_pandas(out["out"])
@@ -92,8 +92,7 @@ def test_batched_matches_unbatched(trained_classifier):
     full, _ = NODE.execute_with_metadata(engine, {"in": data, "model": model_ref}, {})
     batched, _ = NODE.execute_with_metadata(engine, {"in": data, "model": model_ref}, {"batch_size": 7})
     assert (
-        engine.to_pandas(full["out"])["prediction"].tolist()
-        == engine.to_pandas(batched["out"])["prediction"].tolist()
+        engine.to_pandas(full["out"])["prediction"].tolist() == engine.to_pandas(batched["out"])["prediction"].tolist()
     )
 
 
@@ -105,7 +104,8 @@ def test_predict_on_both_engines(ml_env, engine_name):
     engine = get_engine(engine_name)
     df = classification_df()
     out_train, _ = MLTrainTransformation().execute_with_metadata(
-        engine, {"in": engine.from_pandas(df)},
+        engine,
+        {"in": engine.from_pandas(df)},
         {"model_type": "logistic_regression", "target_column": "target", "seed": 1},
     )
     data = engine.from_pandas(df.drop(columns=["target"]))

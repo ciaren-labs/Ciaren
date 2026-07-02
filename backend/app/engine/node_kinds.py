@@ -7,6 +7,7 @@ them here keeps those four in sync and gives a new I/O node type exactly one
 place to register.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
 # Input node type -> source_type understood by ``EngineBackend.read``.
@@ -155,15 +156,118 @@ MODEL_INPUT_HANDLES: dict[str, frozenset[str]] = {
 }
 
 
+# -- plugin node kinds --------------------------------------------------------
+# The sets above are static because the core node set is static. Plugin nodes
+# arrive at runtime with their topology declared in a NodeSpec; the plugin bridge
+# (app/plugins/runtime.py) registers each executable plugin node here so graph
+# validation, the executor, and both code generators treat its handles — including
+# model wires and flow-terminal behavior — exactly like a built-in's.
+
+
+@dataclass(frozen=True)
+class PluginNodeKind:
+    """Handle topology + terminal flags for one plugin-contributed node type."""
+
+    output_handles: tuple[str, ...] = ("out",)
+    model_input_handles: frozenset[str] = frozenset()
+    model_output_handles: frozenset[str] = frozenset()
+    flow_terminal: bool = False
+    model_sink: bool = False
+
+
+_PLUGIN_NODE_KINDS: dict[str, PluginNodeKind] = {}
+
+
+def register_plugin_node_kind(
+    node_type: str,
+    *,
+    output_handles: tuple[str, ...] = ("out",),
+    model_input_handles: frozenset[str] = frozenset(),
+    model_output_handles: frozenset[str] = frozenset(),
+    flow_terminal: bool = False,
+    model_sink: bool = False,
+) -> None:
+    """Register a plugin node's handle topology. A core node type cannot be
+    shadowed (the engine registry already refuses duplicate transformations; this
+    guard keeps the kind tables consistent even if that changes)."""
+    if node_type in MODEL_OUTPUT_HANDLES or node_type in MODEL_INPUT_HANDLES or node_type in MULTI_OUTPUT_NODES:
+        raise ValueError(f"node type {node_type!r} is a built-in and cannot be re-registered")
+    _PLUGIN_NODE_KINDS[node_type] = PluginNodeKind(
+        output_handles=tuple(output_handles) or ("out",),
+        model_input_handles=frozenset(model_input_handles),
+        model_output_handles=frozenset(model_output_handles),
+        flow_terminal=flow_terminal,
+        model_sink=model_sink,
+    )
+
+
+def unregister_plugin_node_kinds(*node_types: str) -> None:
+    """Remove plugin node kinds (used when the plugin registry is rebuilt)."""
+    for node_type in node_types:
+        _PLUGIN_NODE_KINDS.pop(node_type, None)
+
+
+def registered_plugin_node_kinds() -> tuple[str, ...]:
+    return tuple(_PLUGIN_NODE_KINDS)
+
+
+def model_output_handles(node_type: str) -> frozenset[str]:
+    """Output handles of ``node_type`` that carry a model (core or plugin)."""
+    static = MODEL_OUTPUT_HANDLES.get(node_type)
+    if static is not None:
+        return static
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    return kind.model_output_handles if kind else frozenset()
+
+
+def model_input_handles(node_type: str) -> frozenset[str]:
+    """Input handles of ``node_type`` that expect a model (core or plugin)."""
+    static = MODEL_INPUT_HANDLES.get(node_type)
+    if static is not None:
+        return static
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    return kind.model_input_handles if kind else frozenset()
+
+
+def multi_output_handles(node_type: str) -> tuple[str, ...] | None:
+    """The declared handle tuple for a node with more than one output, else None."""
+    static = MULTI_OUTPUT_NODES.get(node_type)
+    if static is not None:
+        return static
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    if kind and len(kind.output_handles) > 1:
+        return kind.output_handles
+    return None
+
+
+def is_flow_terminal(node_type: str) -> bool:
+    """Whether ``node_type`` completes a flow on its own (no output node needed)."""
+    if node_type in FLOW_TERMINAL_NODES:
+        return True
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    return bool(kind and kind.flow_terminal)
+
+
+def is_model_sink(node_type: str) -> bool:
+    """Whether ``node_type`` persists a model as a terminal result (e.g. mlTrain)."""
+    if node_type in ML_OUTPUT_NODES:
+        return True
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    return bool(kind and kind.model_sink)
+
+
 def output_handles(node_type: str) -> tuple[str, ...]:
     """Declared output handles for a node type.
 
     Multi-output nodes are listed in ``MULTI_OUTPUT_NODES``; a model-emitting node
-    (mlTrain) declares its single ``"model"`` handle; everything else defaults to
-    the implicit ``"out"``.
+    (mlTrain) declares its single ``"model"`` handle; plugin nodes declare theirs
+    at registration; everything else defaults to the implicit ``"out"``.
     """
     if node_type in MULTI_OUTPUT_NODES:
         return MULTI_OUTPUT_NODES[node_type]
+    kind = _PLUGIN_NODE_KINDS.get(node_type)
+    if kind is not None:
+        return kind.output_handles
     model_out = MODEL_OUTPUT_HANDLES.get(node_type)
     if model_out:
         return tuple(sorted(model_out))
@@ -179,7 +283,7 @@ def edge_carries_model(source_type: str, source_handle: str | None) -> bool:
     """Whether an edge leaving ``source_type`` (via ``source_handle``) carries a
     trained model rather than a dataframe. For a single-output model node (mlTrain)
     the edge has no ``sourceHandle`` and resolves to its sole model handle."""
-    handles = MODEL_OUTPUT_HANDLES.get(source_type)
+    handles = model_output_handles(source_type)
     if not handles:
         return False
     resolved = source_handle or primary_output_handle(source_type)
@@ -188,4 +292,4 @@ def edge_carries_model(source_type: str, source_handle: str | None) -> bool:
 
 def is_model_input_handle(node_type: str, handle: str) -> bool:
     """Whether ``handle`` on ``node_type`` expects a model rather than a frame."""
-    return handle in MODEL_INPUT_HANDLES.get(node_type, frozenset())
+    return handle in model_input_handles(node_type)
