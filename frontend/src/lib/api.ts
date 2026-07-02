@@ -31,6 +31,7 @@ import type {
   PluginDiagnostics,
   PluginInfo,
   PluginInstallResult,
+  PluginUninstallResult,
   PreviewResponse,
   Project,
   ProjectCreate,
@@ -406,6 +407,8 @@ export const pluginsApi = {
     return (await res.json()) as PluginInstallResult;
   },
   license: (id: string) => request<LicenseStatus>(`/plugins/${encodeURIComponent(id)}/license`),
+  uninstall: (id: string) =>
+    request<PluginUninstallResult>(`/plugins/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
 // ---- Marketplace ("Explore" catalog) ---------------------------------------

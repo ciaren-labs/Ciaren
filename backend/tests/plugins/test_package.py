@@ -57,6 +57,32 @@ def test_verify_unsigned_package(plugin_src, tmp_path):
     assert result.ok is True  # unsigned is acceptable (installer may still require trusted)
 
 
+def _add_entry(pkg, name, data):
+    """Append a raw entry to an existing .ciarenplugin (repacking the zip)."""
+    with zipfile.ZipFile(pkg) as zf:
+        entries = [(n, zf.read(n)) for n in zf.namelist() if n != name]
+    with zipfile.ZipFile(pkg, "w", zipfile.ZIP_DEFLATED) as zf:
+        for n, d in entries:
+            zf.writestr(n, d)
+        zf.writestr(name, data)
+
+
+def test_malformed_signature_is_rejected_as_package_error(plugin_src, tmp_path):
+    """A signature file that is not valid JSON (or not a valid signature schema)
+    must surface as a clean PackageError, not an uncaught 500 from json/pydantic."""
+    pkg = package.pack_directory(plugin_src, tmp_path / "out.ciarenplugin")
+    _add_entry(pkg, package.SIGNATURE_FILENAME, "{not valid json")
+    with pytest.raises(package.PackageError):
+        package.read_signature(pkg)
+    with pytest.raises(package.PackageError):
+        package.verify_package(pkg, trusted_keys={})
+
+    # Valid JSON but missing required fields is also a malformed signature.
+    _add_entry(pkg, package.SIGNATURE_FILENAME, json.dumps({"algorithm": "ed25519"}))
+    with pytest.raises(package.PackageError):
+        package.verify_package(pkg, trusted_keys={})
+
+
 def test_read_manifest_rejects_non_zip(tmp_path):
     bogus = tmp_path / "bad.ciarenplugin"
     bogus.write_text("not a zip", encoding="utf-8")

@@ -612,7 +612,9 @@ class PolarsEngine:
         if order_by:
             work = work.sort(by=order_by, descending=descending)
         method = _ROLLING_POLARS[function]
-        expr = getattr(pl.col(target), method)(window_size=window, min_periods=min_periods)
+        # min_samples is the polars>=1.21 name for what the node config (and
+        # pandas) call min_periods.
+        expr = getattr(pl.col(target), method)(window_size=window, min_samples=min_periods)
         if partition_by:
             expr = expr.over(partition_by)
         work = work.with_columns(expr.alias(new_column))

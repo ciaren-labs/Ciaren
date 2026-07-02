@@ -154,6 +154,18 @@ The loader validates a manifest **before importing any plugin code**. Create
 
 See the [Plugin Manifest](/specs/plugin-manifest) reference for every field.
 
+::: tip Don't hand-write it — generate it
+Your plugin's code already declares all of this. Generate the manifest from it so
+the two never drift:
+
+```bash
+ciaren plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from the code
+```
+
+The manifest is still shipped in the package and validated **before** any code
+runs — generating it just keeps a single source of truth in Python.
+:::
+
 ## 4. Load it (no install needed)
 
 The fastest loop during development: point Ciaren at the folder that *contains*

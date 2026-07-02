@@ -332,6 +332,7 @@ class AssertExpressionTransformation(_BaseAssertion):
         action = self._violation_action(mode, msg)
         return (
             f"{dst} = {src}\n"
+            "# the assertion expression uses pandas eval semantics (needs pandas + pyarrow installed)\n"
             f"_expr_violations = {dst}.to_pandas().eval({expr!r}).pipe(lambda s: (~s.astype(bool)).sum())\n"
             f"if _expr_violations > 0:\n"
             f"    {action}"

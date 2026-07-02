@@ -66,14 +66,14 @@ Upload it on the **Datasets** page
 import pandas as pd
 
 df_1 = pd.read_csv("events.csv")
-df_2 = df_1.assign(**{'occurred_at': pd.to_datetime(df_1['occurred_at'])})
-df_2 = df_2.assign(**{'value': df_2['value'].astype('float64')})
-_dt = pd.to_datetime(df_2['occurred_at'])
-df_3 = df_2.assign(**{'occurred_at_year': _dt.dt.year, 'occurred_at_month': _dt.dt.month})
-df_4 = df_3.groupby(['occurred_at_year', 'occurred_at_month']).agg({'value': 'sum', 'event_id': 'count'}).reset_index()
-df_5 = df_4.rename(columns={'value': 'total_value', 'event_id': 'num_events'})
-df_6 = df_5.sort_values(by=['occurred_at_year', 'occurred_at_month'], ascending=True)
-df_6.to_csv("monthly_summary.csv", index=False)
+df_1 = df_1.assign(**{'occurred_at': pd.to_datetime(df_1['occurred_at'])})
+df_1 = df_1.assign(**{'value': df_1['value'].astype('float64')})
+_dt = pd.to_datetime(df_1['occurred_at'])
+df_1 = df_1.assign(**{'occurred_at_year': _dt.dt.year, 'occurred_at_month': _dt.dt.month})
+df_1 = df_1.groupby(['occurred_at_year', 'occurred_at_month']).agg({'value': 'sum', 'event_id': 'count'}).reset_index()
+df_1 = df_1.rename(columns={'value': 'total_value', 'event_id': 'num_events'})
+df_1 = df_1.sort_values(by=['occurred_at_year', 'occurred_at_month'], ascending=[True, True])
+df_1.to_csv("monthly_summary.csv", index=False)
 ```
 
 ## Result
@@ -103,7 +103,7 @@ split into `year` and `month` so each period becomes its own group key.
 ## Next steps
 
 - **Smoothing / moving averages.** Export the flow and add a rolling window to the
-  result, e.g. `df_6['rolling_avg'] = df_6['total_value'].rolling(3).mean()`.
+  result, e.g. `df_1['rolling_avg'] = df_1['total_value'].rolling(3).mean()`.
 - **Day-of-week patterns.** Add `weekday` to the Extract Date Parts node and group
   by it instead.
 - [Data Quality Checks](/examples/data-quality)

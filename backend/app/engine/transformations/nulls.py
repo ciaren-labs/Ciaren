@@ -130,6 +130,12 @@ class FillNullsTransformation(BaseTransformation):
         if strategy in self._POLARS_STRATEGY:
             strat = self._POLARS_STRATEGY[strategy]
             return f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
-        # median / mode: compute the value per column, then fill.
-        agg = "median" if strategy == "median" else "mode().first"
-        return f"{dst} = {src}.with_columns([pl.col(c).fill_null({src}[c].{agg}()) for c in {cols_iter}])"
+        if strategy == "median":
+            return f"{dst} = {src}.with_columns([pl.col(c).fill_null({src}[c].median()) for c in {cols_iter}])"
+        # mode: drop nulls first (with nulls present, null itself can be the mode
+        # and fill_null(None) raises); an all-null column is left untouched,
+        # mirroring PolarsEngine.fill_nulls.
+        return (
+            f"{dst} = {src}.with_columns([pl.col(c).fill_null({src}[c].drop_nulls().mode().first()) "
+            f"if {src}[c].drop_nulls().len() else pl.col(c) for c in {cols_iter}])"
+        )

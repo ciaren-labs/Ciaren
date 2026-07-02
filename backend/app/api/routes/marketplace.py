@@ -35,6 +35,10 @@ class MarketplaceEntryInfo(BaseModel):
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
+    #: PEP 440 specifier of compatible Ciaren versions ("" for pre-existing indexes).
+    ciaren_spec: str = ""
+    #: pip requirements the plugin declares it needs (advisory).
+    dependencies: list[str] = Field(default_factory=list)
     nodes: list[str] = Field(default_factory=list)
     node_categories: dict[str, str] = Field(default_factory=dict)
     license_required: bool = False
@@ -92,6 +96,8 @@ async def list_marketplace() -> MarketplaceCatalog:
             trust=_derived_trust(e, index_path),
             capabilities=list(e.capabilities),
             permissions=list(e.permissions),
+            ciaren_spec=e.ciaren_spec,
+            dependencies=list(e.dependencies),
             nodes=list(e.nodes),
             node_categories=dict(e.node_categories),
             license_required=e.license_required,
