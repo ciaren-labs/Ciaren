@@ -115,7 +115,8 @@ class ConnectionRead(BaseModel):
 
     Contains no secret — only the *name* of the password env var — so it is
     safe to serialize. ``connection_type`` is derived from the provider name and
-    tells the frontend which form to show (sql | mongo | storage | mlflow).
+    tells the frontend which form to show (sql | mongo | api | storage | mlflow;
+    plugin connectors report their spec's kind).
     """
 
     id: str
