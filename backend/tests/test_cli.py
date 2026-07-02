@@ -385,6 +385,39 @@ def test_transformations_list_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert any(r["inputs"] == "many" for r in data)  # concatRows is variadic
 
 
+# -- plugin manifest ----------------------------------------------------
+
+
+def _hello_plugin_dir() -> Path:
+    # examples/plugins lives at the repo root, two levels above backend/.
+    return Path(__file__).resolve().parents[2] / "examples" / "plugins" / "hello-node-plugin"
+
+
+def test_plugin_manifest_generates_from_code(capsys: pytest.CaptureFixture[str]) -> None:
+    cli.main(["plugin", "manifest", str(_hello_plugin_dir()), "--out", "-"])
+    data = json.loads(capsys.readouterr().out)
+    assert data["id"] == "community.hello"
+    assert data["entrypoint"] == "ciaren_hello.plugin:HelloPlugin"
+    assert data["ui"]["nodeCategories"] == {"hello.greeting": "columns"}
+
+
+def test_plugin_manifest_writes_file(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    out = tmp_path / "generated.json"
+    cli.main(
+        [
+            "plugin",
+            "manifest",
+            str(_hello_plugin_dir()),
+            "--entrypoint",
+            "ciaren_hello.plugin:HelloPlugin",
+            "--out",
+            str(out),
+        ]
+    )
+    assert json.loads(out.read_text(encoding="utf-8"))["id"] == "community.hello"
+    assert "Wrote" in capsys.readouterr().out
+
+
 # -- init ---------------------------------------------------------------
 
 

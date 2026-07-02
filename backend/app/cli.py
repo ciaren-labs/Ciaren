@@ -303,6 +303,25 @@ def build_parser() -> argparse.ArgumentParser:
         "inspection of paid plugins; locks the package to this Python version).",
     )
 
+    p_manifest = plugin_sub.add_parser(
+        "manifest",
+        help="Generate ciaren-plugin.json from a plugin's code (single source of truth).",
+    )
+    p_manifest.add_argument("src_dir", help="Plugin source directory (contains the plugin package).")
+    p_manifest.add_argument(
+        "--entrypoint",
+        default=None,
+        help="module.path:Class of the Plugin. Defaults to the entrypoint in an existing manifest.",
+    )
+    p_manifest.add_argument(
+        "--out",
+        default=None,
+        help="Where to write the manifest (default: <src_dir>/ciaren-plugin.json). Use '-' for stdout.",
+    )
+    p_manifest.add_argument("--ciaren", default=">=0.1", help="PEP 440 compatible-Ciaren specifier.")
+    p_manifest.add_argument("--license", default="community", choices=("community", "commercial"))
+    p_manifest.add_argument("--trust", default="community", choices=("trusted", "verified", "community"))
+
     p_sign = plugin_sub.add_parser("sign", help="Sign a .ciarenplugin in place with an Ed25519 private key.")
     p_sign.add_argument("path", help="Path to the .ciarenplugin file.")
     p_sign.add_argument("--key", required=True, help="Hex-encoded Ed25519 private key.")
@@ -744,6 +763,8 @@ def _plugin(args: argparse.Namespace) -> None:
         _plugin_keygen()
     elif command == "pack":
         _plugin_pack(args)
+    elif command == "manifest":
+        _plugin_manifest(args)
     elif command == "sign":
         _plugin_sign(args)
     elif command == "search":
@@ -757,7 +778,7 @@ def _plugin(args: argparse.Namespace) -> None:
     else:
         print(
             "usage: ciaren plugin "
-            "{list,install,uninstall,verify,enable,disable,keygen,pack,sign,search,index,license,licenses}"
+            "{list,install,uninstall,verify,enable,disable,keygen,pack,manifest,sign,search,index,license,licenses}"
         )
 
 
@@ -878,6 +899,51 @@ def _plugin_pack(args: argparse.Namespace) -> None:
     print(f"Wrote {out} (unsigned{note}). Sign it with `ciaren plugin sign`.")
     if getattr(args, "compile_python", False):
         print(f"  Built for Python {sys.version_info.major}.{sys.version_info.minor}; rebuild per Python version.")
+
+
+def _plugin_manifest(args: argparse.Namespace) -> None:
+    import json as _json
+    from pathlib import Path
+
+    from app.plugins.authoring import manifest_json_from_plugin
+    from app.plugins.loader import load_entrypoint
+
+    src = Path(args.src_dir).expanduser()
+    if not src.is_dir():
+        raise SystemExit(f"manifest failed: {src} is not a directory")
+
+    entrypoint = args.entrypoint
+    if entrypoint is None:  # fall back to the entrypoint declared in an existing manifest
+        manifest_path = src / "ciaren-plugin.json"
+        if not manifest_path.is_file():
+            raise SystemExit("manifest failed: pass --entrypoint (no existing ciaren-plugin.json to read it from)")
+        try:
+            entrypoint = _json.loads(manifest_path.read_text(encoding="utf-8")).get("entrypoint")
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"manifest failed: could not read existing manifest: {exc}") from exc
+        if not entrypoint:
+            raise SystemExit("manifest failed: existing manifest has no entrypoint; pass --entrypoint")
+
+    if str(src) not in sys.path:  # make the plugin package importable (append: never shadow core)
+        sys.path.append(str(src))
+    try:
+        plugin = load_entrypoint(entrypoint)
+        rendered = manifest_json_from_plugin(
+            plugin,
+            entrypoint=entrypoint,
+            ciaren=args.ciaren,
+            license=args.license,
+            trust=args.trust,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface any import/registration failure to the user
+        raise SystemExit(f"manifest failed: {exc}") from exc
+
+    if args.out == "-":
+        print(rendered)
+        return
+    out = Path(args.out).expanduser() if args.out else src / "ciaren-plugin.json"
+    out.write_text(rendered + "\n", encoding="utf-8")
+    print(f"Wrote {out} (generated from {entrypoint}).")
 
 
 def _plugin_sign(args: argparse.Namespace) -> None:
