@@ -46,6 +46,12 @@ scrubbed from driver error messages.
 
 ## Supported databases
 
+Ciaren keeps built-in connectors selective so the open core stays lightweight.
+The list below covers common local, SQL, document, storage, and API workflows.
+For niche databases, SaaS products, internal APIs, or proprietary systems, use a
+[connector plugin](/plugins/connector-plugins) instead of adding the integration
+to core.
+
 | Provider | Driver (optional) | Install |
 | ---------- | ------------------- | --------- |
 | PostgreSQL | `psycopg` | `pip install ciaren[postgres]` |
@@ -134,6 +140,13 @@ installed and approved (see [Installing & Managing Plugins](/plugins/managing-pl
   a built-in provider. Secrets follow the same env-var-only rule.
 
 See [Connector Plugins](/plugins/connector-plugins) to build one.
+
+:::tip Requesting a new connector
+For long-tail integrations, the preferred contribution is a plugin or an
+improvement to the Plugin SDK that makes the plugin possible. Core connector
+requests are accepted only when the integration is broadly useful and maintainable
+inside the lightweight open core.
+:::
 
 ## Using SQL nodes in a flow
 

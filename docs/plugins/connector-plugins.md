@@ -20,6 +20,11 @@ object store. Once installed and approved:
   nodes — Ciaren materializes frames to parquet snapshots exactly as it does
   for built-in databases.
 
+This is the intended path for most new integrations. The open core keeps a small
+set of broadly useful connectors; product-specific, internal, or long-tail
+systems should be packaged as plugins instead of proposed as built-in core
+connectors.
+
 ::: tip Generic HTTP APIs are already covered in core
 Ciaren ships a built-in [REST API connector](/guide/connections#web-apis) with
 auth, headers, pagination, and parsing options — you don't need a plugin to
@@ -130,6 +135,18 @@ resolve them with `os.environ` yourself — document that clearly.
 Remember the honest boundary: permissions are a **disclosure and gating
 mechanism**, not a sandbox — approved plugin code runs with the server's
 access. See [Plugin Security & Permissions](/security/plugin-security).
+
+## When to open an issue
+
+Open a core issue when:
+
+- an existing built-in connector or plugin API behavior is broken;
+- the Plugin SDK is missing a capability needed to implement a connector safely;
+- the docs are unclear or an example is wrong.
+
+For "please support service X" requests, start in GitHub Discussions and treat
+the work as a community plugin unless maintainers explicitly accept it into
+core.
 
 ## Try it
 

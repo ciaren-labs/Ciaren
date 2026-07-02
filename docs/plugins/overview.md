@@ -15,6 +15,11 @@ is a small Python package that depends only on the public plugin API
 That means the core stays lean and open, while the community can extend it
 from the outside — without forking.
 
+Ciaren's open core intentionally ships a focused set of built-in capabilities.
+Long-tail connectors, SaaS-specific integrations, and organization-specific
+workflow nodes should live as plugins maintained by their authors or community,
+not as ever-growing core surface area.
+
 :::tip In one sentence
 If Ciaren doesn't do something you need, you can add it as a plugin — and ship
 it as a portable, optionally **signed** package.
@@ -134,6 +139,10 @@ Reading plain HTTP APIs needs no plugin at all — that's the built-in
 These contracts are the foundation for a community ecosystem of nodes, connectors,
 execution engines, exporters, AI assistants, templates, and integrations. The core
 stays open and useful on its own; extensions install from the outside.
+
+If you want Ciaren to support a new external system, start by building a plugin.
+If the Plugin API blocks that work, open an issue for the SDK gap rather than a
+request to add the system directly to core.
 
 ## Next steps
 

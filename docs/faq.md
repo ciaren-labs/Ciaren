@@ -30,6 +30,14 @@ Ciaren Core is **free and open** under AGPL-3.0-only. The public
 Plugin API/SDK at `backend/app/plugin_api/` is Apache-2.0 so plugin authors can
 choose their own plugin licenses.
 
+### Why doesn't Ciaren include every connector in core?
+
+Ciaren is open-core by design, and the core stays intentionally lightweight.
+Built-in connectors focus on broadly useful databases, files, storage, and APIs.
+Niche databases, SaaS products, internal APIs, and organization-specific systems
+belong in plugins built with the public Plugin API/SDK. If the SDK is missing
+something you need to build one, open an SDK issue or start a design discussion.
+
 ### Is Ciaren production-ready?
 
 Ciaren is in **active development**. It's suitable for learning, exploration, and personal use. Always test flows thoroughly before running on production data.
@@ -81,6 +89,8 @@ Yes — via the **SQL input** node and a reusable [Connection](/guide/connection
 PostgreSQL, MySQL, SQLite, and MongoDB are supported. S3, Azure Blob, and GCS are
 also available as storage input/output nodes. Plain file formats (CSV, TSV,
 Excel, Parquet, JSON/JSONL, text) are supported via file input nodes.
+For other systems, use or build a connector plugin rather than expecting every
+integration to become part of the open core.
 
 ### What's the maximum dataset size?
 
@@ -222,7 +232,7 @@ ciaren serve --port 8001
 
 ### How do I suggest a feature?
 
-[Open a discussion on GitHub](https://github.com/ciaren-labs/Ciaren/discussions) or [an issue](https://github.com/ciaren-labs/Ciaren/issues).
+[Open a discussion on GitHub](https://github.com/ciaren-labs/Ciaren/discussions) or [an issue](https://github.com/ciaren-labs/Ciaren/issues). For new connectors or product-specific integrations, start in Discussions and frame the idea as a plugin unless it exposes a core SDK gap.
 
 ### Can I contribute code?
 

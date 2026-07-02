@@ -115,10 +115,9 @@ are kept at parity by a test suite that runs each node on both.
 
 Need a node that isn't built in? Use [Python transform](./python-transform.md)
 as an escape hatch for one-off scripts, build a
-[plugin node](/plugins/first-plugin) when you want a reusable extension, or
-[open an issue](https://github.com/ciaren-labs/Ciaren/issues) /
-[contribute one](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md)
-to add it to the registry permanently.
+[plugin node](/plugins/first-plugin) when you want a reusable extension. Core
+nodes are kept selective; propose one in an issue only when it is broadly useful
+and fits the lightweight built-in toolbox.
 Each transformation implements `validate_config`, `execute`, `to_python_code`,
 and `to_polars_code`, and is registered in `app/engine/registry.py` with tests.
 

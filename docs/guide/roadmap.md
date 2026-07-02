@@ -1,7 +1,7 @@
 ---
 title: Roadmap
 description: Where Ciaren is today and the direction it's heading — toward a stable, local-first platform with plugins, connectors, exports, data quality, ML, and AI extension points.
-search: roadmap direction future plugins marketplace ecosystem status alpha connectors exporters data quality machine learning ai scheduling security
+search: roadmap direction future plugins ecosystem status alpha connectors exporters data quality machine learning ai scheduling security
 ---
 
 # Roadmap
@@ -53,16 +53,16 @@ These are roadmap themes, not promises of specific dated features.
 
 - **Plugin lifecycle** — continue improving discovery, loading, permissions,
   signature verification, install, update, disable, and uninstall flows.
-- **Community distribution** — prepare a lightweight index or marketplace for
-  discovering nodes, connectors, templates, exporters, validators, and
-  integrations.
+- **Community plugin authoring** — make it easier to package, test, sign, and
+  document plugins that live outside the open core.
 - **Production plugin examples** — document richer plugin patterns beyond the
   hello-world node, including tests, packaging, permissions, and code export.
 
 ### Connectors and data access
 
-- **More connectors** — expand database, file, API, and storage integrations
-  while keeping credentials explicit and local-first.
+- **Focused built-in connectors** — keep the open core limited to broadly useful
+  database, file, API, and storage integrations while steering long-tail systems
+  to connector plugins.
 - **Better browsing** — improve remote file and table discovery for SQL,
   object storage, and local-folder connections.
 - **Connection diagnostics** — make test results, permission errors, and setup
@@ -121,8 +121,8 @@ These are roadmap themes, not promises of specific dated features.
   troubleshooting.
 - **Onboarding** — add more demo projects, recipes, screenshots, and sample
   datasets for real workflows.
-- **Contributor paths** — make it easier to add nodes, connectors, exporters,
-  validators, docs, and tests.
+- **Contributor paths** — make it clearer when work belongs in core and when it
+  should be built as a plugin, especially for connectors and integrations.
 
 ### Security and trust
 
@@ -142,6 +142,8 @@ By design, Ciaren stays focused. It is **not** aiming to become:
 - **A warehouse-scale orchestrator** — heavy production orchestration belongs in
   dedicated tools; Ciaren should export clean code and integrate with them.
 - **A multi-tenant SaaS** — the core project stays local-first and self-hosted.
+- **A catalog of every connector** — niche integrations should be built and
+  maintained as plugins so the core stays small.
 - **A black-box runtime** — users should be able to inspect, export, and own the
   code their flows represent.
 
@@ -153,6 +155,6 @@ This is a community-driven project — the best way to influence direction is to
 involved:
 
 - 💬 [Discussions](https://github.com/ciaren-labs/Ciaren/discussions) — propose features and ideas
-- 🐛 [Issues](https://github.com/ciaren-labs/Ciaren/issues) — report bugs, request features
+- 🐛 [Issues](https://github.com/ciaren-labs/Ciaren/issues) — report bugs or focused core/SDK gaps
 - 🧩 [Build a plugin](/plugins/overview) — extend the platform yourself
 - 🤝 [Contribute](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md) — good first issues are labelled
