@@ -24,6 +24,10 @@ The bundled [REST API connector example](https://github.com/ciaren-labs/Ciaren/t
 is the reference implementation for this page: a stdlib-only connector that
 reads HTTP JSON/CSV endpoints like database tables.
 
+![Add-connection dialog — plugin-contributed connectors appear in their own "From plugins" section with a Plugin badge](/screenshots/connection-add-dialog-plugins.png)
+
+![A plugin connector's connection form — standard auth fields plus the Base URL / Endpoints / Authentication fields rendered from the connector's config_schema](/screenshots/connection-form-rest-api.png)
+
 ## The two halves: spec + runtime
 
 A connector is a `ConnectorSpec` (catalog + form metadata) plus a

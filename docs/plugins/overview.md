@@ -69,6 +69,13 @@ marketplace JSON.
 
 ![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing installable example plugins with trust tier and license](/screenshots/plugins.png)
 
+Once installed and approved, plugins show what they contribute — nodes, ML model
+types, connectors — with trust and signature badges:
+
+![Plugins page with the MLP Classifier and REST API Connector examples installed, Active status and Trusted signature badges](/screenshots/plugins-installed-extensions.png)
+
+![Plugin details — the MLP Classifier plugin's contributed node and ML model type, license, trust tier, compatibility, and install location](/screenshots/plugin-details-mlp.png)
+
 ```bash
 # Develop against a local folder
 export CIAREN_PLUGINS_DIR=/path/to/your/plugins

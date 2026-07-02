@@ -88,6 +88,8 @@ def register(self, registry):
     registry.register_model_provider(MyModels())
 ```
 
+![Train Classifier sidebar with the plugin-contributed "MLP (neural network)" model selected — its hyperparameter form (hidden layers, activation) is rendered from the plugin's schema](/screenshots/editor-plugin-model-picker.png)
+
 What you get for free:
 
 - The type shows up in the matching train node's **model picker** (with an
@@ -130,6 +132,8 @@ NodeSpec(
 
 Graph validation enforces the wire types for you: a plugin `model` output can
 only feed a model input (core or plugin), and never a file output.
+
+![The plugin MLP train node on the canvas with typed MODEL and METRICS handles, its model wire feeding the core Predict node, and the schema-driven sidebar form](/screenshots/editor-plugin-node-config.png)
 
 In the runtime, override `execute_with_context` and persist through the host's
 **ModelStore**:
