@@ -11,9 +11,11 @@ plugin's pandas runtime is bridged to the active engine via the backend's
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import BaseTransformation
 from app.plugin_api import EMPTY_NODE_CONTEXT, NodeContext, NodeRuntime, NodeSpec
 
@@ -57,7 +59,10 @@ class PluginTransformation(BaseTransformation):
         config: dict[str, Any],
     ) -> dict[str, AnyFrame]:
         pandas_inputs = {handle: engine.to_pandas(frame) for handle, frame in inputs.items()}
-        result = self._runtime.execute_with_context(pandas_inputs, config, self._context)
+        # Stamp the live preview flag per call — the context is otherwise static
+        # per plugin, but preview vs. run is decided at execution time.
+        context = replace(self._context, in_preview=in_preview())
+        result = self._runtime.execute_with_context(pandas_inputs, config, context)
         return {handle: engine.from_pandas(frame) for handle, frame in result.items()}
 
     def imports(self, config: dict[str, Any]) -> list[str]:

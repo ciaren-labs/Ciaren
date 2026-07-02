@@ -1,14 +1,15 @@
 {
   "id": "community.mlp-classifier",
   "name": "MLP Classifier",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "community",
-  "description": "Train and evaluate a scikit-learn MLPClassifier from a node on the canvas.",
+  "description": "Neural-network classification for Ciaren: adds the mlp_classifier model type to the core Train Classifier node and a standalone MLP train node that emits a typed model reference.",
   "license": "community",
   "ciaren": ">=0.1",
   "entrypoint": "ciaren_mlp.plugin:MlpClassifierPlugin",
   "permissions": [],
   "capabilities": [
+    "model.mlp_classifier",
     "node.sklearn.mlp"
   ],
   "ui": {

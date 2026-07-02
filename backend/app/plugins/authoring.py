@@ -70,6 +70,9 @@ def manifest_from_plugin(
         capabilities.update(validator.capabilities)
     for ai in registry.ai_capabilities():
         capabilities.update(ai.capabilities)
+    for model_type in registry.model_type_specs():
+        permissions.update(model_type.permissions)
+        capabilities.add(f"model.{model_type.id}")
 
     return PluginManifest(
         id=meta.id,

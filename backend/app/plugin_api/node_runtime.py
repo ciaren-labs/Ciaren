@@ -64,11 +64,17 @@ class NodeContext:
     permissions the user actually **granted** the plugin (not what the manifest
     requested); ``models`` is ``None`` when the host has no ML/MLflow support
     installed, so a runtime must fail with a clear message rather than assume it.
+
+    ``in_preview`` is True while the editor previews the node on sampled data:
+    expensive/persistent work (training a model, writing anywhere) should be
+    skipped, returning a cheap placeholder instead — exactly like the core train
+    nodes do.
     """
 
     plugin_id: str = ""
     permissions: frozenset[Permission] = frozenset()
     models: ModelStore | None = None
+    in_preview: bool = False
 
 
 #: A context with no plugin identity, no grants, and no services — what a runtime
