@@ -24,7 +24,16 @@ Two opt-in modes:
 
 from typing import Any
 
-from app.engine.codegen_common import last_consumer_index, reusable_output_var
+from app.engine.codegen_common import (
+    DelScheduler,
+    collect_input_vars,
+    edge_source_var,
+    incoming_by_target,
+    last_consumer_index,
+    ordered_imports,
+    reusable_output_var,
+    sql_engine_var,
+)
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
@@ -38,7 +47,7 @@ from app.engine.node_kinds import (
     output_source_type,
 )
 from app.engine.registry import get_transformation
-from app.engine.sql_codegen import engine_url_expr, graph_has_sql
+from app.engine.sql_codegen import graph_has_sql
 
 _INPUT_READ = {
     "fileInput": "pl.read_csv",
@@ -104,18 +113,14 @@ class PolarsCodeGenerator:
         connections = connections or {}
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
-        edges = graph.get("edges", [])
-        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
-        for edge in edges:
-            incoming[edge["target"]].append(edge)
+        incoming = incoming_by_target(graph)
 
         # Liveness feeds variable reuse on linear chains (df_1 = df_1.head(...))
         # in every mode. del additionally only makes sense for materializing
         # (eager) frames; a lazy variable is a query plan, freeing it reclaims
         # nothing.
-        emit_del = free_intermediates and not lazy
-        last_use = last_consumer_index(order, edges)
-        pending_del: dict[int, list[str]] = {}
+        last_use = last_consumer_index(order, graph.get("edges", []))
+        dels = DelScheduler(order, last_use, enabled=free_intermediates and not lazy)
 
         base_header = ["import polars as pl"]
         if graph_has_sql(graph):
@@ -151,27 +156,10 @@ class PolarsCodeGenerator:
             return f"_eager_{eager_counter}"
 
         def source_var(edge: dict[str, Any]) -> str:
-            """The variable an edge carries, honoring sourceHandle for multi-output nodes."""
-            outs = node_outputs[edge["source"]]
-            handle = edge.get("sourceHandle")
-            if handle and handle in outs:
-                return outs[handle]
-            if "out" in outs:
-                return outs["out"]
-            return next(iter(outs.values()))
-
-        def schedule_del(node_id: str, var: str) -> None:
-            li = last_use.get(node_id)
-            if li is not None and li < len(order) - 1:
-                pending_del.setdefault(li, []).append(var)
+            return edge_source_var(node_outputs, edge)
 
         def engine_for(connection_id: str) -> str:
-            if connection_id not in engine_vars:
-                var = f"_engine_{len(engine_vars) + 1}"
-                info = connections.get(connection_id, {"provider": "sqlite", "database": ""})
-                lines.append(f"{var} = create_engine({engine_url_expr(info)})")
-                engine_vars[connection_id] = var
-            return engine_vars[connection_id]
+            return sql_engine_var(connection_id, connections, engine_vars, lines)
 
         def emit_pandas_bridge(
             node_id: str,
@@ -233,18 +221,13 @@ class PolarsCodeGenerator:
                 add_imports(["import pandas as pd", *transformation.imports(config)])
                 emit_pandas_bridge(node_id, transformation, incoming[node_id], handles, config)
                 return
-            input_vars: dict[str, str] = {}
-            for i, e in enumerate(incoming[node_id]):
-                handle = e.get("targetHandle") or "in"
-                if handle in input_vars:
-                    handle = f"{handle}_{i}"
-                input_vars[handle] = source_var(e)
+            input_vars = collect_input_vars(incoming[node_id], node_outputs)
             # On linear chains, write the result back into the input's (now dead)
             # variable instead of minting a new df_N. When reuse applies the node
             # has exactly one output handle, so out_var is called once.
             reuse = reusable_output_var(idx, incoming[node_id], node_outputs, len(handles), last_use)
-            if reuse is not None and emit_del and reuse in pending_del.get(idx, []):
-                pending_del[idx].remove(reuse)
+            if reuse is not None:
+                dels.cancel(idx, reuse)
 
             def out_var() -> str:
                 return reuse if reuse is not None else next_var()
@@ -344,18 +327,9 @@ class PolarsCodeGenerator:
             else:
                 emit_transformation(idx, node_id, node_type, config)
 
-            if emit_del:
-                outs = node_outputs.get(node_id, {})
-                # Multi-output liveness is ambiguous; only free single-output nodes.
-                if len(outs) == 1:
-                    schedule_del(node_id, next(iter(outs.values())))
-                for dead in pending_del.pop(idx, []):
-                    lines.append(f"del {dead}")
+            dels.schedule(node_id, node_outputs.get(node_id, {}))
+            lines.extend(dels.flush(idx))
 
-        # ``import x`` lines first (sorted), then ``from x import y`` (sorted),
-        # appended after the fixed polars/sql base header.
-        plain = sorted(i for i in extra_imports if i.startswith("import "))
-        froms = sorted(i for i in extra_imports if not i.startswith("import "))
-        header = [*base_header, *plain, *froms]
+        header = [*base_header, *ordered_imports(extra_imports)]
         prelude = [*parameter_lines, ""] if parameter_lines else []
         return "\n".join([*header, "", *prelude, *lines]) + "\n"

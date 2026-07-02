@@ -1,11 +1,19 @@
-"""Liveness analysis used by the `del` ("free intermediates") code generation.
+"""Shared code-generation driver helpers.
 
-The whole safety property of `del` rests on this: a variable must be released
+The core safety property is liveness: a variable must be released (or reused)
 only after its *last* consumer, never before. These tests pin that down on the
-shapes that make naive analysis wrong — fan-out and late joins.
+shapes that make naive analysis wrong — fan-out and late joins — plus the
+smaller shared helpers both drivers depend on (edge → variable resolution,
+input-var collection, import ordering, del scheduling).
 """
 
-from app.engine.codegen_common import last_consumer_index
+from app.engine.codegen_common import (
+    DelScheduler,
+    collect_input_vars,
+    edge_source_var,
+    last_consumer_index,
+    ordered_imports,
+)
 
 
 def test_linear_chain() -> None:
@@ -57,3 +65,96 @@ def test_multi_input_join_keeps_each_input_until_its_join() -> None:
     assert last["in1"] == 2
     assert last["mid"] == 3
     assert last["join"] == 4
+
+
+# --- edge -> variable resolution ---------------------------------------------
+
+_OUTS = {"single": {"out": "df_1"}, "split": {"train": "df_2", "test": "df_3"}}
+
+
+def test_edge_source_var_default_out_handle() -> None:
+    assert edge_source_var(_OUTS, {"source": "single", "target": "x"}) == "df_1"
+
+
+def test_edge_source_var_routes_source_handle() -> None:
+    edge = {"source": "split", "target": "x", "sourceHandle": "test"}
+    assert edge_source_var(_OUTS, edge) == "df_3"
+
+
+def test_edge_source_var_unknown_handle_falls_back_to_first() -> None:
+    edge = {"source": "split", "target": "x", "sourceHandle": "nope"}
+    assert edge_source_var(_OUTS, edge) == "df_2"  # no 'out' either: first declared
+
+
+def test_collect_input_vars_disambiguates_repeated_handles() -> None:
+    # Variadic concat: three edges, all on the implicit "in" handle.
+    edges = [
+        {"source": "single", "target": "cat"},
+        {"source": "split", "target": "cat", "sourceHandle": "train"},
+        {"source": "split", "target": "cat", "sourceHandle": "test"},
+    ]
+    assert collect_input_vars(edges, _OUTS) == {"in": "df_1", "in_1": "df_2", "in_2": "df_3"}
+
+
+def test_collect_input_vars_named_handles() -> None:
+    edges = [
+        {"source": "single", "target": "j", "targetHandle": "left"},
+        {"source": "split", "target": "j", "targetHandle": "right", "sourceHandle": "train"},
+    ]
+    assert collect_input_vars(edges, _OUTS) == {"left": "df_1", "right": "df_2"}
+
+
+# --- import ordering ----------------------------------------------------------
+
+
+def test_ordered_imports_plain_before_from_each_sorted() -> None:
+    imports = ["from sklearn.svm import SVC", "import numpy as np", "import joblib", "from a import b"]
+    assert ordered_imports(imports) == [
+        "import joblib",
+        "import numpy as np",
+        "from a import b",
+        "from sklearn.svm import SVC",
+    ]
+
+
+# --- del scheduling -----------------------------------------------------------
+
+
+def _scheduler(enabled: bool = True) -> DelScheduler:
+    order = ["a", "b", "c", "d"]
+    last_use = {"a": 2, "b": 3}  # a dies at idx 2, b at the final node
+    return DelScheduler(order, last_use, enabled)
+
+
+def test_del_scheduler_flushes_at_last_consumer() -> None:
+    dels = _scheduler()
+    dels.schedule("a", {"out": "df_1"})
+    assert dels.flush(0) == []
+    assert dels.flush(1) == []
+    assert dels.flush(2) == ["del df_1"]
+    assert dels.flush(2) == []  # popped, not repeated
+
+
+def test_del_scheduler_never_frees_at_final_node() -> None:
+    dels = _scheduler()
+    dels.schedule("b", {"out": "df_2"})  # last consumer is idx 3 == final
+    assert dels.flush(3) == []
+
+
+def test_del_scheduler_skips_multi_output_nodes() -> None:
+    dels = _scheduler()
+    dels.schedule("a", {"train": "df_1", "test": "df_2"})
+    assert dels.flush(2) == []
+
+
+def test_del_scheduler_cancel_on_variable_reuse() -> None:
+    dels = _scheduler()
+    dels.schedule("a", {"out": "df_1"})
+    dels.cancel(2, "df_1")  # the consumer at idx 2 took df_1 over
+    assert dels.flush(2) == []
+
+
+def test_del_scheduler_disabled_is_inert() -> None:
+    dels = _scheduler(enabled=False)
+    dels.schedule("a", {"out": "df_1"})
+    assert dels.flush(2) == []
