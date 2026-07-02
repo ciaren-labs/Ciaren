@@ -62,11 +62,22 @@ class _Connectors(ConnectorProvider):
                 kind="api",
                 provider="community.sec-ext",
                 metadata={"needs_host": True},
-            )
+            ),
+            # Takes its target from an option instead of the host column — the
+            # SSRF guard must still cover it.
+            ConnectorSpec(
+                id="sec-api-url",
+                label="Sec API (URL option)",
+                kind="api",
+                provider="community.sec-ext",
+                config_schema={
+                    "fields": [{"key": "base_url", "label": "Base URL", "type": "string", "required": True}]
+                },
+            ),
         ]
 
     def connector_implementations(self):
-        return {"sec-api": _Runtime()}
+        return {"sec-api": _Runtime(), "sec-api-url": _Runtime()}
 
 
 class _Models(ModelProvider):
@@ -171,6 +182,52 @@ async def test_ssrf_guard_blocks_private_hosts_before_the_runtime_runs(plugin_on
         )
         assert result.ok is False
         assert "blocked" in result.message
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_ssrf_guard_blocks_private_urls_in_options(plugin_on_disk, db_session, monkeypatch):
+    """A connector that takes its target from an option (``base_url``) instead of
+    the host column must not slip past the guard."""
+    _approve()
+    monkeypatch.setenv("CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS", "true")
+    get_settings.cache_clear()
+    try:
+        from app.schemas.connection import ConnectionCreate
+        from app.services.connection_service import ConnectionService
+
+        service = ConnectionService(db_session)
+        result = await service.test_config(
+            ConnectionCreate(
+                name="internal",
+                provider="sec-api-url",
+                options={"base_url": "http://169.254.169.254/latest/meta-data"},
+            )
+        )
+        assert result.ok is False
+        assert "blocked" in result.message
+    finally:
+        get_settings.cache_clear()
+
+
+def test_guard_plugin_connection_scans_nested_url_and_host_options(monkeypatch):
+    from app.connectors.base import ConnectorError
+    from app.plugins.connectors import guard_plugin_connection
+
+    monkeypatch.setenv("CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS", "true")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ConnectorError, match="blocked"):
+            guard_plugin_connection(None, {"base_url": "http://169.254.169.254/latest"})
+        with pytest.raises(ConnectorError, match="blocked"):
+            guard_plugin_connection(None, {"advanced": {"server_address": "10.0.0.8"}})
+        with pytest.raises(ConnectorError, match="blocked"):
+            guard_plugin_connection(None, {"mirrors": ["https://192.168.1.5/api"]})
+        # A URL anywhere in options is guarded even under an innocuous key.
+        with pytest.raises(ConnectorError, match="blocked"):
+            guard_plugin_connection(None, {"extra": "http://127.0.0.1:8080/x"})
+        # Non-network options pass untouched (booleans, numbers, plain strings).
+        guard_plugin_connection(None, {"verify": False, "retries": 0, "note": "hello"})
     finally:
         get_settings.cache_clear()
 

@@ -25,7 +25,7 @@ from app.connectors import ConnectorError, get_connector, get_provider, is_stora
 from app.core.exceptions import ValidationError
 from app.db.models.connection import Connection
 from app.engine.node_kinds import STORAGE_INPUT_TYPE, STORAGE_OUTPUT_TYPE
-from app.plugins.connectors import connection_config, guard_plugin_host, plugin_connector
+from app.plugins.connectors import connection_config, guard_plugin_connection, plugin_connector
 from app.services.connection_service import build_storage_spec
 
 
@@ -78,7 +78,7 @@ async def materialize_storage_inputs(
         plugin = _storage_plugin(conn)
         if plugin is not None:
             runtime = plugin[1]
-            guard_plugin_host(conn.host)
+            guard_plugin_connection(conn.host, conn.options_json)
             runtime_config = connection_config(conn)
 
             def _read_plugin(runtime=runtime, runtime_config=runtime_config, path=file_path, fmt=fmt, limit=limit):  # type: ignore[no-untyped-def]
@@ -136,7 +136,7 @@ async def push_storage_outputs(db: AsyncSession, graph: dict[str, Any], output_p
         plugin = _storage_plugin(conn)
         if plugin is not None:
             runtime = plugin[1]
-            guard_plugin_host(conn.host)
+            guard_plugin_connection(conn.host, conn.options_json)
             runtime_config = connection_config(conn)
 
             def _write_plugin(

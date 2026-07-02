@@ -14,17 +14,19 @@ Security notes:
   running its code and granted the manifest's permissions.
 - Connection secrets keep the env-var-only rule: the resolved secret is passed
   into a single call's ``config`` mapping and never stored.
-- The core-invoked ``host`` field goes through the same SSRF guard as built-in
-  connectors before a plugin runtime is called (best-effort: a plugin's own
-  network use is governed by the ``network`` permission disclosure, not a
-  sandbox).
+- The core-invoked ``host`` field — and any option that looks like a URL or a
+  host (``base_url``, ``endpoint``, …) — goes through the same SSRF guard as
+  built-in connectors before a plugin runtime is called (best-effort: a
+  plugin's own network use is governed by the ``network`` permission
+  disclosure, not a sandbox).
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
-from app.connectors.ssrf import guard_host
+from app.connectors.ssrf import guard_endpoint, guard_host
 from app.core.exceptions import ValidationError
 from app.core.secrets import resolve_secret
 from app.plugin_api import ConfigFieldSpec, ConnectorRuntime, ConnectorSpec
@@ -125,10 +127,35 @@ def validate_plugin_connection(spec: ConnectorSpec, host: str | None, options: d
         raise ValidationError(f"{spec.label} requires: {', '.join(missing)}.")
 
 
-def guard_plugin_host(host: str | None) -> None:
-    """Apply the core SSRF guard to a plugin connector's host before the runtime
-    is invoked (no-op unless CONNECTOR_BLOCK_PRIVATE_HOSTS is enabled)."""
+#: Option-key substrings that name a network location even without a URL scheme.
+_NETWORK_KEY_TOKENS = ("host", "url", "uri", "endpoint", "server", "address")
+
+
+def _network_option_values(value: Any, key: str = "") -> Iterator[str]:
+    """Yield every option value that plausibly names a network location: any
+    string carrying a URL scheme, or any string under a host/url/endpoint-like
+    key — recursing through nested dicts and lists."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield from _network_option_values(v, str(k))
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _network_option_values(item, key)
+    elif isinstance(value, str) and value.strip():
+        lowered = key.lower()
+        if "://" in value or any(token in lowered for token in _NETWORK_KEY_TOKENS):
+            yield value
+
+
+def guard_plugin_connection(host: str | None, options: dict[str, Any] | None = None) -> None:
+    """Apply the core SSRF guard to every network-reachable field of a plugin
+    connection before its runtime is invoked: the ``host`` column plus any
+    option that is a URL or sits under a host/url/endpoint-like key (a plugin
+    connector may take its target from ``options.base_url`` instead of ``host``).
+    No-op unless CONNECTOR_BLOCK_PRIVATE_HOSTS is enabled."""
     guard_host(host)
+    for value in _network_option_values(dict(options or {})):
+        guard_endpoint(value)
 
 
 def provider_entry(spec: ConnectorSpec) -> dict[str, Any]:

@@ -24,7 +24,7 @@ from app.db.models.connection import Connection
 from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE
 from app.plugins.connectors import (
     connection_config,
-    guard_plugin_host,
+    guard_plugin_connection,
     plugin_connector,
 )
 from app.services.connection_service import build_connection_spec
@@ -83,7 +83,7 @@ async def materialize_sql_inputs(
 
         if plugin is not None:
             runtime = plugin[1]
-            guard_plugin_host(conn.host)
+            guard_plugin_connection(conn.host, conn.options_json)
             runtime_config = connection_config(conn)
             options = {
                 "mode": mode,
@@ -137,7 +137,7 @@ async def push_sql_outputs(db: AsyncSession, graph: dict[str, Any], output_paths
 
         if plugin is not None:
             runtime = plugin[1]
-            guard_plugin_host(conn.host)
+            guard_plugin_connection(conn.host, conn.options_json)
             runtime_config = connection_config(conn)
             options = {
                 "table": config.get("table", ""),

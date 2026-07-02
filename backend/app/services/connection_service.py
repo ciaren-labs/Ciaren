@@ -29,7 +29,7 @@ from app.plugin_api import ConnectorSpec as PluginConnectorSpec
 from app.plugins.connectors import (
     connection_config,
     connector_config,
-    guard_plugin_host,
+    guard_plugin_connection,
     plugin_connector,
     plugin_connector_specs,
     provider_entry,
@@ -299,7 +299,7 @@ class ConnectionService:
         opts = dict(options or {})
         try:
             validate_plugin_connection(spec, host, opts)
-            guard_plugin_host(host)
+            guard_plugin_connection(host, opts)
             config = connector_config(
                 host=host,
                 port=port,
@@ -325,7 +325,7 @@ class ConnectionService:
     async def _list_plugin_tables(
         self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection
     ) -> list[TableInfo]:
-        guard_plugin_host(conn.host)
+        guard_plugin_connection(conn.host, conn.options_json)
         try:
             rows = await asyncio.to_thread(runtime.list_tables, connection_config(conn))
         except NotImplementedError:
@@ -343,7 +343,7 @@ class ConnectionService:
     async def _list_plugin_objects(
         self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection, prefix: str
     ) -> list[str]:
-        guard_plugin_host(conn.host)
+        guard_plugin_connection(conn.host, conn.options_json)
         try:
             objects = await asyncio.to_thread(runtime.list_objects, connection_config(conn), prefix)
         except NotImplementedError:
