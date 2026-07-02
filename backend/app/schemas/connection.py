@@ -27,6 +27,17 @@ def _normalize_path(v: str | None) -> str | None:
     return v.replace("\\", "/")
 
 
+def _plugin_connector_kind(provider: str) -> str | None:
+    """The kind a plugin connector declared for ``provider``, or None. Lazy and
+    fault-tolerant: schema validation must never fail because of a plugin."""
+    try:
+        from app.plugins.connectors import plugin_connection_kind
+
+        return plugin_connection_kind(provider)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 class ConnectionBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     provider: str
@@ -131,7 +142,10 @@ class ConnectionRead(BaseModel):
         elif self.provider in _MLFLOW_PROVIDERS:
             self.connection_type = "mlflow"
         else:
-            self.connection_type = "sql"
+            # A plugin connector reports its own kind (e.g. "storage" routes it to
+            # the storage nodes, "api"/"sql" to the SQL nodes). Unknown/core-SQL
+            # providers stay "sql".
+            self.connection_type = _plugin_connector_kind(self.provider) or "sql"
         return self
 
 

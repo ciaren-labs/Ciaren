@@ -52,6 +52,11 @@ class PluginInfo(BaseModel):
     nodes: list[str] = Field(default_factory=list)
     #: Palette category/subgroup for each contributed node.
     node_categories: dict[str, str] = Field(default_factory=dict)
+    #: Connector ids this plugin contributes (empty for gated plugins — their
+    #: code never ran, so only the manifest's advisory data is known).
+    connectors: list[str] = Field(default_factory=list)
+    #: Trainable model-type ids this plugin contributes to the ML catalog.
+    model_types: list[str] = Field(default_factory=list)
     #: True when the plugin lives in the managed install dir and can be removed via
     #: DELETE. False for dev-dir (``CIAREN_PLUGINS_DIR``) or entry-point plugins,
     #: which the UI can only disable, not uninstall.
@@ -75,6 +80,14 @@ class PluginInfo(BaseModel):
 def _node_categories_for_loaded(loaded: LoadedPlugin) -> dict[str, str]:
     provider = loaded.metadata.id
     return {spec.id: spec.category for spec in get_registry().node_specs() if spec.provider == provider}
+
+
+def _connectors_for_loaded(plugin_id: str) -> list[str]:
+    return [spec.id for spec in get_registry().connector_specs() if spec.provider == plugin_id]
+
+
+def _model_types_for_loaded(plugin_id: str) -> list[str]:
+    return [spec.id for spec in get_registry().model_type_specs() if spec.provider == plugin_id]
 
 
 def _install_path(plugin_id: str) -> str:
@@ -153,6 +166,8 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         signature=state.signature(meta.id),
         nodes=list(loaded.manifest.ui.nodes) if loaded.manifest else [],
         node_categories=_node_categories_for_loaded(loaded),
+        connectors=_connectors_for_loaded(meta.id),
+        model_types=_model_types_for_loaded(meta.id),
         uninstallable=bool(install_path),
         install_path=install_path,
     )
