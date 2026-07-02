@@ -22,7 +22,7 @@ conveyed by the `ciaren.plugins` entry point plus the package's own metadata.
   "description": "Read/write Delta tables and export Databricks jobs.",
   "license": "commercial",
   "ciaren": ">=1.0,<2.0",
-  "api_version": "1.1",
+  "api_version": "0.1.0-alpha.1",
   "entrypoint": "ciaren_databricks.plugin:DatabricksPlugin",
   "permissions": ["network", "credentials"],
   "capabilities": ["connector.databricks", "exporter.databricks_job"],
@@ -50,7 +50,7 @@ conveyed by the `ciaren.plugins` entry point plus the package's own metadata.
 | `description` | no | `""` | — |
 | `license` | no | `community` | `community` or `commercial`. |
 | `ciaren` | no | `>=0.1` | PEP 440 specifier set for compatible Ciaren **app** versions. |
-| `api_version` | no | `1.0` | The **plugin-contract** version the plugin targets (`MAJOR.MINOR`). Distinct from `version` and `ciaren`. See [Contract versioning](#contract-versioning). |
+| `api_version` | no | `0.1.0-alpha.1` | The **plugin-contract** version the plugin targets. Distinct from `version` and `ciaren`. See [Contract versioning](#contract-versioning). |
 | `entrypoint` | no | — | `module.path:Attribute` resolving to a `Plugin`. |
 | `permissions` | no | `[]` | See below. |
 | `capabilities` | no | `[]` | Capability strings the plugin provides. |
@@ -87,33 +87,37 @@ contract axis.
 ### Contract versioning
 
 The backend advertises a single contract version — `app.plugin_api.PLUGIN_API_VERSION`
-(currently `"1.1"`), surfaced as `plugin_api_version` in `GET /api/plugins/diagnostics`.
-There is **no hand-maintained list of allowed versions**: the set a given backend
-accepts is *derived* by a SemVer rule.
+(currently `"0.1.0-alpha.1"`), surfaced as `plugin_api_version` in
+`GET /api/plugins/diagnostics`. There is **no hand-maintained list of allowed
+versions**: the set a given backend accepts is *derived* by a SemVer rule, with the
+standard pre-1.0 caveat.
 
-A plugin's `api_version` is compatible when:
+**Right now the contract is pre-1.0 (alpha), so it makes no backward-compatibility
+promise.** A plugin's `api_version` is compatible only when its `major.minor` equals
+the backend's *exactly*: a `0.1` plugin runs on a `0.1` backend and nothing else.
+Any 0.x minor bump is treated as breaking — when the contract moves to `0.2`, every
+`0.1` plugin is cleanly rejected and must be rebuilt against `0.2`. (This project is
+still private and unpublished, so there are no external plugins to keep working;
+breaking the contract freely during alpha is intentional.)
 
-- **the major matches** — a new major is a breaking contract change; and
-- **the plugin's minor is `<=` the backend's** — minors are purely additive, so a
-  newer backend still runs an older plugin, but a backend must reject a plugin that
-  needs a minor it doesn't provide.
-
-So a backend at `1.3` accepts `{1.0, 1.1, 1.2, 1.3}` and rejects `1.4` and any `2.x`.
-Patch components are ignored (`1.1.7` is treated as `1.1`).
+**From `1.0` onward** the rule relaxes to the usual additive-minor form: the major
+must match (a new major is breaking) and the plugin's minor be `<=` the backend's,
+so a backend at `1.3` would accept `{1.0, 1.1, 1.2, 1.3}` and reject `1.4` and any
+`2.x`. Patch and pre-release components are always ignored (`0.1.0-alpha.1` compares
+as `0.1`).
 
 **When the contract version bumps** (and nothing else does):
 
-- **Minor** — a backward-compatible *addition* to the public surface of
-  `app.plugin_api` (a new provider, spec field, or method with a safe default).
-  1.0 → 1.1 was exactly this (added `ModelRef`, `ModelProvider`, `ConnectorRuntime`,
-  `config_schema`); every 1.0 plugin keeps working.
+- **Pre-1.0 minor** (e.g. `0.1 → 0.2`) — any change to the public surface of
+  `app.plugin_api`, breaking or not; all existing plugins must be rebuilt.
+- **1.x minor** — a backward-compatible *addition* (a new provider, spec field, or
+  method with a safe default); older plugins keep working.
 - **Major** — a *breaking* change (removing/renaming a public symbol, changing a
-  method signature). A backend supports one major at a time by default, so shipping
-  a `2.0` backend stops loading `1.x` plugins (they surface as incompatible, not as
-  crashes).
+  method signature). A backend supports one major at a time.
 
 Internal refactors and app releases never move the contract version.
 
 **As an author:** `ciaren plugin manifest` stamps `api_version` with the SDK version
-you built against, which is the safe default. If your plugin only uses features from
-an older minor, declare that lower minor (`--api-version 1.0`) to run on more hosts.
+you built against — during alpha, just rebuild your plugin whenever the contract
+bumps. (`--api-version` lets you override it once the contract reaches 1.x and
+declaring a lower minor widens host compatibility.)

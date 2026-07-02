@@ -159,7 +159,7 @@ built-in [REST API connector](/guide/connections#web-apis) first.
 
 ## See also
 
-- [ML Model Plugins](/plugins/ml-model-plugins) — the other big 1.1 extension point
+- [ML Model Plugins](/plugins/ml-model-plugins) — the other big executable extension point
 - [Plugin API Reference](/plugins/api-reference) — `ConnectorRuntime`, `ConnectorSpec`, `ConfigFieldSpec`
 - [Connections guide](/guide/connections) — connections from a user's perspective
 - [Packaging & Distribution](/plugins/packaging-and-distribution) — ship it signed

@@ -62,14 +62,21 @@ from app.plugin_api.specs import (
 )
 
 #: Version of the plugin *contract* (this package), independent of the app
-#: version. Bump the minor for compatible additions and the major for breaking
-#: changes; plugins can pin against this instead of coupling to app releases
-#: once the contract ships as the standalone ``ciaren-plugin-api`` package.
+#: version and of any individual plugin's own release version.
 #:
-#: 1.1 (additive): ``ModelRef`` + model wires, ``ModelProvider``/``ModelTypeSpec``,
-#: ``NodeContext``/``ModelStore`` (``NodeRuntime.execute_with_context``),
-#: ``ConnectorRuntime`` implementations, and ``config_schema`` driven forms.
-PLUGIN_API_VERSION = "1.1"
+#: **Pre-1.0 (alpha): the contract makes no backward-compatibility promise** — a
+#: plugin must target the *exact* ``major.minor`` the backend provides, and any
+#: 0.x minor bump may break it (see ``PluginManifest.is_api_compatible_with``).
+#: From 1.0 on, minors become additive (a newer backend still runs an older
+#: plugin) and only a major bump breaks. Plugins pin against this instead of
+#: coupling to app releases once the contract ships as the standalone
+#: ``ciaren-plugin-api`` package.
+#:
+#: The 0.1 contract surface: the provider/spec interfaces below, ``ModelRef`` +
+#: typed model wires, ``NodeContext``/``ModelStore``
+#: (``NodeRuntime.execute_with_context``), ``ConnectorRuntime`` implementations,
+#: and ``config_schema``-driven forms.
+PLUGIN_API_VERSION = "0.1.0-alpha.1"
 
 __all__ = [
     "PLUGIN_API_VERSION",

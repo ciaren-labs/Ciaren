@@ -162,9 +162,11 @@ checks compatibility on **two independent axes** before importing your code: the
 Ciaren **app** version (`ciaren` specifier) and the **plugin-contract** version
 (`api_version` vs the backend's `PLUGIN_API_VERSION`). An incompatible plugin on
 either axis is rejected up front and reported in `/api/plugins/diagnostics` — it
-never runs. The contract version bumps *only* when `app.plugin_api` changes (minor
-for additive, major for breaking), independently of your plugin's own `version`;
-see [Contract versioning](../specs/plugin-manifest.md#contract-versioning).
+never runs. The contract version bumps *only* when `app.plugin_api` changes,
+independently of your plugin's own `version`; while it is pre-1.0 (alpha) it makes
+no backward-compatibility promise, so target the exact version the backend reports
+and rebuild when it bumps. See
+[Contract versioning](../specs/plugin-manifest.md#contract-versioning).
 
 You don't have to hand-write it. Because your `Plugin` already declares the id,
 version, permissions, nodes, and categories, generate the manifest from the code

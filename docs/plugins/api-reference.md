@@ -15,16 +15,17 @@ New to plugins? Start with the [Overview](/plugins/overview) and the
 [10-minute tutorial](/plugins/first-plugin); this page is the detailed contract.
 
 The contract itself is versioned independently of the app:
-`app.plugin_api.PLUGIN_API_VERSION` (currently `"1.1"`) bumps its minor for
-compatible additions and its major for breaking changes. A plugin declares which
-contract it targets via its manifest's `api_version`; the loader rejects a plugin
-whose contract is incompatible with the running backend **before importing it**
-(same major, plugin minor `<=` backend minor). The backend's own value is exposed
-as `plugin_api_version` in `GET /api/plugins/diagnostics`. See
-[Contract versioning](/specs/plugin-manifest#contract-versioning) for the full
+`app.plugin_api.PLUGIN_API_VERSION` (currently `"0.1.0-alpha.1"`). A plugin
+declares which contract it targets via its manifest's `api_version`; the loader
+rejects a plugin whose contract is incompatible with the running backend **before
+importing it**. **Pre-1.0 (alpha) the contract makes no backward-compatibility
+promise** — a plugin must target the *exact* `major.minor` the backend provides;
+from 1.0 on, minors become additive and only a major bump breaks. The backend's
+own value is exposed as `plugin_api_version` in `GET /api/plugins/diagnostics`.
+See [Contract versioning](/specs/plugin-manifest#contract-versioning) for the full
 policy.
 
-::: info New in 1.1 (additive — 1.0 plugins keep working unchanged)
+::: info The 0.1 contract surface
 `ModelRef` and typed model wires, `ModelProvider`/`ModelTypeSpec` (contribute
 trainable model types to the ML catalog), `NodeContext`/`ModelStore`
 (`NodeRuntime.execute_with_context`), executable connectors

@@ -144,7 +144,7 @@ The loader validates a manifest **before importing any plugin code**. Create
   "publisher": "community",
   "description": "Adds one node that writes a greeting column.",
   "ciaren": ">=0.1",
-  "api_version": "1.0",
+  "api_version": "0.1.0-alpha.1",
   "entrypoint": "ciaren_greeting.plugin:GreetingPlugin",
   "permissions": [],
   "capabilities": ["node.greeting"],
@@ -158,10 +158,9 @@ See the [Plugin Manifest](/specs/plugin-manifest) reference for every field.
 ::: tip Three versions, don't confuse them
 `version` is *this plugin's* release. `ciaren` is which **app** builds it runs on.
 `api_version` is the **plugin-contract** it targets — it changes *only* when the
-contract (`app.plugin_api`) changes, not on every plugin release. This node only
-uses base-contract features, so `"1.0"` runs it on the widest range of hosts. If
-you use newer features (typed model wires, executable connectors, schema forms),
-target the minor that added them (`"1.1"`). See
+contract (`app.plugin_api`) changes, not on every plugin release. The contract is
+currently pre-1.0 (`0.1.0-alpha.1`) and makes **no** backward-compatibility promise:
+target the exact version the backend reports and rebuild when it bumps. See
 [Contract versioning](/specs/plugin-manifest#contract-versioning).
 :::
 
@@ -175,8 +174,8 @@ ciaren plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from t
 
 The manifest is still shipped in the package and validated **before** any code
 runs — generating it just keeps a single source of truth in Python. It stamps
-`api_version` with the SDK version you built against; pass `--api-version 1.0` to
-declare a lower contract and run on more hosts when you only use older features.
+`api_version` with the SDK version you built against, which is what you want during
+alpha (rebuild when the contract bumps).
 :::
 
 ## 4. Load it (no install needed)

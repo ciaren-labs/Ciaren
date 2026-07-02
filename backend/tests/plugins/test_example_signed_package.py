@@ -14,7 +14,7 @@ from app.plugin_api import signing
 from app.plugins.package import read_manifest, read_signature, verify_package
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PACKAGE = REPO_ROOT / "examples" / "plugins" / "dist" / "community.hello-0.1.0.ciarenplugin"
+PACKAGE = REPO_ROOT / "examples" / "plugins" / "dist" / "community.hello-0.1.0-alpha.1.ciarenplugin"
 DEMO_KEY_ID = "ciaren-demo"
 DEMO_PUBLIC_KEY = "b827f3795467a701b018a0d57ab5900af43669d3622340905559d86ae2ec4bdd"
 

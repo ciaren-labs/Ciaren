@@ -6,7 +6,7 @@
   "description": "Neural-network classification for Ciaren: adds the mlp_classifier model type to the core Train Classifier node and a standalone MLP train node that emits a typed model reference.",
   "license": "community",
   "ciaren": ">=0.1",
-  "api_version": "1.1",
+  "api_version": "0.1.0-alpha.1",
   "entrypoint": "ciaren_mlp.plugin:MlpClassifierPlugin",
   "permissions": [],
   "capabilities": [

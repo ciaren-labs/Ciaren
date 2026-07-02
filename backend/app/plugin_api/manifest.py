@@ -55,15 +55,14 @@ class PluginManifest(BaseModel):
     #: PEP 440 specifier set describing compatible Ciaren *app* versions.
     ciaren: str = ">=0.1"
     #: The plugin *contract* version this plugin was built against — the value of
-    #: ``PLUGIN_API_VERSION`` at build time, as ``MAJOR.MINOR``. Independent of both
-    #: the plugin's own ``version`` and the app's ``ciaren`` compatibility. Compared
-    #: against the running backend's contract version at load: the major must match
-    #: (a new major is a breaking contract change) and the plugin's minor must be
-    #: ``<=`` the backend's (minors are additive, so a newer backend still runs an
-    #: older plugin, but a backend must reject a plugin needing a minor it lacks).
-    #: Defaults to ``"1.0"`` so manifests written before this field existed are
-    #: treated as targeting the first stable contract.
-    api_version: str = "1.0"
+    #: ``PLUGIN_API_VERSION`` at build time. Independent of both the plugin's own
+    #: ``version`` and the app's ``ciaren`` compatibility. Compared against the
+    #: running backend's contract version at load (see ``is_api_compatible_with``):
+    #: pre-1.0 the ``major.minor`` must match *exactly* (the alpha contract makes no
+    #: compatibility promise); from 1.0 on the major must match and the plugin's
+    #: minor be ``<=`` the backend's (additive minors). Defaults to the first
+    #: (alpha) contract so a manifest that predates this field still loads.
+    api_version: str = "0.1.0-alpha.1"
     #: Dotted entry point: ``module.path:ClassName``.
     entrypoint: str | None = None
     permissions: list[Permission] = Field(default_factory=list)
@@ -124,17 +123,31 @@ class PluginManifest(BaseModel):
 
     def is_api_compatible_with(self, provider_api_version: str) -> bool:
         """Whether the backend's plugin-contract version (``PLUGIN_API_VERSION``)
-        can run this plugin. SemVer on the contract: the major must match — a new
-        major is a breaking change — and the plugin's requested minor must be no
-        newer than the backend's, since minors only add features. So a 1.2 backend
-        runs a plugin built for 1.0/1.1/1.2, but a 1.1 backend rejects a plugin
-        that needs 1.2, and any cross-major pair is rejected."""
+        can run this plugin. SemVer on the contract, with the standard pre-1.0
+        caveat:
+
+        - **Pre-1.0 (major 0)** — the alpha contract promises nothing across
+          versions, so the ``major.minor`` must match *exactly*. A ``0.1`` plugin
+          runs only on a ``0.1`` backend; a ``0.2`` backend rejects it (and it must
+          be rebuilt against ``0.2``).
+        - **1.0 and later** — the major must match (a new major is breaking) and the
+          plugin's minor be ``<=`` the backend's, since minors only add features. So
+          a ``1.2`` backend runs plugins built for ``1.0``/``1.1``/``1.2`` but
+          rejects one needing ``1.3``.
+
+        The patch/pre-release components never affect the decision (``0.1.0-alpha.1``
+        compares as ``0.1``); any cross-major pair is always rejected.
+        """
         try:
             want = Version(self.api_version)
             have = Version(provider_api_version)
         except InvalidVersion:
             return False
-        return want.major == have.major and want.minor <= have.minor
+        if want.major != have.major:
+            return False
+        if want.major == 0:  # pre-1.0 alpha: no compatibility promise across minors
+            return want.minor == have.minor
+        return want.minor <= have.minor
 
 
 def validate_manifest(data: dict[str, Any]) -> PluginManifest:

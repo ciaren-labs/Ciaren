@@ -210,6 +210,6 @@ Install → Approve), then:
 ## See also
 
 - [Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn) — the MLP example walkthrough
-- [Connector Plugins](/plugins/connector-plugins) — the other big 1.1 extension point
+- [Connector Plugins](/plugins/connector-plugins) — the other big executable extension point
 - [Plugin API Reference](/plugins/api-reference) — every field of `ModelTypeSpec`, `ModelRef`, `ModelStore`
 - [ML Quick Start](/guide/ml-quickstart) — Ciaren's ML nodes from a user's perspective

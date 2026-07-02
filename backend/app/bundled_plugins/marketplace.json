@@ -4,9 +4,9 @@
     {
       "id": "community.hello",
       "name": "Hello Plugin",
-      "version": "0.1.0",
+      "version": "0.1.0-alpha.1",
       "publisher": "community",
-      "description": "A minimal example plugin that contributes one catalog node.",
+      "description": "A minimal example plugin that contributes one executable node.",
       "license": "community",
       "trust": "community",
       "capabilities": [
@@ -21,8 +21,8 @@
       "nodeCategories": {
         "hello.greeting": "columns"
       },
-      "downloadUrl": "community.hello-0.1.0.ciarenplugin",
-      "digest": "dc5fe60165bf9543eacb197be436eaca16562aff6726bb3d4a3d3f2f002ed008",
+      "downloadUrl": "community.hello-0.1.0-alpha.1.ciarenplugin",
+      "digest": "14f4f5a1677241a591dc2f67c8e265e19a0c340526e684ff84a789d8e2b47782",
       "keyId": "ciaren-demo",
       "licenseRequired": false
     },
@@ -48,9 +48,10 @@
         "sklearn.mlpClassifierTrain": "ml"
       },
       "downloadUrl": "community.mlp-classifier-0.2.0.ciarenplugin",
-      "digest": "cb18576ef7ded00f95990210b84caa6e304be49ba836718dd7d8e5473a5de7b2",
+      "digest": "4631d4b6940e76a460859f1fd8f79b12d0f1230c72d5702f356fcd37c5fe6565",
       "keyId": "ciaren-demo",
       "licenseRequired": false
     }
-  ]
+  ],
+  "revoked": []
 }
