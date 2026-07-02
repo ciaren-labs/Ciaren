@@ -132,7 +132,7 @@ driver).
 
 ### What transformations are available?
 
-42 transformation nodes plus file, SQL, and storage input/output, including:
+40+ transformation nodes plus file, SQL, and storage input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample
@@ -142,7 +142,10 @@ driver).
 
 ### Can I create custom transformations?
 
-Not yet in the UI, but you can extend the backend code by adding a transformation to the engine.
+Yes, through plugins. A plugin can add a custom node to the editor palette,
+execute it in previews/runs, and optionally export Python for it. Start with
+[Build Your First Plugin](/plugins/first-plugin). For core contributions, you
+can still add a built-in transformation to the backend engine.
 
 ### Can I join data from multiple sources?
 

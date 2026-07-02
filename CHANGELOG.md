@@ -10,6 +10,30 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Plugin API 1.1** (additive; 1.0 plugins keep working unchanged):
+  - **Plugin ML model types** — a `ModelProvider` contributes trainable model
+    types that appear inside the core Train nodes' model picker and train, log
+    to MLflow, and export code through the core pipeline.
+  - **Typed model references** — `ModelRef` freezes the model-wire frame layout
+    as a public contract; plugin train nodes can declare `model` output ports
+    that backend graph validation, the executor, and both code generators now
+    honor, and persist fitted models through a permission-gated, MLflow-backed
+    `ModelStore` (`NodeContext.models`) instead of passing raw estimators.
+  - **Executable plugin connectors** — `ConnectorRuntime` implementations back
+    the connections API (test, list tables/objects) and the SQL/storage flow
+    nodes (read/write with parquet snapshots), with the SSRF guard applied
+    before any plugin runtime call and env-var-only secrets resolved per call.
+  - **Schema-driven forms** — `config_schema` on node and connector specs (and
+    `hyperparameter_schema` on model types) renders real sidebar and connection
+    forms; plugin nodes without a schema get fields inferred from their default
+    config instead of "No configuration for this node type".
+  - Model loading by plugins is enforced-permission gated (`local_model_load` /
+    `joblib_load` plus artifact-root confinement; pickles always refused).
+- The MLP Classifier example plugin (0.2.0) now demonstrates both ML extension
+  paths, and a new REST API Connector example reads HTTP JSON/CSV endpoints
+  through SQL Input; both ship signed in the bundled Explore catalog.
+- New docs: ML Model Plugins and Connector Plugins guides, plus model-reference
+  and plugin-connector sections in the ML and Connections guides.
 - Developer Certificate of Origin (DCO) policy: contributors must sign off
   commits (`git commit -s`), enforced by a new CI check
   (`.github/workflows/dco.yml`) and a Preflight checkbox on the PR template.

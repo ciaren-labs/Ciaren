@@ -91,6 +91,22 @@ for your OS.
    username, and the **password env-var name** (the actual secret is never stored).
 1. Save, then click **Test** to verify connectivity.
 
+## Connectors from plugins
+
+Plugins can add connectors Ciaren doesn't ship in core — internal REST APIs,
+niche databases, proprietary stores. Once a connector plugin is installed and
+approved (see [Installing & Managing Plugins](/plugins/managing-plugins)):
+
+- its card appears in the Add-connection dialog under **From plugins**, with a
+  *Plugin* badge;
+- its form is driven by the connector's own metadata and schema — the plugin
+  declares which fields it needs;
+- **Test**, table/object listing, and the SQL / Storage nodes work exactly like
+  a built-in provider. Secrets follow the same env-var-only rule.
+
+Try it with the bundled **REST API Connector** example, or build your own —
+see [Connector Plugins](/plugins/connector-plugins).
+
 ## Using SQL nodes in a flow
 
 - **SQL Input** — choose the connection, then either pick a **table** (the list

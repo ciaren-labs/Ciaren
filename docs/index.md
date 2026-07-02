@@ -123,7 +123,7 @@ signed** — install only what you trust.
 
 ## The Built-In Toolbox
 
-42 transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
+40+ transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
 
 - **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
 - **Transform:** Filter, aggregate, join, calculated columns, replace/round values

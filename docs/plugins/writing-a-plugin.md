@@ -1,9 +1,10 @@
 # Writing a Ciaren plugin
 
-A plugin can contribute to the catalog (nodes/connectors/engines/exporters/
-validators), declare capabilities and permissions, ship **executable** nodes that
-run end-to-end (via `NodeRuntime`), and subscribe to lifecycle/execution
-**events**.
+A plugin can contribute to the catalog (nodes/connectors/model types/engines/
+exporters/validators), declare capabilities and permissions, ship **executable**
+nodes, connectors, and ML model types that run end-to-end (via `NodeRuntime`,
+`ConnectorRuntime`, and `ModelProvider` builders), and subscribe to
+lifecycle/execution **events**.
 
 A plugin is a small Python package that implements the `Plugin` contract and
 registers one or more providers. It depends **only** on the Ciaren plugin API
@@ -44,9 +45,11 @@ class AcmePlugin(Plugin):
         registry.register_node_provider(_MyNodes())
 ```
 
-Other provider interfaces you can register: `ConnectorProvider`,
-`StorageProvider`, `ExecutionProvider`, `ExporterProvider`, `ValidatorProvider`,
-`AIProvider`, `AuthProvider`, `LicenseProvider`.
+Other provider interfaces you can register: `ConnectorProvider`
+([executable connectors →](/plugins/connector-plugins)), `ModelProvider`
+([ML model types →](/plugins/ml-model-plugins)), `StorageProvider`,
+`ExecutionProvider`, `ExporterProvider`, `ValidatorProvider`, `AIProvider`,
+`AuthProvider`, `LicenseProvider`.
 
 ### Make the node executable (`NodeRuntime`)
 
@@ -79,14 +82,47 @@ Once registered the node executes in runs and previews, passes graph validation,
 and (if `to_python_code` is implemented) appears in both the pandas and polars
 exports — exactly like a built-in.
 
+#### Give the node a real sidebar form (`config_schema`)
+
+Declare the node's form on its spec and the editor renders it — labeled inputs,
+selects, checkboxes, column pickers — no frontend code:
+
+```python
+NodeSpec(
+    id="acme.greeting",
+    ...,
+    config_schema={"fields": [
+        {"key": "column", "label": "New column", "type": "string", "required": True},
+        {"key": "name", "label": "Greet who", "type": "string", "default": "world"},
+        {"key": "shout", "label": "Uppercase", "type": "boolean", "default": False},
+    ]},
+)
+```
+
+Field types: `string`, `number`, `integer`, `boolean`, `select` (+ `options`),
+`string_list`, and `column`/`column_list` (resolved against the columns arriving
+on the node's wire). Without a schema, the editor falls back to fields inferred
+from `default_config`, so every plugin node stays configurable.
+
+#### Host services in the runtime (`NodeContext`)
+
+Ciaren actually invokes `execute_with_context(inputs, config, context)`; the
+default implementation delegates to `execute`, so simple runtimes never notice.
+Override it when you need the context:
+
+- `context.in_preview` — True during editor previews on sampled data; skip
+  training/persisting and return a cheap placeholder.
+- `context.models` — the MLflow-backed **ModelStore** for train-style nodes
+  (see [ML Model Plugins](/plugins/ml-model-plugins)).
+- `context.permissions` — the permissions the user actually granted.
+
 #### Node categories
 
 `NodeSpec.category` controls where the node lands in the editor palette. Use a
 built-in category (`input`, `clean`, `columns`, `reshape`, `analytics`,
-`quality`, `ml`, `output`) to slot it into that section. Any other value is fine
-too: the palette renders an extra section for the custom category (title-cased,
-with a neutral plugin theme) after the built-in ones, and the node still renders
-and runs normally on the canvas.
+`quality`, `ml`, `output`, or `plugins`) to slot it into that section. Unknown
+values are normalized to `plugins`, so the node still renders and runs normally
+without the frontend needing a new palette section.
 
 ### React to events
 

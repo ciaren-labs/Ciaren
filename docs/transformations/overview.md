@@ -6,7 +6,7 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-Ciaren ships with file/storage/SQL input/output nodes plus **42 registered
+Ciaren ships with file/storage/SQL input/output nodes plus **40+ registered
 transformation nodes** for cleaning, reshaping, combining, validating, analytics,
 and scripting data. Each node maps to one clear dataframe operation and
 contributes to the exported Python — both the **pandas** and the **polars**
@@ -114,7 +114,8 @@ are kept at parity by a test suite that runs each node on both.
 ## Custom transformations
 
 Need a node that isn't built in? Use [Python transform](./python-transform.md)
-as an escape hatch for one-off scripts, or
+as an escape hatch for one-off scripts, build a
+[plugin node](/plugins/first-plugin) when you want a reusable extension, or
 [open an issue](https://github.com/ciaren-labs/Ciaren/issues) /
 [contribute one](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md)
 to add it to the registry permanently.

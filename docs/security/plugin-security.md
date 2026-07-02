@@ -35,6 +35,30 @@ Recognised permissions include: `filesystem_read`, `filesystem_write`, `network`
 `credentials`, `subprocess`, `shell`, `docker`, `local_model_load`, `joblib_load`,
 `database_access`, `cloud_access`, `llm_access`, `telemetry`.
 
+### Enforced permissions for model loading
+
+Most permissions are disclosure — surfaced before you approve, not enforced at
+runtime (see the honest-boundary note above). Two are **actively enforced** by
+the host's plugin ModelStore, because deserializing a model executes pickled
+code:
+
+- `local_model_load` (or `joblib_load`) — required for a plugin to load a model
+  from an MLflow `runs:/` / `models:/` URI;
+- `joblib_load` — required for a plugin to load a local `.joblib` file, which
+  must additionally live **inside the server's artifact directory** (path
+  traversal is refused). Bare `.pkl` / `.pickle` files are always refused.
+
+Persisting a model (training) needs no grant — it writes to the server-managed
+MLflow store, the same place core train nodes log to.
+
+### Plugin connectors
+
+A plugin connector's runtime (test / list / read / write) only exists once the
+plugin is approved — a gated plugin's connectors appear nowhere. The host also
+applies its [SSRF guard](/security/overview) to the connection's host field
+before invoking a plugin runtime, and connection secrets keep the env-var-only
+rule: the resolved value is passed into a single call and never stored.
+
 ### Approval gating
 
 For **drop-in** plugins (those discovered from a plugin directory with a

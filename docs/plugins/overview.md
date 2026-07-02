@@ -27,8 +27,9 @@ implement one or several of them.
 
 | Extension point | Provider contract | What a plugin can add |
 |-----------------|-------------------|------------------------|
-| **Nodes** | `NodeProvider` | New canvas nodes that run end-to-end — preview, run, and Python code export |
-| **Connectors** | `ConnectorProvider` | New database / API sources and sinks |
+| **Nodes** | `NodeProvider` | New canvas nodes that run end-to-end — preview, run, and Python code export. Sidebar forms render from the node's `config_schema` |
+| **Connectors** | `ConnectorProvider` | New database / API / storage sources and sinks, **with runtime behavior**: test, list tables/objects, and read/write through the SQL & storage nodes. Connection forms render from the connector's metadata + `config_schema` |
+| **ML model types** | `ModelProvider` | New trainable model types that appear inside the core Train nodes' model picker and train/log/export through the core ML pipeline |
 | **Storage** | `StorageProvider` | New object/file storage backends |
 | **Execution engines** | `ExecutionProvider` | New dataframe engines beyond the built-in polars and pandas |
 | **Exporters** | `ExporterProvider` | New code/artifact export targets (e.g. notebooks) |
@@ -36,12 +37,19 @@ implement one or several of them.
 | **AI capabilities** | `AIProvider` | Pipeline builders, debuggers, optimizers |
 | **Authentication** | `AuthProvider` | New authentication methods |
 
+Plugin **train nodes** get first-class ML support too: a node can declare typed
+`model` output handles, persist fitted models through the host's MLflow-backed
+**ModelStore**, and emit **model references** that the core Predict / Feature
+Importance nodes consume — see [ML Model Plugins](/plugins/ml-model-plugins).
+
 > **Status note.** The built-in catalog ships **nodes**, **connectors**,
-> **storage**, and the **polars / pandas** engines. The remaining contracts
-> (engines beyond the defaults, custom exporters/validators, AI capabilities, and
-> auth methods) are stable extension points designed for plugins — they are how
-> Ciaren grows without bloating the core. Always check the
-> [API reference](/api/catalog) for what the running instance currently exposes.
+> **storage**, the **polars / pandas** engines, and the ML **model catalog**;
+> plugins can execute nodes, connectors, and model types end-to-end. The
+> remaining contracts (engines beyond the defaults, custom exporters/validators,
+> AI capabilities, and auth methods) are stable extension points designed for
+> plugins — they are how Ciaren grows without bloating the core. Always check
+> the [API reference](/api/catalog) for what the running instance currently
+> exposes.
 
 ## How a plugin is discovered
 
@@ -52,13 +60,14 @@ Ciaren finds plugins two ways:
 2. **Installed package** — a plugin that declares the `ciaren.plugins` entry
    point is discovered automatically once `pip install`-ed.
 
-Fresh installs also include a small **bundled Explore catalog** with a Hello
-Plugin package. Bundled catalog entries are not loaded automatically: they are
-shown as installable examples so users can try the install and approval flow.
+Fresh installs also include a small **bundled Explore catalog** with the Hello
+Plugin and MLP Classifier example packages. Bundled catalog entries are not
+loaded automatically: they are shown as installable examples so users can try the
+install and approval flow.
 Set `CIAREN_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
 marketplace JSON.
 
-![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing the installable Hello Plugin example with its trust tier and license](/screenshots/plugins.png)
+![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing installable example plugins with trust tier and license](/screenshots/plugins.png)
 
 ```bash
 # Develop against a local folder
@@ -83,7 +92,8 @@ a key you trust.
 # Publisher: generate a key, package, and sign
 ciaren plugin keygen
 ciaren plugin pack ./my-plugin ./my-plugin.ciarenplugin
-ciaren plugin sign ./my-plugin.ciarenplugin
+ciaren plugin sign ./my-plugin.ciarenplugin \
+  --key <private_hex> --key-id acme-2026 --publisher acme
 
 # Consumer: install only trusted, signed packages
 ciaren plugin install ./my-plugin.ciarenplugin --trusted
@@ -95,15 +105,22 @@ publisher workflow.
 
 ## Complete, runnable examples
 
-Two example plugins live in the repository, both shipped as pre-built **signed**
+Three example plugins live in the repository, all shipped as pre-built **signed**
 packages in [`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist)
 and bundled into the Explore catalog so a fresh install lists them ready to install:
 
 - **[Hello plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin)** —
   the smallest node that runs end-to-end. Start here → [Build Your First Plugin](/plugins/first-plugin).
 - **[MLP Classifier plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/mlp-classifier-plugin)** —
-  a realistic scikit-learn training node with hyperparameters, validation, and code
-  export. Walk through it → [Build an Advanced Plugin](/plugins/advanced-plugin-sklearn).
+  neural-network classification both ways: a **model type** inside the core Train
+  Classifier picker, and a standalone **train node** that persists to MLflow and
+  emits a typed model reference. Walk through it →
+  [Build an Advanced Plugin](/plugins/advanced-plugin-sklearn) and
+  [ML Model Plugins](/plugins/ml-model-plugins).
+- **[REST API connector plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/rest-connector-plugin)** —
+  a stdlib-only **connector** that reads HTTP JSON/CSV endpoints like database
+  tables, with a connection form driven by its schema. Walk through it →
+  [Connector Plugins](/plugins/connector-plugins).
 
 ## Where this is heading
 
@@ -115,10 +132,12 @@ stays open and useful on its own; extensions install from the outside.
 
 - **[Installing & Managing Plugins](/plugins/managing-plugins)** — install, approve, disable, and uninstall
 - **[Build Your First Plugin](/plugins/first-plugin)** — a 10-minute, step-by-step tutorial
-- **[Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn)** — hyperparameters, validation, and code export
 - **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
-- **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
+- **[ML Model Plugins](/plugins/ml-model-plugins)** — model types, train nodes, and model references
+- **[Connector Plugins](/plugins/connector-plugins)** — database/API/storage connectors with runtime behavior
 - **[Packaging & Distribution](/plugins/packaging-and-distribution)** — package and sign
+- **[Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn)** — hyperparameters, validation, and code export
+- **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
 - **[Plugin Manifest](/specs/plugin-manifest)** — the manifest schema
 - **[Plugin Security & Permissions](/security/plugin-security)** — the trust model
 - **[Catalog & Plugins API](/api/catalog)** — inspect what an instance exposes

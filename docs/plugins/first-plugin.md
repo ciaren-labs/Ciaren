@@ -223,8 +223,9 @@ packages = ["ciaren_greeting"]
 ```bash
 ciaren plugin keygen                                   # one-time: a signing key
 ciaren plugin pack ./my-greeting-plugin ./greeting.ciarenplugin
-ciaren plugin sign ./greeting.ciarenplugin
-ciaren plugin install ./greeting.ciarenplugin --trusted
+ciaren plugin sign ./greeting.ciarenplugin \
+  --key <private_hex> --key-id greeting-2026 --publisher community
+ciaren plugin install ./greeting.ciarenplugin
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full
