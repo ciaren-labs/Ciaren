@@ -106,10 +106,12 @@ export function NodeConfigForm({
   const objectsQuery = useConnectionObjects(isStorageInput ? c.connection_id || null : null);
 
   // SQL nodes use database connections only — never storage or the MLflow
-  // tracking connection (which isn't a queryable database).
+  // tracking connection (which isn't a queryable database). API connections are
+  // readable (SQL Input) but read-only, so SQL Output excludes them.
   const sqlConnections = connections.filter(
     (cn) => cn.connection_type !== "storage" && cn.connection_type !== "mlflow",
   );
+  const sqlWriteConnections = sqlConnections.filter((cn) => cn.connection_type !== "api");
   const storageConnections = connections.filter((cn) => cn.connection_type === "storage");
 
   const FILE_INPUT_SOURCE: Record<string, string> = {
@@ -1235,8 +1237,12 @@ export function NodeConfigForm({
     case "sqlInput": {
       const mode = (c.mode as string) ?? "table";
       const currentTable = c.schema ? `${c.schema}.${c.table}` : c.table;
+      // API connections read HTTP endpoints as tables, so the copy adapts:
+      // "Endpoint" instead of "Table", "Request path" instead of "Custom SQL".
+      const isApiConnection =
+        connections.find((cn) => cn.id === c.connection_id)?.connection_type === "api";
       const connectionPicker = (
-        <Field label="Connection" error={errors.connection_id} help="Reusable database connection (manage these on the Connections page).">
+        <Field label="Connection" error={errors.connection_id} help="Reusable database or API connection (manage these on the Connections page).">
           <Select
             value={c.connection_id ?? ""}
             onChange={(e) => set({ connection_id: e.target.value, table: "", schema: null })}
@@ -1258,23 +1264,48 @@ export function NodeConfigForm({
       return (
         <>
           {connectionPicker}
-          <Field label="Source" help="Read a whole table, or run a custom SQL query.">
+          <Field
+            label="Source"
+            help={
+              isApiConnection
+                ? "Read a declared endpoint, or request a custom path."
+                : "Read a whole table, or run a custom SQL query."
+            }
+          >
             <Select value={mode} onChange={(e) => set({ mode: e.target.value })}>
-              <option value="table">Table</option>
-              <option value="query">Custom SQL</option>
+              <option value="table">{isApiConnection ? "Endpoint" : "Table"}</option>
+              <option value="query">{isApiConnection ? "Custom request path" : "Custom SQL"}</option>
             </Select>
           </Field>
           {mode === "query" ? (
-            <Field label="SQL query" error={errors.query} help="Runs against the selected connection.">
+            <Field
+              label={isApiConnection ? "Request path" : "SQL query"}
+              error={errors.query}
+              help={
+                isApiConnection
+                  ? "Relative to the connection's base URL; may include a query string."
+                  : "Runs against the selected connection."
+              }
+            >
               <textarea
                 className="min-h-[80px] w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={c.query ?? ""}
                 onChange={(e) => set({ query: e.target.value })}
-                placeholder="SELECT * FROM orders WHERE status = 'paid'"
+                placeholder={
+                  isApiConnection ? "users?active=true" : "SELECT * FROM orders WHERE status = 'paid'"
+                }
               />
             </Field>
           ) : (
-            <Field label="Table" error={errors.table} help="Tables are listed from the connection.">
+            <Field
+              label={isApiConnection ? "Endpoint" : "Table"}
+              error={errors.table}
+              help={
+                isApiConnection
+                  ? "Endpoints declared on the connection are listed here."
+                  : "Tables are listed from the connection."
+              }
+            >
               {tablesQuery.data && tablesQuery.data.length > 0 ? (
                 <Select
                   value={currentTable ?? ""}
@@ -1283,7 +1314,7 @@ export function NodeConfigForm({
                     set({ table: t?.name ?? e.target.value, schema: t?.schema_name ?? null });
                   }}
                 >
-                  <option value="">Select a table…</option>
+                  <option value="">{isApiConnection ? "Select an endpoint…" : "Select a table…"}</option>
                   {tablesQuery.data.map((t) => (
                     <option key={t.qualified} value={t.qualified}>
                       {t.qualified}
@@ -1294,7 +1325,7 @@ export function NodeConfigForm({
                 <Input
                   value={c.table ?? ""}
                   onChange={(e) => set({ table: e.target.value })}
-                  placeholder="table name"
+                  placeholder={isApiConnection ? "endpoint path" : "table name"}
                 />
               )}
               {tablesQuery.isFetching && (
@@ -1314,13 +1345,13 @@ export function NodeConfigForm({
     case "sqlOutput":
       return (
         <>
-          <Field label="Connection" error={errors.connection_id} help="Where to write the result.">
+          <Field label="Connection" error={errors.connection_id} help="Where to write the result. API connections are read-only and not listed.">
             <Select
               value={c.connection_id ?? ""}
               onChange={(e) => set({ connection_id: e.target.value })}
             >
               <option value="">Select a connection…</option>
-              {sqlConnections.map((cn) => (
+              {sqlWriteConnections.map((cn) => (
                 <option key={cn.id} value={cn.id}>
                   {cn.name}
                 </option>

@@ -159,8 +159,8 @@ ciaren plugin search databricks --index ./marketplace.json
 ### The "Explore" catalog
 
 By default, Ciaren ships a bundled **Explore** catalog with installable
-Hello Plugin, MLP Classifier, and REST API Connector examples so users can try
-the plugin installation flow without downloading anything. Point `CIAREN_MARKETPLACE_INDEX` at a local
+Hello Plugin and MLP Classifier examples so users can try the plugin installation
+flow without downloading anything. Point `CIAREN_MARKETPLACE_INDEX` at a local
 `marketplace.json` to replace that catalog, or set it to `none` to hide Explore.
 The Plugins page lists catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose

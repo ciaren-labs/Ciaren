@@ -29,9 +29,15 @@ release, breaking changes may still happen between alpha versions.
     config instead of "No configuration for this node type".
   - Model loading by plugins is enforced-permission gated (`local_model_load` /
     `joblib_load` plus artifact-root confinement; pickles always refused).
+- **Built-in REST API connector**: read HTTP JSON/CSV endpoints like database
+  tables, with the connection options commercial tools offer — auth (none /
+  API-key header / bearer / basic, secret from an env var), custom headers,
+  default query params, endpoints-as-tables, response format + records path,
+  page-number pagination with a page cap, timeout, and TLS verification.
+  Endpoints read through SQL Input (including a custom-request-path mode);
+  API connections are read-only, SSRF-guarded, and size-capped.
 - The MLP Classifier example plugin (0.2.0) now demonstrates both ML extension
-  paths, and a new REST API Connector example reads HTTP JSON/CSV endpoints
-  through SQL Input; both ship signed in the bundled Explore catalog.
+  paths and ships signed in the bundled Explore catalog.
 - New docs: ML Model Plugins and Connector Plugins guides, plus model-reference
   and plugin-connector sections in the ML and Connections guides.
 - Developer Certificate of Origin (DCO) policy: contributors must sign off

@@ -72,7 +72,7 @@ marketplace JSON.
 Once installed and approved, plugins show what they contribute — nodes, ML model
 types, connectors — with trust and signature badges:
 
-![Plugins page with the MLP Classifier and REST API Connector examples installed, Active status and Trusted signature badges](/screenshots/plugins-installed-extensions.png)
+![Plugins page with the MLP Classifier example installed — Active status and Trusted signature badges](/screenshots/plugins-installed-extensions.png)
 
 ![Plugin details — the MLP Classifier plugin's contributed node and ML model type, license, trust tier, compatibility, and install location](/screenshots/plugin-details-mlp.png)
 
@@ -112,7 +112,7 @@ publisher workflow.
 
 ## Complete, runnable examples
 
-Three example plugins live in the repository, all shipped as pre-built **signed**
+Two example plugins live in the repository, both shipped as pre-built **signed**
 packages in [`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist)
 and bundled into the Explore catalog so a fresh install lists them ready to install:
 
@@ -124,10 +124,10 @@ and bundled into the Explore catalog so a fresh install lists them ready to inst
   emits a typed model reference. Walk through it →
   [Build an Advanced Plugin](/plugins/advanced-plugin-sklearn) and
   [ML Model Plugins](/plugins/ml-model-plugins).
-- **[REST API connector plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/rest-connector-plugin)** —
-  a stdlib-only **connector** that reads HTTP JSON/CSV endpoints like database
-  tables, with a connection form driven by its schema. Walk through it →
-  [Connector Plugins](/plugins/connector-plugins).
+
+Reading plain HTTP APIs needs no plugin at all — that's the built-in
+[REST API connector](/guide/connections#web-apis). Build a
+[connector plugin](/plugins/connector-plugins) for sources beyond it.
 
 ## Where this is heading
 

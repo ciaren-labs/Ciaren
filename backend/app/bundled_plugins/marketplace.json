@@ -51,31 +51,6 @@
       "digest": "7189bd39d74f64ebf87329b8bd2a00ca653e2d434fee380eade409126b8696d5",
       "keyId": "ciaren-demo",
       "licenseRequired": false
-    },
-    {
-      "id": "community.rest-connector",
-      "name": "REST API Connector",
-      "version": "0.1.0",
-      "publisher": "community",
-      "description": "Read HTTP JSON/CSV API endpoints into flows through SQL Input, like a database.",
-      "license": "community",
-      "trust": "community",
-      "capabilities": [
-        "connector.api",
-        "connector.rest-api"
-      ],
-      "permissions": [
-        "credentials",
-        "network"
-      ],
-      "ciarenSpec": ">=0.1",
-      "dependencies": [],
-      "nodes": [],
-      "nodeCategories": {},
-      "downloadUrl": "community.rest-connector-0.1.0.ciarenplugin",
-      "digest": "d092f9626d1dcc0600839b02ded4bc02e1c5228bb315d7d156071b89bcbd4444",
-      "keyId": "ciaren-demo",
-      "licenseRequired": false
     }
   ]
 }

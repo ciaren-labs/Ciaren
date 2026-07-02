@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from app.connectors.base import DataConnector
 from app.connectors.local_storage import LocalStorageConnector
 from app.connectors.mongo import MongoConnector
+from app.connectors.rest_api import RestApiConnector
 from app.connectors.sql import SqlConnector
 from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ValidationError
@@ -106,6 +107,22 @@ PROVIDERS: dict[str, Provider] = {
         needs_region=False,
         needs_endpoint=False,
     ),
+    # ── Web APIs ───────────────────────────────────────────────────────────
+    # Read-only HTTP JSON/CSV APIs. `host` carries the base URL; auth, headers,
+    # endpoints, parsing, and pagination live in options (see
+    # app/connectors/rest_api.py). Endpoints list as tables for SQL Input, and
+    # "custom SQL" mode doubles as a custom request path.
+    "rest_api": Provider(
+        "rest_api",
+        "REST API",
+        "api",
+        None,  # stdlib urllib — always available
+        None,
+        None,
+        needs_host=True,  # the base URL
+        needs_auth=True,
+        supports_query=True,
+    ),
     # ── Experiment tracking ────────────────────────────────────────────────
     # MLflow is not a data source: it stores its tracking URI in `database`
     # (a local folder for the file store, or sqlite:/// / http://host:5000 /
@@ -127,6 +144,7 @@ PROVIDERS: dict[str, Provider] = {
 _SQL_CONNECTOR = SqlConnector()
 _MONGO_CONNECTOR = MongoConnector()
 _LOCAL_CONNECTOR = LocalStorageConnector()
+_REST_API_CONNECTOR = RestApiConnector()
 
 
 # Lazy imports for optional cloud storage connectors.
@@ -184,6 +202,8 @@ def get_connector(provider: Provider) -> DataConnector | StorageConnector:
         return _STORAGE_CONNECTOR_FACTORIES[provider.name]()
     if provider.kind == "mongo":
         return _MONGO_CONNECTOR
+    if provider.kind == "api":
+        return _REST_API_CONNECTOR
     if provider.kind == "mlflow":
         raise ValidationError("MLflow connections have no data connector.")
     return _SQL_CONNECTOR

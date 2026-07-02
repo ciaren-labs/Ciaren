@@ -167,6 +167,8 @@ def _connector_permissions(p: Provider) -> tuple[Permission, ...]:
     if p.kind in ("sql", "mongo"):
         perms.append(Permission.database_access)
         perms.append(Permission.network)
+    if p.kind == "api":
+        perms.append(Permission.network)
     if p.kind == "storage" and p.name != "local":
         perms.append(Permission.cloud_access)
         perms.append(Permission.network)

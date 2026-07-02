@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 _STORAGE_PROVIDERS = frozenset({"local", "s3", "azure_blob", "gcs"})
 _MONGO_PROVIDERS = frozenset({"mongodb"})
 _MLFLOW_PROVIDERS = frozenset({"mlflow"})
+_API_PROVIDERS = frozenset({"rest_api"})
 
 # Valid POSIX env var names: start with letter or underscore, then letters/digits/underscores.
 _ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -141,6 +142,8 @@ class ConnectionRead(BaseModel):
             self.connection_type = "mongo"
         elif self.provider in _MLFLOW_PROVIDERS:
             self.connection_type = "mlflow"
+        elif self.provider in _API_PROVIDERS:
+            self.connection_type = "api"
         else:
             # A plugin connector reports its own kind (e.g. "storage" routes it to
             # the storage nodes, "api"/"sql" to the SQL nodes). Unknown/core-SQL

@@ -20,13 +20,21 @@ object store. Once installed and approved:
   nodes — Ciaren materializes frames to parquet snapshots exactly as it does
   for built-in databases.
 
-The bundled [REST API connector example](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/rest-connector-plugin)
-is the reference implementation for this page: a stdlib-only connector that
-reads HTTP JSON/CSV endpoints like database tables.
+::: tip Generic HTTP APIs are already covered in core
+Ciaren ships a built-in [REST API connector](/guide/connections#web-apis) with
+auth, headers, pagination, and parsing options — you don't need a plugin to
+read a JSON/CSV API. Build a connector plugin when you need something the
+generic connector can't express: a proprietary wire protocol, a niche database
+driver, a SaaS product's specific API shape, or write support.
+:::
+
+The code below sketches a minimal connector for an internal service; the
+[core REST API connector's source](https://github.com/ciaren-labs/Ciaren/blob/main/backend/app/connectors/rest_api.py)
+is a fuller reference for request handling, auth, and pagination patterns.
 
 ![Add-connection dialog — plugin-contributed connectors appear in their own "From plugins" section with a Plugin badge](/screenshots/connection-add-dialog-plugins.png)
 
-![A plugin connector's connection form — standard auth fields plus the Base URL / Endpoints / Authentication fields rendered from the connector's config_schema](/screenshots/connection-form-rest-api.png)
+![A plugin connector's connection form — standard auth fields plus fields rendered from the connector's config_schema](/screenshots/connection-form-plugin-connector.png)
 
 ## The two halves: spec + runtime
 
@@ -38,37 +46,36 @@ from app.plugin_api import (
     ConnectorProvider, ConnectorRuntime, ConnectorSpec, ConnectorTestResult, Permission,
 )
 
-class RestApiRuntime(ConnectorRuntime):
+class InventoryRuntime(ConnectorRuntime):
     def test(self, config) -> ConnectorTestResult:
         ...  # cheap reachability/auth check
 
     def list_tables(self, config) -> list[dict]:
-        return [{"name": e, "schema": None, "row_count": None} for e in endpoints(config)]
+        return [{"name": t, "schema": None, "row_count": None} for t in ("stock", "warehouses")]
 
     def read(self, config, options):     # REQUIRED — returns a pandas DataFrame
-        path = options.get("table") or options.get("path")
+        table = options.get("table") or options.get("path")
         ...
 
-class RestConnectorProvider(ConnectorProvider):
+class InventoryConnectorProvider(ConnectorProvider):
     def connectors(self):
         return [
             ConnectorSpec(
-                id="rest-api",
-                label="REST API",
-                kind="api",                       # sql-ish → readable via SQL Input
-                provider="community.rest-connector",
+                id="acme-inventory",
+                label="Acme Inventory",
+                kind="sql",                       # sql-ish → readable via SQL Input
+                provider="acme.inventory-connector",
                 permissions=(Permission.network, Permission.credentials),
-                metadata={"needs_host": False, "needs_auth": True, "supports_query": False},
+                metadata={"needs_host": True, "needs_auth": True, "supports_query": False},
                 config_schema={"fields": [
-                    {"key": "base_url", "label": "Base URL", "type": "string", "required": True},
-                    {"key": "endpoints", "label": "Endpoints", "type": "string_list"},
-                    {"key": "auth_style", "type": "select", "options": ["none", "bearer", "basic"]},
+                    {"key": "site_id", "label": "Site", "type": "string", "required": True},
+                    {"key": "include_archived", "type": "boolean", "default": False},
                 ]},
             )
         ]
 
     def connector_implementations(self):
-        return {"rest-api": RestApiRuntime()}
+        return {"acme-inventory": InventoryRuntime()}
 ```
 
 ### What `config` and `options` contain
@@ -126,10 +133,12 @@ access. See [Plugin Security & Permissions](/security/plugin-security).
 
 ## Try it
 
-Install the bundled **REST API Connector** from the Plugins page, approve it,
-then on the **Connections** page pick *REST API* (under *From plugins*), set a
-base URL and a couple of endpoints, test, and save. In a flow, add **SQL
-Input**, choose the connection, and pick an endpoint as the table.
+Install a connector plugin from the Plugins page (or drop one into
+`CIAREN_PLUGINS_DIR`) and approve it. On the **Connections** page its card
+appears under *From plugins*; fill the form it declares, test, and save. In a
+flow, add **SQL Input** (or **Storage Input** for storage kinds), choose the
+connection, and pick a table/endpoint. For plain HTTP APIs, reach for the
+built-in [REST API connector](/guide/connections#web-apis) first.
 
 ## See also
 

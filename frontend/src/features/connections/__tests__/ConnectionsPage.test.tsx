@@ -10,7 +10,7 @@ import { ConnectionsPage } from "../ConnectionsPage";
 
 // vi.mock factories are hoisted above imports, so the fixtures they close over
 // must be hoisted too.
-const { CORE_PROVIDER, PLUGIN_PROVIDER } = vi.hoisted(() => {
+const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER } = vi.hoisted(() => {
   const core: ProviderInfo = {
     name: "postgresql",
     label: "PostgreSQL",
@@ -46,7 +46,19 @@ const { CORE_PROVIDER, PLUGIN_PROVIDER } = vi.hoisted(() => {
       ],
     },
   };
-  return { CORE_PROVIDER: core, PLUGIN_PROVIDER: plugin };
+  const coreApi: ProviderInfo = {
+    ...core,
+    name: "rest_api",
+    label: "REST API (core)",
+    kind: "api",
+    driver_module: null,
+    extra: null,
+    default_port: null,
+    needs_host: true,
+    needs_auth: true,
+    supports_query: true,
+  };
+  return { CORE_PROVIDER: core, PLUGIN_PROVIDER: plugin, CORE_API_PROVIDER: coreApi };
 });
 
 vi.mock("../hooks", () => {
@@ -68,7 +80,7 @@ vi.mock("../hooks", () => {
       refetch: vi.fn(),
     }),
     useConnectionProviders: () => ({
-      data: [CORE_PROVIDER, PLUGIN_PROVIDER],
+      data: [CORE_PROVIDER, CORE_API_PROVIDER, PLUGIN_PROVIDER],
       refetch: vi.fn(),
       isFetching: false,
     }),
@@ -113,5 +125,32 @@ describe("ConnectionsPage plugin connectors", () => {
     expect(screen.getByRole("checkbox")).toBeChecked(); // verify_tls default
     // No host fields (needs_host false).
     expect(screen.queryByText("Host")).not.toBeInTheDocument();
+  });
+});
+
+describe("core REST API connector", () => {
+  it("shows the APIs picker section and the commercial-style form", () => {
+    openDialog();
+    expect(screen.getByText("APIs")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("REST API (core)"));
+
+    // Primary fields.
+    expect(screen.getByText("Base URL")).toBeInTheDocument();
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(screen.getByText("Endpoints")).toBeInTheDocument();
+    // No auth by default → no secret field until an auth method is picked.
+    expect(screen.queryByText("Secret env var")).not.toBeInTheDocument();
+
+    // Picking API-key auth reveals the header + secret env var fields.
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "api_key" } });
+    expect(screen.getByText("API key header", { selector: "label" })).toBeInTheDocument();
+    expect(screen.getByText("Secret env var")).toBeInTheDocument();
+
+    // Advanced options are collapsed behind a toggle.
+    fireEvent.click(screen.getByText(/Advanced options/));
+    expect(screen.getByText("Custom headers")).toBeInTheDocument();
+    expect(screen.getByText("Records path")).toBeInTheDocument();
+    expect(screen.getByText("Page param")).toBeInTheDocument();
+    expect(screen.getByText("Verify TLS certificates")).toBeInTheDocument();
   });
 });

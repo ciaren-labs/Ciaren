@@ -391,6 +391,10 @@ class ConnectionService:
             if not database:
                 raise ValidationError(f"{p.label} needs a database file path.")
             return
+        if p.kind == "api":
+            if not host or not host.startswith(("http://", "https://")):
+                raise ValidationError(f"{p.label} needs a base URL starting with http:// or https://.")
+            return
         if p.needs_host and not host:
             raise ValidationError(f"{p.label} needs a host.")
         if not database:

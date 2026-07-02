@@ -327,4 +327,4 @@ def test_signed_package_is_bundled_in_catalog():
 
     catalog = json.loads((BUNDLED / "marketplace.json").read_text(encoding="utf-8"))
     ids = {e["id"] for e in catalog["plugins"]}
-    assert {"community.hello", "community.mlp-classifier", "community.rest-connector"} <= ids
+    assert {"community.hello", "community.mlp-classifier"} <= ids

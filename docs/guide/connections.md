@@ -91,11 +91,37 @@ for your OS.
    username, and the **password env-var name** (the actual secret is never stored).
 1. Save, then click **Test** to verify connectivity.
 
+## Web APIs
+
+The built-in **REST API** connector reads HTTP JSON/CSV endpoints like database
+tables — no driver required. It covers the connection options commercial tools
+offer:
+
+| Option | What it does |
+| --- | --- |
+| **Base URL** | Every endpoint path is resolved against it. |
+| **Authentication** | None, **API key header** (configurable header name), **Bearer token**, or **HTTP Basic**. The secret always comes from an env var — never stored. |
+| **Endpoints** | Relative paths declared on the connection; each appears as a *table* in SQL Input. |
+| **Custom headers / default query params** | Applied to every request (tenant headers, API versions, fixed filters). |
+| **Response format & records path** | Auto/JSON/CSV, plus a dot path (e.g. `data.items`) for APIs that wrap their rows. |
+| **Pagination** | Page-number pagination: page/page-size param names, page size, and a max-pages cap — the connector loops pages automatically. |
+| **Timeout & TLS verification** | Per-connection request timeout and a TLS-verify toggle for internal endpoints. |
+
+![Configure connection form for the REST API connector — base URL, authentication method, secret env var, endpoints, and advanced options for headers, parsing, and pagination](/screenshots/connection-form-rest-api.png)
+
+In a flow, use **SQL Input**: pick the API connection, then choose a declared
+**endpoint** or switch to **Custom request path** (e.g. `users?active=true`).
+Each run snapshots the response to parquet like any other input, so runs stay
+reproducible. API connections are **read-only** — SQL Output doesn't list them.
+
+The connector applies the same SSRF host guard as every other connector, and
+responses are size-capped before parsing.
+
 ## Connectors from plugins
 
-Plugins can add connectors Ciaren doesn't ship in core — internal REST APIs,
-niche databases, proprietary stores. Once a connector plugin is installed and
-approved (see [Installing & Managing Plugins](/plugins/managing-plugins)):
+Plugins can add connectors Ciaren doesn't ship in core — niche databases,
+SaaS-specific integrations, proprietary stores. Once a connector plugin is
+installed and approved (see [Installing & Managing Plugins](/plugins/managing-plugins)):
 
 - its card appears in the Add-connection dialog under **From plugins**, with a
   *Plugin* badge;
@@ -104,8 +130,7 @@ approved (see [Installing & Managing Plugins](/plugins/managing-plugins)):
 - **Test**, table/object listing, and the SQL / Storage nodes work exactly like
   a built-in provider. Secrets follow the same env-var-only rule.
 
-Try it with the bundled **REST API Connector** example, or build your own —
-see [Connector Plugins](/plugins/connector-plugins).
+See [Connector Plugins](/plugins/connector-plugins) to build one.
 
 ## Using SQL nodes in a flow
 
