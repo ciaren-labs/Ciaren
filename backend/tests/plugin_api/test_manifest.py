@@ -78,6 +78,7 @@ def test_invalid_entrypoint_rejected():
         (">=0.1,<1.0", "1.0.0", False),
         (">=2.0", "0.1.0", False),
         (">=0.1", "0.2.0a1", True),  # prereleases allowed
+        (">=0.1", "0.1.0a1", True),  # a pre-release of the floor version itself still satisfies it
     ],
 )
 def test_compatibility_check(spec, version, expected):
