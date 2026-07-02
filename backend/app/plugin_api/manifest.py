@@ -19,6 +19,11 @@ from pydantic import BaseModel, Field, field_validator
 from app.plugin_api.specs import BUILTIN_NODE_CATEGORIES, DEFAULT_PLUGIN_NODE_CATEGORY, Permission
 
 #: Marketplace trust tiers (does not grant capabilities — purely informational).
+#: A manifest's declared tier is advisory and never surfaced as a badge; what the
+#: UI shows is *derived*: ``trusted`` only when the artifact's signature verifies
+#: against a trusted publisher key. ``verified`` is reserved for
+#: marketplace-verified publisher identity — assigned by the hosted marketplace
+#: when it launches, never derivable locally. Everything else is ``community``.
 TrustLevel = Literal["trusted", "verified", "community"]
 LicenseKind = Literal["community", "commercial"]
 

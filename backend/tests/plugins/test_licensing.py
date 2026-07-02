@@ -1,7 +1,9 @@
-"""License tokens: signing, evaluation (incl. offline grace), cache, provider."""
+"""License tokens: signing, evaluation (incl. offline grace), cache, provider,
+and the core bootstrap that turns configured issuer keys into providers."""
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,11 +13,24 @@ from app.plugins.licensing import (
     LicenseCache,
     LicenseToken,
     TokenLicenseProvider,
+    check_token_against_issuers,
+    core_license_providers,
     evaluate_token,
+    issuer_public_keys,
     verify_token,
 )
 
 _HAS_CRYPTO = signing.signing_available()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_settings():
+    """The issuer-key tests mutate CIAREN_* env vars; clear the settings cache
+    after each test so the mutated values never leak into other tests."""
+    yield
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
 
 
 def _token(*, expires_in_days: int, grace_extra_days: int) -> LicenseToken:
@@ -115,3 +130,77 @@ def test_provider_invalid_signature(tmp_path):
     cache.save(_token(expires_in_days=30, grace_extra_days=7))
     provider = TokenLicenseProvider("00" * 32, cache)
     assert provider.validate_license("acme.databricks").valid is False
+
+
+def test_cache_delete(tmp_path):
+    cache = LicenseCache(tmp_path / "licenses")
+    cache.save(_token(expires_in_days=30, grace_extra_days=7))
+    assert cache.delete("acme.databricks") is True
+    assert cache.load("acme.databricks") is None
+    assert cache.delete("acme.databricks") is False
+
+
+def test_cache_default_dir_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "custom"))
+    assert LicenseCache().directory == tmp_path / "custom"
+
+
+# -- core bootstrap (issuer keys from settings → providers) ---------------------
+
+
+def _set_issuer_keys(monkeypatch, keys: list[str]) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", json.dumps(keys))
+    get_settings.cache_clear()
+
+
+def test_no_issuer_keys_no_core_providers(monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", raising=False)
+    get_settings.cache_clear()
+    assert issuer_public_keys() == []
+    assert core_license_providers() == []
+
+
+def test_issuer_keys_from_settings(monkeypatch):
+    _set_issuer_keys(monkeypatch, ["aa" * 32, "aa" * 32, "  ", "bb" * 32])
+    # Deduplicated, blank entries dropped, order preserved.
+    assert issuer_public_keys() == ["aa" * 32, "bb" * 32]
+    assert len(core_license_providers()) == 2
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_core_provider_validates_issuer_signed_token(tmp_path, monkeypatch):
+    priv, pub = signing.generate_keypair()
+    _set_issuer_keys(monkeypatch, [pub])
+    token = _token(expires_in_days=30, grace_extra_days=7)
+    token.signature = signing.sign(priv, token.signing_payload())
+    cache = LicenseCache(tmp_path / "licenses")
+    cache.save(token)
+
+    providers = core_license_providers(cache)
+    assert len(providers) == 1
+    assert providers[0].validate_license("acme.databricks").valid is True
+
+
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_check_token_against_issuers(monkeypatch):
+    priv, pub = signing.generate_keypair()
+    other_priv, _ = signing.generate_keypair()
+    _set_issuer_keys(monkeypatch, [pub])
+
+    token = _token(expires_in_days=30, grace_extra_days=7)
+    token.signature = signing.sign(priv, token.signing_payload())
+    status = check_token_against_issuers(token)
+    assert status is not None and status.valid is True
+
+    forged = _token(expires_in_days=30, grace_extra_days=7)
+    forged.signature = signing.sign(other_priv, forged.signing_payload())
+    status = check_token_against_issuers(forged)
+    assert status is not None and status.valid is False
+
+    _set_issuer_keys(monkeypatch, [])
+    # No issuer keys → the core cannot judge the token at all.
+    assert check_token_against_issuers(token) is None

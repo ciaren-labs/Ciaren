@@ -29,9 +29,10 @@ class MarketplaceEntryInfo(BaseModel):
     license: str = "community"
     #: Derived by *verifying* the artifact against the trusted keys — never echoed
     #: from the index/manifest, which are publisher-controlled and could otherwise
-    #: claim a "trusted" badge for anything. ``trusted`` only when a local artifact
-    #: carries a valid signature from a trusted key; everything else (unsigned,
-    #: untrusted key, or remote/unverifiable) is ``community``.
+    #: claim a "trusted" badge for anything. ``official`` when the valid signature
+    #: comes from a publisher key pinned into the app (first-party); ``trusted``
+    #: for any other trusted key; everything else (unsigned, untrusted key, or
+    #: remote/unverifiable) is ``community``.
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
@@ -44,6 +45,12 @@ class MarketplaceEntryInfo(BaseModel):
     license_required: bool = False
     #: A plugin with this id is already installed (loaded or gated).
     installed: bool = False
+    #: The installed plugin's version ("" when not installed or unknown).
+    installed_version: str = ""
+    #: The catalog offers a strictly newer version than the one installed.
+    update_available: bool = False
+    #: The catalog has withdrawn this plugin (installing it is refused).
+    revoked: bool = False
     #: The entry's artifact is available locally for one-click install (vs. a
     #: remote-only entry that must be downloaded/installed manually for now).
     installable: bool = False
@@ -53,17 +60,40 @@ class MarketplaceCatalog(BaseModel):
     #: False when no index is configured — the UI shows how to enable the catalog.
     configured: bool
     plugins: list[MarketplaceEntryInfo] = Field(default_factory=list)
+    #: Installed plugin ids the catalog has revoked — surfaced prominently so the
+    #: user can uninstall them (a revoked id may already be delisted from
+    #: ``plugins``, so this cannot be derived from the entries alone).
+    revoked_installed: list[str] = Field(default_factory=list)
 
 
-def _installed_ids() -> set[str]:
+def _installed_versions() -> dict[str, str]:
+    """Installed plugin ids (loaded or gated) mapped to their version ("" when
+    unknown, e.g. a gated plugin without a manifest)."""
     result = get_load_result()
-    return {p.metadata.id for p in result.loaded} | {g.plugin_id for g in result.gated}
+    versions = {p.metadata.id: p.metadata.version for p in result.loaded}
+    for g in result.gated:
+        versions[g.plugin_id] = g.manifest.version if g.manifest else ""
+    return versions
+
+
+def _update_available(catalog_version: str, installed_version: str) -> bool:
+    """Whether the catalog's version is strictly newer, by PEP 440 ordering.
+    Unknown/malformed versions never signal an update."""
+    from packaging.version import InvalidVersion, Version
+
+    if not catalog_version or not installed_version:
+        return False
+    try:
+        return Version(catalog_version) > Version(installed_version)
+    except InvalidVersion:
+        return False
 
 
 def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path) -> str:
     """The trust tier we can actually stand behind for a catalog entry: verify the
-    local artifact's signature against the trusted keys and report ``trusted`` only
-    on a positive result. An entry we cannot verify (remote-only, missing file,
+    local artifact's signature against the trusted keys and report ``official``
+    (first-party, signed by a key pinned into the app) or ``trusted`` only on a
+    positive result. An entry we cannot verify (remote-only, missing file,
     unreadable) is ``community`` no matter what the index claims."""
     from app.plugins.package import PackageError, verify_package
 
@@ -71,20 +101,34 @@ def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path) -> str
     if artifact is None or not artifact.is_file():
         return "community"
     try:
-        return "trusted" if verify_package(artifact).outcome == "trusted" else "community"
+        result = verify_package(artifact)
     except (PackageError, OSError):
         return "community"
+    if result.official:
+        return "official"
+    return "trusted" if result.outcome == "trusted" else "community"
+
+
+def _load_configured_index_or_400() -> marketplace.MarketplaceIndex | None:
+    """The configured index, ``None`` when unconfigured/missing, or a clean 400
+    when the file exists but cannot be used (bad JSON, incompatible schema) —
+    a misconfigured catalog should read as such, not as a server crash."""
+    try:
+        return marketplace.load_configured_index()
+    except (marketplace.MarketplaceIndexError, ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=f"the configured marketplace index is unusable: {exc}") from exc
 
 
 @router.get("", response_model=MarketplaceCatalog)
 async def list_marketplace() -> MarketplaceCatalog:
     """The catalog entries from the configured index, each annotated with whether
-    it is already installed and whether its artifact can be installed locally."""
-    index = marketplace.load_configured_index()
+    it is already installed, whether an update is available, and whether its
+    artifact can be installed locally."""
+    index = _load_configured_index_or_400()
     index_path = marketplace.configured_index_path()
     if index is None or index_path is None:
         return MarketplaceCatalog(configured=False)
-    installed = _installed_ids()
+    installed = _installed_versions()
     entries = [
         MarketplaceEntryInfo(
             id=e.id,
@@ -102,25 +146,40 @@ async def list_marketplace() -> MarketplaceCatalog:
             node_categories=dict(e.node_categories),
             license_required=e.license_required,
             installed=e.id in installed,
+            installed_version=installed.get(e.id, ""),
+            update_available=_update_available(e.version, installed.get(e.id, "")),
+            revoked=index.is_revoked(e.id),
             installable=bool((p := marketplace.resolve_artifact_path(e, index_path)) and p.is_file()),
         )
         for e in index.plugins
     ]
-    return MarketplaceCatalog(configured=True, plugins=entries)
+    return MarketplaceCatalog(
+        configured=True,
+        plugins=entries,
+        revoked_installed=sorted(set(index.revoked) & set(installed)),
+    )
 
 
 @router.post("/{plugin_id}/install", response_model=PluginInstallResult)
 async def install_from_marketplace(plugin_id: str) -> PluginInstallResult:
     """Install a catalog entry from its locally-available artifact. Re-verifies the
     advertised digest before install; remote-only entries are refused for now
-    (network download is a future drop-in)."""
+    (network download is a future drop-in).
+
+    Also serves **updates**: installing over an existing version force-replaces it,
+    and the TOFU signer pin withdraws approval if the publisher's key changed."""
     from app.core.config import get_settings
     from app.plugins.package import compute_package_digest
 
-    index = marketplace.load_configured_index()
+    index = _load_configured_index_or_400()
     index_path = marketplace.configured_index_path()
     if index is None or index_path is None:
         raise HTTPException(status_code=404, detail="no marketplace index is configured")
+    if index.is_revoked(plugin_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{plugin_id!r} has been revoked by the catalog and cannot be installed",
+        )
     entry = index.find(plugin_id)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"{plugin_id!r} is not in the catalog")

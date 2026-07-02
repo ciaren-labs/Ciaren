@@ -1,6 +1,7 @@
 """API tests for installing a plugin from the UI (upload) and the "Explore"
 marketplace catalog (configured local index + one-click install)."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -301,6 +302,205 @@ async def test_marketplace_trust_is_derived_not_echoed(client, monkeypatch, tmp_
     assert entry["trust"] == "community"
 
 
+def _pack_hello_variant(tmp_path: Path, *, version: str | None = None, license_required: bool | None = None) -> Path:
+    """A copy of the hello plugin with manifest tweaks, packed to a .ciarenplugin."""
+    import json as _json
+    import shutil
+
+    src = tmp_path / f"hello-src-{version or 'same'}-{license_required}"
+    shutil.copytree(HELLO_SRC, src)
+    manifest = _json.loads((src / "ciaren-plugin.json").read_text(encoding="utf-8"))
+    if version is not None:
+        manifest["version"] = version
+    if license_required is not None:
+        manifest["licenseRequired" if "licenseRequired" in manifest else "license_required"] = license_required
+    (src / "ciaren-plugin.json").write_text(_json.dumps(manifest), encoding="utf-8")
+    return package.pack_directory(src, tmp_path / f"community.hello-{version or 'same'}.ciarenplugin")
+
+
+def _signed_token(private_hex: str, plugin_id: str = "community.hello", *, days: int = 30) -> dict:
+    """A marketplace-issued license token (wire format), signed by the issuer."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.plugin_api import signing as _signing
+    from app.plugins.licensing import LicenseToken
+
+    now = datetime.now(UTC)
+    token = LicenseToken(
+        userId="u1",
+        pluginId=plugin_id,
+        licenseType="pro",
+        expiresAt=(now + timedelta(days=days)).isoformat(),
+        offlineGraceUntil=(now + timedelta(days=days + 14)).isoformat(),
+    )
+    token.signature = _signing.sign(private_hex, token.signing_payload())
+    return json.loads(token.model_dump_json(by_alias=True))
+
+
+async def test_premium_plugin_license_activation_end_to_end(client, monkeypatch, tmp_path):
+    """The full paid-plugin path: install → approve → needs_license → activate a
+    signed token → loaded. Then removing the license gates it again."""
+    from app.core.config import get_settings
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    priv, pub = signing.generate_keypair()
+    monkeypatch.setenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", json.dumps([pub]))
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "licenses"))
+    get_settings.cache_clear()
+    reset_registry()
+
+    premium = _pack_hello_variant(tmp_path, license_required=True)
+    resp = await client.post(
+        "/api/plugins/install",
+        files={"file": ("premium.ciarenplugin", premium.read_bytes(), "application/octet-stream")},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["plugin"]["status"] == "needs_permissions"
+
+    # Approving satisfies the permission gate; the license gate now holds it.
+    approved = await client.post("/api/plugins/community.hello/enable")
+    assert approved.json()["status"] == "needs_license"
+    assert "license" in approved.json()["status_detail"]
+
+    # Activating a token signed by the trusted issuer loads it immediately.
+    activated = await client.post("/api/plugins/community.hello/license", json=_signed_token(priv))
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["valid"] is True
+    listing = await client.get("/api/plugins")
+    hello = next(p for p in listing.json() if p["id"] == "community.hello")
+    assert hello["status"] == "loaded"
+
+    # Removing the license drops it back to needs_license on reload.
+    removed = await client.delete("/api/plugins/community.hello/license")
+    assert removed.status_code == 200
+    assert removed.json()["valid"] is False
+    listing = await client.get("/api/plugins")
+    hello = next(p for p in listing.json() if p["id"] == "community.hello")
+    assert hello["status"] == "needs_license"
+
+
+async def test_activate_license_rejects_wrong_plugin_and_forged_token(client, monkeypatch, tmp_path):
+    from app.core.config import get_settings
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    priv, pub = signing.generate_keypair()
+    forger_priv, _ = signing.generate_keypair()
+    monkeypatch.setenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", json.dumps([pub]))
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "licenses"))
+    get_settings.cache_clear()
+    reset_registry()
+    try:
+        # Token/path plugin id mismatch → refused before any verification.
+        resp = await client.post("/api/plugins/other.plugin/license", json=_signed_token(priv))
+        assert resp.status_code == 400
+        assert "other.plugin" in resp.json()["detail"]
+
+        # A token not signed by a trusted issuer is refused and never cached.
+        resp = await client.post("/api/plugins/community.hello/license", json=_signed_token(forger_priv))
+        assert resp.status_code == 400
+        assert "rejected" in resp.json()["detail"]
+        status = await client.get("/api/plugins/community.hello/license")
+        assert status.json()["valid"] is False
+
+        # Nothing cached → removing 404s.
+        resp = await client.delete("/api/plugins/community.hello/license")
+        assert resp.status_code == 404
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_marketplace_reports_update_available(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    from app.core.config import get_settings
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+
+    # Install the current hello, then advertise a newer build in the catalog.
+    await client.post(
+        "/api/plugins/install",
+        files={"file": ("hello.ciarenplugin", hello_ciarenplugin.read_bytes(), "application/octet-stream")},
+    )
+    market = tmp_path / "market"
+    market.mkdir()
+    newer = _pack_hello_variant(tmp_path, version="0.2.0")
+    artifact = market / newer.name
+    artifact.write_bytes(newer.read_bytes())
+    add_to_index_file(market / "index.json", artifact)
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(market / "index.json"))
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["installed"] is True
+    assert entry["installed_version"] == "0.1.0-alpha.1"
+    assert entry["update_available"] is True
+
+    # "Update" is a forced reinstall through the same verified path.
+    updated = await client.post("/api/marketplace/community.hello/install")
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["plugin"]["version"] == "0.2.0"
+
+    relisting = await client.get("/api/marketplace")
+    entry2 = next(e for e in relisting.json()["plugins"] if e["id"] == "community.hello")
+    assert entry2["update_available"] is False
+
+
+async def test_marketplace_revoked_blocks_install_and_flags_installed(
+    client, monkeypatch, tmp_path, hello_ciarenplugin
+):
+    import json as _json
+
+    from app.core.config import get_settings
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    await client.post(
+        "/api/plugins/install",
+        files={"file": ("hello.ciarenplugin", hello_ciarenplugin.read_bytes(), "application/octet-stream")},
+    )
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = market / "community.hello-0.1.0.ciarenplugin"
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)
+    raw = _json.loads(index_path.read_text(encoding="utf-8"))
+    raw["revoked"] = ["community.hello"]
+    index_path.write_text(_json.dumps(raw), encoding="utf-8")
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    body = listing.json()
+    assert body["revoked_installed"] == ["community.hello"]
+    entry = next(e for e in body["plugins"] if e["id"] == "community.hello")
+    assert entry["revoked"] is True
+
+    resp = await client.post("/api/marketplace/community.hello/install")
+    assert resp.status_code == 400
+    assert "revoked" in resp.json()["detail"]
+
+
+async def test_marketplace_unusable_index_is_a_clean_400(client, monkeypatch, tmp_path):
+    from app.core.config import get_settings
+
+    market = tmp_path / "market"
+    market.mkdir()
+    (market / "index.json").write_text('{"schemaVersion": "9.0.0", "plugins": []}', encoding="utf-8")
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(market / "index.json"))
+    get_settings.cache_clear()
+
+    resp = await client.get("/api/marketplace")
+    assert resp.status_code == 400
+    assert "schemaVersion" in resp.json()["detail"]
+
+
 async def test_marketplace_trust_shows_trusted_for_verified_artifact(client, monkeypatch, tmp_path, hello_ciarenplugin):
     """Conversely, a valid signature from a trusted key earns the trusted badge."""
     import json as _json
@@ -328,3 +528,58 @@ async def test_marketplace_trust_shows_trusted_for_verified_artifact(client, mon
     listing = await client.get("/api/marketplace")
     entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
     assert entry["trust"] == "trusted"
+
+
+async def test_official_badge_derives_from_pinned_publisher_key(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    """A package signed by a key pinned into the app (OFFICIAL_PUBLISHER_KEYS)
+    surfaces as official — in the catalog trust tier and on the installed plugin —
+    while a user-added trusted key stays plain trusted."""
+    from app.core.config import get_settings
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = market / "community.hello-0.1.0.ciarenplugin"
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    priv, pub = signing.generate_keypair()
+    package.sign_package(artifact, priv, key_id="ciaren-official-test")
+    monkeypatch.setitem(package.OFFICIAL_PUBLISHER_KEYS, "ciaren-official-test", pub)
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    # Catalog: official, not merely trusted (no user-configured keys involved —
+    # pinned official keys are always part of the trusted set).
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["trust"] == "official"
+
+    # Installed plugin: signature outcome stays "trusted" (policy-compatible),
+    # with the first-party flag alongside it.
+    installed = await client.post("/api/marketplace/community.hello/install")
+    assert installed.status_code == 200, installed.text
+    assert installed.json()["plugin"]["signature"] == "trusted"
+    assert installed.json()["plugin"]["official"] is True
+
+
+def test_verify_result_official_property(tmp_path, monkeypatch, hello_ciarenplugin):
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    priv, pub = signing.generate_keypair()
+    package.sign_package(hello_ciarenplugin, priv, key_id="some-key")
+    # Trusted via explicit keys, but not pinned → not official.
+    result = package.verify_package(hello_ciarenplugin, {"some-key": pub})
+    assert result.outcome == "trusted" and result.official is False
+    # Same signature with the key pinned as official → official.
+    monkeypatch.setitem(package.OFFICIAL_PUBLISHER_KEYS, "some-key", pub)
+    result = package.verify_package(hello_ciarenplugin, {"some-key": pub})
+    assert result.official is True

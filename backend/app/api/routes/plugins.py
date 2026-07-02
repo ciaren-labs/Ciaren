@@ -22,12 +22,13 @@ from app.plugins import (
     get_registry,
     reload_plugins,
 )
+from app.plugins.licensing import LicenseToken
 from app.plugins.loader import GatedPlugin, LoadedPlugin, LoadResult
 from app.plugins.state import PluginStateStore
 
 router = APIRouter()
 
-PluginStatus = Literal["loaded", "disabled", "needs_permissions"]
+PluginStatus = Literal["loaded", "disabled", "needs_permissions", "needs_license"]
 
 
 class PluginInfo(BaseModel):
@@ -38,6 +39,8 @@ class PluginInfo(BaseModel):
     description: str = ""
     source: str
     status: PluginStatus
+    #: Human-readable context for a gated status (e.g. why the license is invalid).
+    status_detail: str = ""
     capabilities: list[str] = Field(default_factory=list)
     #: Permissions the plugin requests in its manifest/metadata.
     permissions: list[Permission] = Field(default_factory=list)
@@ -48,6 +51,9 @@ class PluginInfo(BaseModel):
     #: How the package verified at install time: ``trusted`` | ``untrusted`` |
     #: ``unsigned`` | ``invalid`` | "" (unknown, e.g. a hand-dropped directory).
     signature: str = ""
+    #: First-party: verified as ``trusted`` under a publisher key pinned into the
+    #: app itself (not merely a user-added trusted key). Derived, never declared.
+    official: bool = False
     #: Node type ids this plugin contributes to the editor palette.
     nodes: list[str] = Field(default_factory=list)
     #: Palette category/subgroup for each contributed node.
@@ -96,6 +102,15 @@ def _install_path(plugin_id: str) -> str:
 
     location = installed_location(plugin_id)
     return str(location) if location is not None else ""
+
+
+def _is_official(plugin_id: str, state: PluginStateStore) -> bool:
+    """First-party check from the install-time record: verified ``trusted`` and
+    the pinned TOFU key id is one of the app's own publisher keys."""
+    from app.plugins.package import is_official_key
+
+    entry = state.entry(plugin_id)
+    return entry is not None and entry.signature == "trusted" and is_official_key(entry.key_id)
 
 
 def _apply_manifest(info: PluginInfo, manifest: PluginManifest | None) -> PluginInfo:
@@ -164,6 +179,7 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         permissions=list(meta.permissions),
         granted_permissions=sorted(state.granted(meta.id), key=lambda p: p.value),
         signature=state.signature(meta.id),
+        official=_is_official(meta.id, state),
         nodes=list(loaded.manifest.ui.nodes) if loaded.manifest else [],
         node_categories=_node_categories_for_loaded(loaded),
         connectors=_connectors_for_loaded(meta.id),
@@ -175,7 +191,13 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
 
 
 def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
-    status: PluginStatus = "disabled" if gated.reason == "disabled" else "needs_permissions"
+    status: PluginStatus
+    if gated.reason == "disabled":
+        status = "disabled"
+    elif gated.reason == "needs_license":
+        status = "needs_license"
+    else:
+        status = "needs_permissions"
     # A gated plugin's code never ran, but its validated manifest is available —
     # surface identity from there so the approval decision has context.
     manifest = gated.manifest
@@ -188,11 +210,13 @@ def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
         description=manifest.description if manifest else "",
         source=gated.source,
         status=status,
+        status_detail=gated.detail,
         capabilities=list(manifest.capabilities) if manifest else [],
         permissions=list(gated.requested_permissions),
         granted_permissions=sorted(state.granted(gated.plugin_id), key=lambda p: p.value),
         missing_permissions=list(gated.missing_permissions),
         signature=state.signature(gated.plugin_id),
+        official=_is_official(gated.plugin_id, state),
         nodes=list(gated.nodes),
         node_categories={node: gated.node_categories.get(node, "plugins") for node in gated.nodes},
         uninstallable=bool(install_path),
@@ -282,10 +306,48 @@ async def install_plugin(
 
 @router.get("/{plugin_id}/license", response_model=LicenseStatus)
 async def plugin_license(plugin_id: str) -> LicenseStatus:
-    """The license status for a plugin, resolved through any registered license
-    provider. A premium plugin registers a ``TokenLicenseProvider`` (backed by a
-    locally-cached signed token); with no provider, a plugin reports licensed (the
+    """The license status for a plugin, resolved through the registered license
+    providers (the core registers one per configured issuer key; a premium plugin
+    may register its own). With no provider, a plugin reports licensed (the
     open-core default)."""
+    return get_registry().validate_license(plugin_id)
+
+
+@router.post("/{plugin_id}/license", response_model=LicenseStatus)
+async def activate_license(plugin_id: str, token: LicenseToken) -> LicenseStatus:
+    """Activate a license: store the pasted/downloaded token in the local cache
+    and reload plugins so a ``needs_license`` plugin loads immediately.
+
+    When issuer keys are configured, the token is vetted against them *before*
+    saving, so pasting a bad token can never clobber a working one. The plugin
+    does not have to be installed yet — activating first and installing after is
+    fine (the token waits in the cache)."""
+    from app.plugins.licensing import LicenseCache, check_token_against_issuers
+
+    if token.plugin_id != plugin_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"token is for plugin {token.plugin_id!r}, not {plugin_id!r}",
+        )
+    vetted = check_token_against_issuers(token)
+    if vetted is not None and not vetted.valid:
+        raise HTTPException(status_code=400, detail=f"license token rejected: {vetted.reason}")
+    # vetted is None ⇒ no issuer keys configured. Save anyway: a vendor-registered
+    # provider (from another loaded plugin) may still be able to validate it.
+    LicenseCache().save(token)
+    reload_plugins()
+    return get_registry().validate_license(plugin_id)
+
+
+@router.delete("/{plugin_id}/license", response_model=LicenseStatus)
+async def remove_license(plugin_id: str) -> LicenseStatus:
+    """Remove the cached license token for a plugin (e.g. to move a seat to
+    another machine). The plugin drops back to ``needs_license`` on reload."""
+    from app.plugins.licensing import LicenseCache
+
+    if not LicenseCache().delete(plugin_id):
+        raise HTTPException(status_code=404, detail=f"no cached license token for {plugin_id!r}")
+    reload_plugins()
     return get_registry().validate_license(plugin_id)
 
 

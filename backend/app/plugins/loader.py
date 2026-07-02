@@ -42,10 +42,6 @@ class IncompatiblePluginError(RuntimeError):
     """Raised when a plugin declares incompatibility with the running Ciaren."""
 
 
-class PluginLicenseError(RuntimeError):
-    """Raised when a manifest requires a license that cannot be validated."""
-
-
 @dataclass
 class LoadedPlugin:
     source: str
@@ -61,18 +57,21 @@ class PluginError:
 
 @dataclass
 class GatedPlugin:
-    """A discovered plugin that was deliberately *not* loaded: either the user
-    disabled it, or it declares permissions that have not been granted yet (so its
-    code is never imported). Surfaced to the UI so the user can enable/approve it."""
+    """A discovered plugin that was deliberately *not* loaded: the user disabled
+    it, it declares permissions that have not been granted yet, or it requires a
+    license that doesn't validate — in every case its code is never imported.
+    Surfaced to the UI so the user can enable/approve/license it."""
 
     source: str
     plugin_id: str
     name: str
-    reason: str  # "disabled" | "needs_permissions"
+    reason: str  # "disabled" | "needs_permissions" | "needs_license"
     requested_permissions: list[Permission] = field(default_factory=list)
     missing_permissions: list[Permission] = field(default_factory=list)
     nodes: list[str] = field(default_factory=list)
     node_categories: dict[str, str] = field(default_factory=dict)
+    #: Human-readable context for the gate (e.g. why the license is not valid).
+    detail: str = ""
     #: The validated manifest (gated plugins always have one — gating only applies
     #: to manifest-bearing candidates). Lets the UI show version/publisher/
     #: description without ever importing the plugin's code.
@@ -230,6 +229,37 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
     return None
 
 
+def _license_gate(registry: ServiceRegistry, candidate: PluginCandidate) -> GatedPlugin | None:
+    """Gate a ``license_required`` plugin whose license does not validate — a
+    user-actionable state (activate a license token), not a load error. Runs
+    *after* the disable/permission gate so an unapproved premium plugin asks for
+    approval first, and its code stays un-imported throughout."""
+    manifest = candidate.manifest
+    if manifest is None or not manifest.license_required:
+        return None
+    if not registry.has_license_provider():
+        detail = (
+            "requires a license, but no license provider is registered — configure a "
+            "marketplace license issuer key (MARKETPLACE_LICENSE_ISSUER_KEYS)"
+        )
+    else:
+        status = registry.validate_license(manifest.id)
+        if status.valid:
+            return None
+        detail = f"requires a valid license: {status.reason}" if status.reason else "requires a valid license"
+    return GatedPlugin(
+        source=candidate.source,
+        plugin_id=manifest.id,
+        name=manifest.name,
+        reason="needs_license",
+        requested_permissions=list(manifest.permissions),
+        nodes=list(manifest.ui.nodes),
+        node_categories=dict(manifest.ui.node_categories),
+        manifest=manifest,
+        detail=detail,
+    )
+
+
 def _process(
     registry: ServiceRegistry,
     candidate: PluginCandidate,
@@ -243,21 +273,13 @@ def _process(
             raise IncompatiblePluginError(
                 f"plugin {manifest.id!r} requires Ciaren {manifest.ciaren!r}, running {version}"
             )
-        if manifest is not None and manifest.license_required:
-            if not registry.has_license_provider():
-                raise PluginLicenseError(
-                    f"plugin {manifest.id!r} requires a license, but no license provider is registered"
-                )
-            status = registry.validate_license(manifest.id)
-            if not status.valid:
-                reason = f": {status.reason}" if status.reason else ""
-                raise PluginLicenseError(f"plugin {manifest.id!r} requires a valid license{reason}")
-        if state is not None:
-            gated = _gate(candidate, state)
-            if gated is not None:
-                result.gated.append(gated)
-                logger.info("Plugin %s from %s gated (%s)", gated.plugin_id, candidate.source, gated.reason)
-                return
+        gated = _gate(candidate, state) if state is not None else None
+        if gated is None:
+            gated = _license_gate(registry, candidate)
+        if gated is not None:
+            result.gated.append(gated)
+            logger.info("Plugin %s from %s gated (%s)", gated.plugin_id, candidate.source, gated.reason)
+            return
         plugin = candidate.load()
         meta = registry.register_plugin(plugin)
         result.loaded.append(LoadedPlugin(source=candidate.source, metadata=meta, manifest=manifest))

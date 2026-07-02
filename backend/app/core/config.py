@@ -158,6 +158,14 @@ class Settings(BaseSettings):
     # community plugins via the CLI can still opt out). Off by default to keep
     # unsigned community plugins installable.
     REQUIRE_TRUSTED_PLUGINS: bool = False
+    # Ed25519 public keys (raw 32-byte hex) of license-token issuers to trust,
+    # e.g. '["<hex>"]'. When set, the core registers a TokenLicenseProvider for
+    # each key at startup, so a license_required plugin loads once a token signed
+    # by one of these issuers is cached locally (see app/plugins/licensing.py).
+    # A list so an old and a new key can overlap during issuer key rotation.
+    # Official marketplace issuer keys will ship pinned in code instead
+    # (OFFICIAL_LICENSE_ISSUER_KEYS); this setting is for self-hosted issuers.
+    MARKETPLACE_LICENSE_ISSUER_KEYS: list[str] = []
 
     @property
     def max_upload_bytes(self) -> int:

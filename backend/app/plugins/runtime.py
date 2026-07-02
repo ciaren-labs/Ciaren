@@ -130,6 +130,14 @@ def get_registry() -> ServiceRegistry:
         # Re-check under the lock: another thread may have built it while we waited.
         if _registry is None:
             registry = build_registry()
+            # License providers for the configured token issuers must exist before
+            # any plugin is processed, or a license_required plugin could never
+            # load (its own code — where a vendor provider would register — is
+            # exactly what the license gate keeps un-imported).
+            from app.plugins.licensing import core_license_providers
+
+            for provider in core_license_providers():
+                registry.register_license_provider(provider)
             state = PluginStateStore()
             _load_result = load_plugins(
                 registry,

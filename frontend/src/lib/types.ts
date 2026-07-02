@@ -588,7 +588,7 @@ export interface CatalogNode {
 
 // ---- Plugins ---------------------------------------------------------------
 
-export type PluginStatus = "loaded" | "disabled" | "needs_permissions";
+export type PluginStatus = "loaded" | "disabled" | "needs_permissions" | "needs_license";
 
 export interface PluginInfo {
   id: string;
@@ -598,6 +598,8 @@ export interface PluginInfo {
   description: string;
   source: string;
   status: PluginStatus;
+  /** Human-readable context for a gated status (e.g. why the license is invalid). */
+  status_detail: string;
   capabilities: string[];
   /** Permissions the plugin requests. */
   permissions: string[];
@@ -607,6 +609,9 @@ export interface PluginInfo {
   missing_permissions: string[];
   /** How the package verified at install time: trusted | untrusted | unsigned | invalid | "". */
   signature: string;
+  /** First-party: verified as trusted under a publisher key pinned into the app
+   *  itself (not merely a user-added trusted key). Derived, never declared. */
+  official: boolean;
   /** Node type ids this plugin contributes to the editor palette. */
   nodes: string[];
   /** Palette category/subgroup for each contributed node. */
@@ -672,7 +677,8 @@ export interface MarketplaceEntry {
   publisher: string;
   description: string;
   license: string;
-  /** Derived by verifying the local artifact's signature: "trusted" | "community". */
+  /** Derived by verifying the local artifact's signature:
+   *  "official" (first-party pinned key) | "trusted" | "community". */
   trust: string;
   capabilities: string[];
   permissions: string[];
@@ -687,6 +693,12 @@ export interface MarketplaceEntry {
   license_required: boolean;
   /** A plugin with this id is already installed. */
   installed: boolean;
+  /** The installed plugin's version ("" when not installed or unknown). */
+  installed_version: string;
+  /** The catalog offers a strictly newer version than the installed one. */
+  update_available: boolean;
+  /** The catalog has withdrawn this plugin (installing is refused). */
+  revoked: boolean;
   /** The artifact is available locally for one-click install. */
   installable: boolean;
 }
@@ -695,4 +707,6 @@ export interface MarketplaceCatalog {
   /** False when no index is configured (the UI explains how to enable it). */
   configured: boolean;
   plugins: MarketplaceEntry[];
+  /** Installed plugin ids the catalog has revoked (may already be delisted). */
+  revoked_installed: string[];
 }

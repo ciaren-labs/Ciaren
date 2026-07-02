@@ -55,6 +55,14 @@ Ciaren versions they support, and the pip dependencies they bring. **Install**
 re-verifies the advertised digest against the artifact, then installs it — the
 same gated path as an upload.
 
+When the catalog advertises a newer version of a plugin you already have, the
+entry shows the version transition (e.g. `v1.0.0 → v1.2.0`) and an **Update**
+button — an update is a forced reinstall through the same verified path, and if
+the publisher's signing key changed since you approved it, the plugin is
+re-gated for your approval. Entries the catalog has **revoked** (withdrawn as
+malicious or broken) can no longer be installed, and a warning banner lists any
+revoked plugin you already have installed.
+
 ### 3. From the command line
 
 ```bash
@@ -87,6 +95,8 @@ that details view.
 | **Disable** | Details | Stops loading the plugin on future startups. Its files stay on disk; re-enable any time. |
 | **Enable** | Card & details | Re-loads a disabled plugin (re-applies its existing grants). |
 | **Revoke** | Details | Withdraws permissions you granted. If it then lacks a required permission it drops back to pending and stops loading. |
+| **Add license** | Card & details | For a premium plugin in the **License required** state: paste the license token you received after purchase. The token is verified against the trusted issuer keys before it is saved, and the plugin loads immediately. |
+| **Remove license** | Details | Deletes the cached license token from this machine (for example to move a seat elsewhere). The plugin drops back to **License required**. |
 | **Uninstall** | Details | Deletes the plugin's installed files after a confirmation (see below). |
 
 From the CLI:
@@ -127,6 +137,10 @@ deleting its folder, or a package with `pip uninstall`.
 Each installed plugin shows how its package verified at install time — hover a
 badge for a plain-language explanation of what it means:
 
+- **Official** — first-party: a valid signature from a Ciaren publisher key
+  that ships pinned inside the app itself. Because the key is part of the app
+  (never read from configuration or a catalog), this badge can't be spoofed by
+  an index entry or a config change.
 - **Trusted** — a valid signature from a key you trust.
 - **Untrusted key** — validly signed, but by a key not in your trusted set.
 - **Unsigned** — no signature (allowed by default for community plugins).
