@@ -117,10 +117,10 @@ def test_pandas_multi_join_del_is_safe(tmp_path: Path) -> None:
     code = CodeGenerator().generate(graph, paths, free_intermediates=True)
 
     assert_no_use_after_del(code)
-    # The three inputs + calc/join intermediates are freed; the grouped result
-    # (last intermediate) is not.
-    assert _del_count(code) >= 5
-    assert "del df_1" in code  # order_items, read first, used only by calc
+    # calc reuses order_items' variable and grp reuses j2's, leaving four dead
+    # intermediates: both join inputs die at j1/j2 respectively.
+    assert _del_count(code) == 4
+    assert "del df_1" in code  # order_items (reused by calc), dead after j1
 
     _assert_join_output(_run(code, tmp_path))
 
@@ -131,7 +131,7 @@ def test_polars_multi_join_del_is_safe(tmp_path: Path) -> None:
     code = PolarsCodeGenerator().generate(graph, paths, free_intermediates=True)
 
     assert_no_use_after_del(code)
-    assert _del_count(code) >= 5
+    assert _del_count(code) == 4
     _assert_join_output(_run(code, tmp_path))
 
 
@@ -168,7 +168,8 @@ def test_pandas_fanout_input_not_freed_before_second_branch(tmp_path: Path) -> N
     code = CodeGenerator().generate(graph, paths, free_intermediates=True)
 
     assert_no_use_after_del(code)
-    # in1 (df_1) feeds both filters; its del must come after the *second* one.
+    # in1 (df_1) feeds both filters; the second one takes the variable over, so
+    # its del (now holding that branch's result) must come after both filters.
     del_line = next(i for i, ln in enumerate(code.splitlines()) if ln.strip() == "del df_1")
     filter_lines = [i for i, ln in enumerate(code.splitlines()) if ".isin" in ln or "[df_1[" in ln]
     assert del_line > max(filter_lines)

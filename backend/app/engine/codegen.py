@@ -12,6 +12,12 @@ declared handle; downstream edges pick the right one via ``sourceHandle``. Nodes
 may also declare extra ``imports()`` (e.g. scikit-learn) which are collected and
 de-duplicated into the script header.
 
+On linear chains a node writes its result back into its input's variable
+(``df_1 = df_1.dropna()``) instead of minting a new ``df_N`` — see
+:func:`app.engine.codegen_common.reusable_output_var` for when that is safe —
+so a straight-line flow exports as a single ``df_1`` reassigned step by step,
+the way a person would write it.
+
 The optional ``free_intermediates`` mode emits a ``del`` once each dataframe's last
 consumer has run, lowering peak memory on long pipelines (see
 :func:`app.engine.codegen_common.last_consumer_index` for the liveness analysis
@@ -20,7 +26,7 @@ that guarantees a variable is never freed before its final use).
 
 from typing import Any
 
-from app.engine.codegen_common import last_consumer_index
+from app.engine.codegen_common import last_consumer_index, reusable_output_var
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
@@ -117,9 +123,11 @@ class CodeGenerator:
         for edge in edges:
             incoming[edge["target"]].append(edge)
 
-        # When freeing intermediates, drop each var right after its last consumer
-        # runs (never before — see last_consumer_index), but never the final node.
-        last_use = last_consumer_index(order, edges) if free_intermediates else {}
+        # Liveness (see last_consumer_index) drives two things: reusing a dead
+        # variable as its consumer's output on linear chains, and — when freeing
+        # intermediates — emitting a del right after a variable's last consumer
+        # runs (never before, and never for the final node).
+        last_use = last_consumer_index(order, edges)
         pending_del: dict[int, list[str]] = {}
 
         base_header = ["import pandas as pd"]
@@ -231,15 +239,26 @@ class CodeGenerator:
                     if handle in input_vars:
                         handle = f"{handle}_{i}"
                     input_vars[handle] = _source_var(node_outputs, e)
-                output_vars = {h: next_var() for h in output_handles(node_type)}
+                handles = output_handles(node_type)
+                reuse = reusable_output_var(idx, incoming[node_id], node_outputs, len(handles), last_use)
+                if reuse is not None:
+                    output_vars = {handles[0]: reuse}
+                    # The variable now holds this node's output — cancel the del
+                    # its previous owner scheduled for this position.
+                    if free_intermediates and reuse in pending_del.get(idx, []):
+                        pending_del[idx].remove(reuse)
+                else:
+                    output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
                 add_imports(transformation.imports(config))
                 body.append(transformation.to_python_code(input_vars, output_vars, config))
 
-            if free_intermediates and node_id in node_outputs:
-                outs = node_outputs[node_id]
+            if free_intermediates:
+                outs = node_outputs.get(node_id, {})
                 if len(outs) == 1:  # multi-output liveness is ambiguous; only free singles
                     schedule_del(node_id, next(iter(outs.values())))
+                # Pop at every position — a variable's last consumer may be an
+                # output sink, which produces no variable of its own.
                 for dead in pending_del.pop(idx, []):
                     body.append(f"del {dead}")
 

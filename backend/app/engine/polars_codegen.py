@@ -4,7 +4,10 @@
 Thin driver mirroring :class:`app.engine.codegen.CodeGenerator` (pandas): it
 handles input-read / output-write nodes inline and delegates every
 transformation node to its own ``to_polars_code`` method, so each node's polars
-mapping lives next to its ``execute`` and ``to_python_code``.
+mapping lives next to its ``execute`` and ``to_python_code``. On linear chains
+a node writes its result back into its input's variable (``df_1 =
+df_1.drop_nulls()``) instead of minting a new ``df_N`` — see
+:func:`app.engine.codegen_common.reusable_output_var`.
 
 Two opt-in modes:
 
@@ -21,7 +24,7 @@ Two opt-in modes:
 
 from typing import Any
 
-from app.engine.codegen_common import last_consumer_index
+from app.engine.codegen_common import last_consumer_index, reusable_output_var
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
@@ -106,10 +109,12 @@ class PolarsCodeGenerator:
         for edge in edges:
             incoming[edge["target"]].append(edge)
 
-        # del only makes sense for materializing (eager) frames; a lazy variable
-        # is a query plan, so freeing it reclaims nothing.
+        # Liveness feeds variable reuse on linear chains (df_1 = df_1.head(...))
+        # in every mode. del additionally only makes sense for materializing
+        # (eager) frames; a lazy variable is a query plan, freeing it reclaims
+        # nothing.
         emit_del = free_intermediates and not lazy
-        last_use = last_consumer_index(order, edges) if emit_del else {}
+        last_use = last_consumer_index(order, edges)
         pending_del: dict[int, list[str]] = {}
 
         base_header = ["import polars as pl"]
@@ -218,7 +223,7 @@ class PolarsCodeGenerator:
                 outs[h] = v
             node_outputs[node_id] = outs
 
-        def emit_transformation(node_id: str, node_type: str, config: dict[str, Any]) -> None:
+        def emit_transformation(idx: int, node_id: str, node_type: str, config: dict[str, Any]) -> None:
             transformation = get_transformation(node_type)
             handles = output_handles(node_type)
             if transformation.emits_pandas_code:
@@ -234,6 +239,16 @@ class PolarsCodeGenerator:
                 if handle in input_vars:
                     handle = f"{handle}_{i}"
                 input_vars[handle] = source_var(e)
+            # On linear chains, write the result back into the input's (now dead)
+            # variable instead of minting a new df_N. When reuse applies the node
+            # has exactly one output handle, so out_var is called once.
+            reuse = reusable_output_var(idx, incoming[node_id], node_outputs, len(handles), last_use)
+            if reuse is not None and emit_del and reuse in pending_del.get(idx, []):
+                pending_del[idx].remove(reuse)
+
+            def out_var() -> str:
+                return reuse if reuse is not None else next_var()
+
             if lazy and not transformation.polars_lazy_safe:
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -250,12 +265,12 @@ class PolarsCodeGenerator:
                 lines.append(transformation.to_polars_code(eager_inputs, eager_outs, config))
                 outs: dict[str, str] = {}
                 for h in handles:
-                    v = next_var()
+                    v = out_var()
                     lines.append(f"{v} = {eager_outs[h]}.lazy()")
                     outs[h] = v
                 node_outputs[node_id] = outs
             else:
-                outs = {h: next_var() for h in handles}
+                outs = {h: out_var() for h in handles}
                 node_outputs[node_id] = outs
                 lines.append(transformation.to_polars_code(input_vars, outs, config))
 
@@ -327,7 +342,7 @@ class PolarsCodeGenerator:
                 frame = f"{src_var}.collect()" if lazy else src_var
                 lines.append(f"{frame}.{_OUTPUT_WRITE[node_type]}({out_path!r})")
             else:
-                emit_transformation(node_id, node_type, config)
+                emit_transformation(idx, node_id, node_type, config)
 
             if emit_del:
                 outs = node_outputs.get(node_id, {})
