@@ -61,7 +61,8 @@ pipeline and export readable Python — all without writing a line of code.
 ## What You'll Need
 
 - **No Python knowledge required** — just point and click
-- **A CSV or Excel file** — sample data to transform
+- **A CSV or Excel file** — or nothing at all: every install seeds a
+  [Demo project](/guide/demo-project) with sample datasets and example flows
 - **A web browser** — Chrome, Firefox, Safari, or Edge
 - **5 minutes** — to build your first flow
 
@@ -82,10 +83,11 @@ schedule — see [Scheduling](/guide/scheduling).
 ## Next Steps
 
 1. **[Install Ciaren](/guide/installation)** — get it running locally (2 minutes)
-2. **[5-Minute Quick Start](/guide/quick-start)** — build your first flow
-3. **[Interface Tour](/guide/interface)** — learn the UI
-4. **[Transformation Reference](/transformations/overview)** — all available operations
-5. **[Examples](/examples/sales-analysis)** — real-world workflows
+2. **[Explore the Demo Project](/guide/demo-project)** — sample data and flows, seeded on first start
+3. **[5-Minute Quick Start](/guide/quick-start)** — build your first flow
+4. **[Interface Tour](/guide/interface)** — learn the UI
+5. **[Transformation Reference](/transformations/overview)** — all available operations
+6. **[Examples](/examples/sales-analysis)** — real-world workflows
 
 ## Quick Preview
 

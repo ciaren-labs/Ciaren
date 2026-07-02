@@ -155,10 +155,13 @@ ciaren serve
 ```
 
 The backend starts on `http://localhost:8055` and creates its database
-automatically. To use the visual editor, also run the frontend (`cd frontend
-&& npm install && npm run dev`).
+automatically — including a seeded **Demo project** with sample datasets and
+example flows to explore right away. To use the visual editor, also run the
+frontend (`cd frontend && npm install && npm run dev`), or use
+`docker compose up --build` to get both in one container.
 
-[Full installation guide →](/guide/installation)
+[Full installation guide →](/guide/installation) ·
+[Demo project tutorials →](/guide/demo-project)
 
 ### Explore the API (5 minutes)
 
