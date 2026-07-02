@@ -176,6 +176,13 @@ export interface MlModelCatalogItem {
   requires: string[];
   missing: string[];
   warning: string | null;
+  /** Contributing provider: "ciaren.ml" for built-ins, a plugin id otherwise. */
+  provider?: string;
+  /** Display label (plugin model types only; built-ins are mirrored statically). */
+  label?: string | null;
+  supervised?: boolean;
+  default_hyperparameters?: Record<string, unknown>;
+  hyperparameter_schema?: ConfigSchema;
 }
 
 export interface MlExperimentSummary {
@@ -437,10 +444,38 @@ export interface ConnectionCreate {
 
 export type ConnectionUpdate = Partial<ConnectionCreate>;
 
+/** One field of a schema-driven config form (mirrors app/plugin_api ConfigFieldSpec). */
+export interface ConfigField {
+  key: string;
+  label?: string;
+  type?:
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "select"
+    | "string_list"
+    | "column"
+    | "column_list";
+  required?: boolean;
+  default?: unknown;
+  placeholder?: string;
+  help?: string;
+  options?: string[];
+  min?: number | null;
+  max?: number | null;
+  secret?: boolean;
+}
+
+export interface ConfigSchema {
+  fields?: ConfigField[];
+}
+
 export interface ProviderInfo {
   name: string;
   label: string;
-  kind: "sql" | "mongo" | "storage" | "mlflow";
+  /** Core kinds are closed; a plugin connector may declare its own (e.g. "api"). */
+  kind: "sql" | "mongo" | "storage" | "mlflow" | (string & {});
   available: boolean;
   driver_module: string | null;
   extra: string | null;
@@ -451,6 +486,11 @@ export interface ProviderInfo {
   needs_bucket: boolean;
   needs_region: boolean;
   needs_endpoint: boolean;
+  /** Present (true) only for plugin-contributed connectors. */
+  plugin?: boolean;
+  plugin_id?: string;
+  /** Extra connector-specific form fields, stored in the connection's options. */
+  config_schema?: ConfigSchema;
 }
 
 export interface ConnectionTestResult {
@@ -543,7 +583,7 @@ export interface CatalogNode {
   requires_ml: boolean;
   is_model_sink: boolean;
   is_flow_terminal?: boolean;
-  config_schema: Record<string, unknown>;
+  config_schema: ConfigSchema;
 }
 
 // ---- Plugins ---------------------------------------------------------------
@@ -571,6 +611,10 @@ export interface PluginInfo {
   nodes: string[];
   /** Palette category/subgroup for each contributed node. */
   node_categories: Record<string, string>;
+  /** Connector ids this plugin contributes (loaded plugins only). */
+  connectors?: string[];
+  /** Trainable model-type ids this plugin contributes to the ML catalog. */
+  model_types?: string[];
   /** True when the plugin lives in the managed install dir and can be uninstalled
    *  via DELETE. False for dev-dir / entry-point plugins (disable-only). */
   uninstallable: boolean;

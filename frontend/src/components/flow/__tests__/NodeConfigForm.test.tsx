@@ -598,3 +598,69 @@ describe("NodeConfigForm", () => {
     expect(screen.getByText("Dataset name")).toBeInTheDocument();
   });
 });
+
+describe("NodeConfigForm plugin nodes", () => {
+  it("renders a schema-driven form for a plugin node with config_schema", async () => {
+    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/lib/nodeCatalog");
+    setRuntimeNodeDefs([
+      ...NODE_TYPES,
+      {
+        type: "rest.fetch",
+        label: "REST Fetch",
+        category: "plugins" as never,
+        provider: "community.rest",
+        defaultConfig: { path: "" },
+        inputHandles: ["in"],
+        hasOutput: true,
+        description: "",
+        configSchema: [
+          { key: "path", label: "Endpoint path", type: "string", required: true },
+          { key: "flatten", type: "boolean", default: false },
+        ],
+      },
+    ]);
+    try {
+      renderForm({ type: "rest.fetch", config: {}, columns: ["a"] });
+      expect(screen.getByText("Endpoint path *")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox")).toBeInTheDocument();
+      expect(
+        screen.queryByText(/No configuration for this node type/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      clearRuntimeNodeDefs();
+    }
+  });
+
+  it("falls back to fields inferred from default_config without a schema", async () => {
+    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/lib/nodeCatalog");
+    setRuntimeNodeDefs([
+      ...NODE_TYPES,
+      {
+        type: "hello.greeting",
+        label: "Greeting",
+        category: "plugins" as never,
+        provider: "community.hello",
+        defaultConfig: { column: "greeting", name: "world" },
+        inputHandles: ["in"],
+        hasOutput: true,
+        description: "",
+      },
+    ]);
+    try {
+      const onChange = vi.fn();
+      renderForm({ type: "hello.greeting", config: {}, columns: [], onChange });
+      expect(screen.getByText("column")).toBeInTheDocument();
+      expect(screen.getByText("name")).toBeInTheDocument();
+      const inputs = screen.getAllByRole("textbox");
+      fireEvent.change(inputs[1], { target: { value: "Ciaren" } });
+      expect(onChange).toHaveBeenCalledWith({ name: "Ciaren" });
+    } finally {
+      clearRuntimeNodeDefs();
+    }
+  });
+
+  it("keeps the no-configuration message for unknown node types", () => {
+    renderForm({ type: "totally.unknown", config: {}, columns: [] });
+    expect(screen.getByText(/No configuration for this node type/i)).toBeInTheDocument();
+  });
+});

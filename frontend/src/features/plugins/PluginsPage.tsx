@@ -477,6 +477,9 @@ function PluginDetailDialog({
 
             <NodePlacement nodes={plugin.nodes} nodeCategories={plugin.node_categories} />
 
+            <ContributionChips label="Connectors" items={plugin.connectors ?? []} />
+            <ContributionChips label="ML model types" items={plugin.model_types ?? []} />
+
             {plugin.capabilities.length > 0 && (
               <div className="mt-2.5">
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -811,6 +814,27 @@ function NodePlacement({
             </span>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function ContributionChips({ label, items }: { label: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-2.5">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {items.map((item) => (
+          <span
+            key={item}
+            className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-slate-700 shadow-sm"
+          >
+            {item}
+          </span>
+        ))}
       </div>
     </div>
   );

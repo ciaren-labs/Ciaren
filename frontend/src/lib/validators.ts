@@ -1,7 +1,6 @@
 // Zod schemas for validating each node type's config in the sidebar forms.
 import { z } from "zod";
 import {
-  ML_MODEL_VALUES,
   isSupervisedModel,
   CV_STRATEGY_VALUES,
   CV_SCORING_VALUES,
@@ -201,7 +200,9 @@ const fileInputConfig = inputConfig.extend({
 // supervised models, so the same schema serves the unsupervised ones too.
 const mlTrainSchema = z
   .object({
-    model_type: z.enum(ML_MODEL_VALUES),
+    // Any non-empty model type is allowed: plugins can contribute types beyond
+    // the static mirror (the backend catalog is authoritative and re-validates).
+    model_type: z.string().min(1, "Pick a model"),
     target_column: z.string().optional(),
     feature_columns: stringArray.optional(),
     hyperparameters: z.record(z.string(), z.unknown()).optional(),

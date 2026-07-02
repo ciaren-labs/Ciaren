@@ -43,8 +43,10 @@ import {
   TagInput,
 } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
+import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { MlTrainConfig } from "./MlTrainConfig";
 import { MlCrossValidateConfig } from "./MlCrossValidateConfig";
+import { SchemaConfigFields, fieldsFromDefaults } from "./SchemaConfigFields";
 
 interface NodeConfigFormProps {
   type: string;
@@ -2179,8 +2181,30 @@ export function NodeConfigForm({
         </>
       );
 
-    default:
+    default: {
+      // Plugin nodes: render the schema-driven form the plugin declared
+      // (config_schema), or fall back to fields inferred from its default
+      // config so every plugin node stays configurable without a hand-written
+      // form here.
+      const def = getNodeTypeDef(type);
+      const schemaFields = def?.configSchema?.length
+        ? def.configSchema
+        : def && Object.keys(def.defaultConfig ?? {}).length
+          ? fieldsFromDefaults(def.defaultConfig)
+          : null;
+      if (schemaFields) {
+        return (
+          <SchemaConfigFields
+            fields={schemaFields}
+            config={c}
+            columns={columns}
+            errors={errors}
+            onChange={(key, value) => set({ [key]: value })}
+          />
+        );
+      }
       return <p className="text-xs text-muted-foreground">No configuration for this node type.</p>;
+    }
   }
 }
 

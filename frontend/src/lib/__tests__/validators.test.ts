@@ -664,8 +664,13 @@ describe("mlTrainClassifier", () => {
     accepts("mlTrainRegressor", { model_type: "kmeans", seed: 1 }));
   it("requires a seed", () =>
     rejects("mlTrainRegressor", { model_type: "ridge", target_column: "y" }, "seed"));
-  it("rejects an unknown model_type", () =>
-    rejects("mlTrainRegressor", { model_type: "deep_net", target_column: "y", seed: 1 }, "model_type"));
+  // Plugins can contribute model types beyond the static mirror, so any
+  // non-empty model_type passes here (the backend catalog re-validates); only
+  // a missing/empty model type is a form error.
+  it("accepts a plugin-contributed model_type", () =>
+    accepts("mlTrainRegressor", { model_type: "deep_net", target_column: "y", seed: 1 }));
+  it("rejects an empty model_type", () =>
+    rejects("mlTrainRegressor", { model_type: "", target_column: "y", seed: 1 }, "model_type"));
   it("requires a target for supervised models (superRefine)", () =>
     rejects("mlTrainRegressor", { model_type: "ridge", seed: 1 }, "target_column"));
   it("rejects the target appearing in features (leakage)", () =>

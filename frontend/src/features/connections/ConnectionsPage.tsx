@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ApiError } from "@/lib/api";
+import { SchemaConfigFields } from "@/components/flow/SchemaConfigFields";
 import type { Connection, ConnectionCreate, ProviderInfo } from "@/lib/types";
 import {
   useConnectionProviders,
@@ -503,8 +504,13 @@ function ProviderCard({
         <div>
           <p className="text-sm font-semibold leading-snug">{provider.label}</p>
           <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-            {meta.description}
+            {meta.description || (provider.plugin ? `Contributed by ${provider.plugin_id}` : "")}
           </p>
+          {provider.plugin && (
+            <span className="mt-1.5 inline-block rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+              Plugin
+            </span>
+          )}
         </div>
       </button>
 
@@ -614,6 +620,10 @@ function ConnectionDialog({
   const setOption = (key: string, value: string) =>
     set({ options: { ...(form.options ?? {}), [key]: value || undefined } });
 
+  // Schema-driven plugin fields can hold any JSON value (booleans, numbers, lists).
+  const setOptionValue = (key: string, value: unknown) =>
+    set({ options: { ...(form.options ?? {}), [key]: value === "" ? undefined : value } });
+
   const provider = useMemo(
     () => providers.find((p) => p.name === form.provider),
     [providers, form.provider],
@@ -623,9 +633,10 @@ function ConnectionDialog({
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
   const selectableProviders = providers;
-  const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
-  const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
-  const trackingProviders = selectableProviders.filter((p) => p.kind === "mlflow");
+  const dbProviders = selectableProviders.filter((p) => !p.plugin && (p.kind === "sql" || p.kind === "mongo"));
+  const storageProviders = selectableProviders.filter((p) => !p.plugin && p.kind === "storage");
+  const trackingProviders = selectableProviders.filter((p) => !p.plugin && p.kind === "mlflow");
+  const pluginProviders = selectableProviders.filter((p) => p.plugin);
 
   const selectProvider = (p: ProviderInfo) => {
     testConfig.reset();
@@ -723,6 +734,11 @@ function ConnectionDialog({
                   providers={trackingProviders}
                   onSelect={selectProvider}
                 />
+                <ProviderSection
+                  label="From plugins"
+                  providers={pluginProviders}
+                  onSelect={selectProvider}
+                />
               </div>
             </div>
           </>
@@ -791,7 +807,14 @@ function ConnectionDialog({
                 />
               </Field>
 
-              {isMlflow ? (
+              {provider?.plugin ? (
+                <PluginProviderFields
+                  form={form}
+                  provider={provider}
+                  set={set}
+                  setOptionValue={setOptionValue}
+                />
+              ) : isMlflow ? (
                 <Field
                   label="Tracking URI"
                   hint="A local folder (./mlruns), sqlite:///path/mlflow.db, or a tracking server (http://host:5000)."
@@ -892,6 +915,84 @@ function ConnectionDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Plugin connector config fields ───────────────────────────────────────────
+
+/** Form for a plugin-contributed connector: the standard fields its provider
+ *  flags ask for (host/port, database or bucket, username + password env var)
+ *  plus the connector's own `config_schema` fields, which are stored in the
+ *  connection's `options`. */
+function PluginProviderFields({
+  form,
+  provider,
+  set,
+  setOptionValue,
+}: {
+  form: ConnectionCreate;
+  provider: ProviderInfo;
+  set: (patch: Partial<ConnectionCreate>) => void;
+  setOptionValue: (key: string, value: unknown) => void;
+}) {
+  const schemaFields = provider.config_schema?.fields ?? [];
+  const isStorageKind = provider.kind === "storage";
+  return (
+    <>
+      {provider.needs_host && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Host">
+            <Input
+              value={form.host ?? ""}
+              onChange={(e) => set({ host: e.target.value })}
+              placeholder="localhost"
+            />
+          </Field>
+          <Field label="Port">
+            <Input
+              type="number"
+              value={form.port ?? ""}
+              onChange={(e) => set({ port: e.target.value ? Number(e.target.value) : null })}
+            />
+          </Field>
+        </div>
+      )}
+      {(provider.needs_bucket || isStorageKind) && (
+        <Field label={isStorageKind ? "Bucket / folder" : "Bucket"}>
+          <Input
+            value={form.database ?? ""}
+            onChange={(e) => set({ database: e.target.value })}
+          />
+        </Field>
+      )}
+      {(provider.kind === "sql" || provider.kind === "mongo") && (
+        <Field label="Database">
+          <Input value={form.database ?? ""} onChange={(e) => set({ database: e.target.value })} />
+        </Field>
+      )}
+      {provider.needs_auth && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Username">
+            <Input
+              value={form.username ?? ""}
+              onChange={(e) => set({ username: e.target.value })}
+            />
+          </Field>
+          <Field label="Password env var" hint="Name of the env var holding the secret">
+            <Input
+              value={form.password_env ?? ""}
+              onChange={(e) => set({ password_env: e.target.value })}
+              placeholder="MY_SECRET"
+            />
+          </Field>
+        </div>
+      )}
+      <SchemaConfigFields
+        fields={schemaFields}
+        config={(form.options ?? {}) as Record<string, unknown>}
+        onChange={setOptionValue}
+      />
+    </>
   );
 }
 
