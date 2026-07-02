@@ -13,6 +13,7 @@ from app.engine.codegen_common import (
     edge_source_var,
     last_consumer_index,
     ordered_imports,
+    strip_self_assign,
 )
 
 
@@ -158,3 +159,19 @@ def test_del_scheduler_disabled_is_inert() -> None:
     dels = _scheduler(enabled=False)
     dels.schedule("a", {"out": "df_1"})
     assert dels.flush(2) == []
+
+
+def test_strip_self_assign_drops_noop_seed_line() -> None:
+    # castDtypes-style snippet under variable reuse: the seed line degenerates.
+    code = "df_1 = df_1\ndf_1 = df_1.assign(a=1)\ndf_1 = df_1.assign(b=2)"
+    assert strip_self_assign(code) == "df_1 = df_1.assign(a=1)\ndf_1 = df_1.assign(b=2)"
+
+
+def test_strip_self_assign_keeps_real_assignments() -> None:
+    code = "df_2 = df_1\ndf_2 = df_2.assign(a=1)"  # no reuse: seed is meaningful
+    assert strip_self_assign(code) == code
+    assert strip_self_assign("df_1 = df_1.copy()") == "df_1 = df_1.copy()"
+
+
+def test_strip_self_assign_never_returns_empty() -> None:
+    assert strip_self_assign("df_1 = df_1") == "df_1 = df_1"

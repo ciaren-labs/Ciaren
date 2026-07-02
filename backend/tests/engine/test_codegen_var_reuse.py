@@ -197,3 +197,32 @@ def test_fanout_free_intermediates_still_correct(tmp_path: Path) -> None:
     assert "del df_2" in code
     out = _run(code, tmp_path)
     assert len(out) == 3
+
+
+def _cast_chain_graph() -> dict:
+    """csvInput -> castDtypes -> csvOutput: castDtypes seeds its snippet with
+    ``dst = src``, which under reuse degenerates to ``df_1 = df_1``."""
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "c", "type": "castDtypes", "data": {"config": {"casts": {"a": "float", "t": "datetime"}}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "c"},
+            {"id": "e2", "source": "c", "target": "out"},
+        ],
+    }
+
+
+def test_reuse_emits_no_self_assign_noop() -> None:
+    """Seed-line emitters (castDtypes, asserts, outliers) must not leave a
+    ``df_1 = df_1`` line behind when their output variable is the reused input."""
+    for code in (
+        CodeGenerator().generate(_cast_chain_graph(), {"d": "in.csv"}),
+        PolarsCodeGenerator().generate(_cast_chain_graph(), {"d": "in.csv"}),
+    ):
+        for line in code.splitlines():
+            name, sep, rhs = line.partition(" = ")
+            if sep:
+                assert rhs.strip() != name.strip(), f"self-assign no-op survived:\n{code}"

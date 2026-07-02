@@ -34,6 +34,7 @@ from app.engine.codegen_common import (
     placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
+    strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
@@ -256,7 +257,7 @@ class PolarsCodeGenerator:
             else:
                 outs = {h: out_var() for h in handles}
                 node_outputs[node_id] = outs
-                lines.append(transformation.to_polars_code(input_vars, outs, config))
+                lines.append(strip_self_assign(transformation.to_polars_code(input_vars, outs, config)))
 
         for idx, node_id in enumerate(order):
             node = nodes_by_id[node_id]

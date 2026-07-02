@@ -14,9 +14,24 @@ instead of minting ``df_2``), and, under the optional ``del``
 (see :class:`DelScheduler`).
 """
 
+import re
 from typing import Any
 
 from app.engine.sql_codegen import engine_url_expr
+
+_SELF_ASSIGN = re.compile(r"^(\w+) = \1$")
+
+
+def strip_self_assign(code: str) -> str:
+    """Drop no-op ``x = x`` lines from an emitted snippet.
+
+    Emitters that build their output incrementally seed it with ``dst = src``
+    before appending per-item lines; under variable reuse dst and src are the
+    same name and the seed degenerates to ``df_1 = df_1``. Filtering here keeps
+    every emitter's seed-line idiom valid instead of making each one dst==src
+    aware."""
+    lines = [line for line in code.split("\n") if not _SELF_ASSIGN.match(line)]
+    return "\n".join(lines) or code
 
 
 def incoming_by_target(graph: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:

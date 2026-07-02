@@ -36,6 +36,7 @@ from app.engine.codegen_common import (
     placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
+    strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
@@ -224,7 +225,7 @@ class CodeGenerator:
                     output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
                 add_imports(transformation.imports(config))
-                body.append(transformation.to_python_code(input_vars, output_vars, config))
+                body.append(strip_self_assign(transformation.to_python_code(input_vars, output_vars, config)))
 
             dels.schedule(node_id, node_outputs.get(node_id, {}))
             body.extend(dels.flush(idx))
