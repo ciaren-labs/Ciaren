@@ -574,6 +574,18 @@ export interface PluginInfo {
   /** True when the plugin lives in the managed install dir and can be uninstalled
    *  via DELETE. False for dev-dir / entry-point plugins (disable-only). */
   uninstallable: boolean;
+  /** Manifest license kind: community | commercial | "" (no manifest). */
+  license: string;
+  /** Declared marketplace trust tier: trusted | verified | community | "". */
+  trust: string;
+  /** PEP 440 specifier of compatible Ciaren versions (e.g. ">=0.1"). */
+  ciaren_spec: string;
+  /** pip requirements the plugin declares it needs. */
+  dependencies: string[];
+  /** Dotted entry point (module.path:ClassName) from the manifest. */
+  entrypoint: string;
+  /** Managed install directory on disk, "" when the plugin lives elsewhere. */
+  install_path: string;
 }
 
 export interface LicenseStatus {
@@ -616,9 +628,14 @@ export interface MarketplaceEntry {
   publisher: string;
   description: string;
   license: string;
+  /** Derived by verifying the local artifact's signature: "trusted" | "community". */
   trust: string;
   capabilities: string[];
   permissions: string[];
+  /** PEP 440 specifier of compatible Ciaren versions ("" for older indexes). */
+  ciaren_spec: string;
+  /** pip requirements the plugin declares it needs (advisory). */
+  dependencies: string[];
   /** Node type ids this catalog entry contributes after install + approval. */
   nodes: string[];
   /** Palette category/subgroup for each contributed node. */

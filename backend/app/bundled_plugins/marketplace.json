@@ -13,6 +13,8 @@
         "node.hello"
       ],
       "permissions": [],
+      "ciarenSpec": ">=0.1",
+      "dependencies": [],
       "nodes": [
         "hello.greeting"
       ],
@@ -36,6 +38,8 @@
         "node.sklearn.mlp"
       ],
       "permissions": [],
+      "ciarenSpec": ">=0.1",
+      "dependencies": [],
       "nodes": [
         "sklearn.mlpClassifierTrain"
       ],

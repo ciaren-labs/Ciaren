@@ -73,6 +73,10 @@ class GatedPlugin:
     missing_permissions: list[Permission] = field(default_factory=list)
     nodes: list[str] = field(default_factory=list)
     node_categories: dict[str, str] = field(default_factory=dict)
+    #: The validated manifest (gated plugins always have one — gating only applies
+    #: to manifest-bearing candidates). Lets the UI show version/publisher/
+    #: description without ever importing the plugin's code.
+    manifest: PluginManifest | None = None
 
 
 @dataclass
@@ -204,6 +208,7 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             requested_permissions=list(manifest.permissions),
             nodes=list(manifest.ui.nodes),
             node_categories=dict(manifest.ui.node_categories),
+            manifest=manifest,
         )
     # A plugin runs only after the user explicitly approves it (enabling or granting
     # permissions). A freshly discovered plugin is unapproved, so its code stays
@@ -220,6 +225,7 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             missing_permissions=missing,
             nodes=list(manifest.ui.nodes),
             node_categories=dict(manifest.ui.node_categories),
+            manifest=manifest,
         )
     return None
 

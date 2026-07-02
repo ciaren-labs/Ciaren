@@ -15,7 +15,7 @@ from typing import Literal
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.plugin_api import Hook, LicenseStatus, Permission
+from app.plugin_api import Hook, LicenseStatus, Permission, PluginManifest
 from app.plugins import (
     get_load_result,
     get_plugin_state,
@@ -56,6 +56,20 @@ class PluginInfo(BaseModel):
     #: DELETE. False for dev-dir (``CIAREN_PLUGINS_DIR``) or entry-point plugins,
     #: which the UI can only disable, not uninstall.
     uninstallable: bool = False
+    #: Manifest license kind: ``community`` | ``commercial`` | "" (no manifest).
+    license: str = ""
+    #: Declared marketplace trust tier: ``trusted`` | ``verified`` | ``community``
+    #: | "" (no manifest). Informational only — it grants nothing.
+    trust: str = ""
+    #: PEP 440 specifier of compatible Ciaren versions (e.g. ``>=0.1``).
+    ciaren_spec: str = ""
+    #: pip requirements the plugin declares it needs.
+    dependencies: list[str] = Field(default_factory=list)
+    #: Dotted entry point (``module.path:ClassName``) from the manifest.
+    entrypoint: str = ""
+    #: Managed install directory on disk, "" when the plugin lives elsewhere
+    #: (dev dir or entry-point package).
+    install_path: str = ""
 
 
 def _node_categories_for_loaded(loaded: LoadedPlugin) -> dict[str, str]:
@@ -63,11 +77,24 @@ def _node_categories_for_loaded(loaded: LoadedPlugin) -> dict[str, str]:
     return {spec.id: spec.category for spec in get_registry().node_specs() if spec.provider == provider}
 
 
-def _is_uninstallable(plugin_id: str) -> bool:
-    """Whether the plugin lives in the managed install dir (so DELETE can remove it)."""
+def _install_path(plugin_id: str) -> str:
+    """The managed install dir on disk, or "" for dev-dir / entry-point plugins."""
     from app.plugins.install import installed_location
 
-    return installed_location(plugin_id) is not None
+    location = installed_location(plugin_id)
+    return str(location) if location is not None else ""
+
+
+def _apply_manifest(info: PluginInfo, manifest: PluginManifest | None) -> PluginInfo:
+    """Copy advisory manifest fields onto ``info`` (left empty without one —
+    entry-point packages may not ship a manifest)."""
+    if manifest is not None:
+        info.license = manifest.license
+        info.trust = manifest.trust
+        info.ciaren_spec = manifest.ciaren
+        info.dependencies = list(manifest.dependencies)
+        info.entrypoint = manifest.entrypoint or ""
+    return info
 
 
 class PluginErrorInfo(BaseModel):
@@ -111,7 +138,8 @@ class RevokeRequest(BaseModel):
 
 def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
     meta = loaded.metadata
-    return PluginInfo(
+    install_path = _install_path(meta.id)
+    info = PluginInfo(
         id=meta.id,
         name=meta.name,
         version=meta.version,
@@ -125,25 +153,37 @@ def _loaded_info(loaded: LoadedPlugin, state: PluginStateStore) -> PluginInfo:
         signature=state.signature(meta.id),
         nodes=list(loaded.manifest.ui.nodes) if loaded.manifest else [],
         node_categories=_node_categories_for_loaded(loaded),
-        uninstallable=_is_uninstallable(meta.id),
+        uninstallable=bool(install_path),
+        install_path=install_path,
     )
+    return _apply_manifest(info, loaded.manifest)
 
 
 def _gated_info(gated: GatedPlugin, state: PluginStateStore) -> PluginInfo:
     status: PluginStatus = "disabled" if gated.reason == "disabled" else "needs_permissions"
-    return PluginInfo(
+    # A gated plugin's code never ran, but its validated manifest is available —
+    # surface identity from there so the approval decision has context.
+    manifest = gated.manifest
+    install_path = _install_path(gated.plugin_id)
+    info = PluginInfo(
         id=gated.plugin_id,
         name=gated.name,
+        version=manifest.version if manifest else "",
+        publisher=manifest.publisher if manifest else "",
+        description=manifest.description if manifest else "",
         source=gated.source,
         status=status,
+        capabilities=list(manifest.capabilities) if manifest else [],
         permissions=list(gated.requested_permissions),
         granted_permissions=sorted(state.granted(gated.plugin_id), key=lambda p: p.value),
         missing_permissions=list(gated.missing_permissions),
         signature=state.signature(gated.plugin_id),
         nodes=list(gated.nodes),
         node_categories={node: gated.node_categories.get(node, "plugins") for node in gated.nodes},
-        uninstallable=_is_uninstallable(gated.plugin_id),
+        uninstallable=bool(install_path),
+        install_path=install_path,
     )
+    return _apply_manifest(info, manifest)
 
 
 def _all_infos(result: LoadResult, state: PluginStateStore) -> list[PluginInfo]:
