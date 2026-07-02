@@ -57,30 +57,34 @@ your downstream code prefers.
 import pandas as pd
 
 df_1 = pd.read_csv("sales.csv")
-df_2 = df_1.dropna(subset=['amount'])
-df_3 = df_2.groupby(['region']).agg({'amount': 'sum'}).reset_index()
-df_3.to_csv("summary.csv", index=False)
+df_1 = df_1.dropna(subset=['amount'])
+df_1 = df_1.groupby(['region']).agg({'amount': 'sum'}).reset_index()
+df_1.to_csv("summary.csv", index=False)
 ```
 
 ```python [polars (eager)]
 import polars as pl
 
 df_1 = pl.read_csv("sales.csv")
-df_2 = df_1.drop_nulls(subset=['amount'])
-df_3 = df_2.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
-df_3.write_csv("summary.csv")
+df_1 = df_1.drop_nulls(subset=['amount'])
+df_1 = df_1.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
+df_1.write_csv("summary.csv")
 ```
 
 ```python [polars (lazy)]
 import polars as pl
 
 df_1 = pl.scan_csv("sales.csv")          # LazyFrame — reads only what's needed
-df_2 = df_1.drop_nulls(subset=['amount'])
-df_3 = df_2.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
-df_3.collect().write_csv("summary.csv")  # single optimised query runs here
+df_1 = df_1.drop_nulls(subset=['amount'])
+df_1 = df_1.group_by(['region']).agg([pl.col('amount').sum().alias('amount')])
+df_1.collect().write_csv("summary.csv")  # single optimised query runs here
 ```
 
 :::
+
+Steps on a straight chain reuse one variable, the way a person would write it.
+A step whose result feeds **several** later nodes (a fan-out, or a join input)
+keeps its own `df_N` variable, since it must stay alive for every consumer.
 
 ### Lazy polars (for large inputs)
 
@@ -104,8 +108,11 @@ rest of the plan lazy.
 Pass `?free_intermediates=true` (the **Free intermediate tables (`del`)** checkbox
 in the export dialog) to add a `del` after each dataframe's last use in the pandas
 and eager-polars scripts. This releases intermediate tables sooner, lowering peak
-memory on long pipelines. The lazy script is unaffected — its variables are query
-plans, not materialized data, so there is nothing to free.
+memory on long pipelines. A fully linear flow already reuses one variable
+throughout, so it has nothing to `del` — the option matters for flows with
+fan-outs or joins, where intermediates outlive the next step. The lazy script is
+unaffected — its variables are query plans, not materialized data, so there is
+nothing to free.
 
 ### Streaming reads at runtime (polars)
 

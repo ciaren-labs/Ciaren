@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -9,6 +9,7 @@ const grant = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
 const disable = vi.fn((_id: string) => Promise.resolve({}));
 const enable = vi.fn((_id: string) => Promise.resolve({}));
 const revoke = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
+const uninstall = vi.fn((_id: string) => Promise.resolve({ plugin_id: _id, removed: true }));
 const installPlugin = vi.fn((_file: File) => Promise.resolve({ plugin: { name: "X" }, outcome: "unsigned" }));
 const marketplaceList = vi.fn().mockResolvedValue({ configured: false, plugins: [] });
 const marketplaceInstall = vi.fn((_id: string) => Promise.resolve({}));
@@ -21,6 +22,7 @@ vi.mock("@/lib/api", () => ({
     disable: (id: string) => disable(id),
     enable: (id: string) => enable(id),
     revoke: (id: string, perms: string[]) => revoke(id, perms),
+    uninstall: (id: string) => uninstall(id),
     install: (file: File) => installPlugin(file),
     license: (id: string) =>
       Promise.resolve({ plugin_id: id, valid: true, license_type: null, expires_at: null, reason: "no license provider" }),
@@ -31,6 +33,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { PluginsPage } from "../PluginsPage";
 
 function renderPage() {
@@ -38,7 +41,9 @@ function renderPage() {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <PluginsPage />
+        <TooltipProvider>
+          <PluginsPage />
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -59,6 +64,13 @@ const PENDING = {
   signature: "unsigned",
   nodes: ["hello.greeting"],
   node_categories: { "hello.greeting": "columns" },
+  uninstallable: false,
+  license: "community",
+  trust: "community",
+  ciaren_spec: ">=0.1",
+  dependencies: ["requests>=2"],
+  entrypoint: "hello_plugin:HelloPlugin",
+  install_path: "",
 };
 
 const LOADED = {
@@ -93,29 +105,51 @@ describe("PluginsPage", () => {
     expect(screen.getByText(/not responsible/i)).toBeInTheDocument();
   });
 
-  it("renders a pending plugin with its permissions and an Approve action", async () => {
+  it("renders a compact pending card with an inline Approve action", async () => {
     diagnostics.mockResolvedValueOnce({ loaded: [], gated: [PENDING], errors: [] });
     renderPage();
 
     expect(await screen.findByText("Hello Plugin")).toBeInTheDocument();
     expect(screen.getByText("Needs approval")).toBeInTheDocument();
-    // The requested permission is shown with its friendly description.
-    expect(screen.getByText("network")).toBeInTheDocument();
-    expect(screen.getByText(/Make network requests/)).toBeInTheDocument();
-    expect(screen.getByText("hello.greeting")).toBeInTheDocument();
-    expect(screen.getByText("Columns")).toBeInTheDocument();
-    expect(screen.getByText(/not loaded/)).toBeInTheDocument();
+    // The security consequence stays visible without opening the details.
+    expect(screen.getByText(/Not loaded until you approve/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Approve/i }));
     await waitFor(() => expect(grant).toHaveBeenCalledWith("community.hello", []));
   });
 
-  it("renders a loaded plugin with a Disable action", async () => {
+  it("opens a detail dialog with permissions, nodes, and manifest details", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [PENDING], errors: [] });
+    renderPage();
+
+    await userEvent.click(await screen.findByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
+    // The requested permission is shown with its friendly description.
+    expect(within(dialog).getByText("network")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Make network requests/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/not loaded/i)).toBeInTheDocument();
+    // Contributed nodes with their palette category.
+    expect(within(dialog).getByText("hello.greeting")).toBeInTheDocument();
+    expect(within(dialog).getByText("Columns")).toBeInTheDocument();
+    // Manifest details: dependencies, compatibility, entry point, trust tier.
+    expect(within(dialog).getByText("requests>=2")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Ciaren >=0.1/)).toBeInTheDocument();
+    expect(within(dialog).getByText("hello_plugin:HelloPlugin")).toBeInTheDocument();
+    expect(within(dialog).getByText("Trust tier")).toBeInTheDocument();
+
+    // Approving from the dialog works too.
+    await userEvent.click(within(dialog).getByRole("button", { name: /Approve/i }));
+    await waitFor(() => expect(grant).toHaveBeenCalledWith("community.hello", []));
+  });
+
+  it("offers Disable in the detail dialog of a loaded plugin", async () => {
     diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
     renderPage();
 
     expect(await screen.findByText("Active")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Disable/i }));
+    await userEvent.click(screen.getByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Disable/i }));
     await waitFor(() => expect(disable).toHaveBeenCalledWith("community.hello"));
   });
 
@@ -124,18 +158,21 @@ describe("PluginsPage", () => {
     renderPage();
 
     expect(await screen.findByText("Active")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
     // The permission is listed…
-    expect(screen.getByText("network")).toBeInTheDocument();
+    expect(within(dialog).getByText("network")).toBeInTheDocument();
     // …but never flagged as "(not granted)" for a plugin that is already running.
-    expect(screen.queryByText(/not granted/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/not granted/i)).not.toBeInTheDocument();
   });
 
   it("revokes a previously-approved plugin's permissions", async () => {
     diagnostics.mockResolvedValueOnce({ loaded: [LOADED_APPROVED], gated: [], errors: [] });
     renderPage();
 
-    await screen.findByText("Hello Plugin");
-    await userEvent.click(screen.getByRole("button", { name: /Revoke/i }));
+    await userEvent.click(await screen.findByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Revoke/i }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith("community.hello", ["network"]));
   });
 
@@ -143,8 +180,36 @@ describe("PluginsPage", () => {
     diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
     renderPage();
 
-    await screen.findByText("Active");
-    expect(screen.queryByRole("button", { name: /Revoke/i })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("button", { name: /Revoke/i })).not.toBeInTheDocument();
+  });
+
+  it("uninstalls a managed plugin after confirmation", async () => {
+    diagnostics.mockResolvedValueOnce({
+      loaded: [{ ...LOADED, uninstallable: true }],
+      gated: [],
+      errors: [],
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByText("Hello Plugin"));
+    const detail = await screen.findByRole("dialog");
+    await userEvent.click(within(detail).getByRole("button", { name: /Uninstall/i }));
+    // A destructive confirm dialog gates the delete; nothing happens until confirmed.
+    expect(uninstall).not.toHaveBeenCalled();
+    const confirm = await screen.findByRole("dialog", { name: /Uninstall Hello Plugin/i });
+    await userEvent.click(within(confirm).getByRole("button", { name: /Uninstall/i }));
+    await waitFor(() => expect(uninstall).toHaveBeenCalledWith("community.hello"));
+  });
+
+  it("does not offer Uninstall for a dev-dir / entry-point plugin", async () => {
+    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
+    renderPage();
+
+    await userEvent.click(await screen.findByText("Hello Plugin"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("button", { name: /Uninstall/i })).not.toBeInTheDocument();
   });
 
   it("shows the install-time signature trust badge", async () => {
@@ -191,9 +256,11 @@ describe("PluginsPage", () => {
           publisher: "acme",
           description: "Connect to Databricks.",
           license: "commercial",
-          trust: "verified",
+          trust: "trusted",
           capabilities: ["connector.databricks"],
           permissions: ["network", "credentials"],
+          ciaren_spec: ">=0.1",
+          dependencies: ["databricks-sql-connector"],
           nodes: ["databricks.query"],
           node_categories: { "databricks.query": "input" },
           license_required: true,
@@ -208,6 +275,10 @@ describe("PluginsPage", () => {
     expect(screen.getByText("databricks.query")).toBeInTheDocument();
     expect(screen.getByText("Inputs")).toBeInTheDocument();
     expect(screen.getByText("License required")).toBeInTheDocument();
+    // Verified-artifact trust tier plus the manifest metadata carried by the index.
+    expect(screen.getByText("Trusted")).toBeInTheDocument();
+    expect(screen.getByText(">=0.1")).toBeInTheDocument();
+    expect(screen.getByText("databricks-sql-connector")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Install$/i }));
     await waitFor(() => expect(marketplaceInstall).toHaveBeenCalledWith("acme.databricks"));
   });
@@ -227,6 +298,8 @@ describe("PluginsPage", () => {
           trust: "community",
           capabilities: [],
           permissions: [],
+          ciaren_spec: "",
+          dependencies: [],
           nodes: ["acme.xNode"],
           node_categories: { "acme.xNode": "plugins" },
           license_required: false,

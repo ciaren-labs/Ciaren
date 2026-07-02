@@ -58,7 +58,7 @@ shown as installable examples so users can try the install and approval flow.
 Set `CIAREN_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
 marketplace JSON.
 
-![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing the installable Hello Plugin example](/screenshots/plugins.png)
+![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing the installable Hello Plugin example with its trust tier and license](/screenshots/plugins.png)
 
 ```bash
 # Develop against a local folder
@@ -93,13 +93,17 @@ ciaren plugin verify  ./my-plugin.ciarenplugin
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full
 publisher workflow.
 
-## A complete, runnable example
+## Complete, runnable examples
 
-The smallest possible plugin — it adds one catalog node that runs end-to-end —
-lives in the repository at
-[`examples/plugins/hello-node-plugin/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin),
-with a pre-built **signed** package in
-[`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist).
+Two example plugins live in the repository, both shipped as pre-built **signed**
+packages in [`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist)
+and bundled into the Explore catalog so a fresh install lists them ready to install:
+
+- **[Hello plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin)** —
+  the smallest node that runs end-to-end. Start here → [Build Your First Plugin](/plugins/first-plugin).
+- **[MLP Classifier plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/mlp-classifier-plugin)** —
+  a realistic scikit-learn training node with hyperparameters, validation, and code
+  export. Walk through it → [Build an Advanced Plugin](/plugins/advanced-plugin-sklearn).
 
 ## Where this is heading
 
@@ -109,7 +113,9 @@ stays open and useful on its own; extensions install from the outside.
 
 ## Next steps
 
+- **[Installing & Managing Plugins](/plugins/managing-plugins)** — install, approve, disable, and uninstall
 - **[Build Your First Plugin](/plugins/first-plugin)** — a 10-minute, step-by-step tutorial
+- **[Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn)** — hyperparameters, validation, and code export
 - **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
 - **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
 - **[Packaging & Distribution](/plugins/packaging-and-distribution)** — package and sign

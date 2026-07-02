@@ -73,6 +73,10 @@ class GatedPlugin:
     missing_permissions: list[Permission] = field(default_factory=list)
     nodes: list[str] = field(default_factory=list)
     node_categories: dict[str, str] = field(default_factory=dict)
+    #: The validated manifest (gated plugins always have one — gating only applies
+    #: to manifest-bearing candidates). Lets the UI show version/publisher/
+    #: description without ever importing the plugin's code.
+    manifest: PluginManifest | None = None
 
 
 @dataclass
@@ -154,8 +158,12 @@ def _local_candidate(plugin_dir: Path, manifest_path: Path) -> PluginCandidate:
     def load(plugin_dir: Path = plugin_dir, manifest: PluginManifest = manifest) -> Plugin:
         # The plugin's package lives directly inside its own directory, so put
         # that directory on sys.path to make the entry-point module importable.
+        # *Append* (never insert at 0): a plugin dir must not take import priority
+        # over the stdlib or the Ciaren app, or a plugin shipping e.g. its own
+        # ``json.py``/``os.py`` would shadow those modules process-wide — for the
+        # core and every other plugin, not just itself.
         if str(plugin_dir) not in sys.path:
-            sys.path.insert(0, str(plugin_dir))
+            sys.path.append(str(plugin_dir))
         if not manifest.entrypoint:
             raise ValueError(f"plugin {manifest.id!r} manifest has no entrypoint")
         return load_entrypoint(manifest.entrypoint)
@@ -200,6 +208,7 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             requested_permissions=list(manifest.permissions),
             nodes=list(manifest.ui.nodes),
             node_categories=dict(manifest.ui.node_categories),
+            manifest=manifest,
         )
     # A plugin runs only after the user explicitly approves it (enabling or granting
     # permissions). A freshly discovered plugin is unapproved, so its code stays
@@ -216,6 +225,7 @@ def _gate(candidate: PluginCandidate, state: PluginStateStore) -> GatedPlugin | 
             missing_permissions=missing,
             nodes=list(manifest.ui.nodes),
             node_categories=dict(manifest.ui.node_categories),
+            manifest=manifest,
         )
     return None
 

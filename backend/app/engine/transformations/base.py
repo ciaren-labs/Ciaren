@@ -6,6 +6,26 @@ from typing import Any
 from app.engine.backends.base import AnyFrame, EngineBackend
 
 
+def polars_to_datetime_expr(schema_var: str, column_code: str, fmt: str | None = None, strict: bool = False) -> str:
+    """Emitted-polars expression coercing a column to datetime the way the engine
+    does: parse it if it is a string, cast it if it is already temporal.
+
+    ``PolarsEngine`` dispatches on the column's dtype at runtime (see
+    ``_to_datetime_expr``), which a static emitter cannot know — the dtype depends
+    on upstream nodes. Emitters must therefore reproduce the dispatch in the
+    generated code against a schema captured as ``{schema_var} =
+    <frame>.collect_schema()`` (which works on eager and lazy frames alike).
+    ``column_code`` is a code fragment evaluating to the column name — pass
+    ``repr(col)`` for a literal, or a loop variable like ``"c"``.
+    """
+    fmt_part = f"format={fmt!r}, " if fmt is not None else ""
+    return (
+        f"(pl.col({column_code}).str.to_datetime({fmt_part}strict={strict}) "
+        f"if {schema_var}[{column_code}] == pl.Utf8 "
+        f"else pl.col({column_code}).cast(pl.Datetime, strict={strict}))"
+    )
+
+
 @dataclass
 class NodeMetadata:
     """Non-frame outcomes a node surfaces onto its ``NodeResult``.

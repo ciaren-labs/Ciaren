@@ -56,7 +56,8 @@ class FilterRowsTransformation(BaseTransformation):
         if op == "in":
             return f"{dst} = {src}[{src}[{col!r}].isin({self._values(config)!r})]"
         if op in {"contains", "startswith", "endswith"}:
-            return f"{dst} = {src}[{src}[{col!r}].astype(str).str.{op}({val!r})]"
+            # str() like the engine: a numeric search value must not emit .str.contains(5).
+            return f"{dst} = {src}[{src}[{col!r}].astype(str).str.{op}({str(val)!r})]"
         raise ValueError(f"Unknown filter operator: {op!r}")
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
@@ -79,7 +80,11 @@ class FilterRowsTransformation(BaseTransformation):
                 "startswith": "starts_with",
                 "endswith": "ends_with",
             }[op]
-            return f"{dst} = {src}.filter(pl.col({col!r}).cast(pl.Utf8).str.{method}({val!r}))"
+            # literal=True mirrors PolarsEngine.filter_rows — polars' contains is
+            # regex by default, which would misread values like "a.b". str() like
+            # the engine so numeric search values stay valid code.
+            extra = ", literal=True" if op == "contains" else ""
+            return f"{dst} = {src}.filter(pl.col({col!r}).cast(pl.Utf8).str.{method}({str(val)!r}{extra}))"
         raise ValueError(f"Unknown filter operator: {op!r}")
 
 
@@ -110,7 +115,11 @@ class FilterExpressionTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         expr = config["expression"]
         # Mirror execute(): evaluate the mask with pandas, filter the polars frame.
-        return f"{dst} = {src}.filter(pl.Series({src}.to_pandas().eval({expr!r})).cast(pl.Boolean))"
+        # The emitted comment warns script users about the hidden runtime deps.
+        return (
+            "# the filter expression uses pandas eval semantics (needs pandas + pyarrow installed)\n"
+            f"{dst} = {src}.filter(pl.Series({src}.to_pandas().eval({expr!r})).cast(pl.Boolean))"
+        )
 
 
 class SortRowsTransformation(BaseTransformation):

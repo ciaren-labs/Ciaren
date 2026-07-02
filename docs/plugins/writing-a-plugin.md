@@ -124,6 +124,18 @@ on them firing): `plugin_installed` (install runs in the CLI, a separate process
 [plugin-manifest.md](../specs/plugin-manifest.md). The loader validates it and
 checks `ciaren` compatibility before importing your code.
 
+You don't have to hand-write it. Because your `Plugin` already declares the id,
+version, permissions, nodes, and categories, generate the manifest from the code
+so the two can't drift:
+
+```bash
+ciaren plugin manifest ./my-plugin              # writes ciaren-plugin.json
+ciaren plugin manifest ./my-plugin --out -      # or print it to stdout
+```
+
+This still ships and validates the manifest before any code runs — it only
+removes the duplicated, drift-prone copy.
+
 ## 3. Make it discoverable
 
 **Installed package** — declare an entry point in `pyproject.toml`:

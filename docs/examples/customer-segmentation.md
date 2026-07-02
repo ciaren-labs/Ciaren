@@ -84,14 +84,17 @@ Upload both on the **Datasets** page (📥 download
 import pandas as pd
 
 df_1 = pd.read_csv("orders.csv")
-df_2 = df_1.groupby(['customer_id']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
-df_3 = df_2.rename(columns={'amount': 'total_spent', 'order_id': 'num_orders'})
-df_4 = pd.read_csv("customers.csv")
-df_5 = pd.merge(df_3, df_4, on=['customer_id'], how='left', suffixes=('_x', '_y'))
-df_6 = df_5.assign(**{'tier': pd.qcut(df_5['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string')})
-df_7 = df_6.sort_values(by=['total_spent'], ascending=False)
-df_7.to_csv("segments.csv", index=False)
+df_2 = pd.read_csv("customers.csv")
+df_1 = df_1.groupby(['customer_id']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
+df_1 = df_1.rename(columns={'amount': 'total_spent', 'order_id': 'num_orders'})
+df_3 = pd.merge(df_1, df_2, on=['customer_id'], how='left', suffixes=('_x', '_y'))
+df_3 = df_3.assign(**{'tier': pd.qcut(df_3['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string')})
+df_3 = df_3.sort_values(by=['total_spent'], ascending=[False])
+df_3.to_csv("segments.csv", index=False)
 ```
+
+Straight-line steps reuse one variable; the join's two inputs keep their own
+(`df_1`, `df_2`) because both must still exist when `pd.merge` runs.
 
 ## Result
 

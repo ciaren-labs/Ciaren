@@ -505,7 +505,7 @@ wheels = [
 
 [[package]]
 name = "ciaren"
-version = "0.1.0"
+version = "0.1.0a1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -620,7 +620,7 @@ requires-dist = [
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "packaging", specifier = ">=23" },
     { name = "pandas", specifier = ">=2.2" },
-    { name = "polars", specifier = ">=1.0" },
+    { name = "polars", specifier = ">=1.21" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'all'", specifier = ">=3.1" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'all-connectors'", specifier = ">=3.1" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.1" },

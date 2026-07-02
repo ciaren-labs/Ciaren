@@ -198,7 +198,7 @@ class RollingAggregateTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         target, function, window, min_periods, partition_by, order_by, descending, new = self._args(config)
-        expr = f"pl.col({target!r}).{_ROLLING_POLARS[function]}(window_size={window!r}, min_periods={min_periods!r})"
+        expr = f"pl.col({target!r}).{_ROLLING_POLARS[function]}(window_size={window!r}, min_samples={min_periods!r})"
         if partition_by:
             expr += f".over({partition_by!r})"
         lines = [f"_w = {src}.with_row_index('__rn__')"]

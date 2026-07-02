@@ -3,7 +3,7 @@
   "name": "Hello Plugin",
   "version": "0.1.0-alpha.1",
   "publisher": "community",
-  "description": "A minimal example plugin that contributes one catalog node.",
+  "description": "A minimal example plugin that contributes one executable node.",
   "license": "community",
   "ciaren": ">=0.1",
   "entrypoint": "ciaren_hello.plugin:HelloPlugin",

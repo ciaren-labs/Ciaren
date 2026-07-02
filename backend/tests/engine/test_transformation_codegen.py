@@ -29,6 +29,11 @@ CODEGEN_CASES = [
     ("filter_in_str", "filterRows", {"column": "a", "operator": "in", "value": "x, y"}),
     ("filter_in_list", "filterRows", {"column": "a", "operator": "in", "value": ["x", "y"]}),
     ("filter_contains", "filterRows", {"column": "a", "operator": "contains", "value": "z"}),
+    # regex-special value: each engine's own semantics (pandas regex, polars literal)
+    # must survive into the generated code.
+    ("filter_contains_dot", "filterRows", {"column": "a", "operator": "contains", "value": "z.b"}),
+    # non-string value: the engines coerce with str(); the emitters must too.
+    ("filter_contains_numeric", "filterRows", {"column": "a", "operator": "contains", "value": 5}),
     ("filter_startswith", "filterRows", {"column": "a", "operator": "startswith", "value": "z"}),
     ("filter_endswith", "filterRows", {"column": "a", "operator": "endswith", "value": "z"}),
     # sortRows: default and the na_position / per-column-direction branch
@@ -49,6 +54,7 @@ CODEGEN_CASES = [
     ("select_cols", "selectColumns", {"columns": ["a"]}),
     # castDtypes: datetime (with fmt+coerce), numeric coerce, plain
     ("cast_dt", "castDtypes", {"casts": {"a": "datetime"}, "format": "%Y-%m-%d", "errors": "coerce"}),
+    ("cast_dt_datetime", "castDtypes", {"casts": {"d": "datetime"}}),
     ("cast_int_coerce", "castDtypes", {"casts": {"a": "integer"}, "errors": "coerce"}),
     ("cast_plain", "castDtypes", {"casts": {"a": "string"}}),
     # dropNulls: any/all, with/without subset
@@ -69,7 +75,21 @@ CODEGEN_CASES = [
     ("groupby", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "sum"}}),
     ("concat", "concatRows", {}),
     ("calc", "calculatedColumn", {"column_name": "d", "expression": "a + b"}),
+    # date coercion nodes: the engines dispatch on the column's dtype at runtime
+    # (parse strings, cast already-temporal columns), and the input dtype depends
+    # on upstream nodes — so each node gets a string-input AND a datetime-input
+    # case, and the emitters must reproduce the dispatch in the generated code.
     ("dateparts", "extractDateParts", {"column": "d", "parts": ["year", "month", "day", "weekday", "hour"]}),
+    ("dateparts_str", "extractDateParts", {"column": "a", "parts": ["year", "month", "day", "weekday", "hour"]}),
+    ("parse_dates", "parseDates", {"columns": ["a"]}),
+    ("parse_dates_fmt", "parseDates", {"columns": ["a"], "format": "%Y-%m-%d", "errors": "raise"}),
+    ("parse_dates_datetime", "parseDates", {"columns": ["d"]}),
+    ("date_diff", "dateDifference", {"start_column": "s", "end_column": "e", "unit": "hours", "new_column": "diff"}),
+    (
+        "date_diff_datetime",
+        "dateDifference",
+        {"start_column": "s", "end_column": "e", "unit": "days", "new_column": "diff"},
+    ),
     ("unpivot_min", "unpivot", {"id_vars": ["id"]}),
     ("unpivot_full", "unpivot", {"id_vars": ["id"], "value_vars": ["x"], "var_name": "k", "value_name": "v"}),
     ("pivot_str_index", "pivot", {"index": "r", "columns": "c", "values": "v"}),

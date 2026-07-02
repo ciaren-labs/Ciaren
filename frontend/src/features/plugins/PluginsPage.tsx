@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Blocks,
   Check,
+  ChevronRight,
   Download,
   KeyRound,
   Loader2,
@@ -13,10 +14,19 @@ import {
   ShieldCheck,
   ShieldX,
   Store,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ErrorState, LoadingState } from "@/components/ui/PageState";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { getCategoryLabel } from "@/lib/nodeCatalog";
 import { getCategoryTheme } from "@/lib/nodeVisuals";
@@ -32,6 +42,7 @@ import {
   usePluginDiagnostics,
   usePluginLicense,
   useRevokePlugin,
+  useUninstallPlugin,
 } from "./hooks";
 
 // Short, friendly explanations for the permissions a plugin can request. Keeps
@@ -52,19 +63,28 @@ const PERMISSION_HELP: Record<string, string> = {
   telemetry: "Send usage telemetry",
 };
 
-const STATUS_META: Record<PluginStatus, { label: string; className: string }> = {
+const STATUS_META: Record<PluginStatus, { label: string; className: string; help: string }> = {
   loaded: {
     label: "Active",
     className: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    help: "This plugin's code is loaded and its nodes are available in the editor.",
   },
   disabled: {
     label: "Disabled",
     className: "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    help: "You turned this plugin off — its code is not loaded and its nodes are hidden.",
   },
   needs_permissions: {
     label: "Needs approval",
     className: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    help: "Discovered but not running: its code stays un-imported until you approve it.",
   },
+};
+
+const STATUS_TINT: Record<PluginStatus, string> = {
+  loaded: "#10b981",
+  needs_permissions: "#f59e0b",
+  disabled: "#94a3b8",
 };
 
 export function PluginsPage() {
@@ -191,34 +211,43 @@ function EmptyState() {
 function StatusBadge({ status }: { status: PluginStatus }) {
   const meta = STATUS_META[status];
   return (
-    <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-medium", meta.className)}>
-      {meta.label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={cn("cursor-help rounded-full border px-2 py-0.5 text-[11px] font-medium", meta.className)}>
+          {meta.label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{meta.help}</TooltipContent>
+    </Tooltip>
   );
 }
 
 // How a package verified at install time. Surfaces the provenance of an installed
 // plugin so a trusted/signed package is visibly distinct from an unsigned drop-in.
-const SIGNATURE_META: Record<string, { label: string; icon: typeof Shield; className: string }> = {
+const SIGNATURE_META: Record<string, { label: string; icon: typeof Shield; className: string; help: string }> = {
   trusted: {
     label: "Trusted",
     icon: ShieldCheck,
     className: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    help: "Signed, and the signature verified against a publisher key you trust. The package hasn't been altered since it was signed.",
   },
   untrusted: {
     label: "Untrusted key",
     icon: ShieldAlert,
     className: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    help: "Signed, but by a key that isn't in your trusted keys — the publisher's identity couldn't be verified. Treat it like any code you downloaded from the internet.",
   },
   unsigned: {
     label: "Unsigned",
     icon: Shield,
     className: "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    help: "The package carries no signature, so there is no way to verify who published it or that it wasn't modified.",
   },
   invalid: {
     label: "Invalid signature",
     icon: ShieldX,
     className: "border-red-300 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+    help: "The signature does not match the package contents — it may have been tampered with. Don't run it unless you know why.",
   },
 };
 
@@ -227,12 +256,19 @@ function SignatureBadge({ signature }: { signature: string }) {
   if (!meta) return null; // "" — unknown provenance (e.g. a hand-dropped directory)
   const Icon = meta.icon;
   return (
-    <span
-      className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", meta.className)}
-      title="How this package verified when it was installed"
-    >
-      <Icon className="h-3 w-3" /> {meta.label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-flex cursor-help items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+            meta.className,
+          )}
+        >
+          <Icon className="h-3 w-3" /> {meta.label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>How this package verified when it was installed: {meta.help}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -256,13 +292,118 @@ function LicenseBadge({ id }: { id: string }) {
   );
 }
 
+// Compact, scannable row: identity + status at a glance, the primary action
+// inline, everything else behind a click (the detail dialog).
 function PluginCard({ plugin }: { plugin: PluginInfo }) {
+  const [open, setOpen] = useState(false);
+  const grant = useGrantPlugin();
+  const enable = useEnablePlugin();
+  const tint = STATUS_TINT[plugin.status];
+
+  return (
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${plugin.name} details`}
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        className="cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="flex items-center gap-3">
+          <div className="shrink-0 rounded-lg p-2.5" style={{ backgroundColor: `${tint}1a` }}>
+            <Blocks className="h-5 w-5" style={{ color: tint }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{plugin.name}</span>
+              {plugin.version && <span className="text-xs text-muted-foreground">v{plugin.version}</span>}
+              <StatusBadge status={plugin.status} />
+              <SignatureBadge signature={plugin.signature} />
+              <LicenseBadge id={plugin.id} />
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {plugin.publisher && <>by {plugin.publisher} · </>}
+              {plugin.description || <span className="font-mono">{plugin.id}</span>}
+            </p>
+          </div>
+          {/* Inline actions must not bubble into the card's open-details click. */}
+          <div
+            className="flex shrink-0 items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {plugin.status === "needs_permissions" && (
+              <Button
+                size="sm"
+                disabled={grant.isPending}
+                onClick={() => grant.mutate({ id: plugin.id })}
+                title="Grant the requested permissions and load the plugin"
+              >
+                {grant.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Approve
+              </Button>
+            )}
+            {plugin.status === "disabled" && (
+              <Button size="sm" variant="outline" disabled={enable.isPending} onClick={() => enable.mutate(plugin.id)}>
+                <Power className="mr-1.5 h-3.5 w-3.5" /> Enable
+              </Button>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+        {plugin.status === "needs_permissions" && (
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-700 dark:text-amber-300">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Not loaded until you approve — approving runs its code on this machine, unsandboxed.
+          </p>
+        )}
+      </div>
+      <PluginDetailDialog plugin={plugin} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2 text-xs">
+      <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-all font-medium">{children}</dd>
+    </div>
+  );
+}
+
+function PluginDetailDialog({
+  plugin,
+  open,
+  onOpenChange,
+}: {
+  plugin: PluginInfo;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const enable = useEnablePlugin();
   const disable = useDisablePlugin();
   const grant = useGrantPlugin();
   const revoke = useRevokePlugin();
+  const uninstall = useUninstallPlugin();
+  const { data: license } = usePluginLicense(plugin.id);
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
   const busy =
-    enable.isPending || disable.isPending || grant.isPending || revoke.isPending;
+    enable.isPending ||
+    disable.isPending ||
+    grant.isPending ||
+    revoke.isPending ||
+    uninstall.isPending;
 
   // A loaded plugin's declared permissions are in force (its code is running), so
   // show them as active rather than "not granted". For a plugin still pending
@@ -273,121 +414,192 @@ function PluginCard({ plugin }: { plugin: PluginInfo }) {
   // plugin's permissions (drop-in plugins). Entry-point packages aren't gated, so
   // "Disable" is the way to stop them instead.
   const canRevoke = plugin.granted_permissions.length > 0;
-  const tintByStatus = {
-    loaded: "#10b981",
-    needs_permissions: "#f59e0b",
-    disabled: "#94a3b8",
-  }[plugin.status];
+  const tint = STATUS_TINT[plugin.status];
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start gap-3">
-        <div
-          className="shrink-0 rounded-lg p-2.5"
-          style={{ backgroundColor: `${tintByStatus}1a` }}
-        >
-          <Blocks className="h-5 w-5" style={{ color: tintByStatus }} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{plugin.name}</span>
-            <span className="text-xs text-muted-foreground">v{plugin.version}</span>
-            <StatusBadge status={plugin.status} />
-            <SignatureBadge signature={plugin.signature} />
-            <LicenseBadge id={plugin.id} />
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {plugin.publisher && <>by {plugin.publisher} · </>}
-            <span className="font-mono">{plugin.id}</span> · {plugin.source}
-          </p>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 rounded-lg p-2.5" style={{ backgroundColor: `${tint}1a` }}>
+                <Blocks className="h-5 w-5" style={{ color: tint }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="flex flex-wrap items-center gap-2">
+                  {plugin.name}
+                  {plugin.version && (
+                    <span className="text-xs font-normal text-muted-foreground">v{plugin.version}</span>
+                  )}
+                </DialogTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {plugin.publisher && <>by {plugin.publisher} · </>}
+                  <span className="font-mono">{plugin.id}</span> · {plugin.source}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <StatusBadge status={plugin.status} />
+                  <SignatureBadge signature={plugin.signature} />
+                  <LicenseBadge id={plugin.id} />
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
           {plugin.description && (
-            <p className="mt-1.5 text-sm text-muted-foreground">{plugin.description}</p>
+            <p className="text-sm text-muted-foreground">{plugin.description}</p>
           )}
 
-          {plugin.capabilities.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {plugin.capabilities.map((c) => (
-                <span key={c} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
-                  {c}
-                </span>
-              ))}
+          {plugin.status === "needs_permissions" && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {plugin.permissions.length > 0 ? (
+                  <>
+                    This plugin's code is <strong>not loaded</strong> until you approve the
+                    permissions below. Approving runs its code on this machine with your
+                    access — it is not sandboxed.
+                  </>
+                ) : (
+                  <>
+                    This plugin declares no permissions, but approving still{" "}
+                    <strong>runs its code</strong> on this machine with your access (it is
+                    not sandboxed). Its code is <strong>not loaded</strong> until you approve.
+                  </>
+                )}
+              </span>
             </div>
           )}
 
-          <NodePlacement nodes={plugin.nodes} nodeCategories={plugin.node_categories} />
-
-          {plugin.permissions.length > 0 && (
-            <PermissionList permissions={plugin.permissions} granted={granted} />
-          )}
-        </div>
-
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {plugin.status === "needs_permissions" && (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => grant.mutate({ id: plugin.id })}
-              title="Grant the requested permissions and load the plugin"
-            >
-              {grant.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Approve
-            </Button>
-          )}
-          {plugin.status === "disabled" && (
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => enable.mutate(plugin.id)}>
-              <Power className="mr-1.5 h-3.5 w-3.5" /> Enable
-            </Button>
-          )}
-          {plugin.status !== "disabled" && canRevoke && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => revoke.mutate({ id: plugin.id, permissions: plugin.granted_permissions })}
-              title="Withdraw the permissions you granted; the plugin stops loading until you approve again"
-            >
-              <ShieldX className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Revoke
-            </Button>
-          )}
-          {plugin.status !== "disabled" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => disable.mutate(plugin.id)}
-              title="Stop loading this plugin"
-            >
-              <Power className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Disable
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {plugin.status === "needs_permissions" && (
-        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {plugin.permissions.length > 0 ? (
-              <>
-                This plugin's code is <strong>not loaded</strong> until you approve the
-                permissions above. Approving runs its code on this machine with your
-                access — it is not sandboxed.
-              </>
-            ) : (
-              <>
-                This plugin declares no permissions, but approving still{" "}
-                <strong>runs its code</strong> on this machine with your access (it is
-                not sandboxed). Its code is <strong>not loaded</strong> until you approve.
-              </>
+          <div>
+            {plugin.permissions.length > 0 && (
+              <PermissionList permissions={plugin.permissions} granted={granted} />
             )}
-          </span>
-        </div>
-      )}
-    </div>
+
+            <NodePlacement nodes={plugin.nodes} nodeCategories={plugin.node_categories} />
+
+            {plugin.capabilities.length > 0 && (
+              <div className="mt-2.5">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Capabilities
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {plugin.capabilities.map((c) => (
+                    <span key={c} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <dl className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
+              {plugin.license && (
+                <DetailRow label="License">
+                  {plugin.license}
+                  {license?.license_type && license.expires_at && <> · expires {license.expires_at}</>}
+                </DetailRow>
+              )}
+              {plugin.trust && <DetailRow label="Trust tier">{plugin.trust}</DetailRow>}
+              {plugin.ciaren_spec && <DetailRow label="Compatibility">Ciaren {plugin.ciaren_spec}</DetailRow>}
+              {plugin.dependencies.length > 0 && (
+                <DetailRow label="Dependencies">
+                  <span className="font-mono">{plugin.dependencies.join(", ")}</span>
+                </DetailRow>
+              )}
+              {plugin.entrypoint && (
+                <DetailRow label="Entry point">
+                  <span className="font-mono">{plugin.entrypoint}</span>
+                </DetailRow>
+              )}
+              {plugin.install_path && (
+                <DetailRow label="Installed at">
+                  <span className="font-mono">{plugin.install_path}</span>
+                </DetailRow>
+              )}
+            </dl>
+          </div>
+
+          <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+            {plugin.uninstallable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                className="mr-auto"
+                onClick={() => {
+                  // Close the detail view first so the confirm stands alone.
+                  onOpenChange(false);
+                  setConfirmUninstall(true);
+                }}
+                title="Delete this plugin's files and remove it"
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" /> Uninstall
+              </Button>
+            )}
+            {plugin.status !== "disabled" && canRevoke && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => revoke.mutate({ id: plugin.id, permissions: plugin.granted_permissions })}
+                title="Withdraw the permissions you granted; the plugin stops loading until you approve again"
+              >
+                <ShieldX className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Revoke
+              </Button>
+            )}
+            {plugin.status !== "disabled" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => disable.mutate(plugin.id)}
+                title="Stop loading this plugin"
+              >
+                <Power className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Disable
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => enable.mutate(plugin.id)}>
+                <Power className="mr-1.5 h-3.5 w-3.5" /> Enable
+              </Button>
+            )}
+            {plugin.status === "needs_permissions" && (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => grant.mutate({ id: plugin.id })}
+                title="Grant the requested permissions and load the plugin"
+              >
+                {grant.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Approve
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmUninstall}
+        onOpenChange={setConfirmUninstall}
+        title={`Uninstall ${plugin.name}?`}
+        variant="destructive"
+        confirmLabel="Uninstall"
+        isPending={uninstall.isPending}
+        description={
+          <>
+            This deletes the plugin's installed files and its contributed nodes leave
+            the palette. Your flows that use those nodes will no longer run until the
+            plugin is reinstalled. This can't be undone.
+          </>
+        }
+        onConfirm={() =>
+          uninstall.mutate(plugin.id, { onSuccess: () => setConfirmUninstall(false) })
+        }
+      />
+    </>
   );
 }
 
@@ -456,6 +668,35 @@ function MarketplaceSection() {
   );
 }
 
+// The catalog's trust tier is *derived* by the backend (it verifies the local
+// artifact's signature against the user's trusted keys) — never echoed from the
+// publisher-controlled index, so this badge can't be spoofed by a catalog entry.
+function CatalogTrustBadge({ trust }: { trust: string }) {
+  const isTrusted = trust === "trusted";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-flex cursor-help items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+            isTrusted
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-slate-300 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+          )}
+        >
+          {isTrusted ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
+          {isTrusted ? "Trusted" : "Community"}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {isTrusted
+          ? "Ciaren verified this package's signature against a publisher key you trust."
+          : "Not verified against a trusted publisher key. Anyone can publish a community plugin — review it before installing, like any code from the internet."}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
   const install = useInstallFromMarketplace();
   const [error, setError] = useState<string | null>(null);
@@ -477,6 +718,7 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{entry.name}</span>
             <span className="text-xs text-muted-foreground">v{entry.version}</span>
+            <CatalogTrustBadge trust={entry.trust} />
             {entry.license_required && (
               <span className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
                 License required
@@ -486,6 +728,7 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
           <p className="mt-0.5 text-xs text-muted-foreground">
             {entry.publisher && <>by {entry.publisher} · </>}
             <span className="font-mono">{entry.id}</span>
+            {entry.license && <> · {entry.license} license</>}
           </p>
           {entry.description && (
             <p className="mt-1.5 text-sm text-muted-foreground">{entry.description}</p>
@@ -493,6 +736,21 @@ function MarketplaceCard({ entry }: { entry: MarketplaceEntry }) {
           {entry.permissions.length > 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
               Requests: <span className="font-medium">{entry.permissions.join(", ")}</span>
+            </p>
+          )}
+          {(entry.ciaren_spec || entry.dependencies.length > 0) && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {entry.ciaren_spec && (
+                <>
+                  Requires Ciaren <span className="font-mono">{entry.ciaren_spec}</span>
+                </>
+              )}
+              {entry.ciaren_spec && entry.dependencies.length > 0 && <> · </>}
+              {entry.dependencies.length > 0 && (
+                <>
+                  Installs: <span className="font-mono">{entry.dependencies.join(", ")}</span>
+                </>
+              )}
             </p>
           )}
           <NodePlacement nodes={entry.nodes} nodeCategories={entry.node_categories} />

@@ -65,6 +65,40 @@ async def test_install_plugin_via_upload(client, monkeypatch, tmp_path, hello_ci
     assert approved.json()["status"] == "loaded"
 
 
+async def test_uninstall_plugin_via_api(client, monkeypatch, tmp_path, hello_ciarenplugin):
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+
+    await client.post(
+        "/api/plugins/install",
+        files={
+            "file": (
+                "community.hello-0.1.0.ciarenplugin",
+                hello_ciarenplugin.read_bytes(),
+                "application/octet-stream",
+            )
+        },
+    )
+    # A managed install is flagged uninstallable so the UI can offer "Uninstall".
+    listing = await client.get("/api/plugins")
+    hello = next(p for p in listing.json() if p["id"] == "community.hello")
+    assert hello["uninstallable"] is True
+    await client.post("/api/plugins/community.hello/enable")
+    assert "hello.greeting" in {n["id"] for n in (await client.get("/api/catalog/nodes")).json()}
+
+    # DELETE removes the files and the plugin leaves the listing + catalog live.
+    resp = await client.delete("/api/plugins/community.hello")
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"plugin_id": "community.hello", "removed": True}
+    assert "community.hello" not in {p["id"] for p in (await client.get("/api/plugins")).json()}
+    assert "hello.greeting" not in {n["id"] for n in (await client.get("/api/catalog/nodes")).json()}
+
+
+async def test_uninstall_unknown_plugin_404(client, monkeypatch, tmp_path):
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    resp = await client.delete("/api/plugins/does.not.exist")
+    assert resp.status_code == 404
+
+
 async def test_install_records_signature_outcome(client, monkeypatch, tmp_path, hello_ciarenplugin):
     _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
     await client.post(
