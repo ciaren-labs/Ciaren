@@ -63,7 +63,16 @@ class _StubModels(ModelProvider):
                 provider=PLUGIN_ID,
                 requires=("sklearn",),
                 default_hyperparameters={"max_depth": 3},
-            )
+            ),
+            # Same estimator, but with explicitly declared export imports.
+            ModelTypeSpec(
+                id="stub_tree_imports",
+                label="Stub Tree (declared imports)",
+                task="classification",
+                provider=PLUGIN_ID,
+                requires=("sklearn",),
+                import_lines=("from acme_ml.compat import DecisionTreeClassifier",),
+            ),
         ]
 
     def model_builders(self) -> dict[str, Any]:
@@ -75,7 +84,7 @@ class _StubModels(ModelProvider):
                 merged["random_state"] = seed
             return DecisionTreeClassifier(**merged)
 
-        return {"stub_tree": build}
+        return {"stub_tree": build, "stub_tree_imports": build}
 
 
 @pytest.fixture
@@ -149,6 +158,34 @@ def test_core_train_node_exports_code_for_plugin_model_type(stub_model_registere
     assert "DecisionTreeClassifier" in code
     imports = node.imports(config)
     assert "from sklearn.tree import DecisionTreeClassifier" in imports
+
+
+def test_declared_default_hyperparameters_apply_when_form_untouched(stub_model_registered):
+    """The catalog advertises default_hyperparameters — an untouched form ({})
+    must train with them, and explicit values must win over them."""
+    from app.ml.models import build_estimator
+
+    est = build_estimator("stub_tree", {}, 7)
+    assert est.max_depth == 3
+    assert est.random_state == 7
+    assert build_estimator("stub_tree", {"max_depth": 5}, 7).max_depth == 5
+
+    # The defaults surface in exported code too (repr of the built estimator).
+    from app.engine.transformations.ml.train import TrainClassifierTransformation
+
+    code = TrainClassifierTransformation().to_python_code(
+        {"in": "df"}, {"model": "model"}, {"model_type": "stub_tree", "target_column": "target", "seed": 7}
+    )
+    assert "max_depth=3" in code
+
+
+def test_declared_import_lines_replace_the_derived_estimator_import(stub_model_registered):
+    from app.engine.transformations.ml.train import TrainClassifierTransformation
+
+    config = {"model_type": "stub_tree_imports", "target_column": "target", "seed": 7}
+    imports = TrainClassifierTransformation().imports(config)
+    assert "from acme_ml.compat import DecisionTreeClassifier" in imports
+    assert "from sklearn.tree import DecisionTreeClassifier" not in imports
 
 
 def test_plugin_builder_missing_module_gives_install_hint():

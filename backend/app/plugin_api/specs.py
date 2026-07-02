@@ -302,14 +302,15 @@ class ModelTypeSpec(BaseModel):
     #: Install hint shown when a required module is missing
     #: (e.g. ``"pip install scikit-learn"``).
     install_hint: str = ""
-    #: Seed keyword the estimator accepts (``""`` = the estimator takes no seed).
-    seed_param: str = "random_state"
+    #: Defaults merged *under* the user's hyperparameters before the builder is
+    #: called, so an untouched form trains with what the catalog advertises.
     default_hyperparameters: dict[str, Any] = Field(default_factory=dict)
     #: Hyperparameter form: ``{}`` or ``{"fields": [...]}`` of :class:`ConfigFieldSpec`.
     hyperparameter_schema: dict[str, Any] = Field(default_factory=dict)
-    #: Top-level import lines the exported training script needs (e.g.
-    #: ``("from sklearn.neural_network import MLPClassifier",)``). Empty means the
-    #: model type cannot be exported to code (export fails with a clear message).
+    #: Top-level import lines exported training scripts use for the estimator
+    #: (e.g. ``("from sklearn.neural_network import MLPClassifier",)``). When
+    #: empty, the import is derived from the estimator's class module — declare
+    #: them whenever the estimator's ``repr`` needs anything beyond that.
     import_lines: tuple[str, ...] = ()
     permissions: tuple[Permission, ...] = ()
 

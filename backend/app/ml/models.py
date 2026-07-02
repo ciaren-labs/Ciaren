@@ -234,9 +234,20 @@ def _plugin_model_spec(model_type: str) -> ModelSpec | None:
         if missing:
             hint = _spec.install_hint or f"install the missing module(s): {', '.join(missing)}"
             raise RuntimeError(f"model_type {_spec.id!r} needs {', '.join(missing)} — {hint}")
-        return _builder(params, seed)
+        # The spec's declared defaults fill in under the user's values — the same
+        # pattern core builders use ({"max_iter": 1000, **p}) — so an untouched
+        # hyperparameter form trains with the defaults the catalog advertises.
+        return _builder({**_spec.default_hyperparameters, **params}, seed)
 
     return ModelSpec(task=spec.task, builder=_build, supervised=spec.supervised)
+
+
+def plugin_import_lines(model_type: str) -> tuple[str, ...]:
+    """Import lines a plugin model type declares for exported training scripts
+    (``()`` for core types or when the plugin declares none — the estimator
+    import is then derived from the estimator's class module)."""
+    spec = _plugin_model_types().get(model_type)
+    return tuple(spec.import_lines) if spec is not None else ()
 
 
 def _plugin_model_types() -> dict[str, Any]:

@@ -187,8 +187,8 @@ the matching core train node's picker and trains through the core pipeline.
 | `id` | The `model_type` id (unique across the catalog), e.g. `"mlp_classifier"`. |
 | `label`, `task`, `supervised`, `provider`, `description` | Catalog metadata; `task` is one of `classification`/`regression`/`clustering`/`dimensionality_reduction`/`timeseries`. |
 | `requires`, `install_hint` | Importable modules the builder needs; the hint shown when missing. |
-| `default_hyperparameters`, `hyperparameter_schema` | Drive the model picker's hyperparameter form (same field dialect as `config_schema`). |
-| `import_lines` | Top-level imports the exported training script needs. |
+| `default_hyperparameters`, `hyperparameter_schema` | Drive the model picker's hyperparameter form (same field dialect as `config_schema`). The defaults are also **merged under the user's values** before your builder is called, so an untouched form trains with what the catalog advertises. |
+| `import_lines` | Top-level imports exported training scripts use for the estimator. When empty, the import is derived from the estimator's class module — declare them whenever the estimator's `repr` needs anything beyond that. |
 
 The matching builder (from `ModelProvider.model_builders()`) is
 `(hyperparameters: dict, seed: int | None) -> estimator` and must return an

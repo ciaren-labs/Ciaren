@@ -103,7 +103,11 @@ What you get for free:
   **Cross-Validate**, and model registration, exactly like a built-in.
 
 The builder's hyperparameters arrive already sanitized to JSON-native values
-(never `eval`-ed); raise `ValueError` on anything your estimator can't accept.
+(never `eval`-ed), with your `default_hyperparameters` merged in under whatever
+the user set — an untouched form trains with the defaults the catalog
+advertises. Raise `ValueError` on anything your estimator can't accept, and
+inject the run `seed` yourself unless the user set one explicitly (as `build`
+above does).
 
 ## Path 2 — ship a train node
 

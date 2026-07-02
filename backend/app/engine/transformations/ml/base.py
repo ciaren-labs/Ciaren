@@ -198,25 +198,29 @@ class SklearnPipelineMixin:
 
     def _pipeline_imports(self, config: dict[str, Any]) -> list[str]:
         """Import lines the exported script needs for the estimator + preprocessing."""
-        from app.ml.models import build_estimator
+        from app.ml.models import build_estimator, plugin_import_lines
 
         est = build_estimator(config["model_type"], config.get("hyperparameters"), config.get("seed"))
-        cls = type(est).__name__
-        top = type(est).__module__.split(".")[0]
-        if top in ("xgboost", "lightgbm"):
-            est_import = f"from {top} import {cls}"
-        else:
-            # Use the public sklearn module (e.g. sklearn.ensemble), not the private
-            # implementation module (sklearn.ensemble._forest) the class lives in.
-            parts: list[str] = []
-            for part in type(est).__module__.split("."):
-                if part.startswith("_"):
-                    break
-                parts.append(part)
-            est_import = f"from {'.'.join(parts)} import {cls}"
+        # A plugin model type may declare the exact imports its estimator repr
+        # needs; without a declaration, derive from the estimator's class module.
+        est_imports = list(plugin_import_lines(config["model_type"]))
+        if not est_imports:
+            cls = type(est).__name__
+            top = type(est).__module__.split(".")[0]
+            if top in ("xgboost", "lightgbm"):
+                est_imports = [f"from {top} import {cls}"]
+            else:
+                # Use the public sklearn module (e.g. sklearn.ensemble), not the private
+                # implementation module (sklearn.ensemble._forest) the class lives in.
+                parts: list[str] = []
+                for part in type(est).__module__.split("."):
+                    if part.startswith("_"):
+                        break
+                    parts.append(part)
+                est_imports = [f"from {'.'.join(parts)} import {cls}"]
         imps = [
             "from sklearn.pipeline import Pipeline",
-            est_import,
+            *est_imports,
             # The exported preprocessing pipeline mirrors execute() (see _preprocessor_code).
             "from sklearn.compose import ColumnTransformer",
             "from sklearn.impute import SimpleImputer",
