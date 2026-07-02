@@ -17,7 +17,7 @@ runs the plugin's ``register``), never used on the untrusted install path.
 
 from __future__ import annotations
 
-from app.plugin_api import Permission, Plugin, PluginManifest, ServiceRegistry
+from app.plugin_api import PLUGIN_API_VERSION, Permission, Plugin, PluginManifest, ServiceRegistry
 from app.plugin_api.manifest import PluginUI
 
 
@@ -26,6 +26,7 @@ def manifest_from_plugin(
     *,
     entrypoint: str,
     ciaren: str = ">=0.1",
+    api_version: str = PLUGIN_API_VERSION,
     license: str = "community",
     trust: str = "community",
     dependencies: list[str] | None = None,
@@ -38,6 +39,11 @@ def manifest_from_plugin(
     the plugin's specs declare, come from registering the plugin into a throwaway
     registry and reading it back. ``entrypoint`` and the compatibility/license
     fields (which aren't part of the runtime metadata) are supplied by the caller.
+
+    ``api_version`` defaults to the SDK's own :data:`PLUGIN_API_VERSION`: a manifest
+    generated here is built against the installed contract, so it declares exactly
+    that contract version. The loader later rejects the plugin on a host whose
+    contract is incompatible with it.
     """
     meta = plugin.metadata()
 
@@ -82,6 +88,7 @@ def manifest_from_plugin(
         description=meta.description,
         license=license,  # validated by PluginManifest
         ciaren=ciaren,
+        api_version=api_version,
         entrypoint=entrypoint,
         permissions=sorted(permissions, key=lambda p: p.value),
         capabilities=sorted(capabilities),
@@ -104,6 +111,7 @@ def manifest_json_from_plugin(
     *,
     entrypoint: str,
     ciaren: str = ">=0.1",
+    api_version: str = PLUGIN_API_VERSION,
     license: str = "community",
     trust: str = "community",
     dependencies: list[str] | None = None,
@@ -114,6 +122,7 @@ def manifest_json_from_plugin(
         plugin,
         entrypoint=entrypoint,
         ciaren=ciaren,
+        api_version=api_version,
         license=license,
         trust=trust,
         dependencies=dependencies,

@@ -10,6 +10,16 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Plugin-contract version gating** — a plugin manifest now declares the
+  plugin-API contract it targets via `api_version` (distinct from the plugin's own
+  `version` and from `ciaren` app compatibility). The loader checks it against the
+  backend's `PLUGIN_API_VERSION` **before importing any plugin code** — same major,
+  plugin minor `<=` backend minor — so a plugin built for a future/incompatible
+  contract is cleanly rejected and reported in `/api/plugins/diagnostics` instead
+  of failing with an opaque import error. The backend's contract version is exposed
+  as `plugin_api_version` in the diagnostics response, and `ciaren plugin manifest`
+  stamps `api_version` (override with `--api-version`). See
+  [Contract versioning](docs/specs/plugin-manifest.md#contract-versioning).
 - **Plugin API 1.1** (additive; 1.0 plugins keep working unchanged):
   - **Plugin ML model types** — a `ModelProvider` contributes trainable model
     types that appear inside the core Train nodes' model picker and train, log

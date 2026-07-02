@@ -94,6 +94,92 @@ def test_incompatible_plugin_is_rejected_before_loading():
     assert reg.node_spec("n") is None
 
 
+def test_api_incompatible_plugin_is_rejected_before_loading():
+    reg = ServiceRegistry()
+    loaded_flag = {"ran": False}
+
+    def _load() -> Plugin:
+        loaded_flag["ran"] = True
+        return _plugin("future_api", "n")
+
+    # Plugin built against contract 2.0; backend provides 1.1 (different major).
+    manifest = PluginManifest(id="future_api", name="Future API", api_version="2.0")
+    cand = PluginCandidate(source="dir:future_api", load=_load, manifest=manifest)
+    result = load_plugins(reg, include_entry_points=False, extra=[cand], api_version_str="1.1")
+    assert result.loaded == []
+    assert len(result.errors) == 1
+    assert "plugin-API" in result.errors[0].error
+    assert loaded_flag["ran"] is False  # entry point never imported
+    assert reg.node_spec("n") is None
+
+
+def test_api_compatible_older_plugin_still_loads():
+    reg = ServiceRegistry()
+    manifest = PluginManifest(id="old_api", name="Old API", api_version="1.0")
+    cand = _candidate(_plugin("old_api", "n"), source="dir:old_api", manifest=manifest)
+    result = load_plugins(reg, include_entry_points=False, extra=[cand], api_version_str="1.1")
+    assert [p.metadata.id for p in result.loaded] == ["old_api"]
+    assert result.errors == []
+    assert reg.node_spec("n") is not None
+
+
+def test_api_plugin_needing_newer_minor_is_rejected():
+    """Same major, but the plugin needs a minor the backend doesn't provide."""
+    reg = ServiceRegistry()
+    manifest = PluginManifest(id="needs_minor", name="Needs 1.2", api_version="1.2")
+    cand = _candidate(_plugin("needs_minor", "n"), source="dir:needs_minor", manifest=manifest)
+    result = load_plugins(reg, include_entry_points=False, extra=[cand], api_version_str="1.1")
+    assert result.loaded == []
+    assert len(result.errors) == 1
+    assert "plugin-API 1.2" in result.errors[0].error
+    assert "1.1" in result.errors[0].error
+
+
+def test_manifestless_plugin_is_not_api_gated():
+    """Entry-point plugins ship no manifest; the contract gate only applies to
+    manifest-bearing candidates, so they load regardless of the backend contract."""
+    reg = ServiceRegistry()
+    result = load_plugins(
+        reg,
+        include_entry_points=False,
+        extra=[_candidate(_plugin("ep", "n"))],  # no manifest
+        api_version_str="9.9",
+    )
+    assert [p.metadata.id for p in result.loaded] == ["ep"]
+    assert result.errors == []
+
+
+def test_manifest_default_api_version_loads_on_current_backend():
+    """A manifest that omits api_version defaults to 1.0, which must load on the
+    real backend contract (so pre-field manifests keep working)."""
+    from app.plugin_api import PLUGIN_API_VERSION
+
+    reg = ServiceRegistry()
+    manifest = PluginManifest(id="defaulted", name="Defaulted")  # api_version defaults to "1.0"
+    cand = _candidate(_plugin("defaulted", "n"), source="dir:defaulted", manifest=manifest)
+    result = load_plugins(reg, include_entry_points=False, extra=[cand], api_version_str=PLUGIN_API_VERSION)
+    assert [p.metadata.id for p in result.loaded] == ["defaulted"]
+    assert result.errors == []
+
+
+def test_app_incompat_is_reported_before_api_incompat():
+    """When a plugin is incompatible on both axes, the app-version check runs first
+    so the surfaced error names the Ciaren version mismatch."""
+    reg = ServiceRegistry()
+    manifest = PluginManifest(id="both_bad", name="Both", ciaren=">=99.0", api_version="2.0")
+    cand = _candidate(_plugin("both_bad", "n"), source="dir:both_bad", manifest=manifest)
+    result = load_plugins(
+        reg,
+        include_entry_points=False,
+        extra=[cand],
+        ciaren_version_str="0.1.0",
+        api_version_str="1.1",
+    )
+    assert result.loaded == []
+    assert "requires Ciaren" in result.errors[0].error
+    assert "plugin-API" not in result.errors[0].error
+
+
 def test_plugin_colliding_with_core_node_is_isolated_and_rolled_back():
     reg = ServiceRegistry()
     reg.register_node_provider(BuiltinNodeProvider())

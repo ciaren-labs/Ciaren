@@ -158,7 +158,13 @@ on them firing): `plugin_installed` (install runs in the CLI, a separate process
 
 `ciaren-plugin.json` at the plugin directory root — see
 [plugin-manifest.md](../specs/plugin-manifest.md). The loader validates it and
-checks `ciaren` compatibility before importing your code.
+checks compatibility on **two independent axes** before importing your code: the
+Ciaren **app** version (`ciaren` specifier) and the **plugin-contract** version
+(`api_version` vs the backend's `PLUGIN_API_VERSION`). An incompatible plugin on
+either axis is rejected up front and reported in `/api/plugins/diagnostics` — it
+never runs. The contract version bumps *only* when `app.plugin_api` changes (minor
+for additive, major for breaking), independently of your plugin's own `version`;
+see [Contract versioning](../specs/plugin-manifest.md#contract-versioning).
 
 You don't have to hand-write it. Because your `Plugin` already declares the id,
 version, permissions, nodes, and categories, generate the manifest from the code

@@ -27,7 +27,14 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from typing import Any
 
-from app.plugin_api import Permission, Plugin, PluginManifest, ServiceRegistry, validate_manifest
+from app.plugin_api import (
+    PLUGIN_API_VERSION,
+    Permission,
+    Plugin,
+    PluginManifest,
+    ServiceRegistry,
+    validate_manifest,
+)
 from app.plugin_api.specs import PluginMetadata
 from app.plugins.state import PluginStateStore
 from app.version import ciaren_version
@@ -39,7 +46,9 @@ MANIFEST_FILENAME = "ciaren-plugin.json"
 
 
 class IncompatiblePluginError(RuntimeError):
-    """Raised when a plugin declares incompatibility with the running Ciaren."""
+    """Raised when a plugin is incompatible with the running host — either its
+    ``ciaren`` app-version specifier or its ``api_version`` plugin-contract version
+    doesn't match what this backend provides."""
 
 
 @dataclass
@@ -264,6 +273,7 @@ def _process(
     registry: ServiceRegistry,
     candidate: PluginCandidate,
     version: str,
+    api_version: str,
     result: LoadResult,
     state: PluginStateStore | None,
 ) -> None:
@@ -272,6 +282,10 @@ def _process(
         if manifest is not None and not manifest.is_compatible_with(version):
             raise IncompatiblePluginError(
                 f"plugin {manifest.id!r} requires Ciaren {manifest.ciaren!r}, running {version}"
+            )
+        if manifest is not None and not manifest.is_api_compatible_with(api_version):
+            raise IncompatiblePluginError(
+                f"plugin {manifest.id!r} targets plugin-API {manifest.api_version}, backend provides {api_version}"
             )
         gated = _gate(candidate, state) if state is not None else None
         if gated is None:
@@ -296,6 +310,7 @@ def load_plugins(
     include_entry_points: bool = True,
     extra: Iterable[PluginCandidate] | None = None,
     ciaren_version_str: str | None = None,
+    api_version_str: str | None = None,
     state: PluginStateStore | None = None,
 ) -> LoadResult:
     """Discover and register plugins into ``registry``. Returns a result with the
@@ -305,8 +320,12 @@ def load_plugins(
     ``extra`` lets callers inject pre-built candidates (used by the example plugin
     and tests) without going through entry points or the filesystem. ``state``,
     when given, enables enable/disable + permission gating for manifest plugins.
+    ``ciaren_version_str`` / ``api_version_str`` override the app and plugin-contract
+    versions a plugin's manifest is checked against (default: the running values);
+    tests use them to simulate an older/newer host.
     """
     version = ciaren_version_str or ciaren_version()
+    api_version = api_version_str or PLUGIN_API_VERSION
     candidates: list[PluginCandidate] = []
     if include_entry_points:
         candidates += _entry_point_candidates()
@@ -317,7 +336,7 @@ def load_plugins(
 
     result = LoadResult()
     for candidate in candidates:
-        _process(registry, candidate, version, result, state)
+        _process(registry, candidate, version, api_version, result, state)
     if state is not None:
         state.save()
     return result

@@ -15,7 +15,7 @@ from typing import Literal
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.plugin_api import Hook, LicenseStatus, Permission, PluginManifest
+from app.plugin_api import PLUGIN_API_VERSION, Hook, LicenseStatus, Permission, PluginManifest
 from app.plugins import (
     get_load_result,
     get_plugin_state,
@@ -74,6 +74,10 @@ class PluginInfo(BaseModel):
     trust: str = ""
     #: PEP 440 specifier of compatible Ciaren versions (e.g. ``>=0.1``).
     ciaren_spec: str = ""
+    #: Plugin-contract version the plugin targets (e.g. ``1.1``), checked against
+    #: the backend's ``plugin_api_version`` at load. "" when the plugin has no
+    #: manifest (entry-point packages).
+    api_version: str = ""
     #: pip requirements the plugin declares it needs.
     dependencies: list[str] = Field(default_factory=list)
     #: Dotted entry point (``module.path:ClassName``) from the manifest.
@@ -120,6 +124,7 @@ def _apply_manifest(info: PluginInfo, manifest: PluginManifest | None) -> Plugin
         info.license = manifest.license
         info.trust = manifest.trust
         info.ciaren_spec = manifest.ciaren
+        info.api_version = manifest.api_version
         info.dependencies = list(manifest.dependencies)
         info.entrypoint = manifest.entrypoint or ""
     return info
@@ -134,6 +139,11 @@ class PluginDiagnostics(BaseModel):
     loaded: list[PluginInfo]
     gated: list[PluginInfo]
     errors: list[PluginErrorInfo]
+    #: The plugin-contract version this backend provides. A plugin whose manifest
+    #: ``api_version`` is contract-incompatible with this is rejected at load and
+    #: appears in ``errors`` — surfacing the backend's version here makes that
+    #: mismatch actionable in the UI.
+    plugin_api_version: str = PLUGIN_API_VERSION
 
 
 class PluginInstallResult(BaseModel):

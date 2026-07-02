@@ -52,8 +52,18 @@ class PluginManifest(BaseModel):
     publisher: str = "community"
     description: str = ""
     license: LicenseKind = "community"
-    #: PEP 440 specifier set describing compatible Ciaren versions.
+    #: PEP 440 specifier set describing compatible Ciaren *app* versions.
     ciaren: str = ">=0.1"
+    #: The plugin *contract* version this plugin was built against — the value of
+    #: ``PLUGIN_API_VERSION`` at build time, as ``MAJOR.MINOR``. Independent of both
+    #: the plugin's own ``version`` and the app's ``ciaren`` compatibility. Compared
+    #: against the running backend's contract version at load: the major must match
+    #: (a new major is a breaking contract change) and the plugin's minor must be
+    #: ``<=`` the backend's (minors are additive, so a newer backend still runs an
+    #: older plugin, but a backend must reject a plugin needing a minor it lacks).
+    #: Defaults to ``"1.0"`` so manifests written before this field existed are
+    #: treated as targeting the first stable contract.
+    api_version: str = "1.0"
     #: Dotted entry point: ``module.path:ClassName``.
     entrypoint: str | None = None
     permissions: list[Permission] = Field(default_factory=list)
@@ -81,6 +91,15 @@ class PluginManifest(BaseModel):
             raise ValueError(f"invalid ciaren compatibility spec {v!r}: {exc}") from exc
         return v
 
+    @field_validator("api_version")
+    @classmethod
+    def _valid_api_version(cls, v: str) -> str:
+        try:
+            Version(v)
+        except InvalidVersion as exc:
+            raise ValueError(f"invalid plugin api_version {v!r}: {exc}") from exc
+        return v
+
     @field_validator("entrypoint")
     @classmethod
     def _valid_entrypoint(cls, v: str | None) -> str | None:
@@ -102,6 +121,20 @@ class PluginManifest(BaseModel):
             return release_version in SpecifierSet(self.ciaren, prereleases=True)
         except (InvalidVersion, InvalidSpecifier):
             return False
+
+    def is_api_compatible_with(self, provider_api_version: str) -> bool:
+        """Whether the backend's plugin-contract version (``PLUGIN_API_VERSION``)
+        can run this plugin. SemVer on the contract: the major must match — a new
+        major is a breaking change — and the plugin's requested minor must be no
+        newer than the backend's, since minors only add features. So a 1.2 backend
+        runs a plugin built for 1.0/1.1/1.2, but a 1.1 backend rejects a plugin
+        that needs 1.2, and any cross-major pair is rejected."""
+        try:
+            want = Version(self.api_version)
+            have = Version(provider_api_version)
+        except InvalidVersion:
+            return False
+        return want.major == have.major and want.minor <= have.minor
 
 
 def validate_manifest(data: dict[str, Any]) -> PluginManifest:
