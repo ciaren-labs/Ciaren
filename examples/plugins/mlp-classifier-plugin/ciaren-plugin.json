@@ -1,0 +1,25 @@
+{
+  "id": "community.mlp-classifier",
+  "name": "MLP Classifier",
+  "version": "0.1.0",
+  "publisher": "community",
+  "description": "Train and evaluate a scikit-learn MLPClassifier from a node on the canvas.",
+  "license": "community",
+  "ciaren": ">=0.1",
+  "entrypoint": "ciaren_mlp.plugin:MlpClassifierPlugin",
+  "permissions": [],
+  "capabilities": [
+    "node.sklearn.mlp"
+  ],
+  "ui": {
+    "nodes": [
+      "sklearn.mlpClassifierTrain"
+    ],
+    "nodeCategories": {
+      "sklearn.mlpClassifierTrain": "ml"
+    }
+  },
+  "dependencies": [],
+  "license_required": false,
+  "trust": "community"
+}
