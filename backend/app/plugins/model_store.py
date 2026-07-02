@@ -53,6 +53,9 @@ class MlflowModelStore:
         metrics: dict[str, float] | None = None,
         input_example: Any = None,
         experiment: str | None = None,
+        preprocessing: dict[str, Any] | None = None,
+        seed: int | None = None,
+        training_config: dict[str, Any] | None = None,
     ) -> ModelRef:
         """Persist a fitted sklearn-compatible model and return its reference.
 
@@ -89,6 +92,22 @@ class MlflowModelStore:
         except Exception as exc:  # noqa: BLE001 — surface one clear error to the node
             raise ModelStoreError(f"could not persist model for plugin {self._plugin_id!r}: {exc}") from exc
 
+        # The same shape the core train nodes record (see
+        # BaseTrainTransformation._model_ref): model_config_json is part of the
+        # model-wire contract, and core consumers rely on it — Cross-Validate
+        # rebuilds the estimator from model_type/hyperparameters/preprocessing/
+        # seed. Caller-supplied training_config entries overlay the generated
+        # config; plugin_id is always stamped for provenance.
+        config: dict[str, Any] = {
+            "model_type": model_type,
+            "target_column": target_column,
+            "feature_columns": list(feature_columns),
+            "hyperparameters": params or {},
+            "preprocessing": preprocessing or {},
+            "seed": seed,
+            **(training_config or {}),
+            "plugin_id": self._plugin_id,
+        }
         return ModelRef(
             task_type=task_type,
             model_type=model_type,
@@ -96,7 +115,7 @@ class MlflowModelStore:
             model_uri=model_uri,
             target_column=target_column,
             feature_columns=tuple(feature_columns),
-            training_config={"hyperparameters": params or {}, "plugin_id": self._plugin_id},
+            training_config=config,
         )
 
     # -- loading ----------------------------------------------------------------

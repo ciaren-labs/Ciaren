@@ -317,6 +317,10 @@ class MlpClassifierTrainRuntime(NodeRuntime):
             )
         # The sanctioned persistence path: the fitted estimator becomes an MLflow
         # artifact; only the typed reference travels through the graph.
+        # params land in the reference's model_config_json as the recorded
+        # hyperparameters — keep them builder-compatible (the "64,32" layer
+        # syntax build_mlp accepts) so core Cross-Validate can rebuild this
+        # estimator from the reference alone.
         ref = context.models.log_sklearn_model(
             clf,
             model_type=MODEL_TYPE,
@@ -324,14 +328,16 @@ class MlpClassifierTrainRuntime(NodeRuntime):
             target_column=target,
             feature_columns=tuple(features),
             params={
-                "hidden_layer_sizes": "x".join(str(n) for n in p["hidden_layer_sizes"]),
+                "hidden_layer_sizes": ",".join(str(n) for n in p["hidden_layer_sizes"]),
                 "activation": p["activation"],
                 "solver": p["solver"],
                 "alpha": p["alpha"],
+                "learning_rate_init": p["learning_rate_init"],
                 "max_iter": p["max_iter"],
             },
             metrics={"train_accuracy": metrics["train_accuracy"], "test_accuracy": metrics["test_accuracy"]},
             input_example=X_train.head(5),
+            seed=p["random_state"],
         )
         return {"model": ref.to_frame(), "metrics": pd.DataFrame([metrics])}
 

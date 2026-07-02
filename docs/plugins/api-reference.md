@@ -143,7 +143,7 @@ MLflow artifacts; only a typed `ModelRef` travels through the graph.
 
 | Method | Notes |
 | --- | --- |
-| `log_sklearn_model(model, *, model_type, task_type, target_column=None, feature_columns=(), params=None, metrics=None, input_example=None, experiment=None) -> ModelRef` | Persist a fitted sklearn-compatible model to MLflow and return its reference. Raises when it cannot persist (never silently emits a dangling reference). |
+| `log_sklearn_model(model, *, model_type, task_type, target_column=None, feature_columns=(), params=None, metrics=None, input_example=None, experiment=None, preprocessing=None, seed=None, training_config=None) -> ModelRef` | Persist a fitted sklearn-compatible model to MLflow and return its reference. Raises when it cannot persist (never silently emits a dangling reference). The reference's `model_config_json` is part of the model-wire **contract**: it records the same shape the core train nodes emit (`model_type`, `target_column`, `feature_columns`, `hyperparameters` from `params`, `preprocessing`, `seed`) so core consumers like Cross-Validate can rebuild the estimator; `training_config` entries overlay the generated config. |
 | `load_model(ref_or_uri) -> Any` | Load after the host's security checks. Deserializing executes pickled code, so it is **permission-gated**: MLflow URIs need `local_model_load` (or `joblib_load`); a local `.joblib` path needs `joblib_load` *and* must live inside the server's artifact root. `.pkl`/`.pickle` are always refused. |
 
 ## `ModelRef`

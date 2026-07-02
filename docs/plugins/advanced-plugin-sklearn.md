@@ -191,12 +191,17 @@ class MlpClassifierTrainRuntime(NodeRuntime):
         # only the typed reference travels through the graph.
         if context.models is None:
             raise ValueError("this server has no ML/MLflow support installed (install ciaren[ml])")
+        # params + seed land in the reference's model_config_json — the model-wire
+        # contract core Cross-Validate rebuilds the estimator from.
         ref = context.models.log_sklearn_model(
             clf, model_type="mlp_classifier", task_type="classification",
             target_column=target, feature_columns=tuple(features),
+            params={"hidden_layer_sizes": ",".join(map(str, p["hidden_layer_sizes"])),
+                    "activation": p["activation"], "solver": p["solver"],
+                    "alpha": p["alpha"], "max_iter": p["max_iter"]},
             metrics={"train_accuracy": metrics["train_accuracy"],
                      "test_accuracy": metrics["test_accuracy"]},
-            input_example=X_train.head(5))
+            input_example=X_train.head(5), seed=p["random_state"])
         return {"model": ref.to_frame(), "metrics": pd.DataFrame([metrics])}
 ```
 

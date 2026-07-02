@@ -46,9 +46,19 @@ class ModelStore(Protocol):
         metrics: dict[str, float] | None = None,
         input_example: Any = None,
         experiment: str | None = None,
+        preprocessing: dict[str, Any] | None = None,
+        seed: int | None = None,
+        training_config: dict[str, Any] | None = None,
     ) -> ModelRef:
         """Persist a fitted sklearn-compatible model/pipeline to MLflow and return
-        the reference to emit on a ``model`` output handle."""
+        the reference to emit on a ``model`` output handle.
+
+        The reference's ``model_config_json`` is part of the model-wire contract,
+        not optional metadata: core consumers read it (Cross-Validate rebuilds the
+        estimator from ``model_type`` + ``hyperparameters`` + ``preprocessing`` +
+        ``seed``). Pass what you have — ``params`` become the recorded
+        hyperparameters, and ``training_config`` entries overlay the generated
+        config for anything beyond the named arguments."""
         ...
 
     def load_model(self, ref_or_uri: ModelRef | str) -> Any:

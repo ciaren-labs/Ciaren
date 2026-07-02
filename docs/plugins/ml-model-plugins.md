@@ -158,7 +158,9 @@ class TrainRuntime(NodeRuntime):
             task_type="classification",
             target_column=target,
             feature_columns=tuple(features),
+            params=hyperparameters,   # recorded as the reference's hyperparameters
             metrics={"test_accuracy": acc},
+            seed=seed,
         )
         return {"model": ref.to_frame(), "metrics": metrics_frame}
 ```
@@ -168,6 +170,14 @@ class TrainRuntime(NodeRuntime):
 your plugin id and the Ciaren run/flow lineage, and returns the `ModelRef` to
 emit. If persistence fails it raises — a train node must never emit a reference
 that points nowhere.
+
+The reference's `model_config_json` is part of the model-wire **contract**, not
+optional metadata: the store records the same shape the core train nodes emit
+(`model_type`, `target_column`, `feature_columns`, `hyperparameters`,
+`preprocessing`, `seed`, plus your `plugin_id`). Core **Cross-Validate** rebuilds
+the estimator from that config — so pass `params` your builder understands and
+the run `seed`, and a model trained by your node cross-validates like a core
+one (as long as the `model_type` is also registered via your `ModelProvider`).
 
 ## Security model
 
