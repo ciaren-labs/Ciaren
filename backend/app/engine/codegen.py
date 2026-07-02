@@ -33,6 +33,7 @@ from app.engine.codegen_common import (
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
+    placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
 )
@@ -168,8 +169,8 @@ class CodeGenerator:
             elif node_type in _INPUT_TYPES:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 source_type = input_source_type(node_type, config)
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
                 func = (
                     _READ_FUNCS_BY_FORMAT.get(source_type)
                     if node_type == FILE_INPUT_TYPE

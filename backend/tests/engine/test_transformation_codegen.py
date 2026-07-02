@@ -29,6 +29,11 @@ CODEGEN_CASES = [
     ("filter_in_str", "filterRows", {"column": "a", "operator": "in", "value": "x, y"}),
     ("filter_in_list", "filterRows", {"column": "a", "operator": "in", "value": ["x", "y"]}),
     ("filter_contains", "filterRows", {"column": "a", "operator": "contains", "value": "z"}),
+    # regex-special value: each engine's own semantics (pandas regex, polars literal)
+    # must survive into the generated code.
+    ("filter_contains_dot", "filterRows", {"column": "a", "operator": "contains", "value": "z.b"}),
+    # non-string value: the engines coerce with str(); the emitters must too.
+    ("filter_contains_numeric", "filterRows", {"column": "a", "operator": "contains", "value": 5}),
     ("filter_startswith", "filterRows", {"column": "a", "operator": "startswith", "value": "z"}),
     ("filter_endswith", "filterRows", {"column": "a", "operator": "endswith", "value": "z"}),
     # sortRows: default and the na_position / per-column-direction branch

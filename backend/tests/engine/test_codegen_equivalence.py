@@ -60,6 +60,12 @@ def _single_col() -> pd.DataFrame:
     return pd.DataFrame({"a": [1.0, 2.0, None]})
 
 
+def _text_special() -> pd.DataFrame:
+    # "z.b" vs "zxb" separates regex from literal contains; "x5"/"5 stars"
+    # exercise a numeric search value against stringified cells.
+    return pd.DataFrame({"a": ["z.b", "zxb", "x5", None, "5 stars"]})
+
+
 def _wide() -> pd.DataFrame:
     return pd.DataFrame({"id": [1, 2], "x": [3.0, 4.0], "y": [5.0, 6.0]})
 
@@ -86,6 +92,8 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "filter_in_str": {"in": _text},
     "filter_in_list": {"in": _text},
     "filter_contains": {"in": _text},
+    "filter_contains_dot": {"in": _text_special},
+    "filter_contains_numeric": {"in": _text_special},
     "filter_startswith": {"in": _text},
     "filter_endswith": {"in": _text},
     "sort_default": {"in": _num},

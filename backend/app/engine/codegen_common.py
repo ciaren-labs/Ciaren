@@ -53,6 +53,24 @@ def collect_input_vars(
     return input_vars
 
 
+_PLACEHOLDER_EXT = {
+    "csv": ".csv",
+    "tsv": ".tsv",
+    "excel": ".xlsx",
+    "parquet": ".parquet",
+    "json": ".json",
+    "jsonl": ".jsonl",
+    "text": ".txt",
+}
+
+
+def placeholder_input_path(source_type: str) -> str:
+    """Fallback filename for an input node whose dataset id isn't in the caller's
+    ``dataset_paths`` map, matching the node's format — pd.read_excel('input.xlsx'),
+    not pd.read_excel('input.csv')."""
+    return f"input{_PLACEHOLDER_EXT.get(source_type, '.csv')}"
+
+
 def ordered_imports(imports: list[str]) -> list[str]:
     """``import x`` lines first, then ``from x import y`` lines, each sorted."""
     plain = sorted(i for i in imports if i.startswith("import "))

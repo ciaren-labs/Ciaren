@@ -31,6 +31,7 @@ from app.engine.codegen_common import (
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
+    placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
 )
@@ -287,15 +288,15 @@ class PolarsCodeGenerator:
             ):
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path("text"))
                 suffix = ".lazy()" if lazy else ""
                 lines.append(f"with open({path!r}) as _f:")
                 lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
             elif node_type in _INPUT_READ:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 source_type = input_source_type(node_type, config)
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
                 if node_type == FILE_INPUT_TYPE:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
