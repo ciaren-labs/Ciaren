@@ -58,7 +58,7 @@ shown as installable examples so users can try the install and approval flow.
 Set `CIAREN_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
 marketplace JSON.
 
-![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing the installable Hello Plugin example](/screenshots/plugins.png)
+![Plugins page — no plugins installed, permissions warning banner, and the Explore catalog showing the installable Hello Plugin example with its trust tier and license](/screenshots/plugins.png)
 
 ```bash
 # Develop against a local folder

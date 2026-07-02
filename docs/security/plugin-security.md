@@ -53,7 +53,7 @@ installing the package was the consent step.
 
 | Surface | How |
 | --- | --- |
-| UI | The **Plugins** page lists each plugin's status, requested vs. granted permissions, and Approve / Revoke / Enable / Disable actions. A loaded plugin shows its permissions as active; revoking the ones you granted sends it back to pending. |
+| UI | The **Plugins** page shows each plugin's status; clicking a plugin opens its details with requested vs. granted permissions and the Approve / Revoke / Enable / Disable actions. A loaded plugin shows its permissions as active; revoking the ones you granted sends it back to pending. Status and signature badges explain themselves on hover. |
 | API | `POST /api/plugins/{id}/enable\|disable\|grant\|revoke` — see [Catalog & Plugins API](/api/catalog). |
 | CLI | `ciaren plugin enable\|disable <id>` — see [CLI reference](/guide/cli). |
 

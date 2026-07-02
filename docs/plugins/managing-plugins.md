@@ -49,8 +49,11 @@ is verified (signature + integrity) before anything is written to disk, then lan
 ### 2. From the Explore catalog
 
 If a marketplace index is configured (`CIAREN_MARKETPLACE_INDEX`), the **Explore
-plugins** section lists installable entries. **Install** re-verifies the advertised
-digest against the artifact, then installs it — the same gated path as an upload.
+plugins** section lists installable entries with their trust tier (earned by
+verifying the artifact's signature, never copied from the catalog), license, the
+Ciaren versions they support, and the pip dependencies they bring. **Install**
+re-verifies the advertised digest against the artifact, then installs it — the
+same gated path as an upload.
 
 ### 3. From the command line
 
@@ -68,14 +71,23 @@ still gated: they appear as pending until you approve them.
 
 ## Approve, disable, and permissions
 
-On each plugin card:
+The Plugins page shows one compact card per plugin — name, version, status, and
+the primary action right on the card (**Approve** for a pending plugin,
+**Enable** for a disabled one). **Click a card to open its details**: the
+permissions it requests and which you granted, the nodes it contributes, and its
+manifest metadata — license, trust tier, compatible Ciaren versions, pip
+dependencies, entry point, and install location. The remaining actions live in
+that details view.
 
-| Action | What it does |
-|--------|--------------|
-| **Approve** | Grants the requested permissions and lets the plugin's code load. A pending plugin becomes **active**. |
-| **Disable** | Stops loading the plugin on future startups. Its files stay on disk; re-enable any time. |
-| **Enable** | Re-loads a disabled plugin (re-applies its existing grants). |
-| **Revoke** | Withdraws permissions you granted. If it then lacks a required permission it drops back to pending and stops loading. |
+![Plugin details — a pending plugin with the approval warning, its contributed node, manifest metadata, and the Approve action](/screenshots/plugin-details.png)
+
+| Action | Where | What it does |
+|--------|-------|--------------|
+| **Approve** | Card & details | Grants the requested permissions and lets the plugin's code load. A pending plugin becomes **active**. |
+| **Disable** | Details | Stops loading the plugin on future startups. Its files stay on disk; re-enable any time. |
+| **Enable** | Card & details | Re-loads a disabled plugin (re-applies its existing grants). |
+| **Revoke** | Details | Withdraws permissions you granted. If it then lacks a required permission it drops back to pending and stops loading. |
+| **Uninstall** | Details | Deletes the plugin's installed files after a confirmation (see below). |
 
 From the CLI:
 
@@ -93,8 +105,8 @@ Uninstalling **deletes the plugin's installed files** and forgets its saved stat
 (approval and permission grants). Its contributed nodes leave the palette
 immediately; flows that use those nodes won't run until the plugin is reinstalled.
 
-**Plugins page:** click **Uninstall** on the card and confirm the destructive
-prompt.
+**Plugins page:** open the plugin's details, click **Uninstall**, and confirm
+the destructive prompt.
 
 **CLI:**
 
@@ -112,7 +124,8 @@ deleting its folder, or a package with `pip uninstall`.
 
 ## Trust badges
 
-Each installed plugin shows how its package verified at install time:
+Each installed plugin shows how its package verified at install time — hover a
+badge for a plain-language explanation of what it means:
 
 - **Trusted** — a valid signature from a key you trust.
 - **Untrusted key** — validly signed, but by a key not in your trusted set.
