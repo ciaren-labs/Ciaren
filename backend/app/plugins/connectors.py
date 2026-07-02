@@ -116,13 +116,25 @@ def _fields(spec: ConnectorSpec) -> list[ConfigFieldSpec]:
     return [ConfigFieldSpec.model_validate(f) for f in raw]
 
 
+def _is_missing(options: dict[str, Any], key: str) -> bool:
+    """A required field is missing when absent, None, or a blank string —
+    valid falsy values (``False`` for a boolean, ``0`` for a number) count as
+    provided."""
+    if key not in options:
+        return True
+    value = options[key]
+    if value is None:
+        return True
+    return isinstance(value, str) and not value.strip()
+
+
 def validate_plugin_connection(spec: ConnectorSpec, host: str | None, options: dict[str, Any] | None) -> None:
     """Pre-save validation for a plugin connection: form-flag requirements from
     the spec metadata plus the required fields of its ``config_schema``."""
     if spec.metadata.get("needs_host") and not host:
         raise ValidationError(f"{spec.label} needs a host.")
     opts = options or {}
-    missing = [f.label or f.key for f in _fields(spec) if f.required and not opts.get(f.key)]
+    missing = [f.label or f.key for f in _fields(spec) if f.required and _is_missing(opts, f.key)]
     if missing:
         raise ValidationError(f"{spec.label} requires: {', '.join(missing)}.")
 

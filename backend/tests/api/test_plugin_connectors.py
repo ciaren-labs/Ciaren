@@ -157,6 +157,36 @@ async def test_create_requires_schema_required_fields(client: AsyncClient, mem_c
     assert "Base URL" in r.json()["detail"]
 
 
+def test_required_field_validation_accepts_valid_falsy_values():
+    """``False`` for a required boolean and ``0`` for a required number are
+    provided values, not missing ones; blank/absent/None still fail."""
+    from app.core.exceptions import ValidationError
+    from app.plugins.connectors import validate_plugin_connection
+
+    spec = ConnectorSpec(
+        id="falsy",
+        label="Falsy",
+        kind="api",
+        provider="community.mem-connector",
+        config_schema={
+            "fields": [
+                {"key": "use_tls", "type": "boolean", "required": True},
+                {"key": "start_offset", "type": "integer", "required": True},
+                {"key": "base_url", "type": "string", "required": True},
+            ]
+        },
+    )
+    validate_plugin_connection(spec, None, {"use_tls": False, "start_offset": 0, "base_url": "https://x"})
+    for bad in (
+        {"use_tls": False, "start_offset": 0, "base_url": ""},  # blank string
+        {"use_tls": False, "start_offset": 0, "base_url": "   "},  # whitespace
+        {"use_tls": False, "start_offset": None, "base_url": "https://x"},  # None
+        {"use_tls": False, "base_url": "https://x"},  # absent key
+    ):
+        with pytest.raises(ValidationError):
+            validate_plugin_connection(spec, None, bad)
+
+
 async def test_unknown_provider_still_rejected(client: AsyncClient, mem_connector):
     r = await client.post("/api/connections", json={"name": "x", "provider": "no-such"})
     assert r.status_code == 400
