@@ -115,7 +115,10 @@ Each run snapshots the response to parquet like any other input, so runs stay
 reproducible. API connections are **read-only** — SQL Output doesn't list them.
 
 The connector applies the same SSRF host guard as every other connector, and
-responses are size-capped before parsing.
+responses are size-capped before parsing — 256 MiB per request **and**
+cumulatively across the pages of one paginated read (with a hard ceiling of
+1000 pages per read, whatever `max_pages` says). For larger extractions,
+filter or window the endpoint and split the read across runs.
 
 ## Connectors from plugins
 

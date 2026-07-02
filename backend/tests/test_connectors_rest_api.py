@@ -186,6 +186,19 @@ def test_pagination_respects_max_pages_and_limit(api):
     assert len(connector.read_table(spec, "orders", None, 12)) == 12
 
 
+def test_pagination_size_cap_is_cumulative(api, monkeypatch):
+    """Each page can be under the per-request cap while the read as a whole
+    grows unbounded — the cap must apply across pages too."""
+    from app.connectors import rest_api as rest_api_mod
+
+    # The first "orders" page is ~400 bytes; a 500-byte cap admits one page but
+    # must refuse the read once the second page arrives.
+    monkeypatch.setattr(rest_api_mod, "MAX_RESPONSE_BYTES", 500)
+    spec = _spec(api, page_param="page", page_size_param="per_page", page_size=10, max_pages=10)
+    with pytest.raises(ConnectorError, match="across pages"):
+        connector.read_table(spec, "orders", None, None)
+
+
 # -- connection surface -----------------------------------------------------------------
 
 

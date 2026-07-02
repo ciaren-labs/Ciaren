@@ -23,7 +23,7 @@ no generic table-write semantics.
 Security: the base URL must be http(s); the host passes the same SSRF guard as
 every other connector (``CONNECTOR_BLOCK_PRIVATE_HOSTS``); errors are scrubbed
 of the secret before they leave this module; responses are size-capped before
-parsing.
+parsing — per request and cumulatively across the pages of a paginated read.
 """
 
 from __future__ import annotations
@@ -49,8 +49,9 @@ RESPONSE_FORMATS = ("auto", "json", "csv")
 DEFAULT_API_KEY_HEADER = "X-API-Key"
 DEFAULT_TIMEOUT_SECONDS = 30
 MAX_TIMEOUT_SECONDS = 300
-#: Response-size cap per request (before parsing) — a runaway endpoint must not
-#: exhaust server memory.
+#: Response-size cap (before parsing) — a runaway endpoint must not exhaust
+#: server memory. Applies to each request *and* cumulatively across the pages
+#: of one paginated read (pages are held in memory until concatenated).
 MAX_RESPONSE_BYTES = 256 * 1024 * 1024
 #: Hard ceiling on pagination requests per read, whatever max_pages says.
 MAX_PAGES_CEILING = 1000
@@ -247,11 +248,20 @@ class RestApiConnector:
 
         pages: list[pd.DataFrame] = []
         total = 0
+        total_bytes = 0
         for page in range(start_page, start_page + max_pages):
             params = {page_param: str(page)}
             if page_size_param:
                 params[page_size_param] = str(page_size)
             body, content_type = self._request(spec, path, params)
+            # Every page stays in memory until the final concat, so the size cap
+            # is cumulative — max_pages alone must not let a read grow unbounded.
+            total_bytes += len(body)
+            if total_bytes > MAX_RESPONSE_BYTES:
+                raise ConnectorError(
+                    f"Paginated read of {path or '/'} exceeds the {MAX_RESPONSE_BYTES} byte cap "
+                    "across pages — reduce max_pages/page_size or filter the endpoint."
+                )
             frame = self._to_frame(spec, body, content_type)
             if len(frame):
                 pages.append(frame)
