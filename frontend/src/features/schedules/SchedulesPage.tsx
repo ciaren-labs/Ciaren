@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CalendarClock,
+  CheckCircle2,
+  Loader2,
+  MinusCircle,
   Pause,
   Pencil,
   Play,
@@ -31,7 +34,7 @@ import { ViewToggle } from "@/components/filters/ViewToggle";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { describeCron } from "@/lib/cron";
-import type { Schedule } from "@/lib/types";
+import type { Schedule, ScheduleRunBrief } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ENABLED_OPTIONS = [
@@ -54,6 +57,47 @@ const SCHEDULE_SORT: Record<ScheduleSortKey, (s: Schedule) => string | number | 
   last: (s) => s.last_status ?? null,
   state: scheduleState,
 };
+
+// Icon treatment per run status (mirrors StatusBadge, icon-only at strip size).
+const RUN_ICON: Record<
+  string,
+  { label: string; icon: typeof CheckCircle2; className: string; spin?: boolean }
+> = {
+  pending: { label: "Pending", icon: Loader2, className: "text-muted-foreground" },
+  running: { label: "Running", icon: Loader2, className: "text-info", spin: true },
+  success: { label: "Success", icon: CheckCircle2, className: "text-success" },
+  failed: { label: "Failed", icon: AlertCircle, className: "text-destructive" },
+  skipped: { label: "Skipped", icon: MinusCircle, className: "text-muted-foreground" },
+};
+
+/** The last few runs a schedule fired, as clickable status icons (oldest → newest). */
+export function RecentRunsStrip({ runs }: { runs: ScheduleRunBrief[] }) {
+  const navigate = useNavigate();
+  const fmt = useFormatDateTime();
+  if (!runs.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center">
+      {[...runs].reverse().map((run) => {
+        const meta = RUN_ICON[run.status] ?? RUN_ICON.pending;
+        const Icon = meta.icon;
+        return (
+          <button
+            key={run.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/runs/${run.id}`);
+            }}
+            className="rounded-md p-1 transition-colors hover:bg-muted"
+            title={`${meta.label} — ${fmt(run.created_at)}`}
+            aria-label={`Open run: ${meta.label}, ${fmt(run.created_at)}`}
+          >
+            <Icon className={cn("h-3.5 w-3.5", meta.className, meta.spin && "animate-spin")} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /** Lifecycle pill: paused vs auto-disabled vs active. */
 export function ScheduleStateBadge({ schedule }: { schedule: Schedule }) {
@@ -260,6 +304,7 @@ export function SchedulesPage() {
                         <th className="px-4 py-2.5 text-left font-semibold">Interval</th>
                         <SortableTh label="Next run" sortKey="next" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
                         <SortableTh label="Last" sortKey="last" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
+                        <th className="px-4 py-2.5 text-left font-semibold">Recent runs</th>
                         <SortableTh label="State" sortKey="state" sort={sort} onSort={toggleSort} className="px-4 py-2.5 text-left" />
                         <th className="px-4 py-2.5" />
                       </tr>
@@ -281,6 +326,9 @@ export function SchedulesPage() {
                           </td>
                           <td className="px-4 py-2.5">
                             {s.last_status ? <StatusBadge status={s.last_status} /> : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <RecentRunsStrip runs={s.recent_runs} />
                           </td>
                           <td className="px-4 py-2.5">
                             <ScheduleStateBadge schedule={s} />
@@ -440,9 +488,10 @@ function ScheduleCard({
         </div>
       </button>
       <div
-        className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-2.5"
+        className="mt-3 flex items-center justify-between gap-1 border-t border-border pt-2.5"
         onClick={(e) => e.stopPropagation()}
       >
+        <RecentRunsStrip runs={schedule.recent_runs} />
         <RowActions schedule={schedule} actions={actions} />
       </div>
     </div>

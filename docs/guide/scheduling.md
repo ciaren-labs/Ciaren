@@ -24,7 +24,11 @@ Click **Schedule** in the flow editor toolbar (or go to the **Schedules** page) 
 
 ![New schedule dialog — frequency picker (Hourly/Daily/Weekly/Monthly/Custom cron), time of day, timezone, engine, and Enabled toggle](/screenshots/schedule-create.png)
 
-![Schedules page — list of saved schedules with cron expressions, next run times, and status](/screenshots/schedules.png)
+![Schedules page — list of saved schedules with cron expressions, next run times, recent run history, and status](/screenshots/schedules.png)
+
+The **Recent runs** column shows each schedule's last five runs as status icons
+(oldest to newest), so you can spot a flaky or failing schedule at a glance.
+Click an icon to open that run in the [run detail view](/guide/projects-and-runs#runs).
 
 The frequency picker updates its human-readable summary and cron expression live as you switch between Weekly and Custom (cron):
 
