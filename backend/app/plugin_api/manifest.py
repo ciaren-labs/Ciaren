@@ -85,9 +85,16 @@ class PluginManifest(BaseModel):
 
     def is_compatible_with(self, ciaren_version: str) -> bool:
         """Whether this plugin declares compatibility with ``ciaren_version``.
-        Pre-releases are allowed so a plugin can target a dev build."""
+        Pre-releases are allowed so a plugin can target a dev build.
+
+        Compares against the release's ``base_version`` (dropping any pre/dev/post
+        suffix): under PEP 440 ordering a pre-release sorts *before* its own final
+        release, so e.g. ``0.1.0a1`` would otherwise fail a ``>=0.1`` spec even
+        though it's conceptually a 0.1.0 build.
+        """
         try:
-            return Version(ciaren_version) in SpecifierSet(self.ciaren, prereleases=True)
+            release_version = Version(Version(ciaren_version).base_version)
+            return release_version in SpecifierSet(self.ciaren, prereleases=True)
         except (InvalidVersion, InvalidSpecifier):
             return False
 
