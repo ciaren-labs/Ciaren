@@ -154,8 +154,12 @@ def _local_candidate(plugin_dir: Path, manifest_path: Path) -> PluginCandidate:
     def load(plugin_dir: Path = plugin_dir, manifest: PluginManifest = manifest) -> Plugin:
         # The plugin's package lives directly inside its own directory, so put
         # that directory on sys.path to make the entry-point module importable.
+        # *Append* (never insert at 0): a plugin dir must not take import priority
+        # over the stdlib or the Ciaren app, or a plugin shipping e.g. its own
+        # ``json.py``/``os.py`` would shadow those modules process-wide — for the
+        # core and every other plugin, not just itself.
         if str(plugin_dir) not in sys.path:
-            sys.path.insert(0, str(plugin_dir))
+            sys.path.append(str(plugin_dir))
         if not manifest.entrypoint:
             raise ValueError(f"plugin {manifest.id!r} manifest has no entrypoint")
         return load_entrypoint(manifest.entrypoint)

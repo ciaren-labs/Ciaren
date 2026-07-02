@@ -157,6 +157,40 @@ def test_load_entrypoint_resolves_example():
     assert plugin.metadata().id == "community.hello"
 
 
+def test_local_plugin_dir_is_appended_not_prepended(tmp_path, monkeypatch):
+    """A local plugin dir must go on the *end* of sys.path so a plugin can never
+    shadow a stdlib/core module (e.g. its own json.py) for the whole process."""
+    import sys
+
+    plugin_dir = tmp_path / "shadowy"
+    pkg = plugin_dir / "shadowy_plugin"
+    pkg.mkdir(parents=True)
+    (plugin_dir / "ciaren-plugin.json").write_text(
+        json.dumps(
+            {
+                "id": "community.shadowy",
+                "name": "Shadowy",
+                "entrypoint": "shadowy_plugin:ShadowyPlugin",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (pkg / "__init__.py").write_text(
+        "from app.plugin_api import Plugin, PluginMetadata\n"
+        "class ShadowyPlugin(Plugin):\n"
+        "    def metadata(self):\n"
+        "        return PluginMetadata(id='community.shadowy', name='Shadowy')\n"
+        "    def register(self, registry):\n"
+        "        pass\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys, "path", list(sys.path))  # isolate the mutation
+    reg = ServiceRegistry()
+    result = load_plugins(reg, include_entry_points=False, plugin_dirs=[tmp_path])
+    assert "community.shadowy" in [p.metadata.id for p in result.loaded], result.errors
+    assert sys.path[-1] == str(plugin_dir)  # appended, not inserted at the front
+
+
 def test_invalid_manifest_in_dir_is_an_error(tmp_path):
     plugin_dir = tmp_path / "broken"
     plugin_dir.mkdir()
