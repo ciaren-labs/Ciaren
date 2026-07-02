@@ -51,6 +51,22 @@ def _datetimes() -> pd.DataFrame:
     return pd.DataFrame({"d": pd.to_datetime(["2024-01-02 03:04:05", "2023-12-31 23:59:59", "2024-06-15 12:00:00"])})
 
 
+def _date_pair_str() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "s": ["2024-01-01 00:00:00", "2024-03-04 06:00:00", None],
+            "e": ["2024-01-02 12:00:00", "2024-03-04 18:00:00", "2024-06-15 00:00:00"],
+        }
+    )
+
+
+def _date_pair_dt() -> pd.DataFrame:
+    # The same dates already parsed: upstream nodes often convert to datetime
+    # before a date op runs, so its emitters must handle both dtypes.
+    df = _date_pair_str()
+    return df.assign(s=pd.to_datetime(df["s"]), e=pd.to_datetime(df["e"]))
+
+
 def _ints_dirty() -> pd.DataFrame:
     return pd.DataFrame({"a": ["1", "x", "3"]})
 
@@ -108,6 +124,7 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "rename_cols": {"in": _single_col},
     "select_cols": {"in": _num},
     "cast_dt": {"in": _dates_str},
+    "cast_dt_datetime": {"in": _datetimes},
     "cast_int_coerce": {"in": _ints_dirty},
     "cast_plain": {"in": _num},
     "dropnull_any": {"in": _num},
@@ -126,6 +143,12 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "concat": {"in": _num, "in_1": _num},
     "calc": {"in": _num},
     "dateparts": {"in": _datetimes},
+    "dateparts_str": {"in": _dates_str},
+    "parse_dates": {"in": _dates_str},
+    "parse_dates_fmt": {"in": _dates_str},
+    "parse_dates_datetime": {"in": _datetimes},
+    "date_diff": {"in": _date_pair_str},
+    "date_diff_datetime": {"in": _date_pair_dt},
     "unpivot_min": {"in": _wide},
     "unpivot_full": {"in": _wide},
     "pivot_str_index": {"in": _pivotable},

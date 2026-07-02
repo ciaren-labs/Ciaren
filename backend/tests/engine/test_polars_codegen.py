@@ -168,6 +168,41 @@ def test_polars_concat_matches_engine_relaxed_schema(tmp_path: Path) -> None:
         assert sorted(out["x"]) == [1.0, 2.0, 3.5]
 
 
+def _date_chain_graph() -> dict:
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "D"}}},
+            {"id": "p", "type": "parseDates", "data": {"config": {"columns": ["s", "e"]}}},
+            {
+                "id": "d",
+                "type": "dateDifference",
+                "data": {"config": {"start_column": "s", "end_column": "e", "unit": "days", "new_column": "diff"}},
+            },
+            {"id": "x", "type": "extractDateParts", "data": {"config": {"column": "e", "parts": ["year"]}}},
+            {"id": "o", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "p"},
+            {"id": "e2", "source": "p", "target": "d"},
+            {"id": "e3", "source": "d", "target": "x"},
+            {"id": "e4", "source": "x", "target": "o"},
+        ],
+    }
+
+
+def test_polars_date_ops_after_parse_dates_run(tmp_path: Path) -> None:
+    """Regression: dateDifference / extractDateParts downstream of parseDates see
+    *datetime* columns, and their old emitters unconditionally called
+    ``.str.to_datetime`` — SchemaError at runtime for a chain the app executes
+    fine. The emitters must dispatch on the schema like the engine does."""
+    (tmp_path / "d.csv").write_text("s,e\n2024-01-01,2024-01-03\n2024-03-04,2024-03-14\n")
+    for lazy in (False, True):
+        code = PolarsCodeGenerator().generate(_date_chain_graph(), {"D": "d.csv"}, lazy=lazy)
+        out = _run(code, tmp_path)
+        assert list(out["diff"]) == [2.0, 10.0], f"lazy={lazy}:\n{code}"
+        assert list(out["e_year"]) == [2024, 2024]
+
+
 # --- lazy mode -------------------------------------------------------------
 
 

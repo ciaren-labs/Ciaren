@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, polars_to_datetime_expr
 
 
 class DropColumnsTransformation(BaseTransformation):
@@ -223,10 +223,13 @@ class CastDtypesTransformation(BaseTransformation):
         fmt = config.get("format") or None
         strict = config.get("errors", "raise") != "coerce"
         lines = [f"{dst} = {src}"]
+        if any(dtype == "datetime" for dtype in config["casts"].values()):
+            lines.append(f"_sch = {dst}.collect_schema()")
         for column, dtype in config["casts"].items():
             if dtype == "datetime":
                 lines.append(
-                    f"{dst} = {dst}.with_columns(pl.col({column!r}).str.to_datetime(format={fmt!r}, strict={strict}))"
+                    f"{dst} = {dst}.with_columns("
+                    f"{polars_to_datetime_expr('_sch', repr(column), fmt=fmt, strict=strict)})"
                 )
             else:
                 pl_dtype = self._POLARS_DTYPE[dtype]

@@ -54,6 +54,7 @@ CODEGEN_CASES = [
     ("select_cols", "selectColumns", {"columns": ["a"]}),
     # castDtypes: datetime (with fmt+coerce), numeric coerce, plain
     ("cast_dt", "castDtypes", {"casts": {"a": "datetime"}, "format": "%Y-%m-%d", "errors": "coerce"}),
+    ("cast_dt_datetime", "castDtypes", {"casts": {"d": "datetime"}}),
     ("cast_int_coerce", "castDtypes", {"casts": {"a": "integer"}, "errors": "coerce"}),
     ("cast_plain", "castDtypes", {"casts": {"a": "string"}}),
     # dropNulls: any/all, with/without subset
@@ -74,7 +75,21 @@ CODEGEN_CASES = [
     ("groupby", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "sum"}}),
     ("concat", "concatRows", {}),
     ("calc", "calculatedColumn", {"column_name": "d", "expression": "a + b"}),
+    # date coercion nodes: the engines dispatch on the column's dtype at runtime
+    # (parse strings, cast already-temporal columns), and the input dtype depends
+    # on upstream nodes — so each node gets a string-input AND a datetime-input
+    # case, and the emitters must reproduce the dispatch in the generated code.
     ("dateparts", "extractDateParts", {"column": "d", "parts": ["year", "month", "day", "weekday", "hour"]}),
+    ("dateparts_str", "extractDateParts", {"column": "a", "parts": ["year", "month", "day", "weekday", "hour"]}),
+    ("parse_dates", "parseDates", {"columns": ["a"]}),
+    ("parse_dates_fmt", "parseDates", {"columns": ["a"], "format": "%Y-%m-%d", "errors": "raise"}),
+    ("parse_dates_datetime", "parseDates", {"columns": ["d"]}),
+    ("date_diff", "dateDifference", {"start_column": "s", "end_column": "e", "unit": "hours", "new_column": "diff"}),
+    (
+        "date_diff_datetime",
+        "dateDifference",
+        {"start_column": "s", "end_column": "e", "unit": "days", "new_column": "diff"},
+    ),
     ("unpivot_min", "unpivot", {"id_vars": ["id"]}),
     ("unpivot_full", "unpivot", {"id_vars": ["id"], "value_vars": ["x"], "var_name": "k", "value_name": "v"}),
     ("pivot_str_index", "pivot", {"index": "r", "columns": "c", "values": "v"}),
