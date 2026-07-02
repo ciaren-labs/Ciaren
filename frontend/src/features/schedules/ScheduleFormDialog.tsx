@@ -284,7 +284,7 @@ export function ScheduleFormDialog({
             <span className="flex flex-col">
               <span className="text-sm font-medium">Enabled</span>
               <span className="text-[11px] text-muted-foreground">
-                When off, the schedule is saved but never fires automatically.
+                Fires automatically at the scheduled times. Turn off to save it as paused.
               </span>
             </span>
             <input
