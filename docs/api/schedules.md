@@ -29,6 +29,11 @@ Blank/omitted values fall back to each parameter's declared default.
 A manual `run-now` stays out of the retry/auto-disable machinery — it's a plain
 one-off execution.
 
+Schedule reads include a `recent_runs` array — the last five runs the schedule
+fired, newest first, each with `id`, `status`, and `created_at`. The UI uses it
+for the run-history icons on the Schedules page; for the full history use
+`GET /api/schedules/{schedule_id}/runs`.
+
 `GET /api/schedules/{schedule_id}/runs` accepts the same pagination shape as
 the runs list: `limit` (1-10000, default 100) and `offset` (default 0).
 

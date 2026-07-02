@@ -1,18 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
+from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.engine.backends import available_engines
 from app.scheduler.cron import compute_next_run, is_valid_cron, is_valid_timezone
 from app.schemas.run import FlowRunCreate, FlowRunRead
-from app.schemas.schedule import ScheduleCreate, ScheduleRead, ScheduleUpdate
+from app.schemas.schedule import ScheduleCreate, ScheduleRead, ScheduleRunBrief, ScheduleUpdate
 from app.services.execution_service import ExecutionService
+
+# How many of a schedule's most recent runs ride along on ScheduleRead, so the
+# schedules list can show a run-history strip without a per-row request.
+RECENT_RUNS_COUNT = 5
 
 
 class ScheduleService:
@@ -58,10 +63,13 @@ class ScheduleService:
         if flow_id is not None:
             stmt = stmt.where(Schedule.flow_id == flow_id)
         result = await self.db.execute(stmt)
-        return [ScheduleRead.model_validate(s) for s in result.scalars().all()]
+        schedules = result.scalars().all()
+        recent = await self._recent_runs([s.id for s in schedules])
+        return [self._to_read(s, recent) for s in schedules]
 
     async def get(self, schedule_id: str) -> ScheduleRead:
-        return ScheduleRead.model_validate(await self._get_or_raise(schedule_id))
+        schedule = await self._get_or_raise(schedule_id)
+        return self._to_read(schedule, await self._recent_runs([schedule.id]))
 
     async def update(self, schedule_id: str, data: ScheduleUpdate) -> ScheduleRead:
         schedule = await self._get_or_raise(schedule_id)
@@ -101,7 +109,7 @@ class ScheduleService:
         schedule.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(schedule)
-        return ScheduleRead.model_validate(schedule)
+        return self._to_read(schedule, await self._recent_runs([schedule.id]))
 
     async def delete(self, schedule_id: str) -> None:
         schedule = await self._get_or_raise(schedule_id)
@@ -132,6 +140,34 @@ class ScheduleService:
         return run
 
     # -- Internals ------------------------------------------------------
+
+    def _to_read(self, schedule: Schedule, recent: dict[str, list[ScheduleRunBrief]]) -> ScheduleRead:
+        read = ScheduleRead.model_validate(schedule)
+        read.recent_runs = recent.get(schedule.id, [])
+        return read
+
+    async def _recent_runs(self, schedule_ids: list[str]) -> dict[str, list[ScheduleRunBrief]]:
+        """The last RECENT_RUNS_COUNT runs per schedule (newest first), in one query."""
+        if not schedule_ids:
+            return {}
+        rank = (
+            func.row_number()
+            .over(partition_by=FlowRun.schedule_id, order_by=(FlowRun.created_at.desc(), FlowRun.id.desc()))
+            .label("rank")
+        )
+        ranked = (
+            select(FlowRun.id, FlowRun.schedule_id, FlowRun.status, FlowRun.created_at, rank)
+            .where(FlowRun.schedule_id.in_(schedule_ids))
+            .subquery()
+        )
+        stmt = select(ranked).where(ranked.c.rank <= RECENT_RUNS_COUNT).order_by(ranked.c.schedule_id, ranked.c.rank)
+        result = await self.db.execute(stmt)
+        recent: dict[str, list[ScheduleRunBrief]] = {}
+        for row in result.all():
+            recent.setdefault(row.schedule_id, []).append(
+                ScheduleRunBrief(id=row.id, status=row.status, created_at=row.created_at)
+            )
+        return recent
 
     def _validate(self, cron: str, timezone: str, engine: str | None) -> None:
         if not is_valid_cron(cron):

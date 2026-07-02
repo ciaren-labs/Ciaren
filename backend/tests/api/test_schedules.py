@@ -180,6 +180,30 @@ async def test_schedule_run_history_is_filterable(client: AsyncClient) -> None:
     assert {r["id"] for r in nested} == sched_run_ids
 
 
+async def test_recent_runs_ride_along_on_schedule_reads(client: AsyncClient) -> None:
+    flow = await _flow(client)
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
+    assert created["recent_runs"] == []  # a brand-new schedule has no history
+
+    other = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 10 * * *"})).json()
+    other_run = (await client.post(f"/api/schedules/{other['id']}/run-now")).json()
+
+    # Six runs: recent_runs keeps only the newest five, newest first.
+    run_ids = [(await client.post(f"/api/schedules/{created['id']}/run-now")).json()["id"] for _ in range(6)]
+
+    sched = (await client.get(f"/api/schedules/{created['id']}")).json()
+    recent = sched["recent_runs"]
+    assert [r["id"] for r in recent] == list(reversed(run_ids))[:5]
+    assert all(r["status"] == "success" for r in recent)
+    assert all(r["created_at"] for r in recent)
+    assert other_run["id"] not in {r["id"] for r in recent}  # no bleed across schedules
+
+    # The list endpoints carry the same history per schedule.
+    listed = {s["id"]: s for s in (await client.get("/api/schedules")).json()}
+    assert [r["id"] for r in listed[created["id"]]["recent_runs"]] == [r["id"] for r in recent]
+    assert [r["id"] for r in listed[other["id"]]["recent_runs"]] == [other_run["id"]]
+
+
 async def test_schedule_runs_unknown_schedule_is_404(client: AsyncClient) -> None:
     assert (await client.get("/api/schedules/ghost/runs")).status_code == 404
 
