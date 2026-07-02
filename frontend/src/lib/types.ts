@@ -256,6 +256,13 @@ export interface RunListFilters {
 
 // ---- Schedules -------------------------------------------------------------
 
+/** A minimal run reference for the recent-run history strip on the schedules list. */
+export interface ScheduleRunBrief {
+  id: string;
+  status: RunStatus;
+  created_at: string;
+}
+
 export interface Schedule {
   id: string;
   flow_id: string;
@@ -278,6 +285,8 @@ export interface Schedule {
   retry_count: number;
   /** Set when the scheduler auto-disabled a chronically failing schedule. */
   disabled_reason: string | null;
+  /** Most recent runs this schedule fired (newest first). */
+  recent_runs: ScheduleRunBrief[];
   /** Flow-parameter overrides applied to every run this schedule fires. */
   parameters: ParameterValues | null;
   created_at: string;

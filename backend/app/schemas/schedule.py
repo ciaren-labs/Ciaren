@@ -36,6 +36,14 @@ class ScheduleUpdate(BaseModel):
     parameters: dict[str, Any] | None = None
 
 
+class ScheduleRunBrief(BaseModel):
+    """A minimal run reference for the recent-run history strip on the schedules list."""
+
+    id: str
+    status: str
+    created_at: datetime
+
+
 class ScheduleRead(BaseModel):
     id: str
     flow_id: str
@@ -57,6 +65,8 @@ class ScheduleRead(BaseModel):
     consecutive_failures: int
     retry_count: int
     disabled_reason: str | None
+    # Most recent runs this schedule fired (newest first), for the history strip.
+    recent_runs: list[ScheduleRunBrief] = []
     created_at: datetime
     updated_at: datetime
 
