@@ -122,8 +122,8 @@ input_path = 'data/sales.csv'
 keep = 100  # rows to keep
 
 df_1 = pd.read_csv(input_path)
-df_2 = df_1.head(keep)
-df_2.to_csv('output.csv', index=False)
+df_1 = df_1.head(keep)
+df_1.to_csv('output.csv', index=False)
 ```
 
 Whole-field references render as the bare variable (`df.head(keep)`); embedded
