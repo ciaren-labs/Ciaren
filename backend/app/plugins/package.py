@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Literal
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.plugin_api import PluginManifest, validate_manifest
 from app.plugin_api.signing import SigningUnavailableError, sign, verify
@@ -133,8 +133,14 @@ def read_signature(path: str | os.PathLike[str]) -> PackageSignature | None:
     with _open_zip(path) as zf:
         if SIGNATURE_FILENAME not in zf.namelist():
             return None
-        data = json.loads(zf.read(SIGNATURE_FILENAME))
-    return PackageSignature.model_validate(data)
+        raw = zf.read(SIGNATURE_FILENAME)
+    # A malformed signature file is a bad package, not a server error: surface it
+    # as PackageError (like a malformed manifest) so callers reject it cleanly
+    # instead of letting a raw JSON/validation error escape as a 500.
+    try:
+        return PackageSignature.model_validate(json.loads(raw))
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise PackageError(f"{SIGNATURE_FILENAME} in {path} is malformed: {exc}") from exc
 
 
 #: Publisher keys pinned into the application itself — the trust root for the

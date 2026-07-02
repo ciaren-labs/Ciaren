@@ -234,6 +234,21 @@ def test_trust_downgrade_withdraws_approval(src, tmp_path):
     assert s.signature("community.inst") == "unsigned"
 
 
+def test_reinstall_unsigned_over_unsigned_withdraws_approval(src, tmp_path):
+    """A plugin id is claimable and an unsigned package carries no signer identity,
+    so approval given to one unsigned package must not carry over to a different
+    unsigned package that claims the same id — the new code re-gates to pending."""
+    pkg = package.pack_directory(src, tmp_path / "p1.ciarenplugin")
+    install_ciarenplugin(pkg, install_dir=tmp_path / "i")
+    _approve("community.inst")
+
+    pkg2 = package.pack_directory(src, tmp_path / "p2.ciarenplugin")
+    install_ciarenplugin(pkg2, install_dir=tmp_path / "i", force=True)
+    s = _state()
+    assert s.is_approved("community.inst") is False
+    assert s.signature("community.inst") == "unsigned"
+
+
 def test_install_records_signature_state(src, tmp_path):
     """Installs (package or directory) persist the verification outcome so the UI
     trust badge works without the original archive."""
