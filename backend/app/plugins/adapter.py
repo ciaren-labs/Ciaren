@@ -17,7 +17,7 @@ from typing import Any
 from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.preview_context import in_preview
 from app.engine.transformations.base import BaseTransformation
-from app.plugin_api import EMPTY_NODE_CONTEXT, NodeContext, NodeRuntime, NodeSpec
+from app.plugin_api import EMPTY_NODE_CONTEXT, NodeContext, NodeRuntime, NodeSpec, is_model_ref_frame
 
 
 class PluginNodeExportError(ValueError):
@@ -48,6 +48,10 @@ class PluginTransformation(BaseTransformation):
         self.input_handles = required or ("in",)
         self.optional_input_handles = tuple(p.id for p in spec.inputs if not p.required)
         self.multi_input = any(p.multi for p in spec.inputs)
+        # Same defaulting as the node-kind registration: no declared outputs
+        # means the single conventional "out" handle.
+        self._declared_outputs = tuple(p.id for p in spec.outputs) or ("out",)
+        self._model_outputs = frozenset(p.id for p in spec.outputs if p.type == "model")
 
     def validate_config(self, config: dict[str, Any]) -> None:
         self._runtime.validate_config(config)
@@ -63,7 +67,43 @@ class PluginTransformation(BaseTransformation):
         # per plugin, but preview vs. run is decided at execution time.
         context = replace(self._context, in_preview=in_preview())
         result = self._runtime.execute_with_context(pandas_inputs, config, context)
+        self._validate_outputs(result)
         return {handle: engine.from_pandas(frame) for handle, frame in result.items()}
+
+    def _validate_outputs(self, result: Any) -> None:
+        """Hold the runtime to its own NodeSpec: downstream nodes, the executor,
+        and graph validation all plan around the declared handles, so a mismatch
+        must fail here with a plugin-shaped message — not deep in the engine."""
+        import pandas as pd
+
+        if not isinstance(result, dict):
+            raise ValueError(
+                f"{self.type}: the plugin runtime must return a dict of output handle -> "
+                f"pandas DataFrame, got {type(result).__name__}"
+            )
+        declared = set(self._declared_outputs)
+        missing = sorted(declared - result.keys())
+        unknown = sorted(result.keys() - declared)
+        if missing or unknown:
+            problems = []
+            if missing:
+                problems.append(f"missing declared output(s) {missing}")
+            if unknown:
+                problems.append(f"undeclared output(s) {unknown}")
+            raise ValueError(
+                f"{self.type}: the plugin runtime's outputs do not match its NodeSpec: "
+                f"{'; '.join(problems)} (declared: {sorted(declared)})"
+            )
+        for handle, frame in result.items():
+            if not isinstance(frame, pd.DataFrame):
+                raise ValueError(
+                    f"{self.type}: output {handle!r} must be a pandas DataFrame, got {type(frame).__name__}"
+                )
+            if handle in self._model_outputs and not is_model_ref_frame(frame):
+                raise ValueError(
+                    f'{self.type}: output {handle!r} is declared type="model" but does not carry '
+                    "a model reference — emit ModelRef(...).to_frame() on model handles"
+                )
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         return list(self._runtime.imports(config))
