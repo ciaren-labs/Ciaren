@@ -61,6 +61,10 @@ Then open `http://localhost:8055`. The first start seeds a **Demo project**
 with sample datasets and example flows, so there is something real to open,
 preview, and run before you upload anything of your own — see the
 [Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project).
+Seeding the demo is optional but recommended, especially on a first install:
+it gives you working examples of flows, joins, and ML nodes to explore. If you
+prefer a completely empty workspace, start with `ciaren serve --no-demo` (or
+set `CIAREN_SEED_DEMO=false`).
 
 ### Run From Source
 
