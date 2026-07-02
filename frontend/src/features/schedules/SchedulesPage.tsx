@@ -71,10 +71,11 @@ const RUN_ICON: Record<
 };
 
 /** The last few runs a schedule fired, as clickable status icons (oldest → newest). */
-export function RecentRunsStrip({ runs }: { runs: ScheduleRunBrief[] }) {
+export function RecentRunsStrip({ runs }: { runs?: ScheduleRunBrief[] }) {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
-  if (!runs.length) return <span className="text-muted-foreground">—</span>;
+  // Optional at runtime: a response cached or served before recent_runs existed omits it.
+  if (!runs?.length) return <span className="text-muted-foreground">—</span>;
   return (
     <div className="flex items-center">
       {[...runs].reverse().map((run) => {
