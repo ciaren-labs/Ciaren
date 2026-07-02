@@ -303,6 +303,8 @@ export default defineConfig({
             { text: 'File output (CSV/Excel/Parquet)', link: '/transformations/file-output' },
             { text: 'SQL input', link: '/transformations/sql-input' },
             { text: 'SQL output', link: '/transformations/sql-output' },
+            { text: 'Storage input (S3/GCS/Azure)', link: '/transformations/storage-input' },
+            { text: 'Storage output (S3/GCS/Azure)', link: '/transformations/storage-output' },
           ],
         },
         {
