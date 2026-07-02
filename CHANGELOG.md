@@ -34,6 +34,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Changed
 
+- Exported Python scripts now reuse a single dataframe variable along straight
+  chains (`df_1 = df_1.dropna()` instead of minting `df_2`, `df_3`, …), reading
+  like hand-written code. Steps feeding several consumers (fan-outs, join
+  inputs) keep their own variable. The polars floor rose from `>=1.0` to
+  `>=1.21` (rolling windows now use the `min_samples` kwarg that replaced the
+  deprecated `min_periods`).
 - README now starts with a demo-first public launch flow, badges, screenshot,
   quick-start instructions, and contributor paths.
 - GitHub repository metadata now presents Ciaren as a data and ML workflow
@@ -48,9 +54,28 @@ release, breaking changes may still happen between alpha versions.
   LightGBM (`pip install "ciaren[ml]"`), since those are the two
   native-compiled, optional model choices. `CIAREN_ML_ENABLED` still exists as
   an on/off switch for the feature as a whole.
+- Moved internal, pre-launch planning docs (`PLUGIN_ARCHITECTURE_PLAN.md`,
+  `PLUGIN_MARKETPLACE_PAGE_PROPOSAL.md`) out of `docs/` into a new `internal/`
+  folder, since VitePress builds every `.md` file under `docs/` into a public
+  route regardless of nav linkage.
 
 ### Fixed
 
+- Code export fidelity — the exported script must behave exactly like the
+  in-app run, verified by a new equivalence harness that executes every
+  emitted pandas/polars snippet and compares the result frame against
+  `execute()` per engine:
+  - Exported polars scripts crashed with `SchemaError` on date operations
+    downstream of parsed dates (and vice versa): `dateDifference`,
+    `extractDateParts`, `parseDates`, and `castDtypes` now dispatch on the
+    column's dtype at runtime like the in-app engine does.
+  - `concatRows` polars export now uses `vertical_relaxed` like the engine,
+    so mixed int/float columns concatenate instead of raising.
+  - `fillNulls` mode-strategy polars export no longer crashes when nulls are
+    present, and leaves all-null columns untouched like the engine.
+  - `filterRows` string operators stringify non-string search values like
+    the engines, and the polars export uses literal (not regex) `contains`
+    to match in-app behavior.
 - `README.md`/`CONTRIBUTING.md` linked to a deleted root-level `architecture.md`;
   both now point to `docs/architecture/current-architecture-map.md`.
 - A stale test assertion in `test_graph_validation.py` expected an old
@@ -68,13 +93,6 @@ release, breaking changes may still happen between alpha versions.
   Corrected, and updated the section to reflect that PyPI publishing (added
   this cycle for both `ciaren` and `ciaren-client` via trusted publishing) is
   no longer manual.
-
-### Changed
-
-- Moved internal, pre-launch planning docs (`PLUGIN_ARCHITECTURE_PLAN.md`,
-  `PLUGIN_MARKETPLACE_PAGE_PROPOSAL.md`) out of `docs/` into a new `internal/`
-  folder, since VitePress builds every `.md` file under `docs/` into a public
-  route regardless of nav linkage.
 
 ### Security
 

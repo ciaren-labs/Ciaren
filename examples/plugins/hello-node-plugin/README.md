@@ -12,6 +12,17 @@ catalog pipeline working end to end.
 - A `pyproject.toml` declaring the `ciaren.plugins` entry point, so an
   installed copy is discovered automatically.
 
+The plugin's Python is the single source of truth: the committed
+`ciaren-plugin.json` is exactly what the code declares, and you can regenerate it
+so the two never drift —
+
+```bash
+ciaren plugin manifest examples/plugins/hello-node-plugin   # rewrites ciaren-plugin.json
+```
+
+The manifest is still shipped and validated before any code runs (the security
+property is unchanged); generating it just removes the hand-maintained duplicate.
+
 The plugin depends only on the Ciaren plugin contract (`app.plugin_api`,
 publishing later as `ciaren-plugin-api`) — never on Ciaren internals.
 

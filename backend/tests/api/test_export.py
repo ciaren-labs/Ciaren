@@ -127,7 +127,12 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
 
 async def test_export_free_intermediates_adds_del(client: AsyncClient) -> None:
     ds = await _upload(client)
-    flow = await _create_flow(client, _full_graph(ds["id"]))
+    graph = _full_graph(ds["id"])
+    # Fan the input out to a second sink so an intermediate actually outlives its
+    # producer — on a purely linear chain variable reuse leaves nothing to free.
+    graph["nodes"].append({"id": "out2", "type": "csvOutput", "data": {"config": {"path": "raw.csv"}}})
+    graph["edges"].append({"id": "e3", "source": "in1", "target": "out2"})
+    flow = await _create_flow(client, graph)
     r = await client.post(f"/api/flows/{flow['id']}/export/python?free_intermediates=true")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -136,6 +141,16 @@ async def test_export_free_intermediates_adds_del(client: AsyncClient) -> None:
     assert "del df_1" in body["polars"]
     assert "del " not in body["polars_lazy"]
     compile(body["code"], "<exported-del>", "exec")
+
+
+async def test_export_linear_chain_reuses_variable(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    body = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()
+    # in -> dropNulls -> out is a straight line: one df_1, reassigned in place.
+    assert "df_1 = df_1.dropna()" in body["code"]
+    assert "df_1 = df_1.drop_nulls()" in body["polars"]
+    assert "df_2" not in body["code"] and "df_2" not in body["polars"]
 
 
 async def test_export_python_missing_flow(client: AsyncClient) -> None:

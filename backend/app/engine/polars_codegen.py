@@ -4,7 +4,10 @@
 Thin driver mirroring :class:`app.engine.codegen.CodeGenerator` (pandas): it
 handles input-read / output-write nodes inline and delegates every
 transformation node to its own ``to_polars_code`` method, so each node's polars
-mapping lives next to its ``execute`` and ``to_python_code``.
+mapping lives next to its ``execute`` and ``to_python_code``. On linear chains
+a node writes its result back into its input's variable (``df_1 =
+df_1.drop_nulls()``) instead of minting a new ``df_N`` — see
+:func:`app.engine.codegen_common.reusable_output_var`.
 
 Two opt-in modes:
 
@@ -21,7 +24,18 @@ Two opt-in modes:
 
 from typing import Any
 
-from app.engine.codegen_common import last_consumer_index
+from app.engine.codegen_common import (
+    DelScheduler,
+    collect_input_vars,
+    edge_source_var,
+    incoming_by_target,
+    last_consumer_index,
+    ordered_imports,
+    placeholder_input_path,
+    reusable_output_var,
+    sql_engine_var,
+    strip_self_assign,
+)
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
@@ -35,7 +49,7 @@ from app.engine.node_kinds import (
     output_source_type,
 )
 from app.engine.registry import get_transformation
-from app.engine.sql_codegen import engine_url_expr, graph_has_sql
+from app.engine.sql_codegen import graph_has_sql
 
 _INPUT_READ = {
     "fileInput": "pl.read_csv",
@@ -101,16 +115,14 @@ class PolarsCodeGenerator:
         connections = connections or {}
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
-        edges = graph.get("edges", [])
-        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
-        for edge in edges:
-            incoming[edge["target"]].append(edge)
+        incoming = incoming_by_target(graph)
 
-        # del only makes sense for materializing (eager) frames; a lazy variable
-        # is a query plan, so freeing it reclaims nothing.
-        emit_del = free_intermediates and not lazy
-        last_use = last_consumer_index(order, edges) if emit_del else {}
-        pending_del: dict[int, list[str]] = {}
+        # Liveness feeds variable reuse on linear chains (df_1 = df_1.head(...))
+        # in every mode. del additionally only makes sense for materializing
+        # (eager) frames; a lazy variable is a query plan, freeing it reclaims
+        # nothing.
+        last_use = last_consumer_index(order, graph.get("edges", []))
+        dels = DelScheduler(order, last_use, enabled=free_intermediates and not lazy)
 
         base_header = ["import polars as pl"]
         if graph_has_sql(graph):
@@ -146,27 +158,10 @@ class PolarsCodeGenerator:
             return f"_eager_{eager_counter}"
 
         def source_var(edge: dict[str, Any]) -> str:
-            """The variable an edge carries, honoring sourceHandle for multi-output nodes."""
-            outs = node_outputs[edge["source"]]
-            handle = edge.get("sourceHandle")
-            if handle and handle in outs:
-                return outs[handle]
-            if "out" in outs:
-                return outs["out"]
-            return next(iter(outs.values()))
-
-        def schedule_del(node_id: str, var: str) -> None:
-            li = last_use.get(node_id)
-            if li is not None and li < len(order) - 1:
-                pending_del.setdefault(li, []).append(var)
+            return edge_source_var(node_outputs, edge)
 
         def engine_for(connection_id: str) -> str:
-            if connection_id not in engine_vars:
-                var = f"_engine_{len(engine_vars) + 1}"
-                info = connections.get(connection_id, {"provider": "sqlite", "database": ""})
-                lines.append(f"{var} = create_engine({engine_url_expr(info)})")
-                engine_vars[connection_id] = var
-            return engine_vars[connection_id]
+            return sql_engine_var(connection_id, connections, engine_vars, lines)
 
         def emit_pandas_bridge(
             node_id: str,
@@ -218,7 +213,7 @@ class PolarsCodeGenerator:
                 outs[h] = v
             node_outputs[node_id] = outs
 
-        def emit_transformation(node_id: str, node_type: str, config: dict[str, Any]) -> None:
+        def emit_transformation(idx: int, node_id: str, node_type: str, config: dict[str, Any]) -> None:
             transformation = get_transformation(node_type)
             handles = output_handles(node_type)
             if transformation.emits_pandas_code:
@@ -228,12 +223,17 @@ class PolarsCodeGenerator:
                 add_imports(["import pandas as pd", *transformation.imports(config)])
                 emit_pandas_bridge(node_id, transformation, incoming[node_id], handles, config)
                 return
-            input_vars: dict[str, str] = {}
-            for i, e in enumerate(incoming[node_id]):
-                handle = e.get("targetHandle") or "in"
-                if handle in input_vars:
-                    handle = f"{handle}_{i}"
-                input_vars[handle] = source_var(e)
+            input_vars = collect_input_vars(incoming[node_id], node_outputs)
+            # On linear chains, write the result back into the input's (now dead)
+            # variable instead of minting a new df_N. When reuse applies the node
+            # has exactly one output handle, so out_var is called once.
+            reuse = reusable_output_var(idx, incoming[node_id], node_outputs, len(handles), last_use)
+            if reuse is not None:
+                dels.cancel(idx, reuse)
+
+            def out_var() -> str:
+                return reuse if reuse is not None else next_var()
+
             if lazy and not transformation.polars_lazy_safe:
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -250,14 +250,14 @@ class PolarsCodeGenerator:
                 lines.append(transformation.to_polars_code(eager_inputs, eager_outs, config))
                 outs: dict[str, str] = {}
                 for h in handles:
-                    v = next_var()
+                    v = out_var()
                     lines.append(f"{v} = {eager_outs[h]}.lazy()")
                     outs[h] = v
                 node_outputs[node_id] = outs
             else:
-                outs = {h: next_var() for h in handles}
+                outs = {h: out_var() for h in handles}
                 node_outputs[node_id] = outs
-                lines.append(transformation.to_polars_code(input_vars, outs, config))
+                lines.append(strip_self_assign(transformation.to_polars_code(input_vars, outs, config)))
 
         for idx, node_id in enumerate(order):
             node = nodes_by_id[node_id]
@@ -289,15 +289,15 @@ class PolarsCodeGenerator:
             ):
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.txt")
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path("text"))
                 suffix = ".lazy()" if lazy else ""
                 lines.append(f"with open({path!r}) as _f:")
                 lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
             elif node_type in _INPUT_READ:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 source_type = input_source_type(node_type, config)
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
                 if node_type == FILE_INPUT_TYPE:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
@@ -327,20 +327,11 @@ class PolarsCodeGenerator:
                 frame = f"{src_var}.collect()" if lazy else src_var
                 lines.append(f"{frame}.{_OUTPUT_WRITE[node_type]}({out_path!r})")
             else:
-                emit_transformation(node_id, node_type, config)
+                emit_transformation(idx, node_id, node_type, config)
 
-            if emit_del:
-                outs = node_outputs.get(node_id, {})
-                # Multi-output liveness is ambiguous; only free single-output nodes.
-                if len(outs) == 1:
-                    schedule_del(node_id, next(iter(outs.values())))
-                for dead in pending_del.pop(idx, []):
-                    lines.append(f"del {dead}")
+            dels.schedule(node_id, node_outputs.get(node_id, {}))
+            lines.extend(dels.flush(idx))
 
-        # ``import x`` lines first (sorted), then ``from x import y`` (sorted),
-        # appended after the fixed polars/sql base header.
-        plain = sorted(i for i in extra_imports if i.startswith("import "))
-        froms = sorted(i for i in extra_imports if not i.startswith("import "))
-        header = [*base_header, *plain, *froms]
+        header = [*base_header, *ordered_imports(extra_imports)]
         prelude = [*parameter_lines, ""] if parameter_lines else []
         return "\n".join([*header, "", *prelude, *lines]) + "\n"

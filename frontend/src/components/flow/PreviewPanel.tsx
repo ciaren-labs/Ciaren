@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useFlowPreview } from "@/features/flows/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
@@ -49,19 +49,54 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
   const dirty = useFlowEditorStore((s) => s.dirty);
   const preview = useFlowPreview(flowId);
   const [view, setView] = useState<View>("table");
+  // The node the currently-shown results belong to (null = whole flow, undefined = no run yet).
+  const [previewedNodeId, setPreviewedNodeId] = useState<string | null | undefined>(undefined);
+  const hasRun = useRef(false);
+  // Bumped on every run and on every node switch, so a response for a node we've
+  // since navigated away from can be recognized as stale and dropped.
+  const requestIdRef = useRef(0);
 
   // Human name for the selected node ("Filter Rows"), not its machine id.
   const selectedNodeLabel = selectedNodeId
     ? (nodes.find((n) => n.id === selectedNodeId)?.data.label ?? selectedNodeId)
     : null;
+  const previewedNodeLabel = previewedNodeId
+    ? (nodes.find((n) => n.id === previewedNodeId)?.data.label ?? previewedNodeId)
+    : null;
+
+  // Discard stale results when the user selects a different node — otherwise
+  // the old node's preview stays on screen and looks like it belongs to the
+  // newly selected node.
+  useEffect(() => {
+    if (hasRun.current && selectedNodeId !== previewedNodeId) {
+      requestIdRef.current += 1;
+      preview.reset();
+      setPreviewedNodeId(undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId]);
 
   const runPreview = (mode: View = view) => {
     setView(mode);
-    preview.mutate({
-      node_id: selectedNodeId ?? undefined,
-      limit: mode === "chart" ? CHART_SAMPLE_LIMIT : 50,
-      profile: mode === "profile",
-    });
+    hasRun.current = true;
+    setPreviewedNodeId(selectedNodeId ?? null);
+    const requestId = ++requestIdRef.current;
+    preview.mutate(
+      {
+        node_id: selectedNodeId ?? undefined,
+        limit: mode === "chart" ? CHART_SAMPLE_LIMIT : 50,
+        profile: mode === "profile",
+      },
+      {
+        onSettled: () => {
+          // The selected node moved on before this response came back — drop it
+          // instead of letting it repopulate the panel for the wrong node.
+          if (requestId !== requestIdRef.current) {
+            preview.reset();
+          }
+        },
+      },
+    );
   };
 
   return (
@@ -69,13 +104,22 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">Data Preview</h3>
-          {selectedNodeLabel && (
-            <span className="text-xs text-muted-foreground">
-              up to "{selectedNodeLabel}"
+          {previewedNodeId !== undefined ? (
+            <span
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+              title="The node whose output is shown below"
+            >
+              {previewedNodeLabel ? `Node: ${previewedNodeLabel}` : "Whole flow"}
             </span>
+          ) : (
+            selectedNodeLabel && (
+              <span className="text-xs text-muted-foreground">
+                up to "{selectedNodeLabel}"
+              </span>
+            )
           )}
           {dirty && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
               previews the last saved version
             </span>
           )}
@@ -116,8 +160,8 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="min-w-0">
               <p className="font-medium">
-                {selectedNodeLabel
-                  ? `Preview failed at "${selectedNodeLabel}"`
+                {previewedNodeLabel
+                  ? `Preview failed at "${previewedNodeLabel}"`
                   : "Preview failed"}
               </p>
               <p className="mt-0.5 break-words">
@@ -134,7 +178,7 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
         )}
         {preview.data ? (
           <>
-            <div className="px-3 py-1 text-[11px] text-muted-foreground">
+            <div className="px-3 py-1 text-xs text-muted-foreground">
               {preview.data.row_count} rows
               {preview.data.truncated && " (truncated)"}
             </div>
@@ -330,7 +374,7 @@ function ChartView({
         )}
 
         {type === "correlationHeatmap" && (
-          <p className="self-center text-[11px] text-muted-foreground">
+          <p className="self-center text-xs text-muted-foreground">
             Uses all numeric columns in the sample.
           </p>
         )}
@@ -338,7 +382,7 @@ function ChartView({
 
       <ChartPreview type={type} config={config} rows={rows} />
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Based on a sample of {rows.length} row{rows.length === 1 ? "" : "s"} — not
         the full dataset.
       </p>

@@ -66,24 +66,25 @@ Use the **live preview** after each node to watch the data take shape, then
 
 ## Exported Python
 
-Click **Export → Python**. The generated pandas script is standalone:
+Click **Export → Python**. The generated pandas script is standalone — on a
+straight chain like this one, every step reuses a single variable:
 
 ```python
 import pandas as pd
 
 df_1 = pd.read_csv("sales.csv")
-df_2 = df_1.drop(columns=['internal_note'])
-df_3 = df_2.assign(**{'amount': df_2['amount'].astype('float64')})
-df_3 = df_3.assign(**{'ordered_at': pd.to_datetime(df_3['ordered_at'])})
-df_4 = df_3.dropna(subset=['amount'])
-df_5 = df_4[df_4['amount'] > 0]
-df_6 = df_5.assign(**{'region': df_5['region'].replace('north', 'North')})
-df_7 = df_6.assign(**{'region': df_6['region'].replace('south', 'South')})
-df_8 = df_7.assign(**{c: df_7[c].fillna('Unknown') for c in ['region']})
-df_9 = df_8.groupby(['region']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
-df_10 = df_9.rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
-df_11 = df_10.sort_values(by=['total_sales'], ascending=False)
-df_11.to_csv("sales_summary.csv", index=False)
+df_1 = df_1.drop(columns=['internal_note'])
+df_1 = df_1.assign(**{'amount': df_1['amount'].astype('float64')})
+df_1 = df_1.assign(**{'ordered_at': pd.to_datetime(df_1['ordered_at'])})
+df_1 = df_1.dropna(subset=['amount'])
+df_1 = df_1[df_1['amount'] > 0]
+df_1 = df_1.assign(**{'region': df_1['region'].replace('north', 'North')})
+df_1 = df_1.assign(**{'region': df_1['region'].replace('south', 'South')})
+df_1 = df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
+df_1 = df_1.groupby(['region']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
+df_1 = df_1.rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
+df_1 = df_1.sort_values(by=['total_sales'], ascending=[False])
+df_1.to_csv("sales_summary.csv", index=False)
 ```
 
 Ciaren also generates the **polars** equivalent — pick whichever you prefer.

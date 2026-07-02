@@ -88,15 +88,16 @@ train/test split, a Random Forest regressor, prediction, and evaluation:
 ## Export to Clean, Portable Python
 
 There's no black box. Every flow generates a readable, standalone script — copy it
-and run it anywhere Python runs. A read → drop-nulls → group-and-sum flow exports to:
+and run it anywhere Python runs. Steps on a straight chain reuse one variable, the
+way a person would write it. A read → drop-nulls → group-and-sum flow exports to:
 
 ```python
 import polars as pl
 
 df_1 = pl.read_csv("sales.csv")
-df_2 = df_1.drop_nulls(subset=["amount"])
-df_3 = df_2.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
-df_3.write_csv("summary.csv")
+df_1 = df_1.drop_nulls(subset=["amount"])
+df_1 = df_1.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
+df_1.write_csv("summary.csv")
 ```
 
 Need scale? Export the **lazy polars** variant (`scan_*` → `collect()`) for pushdown

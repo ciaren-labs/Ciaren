@@ -12,6 +12,12 @@ declared handle; downstream edges pick the right one via ``sourceHandle``. Nodes
 may also declare extra ``imports()`` (e.g. scikit-learn) which are collected and
 de-duplicated into the script header.
 
+On linear chains a node writes its result back into its input's variable
+(``df_1 = df_1.dropna()``) instead of minting a new ``df_N`` — see
+:func:`app.engine.codegen_common.reusable_output_var` for when that is safe —
+so a straight-line flow exports as a single ``df_1`` reassigned step by step,
+the way a person would write it.
+
 The optional ``free_intermediates`` mode emits a ``del`` once each dataframe's last
 consumer has run, lowering peak memory on long pipelines (see
 :func:`app.engine.codegen_common.last_consumer_index` for the liveness analysis
@@ -20,7 +26,18 @@ that guarantees a variable is never freed before its final use).
 
 from typing import Any
 
-from app.engine.codegen_common import last_consumer_index
+from app.engine.codegen_common import (
+    DelScheduler,
+    collect_input_vars,
+    edge_source_var,
+    incoming_by_target,
+    last_consumer_index,
+    ordered_imports,
+    placeholder_input_path,
+    reusable_output_var,
+    sql_engine_var,
+    strip_self_assign,
+)
 from app.engine.graph import topological_sort, validate_graph
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
@@ -34,7 +51,7 @@ from app.engine.node_kinds import (
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.registry import get_transformation
-from app.engine.sql_codegen import engine_url_expr, graph_has_sql
+from app.engine.sql_codegen import graph_has_sql
 
 _READ_FUNCS = {
     "fileInput": "pd.read_csv",
@@ -68,24 +85,6 @@ _FILE_OUTPUT_WRITE = {
 }
 
 
-def _source_var(node_outputs: dict[str, dict[str, str]], edge: dict[str, Any]) -> str:
-    """The variable an edge carries, honoring ``sourceHandle`` for multi-output nodes."""
-    outs = node_outputs[edge["source"]]
-    handle = edge.get("sourceHandle")
-    if handle and handle in outs:
-        return outs[handle]
-    if "out" in outs:
-        return outs["out"]
-    return next(iter(outs.values()))
-
-
-def _ordered_imports(imports: list[str]) -> list[str]:
-    """``import x`` lines first, then ``from x import y`` lines, each sorted."""
-    plain = sorted(i for i in imports if i.startswith("import "))
-    froms = sorted(i for i in imports if not i.startswith("import "))
-    return plain + froms
-
-
 class CodeGenerator:
     """Turns a React Flow graph into a standalone, runnable pandas script."""
 
@@ -112,15 +111,14 @@ class CodeGenerator:
         connections = connections or {}
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
-        edges = graph.get("edges", [])
-        incoming: dict[str, list[dict[str, Any]]] = {nid: [] for nid in nodes_by_id}
-        for edge in edges:
-            incoming[edge["target"]].append(edge)
+        incoming = incoming_by_target(graph)
 
-        # When freeing intermediates, drop each var right after its last consumer
-        # runs (never before — see last_consumer_index), but never the final node.
-        last_use = last_consumer_index(order, edges) if free_intermediates else {}
-        pending_del: dict[int, list[str]] = {}
+        # Liveness (see last_consumer_index) drives two things: reusing a dead
+        # variable as its consumer's output on linear chains, and — when freeing
+        # intermediates — emitting a del right after a variable's last consumer
+        # runs (never before, and never for the final node).
+        last_use = last_consumer_index(order, graph.get("edges", []))
+        dels = DelScheduler(order, last_use, free_intermediates)
 
         base_header = ["import pandas as pd"]
         if graph_has_sql(graph):
@@ -144,18 +142,8 @@ class CodeGenerator:
                     seen_imports.add(imp)
                     extra_imports.append(imp)
 
-        def schedule_del(node_id: str, var: str) -> None:
-            li = last_use.get(node_id)
-            if li is not None and li < len(order) - 1:
-                pending_del.setdefault(li, []).append(var)
-
         def engine_for(connection_id: str) -> str:
-            if connection_id not in engine_vars:
-                var = f"_engine_{len(engine_vars) + 1}"
-                info = connections.get(connection_id, {"provider": "sqlite", "database": ""})
-                body.append(f"{var} = create_engine({engine_url_expr(info)})")
-                engine_vars[connection_id] = var
-            return engine_vars[connection_id]
+            return sql_engine_var(connection_id, connections, engine_vars, body)
 
         for idx, node_id in enumerate(order):
             node = nodes_by_id[node_id]
@@ -172,7 +160,7 @@ class CodeGenerator:
                     body.append(f"{var} = pd.read_sql_table({config.get('table', '')!r}, {eng})")
 
             elif node_type == SQL_OUTPUT_TYPE:
-                src_var = _source_var(node_outputs, incoming[node_id][0])
+                src_var = edge_source_var(node_outputs, incoming[node_id][0])
                 eng = engine_for(config.get("connection_id", ""))
                 if_exists = config.get("if_exists", "replace")
                 body.append(
@@ -182,8 +170,8 @@ class CodeGenerator:
             elif node_type in _INPUT_TYPES:
                 var = next_var()
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), "input.csv")
                 source_type = input_source_type(node_type, config)
+                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
                 func = (
                     _READ_FUNCS_BY_FORMAT.get(source_type)
                     if node_type == FILE_INPUT_TYPE
@@ -207,42 +195,41 @@ class CodeGenerator:
                     body.append(f"{var} = pd.read_csv({path!r})  # unsupported input type: {node_type}")
 
             elif node_type == FILE_OUTPUT_TYPE:
-                src_var = _source_var(node_outputs, incoming[node_id][0])
+                src_var = edge_source_var(node_outputs, incoming[node_id][0])
                 method, extra, suffix = _FILE_OUTPUT_WRITE[output_source_type(node_type, config)]
                 out_path = config.get("path") or f"{config.get('dataset_name') or 'output'}{suffix}"
                 body.append(f"{src_var}.{method}({out_path!r}, {extra})")
 
             elif node_type in _WRITE_FUNCS:
-                src_var = _source_var(node_outputs, incoming[node_id][0])
+                src_var = edge_source_var(node_outputs, incoming[node_id][0])
                 method, extra = _WRITE_FUNCS[node_type]
                 out_path = config.get("path", "output.csv")
                 body.append(f"{src_var}.{method}({out_path!r}, {extra})")
 
             elif node_type in _OUTPUT_TYPES:
                 # Storage output (cloud) isn't reproduced in the portable script.
-                src_var = _source_var(node_outputs, incoming[node_id][0])
+                src_var = edge_source_var(node_outputs, incoming[node_id][0])
                 body.append(f"# {node_type}: write {src_var} to your configured storage target")
 
             else:
                 transformation = get_transformation(node_type)
-                input_vars: dict[str, str] = {}
-                for i, e in enumerate(incoming[node_id]):
-                    handle = e.get("targetHandle") or "in"
-                    if handle in input_vars:
-                        handle = f"{handle}_{i}"
-                    input_vars[handle] = _source_var(node_outputs, e)
-                output_vars = {h: next_var() for h in output_handles(node_type)}
+                input_vars = collect_input_vars(incoming[node_id], node_outputs)
+                handles = output_handles(node_type)
+                reuse = reusable_output_var(idx, incoming[node_id], node_outputs, len(handles), last_use)
+                if reuse is not None:
+                    output_vars = {handles[0]: reuse}
+                    # The variable now holds this node's output — cancel the del
+                    # its previous owner scheduled for this position.
+                    dels.cancel(idx, reuse)
+                else:
+                    output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
                 add_imports(transformation.imports(config))
-                body.append(transformation.to_python_code(input_vars, output_vars, config))
+                body.append(strip_self_assign(transformation.to_python_code(input_vars, output_vars, config)))
 
-            if free_intermediates and node_id in node_outputs:
-                outs = node_outputs[node_id]
-                if len(outs) == 1:  # multi-output liveness is ambiguous; only free singles
-                    schedule_del(node_id, next(iter(outs.values())))
-                for dead in pending_del.pop(idx, []):
-                    body.append(f"del {dead}")
+            dels.schedule(node_id, node_outputs.get(node_id, {}))
+            body.extend(dels.flush(idx))
 
-        header = base_header + _ordered_imports(extra_imports)
+        header = base_header + ordered_imports(extra_imports)
         prelude = [*parameter_lines, ""] if parameter_lines else []
         return "\n".join([*header, "", *prelude, *body]) + "\n"

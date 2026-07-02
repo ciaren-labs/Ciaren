@@ -13,6 +13,8 @@
         "node.hello"
       ],
       "permissions": [],
+      "ciarenSpec": ">=0.1",
+      "dependencies": [],
       "nodes": [
         "hello.greeting"
       ],
@@ -21,6 +23,31 @@
       },
       "downloadUrl": "community.hello-0.1.0.ciarenplugin",
       "digest": "dc5fe60165bf9543eacb197be436eaca16562aff6726bb3d4a3d3f2f002ed008",
+      "keyId": "ciaren-demo",
+      "licenseRequired": false
+    },
+    {
+      "id": "community.mlp-classifier",
+      "name": "MLP Classifier",
+      "version": "0.1.0",
+      "publisher": "community",
+      "description": "Train and evaluate a scikit-learn MLPClassifier from a node on the canvas.",
+      "license": "community",
+      "trust": "community",
+      "capabilities": [
+        "node.sklearn.mlp"
+      ],
+      "permissions": [],
+      "ciarenSpec": ">=0.1",
+      "dependencies": [],
+      "nodes": [
+        "sklearn.mlpClassifierTrain"
+      ],
+      "nodeCategories": {
+        "sklearn.mlpClassifierTrain": "ml"
+      },
+      "downloadUrl": "community.mlp-classifier-0.1.0.ciarenplugin",
+      "digest": "68f889793ad3b15e3caf60d9120e8168eb9cec2517e330fb9bd506643a901c70",
       "keyId": "ciaren-demo",
       "licenseRequired": false
     }

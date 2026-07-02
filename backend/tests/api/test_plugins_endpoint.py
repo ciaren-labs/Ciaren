@@ -44,6 +44,16 @@ async def test_plugin_discovered_from_dir_shows_in_endpoints(client, monkeypatch
     assert hello["status"] == "needs_permissions"
     assert hello["nodes"] == ["hello.greeting"]
     assert hello["node_categories"] == {"hello.greeting": "columns"}
+    # A gated plugin's identity/details come from its validated manifest — its
+    # code never ran, but the approval decision still gets full context.
+    assert hello["version"] == "0.1.0-alpha.1"
+    assert hello["publisher"] == "community"
+    assert hello["description"].startswith("A minimal example plugin")
+    assert hello["capabilities"] == ["node.hello"]
+    assert hello["license"] == "community"
+    assert hello["trust"] == "community"
+    assert hello["ciaren_spec"] == ">=0.1"
+    assert hello["entrypoint"] == "ciaren_hello.plugin:HelloPlugin"
     catalog = await client.get("/api/catalog/nodes")
     assert "hello.greeting" not in {n["id"] for n in catalog.json()}
 

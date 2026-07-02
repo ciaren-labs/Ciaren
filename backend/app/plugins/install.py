@@ -110,19 +110,23 @@ def _extract_safely(zf: ZipFile, target: Path) -> None:
 
 def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
     """Persist how the package verified (trust badge) and enforce TOFU signer
-    pinning: a plugin id is claimable, so approval the user gave to code signed by
-    one key must not transfer to a replacement signed by a *different* key (or to
-    an unsigned replacement), and must not survive a downgrade from ``trusted``.
-    In those cases the plugin drops back to pending and its new code stays
-    un-imported until the user approves the new publisher."""
+    pinning: a plugin id is claimable, so approval the user gave to one publisher's
+    code must not silently carry over to a replacement.
+
+    Approval survives a reinstall **only** when the new package is provably the
+    same signer — a non-empty signing key id identical to the one pinned at the
+    previous install. Everything else is treated as a possible publisher swap and
+    withdraws approval: a different key, an unsigned replacement (no identity to
+    pin to, so re-approval is required even for unsigned-over-unsigned), or a
+    downgrade away from a trusted signature. In those cases the plugin drops back
+    to pending and its new code stays un-imported until the user re-approves it."""
     from app.plugins.state import PluginStateStore
 
     state = PluginStateStore()
     prev = state.entry(plugin_id)
     if prev is not None and prev.approved:
-        key_changed = bool(prev.key_id) and prev.key_id != verification.key_id
-        downgraded = prev.signature == "trusted" and verification.outcome != "trusted"
-        if key_changed or downgraded:
+        same_signer = bool(verification.key_id) and verification.key_id == prev.key_id
+        if not same_signer:
             state.set_approved(plugin_id, False)
     state.set_signature(plugin_id, verification.outcome, key_id=verification.key_id)
     state.save()
@@ -187,6 +191,19 @@ def install_directory(
 
 def read_manifest_from_dir(src: Path) -> PluginManifest:
     return validate_manifest(json.loads((src / MANIFEST_FILENAME).read_text(encoding="utf-8")))
+
+
+def installed_location(plugin_id: str, *, install_dir: Path | None = None) -> Path | None:
+    """The managed install directory for ``plugin_id`` if it exists on disk — i.e.
+    the plugin was installed through the install flow and can be uninstalled.
+    Returns ``None`` for a dev-dir (``CIAREN_PLUGINS_DIR``) or entry-point plugin,
+    which live outside the managed dir and must be removed by other means."""
+    base = install_dir or user_plugins_dir()
+    try:
+        target = base / _safe_target_name(plugin_id)
+    except InstallError:
+        return None
+    return target if target.is_dir() else None
 
 
 def uninstall_plugin(plugin_id: str, *, install_dir: Path | None = None) -> bool:

@@ -36,6 +36,11 @@ class MarketplaceEntry(BaseModel):
     trust: str = "community"
     capabilities: list[str] = Field(default_factory=list)
     permissions: list[Permission] = Field(default_factory=list)
+    #: PEP 440 specifier of compatible Ciaren versions, from the manifest. Older
+    #: indexes predate this field and default to "" (unknown).
+    ciaren_spec: str = Field(default="", alias="ciarenSpec")
+    #: pip requirements the plugin declares it needs (advisory, from the manifest).
+    dependencies: list[str] = Field(default_factory=list)
     #: Node type ids the plugin declares for the editor palette, e.g. ``hello.greeting``.
     nodes: list[str] = Field(default_factory=list)
     #: Best-known palette category for each declared node id. Manifest-only packages
@@ -156,6 +161,8 @@ def build_entry(package_path: str | os.PathLike[str], *, download_url: str = "")
         trust=manifest.trust,
         capabilities=list(manifest.capabilities),
         permissions=list(manifest.permissions),
+        ciaren_spec=manifest.ciaren,
+        dependencies=list(manifest.dependencies),
         nodes=list(manifest.ui.nodes),
         node_categories={
             node: manifest.ui.node_categories.get(node, DEFAULT_PLUGIN_NODE_CATEGORY) for node in manifest.ui.nodes

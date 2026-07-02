@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, polars_to_datetime_expr
 
 
 class GroupByAggregateTransformation(BaseTransformation):
@@ -66,7 +66,10 @@ class ConcatRowsTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
         srcs = ", ".join(input_vars.values())
-        return f"{dst} = pl.concat([{srcs}])"
+        # vertical_relaxed matches execute() (see PolarsEngine.concat): plain
+        # pl.concat is schema-strict and would fail where the app succeeds,
+        # e.g. concatenating an int column with a float column.
+        return f"{dst} = pl.concat([{srcs}], how='vertical_relaxed')"
 
 
 class CreateCalculatedColumnTransformation(BaseTransformation):
@@ -128,12 +131,16 @@ class ExtractDatePartsTransformation(BaseTransformation):
         col, parts = config["column"], config["parts"]
         # polars weekday is Monday=1..Sunday=7; subtract 1 to match pandas (Monday=0).
         exprs = ", ".join(
-            f"(pl.col({col!r}).dt.weekday() - 1).alias({(col + '_' + p)!r})"
+            f"(_dt.dt.weekday() - 1).alias({(col + '_' + p)!r})"
             if p == "weekday"
-            else f"pl.col({col!r}).dt.{p}().alias({(col + '_' + p)!r})"
+            else f"_dt.dt.{p}().alias({(col + '_' + p)!r})"
             for p in parts
         )
-        return f"{dst} = {src}.with_columns([{exprs}])"
+        return (
+            f"_sch = {src}.collect_schema()\n"
+            f"_dt = {polars_to_datetime_expr('_sch', repr(col))}\n"
+            f"{dst} = {src}.with_columns([{exprs}])"
+        )
 
 
 class ParseDatesTransformation(BaseTransformation):
@@ -176,11 +183,8 @@ class ParseDatesTransformation(BaseTransformation):
         cols = config["columns"]
         fmt = config.get("format") or None
         strict = config.get("errors", "coerce") != "coerce"
-        return (
-            f"{dst} = {src}.with_columns("
-            f"[pl.col(c).str.to_datetime(format={fmt!r}, strict={strict!r}).alias(c) "
-            f"for c in {cols!r}])"
-        )
+        expr = polars_to_datetime_expr("_sch", "c", fmt=fmt, strict=strict)
+        return f"_sch = {src}.collect_schema()\n{dst} = {src}.with_columns([{expr}.alias(c) for c in {cols!r}])"
 
 
 class UnpivotTransformation(BaseTransformation):
@@ -353,9 +357,12 @@ class DateDifferenceTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         start, end, unit, new = self._args(config)
         factor = self._UNITS[unit]
-        # str columns are parsed; already-temporal columns are cast. Non-strict so bad
-        # values become null instead of raising.
-        end_expr = f"pl.col({end!r}).str.to_datetime(strict=False)"
-        start_expr = f"pl.col({start!r}).str.to_datetime(strict=False)"
-        diff = f"(({end_expr} - {start_expr}).dt.total_seconds() / {factor!r})"
-        return f"{dst} = {src}.with_columns({diff}.alias({new!r}))"
+        # str columns are parsed; already-temporal columns are cast — the input
+        # dtype depends on upstream nodes, so dispatch on the schema at runtime.
+        # Non-strict so bad values become null instead of raising.
+        return (
+            f"_sch = {src}.collect_schema()\n"
+            f"_start = {polars_to_datetime_expr('_sch', repr(start))}\n"
+            f"_end = {polars_to_datetime_expr('_sch', repr(end))}\n"
+            f"{dst} = {src}.with_columns(((_end - _start).dt.total_seconds() / {factor!r}).alias({new!r}))"
+        )
