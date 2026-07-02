@@ -109,6 +109,7 @@ stays open and useful on its own; extensions install from the outside.
 
 ## Next steps
 
+- **[Installing & Managing Plugins](/plugins/managing-plugins)** — install, approve, disable, and uninstall
 - **[Build Your First Plugin](/plugins/first-plugin)** — a 10-minute, step-by-step tutorial
 - **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
 - **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method

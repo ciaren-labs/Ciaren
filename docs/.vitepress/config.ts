@@ -36,6 +36,7 @@ const extendingSidebar = [
     text: 'Plugins & Extensibility',
     items: [
       { text: 'Overview', link: '/plugins/overview' },
+      { text: 'Installing & Managing Plugins', link: '/plugins/managing-plugins' },
       { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
       { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
       { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
@@ -254,6 +255,7 @@ export default defineConfig({
           text: 'Plugins & Extensibility',
           items: [
             { text: 'Overview', link: '/plugins/overview' },
+            { text: 'Installing & Managing Plugins', link: '/plugins/managing-plugins' },
             { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
             { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
             { text: 'Plugin API Reference', link: '/plugins/api-reference' },
