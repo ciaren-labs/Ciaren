@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -102,21 +102,29 @@ const LOADED_APPROVED = {
 };
 
 describe("PluginsPage", () => {
+  beforeEach(() => {
+    // Mutations invalidate ["plugins"] and trigger refetches, so mocks must keep
+    // resolving (mockResolvedValue, not Once) — an exhausted Once would hand
+    // react-query `undefined` and taint the output with warnings.
+    vi.clearAllMocks();
+    marketplaceList.mockResolvedValue({ configured: false, plugins: [], revoked_installed: [] });
+  });
+
   it("shows an empty state when nothing is installed", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
     renderPage();
     expect(await screen.findByText("No plugins installed")).toBeInTheDocument();
   });
 
   it("always shows the trust warning", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
     renderPage();
     expect(await screen.findByText(/Only install plugins you trust/i)).toBeInTheDocument();
     expect(screen.getByText(/not responsible/i)).toBeInTheDocument();
   });
 
   it("renders a compact pending card with an inline Approve action", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [PENDING], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [PENDING], errors: [] });
     renderPage();
 
     expect(await screen.findByText("Hello Plugin")).toBeInTheDocument();
@@ -129,7 +137,7 @@ describe("PluginsPage", () => {
   });
 
   it("opens a detail dialog with permissions, nodes, and manifest details", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [PENDING], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [PENDING], errors: [] });
     renderPage();
 
     await userEvent.click(await screen.findByText("Hello Plugin"));
@@ -153,7 +161,7 @@ describe("PluginsPage", () => {
   });
 
   it("offers Disable in the detail dialog of a loaded plugin", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [LOADED], gated: [], errors: [] });
     renderPage();
 
     expect(await screen.findByText("Active")).toBeInTheDocument();
@@ -164,7 +172,7 @@ describe("PluginsPage", () => {
   });
 
   it("shows a loaded plugin's permissions as active, not 'not granted'", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED_APPROVED], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [LOADED_APPROVED], gated: [], errors: [] });
     renderPage();
 
     expect(await screen.findByText("Active")).toBeInTheDocument();
@@ -177,7 +185,7 @@ describe("PluginsPage", () => {
   });
 
   it("revokes a previously-approved plugin's permissions", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED_APPROVED], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [LOADED_APPROVED], gated: [], errors: [] });
     renderPage();
 
     await userEvent.click(await screen.findByText("Hello Plugin"));
@@ -187,7 +195,7 @@ describe("PluginsPage", () => {
   });
 
   it("does not offer Revoke for a plugin with no granted permissions", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [LOADED], gated: [], errors: [] });
     renderPage();
 
     await userEvent.click(await screen.findByText("Hello Plugin"));
@@ -196,7 +204,7 @@ describe("PluginsPage", () => {
   });
 
   it("uninstalls a managed plugin after confirmation", async () => {
-    diagnostics.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({
       loaded: [{ ...LOADED, uninstallable: true }],
       gated: [],
       errors: [],
@@ -214,7 +222,7 @@ describe("PluginsPage", () => {
   });
 
   it("does not offer Uninstall for a dev-dir / entry-point plugin", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [LOADED], gated: [], errors: [] });
     renderPage();
 
     await userEvent.click(await screen.findByText("Hello Plugin"));
@@ -223,7 +231,9 @@ describe("PluginsPage", () => {
   });
 
   it("shows the install-time signature trust badge", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [LOADED], gated: [PENDING], errors: [] });
+    // Distinct ids: a plugin is either loaded or gated, and the list keys by id.
+    const pendingOther = { ...PENDING, id: "community.other", name: "Other Plugin" };
+    diagnostics.mockResolvedValue({ loaded: [LOADED], gated: [pendingOther], errors: [] });
     renderPage();
 
     // LOADED verified as trusted; PENDING was an unsigned drop-in.
@@ -232,7 +242,7 @@ describe("PluginsPage", () => {
   });
 
   it("shows the Official badge for a first-party plugin instead of plain Trusted", async () => {
-    diagnostics.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({
       loaded: [{ ...LOADED, official: true }],
       gated: [],
       errors: [],
@@ -244,7 +254,7 @@ describe("PluginsPage", () => {
   });
 
   it("surfaces load errors", async () => {
-    diagnostics.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({
       loaded: [],
       gated: [],
       errors: [{ source: "dir:broken", error: "bad manifest" }],
@@ -255,7 +265,7 @@ describe("PluginsPage", () => {
   });
 
   it("uploads a selected .ciarenplugin file via the Install button", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
     renderPage();
 
     await screen.findByText("No plugins installed");
@@ -267,8 +277,8 @@ describe("PluginsPage", () => {
   });
 
   it("shows a configured catalog and installs an entry", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
-    marketplaceList.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValue({
       configured: true,
       plugins: [
         {
@@ -310,8 +320,8 @@ describe("PluginsPage", () => {
   });
 
   it("marks an already-installed catalog entry as Installed", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
-    marketplaceList.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValue({
       configured: true,
       plugins: [
         {
@@ -367,8 +377,8 @@ describe("PluginsPage", () => {
   };
 
   it("offers Update when the catalog has a newer version", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
-    marketplaceList.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValue({
       configured: true,
       plugins: [CATALOG_ENTRY],
       revoked_installed: [],
@@ -383,8 +393,8 @@ describe("PluginsPage", () => {
   });
 
   it("shows the Official trust tier on a catalog entry", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
-    marketplaceList.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValue({
       configured: true,
       plugins: [{ ...CATALOG_ENTRY, installed: false, update_available: false, trust: "official" }],
       revoked_installed: [],
@@ -395,8 +405,8 @@ describe("PluginsPage", () => {
   });
 
   it("flags revoked plugins and never offers install for them", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [], errors: [] });
-    marketplaceList.mockResolvedValueOnce({
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    marketplaceList.mockResolvedValue({
       configured: true,
       plugins: [{ ...CATALOG_ENTRY, update_available: false, revoked: true }],
       revoked_installed: ["acme.x"],
@@ -420,7 +430,7 @@ describe("PluginsPage", () => {
   };
 
   it("shows a needs_license plugin with an Add license action and activates a pasted token", async () => {
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [NEEDS_LICENSE], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [NEEDS_LICENSE], errors: [] });
     renderPage();
 
     expect(await screen.findByText("License required")).toBeInTheDocument();
@@ -436,8 +446,7 @@ describe("PluginsPage", () => {
   });
 
   it("rejects non-JSON license input inline without calling the API", async () => {
-    activateLicense.mockClear(); // calls accumulate across tests in this file
-    diagnostics.mockResolvedValueOnce({ loaded: [], gated: [NEEDS_LICENSE], errors: [] });
+    diagnostics.mockResolvedValue({ loaded: [], gated: [NEEDS_LICENSE], errors: [] });
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Add license/i }));

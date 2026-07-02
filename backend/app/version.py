@@ -17,6 +17,9 @@ def ciaren_version() -> str:
     # finders (e.g. the importlib_metadata backport) raise their own exception
     # types, and a version lookup must never break plugin loading or startup.
     try:
-        return version("ciaren")
+        resolved = version("ciaren")
     except Exception:  # noqa: BLE001
         return _FALLBACK
+    # Broken dist metadata (a stale dist-info without a Version field) yields
+    # None instead of raising — honor the promised string fallback then too.
+    return resolved if isinstance(resolved, str) and resolved else _FALLBACK

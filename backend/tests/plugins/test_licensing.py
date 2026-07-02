@@ -132,6 +132,31 @@ def test_provider_invalid_signature(tmp_path):
     assert provider.validate_license("acme.databricks").valid is False
 
 
+@pytest.mark.skipif(not _HAS_CRYPTO, reason="cryptography not installed")
+def test_provider_rejects_cached_token_for_other_plugin(tmp_path):
+    """Sanitized cache filenames collide across plugin ids ("acme/databricks" and
+    "acme_databricks" share a file) — a validly signed token must only ever
+    license the plugin id its signed payload names."""
+    priv, pub = signing.generate_keypair()
+    now = datetime.now(UTC)
+    token = LicenseToken(
+        userId="u1",
+        pluginId="acme/databricks",
+        expiresAt=(now + timedelta(days=30)).isoformat(),
+        offlineGraceUntil=(now + timedelta(days=44)).isoformat(),
+    )
+    token.signature = signing.sign(priv, token.signing_payload())
+    cache = LicenseCache(tmp_path / "licenses")
+    cache.save(token)
+
+    provider = TokenLicenseProvider(pub, cache)
+    status = provider.validate_license("acme_databricks")
+    assert status.valid is False
+    assert "different plugin" in status.reason
+    # The id the payload actually names still validates.
+    assert provider.validate_license("acme/databricks").valid is True
+
+
 def test_cache_delete(tmp_path):
     cache = LicenseCache(tmp_path / "licenses")
     cache.save(_token(expires_in_days=30, grace_extra_days=7))

@@ -153,6 +153,11 @@ class TokenLicenseProvider(LicenseProvider):
         token = self._cache.load(plugin_id)
         if token is None:
             return LicenseStatus(plugin_id=plugin_id, valid=False, reason="no license token found")
+        if token.plugin_id != plugin_id:
+            # Cache filenames are sanitized, so distinct plugin ids can collide on
+            # the same file (``a/b`` vs ``a_b``) — a validly-signed token must
+            # never license a plugin its signed payload doesn't name.
+            return LicenseStatus(plugin_id=plugin_id, valid=False, reason="cached token is for a different plugin")
         verified = verify_token(token, self._public_key)
         return evaluate_token(token, verified=verified)
 

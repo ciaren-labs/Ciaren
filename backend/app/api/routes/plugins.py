@@ -318,10 +318,13 @@ async def activate_license(plugin_id: str, token: LicenseToken) -> LicenseStatus
     """Activate a license: store the pasted/downloaded token in the local cache
     and reload plugins so a ``needs_license`` plugin loads immediately.
 
-    When issuer keys are configured, the token is vetted against them *before*
-    saving, so pasting a bad token can never clobber a working one. The plugin
-    does not have to be installed yet — activating first and installing after is
-    fine (the token waits in the cache)."""
+    A token is only ever saved once something can vouch for it: it is vetted
+    against the configured issuer keys *before* saving, and when no issuer keys
+    exist it is accepted only if a plugin-registered provider validates it
+    (rolling the cache back otherwise) — so pasting a bad token can never
+    clobber a working one, and activation never reports a false success. The
+    plugin does not have to be installed yet — activating first and installing
+    after is fine (the token waits in the cache)."""
     from app.plugins.licensing import LicenseCache, check_token_against_issuers
 
     if token.plugin_id != plugin_id:
@@ -332,9 +335,36 @@ async def activate_license(plugin_id: str, token: LicenseToken) -> LicenseStatus
     vetted = check_token_against_issuers(token)
     if vetted is not None and not vetted.valid:
         raise HTTPException(status_code=400, detail=f"license token rejected: {vetted.reason}")
-    # vetted is None ⇒ no issuer keys configured. Save anyway: a vendor-registered
-    # provider (from another loaded plugin) may still be able to validate it.
-    LicenseCache().save(token)
+    cache = LicenseCache()
+    if vetted is None:
+        # No issuer keys configured, so the core can't judge the token itself.
+        # Without any registered provider nothing else can either — refuse rather
+        # than cache a token nobody can validate (a "success" here would be a lie:
+        # a license_required plugin would still stay gated).
+        if not get_registry().has_license_provider():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "no license provider can validate this token — configure a marketplace "
+                    "license issuer key (CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS)"
+                ),
+            )
+        # A vendor provider (registered by another loaded plugin) reads the cache,
+        # so it can only judge the token once saved. Save, ask, and roll back the
+        # previous cache state if the paste doesn't validate.
+        previous = cache.load(plugin_id)
+        cache.save(token)
+        reload_plugins()
+        status = get_registry().validate_license(plugin_id)
+        if not status.valid:
+            if previous is not None:
+                cache.save(previous)
+            else:
+                cache.delete(plugin_id)
+            reload_plugins()
+            raise HTTPException(status_code=400, detail=f"license token rejected: {status.reason}")
+        return status
+    cache.save(token)
     reload_plugins()
     return get_registry().validate_license(plugin_id)
 

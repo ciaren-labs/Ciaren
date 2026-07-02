@@ -416,6 +416,136 @@ async def test_activate_license_rejects_wrong_plugin_and_forged_token(client, mo
         get_settings.cache_clear()
 
 
+async def test_activate_license_refused_when_nothing_can_validate(client, monkeypatch, tmp_path):
+    """With no issuer keys and no registered provider, activation must be a clean
+    400 — not a saved token plus a success-looking 'no license provider' status."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", raising=False)
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "licenses"))
+    get_settings.cache_clear()
+    reset_registry()
+    try:
+        now = datetime.now(UTC)
+        token = {
+            "userId": "u1",
+            "pluginId": "premium.tool",
+            "licenseType": "pro",
+            "expiresAt": (now + timedelta(days=30)).isoformat(),
+            "offlineGraceUntil": (now + timedelta(days=44)).isoformat(),
+            "signature": "abcd",
+        }
+        resp = await client.post("/api/plugins/premium.tool/license", json=token)
+        assert resp.status_code == 400
+        assert "CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS" in resp.json()["detail"]
+        # Nothing was cached: removing finds no token.
+        resp = await client.delete("/api/plugins/premium.tool/license")
+        assert resp.status_code == 404
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_bad_paste_never_clobbers_working_license(client, monkeypatch, tmp_path):
+    """An invalid paste is rejected before saving, so the working cached token
+    keeps validating afterwards."""
+    from app.core.config import get_settings
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    priv, pub = signing.generate_keypair()
+    forger_priv, _ = signing.generate_keypair()
+    monkeypatch.setenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", json.dumps([pub]))
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "licenses"))
+    get_settings.cache_clear()
+    reset_registry()
+    try:
+        ok = await client.post("/api/plugins/premium.tool/license", json=_signed_token(priv, "premium.tool"))
+        assert ok.status_code == 200 and ok.json()["valid"] is True
+
+        bad = await client.post("/api/plugins/premium.tool/license", json=_signed_token(forger_priv, "premium.tool"))
+        assert bad.status_code == 400
+
+        status = await client.get("/api/plugins/premium.tool/license")
+        assert status.json()["valid"] is True
+    finally:
+        get_settings.cache_clear()
+
+
+_VENDOR_PROVIDER_MODULE = """
+import os
+
+from app.plugin_api import Plugin, PluginMetadata
+from app.plugins.licensing import TokenLicenseProvider
+
+
+class VendorLicensingPlugin(Plugin):
+    def metadata(self):
+        return PluginMetadata(id="vendor.licensing", name="Vendor Licensing", version="1.0.0")
+
+    def register(self, registry):
+        registry.register_license_provider(TokenLicenseProvider(os.environ["TEST_VENDOR_LICENSE_PUB"]))
+
+
+PLUGIN = VendorLicensingPlugin()
+"""
+
+
+async def test_vendor_provider_vets_paste_and_rolls_back_bad_token(client, monkeypatch, tmp_path):
+    """With no issuer keys but a plugin-registered provider, activation asks that
+    provider (post-save) and rolls the cache back when it rejects the paste —
+    the vendor-licensing path can't be tricked into a false success either."""
+    from app.plugin_api import signing
+
+    if not signing.signing_available():
+        pytest.skip("cryptography not installed")
+
+    monkeypatch.delenv("CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS", raising=False)
+    monkeypatch.setenv("CIAREN_LICENSE_DIR", str(tmp_path / "licenses"))
+    vendor_priv, vendor_pub = signing.generate_keypair()
+    forger_priv, _ = signing.generate_keypair()
+    monkeypatch.setenv("TEST_VENDOR_LICENSE_PUB", vendor_pub)
+
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    plug = tmp_path / "installed" / "vendor-licensing"
+    plug.mkdir(parents=True)
+    (plug / "ciaren-plugin.json").write_text(
+        json.dumps(
+            {
+                "id": "vendor.licensing",
+                "name": "Vendor Licensing",
+                "version": "1.0.0",
+                "publisher": "vendor",
+                "ciaren": ">=0.1",
+                "entrypoint": "vendor_license_plugin:PLUGIN",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (plug / "vendor_license_plugin.py").write_text(_VENDOR_PROVIDER_MODULE, encoding="utf-8")
+    reset_registry()
+
+    # Approve the vendor plugin so its provider registers.
+    resp = await client.post("/api/plugins/vendor.licensing/enable")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "loaded"
+
+    # A vendor-signed token activates: the provider validates it after saving.
+    ok = await client.post("/api/plugins/premium.tool/license", json=_signed_token(vendor_priv, "premium.tool"))
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["valid"] is True
+
+    # A forged paste is rejected and the working token is restored, not clobbered.
+    bad = await client.post("/api/plugins/premium.tool/license", json=_signed_token(forger_priv, "premium.tool"))
+    assert bad.status_code == 400
+    assert "rejected" in bad.json()["detail"]
+    status = await client.get("/api/plugins/premium.tool/license")
+    assert status.json()["valid"] is True
+
+
 async def test_marketplace_reports_update_available(client, monkeypatch, tmp_path, hello_ciarenplugin):
     from app.core.config import get_settings
 

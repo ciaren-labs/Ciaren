@@ -126,7 +126,16 @@ class AuthProvider(ABC):
 
 
 class LicenseProvider(ABC):
-    """Validates licenses for premium plugins."""
+    """Validates licenses for premium plugins.
+
+    This is a **trusted host extension point, not a security boundary**:
+    providers are unscoped, and the registry accepts the first one that reports
+    a plugin id valid — so any registered provider can unlock any
+    ``license_required`` plugin. That is deliberate. A registered provider comes
+    from code the user already approved to run unsandboxed, which could bypass
+    any in-process check anyway; licensing deters casual unlicensed use, it is
+    not DRM (see ``app.plugins.licensing``).
+    """
 
     @abstractmethod
     def validate_license(self, plugin_id: str) -> LicenseStatus: ...

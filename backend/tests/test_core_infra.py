@@ -122,3 +122,16 @@ def test_ciaren_version_falls_back_when_metadata_lookup_fails(monkeypatch: pytes
 
     monkeypatch.setattr(version_mod, "version", _raise)
     assert version_mod.ciaren_version() == version_mod._FALLBACK
+
+
+@pytest.mark.parametrize("bogus", [None, ""])
+def test_ciaren_version_falls_back_when_metadata_returns_no_version(
+    monkeypatch: pytest.MonkeyPatch, bogus: str | None
+) -> None:
+    """A stale/broken dist-info can make ``version()`` return None (a missing
+    Version field) instead of raising — the promised string fallback must hold,
+    or plugin compatibility checks downstream crash on ``Version(None)``."""
+    from app import version as version_mod
+
+    monkeypatch.setattr(version_mod, "version", lambda name: bogus)
+    assert version_mod.ciaren_version() == version_mod._FALLBACK

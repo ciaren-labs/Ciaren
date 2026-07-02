@@ -240,7 +240,7 @@ def _license_gate(registry: ServiceRegistry, candidate: PluginCandidate) -> Gate
     if not registry.has_license_provider():
         detail = (
             "requires a license, but no license provider is registered — configure a "
-            "marketplace license issuer key (MARKETPLACE_LICENSE_ISSUER_KEYS)"
+            "marketplace license issuer key (CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS)"
         )
     else:
         status = registry.validate_license(manifest.id)
