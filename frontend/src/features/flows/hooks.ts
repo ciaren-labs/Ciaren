@@ -53,6 +53,16 @@ export function useImportFlow() {
   });
 }
 
+export function useMigrateFlowDocument() {
+  return useMutation({
+    mutationFn: (document: Record<string, unknown>) =>
+      flowsApi.migrateDocument(document),
+    // Both call sites (the import-dialog outdated-file warning and the
+    // standalone migrate utility) render/swallow errors inline.
+    meta: { suppressErrorToast: true },
+  });
+}
+
 export function useUpdateFlow() {
   const qc = useQueryClient();
   return useMutation({

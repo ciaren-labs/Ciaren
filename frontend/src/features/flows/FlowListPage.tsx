@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, FileText, Loader2, Pencil, Play, Plus, Power, Trash2, Upload, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { AlertCircle, CalendarClock, FileText, Loader2, Pencil, Play, Plus, Power, RefreshCw, Trash2, Upload, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useMigrateFlowDocument, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { MigrateFlowDialog } from "./MigrateFlowDialog";
 import { FLOW_TEMPLATES, buildTemplateGraph } from "@/lib/flowTemplates";
 import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
@@ -70,18 +71,22 @@ export function FlowListPage() {
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
   const importFlow = useImportFlow();
+  const migrateCheck = useMigrateFlowDocument();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importWarning, setImportWarning] = useState<string | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [pendingImportDoc, setPendingImportDoc] = useState<Record<string, unknown> | null>(null);
   const [importName, setImportName] = useState("");
   const [importNameError, setImportNameError] = useState<string | null>(null);
+  const [migrateDialogOpen, setMigrateDialogOpen] = useState(false);
 
   const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-importing the same file
     if (!file) return;
     setImportError(null);
+    setImportWarning(null);
     let doc: Record<string, unknown>;
     try {
       doc = JSON.parse(await file.text()) as Record<string, unknown>;
@@ -89,8 +94,8 @@ export function FlowListPage() {
       setImportError("That file isn't valid JSON.");
       return;
     }
-    if (!doc || typeof doc !== "object" || !("graph_json" in doc)) {
-      setImportError("Not a flow document — expected a 'graph_json' field.");
+    if (!doc || typeof doc !== "object" || (!("graph_json" in doc) && !("graph" in doc))) {
+      setImportError("Not a flow document — expected a 'graph_json' or 'graph' field.");
       return;
     }
     const defaultName =
@@ -99,6 +104,19 @@ export function FlowListPage() {
     setImportName(defaultName);
     setImportNameError(null);
     setImportDialogOpen(true);
+    // Best-effort dry-run check, purely for the informational warning below —
+    // the real /flows/import call is the source of truth and migrates
+    // automatically regardless, so failures here are silently ignored.
+    migrateCheck.mutate(doc, {
+      onSuccess: (res) => {
+        if (res.migrated) {
+          setImportWarning(
+            `This file uses an older format (schema v${res.from_version}) and will be upgraded to v${res.to_version} automatically.`,
+          );
+        }
+      },
+      onError: () => {},
+    });
   };
 
   const handleImportConfirm = () => {
@@ -133,6 +151,7 @@ export function FlowListPage() {
     setPendingImportDoc(null);
     setImportName("");
     setImportNameError(null);
+    setImportWarning(null);
   };
 
   const { sort, toggle: toggleSort } = useSort<FlowSortKey>("created", "desc");
@@ -264,6 +283,14 @@ export function FlowListPage() {
             }
           >
             {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMigrateDialogOpen(true)}
+            title="Upgrade an exported .flow.json to the current format without importing it"
+          >
+            <RefreshCw className="h-4 w-4" /> Migrate a file…
           </Button>
           <Dialog
             open={open}
@@ -583,6 +610,9 @@ export function FlowListPage() {
                 <p className="text-[11px] text-destructive">{importNameError}</p>
               )}
             </div>
+            {importWarning && !importError && (
+              <p className="text-[11px] text-amber-600">{importWarning}</p>
+            )}
             {importError && (
               <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {importError}
@@ -600,6 +630,8 @@ export function FlowListPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <MigrateFlowDialog open={migrateDialogOpen} onOpenChange={setMigrateDialogOpen} />
     </div>
   );
 }

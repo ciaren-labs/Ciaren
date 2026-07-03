@@ -536,13 +536,26 @@ export interface FlowDocument {
   graph_json: Record<string, unknown>;
 }
 
-/** Import payload: only the graph is required; the rest is optional metadata. */
+/** Import payload: accepts either envelope — the legacy `graph_json` shape
+ * (today's real export format) or the versioned `graph`/`schemaVersion`
+ * shape — at least one of `graph_json`/`graph` is required. */
 export interface FlowImport {
   format?: string;
   name?: string;
   description?: string | null;
   project_id?: string;
-  graph_json: Record<string, unknown>;
+  graph_json?: Record<string, unknown>;
+  graph?: Record<string, unknown>;
+  schemaVersion?: string;
+}
+
+/** Response from the standalone, non-persisting flow-document migration
+ * utility (`POST /flows/migrate-document`). */
+export interface FlowMigrateDocumentResponse {
+  document: Record<string, unknown>;
+  migrated: boolean;
+  from_version: string;
+  to_version: string;
 }
 
 export interface ExportCodeResponse {

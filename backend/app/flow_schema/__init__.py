@@ -16,6 +16,7 @@ from app.flow_schema.document import (
 from app.flow_schema.migrations import (
     MigrationError,
     clear_migrations,
+    document_version,
     migrate,
     register_migration,
 )
@@ -47,5 +48,6 @@ __all__ = [
     "migrate",
     "register_migration",
     "clear_migrations",
+    "document_version",
     "MigrationError",
 ]

@@ -6,10 +6,13 @@ from app.schemas.flow import (
     CodeExportResponse,
     FlowCreate,
     FlowImport,
+    FlowMigrateDocumentRequest,
+    FlowMigrateDocumentResponse,
     FlowRead,
     FlowUpdate,
 )
 from app.schemas.preview import FlowPreviewRequest, PreviewResponse
+from app.services.flow_service import migrate_flow_document
 
 router = APIRouter()
 
@@ -25,6 +28,14 @@ async def import_flow(body: FlowImport, service: FlowServiceDep) -> FlowRead:
     (dataset / connection ids) in the graph are stripped — the imported flow keeps
     its node structure but its inputs/connections must be re-selected."""
     return await service.import_flow(body)
+
+
+@router.post("/migrate-document", response_model=FlowMigrateDocumentResponse)
+async def migrate_flow_document_route(body: FlowMigrateDocumentRequest) -> FlowMigrateDocumentResponse:
+    """Migrate/validate a raw .flow document to the current schema version
+    without importing it — a standalone file-to-file utility. Nothing is
+    persisted."""
+    return migrate_flow_document(body.document)
 
 
 @router.post("", response_model=FlowRead, status_code=status.HTTP_201_CREATED)

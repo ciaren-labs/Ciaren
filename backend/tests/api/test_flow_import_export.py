@@ -9,7 +9,10 @@ a re-exported imported flow.
 import io
 
 import pandas as pd
+import pytest
 from httpx import AsyncClient
+
+from app.flow_schema import CURRENT_SCHEMA_VERSION, clear_migrations, register_migration
 
 
 async def _upload(client: AsyncClient, name: str = "people.csv") -> dict:
@@ -186,6 +189,65 @@ async def test_import_large_graph_roundtrips(client: AsyncClient) -> None:
     r = await client.post("/api/flows/import", json={"graph_json": {"nodes": nodes, "edges": edges}})
     assert r.status_code == 201, r.text
     assert len(r.json()["graph_json"]["nodes"]) == 62
+
+
+# -- versioned envelope / schema migration ------------------------------------
+
+
+@pytest.fixture
+def _clean_migration_registry():
+    clear_migrations()
+    yield
+    clear_migrations()
+
+
+async def test_import_migrates_older_schema_version_document(
+    client: AsyncClient, _clean_migration_registry: None
+) -> None:
+    """A document tagged with a schema version older than current gets migrated
+    transparently by the real import endpoint (not just the offline CLI)."""
+
+    def _mark_migrated(data: dict) -> dict:
+        data = dict(data)
+        graph = dict(data["graph"])
+        nodes = [dict(n) for n in graph["nodes"]]
+        node_data = {**nodes[0]["data"], "config": {**nodes[0]["data"]["config"], "migrated": True}}
+        nodes[0] = {**nodes[0], "data": node_data}
+        graph["nodes"] = nodes
+        data["graph"] = graph
+        return data
+
+    register_migration("0.9.0", CURRENT_SCHEMA_VERSION, _mark_migrated)
+    doc = {
+        "name": "old flow",
+        "schemaVersion": "0.9.0",
+        "graph": {"nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}], "edges": []},
+    }
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["name"] == "old flow"
+    assert body["graph_json"]["nodes"][0]["data"]["config"]["migrated"] is True
+
+
+async def test_import_newer_schema_version_is_400(client: AsyncClient) -> None:
+    doc = {
+        "schemaVersion": "9.9.9",
+        "graph": {"nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}], "edges": []},
+    }
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 400, r.text
+    assert "newer than target" in r.json()["detail"]
+
+
+async def test_import_invalid_schema_version_is_400(client: AsyncClient) -> None:
+    doc = {
+        "schemaVersion": "not-a-version",
+        "graph": {"nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {}}}], "edges": []},
+    }
+    r = await client.post("/api/flows/import", json=doc)
+    assert r.status_code == 400, r.text
+    assert "invalid schema version" in r.json()["detail"]
 
 
 # -- project targeting -------------------------------------------------------

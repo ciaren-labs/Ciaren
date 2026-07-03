@@ -15,6 +15,7 @@ import type {
   FlowImport,
   Flow,
   FlowCreate,
+  FlowMigrateDocumentResponse,
   FlowPreviewRequest,
   FlowRun,
   FlowRunSummary,
@@ -161,6 +162,11 @@ export const flowsApi = {
     request<Flow>("/flows/import", {
       method: "POST",
       body: JSON.stringify(document),
+    }),
+  migrateDocument: (document: Record<string, unknown>) =>
+    request<FlowMigrateDocumentResponse>("/flows/migrate-document", {
+      method: "POST",
+      body: JSON.stringify({ document }),
     }),
   update: (id: string, body: FlowUpdate) =>
     request<Flow>(`/flows/${id}`, {

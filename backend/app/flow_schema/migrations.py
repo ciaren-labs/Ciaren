@@ -38,7 +38,7 @@ def clear_migrations() -> None:
     _MIGRATIONS.clear()
 
 
-def _document_version(data: dict[str, Any]) -> str:
+def document_version(data: dict[str, Any]) -> str:
     return str(data.get("schemaVersion") or data.get("schema_version") or CURRENT_SCHEMA_VERSION)
 
 
@@ -56,7 +56,7 @@ def migrate(data: dict[str, Any], *, target: str = CURRENT_SCHEMA_VERSION) -> di
     :class:`MigrationError` if no path exists, if the document is already newer
     than the target, or if a loop is detected.
     """
-    current = _document_version(data)
+    current = document_version(data)
     target_v = _as_version(target)
 
     if _as_version(current) > target_v:
