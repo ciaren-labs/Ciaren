@@ -68,9 +68,11 @@ def build_registry() -> ServiceRegistry:
 
 def _node_context_for(plugin_id: str, state: PluginStateStore) -> NodeContext:
     """Assemble the host services a plugin's runtimes receive: its *granted*
-    permissions and (when the ML core is importable) a permission-gated
-    MLflow-backed ModelStore."""
+    permissions, (when the ML core is importable) a permission-gated MLflow-backed
+    ModelStore, and the plugin's own signed license token so a thin-client paid node
+    can authenticate to its vendor server for server-side execution."""
     from app.ml.availability import ml_core_available
+    from app.plugins.licensing import LicenseCache
 
     granted = frozenset(state.granted(plugin_id))
     models = None
@@ -78,7 +80,14 @@ def _node_context_for(plugin_id: str, state: PluginStateStore) -> NodeContext:
         from app.plugins.model_store import MlflowModelStore
 
         models = MlflowModelStore(plugin_id, granted)
-    return NodeContext(plugin_id=plugin_id, permissions=granted, models=models)
+    token = LicenseCache().load(plugin_id)
+    license_token = token.model_dump_json(by_alias=True) if token is not None else ""
+    return NodeContext(
+        plugin_id=plugin_id,
+        permissions=granted,
+        models=models,
+        license_token=license_token,
+    )
 
 
 def _register_node_kind(spec: NodeSpec) -> None:

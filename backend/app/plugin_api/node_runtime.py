@@ -79,12 +79,23 @@ class NodeContext:
     expensive/persistent work (training a model, writing anywhere) should be
     skipped, returning a cheap placeholder instead — exactly like the core train
     nodes do.
+
+    ``license_token`` is the plugin's own cached, marketplace-signed license token
+    as a raw JSON string (``""`` when the plugin has none). It is the sanctioned
+    way to build a **thin-client** paid node: forward this token to your own server
+    with each request and validate it *there* — signature, expiry, revocation, seat
+    — so the licensed logic runs where the user cannot patch the check out. Local
+    license gating only deters casual use (the core runs on the user's machine);
+    server-side validation of this token is what makes a license truly unskippable.
+    The host only ever populates a plugin's *own* token here, so a node cannot read
+    another plugin's license.
     """
 
     plugin_id: str = ""
     permissions: frozenset[Permission] = frozenset()
     models: ModelStore | None = None
     in_preview: bool = False
+    license_token: str = ""
 
 
 #: A context with no plugin identity, no grants, and no services — what a runtime
