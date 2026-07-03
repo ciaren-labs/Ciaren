@@ -200,8 +200,12 @@ ciaren-plugin list
 # community.greeting should appear
 ```
 
-`GET /api/plugins` now lists `community.greeting`, and **Add Greeting** appears in
-the node palette under the **columns** category.
+`GET /api/plugins` now lists `community.greeting` — but a freshly discovered
+plugin is never loaded automatically, even one that declares `"permissions": []`
+like this one, so **this plugin needs approval before its code runs**. See
+[Installing & Managing Plugins](/plugins/managing-plugins) to approve it; once
+approved, **Add Greeting** appears in the node palette under the **columns**
+category.
 
 ## 5. Try it on the canvas
 
@@ -251,6 +255,7 @@ for the trust model.
 
 ## What next?
 
+- **[Installing & Managing Plugins](/plugins/managing-plugins)** — approving, disabling, and uninstalling plugins
 - **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
 - **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
 - **[Plugins Overview](/plugins/overview)** — all the extension points

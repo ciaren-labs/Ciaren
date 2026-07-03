@@ -99,7 +99,7 @@ Here is what a typical sales-summary pipeline looks like in Ciaren. Each colored
 card is one node; you drag them from the palette and connect them on the canvas.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"sales.csv"},
+  {"type":"input","label":"File Input","detail":"sales.csv"},
   {"type":"clean","label":"Drop Columns","detail":"remove internal_id, temp_notes"},
   {"type":"clean","label":"Filter Rows","detail":"amount > 0"},
   {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},

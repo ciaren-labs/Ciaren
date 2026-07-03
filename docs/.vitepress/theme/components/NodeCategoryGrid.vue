@@ -33,7 +33,7 @@ const categories: Category[] = [
       { label: 'Drop Columns', link: '/transformations/drop-columns' },
       { label: 'Rename Columns', link: '/transformations/rename-columns' },
       { label: 'Select Columns', link: '/transformations/select-columns' },
-      { label: 'Cast Types', link: '/transformations/cast-types' },
+      { label: 'Change Types', link: '/transformations/cast-types' },
     ],
   },
   {

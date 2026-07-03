@@ -130,3 +130,35 @@ describe("flowEditorStore undo/redo", () => {
     expect(useFlowEditorStore.getState().future).toHaveLength(0);
   });
 });
+
+describe("flowEditorStore dirty state", () => {
+  it("stays clean after loading a flow and running the untracked initial auto-layout", () => {
+    // Mirrors FlowCanvas's one-time initial-layout effect: setGraph loads the
+    // saved flow (clean), then setNodes re-positions nodes for display only.
+    // Re-laying out on load isn't a user edit, so it must not flip `dirty` —
+    // otherwise every freshly opened flow would show "unsaved" immediately.
+    const { setGraph, setNodes } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], []);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+
+    setNodes([
+      { ...useFlowEditorStore.getState().nodes[0], position: { x: 123.456, y: 78.9 } },
+      { ...useFlowEditorStore.getState().nodes[1], position: { x: 200, y: 78.9 } },
+    ]);
+
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+  });
+
+  it("still marks dirty for a user-triggered re-layout (Auto-arrange button)", () => {
+    const { setGraph, relayoutNodes } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], []);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+
+    relayoutNodes([
+      { ...useFlowEditorStore.getState().nodes[0], position: { x: 1, y: 1 } },
+      { ...useFlowEditorStore.getState().nodes[1], position: { x: 2, y: 2 } },
+    ]);
+
+    expect(useFlowEditorStore.getState().dirty).toBe(true);
+  });
+});

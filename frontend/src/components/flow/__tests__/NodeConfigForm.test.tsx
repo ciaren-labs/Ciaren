@@ -384,6 +384,23 @@ describe("NodeConfigForm", () => {
     expect(screen.getByText("New column")).toBeInTheDocument();
     expect(screen.getByText("Method")).toBeInTheDocument();
     expect(screen.getByText("Number of bins")).toBeInTheDocument();
+    expect(screen.getByText("Custom labels (optional)")).toBeInTheDocument();
+  });
+
+  it("lets Bin Column set custom bin labels", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "binColumn",
+      config: { column: "total_spent", new_column: "tier", method: "quantile", bins: 3 },
+      columns: ["total_spent"],
+      onChange,
+    });
+    fireEvent.change(screen.getByPlaceholderText("Bronze, Silver, Gold"), {
+      target: { value: "Bronze, Silver, Gold" },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["Bronze", "Silver", "Gold"] }),
+    );
   });
 
   it("renders pivot's index, columns, values and aggregation fields", () => {

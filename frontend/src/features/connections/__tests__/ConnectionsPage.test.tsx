@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ProviderInfo } from "@/lib/types";
 import { ConnectionsPage } from "../ConnectionsPage";
+import { useTestConnectionConfig } from "../hooks";
 
 // vi.mock factories are hoisted above imports, so the fixtures they close over
 // must be hoisted too.
@@ -88,7 +89,7 @@ vi.mock("../hooks", () => {
     useUpdateConnection: mutationStub,
     useDeleteConnection: mutationStub,
     useTestConnection: mutationStub,
-    useTestConnectionConfig: mutationStub,
+    useTestConnectionConfig: vi.fn(mutationStub),
   };
 });
 
@@ -125,6 +126,33 @@ describe("ConnectionsPage plugin connectors", () => {
     expect(screen.getByRole("checkbox")).toBeChecked(); // verify_tls default
     // No host fields (needs_host false).
     expect(screen.queryByText("Host")).not.toBeInTheDocument();
+  });
+});
+
+describe("Test connection failure feedback", () => {
+  it("surfaces the backend's error message as visible text, not just a red button", () => {
+    // Simulates the 422 from POST /api/connections/test-config (e.g. a bad
+    // SQLite file path) — the mutation's `error` carries the real backend
+    // message, which the button must render, not just discard.
+    vi.mocked(useTestConnectionConfig).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+      isError: true,
+      error: { message: "unable to open database file: /bad/path.db" },
+      data: undefined,
+    } as any);
+
+    openDialog();
+    fireEvent.click(screen.getByText("PostgreSQL"));
+
+    // The button itself reflects failure ("Failed"), and the real message is
+    // now also rendered as visible text near it, not just a title attribute.
+    expect(screen.getByRole("button", { name: /failed/i })).toBeInTheDocument();
+    expect(
+      screen.getByText("unable to open database file: /bad/path.db"),
+    ).toBeInTheDocument();
   });
 });
 

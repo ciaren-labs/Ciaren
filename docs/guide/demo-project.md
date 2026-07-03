@@ -7,10 +7,15 @@ search: demo project sample data tutorial example flows customers orders product
 # Demo Project & Tutorials
 
 Ciaren ships with a built-in **Demo** project so you have something real to
-explore the first time you open it. It contains four sample datasets and four
-example flows — from a simple linear cleanup to a three-input sales mart — and
-every tutorial below walks through a flow **that is already in your Demo
-project**. Open the flow, follow along, preview each step, and tweak it.
+explore the first time you open it. It contains **11 sample datasets** and
+**18 example flows** — from a simple linear cleanup to a three-input sales
+mart, plus a batch of newer ML-focused flows (PCA, clustering, feature
+selection, regression, cross-validation, and more) built on datasets like
+`house_prices.csv` and `iris.csv`. This page walks through the four
+foundational tutorial flows in detail, and every tutorial below walks through a
+flow **that is already in your Demo project**. Open the flow, follow along,
+preview each step, and tweak it — then browse the rest of the Demo project for
+the more advanced, ML-oriented flows.
 
 ## Where the demo comes from
 
@@ -30,9 +35,13 @@ exists it's never recreated, so deleting it keeps it gone.
 
 ## The sample datasets
 
-All four are CSVs and intentionally **messy** — they have nulls, outliers,
-duplicates, inconsistent casing, and dates stored as text — so the example flows
-have something realistic to clean.
+The four datasets used by the tutorials below are CSVs and intentionally
+**messy** — they have nulls, outliers, duplicates, inconsistent casing, and
+dates stored as text — so the example flows have something realistic to clean.
+(The Demo project ships 11 datasets in total; the other seven —
+`house_prices.csv`, `iris.csv`, `regional_actuals.csv`, `regional_targets.csv`,
+`survey_responses.csv`, `web_events.csv`, and `leads.csv` — feed the newer
+ML-focused and data-quality flows mentioned above.)
 
 | Dataset | Rows | Columns | What's messy |
 | --------- | ------ | --------- | -------------- |
@@ -42,7 +51,7 @@ have something realistic to clean.
 | `order_items.csv` | ~one–two per order | `order_id, product_id, quantity, unit_price` | the link table joining orders to products |
 
 ::: tip See the mess for yourself
-Open any dataset, or drop a **CSV Input** node and hit **Run preview**. Switch
+Open any dataset, or drop a **File Input** node (File type: CSV) and hit **Run preview**. Switch
 the preview to **Chart → Histogram** on `amount` to *see* the outliers, or to
 **Profile** to spot the null counts. (Charts use a sample — see
 [Visualizations](./visualizations.md).)
@@ -62,7 +71,7 @@ This is the simplest shape: a straight line from input to output.
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input","detail":"customers.csv"},
+    {"type":"input","label":"File Input","detail":"customers.csv"},
     {"type":"clean","label":"Fill Nulls","detail":"age → median"},
     {"type":"clean","label":"String Transform","detail":"country → upper"},
     {"type":"clean","label":"Parse Dates","detail":"signup_date → datetime"},
@@ -70,7 +79,7 @@ This is the simplest shape: a straight line from input to output.
   ]'
 />
 
-1. **CSV Input** → `customers.csv`.
+1. **File Input** (File type: CSV) → `customers.csv`.
 2. **Fill Nulls** — column `age`, strategy **median**. (Some ages are blank;
    median is robust to those 199/0 outliers.)
 3. **String Transform** — column `country`, operation **upper**. Now `usa`,
@@ -97,7 +106,7 @@ This adds date-part extraction and grouping.
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"input","label":"File Input","detail":"orders.csv"},
     {"type":"clean","label":"Parse Dates","detail":"order_date → datetime"},
     {"type":"clean","label":"Extract Date Parts","detail":"year + month cols"},
     {"type":"clean","label":"Filter Rows","detail":"status = completed"},
@@ -107,7 +116,7 @@ This adds date-part extraction and grouping.
   ]'
 />
 
-1. **CSV Input** → `orders.csv`.
+1. **File Input** → `orders.csv`.
 2. **Parse Dates** — column `order_date` (it's text).
 3. **Extract Date Parts** — column `order_date`, parts **year**, **month**.
    This adds `order_date_year` and `order_date_month` columns.
@@ -135,12 +144,12 @@ meeting at a **Join**.
 
 <ForkJoin
   :left='[
-    {"type":"input","label":"CSV Input","detail":"customers.csv"},
+    {"type":"input","label":"File Input","detail":"customers.csv"},
     {"type":"clean","label":"Fill Nulls","detail":"age → median"},
     {"type":"clean","label":"String Transform","detail":"country → upper"}
   ]'
   :right='[
-    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"input","label":"File Input","detail":"orders.csv"},
     {"type":"clean","label":"Remove Duplicates"},
     {"type":"clean","label":"Remove Outliers","detail":"IQR drop"}
   ]'
@@ -155,13 +164,13 @@ meeting at a **Join**.
 
 ### Customer branch
 
-1. **CSV Input** → `customers.csv`.
+1. **File Input** → `customers.csv`.
 2. **Fill Nulls** — `age`, median.
 3. **String Transform** — `country`, upper.
 
 ### Orders branch
 
-1. **CSV Input** → `orders.csv`.
+1. **File Input** → `orders.csv`.
 2. **Remove Duplicates** — keep **first** (drops those 3 dupe rows).
 3. **Remove Outliers** — column `amount`, method **IQR**, action **drop**
    (removes the 99999.99 / 88888.88 rows).
@@ -206,12 +215,12 @@ This is the most complex flow — three inputs and two chained joins.
 
 ### Order items branch
 
-1. **CSV Input** → `order_items.csv`.
+1. **File Input** → `order_items.csv`.
 2. **Calculated Column** — `line_total = quantity * unit_price`.
 
 ### Products branch
 
-1. **CSV Input** → `products.csv`.
+1. **File Input** → `products.csv`.
 2. **Fill Nulls** — `price`, strategy **mean**.
 
 ### First join
@@ -220,7 +229,7 @@ This is the most complex flow — three inputs and two chained joins.
 
 ### Orders branch
 
-1. **CSV Input** → `orders.csv`.
+1. **File Input** → `orders.csv`.
 2. **Remove Duplicates** — keep first.
 
 ### Second join + aggregate + label
@@ -246,4 +255,9 @@ appear.
 - See every node these flows use in the [Transformations reference](../transformations/overview.md).
 - Run a flow and read the [exported Python code](./engines.md#code-export-pandas-polars-and-lazy-polars)
   it generates — the demo flows make for readable, educational examples.
+- Beyond the four tutorials above, the Demo project includes 14 more flows —
+  mostly ML-focused (PCA, clustering, feature selection, classification/
+  regression, cross-validation) built on `house_prices.csv`, `iris.csv`, and
+  the other seeded datasets. Open **Projects → Demo → Flows** to browse them;
+  see [ML Quick Start](./ml-quickstart.md) for the concepts they use.
 - Build your own: [Quick Start (5 min)](./quick-start.md).

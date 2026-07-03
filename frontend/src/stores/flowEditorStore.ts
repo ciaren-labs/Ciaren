@@ -221,7 +221,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   selectNode: (id) =>
     set({ selectedNodeId: id, sidebarOpen: id !== null ? true : undefined }),
 
-  setNodes: (nodes) => set({ nodes, dirty: true }),
+  setNodes: (nodes) => set({ nodes }),
 
   relayoutNodes: (nodes) =>
     set((state) => ({

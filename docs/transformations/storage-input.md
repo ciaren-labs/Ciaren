@@ -15,7 +15,7 @@ process boundary.
 <FlowPipeline
   :nodes='[
     {"type":"input","label":"Storage Input","detail":"s3://my-bucket/sales/2024-06.csv"},
-    {"type":"clean","label":"Cast Types","detail":"amount→float · date→datetime"},
+    {"type":"clean","label":"Change Types","detail":"amount→float · date→datetime"},
     {"type":"transform","label":"Group By + Aggregate","detail":"revenue by region"},
     {"type":"output","label":"Storage Output","detail":"s3://my-bucket/reports/summary.parquet"}
   ]'

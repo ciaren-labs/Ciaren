@@ -79,8 +79,8 @@ A `.pyc` can still be decompiled back to near-original logic, and it is **locked
 the Python version it was built with** (a 3.12 build won't load on 3.13) — build
 one artifact per supported Python version. For genuinely sensitive IP (an AI
 optimizer, a proprietary algorithm), keep the logic in a remote service the plugin
-calls, rather than shipping it to the user's disk at all. See the architecture plan
-§15 — "do not assume Python source can be fully hidden."
+calls, rather than shipping it to the user's disk at all — do not assume Python
+source can be fully hidden.
 :::
 
 ## Verify and install (users)

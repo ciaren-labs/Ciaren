@@ -6,7 +6,7 @@ search: webhook trigger secret ci cd airflow pipeline http external automation
 
 # Webhook Trigger
 
-Ciaren exposes a `POST /api/flows/{id}/trigger` endpoint that lets any
+Ciaren exposes a `POST /api/flows/{flow_id}/trigger` endpoint that lets any
 HTTP-capable system start a run with a single request — no knowledge of the full
 REST API needed. Access is controlled by a pre-shared secret.
 

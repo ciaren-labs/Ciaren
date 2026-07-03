@@ -174,20 +174,18 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
           onDrop={onDrop}
           setDragging={setDragging}
         />
-      ) : uploadProjectId ? (
+      ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <span className="h-2 w-2 rounded-full bg-brand-500" />
-              {(projects ?? []).find((p) => p.id === uploadProjectId)?.name ?? "Project"}
-            </span>
-            <button
-              type="button"
-              onClick={() => setUploadProjectId("")}
-              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-            >
-              Change
-            </button>
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">Upload to project</span>
+            <SearchableSelect
+              value={uploadProjectId}
+              onChange={setUploadProjectId}
+              allLabel="Default project"
+              placeholder="Search projects…"
+              className="max-w-xs flex-1"
+              options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+            />
           </div>
           <UploadDropzone
             dragging={dragging}
@@ -196,19 +194,6 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
             onFile={onFile}
             onDrop={onDrop}
             setDragging={setDragging}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
-          <p className="text-sm font-medium text-foreground">Step 1 — Choose a project</p>
-          <p className="text-xs text-muted-foreground">Pick the project this dataset belongs to — it lands in the Default project if you don't.</p>
-          <SearchableSelect
-            value={uploadProjectId}
-            onChange={setUploadProjectId}
-            allLabel="Default project"
-            placeholder="Search projects…"
-            className="mx-auto w-full max-w-xs"
-            options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
           />
         </div>
       )}

@@ -841,6 +841,14 @@ export function NodeConfigForm({
           <Field label="Number of bins" error={errors.bins}>
             <Input type="number" value={c.bins ?? 4} onChange={(e) => set({ bins: Number(e.target.value) })} />
           </Field>
+          <Field
+            label="Custom labels (optional)"
+            error={errors.labels}
+            hint="Comma-separated"
+            help="One label per bin, in order. Empty = default numeric bin labels."
+          >
+            <CsvListInput value={c.labels} onChange={(v) => set({ labels: v })} placeholder="Bronze, Silver, Gold" />
+          </Field>
         </>
       );
 

@@ -26,11 +26,11 @@ the bottom.
   ```
 
 :::tip No file handy? Use the built-in Demo project
-Every fresh install seeds a **Demo** project with four sample datasets and four
-ready-made example flows — open **Projects → Demo** and you can preview, run,
-and export without uploading anything. The
-[Demo Project & Tutorials](/guide/demo-project) page walks through each flow
-step by step.
+Every fresh install seeds a **Demo** project with 11 sample datasets and 18
+ready-made example flows (including several ML-focused ones) — open
+**Projects → Demo** and you can preview, run, and export without uploading
+anything. The [Demo Project & Tutorials](/guide/demo-project) page walks
+through the four foundational tutorial flows step by step.
 
 The demo is optional but recommended for a first install — it's the fastest
 way to see working examples. If you'd rather start empty, launch the backend
@@ -43,7 +43,7 @@ By the end of this walkthrough you will have a running pipeline that cleans,
 aggregates, and outputs a summary CSV — plus the equivalent Python script.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"upload sales.csv"},
+  {"type":"input","label":"File Input","detail":"upload sales.csv"},
   {"type":"clean","label":"Drop Nulls","detail":"remove rows missing amount"},
   {"type":"clean","label":"Remove Duplicates","detail":"deduplicate rows"},
   {"type":"transform","label":"Group By + Aggregate","detail":"sum amount by region"},
@@ -53,7 +53,10 @@ aggregates, and outputs a summary CSV — plus the equivalent Python script.
 ## 1. Upload a dataset
 
 1. Open `http://localhost:5173` and go to **Datasets**.
-2. Click **Upload**, choose your file, and confirm.
+2. Use the **Choose a project** dropdown to pick a project (e.g. "Default" or
+   "Demo") — this reveals a **Step 2** drop zone.
+3. Drag your file onto the drop zone, or click it to browse and select one.
+   It accepts CSV, TSV, Excel, Parquet, JSON, JSON Lines, or plain text.
 
 Ciaren infers the column schema and stores a sample. Datasets are
 **versioned** — re-uploading a file with the same name adds a new version rather
@@ -61,8 +64,13 @@ than overwriting the old one, so existing flows stay reproducible.
 
 ## 2. Create a flow
 
-1. Go to **Flows → New flow**. The canvas opens with an empty graph.
-2. Drag a **CSV Input** node from the palette and select the dataset you uploaded.
+1. Go to **Flows → New flow**. This opens a modal with Name/Description/Project
+   fields and 5 starter templates: **Blank flow**, **Clean & Deduplicate**,
+   **Filter & Aggregate**, **Data Quality Checks**, and **Tidy Columns** (each
+   pre-populates a small node chain). Pick **Blank flow** for an empty canvas,
+   as this walkthrough assumes.
+2. Drag a **File Input** node from the palette, select the dataset you
+   uploaded, and set its **File type** to CSV.
 3. Add a few transformation nodes and connect them in order:
    - **Drop Nulls** — remove rows missing an `amount`.
    - **Remove Duplicates** — drop repeated rows.

@@ -325,7 +325,7 @@ export default defineConfig({
             { text: 'Drop columns', link: '/transformations/drop-columns' },
             { text: 'Rename columns', link: '/transformations/rename-columns' },
             { text: 'Select columns', link: '/transformations/select-columns' },
-            { text: 'Cast types', link: '/transformations/cast-types' },
+            { text: 'Change types', link: '/transformations/cast-types' },
             { text: 'Combine columns', link: '/transformations/combine-columns' },
             { text: 'Coalesce columns', link: '/transformations/coalesce-columns' },
           ],

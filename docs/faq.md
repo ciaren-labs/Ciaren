@@ -86,7 +86,7 @@ No! Ciaren is designed for non-programmers. The visual editor guides you through
 ### Can I load data from a database?
 
 Yes — via the **SQL input** node and a reusable [Connection](/guide/connections).
-PostgreSQL, MySQL, SQLite, and MongoDB are supported. S3, Azure Blob, and GCS are
+PostgreSQL, MySQL, SQLite, SQL Server, and MongoDB are supported. S3, Azure Blob, and GCS are
 also available as storage input/output nodes. Plain file formats (CSV, TSV,
 Excel, Parquet, JSON/JSONL, text) are supported via file input nodes.
 For other systems, use or build a connector plugin rather than expecting every
@@ -142,7 +142,7 @@ driver).
 
 ### What transformations are available?
 
-40+ transformation nodes plus file, SQL, and storage input/output, including:
+58 transformation nodes plus file, SQL, and storage input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample

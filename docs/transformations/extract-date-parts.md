@@ -58,9 +58,9 @@ df_2 = df_1.assign(**{'ordered_at_year': _dt.dt.year, 'ordered_at_month': _dt.dt
 - **`weekday` is Monday=0 … Sunday=6** (consistent across pandas and polars
   exports — verified by the parity tests).
 - If the source is text, [Parse dates](./parse-dates.md) or
-  [Cast types](./cast-types.md) → `datetime` first; this node also parses on the
+  [Change types](./cast-types.md) → `datetime` first; this node also parses on the
   fly but an explicit parse is clearer.
 
 ## See also
 
-- [Parse dates](./parse-dates.md) · [Cast types](./cast-types.md)
+- [Parse dates](./parse-dates.md) · [Change types](./cast-types.md)

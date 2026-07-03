@@ -10,14 +10,14 @@ Real-world files are messy: stray whitespace, inconsistent casing, junk in
 numeric columns, duplicates, and out-of-range values. This flow standardizes a
 contact list and drops the rows that can't be trusted.
 
-**You'll use:** CSV Input → String Transform → Cast Types → Drop Nulls →
+**You'll use:** CSV Input → String Transform → Change Types → Drop Nulls →
 Remove Duplicates → Filter Rows → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"contacts.csv"},
   {"type":"clean","label":"String Transform","detail":"strip whitespace from name"},
   {"type":"clean","label":"String Transform","detail":"strip + lowercase email"},
-  {"type":"clean","label":"Cast Types","detail":"age→integer, errors=coerce → nulls"},
+  {"type":"clean","label":"Change Types","detail":"age→integer, errors=coerce → nulls"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: name, age"},
   {"type":"clean","label":"Remove Duplicates","detail":"subset: email · keep: first"},
   {"type":"clean","label":"Filter Rows","detail":"0 ≤ age ≤ 120"},
@@ -48,7 +48,7 @@ row with no name.
 3. **String Transform** — `column: "email"`, `operation: "strip"`.
 4. **String Transform** — `column: "email"`, `operation: "lower"` (normalize case
    so duplicates collapse).
-5. **Cast Types** — `casts: { "age": "integer" }`, `errors: "coerce"`. Non-numeric
+5. **Change Types** — `casts: { "age": "integer" }`, `errors: "coerce"`. Non-numeric
    ages (like `"unknown"`) become null instead of erroring.
 6. **Drop Nulls** — `subset: ["name", "age"]`. This removes the no-name row and the
    row whose age couldn't be parsed. (Empty strings from the file read as null.)

@@ -82,9 +82,10 @@ logic in a remote service (see [thin-client plugins](#thin-client-plugins)). The
 
 A plugin connector's runtime (test / list / read / write) only exists once the
 plugin is approved — a gated plugin's connectors appear nowhere. The host also
-applies its [SSRF guard](/security/overview) to the connection's host field
-before invoking a plugin runtime, and connection secrets keep the env-var-only
-rule: the resolved value is passed into a single call and never stored.
+applies its [SSRF guard](/guide/advanced-setup#environment-variables) to the
+connection's host field before invoking a plugin runtime, and connection
+secrets keep the env-var-only rule: the resolved value is passed into a single
+call and never stored.
 
 ### Approval gating
 

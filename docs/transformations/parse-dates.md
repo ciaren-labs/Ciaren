@@ -58,4 +58,4 @@ df_2 = df_1.assign(**{c: pd.to_datetime(df_1[c], format=None, errors='coerce')
 
 ## See also
 
-- [Extract date parts](./extract-date-parts.md) · [Cast types](./cast-types.md) · [Sort rows](./sort-rows.md)
+- [Extract date parts](./extract-date-parts.md) · [Change types](./cast-types.md) · [Sort rows](./sort-rows.md)

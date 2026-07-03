@@ -382,7 +382,7 @@ function TestButton({
   }
 
   if (visibleResult) {
-    return (
+    const button = (
       <Button
         size={size}
         variant="outline"
@@ -393,7 +393,7 @@ function TestButton({
           visibleResult.ok
             ? "border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-400"
             : "border-red-400 bg-red-50 text-red-700 hover:bg-red-50 dark:bg-red-950 dark:text-red-400",
-          className,
+          !visibleResult.ok && className,
         )}
       >
         {visibleResult.ok ? (
@@ -406,6 +406,20 @@ function TestButton({
           : visibleResult.ok ? "Connected!" : "Failed"}
       </Button>
     );
+    // Failure isn't just a red button — surface the real backend error message
+    // as visible, accessible text (same convention as the create/update form
+    // errors below), not just a hover-only title attribute.
+    if (!visibleResult.ok) {
+      return (
+        <div className={cn("flex flex-col items-start gap-1", className)}>
+          {button}
+          <p role="alert" className="max-w-xs text-xs text-destructive">
+            {visibleResult.message}
+          </p>
+        </div>
+      );
+    }
+    return button;
   }
 
   return (

@@ -15,8 +15,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.engine.node_metadata import NODE_META_BY_TYPE
+
 # (name, description, graph) tuples are what the seeder persists.
 DemoFlow = tuple[str, str, dict[str, Any]]
+
+
+def _label_for(node_type: str) -> str:
+    """Human-readable label for a node type, matching what the editor's own
+    node-creation path (`createFlowNode` / `nodeCatalog.ts`) sets by default —
+    reused from the backend's node catalog (`app.engine.node_metadata`) so the
+    demo seed never regresses to showing the raw camelCase type as its label."""
+    meta = NODE_META_BY_TYPE.get(node_type)
+    return meta.label if meta is not None else node_type
 
 
 def _input(node_id: str, dataset_id: str, x: int, y: int) -> dict[str, Any]:
@@ -24,7 +35,10 @@ def _input(node_id: str, dataset_id: str, x: int, y: int) -> dict[str, Any]:
         "id": node_id,
         "type": "fileInput",
         "position": {"x": x, "y": y},
-        "data": {"config": {"dataset_id": dataset_id, "dataset_version": 1, "format": "csv"}},
+        "data": {
+            "label": _label_for("fileInput"),
+            "config": {"dataset_id": dataset_id, "dataset_version": 1, "format": "csv"},
+        },
     }
 
 
@@ -33,7 +47,7 @@ def _node(node_id: str, node_type: str, config: dict[str, Any], x: int, y: int) 
         "id": node_id,
         "type": node_type,
         "position": {"x": x, "y": y},
-        "data": {"config": config},
+        "data": {"label": _label_for(node_type), "config": config},
     }
 
 
@@ -42,7 +56,7 @@ def _output(node_id: str, dataset_name: str, x: int, y: int) -> dict[str, Any]:
         "id": node_id,
         "type": "fileOutput",
         "position": {"x": x, "y": y},
-        "data": {"config": {"format": "csv", "dataset_name": dataset_name}},
+        "data": {"label": _label_for("fileOutput"), "config": {"format": "csv", "dataset_name": dataset_name}},
     }
 
 
