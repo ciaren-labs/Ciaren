@@ -276,11 +276,11 @@ class MLService:
         return runs
 
     def _experiment_names(self, graph: dict[str, Any]) -> set[str]:
-        from app.engine.node_kinds import ML_OUTPUT_NODES
+        from app.engine.node_kinds import is_model_sink
 
         names: set[str] = set()
         for node in graph.get("nodes", []):
-            if node.get("type") in ML_OUTPUT_NODES:
+            if is_model_sink(node.get("type", "")):
                 config = node.get("data", {}).get("config", {})
                 names.add(config.get("mlflow_experiment") or _DEFAULT_EXPERIMENT)
         return names

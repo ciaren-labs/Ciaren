@@ -407,6 +407,15 @@ export const pluginsApi = {
     return (await res.json()) as PluginInstallResult;
   },
   license: (id: string) => request<LicenseStatus>(`/plugins/${encodeURIComponent(id)}/license`),
+  /** Activate a license: send the pasted token JSON (marketplace wire format).
+   *  The backend vets it against the trusted issuer keys before caching. */
+  activateLicense: (id: string, token: unknown) =>
+    request<LicenseStatus>(`/plugins/${encodeURIComponent(id)}/license`, {
+      method: "POST",
+      body: JSON.stringify(token),
+    }),
+  removeLicense: (id: string) =>
+    request<LicenseStatus>(`/plugins/${encodeURIComponent(id)}/license`, { method: "DELETE" }),
   uninstall: (id: string) =>
     request<PluginUninstallResult>(`/plugins/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

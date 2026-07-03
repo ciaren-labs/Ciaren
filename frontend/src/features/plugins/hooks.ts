@@ -97,6 +97,34 @@ export function useUninstallPlugin() {
   });
 }
 
+/** Activate a pasted license token. Invalidating the whole "plugins" key also
+ *  refreshes the per-plugin license badge (its key nests under "plugins"). */
+export function useActivateLicense() {
+  const invalidate = useInvalidatePlugins();
+  return useMutation({
+    mutationFn: ({ id, token }: { id: string; token: unknown }) =>
+      pluginsApi.activateLicense(id, token),
+    // The license dialog renders failures inline (a rejected token needs context).
+    meta: { suppressErrorToast: true },
+    onSuccess: (status) => {
+      invalidate();
+      if (status.valid) toast.success("License activated");
+    },
+  });
+}
+
+export function useRemoveLicense() {
+  const invalidate = useInvalidatePlugins();
+  return useMutation({
+    mutationFn: (id: string) => pluginsApi.removeLicense(id),
+    meta: { errorMessage: "Couldn't remove the license" },
+    onSuccess: () => {
+      invalidate();
+      toast.success("License removed from this machine");
+    },
+  });
+}
+
 export function useGrantPlugin() {
   const invalidate = useInvalidatePlugins();
   return useMutation({

@@ -21,6 +21,11 @@ discovery → canvas**. Once you've done it once, every other extension point
 (connectors, engines, exporters, …) follows the same shape.
 :::
 
+::: warning Plugins run unsandboxed
+A plugin is Python that runs with your account's access — install only plugins you
+trust and can read. See [Plugin Security](/security/plugin-security).
+:::
+
 ## Prerequisites
 
 - Ciaren installed and runnable (`ciaren serve` works). See
@@ -144,6 +149,7 @@ The loader validates a manifest **before importing any plugin code**. Create
   "publisher": "community",
   "description": "Adds one node that writes a greeting column.",
   "ciaren": ">=0.1",
+  "api_version": "0.1.0-alpha.1",
   "entrypoint": "ciaren_greeting.plugin:GreetingPlugin",
   "permissions": [],
   "capabilities": ["node.greeting"],
@@ -154,6 +160,15 @@ The loader validates a manifest **before importing any plugin code**. Create
 
 See the [Plugin Manifest](/specs/plugin-manifest) reference for every field.
 
+::: tip Three versions, don't confuse them
+`version` is *this plugin's* release. `ciaren` is which **app** builds it runs on.
+`api_version` is the **plugin-contract** it targets — it changes *only* when the
+contract (`app.plugin_api`) changes, not on every plugin release. The contract is
+currently pre-1.0 (`0.1.0-alpha.1`) and makes **no** backward-compatibility promise:
+target the exact version the backend reports and rebuild when it bumps. See
+[Contract versioning](/specs/plugin-manifest#contract-versioning).
+:::
+
 ::: tip Don't hand-write it — generate it
 Your plugin's code already declares all of this. Generate the manifest from it so
 the two never drift:
@@ -163,7 +178,9 @@ ciaren plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from t
 ```
 
 The manifest is still shipped in the package and validated **before** any code
-runs — generating it just keeps a single source of truth in Python.
+runs — generating it just keeps a single source of truth in Python. It stamps
+`api_version` with the SDK version you built against, which is what you want during
+alpha (rebuild when the contract bumps).
 :::
 
 ## 4. Load it (no install needed)
@@ -223,8 +240,9 @@ packages = ["ciaren_greeting"]
 ```bash
 ciaren plugin keygen                                   # one-time: a signing key
 ciaren plugin pack ./my-greeting-plugin ./greeting.ciarenplugin
-ciaren plugin sign ./greeting.ciarenplugin
-ciaren plugin install ./greeting.ciarenplugin --trusted
+ciaren plugin sign ./greeting.ciarenplugin \
+  --key <private_hex> --key-id greeting-2026 --publisher community
+ciaren plugin install ./greeting.ciarenplugin
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full

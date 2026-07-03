@@ -2,18 +2,18 @@
 from collections import defaultdict, deque
 from typing import Any
 
+from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import (
-    FLOW_TERMINAL_NODES,
     MODEL_DEFINITION_NODE_TYPES,
-    MODEL_INPUT_HANDLES,
-    MULTI_OUTPUT_NODES,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
     STORAGE_INPUT_TYPE,
     edge_carries_model,
+    is_flow_terminal,
     is_model_input_handle,
+    model_input_handles,
+    multi_output_handles,
 )
-from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 
 
@@ -44,7 +44,7 @@ def validate_graph(graph: dict[str, Any], require_output: bool = True) -> None:
     # An mlTrain node (persists a model) or a report node like cross-validation
     # (emits a scores frame) is a valid terminal, so such a flow needs no
     # file-output node.
-    has_ml_output = any(n["type"] in FLOW_TERMINAL_NODES for n in nodes)
+    has_ml_output = any(is_flow_terminal(n["type"]) for n in nodes)
     if require_output and not output_nodes and not has_ml_output:
         raise GraphValidationError("Graph must have at least one output node")
 
@@ -67,7 +67,7 @@ def _validate_source_handles(nodes: list[dict[str, Any]], edges: list[dict[str, 
     types_by_id = {n["id"]: n["type"] for n in nodes}
     labels_by_id = {n["id"]: (n.get("data", {}).get("label") or n["type"]) for n in nodes}
     for edge in edges:
-        handles = MULTI_OUTPUT_NODES.get(types_by_id.get(edge["source"], ""))
+        handles = multi_output_handles(types_by_id.get(edge["source"], ""))
         if handles is None:
             continue
         label = labels_by_id[edge["source"]]
@@ -176,7 +176,7 @@ def _validate_model_handles(nodes: list[dict[str, Any]], edges: list[dict[str, A
                 f"model input, not {target_handle!r}."
             )
         if wants_model and not carries_model:
-            expected = ", ".join(sorted(MODEL_INPUT_HANDLES.get(target_type, frozenset())))
+            expected = ", ".join(sorted(model_input_handles(target_type)))
             raise GraphValidationError(
                 f"{labels_by_id[edge['target']]}: the {expected!r} input needs a "
                 f"model reference — connect a model-producing ML node's output."

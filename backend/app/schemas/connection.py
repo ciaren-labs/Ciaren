@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 _STORAGE_PROVIDERS = frozenset({"local", "s3", "azure_blob", "gcs"})
 _MONGO_PROVIDERS = frozenset({"mongodb"})
 _MLFLOW_PROVIDERS = frozenset({"mlflow"})
+_API_PROVIDERS = frozenset({"rest_api"})
 
 # Valid POSIX env var names: start with letter or underscore, then letters/digits/underscores.
 _ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -25,6 +26,17 @@ def _normalize_path(v: str | None) -> str | None:
         return None
     # Replace backslashes so pathlib parses Windows paths on any OS.
     return v.replace("\\", "/")
+
+
+def _plugin_connector_kind(provider: str) -> str | None:
+    """The kind a plugin connector declared for ``provider``, or None. Lazy and
+    fault-tolerant: schema validation must never fail because of a plugin."""
+    try:
+        from app.plugins.connectors import plugin_connection_kind
+
+        return plugin_connection_kind(provider)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 class ConnectionBase(BaseModel):
@@ -103,7 +115,8 @@ class ConnectionRead(BaseModel):
 
     Contains no secret — only the *name* of the password env var — so it is
     safe to serialize. ``connection_type`` is derived from the provider name and
-    tells the frontend which form to show (sql | mongo | storage | mlflow).
+    tells the frontend which form to show (sql | mongo | api | storage | mlflow;
+    plugin connectors report their spec's kind).
     """
 
     id: str
@@ -130,8 +143,13 @@ class ConnectionRead(BaseModel):
             self.connection_type = "mongo"
         elif self.provider in _MLFLOW_PROVIDERS:
             self.connection_type = "mlflow"
+        elif self.provider in _API_PROVIDERS:
+            self.connection_type = "api"
         else:
-            self.connection_type = "sql"
+            # A plugin connector reports its own kind (e.g. "storage" routes it to
+            # the storage nodes, "api"/"sql" to the SQL nodes). Unknown/core-SQL
+            # providers stay "sql".
+            self.connection_type = _plugin_connector_kind(self.provider) or "sql"
         return self
 
 

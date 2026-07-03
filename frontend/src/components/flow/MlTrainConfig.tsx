@@ -14,12 +14,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  getModelDef,
   isSupervisedModel,
   modelsForNodeType,
   TRAIN_NODE_TASKS,
   type HyperParam,
+  type MlModelDef,
+  type MlTask,
 } from "@/lib/mlModels";
+import type { ConfigField, MlModelCatalogItem } from "@/lib/types";
 import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
 import { modelInstallWarning, modelOptionLabel } from "./mlModelOptions";
 
@@ -65,6 +67,13 @@ function HyperControl({
       </Field>
     );
   }
+  if (param.control === "text") {
+    return (
+      <Field label={param.label} help={param.help}>
+        <Input value={String(value ?? param.default ?? "")} onChange={(e) => onChange(e.target.value)} />
+      </Field>
+    );
+  }
   // int / float
   return (
     <Field label={param.label} help={param.help}>
@@ -95,6 +104,45 @@ const IMPUTE_CATEGORICAL = [
   { value: "constant", label: "Constant ('missing')" },
 ];
 
+/** A hyperparameter control derived from a plugin's declared field schema. */
+function hyperParamFromField(field: ConfigField, defaults: Record<string, unknown>): HyperParam {
+  const control =
+    field.type === "boolean"
+      ? ("bool" as const)
+      : field.type === "integer"
+        ? ("int" as const)
+        : field.type === "number"
+          ? ("float" as const)
+          : field.type === "select"
+            ? ("select" as const)
+            : ("text" as const);
+  return {
+    name: field.key,
+    label: field.label || field.key,
+    control,
+    default: (defaults[field.key] ?? field.default ?? (control === "bool" ? false : "")) as
+      | number
+      | boolean
+      | string,
+    options: field.options?.map((o) => ({ value: o, label: o })),
+    min: field.min ?? undefined,
+    max: field.max ?? undefined,
+    help: field.help || undefined,
+  };
+}
+
+/** Convert a plugin catalog entry into the picker's model-definition shape. */
+function pluginModelDef(item: MlModelCatalogItem): MlModelDef {
+  const defaults = item.default_hyperparameters ?? {};
+  const fields = item.hyperparameter_schema?.fields ?? [];
+  return {
+    value: item.model_type,
+    label: item.label || item.model_type,
+    task: item.task as MlTask,
+    params: fields.map((f) => hyperParamFromField(f, defaults)),
+  };
+}
+
 export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props) {
   const [open, setOpen] = useState(false);
   const { data: catalog = [] } = useQuery({
@@ -103,15 +151,32 @@ export function MlTrainConfig({ config, columns, errors, set, nodeType }: Props)
     staleTime: 60_000,
   });
   const availability = new Map(catalog.map((m) => [m.model_type, m]));
-  const models = modelsForNodeType(nodeType);
   const task = TRAIN_NODE_TASKS[nodeType];
+  const staticModels = modelsForNodeType(nodeType);
+  const staticValues = new Set(staticModels.map((m) => m.value));
+  // Plugin-contributed model types for this task join the picker after the
+  // built-ins (the backend catalog is the source of truth for them).
+  const pluginModels = catalog
+    .filter(
+      (m) =>
+        m.task === task &&
+        m.provider &&
+        m.provider !== "ciaren.ml" &&
+        !staticValues.has(m.model_type),
+    )
+    .map(pluginModelDef);
+  const models = [...staticModels, ...pluginModels];
   const isModelDefinitionNode = nodeType === "mlClassifierModel" || nodeType === "mlRegressorModel";
   const isFinalTrainNode = nodeType === "mlTrainClassifier" || nodeType === "mlTrainRegressor";
-  const modelDef = getModelDef(config.model_type as string) ?? models[0];
+  const modelDef = models.find((m) => m.value === config.model_type) ?? models[0];
   const selectedAvailability = modelDef ? availability.get(modelDef.value) : undefined;
   // No models for this task yet (e.g. the Train Forecaster scaffold).
   const noModels = models.length === 0;
-  const supervised = modelDef ? isSupervisedModel(modelDef.value) : task === "timeseries";
+  const supervised =
+    selectedAvailability?.supervised ??
+    (modelDef && staticValues.has(modelDef.value)
+      ? isSupervisedModel(modelDef.value)
+      : task === "timeseries");
   const isTimeseries = task === "timeseries";
   const hp = (config.hyperparameters ?? {}) as Record<string, unknown>;
   const setHp = (name: string, v: number | boolean | string) =>

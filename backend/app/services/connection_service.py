@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,17 @@ from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.secrets import resolve_secret
 from app.db.models.connection import Connection
+from app.plugin_api import ConnectorRuntime
+from app.plugin_api import ConnectorSpec as PluginConnectorSpec
+from app.plugins.connectors import (
+    connection_config,
+    connector_config,
+    guard_plugin_connection,
+    plugin_connector,
+    plugin_connector_specs,
+    provider_entry,
+    validate_plugin_connection,
+)
 from app.schemas.connection import (
     ConnectionCreate,
     ConnectionRead,
@@ -84,7 +95,7 @@ class ConnectionService:
         return ConnectionRead.model_validate(await self._get_or_raise(connection_id))
 
     async def create(self, data: ConnectionCreate) -> ConnectionRead:
-        self._validate(data.provider, data.host, data.database)
+        self._validate(data.provider, data.host, data.database, data.options)
         if await self._by_name(data.name):
             raise ConflictError(f"A connection named '{data.name}' already exists.")
         conn = Connection(
@@ -109,7 +120,7 @@ class ConnectionService:
             conn.options_json = updates.pop("options")
         for field_name, value in updates.items():
             setattr(conn, field_name, value)
-        self._validate(conn.provider, conn.host, conn.database)
+        self._validate(conn.provider, conn.host, conn.database, conn.options_json)
         if "name" in updates:
             existing = await self._by_name(conn.name)
             if existing and existing.id != conn.id:
@@ -127,13 +138,33 @@ class ConnectionService:
     # -- Connectivity ---------------------------------------------------
 
     def providers(self) -> list[dict[str, object]]:
-        return list_providers()
+        """Core providers plus any plugin-contributed connectors (same dict shape,
+        with ``plugin``/``config_schema`` extras so the UI can render their forms)."""
+        entries = list_providers()
+        try:
+            entries += [provider_entry(spec) for spec in plugin_connector_specs()]
+        except Exception:  # noqa: BLE001 — a broken plugin must not hide core providers
+            pass
+        return entries
 
     async def test_config(self, data: ConnectionCreate) -> ConnectionTestResult:
         """Test an unsaved connection payload so the UI can validate before saving."""
+        plugin = plugin_connector(data.provider)
+        if plugin is not None:
+            plugin_spec, plugin_runtime = plugin
+            return await self._test_plugin(
+                plugin_spec,
+                plugin_runtime,
+                host=data.host,
+                port=data.port,
+                database=data.database,
+                username=data.username,
+                password_env=data.password_env,
+                options=data.options,
+            )
         try:
             provider = get_provider(data.provider)
-            self._validate(data.provider, data.host, data.database)
+            self._validate(data.provider, data.host, data.database, data.options)
         except ValidationError as exc:
             return ConnectionTestResult(ok=False, message=str(exc))
         if not driver_available(provider):
@@ -178,6 +209,19 @@ class ConnectionService:
         # connection was last checked.
         conn.last_tested_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
+        plugin = plugin_connector(conn.provider)
+        if plugin is not None:
+            plugin_spec, plugin_runtime = plugin
+            return await self._test_plugin(
+                plugin_spec,
+                plugin_runtime,
+                host=conn.host,
+                port=conn.port,
+                database=conn.database,
+                username=conn.username,
+                password_env=conn.password_env,
+                options=conn.options_json,
+            )
         provider = get_provider(conn.provider)
         if not driver_available(provider):
             return ConnectionTestResult(
@@ -201,6 +245,9 @@ class ConnectionService:
 
     async def list_tables(self, connection_id: str) -> list[TableInfo]:
         conn = await self._get_or_raise(connection_id)
+        plugin = plugin_connector(conn.provider)
+        if plugin is not None:
+            return await self._list_plugin_tables(plugin[0], plugin[1], conn)
         provider = get_provider(conn.provider)
         if is_storage_provider(provider):
             raise ValidationError(f"'{provider.label}' is a storage connection — use list_objects instead.")
@@ -218,6 +265,9 @@ class ConnectionService:
 
     async def list_objects(self, connection_id: str, prefix: str = "") -> list[str]:
         conn = await self._get_or_raise(connection_id)
+        plugin = plugin_connector(conn.provider)
+        if plugin is not None:
+            return await self._list_plugin_objects(plugin[0], plugin[1], conn, prefix)
         provider = get_provider(conn.provider)
         if not is_storage_provider(provider):
             raise ValidationError(f"'{provider.label}' is not a storage connection — use list_tables instead.")
@@ -232,6 +282,76 @@ class ConnectionService:
         except ConnectorError as exc:
             raise ValidationError(str(exc)) from None
 
+    # -- Plugin connectors ------------------------------------------------
+
+    async def _test_plugin(
+        self,
+        spec: PluginConnectorSpec,
+        runtime: ConnectorRuntime,
+        *,
+        host: str | None,
+        port: int | None,
+        database: str | None,
+        username: str | None,
+        password_env: str | None,
+        options: dict[str, object] | None,
+    ) -> ConnectionTestResult:
+        opts = dict(options or {})
+        try:
+            validate_plugin_connection(spec, host, opts)
+            guard_plugin_connection(host, opts)
+            config = connector_config(
+                host=host,
+                port=port,
+                database=database,
+                username=username,
+                password_env=password_env,
+                options=opts,
+            )
+        except (ValidationError, ConnectorError) as exc:
+            return ConnectionTestResult(ok=False, message=str(exc))
+        if not spec.available:
+            hint = f" (pip install {spec.extra})" if spec.extra else ""
+            return ConnectionTestResult(ok=False, message=f"The {spec.label} driver isn't installed{hint}.")
+        try:
+            result = await asyncio.to_thread(runtime.test, config)
+        except NotImplementedError:
+            return ConnectionTestResult(ok=True, message=f"{spec.label} does not support connection tests.")
+        except Exception as exc:  # noqa: BLE001 — a plugin failure must surface, not 500
+            return ConnectionTestResult(ok=False, message=str(exc))
+        message = result.message or ("Connection successful." if result.ok else "Connection failed.")
+        return ConnectionTestResult(ok=result.ok, message=message)
+
+    async def _list_plugin_tables(
+        self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection
+    ) -> list[TableInfo]:
+        guard_plugin_connection(conn.host, conn.options_json)
+        try:
+            rows = await asyncio.to_thread(runtime.list_tables, connection_config(conn))
+        except NotImplementedError:
+            raise ValidationError(f"'{spec.label}' does not support listing tables.") from None
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError(str(exc)) from None
+        tables: list[TableInfo] = []
+        for row in rows:
+            name = str(row.get("name", ""))
+            schema = row.get("schema")
+            qualified = f"{schema}.{name}" if schema else name
+            tables.append(TableInfo(name=name, schema_name=schema, qualified=qualified))
+        return tables
+
+    async def _list_plugin_objects(
+        self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection, prefix: str
+    ) -> list[str]:
+        guard_plugin_connection(conn.host, conn.options_json)
+        try:
+            objects = await asyncio.to_thread(runtime.list_objects, connection_config(conn), prefix)
+        except NotImplementedError:
+            raise ValidationError(f"'{spec.label}' does not support listing objects.") from None
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError(str(exc)) from None
+        return [str(o) for o in objects]
+
     # -- Internals ------------------------------------------------------
 
     async def _test_mlflow(self, uri: str | None) -> ConnectionTestResult:
@@ -244,7 +364,17 @@ class ConnectionService:
             return ConnectionTestResult(ok=False, message=str(exc))
         return ConnectionTestResult(ok=True, message="MLflow tracking store reachable.")
 
-    def _validate(self, provider: str, host: str | None, database: str | None) -> None:
+    def _validate(
+        self,
+        provider: str,
+        host: str | None,
+        database: str | None,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        plugin = plugin_connector(provider)
+        if plugin is not None:
+            validate_plugin_connection(plugin[0], host, options)
+            return
         p = get_provider(provider)
         if is_mlflow_provider(p):
             if not database:
@@ -260,6 +390,10 @@ class ConnectionService:
         if p.name in ("sqlite", "duckdb"):
             if not database:
                 raise ValidationError(f"{p.label} needs a database file path.")
+            return
+        if p.kind == "api":
+            if not host or not host.startswith(("http://", "https://")):
+                raise ValidationError(f"{p.label} needs a base URL starting with http:// or https://.")
             return
         if p.needs_host and not host:
             raise ValidationError(f"{p.label} needs a host.")

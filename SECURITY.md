@@ -46,6 +46,13 @@ Ciaren is in active development. Known limitations include:
   project matures
 - **Limited audit logging** — detailed administrative audit logs are not yet a
   core feature
+- **Plugins run unsandboxed** — an enabled plugin is ordinary Python that runs
+  with your account's access; declared permissions are a consent/disclosure
+  boundary, not a sandbox. Only install plugins whose source you trust and can
+  inspect (a `.ciarenplugin` is a zip you can unzip and read). An opt-in audit-hook
+  layer (`CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn|enforce`) can log or block
+  ungranted network/file-write/subprocess/shell actions, but is not containment.
+  See [Plugin Security](docs/security/plugin-security.md)
 - **Pandas dataframe limits** — no compression, large datasets may be slow or fail
 
 ### Needs Additional Controls For
@@ -71,6 +78,8 @@ Ciaren is in active development. Known limitations include:
 4. **Back up your data** — before running any transformation
 5. **Start small** — test with 1K rows before processing 1M rows
 6. **Version your flows** — use git or manual backups
+7. **Install only trusted plugins** — review a plugin's code before approving it;
+   it runs unsandboxed with your access
 
 ### For Contributors
 

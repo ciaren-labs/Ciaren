@@ -15,6 +15,7 @@
 - [ ] This PR targets `development`, not `main`.
 - [ ] This PR is focused on one bug, feature, documentation update, or maintenance task.
 - [ ] Large or breaking changes were discussed in an issue or discussion before implementation.
+- [ ] New niche connectors/integrations are implemented as plugins or were explicitly accepted by maintainers for core.
 - [ ] I have read and followed [CONTRIBUTING.md](../CONTRIBUTING.md).
 - [ ] All commits are signed off (DCO): `git commit -s`.
 
@@ -23,7 +24,7 @@
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Transformation node
-- [ ] Connector, storage, or plugin change
+- [ ] Connector, storage, or plugin SDK change
 - [ ] UI/UX improvement
 - [ ] Performance improvement
 - [ ] Refactor or internal cleanup
@@ -38,7 +39,7 @@
 - [ ] Flow editor
 - [ ] Transformation engine
 - [ ] Data connectors/storage
-- [ ] Plugins/marketplace
+- [ ] Plugins/SDK
 - [ ] CLI/client
 - [ ] Documentation site
 - [ ] Docker/deployment

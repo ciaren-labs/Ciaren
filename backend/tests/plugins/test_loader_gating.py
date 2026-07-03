@@ -154,7 +154,9 @@ def test_manifestless_candidate_is_not_gated(tmp_path):
     assert len(result.loaded) == 1
 
 
-def test_license_required_plugin_without_provider_is_not_loaded(tmp_path):
+def test_license_required_plugin_without_provider_is_gated(tmp_path):
+    # Not an error: a user-actionable state (activate a license / configure an
+    # issuer key), surfaced like the disabled/needs_permissions gates.
     state = PluginStateStore(tmp_path / "s.json")
     state.grant(PLUGIN_ID, [Permission.network])
     registry = ServiceRegistry()
@@ -166,12 +168,14 @@ def test_license_required_plugin_without_provider_is_not_loaded(tmp_path):
         ciaren_version_str="0.1.0",
     )
     assert result.loaded == []
-    assert result.errors
-    assert "requires a license" in result.errors[0].error
+    assert result.errors == []
+    assert len(result.gated) == 1
+    assert result.gated[0].reason == "needs_license"
+    assert "no license provider" in result.gated[0].detail
     assert _GatedPlugin.loaded is False
 
 
-def test_license_required_plugin_with_invalid_license_is_not_loaded(tmp_path):
+def test_license_required_plugin_with_invalid_license_is_gated(tmp_path):
     state = PluginStateStore(tmp_path / "s.json")
     state.grant(PLUGIN_ID, [Permission.network])
     registry = ServiceRegistry()
@@ -184,8 +188,40 @@ def test_license_required_plugin_with_invalid_license_is_not_loaded(tmp_path):
         ciaren_version_str="0.1.0",
     )
     assert result.loaded == []
-    assert "unlicensed" in result.errors[0].error
+    assert result.errors == []
+    assert result.gated[0].reason == "needs_license"
+    assert "unlicensed" in result.gated[0].detail
     assert _GatedPlugin.loaded is False
+
+
+def test_unapproved_premium_plugin_asks_for_approval_first(tmp_path):
+    # The permission gate runs before the license gate: a freshly discovered
+    # premium plugin shows needs_permissions, not needs_license, until approved.
+    state = PluginStateStore(tmp_path / "s.json")
+    registry = ServiceRegistry()
+    result = load_plugins(
+        registry,
+        include_entry_points=False,
+        extra=[_candidate([Permission.network], license_required=True)],
+        state=state,
+        ciaren_version_str="0.1.0",
+    )
+    assert result.gated[0].reason == "needs_permissions"
+    assert _GatedPlugin.loaded is False
+
+
+def test_disabled_premium_plugin_stays_disabled(tmp_path):
+    state = PluginStateStore(tmp_path / "s.json")
+    state.set_enabled(PLUGIN_ID, False)
+    registry = ServiceRegistry()
+    result = load_plugins(
+        registry,
+        include_entry_points=False,
+        extra=[_candidate([Permission.network], license_required=True)],
+        state=state,
+        ciaren_version_str="0.1.0",
+    )
+    assert result.gated[0].reason == "disabled"
 
 
 def test_license_required_plugin_with_valid_license_loads(tmp_path):

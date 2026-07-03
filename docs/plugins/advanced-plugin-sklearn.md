@@ -1,6 +1,6 @@
 ---
 title: Build an Advanced Plugin (scikit-learn)
-description: A step-by-step guide to a realistic Ciaren plugin — a scikit-learn MLPClassifier training node with hyperparameters, thorough config validation, an executable runtime, and Python-code export.
+description: A step-by-step guide to a realistic Ciaren plugin — a scikit-learn MLPClassifier that trains through a custom node (persisting to MLflow, emitting a typed model reference) and doubles as a model type inside the core Train Classifier.
 search: advanced plugin scikit-learn sklearn mlpclassifier neural network machine learning hyperparameters validation node runtime example
 ---
 
@@ -18,9 +18,11 @@ and ships **bundled** in the Explore catalog, so a fresh install can try it
 immediately. Open it alongside this page for the complete source.
 
 ::: tip What makes it "advanced"
-Four things the Hello node skips: **multiple hyperparameters**, **input validation**
+Six things the Hello node skips: **multiple hyperparameters**, **input validation**
 that fails fast with clear messages, an **optional third-party dependency**
-(scikit-learn) imported safely, and **faithful code export** of a multi-line body.
+(scikit-learn) imported safely, **faithful code export** of a multi-line body,
+**model persistence** through the host's MLflow-backed ModelStore, and a
+**contributed model type** that appears inside the core Train Classifier node.
 :::
 
 ## The one design decision that shapes everything
@@ -29,11 +31,13 @@ A plugin node's runtime is **pandas in → pandas out**. Ciaren converts to and 
 the active engine (pandas/polars) around your code. That means a plugin node
 returns **DataFrames, not model objects** — the contract carries dataframes.
 
-So a "train" node can't hand back a fitted estimator. Instead, ours trains *and
-evaluates*, and returns a **one-row metrics DataFrame** (train/test accuracy,
-iterations, loss). That fits the contract, runs on both engines, and exports
-cleanly. It's the right shape for an example; for a node that persists a model,
-see the built-in ML nodes and the [architecture notes](/plugins/overview).
+So a train node doesn't hand back a fitted estimator. It persists the estimator
+through the host's **ModelStore** (`context.models` — it becomes an MLflow
+artifact) and emits a one-row **model reference** frame on a typed `model`
+output handle, plus a **metrics** frame on a second handle. The reference is
+what the core **Predict** and **Feature Importance** nodes consume; the raw
+model never travels through the graph. See
+[ML Model Plugins](/plugins/ml-model-plugins) for the full contract.
 
 ## 1. Scaffold the package
 
@@ -54,7 +58,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ciaren-mlp-classifier-plugin"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.12"
 dependencies = ["scikit-learn>=1.3", "pandas>=2.0"]
 
@@ -130,13 +134,26 @@ Two rules for depending on scikit-learn:
 2. **Validate the data**, not just the config — target present, features present
    and **numeric** (an MLP can't train on strings).
 
+The runtime overrides `execute_with_context` (not plain `execute`) because it
+needs two host services: the **preview flag** and the **ModelStore**.
+
 ```python
+from app.plugin_api import ModelRef, NodeContext, NodeRuntime
+
 class MlpClassifierTrainRuntime(NodeRuntime):
     def validate_config(self, config):
         resolve_config(config)            # raise ValueError on anything unsupported
 
-    def execute(self, inputs, config):
+    def execute_with_context(self, inputs, config, context: NodeContext):
         import pandas as pd
+        p = resolve_config(config)
+
+        # Editor previews run on sampled data — don't fit or persist anything.
+        if context.in_preview:
+            placeholder = ModelRef(task_type="classification", model_type="mlp_classifier",
+                                   target_column=p["target_column"])
+            return {"model": placeholder.to_frame(), "metrics": pd.DataFrame()}
+
         try:
             from sklearn.metrics import accuracy_score
             from sklearn.model_selection import train_test_split
@@ -144,8 +161,7 @@ class MlpClassifierTrainRuntime(NodeRuntime):
         except ImportError as exc:
             raise ValueError("mlpClassifierTrain needs scikit-learn — pip install scikit-learn") from exc
 
-        df, p = inputs["in"], resolve_config(config)
-        target = p["target_column"]
+        df, target = inputs["in"], p["target_column"]
         if target not in df.columns:
             raise ValueError(f"target column {target!r} is not in the input")
         features = p["feature_columns"] or [c for c in df.columns if c != target]
@@ -163,41 +179,88 @@ class MlpClassifierTrainRuntime(NodeRuntime):
             solver=p["solver"], alpha=p["alpha"], learning_rate_init=p["learning_rate_init"],
             max_iter=p["max_iter"], random_state=p["random_state"])
         clf.fit(X_train, y_train)
-        return {"out": pd.DataFrame([{
+
+        metrics = {
             "n_samples": len(df), "n_features": len(features), "n_classes": len(clf.classes_),
             "train_accuracy": float(accuracy_score(y_train, clf.predict(X_train))),
             "test_accuracy": float(accuracy_score(y_test, clf.predict(X_test))),
             "n_iterations": int(clf.n_iter_), "final_loss": float(clf.loss_),
-        }])}
+        }
+
+        # Persist through the host: the estimator becomes an MLflow artifact and
+        # only the typed reference travels through the graph.
+        if context.models is None:
+            raise ValueError("this server has no ML/MLflow support installed (install ciaren[ml])")
+        # params + seed land in the reference's model_config_json — the model-wire
+        # contract core Cross-Validate rebuilds the estimator from.
+        ref = context.models.log_sklearn_model(
+            clf, model_type="mlp_classifier", task_type="classification",
+            target_column=target, feature_columns=tuple(features),
+            params={"hidden_layer_sizes": ",".join(map(str, p["hidden_layer_sizes"])),
+                    "activation": p["activation"], "solver": p["solver"],
+                    "alpha": p["alpha"], "max_iter": p["max_iter"]},
+            metrics={"train_accuracy": metrics["train_accuracy"],
+                     "test_accuracy": metrics["test_accuracy"]},
+            input_example=X_train.head(5), seed=p["random_state"])
+        return {"model": ref.to_frame(), "metrics": pd.DataFrame([metrics])}
 ```
 
 ### Register the node
+
+The spec declares two outputs — a typed **`model`** port (only connects to model
+inputs; graph validation enforces it) and a regular `metrics` frame — marks the
+node a **flow terminal** (a flow may end at it, since it persists a model), and
+ships a **`config_schema`** so the sidebar renders a real form:
 
 ```python
 class _MlpNodeProvider(NodeProvider):
     def nodes(self):
         return [NodeSpec(
             id="sklearn.mlpClassifierTrain",
-            label="MLP Classifier (train + evaluate)",
+            label="MLP Classifier (train)",
             category="ml",
             provider="community.mlp-classifier",
-            inputs=(PortSpec(id="in"),), outputs=(PortSpec(id="out"),),
+            inputs=(PortSpec(id="in"),),
+            outputs=(PortSpec(id="model", type="model"), PortSpec(id="metrics")),
             default_config=dict(DEFAULT_CONFIG),
             capabilities=("node.sklearn.mlp",),
+            is_model_sink=True,
+            is_flow_terminal=True,
+            config_schema={"fields": [
+                {"key": "target_column", "label": "Target column", "type": "column", "required": True},
+                {"key": "hidden_layer_sizes", "label": "Hidden layers", "type": "string", "default": "100"},
+                {"key": "activation", "label": "Activation", "type": "select",
+                 "options": ["identity", "logistic", "tanh", "relu"], "default": "relu"},
+                # …see the example source for the full field list
+            ]},
         )]
     def node_implementations(self):
         return {"sklearn.mlpClassifierTrain": MlpClassifierTrainRuntime()}
-
-class MlpClassifierPlugin(Plugin):
-    def metadata(self):
-        return PluginMetadata(id="community.mlp-classifier", name="MLP Classifier", version="0.1.0")
-    def register(self, registry):
-        registry.register_node_provider(_MlpNodeProvider())
 ```
 
 `category="ml"` slots the node into the ML section of the palette. (Only the
-built-in ML nodes are hidden when the ML extension is off; a plugin node always
+built-in ML nodes are hidden when `CIAREN_ML_ENABLED=false`; a plugin node always
 shows once approved.)
+
+### Bonus: put the algorithm inside the core Train Classifier too
+
+The same plugin also registers a **ModelProvider**, so `mlp_classifier` appears
+in the standard *Train Classifier* model picker and trains through the core
+pipeline (preprocessing, MLflow logging, code export) with zero extra runtime
+code — the plugin only supplies the estimator builder and a hyperparameter form
+schema:
+
+```python
+class MlpClassifierPlugin(Plugin):
+    def metadata(self):
+        return PluginMetadata(id="community.mlp-classifier", name="MLP Classifier", version="0.2.0")
+    def register(self, registry):
+        registry.register_node_provider(_MlpNodeProvider())
+        registry.register_model_provider(_MlpModelProvider())   # see ML Model Plugins
+```
+
+The full `_MlpModelProvider` is a ~30-line class — walk through it in
+[ML Model Plugins](/plugins/ml-model-plugins#path-1--contribute-a-model-type).
 
 ## 4. Export runnable code
 
@@ -215,15 +278,17 @@ def imports(self, config):
 
 def to_python_code(self, input_vars, output_vars, config):
     p = resolve_config(config)
-    inp, out = input_vars["in"], output_vars["out"]
-    mlp = f"{out}_mlp"
+    inp = input_vars["in"]
+    model_var = output_vars.get("model", "mlp_model")      # one variable per output handle
+    metrics_var = output_vars.get("metrics", "mlp_metrics")
+    feat = f"{model_var}_features"
     return "\n".join([
-        f"{out}_features = [c for c in {inp}.columns if c != {p['target_column']!r}]",
-        f"X_tr, X_te, y_tr, y_te = train_test_split({inp}[{out}_features], {inp}[{p['target_column']!r}], "
+        f"{feat} = [c for c in {inp}.columns if c != {p['target_column']!r}]",
+        f"X_tr, X_te, y_tr, y_te = train_test_split({inp}[{feat}], {inp}[{p['target_column']!r}], "
         f"test_size={p['test_size']!r}, random_state={p['random_state']!r})",
-        f"{mlp} = MLPClassifier(hidden_layer_sizes={p['hidden_layer_sizes']!r}, max_iter={p['max_iter']!r})",
-        f"{mlp}.fit(X_tr, y_tr)",
-        f"{out} = pd.DataFrame([{{'test_accuracy': accuracy_score(y_te, {mlp}.predict(X_te))}}])",
+        f"{model_var} = MLPClassifier(hidden_layer_sizes={p['hidden_layer_sizes']!r}, max_iter={p['max_iter']!r})",
+        f"{model_var}.fit(X_tr, y_tr)",
+        f"{metrics_var} = pd.DataFrame([{{'test_accuracy': accuracy_score(y_te, {model_var}.predict(X_te))}}])",
     ])
 ```
 
@@ -247,9 +312,12 @@ export CIAREN_PLUGINS_DIR=/path/to/examples/plugins
 ciaren serve
 ```
 
-A CSV with numeric features and a label column → **MLP Classifier (train +
-evaluate)** (set `target_column`) → **Preview** shows the metrics row, and
-**Export → Python** emits the scikit-learn code. A quick dataset to try:
+A CSV with numeric features and a label column → **MLP Classifier (train)**
+(set `target_column` in its schema-rendered form) → wire the `model` output into
+**Predict** and the `metrics` output into a File Output. Or add the core
+**Train Classifier** node and pick *MLP (neural network)* in its model dropdown.
+**Export → Python** emits the scikit-learn code either way. A quick dataset to
+try:
 
 ```bash
 python -c "from sklearn.datasets import load_iris; import pandas as pd; \

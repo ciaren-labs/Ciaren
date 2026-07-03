@@ -10,6 +10,47 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Plugin-contract version gating** — a plugin manifest now declares the
+  plugin-API contract it targets via `api_version` (distinct from the plugin's own
+  `version` and from `ciaren` app compatibility). The loader checks it against the
+  backend's `PLUGIN_API_VERSION` (now `0.1.0-alpha.1`) **before importing any plugin
+  code**, so a plugin built for an incompatible contract is cleanly rejected and
+  reported in `/api/plugins/diagnostics` instead of failing with an opaque import
+  error. Pre-1.0 the contract makes **no** backward-compatibility promise — a plugin
+  must target the backend's exact `major.minor`; from 1.0 on, minors become additive.
+  The backend's contract version is exposed as `plugin_api_version` in diagnostics,
+  and `ciaren plugin manifest` stamps `api_version` (override with `--api-version`).
+  See [Contract versioning](docs/specs/plugin-manifest.md#contract-versioning).
+- **Plugin API (`0.1.0-alpha.1`)** — the initial plugin contract surface:
+  - **Plugin ML model types** — a `ModelProvider` contributes trainable model
+    types that appear inside the core Train nodes' model picker and train, log
+    to MLflow, and export code through the core pipeline.
+  - **Typed model references** — `ModelRef` freezes the model-wire frame layout
+    as a public contract; plugin train nodes can declare `model` output ports
+    that backend graph validation, the executor, and both code generators now
+    honor, and persist fitted models through a permission-gated, MLflow-backed
+    `ModelStore` (`NodeContext.models`) instead of passing raw estimators.
+  - **Executable plugin connectors** — `ConnectorRuntime` implementations back
+    the connections API (test, list tables/objects) and the SQL/storage flow
+    nodes (read/write with parquet snapshots), with the SSRF guard applied
+    before any plugin runtime call and env-var-only secrets resolved per call.
+  - **Schema-driven forms** — `config_schema` on node and connector specs (and
+    `hyperparameter_schema` on model types) renders real sidebar and connection
+    forms; plugin nodes without a schema get fields inferred from their default
+    config instead of "No configuration for this node type".
+  - Model loading by plugins is enforced-permission gated (`local_model_load` /
+    `joblib_load` plus artifact-root confinement; pickles always refused).
+- **Built-in REST API connector**: read HTTP JSON/CSV endpoints like database
+  tables, with the connection options commercial tools offer — auth (none /
+  API-key header / bearer / basic, secret from an env var), custom headers,
+  default query params, endpoints-as-tables, response format + records path,
+  page-number pagination with a page cap, timeout, and TLS verification.
+  Endpoints read through SQL Input (including a custom-request-path mode);
+  API connections are read-only, SSRF-guarded, and size-capped.
+- The MLP Classifier example plugin (0.2.0) now demonstrates both ML extension
+  paths and ships signed in the bundled Explore catalog.
+- New docs: ML Model Plugins and Connector Plugins guides, plus model-reference
+  and plugin-connector sections in the ML and Connections guides.
 - Developer Certificate of Origin (DCO) policy: contributors must sign off
   commits (`git commit -s`), enforced by a new CI check
   (`.github/workflows/dco.yml`) and a Preflight checkbox on the PR template.
@@ -61,6 +102,29 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- Plugin API audit fixes (second iteration over the new extension points):
+  - A plugin model type's `default_hyperparameters` were advertised in the
+    catalog but never applied — an untouched hyperparameter form trained with
+    `{}`. They now merge under the user's values before the builder runs, and
+    surface in exported code.
+  - `ModelTypeSpec.import_lines` were documented but never consumed; exported
+    training scripts now use them for the estimator import when declared
+    (deriving from the estimator's class module otherwise). The unused
+    `seed_param` field was removed before the 1.1 contract ships.
+  - Model references logged through the plugin `ModelStore` now record the
+    full model-wire training config (model type, target, features,
+    hyperparameters, preprocessing, seed) like core train nodes, so core
+    Cross-Validate can rebuild plugin-trained estimators.
+  - A required plugin connector field with a valid falsy value (`False` for a
+    boolean, `0` for a number) was rejected as missing.
+  - A plugin node runtime returning handles that don't match its declared
+    `NodeSpec` outputs (or non-DataFrame values, or a model port without a
+    model reference) now fails with a clear plugin-shaped error instead of an
+    opaque engine error downstream.
+  - The running-version lookup now falls back on any metadata-backend
+    failure, so a source checkout without installed package metadata can
+    still load plugins.
+
 - Code export fidelity — the exported script must behave exactly like the
   in-app run, verified by a new equivalence harness that executes every
   emitted pandas/polars snippet and compares the result frame against
@@ -96,6 +160,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Security
 
+- The connector SSRF guard now also covers plugin connector **options**: any
+  option carrying a URL or sitting under a host/url/endpoint-like key (e.g.
+  `base_url`) is checked before the plugin runtime is invoked, not only the
+  connection's `host` column.
+- The REST API connector's response-size cap now applies cumulatively across
+  the pages of one paginated read, not only per request.
 - Security posture documentation now says Ciaren has not yet completed a
   formal independent third-party security audit, while keeping guidance practical
   for controlled internal workflows.

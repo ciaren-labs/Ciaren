@@ -239,9 +239,7 @@ class TestRollingAggregate:
         assert out["ma"].tolist() == [10.0, 15.0, 25.0]
 
     def test_partition_resets_window(self, engine):
-        df = pd.DataFrame(
-            {"g": ["a", "a", "b", "b"], "t": [1, 2, 1, 2], "v": [1.0, 3.0, 10.0, 30.0]}
-        )
+        df = pd.DataFrame({"g": ["a", "a", "b", "b"], "t": [1, 2, 1, 2], "v": [1.0, 3.0, 10.0, 30.0]})
         out = run(
             engine,
             "rollingAggregate",

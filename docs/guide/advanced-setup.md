@@ -65,6 +65,7 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
 | `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
+| `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` (log ungranted actions) / `enforce` (block them). Not a sandbox — see [Plugin Security](/security/plugin-security#opt-in-runtime-enforcement) |
 
 Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
 

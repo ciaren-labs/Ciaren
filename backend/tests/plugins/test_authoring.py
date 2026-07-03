@@ -88,3 +88,18 @@ def test_manifest_json_is_valid_and_reparses():
     assert data["ui"]["nodeCategories"] == {"hello.greeting": "columns"}  # camelCase alias
     # Round-trips back through the loader's validator.
     assert validate_manifest(data).id == "community.hello"
+
+
+def test_generator_stamps_current_contract_version_by_default():
+    """With no override, the generated manifest declares the SDK's own contract
+    version — the plugin is, in fact, built against the installed contract."""
+    from app.plugin_api import PLUGIN_API_VERSION
+
+    manifest = manifest_from_plugin(_hello_plugin(), entrypoint="ciaren_hello.plugin:HelloPlugin")
+    assert manifest.api_version == PLUGIN_API_VERSION
+
+
+def test_generator_honors_explicit_api_version():
+    """An author can target a lower contract to widen host compatibility."""
+    manifest = manifest_from_plugin(_hello_plugin(), entrypoint="ciaren_hello.plugin:HelloPlugin", api_version="1.0")
+    assert manifest.api_version == "1.0"

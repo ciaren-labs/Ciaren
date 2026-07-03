@@ -22,6 +22,11 @@ from app.connectors import get_connector, get_provider, is_mlflow_provider, is_s
 from app.core.exceptions import ValidationError
 from app.db.models.connection import Connection
 from app.engine.node_kinds import SQL_INPUT_TYPE, SQL_OUTPUT_TYPE
+from app.plugins.connectors import (
+    connection_config,
+    guard_plugin_connection,
+    plugin_connector,
+)
 from app.services.connection_service import build_connection_spec
 
 
@@ -32,6 +37,16 @@ async def _load_connection(db: AsyncSession, connection_id: str | None) -> Conne
     conn = result.scalar_one_or_none()
     if conn is None:
         raise ValidationError(f"Connection '{connection_id}' not found.")
+    plugin = plugin_connector(conn.provider)
+    if plugin is not None:
+        # A plugin connector of a data-ish kind (sql / api / …) can back SQL
+        # nodes; its storage/mlflow kinds belong to the storage nodes instead.
+        if plugin[0].kind in ("storage", "mlflow"):
+            raise ValidationError(
+                f"Connection '{conn.name}' (provider '{conn.provider}') is not a database "
+                "connection — SQL nodes need a SQL or MongoDB connection."
+            )
+        return conn
     provider = get_provider(conn.provider)
     if is_storage_provider(provider) or is_mlflow_provider(provider):
         # A storage/MLflow connection has no read_query/write_table — fail with a
@@ -63,16 +78,40 @@ async def materialize_sql_inputs(
     for node in _nodes(graph, SQL_INPUT_TYPE):
         config = node.get("data", {}).get("config", {})
         conn = await _load_connection(db, config.get("connection_id"))
-        connector = get_connector(get_provider(conn.provider))
-        spec = build_connection_spec(conn)
         mode = config.get("mode", "table")
+        plugin = plugin_connector(conn.provider)
 
-        def _read(connector=connector, spec=spec, config=config, mode=mode):  # type: ignore[no-untyped-def]
-            if mode == "query":
-                return connector.read_query(spec, config.get("query", ""))
-            return connector.read_table(spec, config.get("table", ""), config.get("schema"), limit)
+        if plugin is not None:
+            runtime = plugin[1]
+            guard_plugin_connection(conn.host, conn.options_json)
+            runtime_config = connection_config(conn)
+            options = {
+                "mode": mode,
+                "table": config.get("table", ""),
+                "schema": config.get("schema"),
+                "query": config.get("query", ""),
+                "limit": limit,
+            }
 
-        df = await asyncio.to_thread(_read)
+            def _read_plugin(runtime=runtime, runtime_config=runtime_config, options=options):  # type: ignore[no-untyped-def]
+                try:
+                    return runtime.read(runtime_config, options)
+                except NotImplementedError:
+                    raise ValidationError(f"Connector '{conn.provider}' does not support reading.") from None
+
+            df = await asyncio.to_thread(_read_plugin)
+        else:
+            connector = get_connector(get_provider(conn.provider))
+            spec = build_connection_spec(conn)
+
+            def _read(connector=connector, spec=spec, config=config, mode=mode):  # type: ignore[no-untyped-def]
+                if mode == "query":
+                    return connector.read_query(spec, config.get("query", ""))
+                return connector.read_table(spec, config.get("table", ""), config.get("schema"), limit)
+
+            df = await asyncio.to_thread(_read)
+        if limit is not None and len(df) > limit:
+            df = df.head(limit)
         path = Path(work_dir) / f"{node['id']}__sqlinput.parquet"
         df.to_parquet(path, index=False)
         paths[node["id"]] = path
@@ -93,19 +132,39 @@ async def push_sql_outputs(db: AsyncSession, graph: dict[str, Any], output_paths
             continue
         config = node.get("data", {}).get("config", {})
         conn = await _load_connection(db, config.get("connection_id"))
-        connector = get_connector(get_provider(conn.provider))
-        spec = build_connection_spec(conn)
         df = pd.read_parquet(path)
+        plugin = plugin_connector(conn.provider)
 
-        def _write(connector=connector, spec=spec, config=config, df=df):  # type: ignore[no-untyped-def]
-            connector.write_table(
-                spec,
-                df,
-                config.get("table", ""),
-                config.get("schema"),
-                config.get("if_exists", "replace"),
-            )
+        if plugin is not None:
+            runtime = plugin[1]
+            guard_plugin_connection(conn.host, conn.options_json)
+            runtime_config = connection_config(conn)
+            options = {
+                "table": config.get("table", ""),
+                "schema": config.get("schema"),
+                "if_exists": config.get("if_exists", "replace"),
+            }
 
-        await asyncio.to_thread(_write)
+            def _write_plugin(runtime=runtime, runtime_config=runtime_config, options=options, df=df):  # type: ignore[no-untyped-def]
+                try:
+                    runtime.write(df, runtime_config, options)
+                except NotImplementedError:
+                    raise ValidationError(f"Connector '{conn.provider}' does not support writing.") from None
+
+            await asyncio.to_thread(_write_plugin)
+        else:
+            connector = get_connector(get_provider(conn.provider))
+            spec = build_connection_spec(conn)
+
+            def _write(connector=connector, spec=spec, config=config, df=df):  # type: ignore[no-untyped-def]
+                connector.write_table(
+                    spec,
+                    df,
+                    config.get("table", ""),
+                    config.get("schema"),
+                    config.get("if_exists", "replace"),
+                )
+
+            await asyncio.to_thread(_write)
         written += 1
     return written

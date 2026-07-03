@@ -31,6 +31,17 @@ steps, environment details, logs, and anonymized sample data when possible.
 Open an issue for concrete feature proposals. Use Discussions first for broad
 brainstorming or unclear product direction.
 
+## Connectors and Integrations
+
+Ciaren keeps the open core intentionally lightweight. Maintainers will not add
+every database, SaaS API, internal service, or proprietary storage system as a
+built-in connector.
+
+For new integrations, use the Plugin SDK and discuss the design in GitHub
+Discussions. Open an issue only when there is a reproducible bug in an existing
+connector, a documentation gap, or an SDK/API limitation that prevents a plugin
+from being built.
+
 ## Security
 
 Do not open public issues for vulnerabilities. Follow the private reporting

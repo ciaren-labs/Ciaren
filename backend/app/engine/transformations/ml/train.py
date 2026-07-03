@@ -25,6 +25,7 @@ from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation, MLSchema, SklearnPipelineMixin
 from app.ml.models import CLASSIFICATION, build_estimator, get_model_spec
+from app.plugin_api.model_ref import ModelRef
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +223,9 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         config: dict[str, Any],
         features: list[str],
     ) -> dict[str, Any]:
+        # The row layout is a public contract shared with plugins — see
+        # app.plugin_api.model_ref.ModelRef (plugin train nodes emit the same
+        # frame, and either side's consumers can read the other's).
         model_config = {
             "model_type": config["model_type"],
             "target_column": config.get("target_column"),
@@ -230,15 +234,15 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
             "preprocessing": config.get("preprocessing") or {},
             "seed": config.get("seed"),
         }
-        return {
-            "mlflow_run_id": run_id,
-            "model_uri": model_uri,
-            "task_type": task,
-            "model_type": config["model_type"],
-            "target_column": config.get("target_column"),
-            "feature_columns_json": json.dumps(model_config["feature_columns"]),
-            "model_config_json": json.dumps(model_config),
-        }
+        return ModelRef(
+            task_type=task,
+            model_type=config["model_type"],
+            mlflow_run_id=run_id,
+            model_uri=model_uri,
+            target_column=config.get("target_column"),
+            feature_columns=tuple(model_config["feature_columns"]),
+            training_config=model_config,
+        ).to_row()
 
     def _enforce_model_size(self, pipeline: Any, max_mb: int) -> None:
         import joblib

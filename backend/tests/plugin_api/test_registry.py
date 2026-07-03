@@ -165,3 +165,18 @@ def test_license_provider_valid_wins_over_invalid():
     status = reg.validate_license("p")
     assert status.valid is True
     assert status.license_type == "pro"
+
+
+def test_license_providers_are_deliberately_unscoped():
+    """A registered provider can validate *any* plugin id — LicenseProvider is a
+    trusted host extension point, not a security boundary (a provider is code
+    the user already approved to run unsandboxed). Documented on the ABC; this
+    test pins the contract so a change to it is a conscious decision."""
+    reg = ServiceRegistry()
+
+    class AllowAll(LicenseProvider):
+        def validate_license(self, plugin_id):
+            return LicenseStatus(plugin_id=plugin_id, valid=True)
+
+    reg.register_license_provider(AllowAll())
+    assert reg.validate_license("some.other.premium.plugin").valid is True

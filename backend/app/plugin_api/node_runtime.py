@@ -15,8 +15,92 @@ the contract itself carries no hard pandas dependency.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any
+from abc import ABC
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from app.plugin_api.model_ref import ModelRef
+from app.plugin_api.specs import Permission
+
+
+class ModelStore(Protocol):
+    """Host-provided model persistence, handed to runtimes via :class:`NodeContext`.
+
+    This is *the* sanctioned way for a plugin train node to persist a model: log
+    it as an MLflow artifact and pass the returned :class:`ModelRef` downstream —
+    never a live estimator, and never a hand-rolled pickle on disk. Loading goes
+    through the host's security checks (URI allowlist, artifact-root confinement,
+    format allowlist) and is permission-gated: pickle-backed loads require the
+    plugin to have been granted ``joblib_load`` / ``local_model_load``.
+    """
+
+    def log_sklearn_model(
+        self,
+        model: Any,
+        *,
+        model_type: str,
+        task_type: str,
+        target_column: str | None = None,
+        feature_columns: tuple[str, ...] = (),
+        params: dict[str, Any] | None = None,
+        metrics: dict[str, float] | None = None,
+        input_example: Any = None,
+        experiment: str | None = None,
+        preprocessing: dict[str, Any] | None = None,
+        seed: int | None = None,
+        training_config: dict[str, Any] | None = None,
+    ) -> ModelRef:
+        """Persist a fitted sklearn-compatible model/pipeline to MLflow and return
+        the reference to emit on a ``model`` output handle.
+
+        The reference's ``model_config_json`` is part of the model-wire contract,
+        not optional metadata: core consumers read it (Cross-Validate rebuilds the
+        estimator from ``model_type`` + ``hyperparameters`` + ``preprocessing`` +
+        ``seed``). Pass what you have — ``params`` become the recorded
+        hyperparameters, and ``training_config`` entries overlay the generated
+        config for anything beyond the named arguments."""
+        ...
+
+    def load_model(self, ref_or_uri: ModelRef | str) -> Any:
+        """Load a model from a reference/URI after the host's security checks."""
+        ...
+
+
+@dataclass(frozen=True)
+class NodeContext:
+    """Host services available to a node while it executes.
+
+    Passed to :meth:`NodeRuntime.execute_with_context`. ``permissions`` are the
+    permissions the user actually **granted** the plugin (not what the manifest
+    requested); ``models`` is ``None`` when the host has no ML/MLflow support
+    installed, so a runtime must fail with a clear message rather than assume it.
+
+    ``in_preview`` is True while the editor previews the node on sampled data:
+    expensive/persistent work (training a model, writing anywhere) should be
+    skipped, returning a cheap placeholder instead — exactly like the core train
+    nodes do.
+
+    ``license_token`` is the plugin's own cached, marketplace-signed license token
+    as a raw JSON string (``""`` when the plugin has none). It is the sanctioned
+    way to build a **thin-client** paid node: forward this token to your own server
+    with each request and validate it *there* — signature, expiry, revocation, seat
+    — so the licensed logic runs where the user cannot patch the check out. Local
+    license gating only deters casual use (the core runs on the user's machine);
+    server-side validation of this token is what makes a license truly unskippable.
+    The host only ever populates a plugin's *own* token here, so a node cannot read
+    another plugin's license.
+    """
+
+    plugin_id: str = ""
+    permissions: frozenset[Permission] = frozenset()
+    models: ModelStore | None = None
+    in_preview: bool = False
+    license_token: str = ""
+
+
+#: A context with no plugin identity, no grants, and no services — what a runtime
+#: gets in contexts that predate/bypass the plugin loader (e.g. direct tests).
+EMPTY_NODE_CONTEXT = NodeContext()
 
 
 class NodeRuntime(ABC):
@@ -29,10 +113,28 @@ class NodeRuntime(ABC):
     def validate_config(self, config: dict[str, Any]) -> None:
         """Raise ``ValueError`` on invalid config. Default: accept anything."""
 
-    @abstractmethod
     def execute(self, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         """Run the node. ``inputs`` maps input-handle -> pandas DataFrame; return a
-        map of output-handle -> pandas DataFrame."""
+        map of output-handle -> pandas DataFrame.
+
+        Override this **or** :meth:`execute_with_context` (which supersedes it
+        when a node needs host services)."""
+        raise NotImplementedError(f"{type(self).__name__} implements neither execute nor execute_with_context")
+
+    def execute_with_context(
+        self,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+        context: NodeContext,
+    ) -> dict[str, Any]:
+        """Run the node with host services (:class:`NodeContext`).
+
+        Ciaren always calls this entry point; the default just delegates to
+        :meth:`execute`, so existing runtimes keep working unchanged. Override it
+        (instead of ``execute``) when the node needs context services — e.g. a
+        train node persisting through ``context.models``.
+        """
+        return self.execute(inputs, config)
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         """Extra top-level import lines the exported pandas script needs."""
