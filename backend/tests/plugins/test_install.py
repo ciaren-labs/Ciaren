@@ -255,3 +255,55 @@ def test_install_records_signature_state(src, tmp_path):
     pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     install_ciarenplugin(pkg, install_dir=tmp_path / "i")
     assert _state().signature("community.inst") == "unsigned"
+
+
+# -- install-time compatibility preflight -------------------------------------
+
+
+def _src_with(tmp_path, name, **manifest_overrides):
+    d = tmp_path / name
+    d.mkdir()
+    (d / "ciaren-plugin.json").write_text(json.dumps({**_MANIFEST, **manifest_overrides}), encoding="utf-8")
+    (d / "inst_plugin.py").write_text("InstPlugin = object\n", encoding="utf-8")
+    return d
+
+
+def test_install_rejects_incompatible_api_version(tmp_path):
+    """A plugin built against a contract the backend does not provide is refused at
+    install (the loader would only reject it at import — too late, the files are in)."""
+    src = _src_with(tmp_path, "future", api_version="1.0")  # backend contract is 0.1.x
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    with pytest.raises(InstallError, match="plugin-API"):
+        install_ciarenplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_rejects_incompatible_ciaren_version(tmp_path):
+    src = _src_with(tmp_path, "needs-newer-app", ciaren=">=99")
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
+    with pytest.raises(InstallError, match="requires Ciaren"):
+        install_ciarenplugin(pkg, install_dir=tmp_path / "i")
+
+
+def test_install_directory_rejects_incompatible_api_version(tmp_path):
+    src = _src_with(tmp_path, "future-dir", api_version="1.0")
+    with pytest.raises(InstallError, match="plugin-API"):
+        install_directory(src, install_dir=tmp_path / "i")
+
+
+def test_incompatible_update_does_not_replace_working_install(tmp_path):
+    """A force-install (the marketplace "Update" path) with an incompatible
+    candidate must not delete/replace the compatible plugin already on disk."""
+    good = _src_with(tmp_path, "good", version="1.0.0")
+    good_pkg = package.pack_directory(good, tmp_path / "good.ciarenplugin")
+    install_dir = tmp_path / "i"
+    res = install_ciarenplugin(good_pkg, install_dir=install_dir)
+    assert (res.location / "inst_plugin.py").is_file()
+
+    bad = _src_with(tmp_path, "bad", version="2.0.0", api_version="1.0")
+    bad_pkg = package.pack_directory(bad, tmp_path / "bad.ciarenplugin")
+    with pytest.raises(InstallError, match="plugin-API"):
+        install_ciarenplugin(bad_pkg, install_dir=install_dir, force=True)
+    # The working install is untouched — still present at its original version.
+    assert (res.location / "inst_plugin.py").is_file()
+    manifest = json.loads((res.location / "ciaren-plugin.json").read_text(encoding="utf-8"))
+    assert manifest["version"] == "1.0.0"
