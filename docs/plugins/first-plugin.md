@@ -21,6 +21,11 @@ discovery → canvas**. Once you've done it once, every other extension point
 (connectors, engines, exporters, …) follows the same shape.
 :::
 
+::: warning Plugins run unsandboxed
+A plugin is Python that runs with your account's access — install only plugins you
+trust and can read. See [Plugin Security](/security/plugin-security).
+:::
+
 ## Prerequisites
 
 - Ciaren installed and runnable (`ciaren serve` works). See
