@@ -18,6 +18,7 @@ from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.preview_context import in_preview
 from app.engine.transformations.base import BaseTransformation
 from app.plugin_api import EMPTY_NODE_CONTEXT, NodeContext, NodeRuntime, NodeSpec, is_model_ref_frame
+from app.plugins.permission_audit import enforcement_mode, plugin_execution
 
 
 class PluginNodeExportError(ValueError):
@@ -66,7 +67,10 @@ class PluginTransformation(BaseTransformation):
         # Stamp the live preview flag per call — the context is otherwise static
         # per plugin, but preview vs. run is decided at execution time.
         context = replace(self._context, in_preview=in_preview())
-        result = self._runtime.execute_with_context(pandas_inputs, config, context)
+        # Opt-in: enforce the plugin's *granted* permissions against its own code
+        # for the duration of this call (a no-op when enforcement is "off").
+        with plugin_execution(context.plugin_id, context.permissions, enforcement_mode()):
+            result = self._runtime.execute_with_context(pandas_inputs, config, context)
         self._validate_outputs(result)
         return {handle: engine.from_pandas(frame) for handle, frame in result.items()}
 

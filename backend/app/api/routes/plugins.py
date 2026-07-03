@@ -144,6 +144,10 @@ class PluginDiagnostics(BaseModel):
     #: appears in ``errors`` — surfacing the backend's version here makes that
     #: mismatch actionable in the UI.
     plugin_api_version: str = PLUGIN_API_VERSION
+    #: Runtime permission-enforcement mode for plugin code: ``off`` (advisory only),
+    #: ``warn`` (log ungranted actions), or ``enforce`` (block them). Surfaced so the
+    #: UI can show whether this opt-in hardening is active.
+    permission_enforcement: str = "off"
 
 
 class PluginInstallResult(BaseModel):
@@ -249,12 +253,15 @@ async def list_plugins() -> list[PluginInfo]:
 @router.get("/diagnostics", response_model=PluginDiagnostics)
 async def plugin_diagnostics() -> PluginDiagnostics:
     """Loaded plugins, gated plugins, and any isolated load/validation errors."""
+    from app.plugins.permission_audit import enforcement_mode
+
     result = get_load_result()
     state = get_plugin_state()
     return PluginDiagnostics(
         loaded=[_loaded_info(p, state) for p in result.loaded],
         gated=[_gated_info(g, state) for g in result.gated],
         errors=[PluginErrorInfo(source=e.source, error=e.error) for e in result.errors],
+        permission_enforcement=enforcement_mode(),
     )
 
 

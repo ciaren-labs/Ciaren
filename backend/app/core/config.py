@@ -167,6 +167,21 @@ class Settings(BaseSettings):
     # (OFFICIAL_LICENSE_ISSUER_KEYS); this setting is for self-hosted issuers.
     MARKETPLACE_LICENSE_ISSUER_KEYS: list[str] = []
 
+    # Runtime enforcement of the permissions a plugin was granted, via a CPython
+    # audit hook (PEP 578) active only while a plugin node executes. Off by
+    # default: it adds a small per-audit-event cost process-wide once installed,
+    # and Ciaren's posture is that enabling a plugin already trusts its code.
+    #   "off"     — no hook installed (zero overhead); permissions stay advisory.
+    #   "warn"    — log when a plugin performs a network / filesystem-write /
+    #               subprocess / shell action it was not granted (an audit trail;
+    #               nothing is blocked).
+    #   "enforce" — additionally raise PermissionError, aborting the ungranted
+    #               action so the node fails with a clear message.
+    # Hardening, not a sandbox: a determined plugin can still escape via threads,
+    # a child process, or native code, and filesystem *reads* are never blocked
+    # (the import system opens files). See app/plugins/permission_audit.py.
+    PLUGIN_PERMISSION_ENFORCEMENT: str = "off"
+
     @property
     def max_upload_bytes(self) -> int:
         return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
