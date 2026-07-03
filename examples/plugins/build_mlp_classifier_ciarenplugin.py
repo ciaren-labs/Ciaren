@@ -13,7 +13,7 @@ next to the Hello plugin, ready to install.
 
 The key here is the same throwaway DEMO key the Hello plugin uses — committed on
 purpose so anyone can reproduce the signed artifact. A real publisher keeps their
-private key secret (``ciaren plugin keygen``) and never commits it.
+private key secret (``ciaren-plugin keygen``) and never commits it.
 """
 
 from __future__ import annotations

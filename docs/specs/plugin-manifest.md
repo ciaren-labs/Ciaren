@@ -117,7 +117,7 @@ as `0.1`).
 
 Internal refactors and app releases never move the contract version.
 
-**As an author:** `ciaren plugin manifest` stamps `api_version` with the SDK version
+**As an author:** `ciaren-plugin manifest` stamps `api_version` with the SDK version
 you built against — during alpha, just rebuild your plugin whenever the contract
 bumps. (`--api-version` lets you override it once the contract reaches 1.x and
 declaring a lower minor widens host compatibility.)

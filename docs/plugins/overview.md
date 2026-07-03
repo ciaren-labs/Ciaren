@@ -87,7 +87,7 @@ export CIAREN_PLUGINS_DIR=/path/to/your/plugins
 ciaren serve
 
 # Inspect what's loaded
-ciaren plugin list
+ciaren-plugin list
 ```
 
 Disabled plugins and plugins with ungranted permissions are **not imported** until
@@ -102,14 +102,14 @@ a key you trust.
 
 ```bash
 # Publisher: generate a key, package, and sign
-ciaren plugin keygen
-ciaren plugin pack ./my-plugin ./my-plugin.ciarenplugin
-ciaren plugin sign ./my-plugin.ciarenplugin \
+ciaren-plugin keygen
+ciaren-plugin pack ./my-plugin ./my-plugin.ciarenplugin
+ciaren-plugin sign ./my-plugin.ciarenplugin \
   --key <private_hex> --key-id acme-2026 --publisher acme
 
 # Consumer: install only trusted, signed packages
-ciaren plugin install ./my-plugin.ciarenplugin --trusted
-ciaren plugin verify  ./my-plugin.ciarenplugin
+ciaren-plugin install ./my-plugin.ciarenplugin --trusted
+ciaren-plugin verify  ./my-plugin.ciarenplugin
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full

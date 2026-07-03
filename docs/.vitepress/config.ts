@@ -266,6 +266,7 @@ export default defineConfig({
             { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
             { text: 'Build an Advanced Plugin (scikit-learn)', link: '/plugins/advanced-plugin-sklearn' },
             { text: 'Plugin API Reference', link: '/plugins/api-reference' },
+            { text: 'Plugin CLI Reference', link: '/plugins/cli-reference' },
             { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
           ],
         },

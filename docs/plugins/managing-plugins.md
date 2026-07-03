@@ -11,7 +11,7 @@ your machine, approving it, and removing it again. To *build* a plugin, see
 [Build Your First Plugin](/plugins/first-plugin).
 
 Everything here is available two ways — the **Plugins page** in the app
-(<code>/plugins</code>) and the <code>ciaren plugin</code> CLI. Pick whichever fits;
+(<code>/plugins</code>) and the <code>ciaren-plugin</code> CLI. Pick whichever fits;
 they act on the same state.
 
 ::: warning Plugins run real code on your machine
@@ -69,9 +69,9 @@ revoked plugin you already have installed.
 ### 3. From the command line
 
 ```bash
-ciaren plugin install ./acme.ciarenplugin            # verify + install
-ciaren plugin install ./acme.ciarenplugin --trusted  # refuse unless signed by a trusted key
-ciaren plugin list                                   # see what's installed
+ciaren-plugin install ./acme.ciarenplugin            # verify + install
+ciaren-plugin install ./acme.ciarenplugin --trusted  # refuse unless signed by a trusted key
+ciaren-plugin list                                   # see what's installed
 ```
 
 ### 4. Drop-in directory (development)
@@ -105,8 +105,8 @@ that details view.
 From the CLI:
 
 ```bash
-ciaren plugin enable  acme.hello
-ciaren plugin disable acme.hello
+ciaren-plugin enable  acme.hello
+ciaren-plugin disable acme.hello
 ```
 
 Changes take effect **live** — the node catalog is rebuilt, so a plugin's nodes
@@ -133,7 +133,7 @@ the destructive prompt.
 **CLI:**
 
 ```bash
-ciaren plugin uninstall acme.hello
+ciaren-plugin uninstall acme.hello
 ```
 
 ::: tip Uninstall vs. Disable

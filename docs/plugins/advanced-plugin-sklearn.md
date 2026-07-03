@@ -301,7 +301,7 @@ exporters work with no extra code.
 Don't hand-write the manifest — generate it from the code so the two never drift:
 
 ```bash
-ciaren plugin manifest ./mlp-classifier-plugin \
+ciaren-plugin manifest ./mlp-classifier-plugin \
   --entrypoint ciaren_mlp.plugin:MlpClassifierPlugin
 ```
 
@@ -330,15 +330,15 @@ Package it into a portable, signed `.ciarenplugin` (see
 [Packaging & Distribution](/plugins/packaging-and-distribution)):
 
 ```bash
-ciaren plugin pack  ./mlp-classifier-plugin ./mlp.ciarenplugin
-ciaren plugin sign  ./mlp.ciarenplugin --key <private-hex> --key-id my-key-2026
-ciaren plugin verify ./mlp.ciarenplugin
+ciaren-plugin pack  ./mlp-classifier-plugin ./mlp.ciarenplugin
+ciaren-plugin sign  ./mlp.ciarenplugin --key <private-hex> --key-id my-key-2026
+ciaren-plugin verify ./mlp.ciarenplugin
 ```
 
 To make it appear in your **Explore** catalog, add it to a marketplace index:
 
 ```bash
-ciaren plugin index add ./mlp.ciarenplugin --index ./marketplace.json
+ciaren-plugin index add ./mlp.ciarenplugin --index ./marketplace.json
 ```
 
 The example plugin does exactly this in
