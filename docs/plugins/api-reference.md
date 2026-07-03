@@ -142,6 +142,34 @@ Host services passed to `execute_with_context`:
 | `permissions` | `frozenset[Permission]` | Permissions the user actually **granted** (not what the manifest requested). |
 | `models` | `ModelStore \| None` | MLflow-backed model persistence; `None` when the server has no ML support installed. |
 | `in_preview` | `bool` | True during editor previews on sampled data — skip training/persisting and return a cheap placeholder, like the core train nodes do. |
+| `license_token` | `str` | The plugin's own signed license token as raw JSON (`""` when it has none). Forward it to your server to build a **thin-client** paid node — see below. Only the plugin's *own* token is ever exposed. |
+
+### Thin-client plugins
+
+For a paid plugin whose logic you don't want to ship to the user's disk (or whose
+license must be unskippable), keep the work on **your** server and make the node a
+thin client. Forward `context.license_token` with each request and validate it
+server-side — signature, expiry, revocation, per-user rate limits and quotas —
+where the user can't patch the check out:
+
+```python
+class PremiumRuntime(NodeRuntime):
+    def execute_with_context(self, inputs, config, context):
+        resp = httpx.post(
+            config["endpoint"],                    # a secret (env-var) config field
+            json={"token": context.license_token, "data": inputs["in"].to_json()},
+            timeout=30,
+        )
+        if resp.status_code == 402:                # quota exhausted / not entitled
+            raise ValueError(resp.json()["detail"])
+        resp.raise_for_status()
+        return {"out": pd.read_json(resp.text)}
+```
+
+The node needs the `network` permission, and `endpoint` should be a `secret`
+[`config_schema`](#configfieldspec-and-config-schema) field (an env-var name). See
+[Plugin Security](/security/plugin-security#thin-client-plugins) for why this is
+the only robust way to protect plugin logic and enforce per-buyer limits.
 
 ## `ModelStore`
 
@@ -286,7 +314,10 @@ Returned by `LicenseProvider.validate_license()`: `plugin_id`, `valid`,
 ## `Permission`
 
 Permissions a plugin may request in its manifest. They are a **trust and UX
-boundary** surfaced before a plugin is enabled — not a hard sandbox. See
+boundary** surfaced before a plugin is enabled — not a hard sandbox. Model-load is
+enforced by the host, and an opt-in audit-hook mode
+(`CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn|enforce`) can log or block ungranted
+network/filesystem-write/subprocess/shell actions at runtime. See
 [Plugin Security & Permissions](/security/plugin-security).
 
 `filesystem_read` · `filesystem_write` · `network` · `credentials` ·

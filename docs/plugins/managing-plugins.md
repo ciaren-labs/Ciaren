@@ -42,9 +42,12 @@ There are four ways a plugin gets onto your machine.
 
 ### 1. Upload a `.ciarenplugin` (Plugins page)
 
-Click **Install plugin** on the Plugins page and pick a `.ciarenplugin` file. It
-is verified (signature + integrity) before anything is written to disk, then lands
-**pending** until you approve it.
+Click **Install plugin** on the Plugins page and pick a `.ciarenplugin` file. A
+confirmation window then spells out the risk of running plugin code and asks you
+to enable a **toggle (off by default)** — "I trust the source of this plugin…" —
+before the install proceeds, so you can't one-click past an untrusted or unknown
+package. The file is verified (signature + integrity) and checked for compatibility
+before anything is written to disk, then lands **pending** until you approve it.
 
 ### 2. From the Explore catalog
 
@@ -108,6 +111,15 @@ ciaren plugin disable acme.hello
 
 Changes take effect **live** — the node catalog is rebuilt, so a plugin's nodes
 appear in (or leave) the editor palette without a restart.
+
+::: tip Optional runtime enforcement
+Granted permissions are advisory by default (an approved plugin runs unsandboxed).
+For shared or less-trusted setups you can enable an opt-in audit-hook layer with
+`CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn` (log ungranted network/file-write/
+subprocess/shell actions) or `=enforce` (block them). It raises the bar and gives
+an audit trail — it is **not** a sandbox. See
+[Plugin Security](/security/plugin-security#opt-in-runtime-enforcement).
+:::
 
 ## Uninstall a plugin
 

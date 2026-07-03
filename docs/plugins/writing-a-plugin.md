@@ -115,6 +115,10 @@ Override it when you need the context:
 - `context.models` — the MLflow-backed **ModelStore** for train-style nodes
   (see [ML Model Plugins](/plugins/ml-model-plugins)).
 - `context.permissions` — the permissions the user actually granted.
+- `context.license_token` — this plugin's own signed license token (raw JSON, or
+  `""`). Forward it to your server to build a **thin-client** paid node whose logic
+  and license check run server-side; see
+  [thin-client plugins](/plugins/api-reference#thin-client-plugins).
 
 #### Node categories
 

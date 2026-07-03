@@ -264,7 +264,7 @@ describe("PluginsPage", () => {
     expect(screen.getByText("dir:broken")).toBeInTheDocument();
   });
 
-  it("uploads a selected .ciarenplugin file via the Install button", async () => {
+  it("uploads a selected .ciarenplugin file only after acknowledging the risk", async () => {
     diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
     renderPage();
 
@@ -272,8 +272,31 @@ describe("PluginsPage", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "acme.ciarenplugin");
     await userEvent.upload(input, file);
+
+    // A risk confirmation appears; nothing is installed until the toggle is on.
+    const dialog = await screen.findByRole("dialog", { name: /Install this plugin/i });
+    const confirm = within(dialog).getByRole("button", { name: /Install plugin/i });
+    expect(confirm).toBeDisabled();
+    expect(installPlugin).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+
     await waitFor(() => expect(installPlugin).toHaveBeenCalledTimes(1));
     expect(installPlugin.mock.calls[0][0].name).toBe("acme.ciarenplugin");
+  });
+
+  it("does not install when the risk confirmation is cancelled", async () => {
+    diagnostics.mockResolvedValue({ loaded: [], gated: [], errors: [] });
+    renderPage();
+
+    await screen.findByText("No plugins installed");
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(input, new File([new Uint8Array([1])], "acme.ciarenplugin"));
+    const dialog = await screen.findByRole("dialog", { name: /Install this plugin/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /Cancel/i }));
+    expect(installPlugin).not.toHaveBeenCalled();
   });
 
   it("shows a configured catalog and installs an entry", async () => {

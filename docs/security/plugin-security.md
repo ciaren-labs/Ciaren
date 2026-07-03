@@ -51,6 +51,33 @@ code:
 Persisting a model (training) needs no grant — it writes to the server-managed
 MLflow store, the same place core train nodes log to.
 
+### Opt-in runtime enforcement
+
+By default the other permissions are disclosure-only. You can turn on a second,
+**opt-in** layer that actively checks a plugin's *granted* permissions against its
+own code while a plugin node runs, using a CPython audit hook. Set
+`CIAREN_PLUGIN_PERMISSION_ENFORCEMENT`:
+
+| Mode | Behaviour |
+| --- | --- |
+| `off` *(default)* | No hook installed, zero overhead. Permissions stay advisory. |
+| `warn` | Logs when a plugin performs a `network` / `filesystem_write` / `subprocess` / `shell` action it wasn't granted — an audit trail; nothing is blocked. |
+| `enforce` | Additionally raises `PermissionError`, so the ungranted action fails and the node reports an error. |
+
+Turn it on for shared or less-trusted setups where you run third-party plugins
+and want a real signal (or block) when one reaches beyond what it declared.
+
+::: warning Still not a sandbox
+This raises the bar and gives you an audit trail — it does **not** contain a
+determined plugin. A plugin can still escape the check via a thread it spawns, a
+child process, or native code, and filesystem *reads* are never blocked (the
+import system and pandas open files constantly). For untrusted code that needs
+network access, use OS/network-level egress control; for sensitive IP, keep the
+logic in a remote service (see [thin-client plugins](#thin-client-plugins)). The
+`enforcement` mode in effect is reported as `permission_enforcement` in
+`GET /api/plugins/diagnostics`.
+:::
+
 ### Plugin connectors
 
 A plugin connector's runtime (test / list / read / write) only exists once the
@@ -151,10 +178,51 @@ Some operations execute code or touch credentials. Ciaren already enforces:
 - **Custom SQL / Python** runs with local-process privileges — fine for local use;
   for shared environments add read-only connections and audit logging (roadmap).
 
+## Thin-client plugins
+
+Because an installed plugin's code runs on the user's machine, its logic can be
+read (a `.ciarenplugin` is a zip; compiled `.pyc` only deters casual inspection)
+and its local license check can be patched out. The robust pattern for **paid or
+sensitive** plugins is therefore a *thin client*: keep the valuable logic on your
+own server, and ship a small plugin that calls it. A node receives its plugin's
+own signed license token via `NodeContext.license_token` and forwards it with each
+request; your server validates the token (signature, expiry, revocation, quota)
+and does the work — the enforcement lives where the user cannot patch it. See the
+[API reference](/plugins/api-reference#nodecontext) and the marketplace plan for
+the full pattern.
+
+## Known limitations
+
+Ciaren is honest about what the plugin system does and doesn't guarantee:
+
+- **Not a sandbox.** An enabled plugin runs unsandboxed Python with your full
+  account access. Permissions are a disclosure/consent boundary; only model-load is
+  enforced by the host, and the opt-in [runtime enforcement](#opt-in-runtime-enforcement)
+  above is a bar-raiser, not containment.
+- **You are the reviewer.** Ciaren cannot vet third-party plugin code. Signatures
+  prove *who* published a package and that it wasn't altered — not that it is safe.
+  Install only plugins whose source you trust and can inspect (`.ciarenplugin` files
+  are plain zips; unzip and read them, or read the installed files under
+  `~/.ciaren/plugins/<id>`).
+- **Compatibility is checked, safety is not.** Install refuses a package whose
+  declared `ciaren`/`api_version` is incompatible with this build (before it can
+  replace a working install), and extraction is hardened against zip-slip / symlink
+  / zip-bomb packages — but none of that judges what approved code *does*.
+- **Local licensing is soft.** A cached license token can't be forged (it's signed)
+  but the local gate can be bypassed by editing the code that runs on your machine.
+  Treat local licensing as UX; put real entitlement/quota enforcement server-side.
+- **Bytecode is not protection.** `--compile` (ship `.pyc`) deters casual reading
+  only; bytecode decompiles.
+
+When in doubt, don't approve a plugin — a gated plugin's code never runs.
+
 ## Recommendations
 
 - Prefer signed plugins from trusted publishers; use `--trusted` in shared setups.
-- Review a plugin's requested permissions before approving.
+- Review a plugin's requested permissions **and its code** before approving.
+- In shared/less-trusted deployments, set `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn`
+  (or `enforce`) and, for plugins that need outbound access, add network-level
+  egress control.
 - Keep `cryptography` installed (`ciaren[signing]`) so signatures are verified
   rather than skipped.
 - Run a dependency license/vulnerability scan before distributing builds (the repo
