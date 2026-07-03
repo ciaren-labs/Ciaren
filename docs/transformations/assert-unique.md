@@ -22,7 +22,7 @@ the run (`error` mode) or logs a warning and continues (`warn` mode).
 
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `columns` | list of strings | Yes | Column combination that must be unique |
+| `columns` | list of strings | No | Column combination that must be unique. Empty (or omitted) checks the whole row across **every** column. |
 | `mode` | `"error"` \| `"warn"` | No | `"error"` (default) stops the run; `"warn"` continues and logs |
 
 ## Behavior

@@ -1,10 +1,10 @@
 ---
-title: Cast types
-search: cast types dtype convert integer float boolean string datetime coerce
+title: Change types
+search: cast types change types dtype convert integer float boolean string datetime coerce
 description: Convert column data types, with optional coercion and datetime format
 ---
 
-# Cast types — `castDtypes`
+# Change types — `castDtypes`
 
 Convert column data types.
 
@@ -21,7 +21,7 @@ Rewrites the column values to the target type. With `errors: coerce`, rows with
 unparseable values become null rather than crashing the run.
 
 <DataTransform
-  transform="Cast types (amount→float errors=coerce, ordered_at→datetime)"
+  transform="Change types (amount→float errors=coerce, ordered_at→datetime)"
   :before='{
     "columns":["order_id","amount","ordered_at"],
     "rows":[

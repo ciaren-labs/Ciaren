@@ -63,4 +63,4 @@ df_2 = df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
 
 ## See also
 
-- [Drop nulls](./drop-nulls.md) · [Cast types](./cast-types.md)
+- [Drop nulls](./drop-nulls.md) · [Change types](./cast-types.md)

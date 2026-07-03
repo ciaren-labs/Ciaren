@@ -24,7 +24,7 @@ the run (`error` mode) or logs a warning and continues (`warn` mode).
 
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `columns` | list of strings | Yes | Columns that must be non-null |
+| `columns` | list of strings | No | Columns that must be non-null. Empty (or omitted) checks **every** column. |
 | `mode` | `"error"` \| `"warn"` | No | `"error"` (default) stops the run; `"warn"` continues and logs |
 
 ## Behavior

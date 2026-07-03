@@ -57,7 +57,9 @@ to core.
 | PostgreSQL | `psycopg` | `pip install ciaren[postgres]` |
 | MySQL / MariaDB | `pymysql` | `pip install ciaren[mysql]` |
 | SQLite | built-in | — |
+| DuckDB | `duckdb` | `pip install ciaren[duckdb]` |
 | SQL Server | `pyodbc` | `pip install ciaren[mssql]` |
+| Snowflake | `snowflake.sqlalchemy` | `pip install ciaren[snowflake]` |
 | MongoDB | `pymongo` | `pip install ciaren[mongo]` |
 
 To pull in **every** database driver at once:
@@ -84,6 +86,17 @@ for your OS.
 ## Creating a connection
 
 ![Connections page — list of saved database connections with test/edit actions](/screenshots/connections.png)
+
+The Connections page ships with two pre-seeded **built-in** connections you'll
+see before adding any of your own:
+
+- **Local MLflow** — the local MLflow tracking store (`./mlruns`), used by the
+  Machine Learning nodes to log experiments and register models.
+- **Local Storage** — a local file bucket (`bucket: .data`) used by the
+  Storage Input/Output nodes for quick, zero-setup file storage.
+
+Both back core features out of the box and aren't meant to be deleted; treat
+them like defaults rather than connections you created.
 
 1. Go to **Connections → Add connection**. A provider picker appears:
 

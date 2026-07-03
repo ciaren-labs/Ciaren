@@ -1,10 +1,10 @@
 ---
-title: Union / Concat
-search: union concat stack append rows combine multiple inputs variadic
+title: Concat Rows
+search: union concat stack append rows combine multiple inputs variadic concat rows
 description: Stack multiple inputs row-wise into one frame
 ---
 
-# Union / Concat — `concatRows`
+# Concat Rows (Union / Concat) — `concatRows`
 
 Stack multiple inputs row-wise (no config). This is the variadic node — connect
 **two or more** upstream nodes to its input handle and they're concatenated in

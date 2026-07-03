@@ -12,7 +12,7 @@ registers one or more providers. It depends **only** on the Ciaren plugin API
 on Ciaren's private internals.
 
 See a complete, runnable example in
-[`examples/plugins/hello-node-plugin/`](../../examples/plugins/hello-node-plugin/).
+[`examples/plugins/hello-node-plugin/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin).
 
 ## 1. Implement `Plugin`
 

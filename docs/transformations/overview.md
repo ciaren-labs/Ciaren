@@ -58,7 +58,7 @@ and transformation.
 | Remove columns | [Drop columns](./drop-columns.md) |
 | Fix column names | [Rename columns](./rename-columns.md) |
 | Keep only some columns | [Select columns](./select-columns.md) |
-| Change a column's type | [Cast types](./cast-types.md) |
+| Change a column's type | [Change types](./cast-types.md) |
 | Remove rows with missing values | [Drop nulls](./drop-nulls.md) |
 | Fill missing values | [Fill nulls](./fill-nulls.md) |
 | Remove duplicate rows | [Remove duplicates](./remove-duplicates.md) |

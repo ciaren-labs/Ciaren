@@ -33,14 +33,14 @@ Each resource has its own reference page:
 
 ## Webhook trigger
 
-`POST /api/flows/{id}/trigger` starts a run authenticated by a pre-shared secret
+`POST /api/flows/{flow_id}/trigger` starts a run authenticated by a pre-shared secret
 (`CIAREN_WEBHOOK_SECRET`). Designed for CI/CD pipelines and external
 orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/settings/webhook` | Returns `{"configured": true/false}` (never the secret) |
-| `POST` | `/api/flows/{id}/trigger` | Trigger a run; requires `X-Ciaren-Secret` header |
+| `POST` | `/api/flows/{flow_id}/trigger` | Trigger a run; requires `X-Ciaren-Secret` header |
 
 ## Conventions
 

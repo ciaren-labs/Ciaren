@@ -178,7 +178,7 @@ ciaren transformations list --output json
 ```
 
 ```text
-40+ transformation node types:
+58 transformation node types:
   binColumn         inputs=1
   calculatedColumn  inputs=1
   concatRows        inputs=many

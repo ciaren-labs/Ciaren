@@ -96,9 +96,9 @@ standard pre-1.0 caveat.
 promise.** A plugin's `api_version` is compatible only when its `major.minor` equals
 the backend's *exactly*: a `0.1` plugin runs on a `0.1` backend and nothing else.
 Any 0.x minor bump is treated as breaking — when the contract moves to `0.2`, every
-`0.1` plugin is cleanly rejected and must be rebuilt against `0.2`. (This project is
-still private and unpublished, so there are no external plugins to keep working;
-breaking the contract freely during alpha is intentional.)
+`0.1` plugin is cleanly rejected and must be rebuilt against `0.2`. (Breaking the
+contract freely pre-1.0/during alpha is intentional — there's no
+backward-compatibility promise to keep until `1.0`.)
 
 **From `1.0` onward** the rule relaxes to the usual additive-minor form: the major
 must match (a new major is breaking) and the plugin's minor be `<=` the backend's,

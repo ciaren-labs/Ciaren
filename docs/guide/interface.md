@@ -34,6 +34,9 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 - **Runs** (`/runs`) — execution history; open a run for status, logs, and
   per-node results.
 - **Schedules** (`/schedules`) — automated flows; see [Scheduling](/guide/scheduling).
+- **Plugins** (`/plugins`) — install, approve, and manage plugin extensions
+  (custom nodes, connectors, and more); see [Plugins Overview](/plugins/overview)
+  and [Managing Plugins](/plugins/managing-plugins).
 
 ## The flow editor
 
@@ -45,9 +48,11 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input
   handle to create an edge.
-- **Node palette** — input, cleaning, transform/reshape, and output nodes, grouped
-  by category and color-coded (input = emerald, clean = sky, transform = violet,
-  output = amber). See the [Transformations Reference](/transformations/overview).
+- **Node palette** — 58 nodes grouped into 8 categories, each with its own
+  color: **Inputs** (3, emerald), **Cleaning** (9, sky), **Columns** (10,
+  indigo), **Reshape** (6, violet), **Analytics** (11, fuchsia), **Data
+  Quality** (6, orange), **Machine Learning** (16, purple), and **Outputs**
+  (3, amber). See the [Transformations Reference](/transformations/overview).
 - **Config panel** — per-node settings (column selection, operators, target
   types, aggregations). Forms are validated as you type for fast feedback; the
   backend re-validates on run. Click any node to open its config:

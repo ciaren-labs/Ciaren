@@ -46,9 +46,9 @@ df_2 = df_1.assign(**{c: df_1[c].round(2) for c in ['amount']})
 ## Tips & common mistakes
 
 - **`decimals: 0` returns floats**, not integers (e.g. `3.0`). Use
-  [Cast types](./cast-types.md) → `integer` if you need whole numbers.
+  [Change types](./cast-types.md) → `integer` if you need whole numbers.
 - Listing a non-numeric column will error — round only numeric columns.
 
 ## See also
 
-- [Cast types](./cast-types.md) · [Bin column](./bin-column.md)
+- [Change types](./cast-types.md) · [Bin column](./bin-column.md)

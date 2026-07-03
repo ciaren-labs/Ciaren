@@ -10,13 +10,13 @@ A common first task: take a messy export of orders and turn it into a clean
 revenue summary by region. This walkthrough cleans the data, then groups and
 aggregates it.
 
-**You'll use:** CSV Input → Drop Columns → Cast Types → Drop Nulls → Filter Rows →
+**You'll use:** CSV Input → Drop Columns → Change Types → Drop Nulls → Filter Rows →
 Fill Nulls → Group by + Aggregate → Rename → Sort → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"sales.csv"},
   {"type":"clean","label":"Drop Columns","detail":"remove internal_note"},
-  {"type":"clean","label":"Cast Types","detail":"amount→float · ordered_at→datetime"},
+  {"type":"clean","label":"Change Types","detail":"amount→float · ordered_at→datetime"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: amount"},
   {"type":"clean","label":"Filter Rows","detail":"amount > 0 (remove refunds)"},
   {"type":"clean","label":"Replace Values","detail":"normalise region casing"},
@@ -49,7 +49,7 @@ missing amount, a negative (refund) amount, and a missing region.
 
 1. **CSV Input** — select the `sales.csv` dataset.
 2. **Drop Columns** — `columns: ["internal_note"]`.
-3. **Cast Types** — `casts: { "amount": "float", "ordered_at": "datetime" }`.
+3. **Change Types** — `casts: { "amount": "float", "ordered_at": "datetime" }`.
 4. **Drop Nulls** — `subset: ["amount"]` (drop rows with no amount).
 5. **Filter Rows** — `column: "amount"`, `operator: ">"`, `value: 0` (drop refunds).
 6. **Replace Values** — tidy region casing, e.g. `column: "region"`,

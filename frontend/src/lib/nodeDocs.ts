@@ -198,6 +198,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     fields: [
       { name: "Method", desc: "Equal-width splits the value range; quantile makes equally-sized groups." },
       { name: "Number of bins", desc: "How many buckets to create." },
+      { name: "Custom labels", desc: "Optional, one per bin in order. Leave empty for default numeric bin labels." },
     ],
   },
   extractDateParts: {

@@ -167,7 +167,7 @@ class PremiumRuntime(NodeRuntime):
 ```
 
 The node needs the `network` permission, and `endpoint` should be a `secret`
-[`config_schema`](#configfieldspec-and-config-schema) field (an env-var name). See
+[`config_schema`](#configfieldspec-and-config_schema) field (an env-var name). See
 [Plugin Security](/security/plugin-security#thin-client-plugins) for why this is
 the only robust way to protect plugin logic and enforce per-buyer limits.
 
@@ -274,7 +274,7 @@ contributes. They carry no executable behavior.
 | `requires_ml` | `bool` | `False` | Only available when built-in ML is enabled. |
 | `is_model_sink` | `bool` | `False` | Terminal that persists a model (e.g. a train node). |
 | `is_flow_terminal` | `bool` | `False` | Node can complete a valid flow without a downstream output node. |
-| `config_schema` | `dict` | `{}` | Schema-driven sidebar form — see [`ConfigFieldSpec`](#configfieldspec-and-config-schema). Without one, the editor infers editable fields from `default_config`. |
+| `config_schema` | `dict` | `{}` | Schema-driven sidebar form — see [`ConfigFieldSpec`](#configfieldspec-and-config_schema). Without one, the editor infers editable fields from `default_config`. |
 
 ### `PortSpec`
 

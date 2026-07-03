@@ -52,6 +52,36 @@ def test_flow_validate_missing_file(tmp_path):
         main(["flow", "validate", str(tmp_path / "nope.flow")])
 
 
+def test_flow_validate_accepts_legacy_document(tmp_path, capsys):
+    # Shape actually emitted today by POST /api/flows/{flow_id}/export/python
+    # and accepted by POST /api/flows/import (see app/flow_schema/document.py's
+    # module docstring on the legacy <-> versioned round trip).
+    legacy = {
+        "format": "ciaren.flow/v1",
+        "name": "My Flow",
+        "graph_json": {
+            "nodes": [{"id": "a", "type": "csvInput"}],
+            "edges": [],
+        },
+    }
+    path = _write(tmp_path, legacy)
+    main(["flow", "validate", str(path)])
+    out = capsys.readouterr().out
+    assert "OK" in out
+
+
+def test_flow_validate_accepts_legacy_document_json_output(tmp_path, capsys):
+    legacy = {
+        "format": "ciaren.flow/v1",
+        "name": "My Flow",
+        "graph_json": {"nodes": [], "edges": []},
+    }
+    path = _write(tmp_path, legacy)
+    main(["flow", "validate", str(path), "--output", "json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["valid"] is True
+
+
 def test_flow_migrate_noop_prints_document(tmp_path, capsys):
     path = _write(tmp_path, VALID)
     main(["flow", "migrate", str(path)])

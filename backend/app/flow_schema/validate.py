@@ -25,9 +25,30 @@ class FlowSchemaError(ValueError):
     """Raised when a ``.flow`` document fails schema or structural validation."""
 
 
+def _is_legacy_document(data: dict[str, Any]) -> bool:
+    """Detect the legacy ``ciaren.flow/v1`` shape (``format``/``name``/
+    ``graph_json``) still emitted today by the flow export/import endpoints, as
+    distinct from the current versioned shape (``schemaVersion``/``project``/
+    ``graph``). Detected on shape (not just the ``format`` tag) so a legacy
+    document missing that tag for some reason is still recognized."""
+    if data.get("format") == LEGACY_FORMAT:
+        return True
+    return "graph_json" in data and "graph" not in data
+
+
 def validate_document(data: dict[str, Any]) -> FlowSchemaDocument:
-    """Validate the document shape. Raises :class:`FlowSchemaError` on failure."""
+    """Validate the document shape. Raises :class:`FlowSchemaError` on failure.
+
+    Accepts both the current versioned schema and the legacy ``ciaren.flow/v1``
+    shape (``format``/``name``/``graph_json``) that ``POST
+    /api/flows/{flow_id}/export/python`` and ``POST /api/flows/import`` still
+    speak today — a legacy-shaped document is upgraded via
+    :func:`from_legacy_document` before validation, matching the contract this
+    module's docstring already describes.
+    """
     try:
+        if _is_legacy_document(data):
+            return from_legacy_document(data)
         return FlowSchemaDocument.model_validate(data)
     except ValidationError as exc:
         raise FlowSchemaError(str(exc)) from exc

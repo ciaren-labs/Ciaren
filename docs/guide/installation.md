@@ -87,10 +87,14 @@ backend on port `8055`.
 
 ### 4. Open in your browser
 
-Visit `http://localhost:5173` and start building flows. (During development this
-is the URL to open — **not** the backend's `:8055`, which serves the API.)
+Visit `http://localhost:5173`. The first thing you'll see is a marketing/start
+page ("The simplest visual data & ML builder") with a **Get started** button —
+clicking it takes you to the **Flows** page (`/flows`), not Projects. Use the
+top nav to reach **Projects** (where the Demo project lives) or any other page.
+(During development `:5173` is the URL to open — **not** the backend's
+`:8055`, which serves the API.)
 
-![Projects page — the first screen you see after installation, with the Demo project ready to explore](/screenshots/projects.png)
+![Projects page, with the Demo project ready to explore](/screenshots/projects.png)
 
 :::tip One-command app (no separate frontend server)
 Build the frontend once and `ciaren serve` will serve the web UI too, so the
@@ -170,25 +174,41 @@ cd backend
 ciaren init        # writes a commented starter .env
 ```
 
-A minimal `.env`:
+What `ciaren init` actually writes (abbreviated — see the
+[CLI reference](/guide/cli#environment-variables) for every variable and its
+default):
 
 ```bash
 # Database — Ciaren is async, so the URL must use an async driver.
-CIAREN_DATABASE_URL=sqlite+aiosqlite:///./ciaren.db
+# CIAREN_DATABASE_URL=sqlite+aiosqlite:///./ciaren.db
 # PostgreSQL: postgresql+asyncpg://user:password@localhost/ciaren
 # MySQL:      mysql+aiomysql://user:password@localhost/ciaren
 
-# Where uploads, outputs, and previews are written
-CIAREN_DATA_DIR=.data
+# Where uploads and run outputs are stored
+# CIAREN_DATA_DIR=.data
 
-# Default dataframe engine for runs that don't request one: polars | pandas
-CIAREN_DEFAULT_ENGINE=polars
+# Dataframe engine for runs that don't request one: polars | pandas
+# CIAREN_DEFAULT_ENGINE=polars
 
-# Allowed CORS origins (JSON list)
-CIAREN_CORS_ORIGINS=["http://localhost:5173"]
+# How flow compute is offloaded off the event loop: thread | process
+# CIAREN_EXECUTION_MODE=thread
 
-# Max upload size in MB
-CIAREN_MAX_UPLOAD_SIZE_MB=100
+# Log output format: auto | text | json
+# CIAREN_LOG_FORMAT=auto
+
+# Background scheduler:
+# CIAREN_SCHEDULER_ENABLED=true
+
+# --- Security ---
+# CIAREN_API_TOKEN=
+# CIAREN_WEBHOOK_SECRET=
+# CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=false
+# CIAREN_STORAGE_ALLOWED_ROOTS=["/srv/ciaren/data"]
+# CIAREN_PYTHON_TRANSFORM_STRICT=false
+
+# --- Machine learning (built in) ---
+CIAREN_ML_ENABLED=true
+CIAREN_MLFLOW_TRACKING_URI=./mlruns
 ```
 
 Run `ciaren info` to print the resolved configuration (the database password

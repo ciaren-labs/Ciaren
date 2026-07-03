@@ -31,50 +31,89 @@ npm run lint
 
 ```
 ├── index.md                           # Homepage
-├── guide/
-│   ├── getting-started.md
-│   ├── installation.md
+├── guide/                             # Product docs (projects/runs, interface,
+│   ├── getting-started.md             # connections, scheduling, webhook, SDK,
+│   ├── installation.md                # engines, advanced setup, etc.)
 │   ├── quick-start.md
 │   ├── interface.md
+│   ├── projects-and-runs.md
+│   ├── connections.md
+│   ├── parameters.md
+│   ├── scheduling.md
+│   ├── webhook.md
+│   ├── sdk.md
+│   ├── engines.md
+│   ├── design-system.md
+│   ├── visualizations.md
+│   ├── ml-quickstart.md
+│   ├── docker.md
+│   ├── advanced-setup.md
+│   ├── demo-project.md
+│   ├── comparison.md
+│   ├── roadmap.md
+│   ├── cli.md
 │   └── troubleshooting.md
-├── features/
-│   ├── datasets.md
-│   ├── flows.md
-│   ├── preview.md
-│   ├── export.md
-│   └── runs.md
-├── transformations/
+├── transformations/                   # Flat — one file per node, no subfolders
 │   ├── overview.md
-│   ├── cleaning/
-│   ├── transform/
-│   └── io/
+│   ├── filter-rows.md
+│   ├── join.md
+│   └── ...                            # (49 node pages total)
 ├── examples/
 │   ├── sales-analysis.md
 │   ├── customer-segmentation.md
 │   ├── time-series.md
-│   └── data-quality.md
+│   ├── data-quality.md
+│   ├── feature-engineering.md
+│   ├── ml-classification.md
+│   └── duckdb-analytics.md
+├── recipes/
+│   ├── overview.md
+│   ├── convert-excel-to-parquet.md
+│   ├── fill-missing-values.md
+│   ├── pivot-a-table.md
+│   └── remove-duplicate-rows.md
 ├── api/
 │   ├── rest-api.md
-│   ├── authentication.md
-│   └── errors.md
-├── advanced/
-│   ├── custom-nodes.md
-│   ├── deployment.md
-│   ├── performance.md
-│   └── architecture.md
+│   ├── catalog.md
+│   ├── connections.md
+│   ├── datasets.md
+│   ├── flows.md
+│   ├── projects.md
+│   ├── runs.md
+│   ├── schedules.md
+│   └── transformations.md
+├── plugins/
+│   ├── overview.md
+│   ├── first-plugin.md
+│   ├── writing-a-plugin.md
+│   ├── api-reference.md
+│   ├── connector-plugins.md
+│   ├── ml-model-plugins.md
+│   ├── advanced-plugin-sklearn.md
+│   ├── managing-plugins.md
+│   ├── packaging-and-distribution.md
+│   └── cli-reference.md
+├── security/
+│   ├── local-first-trust-model.md
+│   └── plugin-security.md
+├── specs/
+│   ├── flow-format.md
+│   └── plugin-manifest.md
+├── legal/
+│   ├── privacy.md
+│   └── terms.md
 ├── faq.md
-├── roadmap.md
+├── CI_CD.md
 └── .vitepress/
     ├── config.ts              # VitePress configuration
-    ├── theme/
-    │   ├── index.ts
-    │   └── styles/
-    │       ├── variables.css
-    │       └── custom.css
-    └── public/                # Static assets
-        ├── logo.svg
-        └── images/
+    └── theme/
+        ├── index.ts
+        ├── components/
+        └── styles/
 ```
+
+Static assets (images, sample files, favicon) live in `public/` at the docs
+root, not under `.vitepress/` — see [Assets](#assets) below.
 
 ## Writing Documentation
 
@@ -125,7 +164,7 @@ df = df.drop(columns=['col1'])
 
 ### New Transformation
 
-Create file in `transformations/{cleaning|transform|io}/`:
+Create file in `transformations/` (flat, no subfolders):
 
 ```markdown
 ---
@@ -178,47 +217,47 @@ description: What this example shows
 
 ## Deployment
 
-Automatic via `.github/workflows/docs-deploy.yml`:
+Fully automated via the `docs-deploy.yml` GitHub Actions workflow (see
+[CI_CD.md](./CI_CD.md) for the full pipeline description). On every change to
+`docs/**`:
 
-1. Push to `main` branch
-2. GitHub Actions builds docs
-3. Deployed to GitHub Pages
-4. Available at `https://ciaren.com/docs`
+1. **Lint** — `npm run lint` (markdownlint).
+2. **Build & test** — `npm run build`, then the build output is validated and
+   checked for broken internal links (`npm run test:links`).
+3. **Deploy** — on push to `main`, the built site is published to GitHub Pages
+   automatically. No manual deploy step or `gh-pages` branch is involved.
 
-### Manual Deployment
+Run the same checks locally before pushing:
 
 ```bash
+npm ci
+npm run lint
 npm run build
-
-# Deploy .vitepress/dist to gh-pages branch
-git add .vitepress/dist
-git commit -m "Deploy docs"
-git push origin gh-pages
+npm run test:links
 ```
 
 ## Assets
 
-Store images and files in `.vitepress/public/`:
+Store images and files in `public/` (the docs root, not `.vitepress/`):
 
 ```
-.vitepress/
-├── public/
-│   ├── logo.svg
-│   ├── images/
-│   │   ├── feature-preview.png
-│   │   ├── ui-tour.gif
-│   │   └── ...
-│   └── samples/
-│       ├── sales.csv
-│       ├── customers.xlsx
-│       └── ...
+public/
+├── logo.svg
+├── favicon.ico / favicon.svg
+├── screenshots/
+│   ├── feature-preview.png
+│   └── ...
+└── samples/
+    ├── sales.csv
+    ├── customers.xlsx
+    └── ...
 ```
 
 Reference in markdown:
 
 ```markdown
-![Alt text](/images/feature-preview.png)
-[Download sample](samples/sales.csv)
+![Alt text](/screenshots/feature-preview.png)
+[Download sample](/samples/sales.csv)
 ```
 
 ## Search
@@ -248,4 +287,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete contribution standards.
 
 ---
 
-**Last Updated:** 2026-06-21
+**Last Updated:** 2026-07-03

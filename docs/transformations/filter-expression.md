@@ -32,6 +32,15 @@ Column count is unchanged; the row index is reset.
 Reference columns by name; use `and` / `or` / `not`, comparisons (`==`, `!=`,
 `>`, `>=`, `<`, `<=`), and arithmetic (`+ - * /`).
 
+### Build condition helper
+
+Above the `expression` textarea, the config panel also has an optional
+**Build condition** mini-form: pick a column, an operator, and a value, then
+click **AND** or **OR** to append the resulting condition onto whatever is
+already in the expression. It's purely a convenience for constructing the
+expression string one piece at a time — it doesn't add any config of its own,
+and you can ignore it and type the expression by hand instead.
+
 ## Generated Python code
 
 ```python

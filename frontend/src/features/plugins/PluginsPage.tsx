@@ -111,7 +111,7 @@ export function PluginsPage() {
             Extend Ciaren with extra nodes, connectors, and exporters. Install a{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">.ciarenplugin</code> file below, drop one into{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.ciaren/plugins</code>, or use{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren plugin install</code>.
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren-plugin install</code>.
           </p>
         </div>
         <InstallButton />
@@ -316,7 +316,7 @@ function EmptyState() {
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
         Ciaren works great on its own. Plugins add new nodes, connectors, and
         exporters. Install one with{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren plugin install &lt;file&gt;.ciarenplugin</code>,
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">ciaren-plugin install &lt;file&gt;.ciarenplugin</code>,
         then it appears here.
       </p>
     </div>

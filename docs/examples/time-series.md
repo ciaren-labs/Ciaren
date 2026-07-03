@@ -9,12 +9,12 @@ search: example time series date parts monthly aggregate temporal
 Turn a stream of time-stamped events into a tidy monthly summary. Ciaren does
 this by **extracting date parts** and grouping by them.
 
-**You'll use:** CSV Input → Cast Types → Extract Date Parts → Group by + Aggregate
+**You'll use:** CSV Input → Change Types → Extract Date Parts → Group by + Aggregate
 → Rename → Sort → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"CSV Input","detail":"events.csv"},
-  {"type":"clean","label":"Cast Types","detail":"occurred_at→datetime · value→float"},
+  {"type":"clean","label":"Change Types","detail":"occurred_at→datetime · value→float"},
   {"type":"transform","label":"Extract Date Parts","detail":"adds occurred_at_year, occurred_at_month"},
   {"type":"transform","label":"Group By + Aggregate","detail":"by year+month · sum(value) · count(events)"},
   {"type":"clean","label":"Rename Columns","detail":"value→total_value · event_id→num_events"},
@@ -48,7 +48,7 @@ Upload it on the **Datasets** page
 ## Build the flow
 
 1. **CSV Input** — select `events.csv`.
-2. **Cast Types** — `casts: { "occurred_at": "datetime", "value": "float" }`.
+2. **Change Types** — `casts: { "occurred_at": "datetime", "value": "float" }`.
 3. **Extract Date Parts** — `column: "occurred_at"`, `parts: ["year", "month"]`.
    This adds `occurred_at_year` and `occurred_at_month` columns.
 4. **Group by + Aggregate** —

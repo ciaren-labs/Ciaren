@@ -117,7 +117,7 @@ def _redact_url(url: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ciaren",
-        description="Ciaren — local-first visual data and ML workflow builder.",
+        description="Ciaren - local-first visual data and ML workflow builder.",
     )
     parser.add_argument("--version", action="version", version=f"ciaren {_package_version()}")
 

@@ -442,6 +442,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     new_column: z.string().min(1, "New column name is required"),
     method: z.enum(binMethods),
     bins: z.coerce.number().int().min(2, "At least 2 bins"),
+    labels: stringArray.optional(),
   }),
   extractDateParts: z.object({
     column: z.string().min(1, "Column is required"),

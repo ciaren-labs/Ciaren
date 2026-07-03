@@ -179,6 +179,30 @@ async def test_dataset_paths_resolve_to_pinned_version(demo_db: AsyncSession) ->
             assert key in paths
 
 
+async def test_flow_nodes_have_human_labels(demo_db: AsyncSession) -> None:
+    """Every seeded node must carry a proper Title Case `label` (e.g. "File
+    Input"), matching what the editor's own node-creation path sets by
+    default — not the raw camelCase node-type slug (e.g. "fileInput"), which
+    is what the canvas falls back to when `data.label` is missing."""
+    from app.engine.node_metadata import NODE_META_BY_TYPE
+
+    project = await _project(demo_db)
+    result = await demo_db.execute(select(Flow).where(Flow.project_id == project.id))
+    flows = result.scalars().all()
+    assert flows
+
+    for flow in flows:
+        for node in flow.graph_json["nodes"]:
+            label = node["data"].get("label")
+            assert label, f"{flow.name}: node {node['id']!r} ({node['type']}) has no label"
+            assert label != node["type"], f"{flow.name}: node {node['id']!r} label is the raw type slug"
+            expected = NODE_META_BY_TYPE.get(node["type"])
+            if expected is not None:
+                assert label == expected.label, (
+                    f"{flow.name}: node {node['id']!r} label {label!r} != {expected.label!r}"
+                )
+
+
 async def test_no_ml_content_when_ml_disabled(demo_db: AsyncSession) -> None:
     project = await _project(demo_db)
     datasets = (await demo_db.execute(select(Dataset).where(Dataset.project_id == project.id))).scalars().all()
