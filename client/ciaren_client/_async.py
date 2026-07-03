@@ -449,11 +449,24 @@ class AsyncCiaren:
     async def get_plugin_license(self, plugin_id: str) -> dict[str, Any]:
         return await self.get(f"/api/plugins/{plugin_id}/license")
 
+    async def activate_plugin_license(self, plugin_id: str, token: dict[str, Any]) -> dict[str, Any]:
+        """Activate a license: send the pasted/downloaded token JSON (marketplace wire
+        format). The server vets it against the trusted issuer keys before caching."""
+        return await self.post(f"/api/plugins/{plugin_id}/license", json=token)
+
+    async def remove_plugin_license(self, plugin_id: str) -> dict[str, Any]:
+        r = await self.request("DELETE", f"/api/plugins/{plugin_id}/license")
+        return r.json()
+
     async def enable_plugin(self, plugin_id: str) -> dict[str, Any]:
         return await self.post(f"/api/plugins/{plugin_id}/enable")
 
     async def disable_plugin(self, plugin_id: str) -> dict[str, Any]:
         return await self.post(f"/api/plugins/{plugin_id}/disable")
+
+    async def uninstall_plugin(self, plugin_id: str) -> dict[str, Any]:
+        r = await self.request("DELETE", f"/api/plugins/{plugin_id}")
+        return r.json()
 
     async def grant_plugin_permissions(self, plugin_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
         return await self.post(f"/api/plugins/{plugin_id}/grant", json={"permissions": permissions or []})

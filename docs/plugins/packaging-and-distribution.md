@@ -38,13 +38,13 @@ file, so a tampered package never matches its signature.
 
 ```bash
 # 1. Generate a signing keypair once; keep the private key secret.
-ciaren plugin keygen
+ciaren-plugin keygen
 
 # 2. Package a plugin source directory into an unsigned .ciarenplugin.
-ciaren plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin
+ciaren-plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin
 
 # 3. Sign it in place.
-ciaren plugin sign ./my-plugin-1.0.0.ciarenplugin \
+ciaren-plugin sign ./my-plugin-1.0.0.ciarenplugin \
   --key <private_hex> --key-id acme-2026 --publisher acme
 ```
 
@@ -67,7 +67,7 @@ By default a `.ciarenplugin` carries your `.py` source — anyone can unzip and 
 For a paid plugin you can ship compiled bytecode instead:
 
 ```bash
-ciaren plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin --compile
+ciaren-plugin pack ./my-plugin ./my-plugin-1.0.0.ciarenplugin --compile
 ```
 
 With `--compile`, every `.py` is compiled to optimized `.pyc` (docstrings and
@@ -86,11 +86,11 @@ calls, rather than shipping it to the user's disk at all. See the architecture p
 ## Verify and install (users)
 
 ```bash
-ciaren plugin verify ./my-plugin-1.0.0.ciarenplugin   # trusted | untrusted | unsigned | invalid
-ciaren plugin install ./my-plugin-1.0.0.ciarenplugin  # extracts to ~/.ciaren/plugins/<id>
-ciaren plugin install ./my-plugin-1.0.0.ciarenplugin --trusted   # refuse unless signed by a trusted key
-ciaren plugin list
-ciaren plugin uninstall acme.myplugin
+ciaren-plugin verify ./my-plugin-1.0.0.ciarenplugin   # trusted | untrusted | unsigned | invalid
+ciaren-plugin install ./my-plugin-1.0.0.ciarenplugin  # extracts to ~/.ciaren/plugins/<id>
+ciaren-plugin install ./my-plugin-1.0.0.ciarenplugin --trusted   # refuse unless signed by a trusted key
+ciaren-plugin list
+ciaren-plugin uninstall acme.myplugin
 ```
 
 Verification outcomes:
@@ -152,8 +152,8 @@ are recorded automatically, and the artifact is referenced relative to the index
 file so the catalog stays portable:
 
 ```bash
-ciaren plugin index add ./acme-databricks-1.2.0.ciarenplugin --index ./marketplace.json
-ciaren plugin search databricks --index ./marketplace.json
+ciaren-plugin index add ./acme-databricks-1.2.0.ciarenplugin --index ./marketplace.json
+ciaren-plugin search databricks --index ./marketplace.json
 ```
 
 ### The "Explore" catalog
@@ -204,12 +204,12 @@ token, only to *issue* it:
 
 ```bash
 # Publisher mints a signed token (after a purchase, server-side):
-ciaren plugin license issue --key <private_hex> --user u-123 --plugin acme.databricks \
+ciaren-plugin license issue --key <private_hex> --user u-123 --plugin acme.databricks \
   --expires 2027-01-01T00:00:00Z --grace 2027-01-15T00:00:00Z --out token.json
 
 # User caches it locally; the plugin's provider then validates it offline:
-ciaren plugin license import token.json
-ciaren plugin license status acme.databricks --key <issuer_public_hex>
+ciaren-plugin license import token.json
+ciaren-plugin license status acme.databricks --key <issuer_public_hex>
 ```
 
 `GET /api/plugins/{id}/license` reports the resolved status, and the Plugins page

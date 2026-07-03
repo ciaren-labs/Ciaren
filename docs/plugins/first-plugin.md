@@ -174,7 +174,7 @@ Your plugin's code already declares all of this. Generate the manifest from it s
 the two never drift:
 
 ```bash
-ciaren plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from the code
+ciaren-plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from the code
 ```
 
 The manifest is still shipped in the package and validated **before** any code
@@ -196,7 +196,7 @@ ciaren serve
 Confirm it loaded:
 
 ```bash
-ciaren plugin list
+ciaren-plugin list
 # community.greeting should appear
 ```
 
@@ -238,11 +238,11 @@ packages = ["ciaren_greeting"]
 …then build a portable, signable `.ciarenplugin` package:
 
 ```bash
-ciaren plugin keygen                                   # one-time: a signing key
-ciaren plugin pack ./my-greeting-plugin ./greeting.ciarenplugin
-ciaren plugin sign ./greeting.ciarenplugin \
+ciaren-plugin keygen                                   # one-time: a signing key
+ciaren-plugin pack ./my-greeting-plugin ./greeting.ciarenplugin
+ciaren-plugin sign ./greeting.ciarenplugin \
   --key <private_hex> --key-id greeting-2026 --publisher community
-ciaren plugin install ./greeting.ciarenplugin
+ciaren-plugin install ./greeting.ciarenplugin
 ```
 
 See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full
