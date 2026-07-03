@@ -92,7 +92,7 @@ names and are awaited.
 | Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `list_connection_tables`, `list_connection_objects` |
 | Catalog and transforms | `list_catalog_nodes`, `list_catalog_connectors`, `list_catalog_exporters`, `list_catalog_categories`, `list_transformations`, `preview_transformation` |
 | ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments` |
-| Plugins and marketplace | `list_plugins`, `plugin_diagnostics`, `install_plugin`, `enable_plugin`, `disable_plugin`, `grant_plugin_permissions`, `list_marketplace`, `install_marketplace_plugin` |
+| Plugins and marketplace | `list_plugins`, `plugin_diagnostics`, `install_plugin`, `get_plugin_license`, `activate_plugin_license`, `remove_plugin_license`, `enable_plugin`, `disable_plugin`, `grant_plugin_permissions`, `revoke_plugin_permissions`, `uninstall_plugin`, `list_marketplace`, `install_marketplace_plugin` |
 | Webhook | `webhook_status`, `trigger` |
 
 #### Projects
@@ -189,6 +189,23 @@ client.set_model_alias("churn-model", version=3, alias="production")
 ```python
 plugins = client.list_plugins()
 catalog = client.list_marketplace()
+
+# require_trusted overrides the server's CIAREN_REQUIRE_TRUSTED_PLUGINS default
+# for this install call only (True refuses unsigned packages, False allows them)
+client.install_plugin("my-plugin-0.1.0.ciarenplugin", require_trusted=True)
+
+# Paste/import a license token (marketplace wire format, camelCase keys)
+status = client.activate_plugin_license("community.hello", {
+    "pluginId": "community.hello",
+    "userId": "user-123",
+    "licenseType": "pro",
+    "expiresAt": "2027-01-01T00:00:00Z",
+    "offlineGraceUntil": "2027-01-15T00:00:00Z",
+    "signature": "...",
+})
+client.remove_plugin_license("community.hello")
+
+client.uninstall_plugin("community.hello")
 ```
 
 #### Webhook trigger

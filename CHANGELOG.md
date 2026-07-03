@@ -10,6 +10,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **`ciaren-client` plugin license/uninstall methods** — the Python SDK was
+  missing wrappers for three plugin endpoints the server and web UI already
+  exposed: `activate_plugin_license`, `remove_plugin_license`, and
+  `uninstall_plugin` (sync and async). Filled in alongside the license-token
+  and install-compatibility work below so the SDK stays a complete thin
+  client over the REST API.
 - **Plugin-contract version gating** — a plugin manifest now declares the
   plugin-API contract it targets via `api_version` (distinct from the plugin's own
   `version` and from `ciaren` app compatibility). The loader checks it against the

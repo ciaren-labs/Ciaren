@@ -141,6 +141,15 @@ def test_sync_ml_plugin_and_marketplace_methods():
         mock.delete("/api/ml/models/churn/alias/production").mock(return_value=httpx.Response(200, json={"ok": True}))
         mock.get("/api/plugins").mock(return_value=httpx.Response(200, json=[{"id": "plugin-1"}]))
         mock.post("/api/plugins/plugin-1/grant").mock(return_value=httpx.Response(200, json={"id": "plugin-1"}))
+        activate_route = mock.post("/api/plugins/plugin-1/license").mock(
+            return_value=httpx.Response(200, json={"plugin_id": "plugin-1", "valid": True})
+        )
+        mock.delete("/api/plugins/plugin-1/license").mock(
+            return_value=httpx.Response(200, json={"plugin_id": "plugin-1", "valid": False})
+        )
+        mock.delete("/api/plugins/plugin-1").mock(
+            return_value=httpx.Response(200, json={"plugin_id": "plugin-1", "removed": True})
+        )
         mock.get("/api/marketplace").mock(return_value=httpx.Response(200, json={"configured": True, "plugins": []}))
         mock.post("/api/marketplace/plugin-1/install").mock(return_value=httpx.Response(200, json={"outcome": "trusted"}))
 
@@ -151,6 +160,9 @@ def test_sync_ml_plugin_and_marketplace_methods():
             cleared = client.clear_model_alias("churn", "production")
             plugins = client.list_plugins()
             granted = client.grant_plugin_permissions("plugin-1", ["network"])
+            activated = client.activate_plugin_license("plugin-1", {"pluginId": "plugin-1"})
+            removed_license = client.remove_plugin_license("plugin-1")
+            uninstalled = client.uninstall_plugin("plugin-1")
             marketplace = client.list_marketplace()
             installed = client.install_marketplace_plugin("plugin-1")
 
@@ -160,10 +172,14 @@ def test_sync_ml_plugin_and_marketplace_methods():
     assert cleared["ok"] is True
     assert plugins == [{"id": "plugin-1"}]
     assert granted["id"] == "plugin-1"
+    assert activated["valid"] is True
+    assert removed_license["valid"] is False
+    assert uninstalled["removed"] is True
     assert marketplace["configured"] is True
     assert installed["outcome"] == "trusted"
     assert json.loads(register_route.calls[0].request.content)["stage"] == "staging"
     assert json.loads(alias_route.calls[0].request.content)["version"] == 3
+    assert json.loads(activate_route.calls[0].request.content)["pluginId"] == "plugin-1"
 
 
 def test_sync_get_flow():
@@ -363,6 +379,12 @@ async def test_async_ml_plugin_and_marketplace_methods():
         runs_route = mock.get("/api/ml/experiments/exp-1/runs").mock(return_value=httpx.Response(200, json=[{"run_id": RUN_ID}]))
         mock.get("/api/plugins/diagnostics").mock(return_value=httpx.Response(200, json={"loaded": [], "gated": [], "errors": []}))
         mock.post("/api/plugins/plugin-1/disable").mock(return_value=httpx.Response(200, json={"id": "plugin-1"}))
+        mock.get("/api/plugins/plugin-1/license").mock(
+            return_value=httpx.Response(200, json={"plugin_id": "plugin-1", "valid": True})
+        )
+        mock.delete("/api/plugins/plugin-1").mock(
+            return_value=httpx.Response(200, json={"plugin_id": "plugin-1", "removed": True})
+        )
 
         async with AsyncCiaren(BASE) as client:
             flow_experiments = await client.list_flow_ml_experiments(FLOW_ID)
@@ -372,6 +394,8 @@ async def test_async_ml_plugin_and_marketplace_methods():
             experiment_runs = await client.list_ml_experiment_runs("exp-1", limit=10)
             diagnostics = await client.plugin_diagnostics()
             disabled = await client.disable_plugin("plugin-1")
+            license_status = await client.get_plugin_license("plugin-1")
+            uninstalled = await client.uninstall_plugin("plugin-1")
 
     assert flow_experiments == [{"id": "exp-1"}]
     assert models == [{"name": "churn"}]
@@ -380,6 +404,8 @@ async def test_async_ml_plugin_and_marketplace_methods():
     assert experiment_runs == [{"run_id": RUN_ID}]
     assert diagnostics["loaded"] == []
     assert disabled["id"] == "plugin-1"
+    assert license_status["valid"] is True
+    assert uninstalled["removed"] is True
     assert runs_route.calls[0].request.url.params["limit"] == "10"
 
 
