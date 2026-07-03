@@ -49,6 +49,7 @@ const extendingSidebar = [
     text: 'Reference',
     items: [
       { text: 'Plugin API Reference', link: '/plugins/api-reference' },
+      { text: 'Plugin CLI Reference', link: '/plugins/cli-reference' },
       { text: '.flow Document Format', link: '/specs/flow-format' },
       { text: 'Plugin Manifest', link: '/specs/plugin-manifest' },
     ],
