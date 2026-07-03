@@ -11,7 +11,7 @@ against the public key documented in the plugin README.
 
 The key here is a throwaway DEMO key committed on purpose so anyone can reproduce
 the signed artifact. A real publisher would keep their private key secret
-(generate one with ``ciaren plugin keygen``) and never commit it.
+(generate one with ``ciaren-plugin keygen``) and never commit it.
 """
 
 from __future__ import annotations

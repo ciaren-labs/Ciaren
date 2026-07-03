@@ -77,6 +77,7 @@ all-connectors = ["asyncpg>=0.30", "psycopg[binary]>=3.1", "pymysql>=1.1", "pyod
 
 [project.scripts]
 ciaren = "app.cli:main"
+ciaren-plugin = "app.cli_plugin:main"
 
 [project.urls]
 Homepage = "https://www.ciaren.com/"

@@ -10,6 +10,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **`ciaren-client` plugin license/uninstall methods** — the Python SDK was
+  missing wrappers for three plugin endpoints the server and web UI already
+  exposed: `activate_plugin_license`, `remove_plugin_license`, and
+  `uninstall_plugin` (sync and async). Filled in alongside the license-token
+  and install-compatibility work below so the SDK stays a complete thin
+  client over the REST API.
 - **Plugin-contract version gating** — a plugin manifest now declares the
   plugin-API contract it targets via `api_version` (distinct from the plugin's own
   `version` and from `ciaren` app compatibility). The loader checks it against the
@@ -75,6 +81,16 @@ release, breaking changes may still happen between alpha versions.
 
 ### Changed
 
+- **Breaking: plugin commands moved to a new `ciaren-plugin` console script.**
+  `ciaren plugin {list,install,uninstall,verify,enable,disable,keygen,pack,
+  manifest,sign,search,index,license,licenses}` are now top-level subcommands
+  of `ciaren-plugin` (e.g. `ciaren plugin install x.ciarenplugin` becomes
+  `ciaren-plugin install x.ciarenplugin`) — same distribution, same install,
+  just a separate entry point so the everyday `ciaren` CLI (`serve`/`init`/
+  `info`/`check`/`db`/`transformations`/`flow`) stays free of the plugin
+  install/authoring surface. Running the old `ciaren plugin ...` form prints
+  a pointer to the new command instead of an "invalid choice" error. See the
+  [Plugin CLI Reference](docs/plugins/cli-reference.md).
 - Exported Python scripts now reuse a single dataframe variable along straight
   chains (`df_1 = df_1.dropna()` instead of minting `df_2`, `df_3`, …), reading
   like hand-written code. Steps feeding several consumers (fan-outs, join

@@ -208,45 +208,22 @@ ciaren flow migrate  project.flow --to 1.1.0 --write   # write back (keeps a .ba
 writing the migrated version.
 :::
 
-## `ciaren plugin`
+## Plugin tooling: `ciaren-plugin`
 
-Install, inspect, and (for publishers) sign [plugins](/plugins/writing-a-plugin).
-See [Packaging & Distribution](/plugins/packaging-and-distribution) for the full
-workflow.
+Installing, inspecting, and (for publishers) signing plugins is a separate
+command — `ciaren-plugin`, from the same `ciaren` distribution — so the
+everyday `ciaren` CLI doesn't carry the plugin-authoring surface. See the
+[Plugin CLI Reference](/plugins/cli-reference) for every subcommand, and
+[Packaging & Distribution](/plugins/packaging-and-distribution) for the full
+publishing workflow.
 
 ```bash
-ciaren plugin list                          # discovered plugins + status
-ciaren plugin install my-plugin.ciarenplugin    # verify + install
-ciaren plugin install ./src --dir           # install from a source directory
-ciaren plugin install my-plugin.ciarenplugin --trusted   # require a trusted signature
-ciaren plugin uninstall acme.myplugin
-ciaren plugin verify my-plugin.ciarenplugin     # trusted | untrusted | unsigned | invalid
-ciaren plugin enable acme.myplugin
-ciaren plugin disable acme.myplugin
-
-# Publisher tooling (needs `ciaren[signing]`):
-ciaren plugin keygen                         # generate an Ed25519 keypair
-ciaren plugin pack ./src out.ciarenplugin        # build an unsigned package
-ciaren plugin pack ./src out.ciarenplugin --compile   # ship .pyc bytecode, not source
-ciaren plugin sign out.ciarenplugin --key <hex> --key-id acme-2026 --publisher acme
-
-ciaren plugin search databricks --index ./marketplace.json
-ciaren plugin index add out.ciarenplugin --index ./marketplace.json   # author the catalog
+ciaren-plugin list                          # discovered plugins + status
+ciaren-plugin install my-plugin.ciarenplugin    # verify + install
+ciaren-plugin enable acme.myplugin
 ```
 
-| Subcommand | Description |
-| --- | --- |
-| `list` | List discovered plugins (loaded / disabled / pending) and load errors. |
-| `install` | Verify and install a `.ciarenplugin` (or `--dir` source). `--trusted` requires a trusted signature; a tampered package is always refused. |
-| `uninstall` | Remove an installed plugin and forget its state. |
-| `verify` | Report a package's signature/integrity outcome (exits non-zero if `invalid`). |
-| `enable` / `disable` | Toggle whether a plugin loads. |
-| `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. `pack --compile` ships `.pyc` bytecode instead of source. |
-| `search` | Search a local marketplace index file. |
-| `index add` | Add/replace a packed plugin's entry in a marketplace index (records digest + signing key id). |
-| `license issue` | Sign a license token for a user + plugin (publisher; needs the private key). |
-| `license import` | Cache a received license token locally so the plugin validates it. |
-| `license status` | Show a cached token's user/expiry; `--key <issuer public hex>` verifies the signature. |
+Running the old `ciaren plugin ...` form prints a pointer to the new command.
 
 ## Environment variables
 

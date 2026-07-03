@@ -106,7 +106,7 @@ installing the package was the consent step.
 | --- | --- |
 | UI | The **Plugins** page shows each plugin's status; clicking a plugin opens its details with requested vs. granted permissions and the Approve / Revoke / Enable / Disable actions. A loaded plugin shows its permissions as active; revoking the ones you granted sends it back to pending. Status and signature badges explain themselves on hover. |
 | API | `POST /api/plugins/{id}/enable\|disable\|grant\|revoke` — see [Catalog & Plugins API](/api/catalog). |
-| CLI | `ciaren plugin enable\|disable <id>` — see [CLI reference](/guide/cli). |
+| CLI | `ciaren-plugin enable\|disable <id>` — see [Plugin CLI reference](/plugins/cli-reference). |
 
 State (enabled + granted permissions) persists in `plugin_state.json` under the
 data dir (override with `CIAREN_PLUGIN_STATE_FILE`).
@@ -124,7 +124,7 @@ keys** before installing:
 | `unsigned` | No signature (typical for community plugins) | ✅ (warned) |
 | `invalid` | Digest mismatch or bad signature | ❌ always refused |
 
-Require a trusted signature with `ciaren plugin install pkg.ciarenplugin --trusted`.
+Require a trusted signature with `ciaren-plugin install pkg.ciarenplugin --trusted`.
 Trusted keys come from three sources: keys **pinned into the app itself** (the
 official marketplace publisher keys — these verify as trusted out of the box and
 can never be overridden by configuration), plus your own additions via

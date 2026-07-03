@@ -449,11 +449,22 @@ class Ciaren:
     def get_plugin_license(self, plugin_id: str) -> dict[str, Any]:
         return self.get(f"/api/plugins/{plugin_id}/license")
 
+    def activate_plugin_license(self, plugin_id: str, token: dict[str, Any]) -> dict[str, Any]:
+        """Activate a license: send the pasted/downloaded token JSON (marketplace wire
+        format). The server vets it against the trusted issuer keys before caching."""
+        return self.post(f"/api/plugins/{plugin_id}/license", json=token)
+
+    def remove_plugin_license(self, plugin_id: str) -> dict[str, Any]:
+        return self.request("DELETE", f"/api/plugins/{plugin_id}/license").json()
+
     def enable_plugin(self, plugin_id: str) -> dict[str, Any]:
         return self.post(f"/api/plugins/{plugin_id}/enable")
 
     def disable_plugin(self, plugin_id: str) -> dict[str, Any]:
         return self.post(f"/api/plugins/{plugin_id}/disable")
+
+    def uninstall_plugin(self, plugin_id: str) -> dict[str, Any]:
+        return self.request("DELETE", f"/api/plugins/{plugin_id}").json()
 
     def grant_plugin_permissions(self, plugin_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
         return self.post(f"/api/plugins/{plugin_id}/grant", json={"permissions": permissions or []})
