@@ -44,6 +44,78 @@ class Permission(str, Enum):
 #: A port carries either a dataframe or a trained model. A model output may only
 #: feed a model input (graph validation enforces this).
 PortKind = Literal["dataframe", "model"]
+
+#: Field kinds a config-schema form can render. ``column``/``column_list`` are
+#: resolved against the columns arriving on the node's wire (node forms only).
+ConfigFieldKind = Literal[
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "select",
+    "string_list",
+    "column",
+    "column_list",
+]
+
+
+class ConfigFieldSpec(BaseModel):
+    """One field of a schema-driven config form.
+
+    This is a deliberately small, UI-oriented dialect (not full JSON Schema),
+    shared by plugin node config forms, connector connection forms, and model
+    hyperparameter forms. Validated at registration so a typo fails the plugin
+    load with a clear error instead of rendering a broken form.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    #: Config key the field reads/writes (e.g. ``"base_url"``).
+    key: str = Field(..., min_length=1)
+    #: Human label; defaults to the key when empty.
+    label: str = ""
+    type: ConfigFieldKind = "string"
+    required: bool = False
+    #: Initial value for a fresh config (must be JSON-native).
+    default: Any = None
+    placeholder: str = ""
+    #: Short help text shown under the field.
+    help: str = ""
+    #: Choices for ``select`` fields.
+    options: tuple[str, ...] = ()
+    #: Bounds for ``number`` / ``integer`` fields.
+    min: float | None = None
+    max: float | None = None
+    #: Render as a masked input (for tokens/keys — note Ciaren stores secrets as
+    #: environment-variable *names*, never values; use this for the env-var name).
+    secret: bool = False
+
+    @field_validator("options")
+    @classmethod
+    def _options_only_for_select(cls, value: tuple[str, ...], info: Any) -> tuple[str, ...]:
+        if value and info.data.get("type") not in (None, "select"):
+            raise ValueError("'options' is only valid for fields of type 'select'")
+        return value
+
+
+def validate_config_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Validate a ``config_schema`` mapping: empty, or ``{"fields": [...]}`` where
+    every entry parses as :class:`ConfigFieldSpec`. Returns the input unchanged so
+    the stored value stays plain JSON. Raises ``ValueError`` on anything else."""
+    if not schema:
+        return schema
+    fields = schema.get("fields")
+    if not isinstance(fields, list):
+        raise ValueError("config_schema must be {} or {'fields': [...]} (a list of field specs)")
+    seen: set[str] = set()
+    for raw in fields:
+        field = ConfigFieldSpec.model_validate(raw)
+        if field.key in seen:
+            raise ValueError(f"config_schema has a duplicate field key {field.key!r}")
+        seen.add(field.key)
+    return schema
+
+
 BUILTIN_NODE_CATEGORIES = {
     "input",
     "clean",
@@ -104,7 +176,9 @@ class NodeSpec(BaseModel):
     #: a model sink (mlTrain) or a report node like cross-validation. The editor uses
     #: this to decide whether the "add an output node" check applies.
     is_flow_terminal: bool = False
-    #: Reserved for schema-driven config forms (JSON schema). Empty for now.
+    #: Schema-driven config form: ``{}`` (no form) or ``{"fields": [...]}`` of
+    #: :class:`ConfigFieldSpec` entries. The editor renders this for plugin nodes
+    #: instead of needing a hand-written form per node type.
     config_schema: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("category")
@@ -112,6 +186,11 @@ class NodeSpec(BaseModel):
     def _normalize_category(cls, value: str) -> str:
         category = value.strip() or DEFAULT_PLUGIN_NODE_CATEGORY
         return category if category in BUILTIN_NODE_CATEGORIES else DEFAULT_PLUGIN_NODE_CATEGORY
+
+    @field_validator("config_schema")
+    @classmethod
+    def _valid_config_schema(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_config_schema(value)
 
 
 class ConnectorSpec(BaseModel):
@@ -131,6 +210,16 @@ class ConnectorSpec(BaseModel):
     provider: str = "ciaren.core"
     #: Raw provider flags the connection form needs (host/port/auth/bucket/…).
     metadata: dict[str, Any] = Field(default_factory=dict)
+    #: Extra, connector-specific form fields (``{"fields": [...]}`` of
+    #: :class:`ConfigFieldSpec`), rendered by the connection dialog and stored in
+    #: the connection's ``options``. Lets a plugin connector drive its own form
+    #: instead of relying on the fixed core flag set.
+    config_schema: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("config_schema")
+    @classmethod
+    def _valid_config_schema(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_config_schema(value)
 
 
 class StorageSpec(BaseModel):
@@ -175,6 +264,67 @@ class ValidatorSpec(BaseModel):
     description: str = ""
     capabilities: tuple[str, ...] = ()
     provider: str = "ciaren.core"
+
+
+#: Learning tasks the ML train nodes understand. Mirrors ``app.ml.models.TASKS``;
+#: kept literal here so the contract package stays free of any app import.
+MODEL_TASKS = (
+    "classification",
+    "regression",
+    "clustering",
+    "dimensionality_reduction",
+    "timeseries",
+)
+
+
+class ModelTypeSpec(BaseModel):
+    """A trainable model type contributed to the ML model catalog.
+
+    A plugin's model type appears in the matching core train node's model picker
+    (e.g. a ``classification`` type shows up in **Train Classifier**) and trains
+    through the exact same pipeline as a built-in: preprocessing bundled into an
+    sklearn ``Pipeline``, hyperparameter sanitization, size limits, MLflow
+    logging, and code export. The executable *builder* is registered separately
+    (see :class:`~app.plugin_api.providers.ModelProvider.model_builders`) and must
+    return an sklearn-compatible estimator (``fit``/``predict``).
+    """
+
+    #: The ``model_type`` id used in train-node configs — unique across the catalog.
+    id: str = Field(..., min_length=1)
+    label: str
+    task: str
+    supervised: bool = True
+    provider: str = "ciaren.ml"
+    description: str = ""
+    #: Importable modules the builder needs at run time (e.g. ``("sklearn",)``).
+    #: The catalog marks the type unavailable when one is missing.
+    requires: tuple[str, ...] = ()
+    #: Install hint shown when a required module is missing
+    #: (e.g. ``"pip install scikit-learn"``).
+    install_hint: str = ""
+    #: Defaults merged *under* the user's hyperparameters before the builder is
+    #: called, so an untouched form trains with what the catalog advertises.
+    default_hyperparameters: dict[str, Any] = Field(default_factory=dict)
+    #: Hyperparameter form: ``{}`` or ``{"fields": [...]}`` of :class:`ConfigFieldSpec`.
+    hyperparameter_schema: dict[str, Any] = Field(default_factory=dict)
+    #: Top-level import lines exported training scripts use for the estimator
+    #: (e.g. ``("from sklearn.neural_network import MLPClassifier",)``). When
+    #: empty, the import is derived from the estimator's class module — declare
+    #: them whenever the estimator's ``repr`` needs anything beyond that.
+    import_lines: tuple[str, ...] = ()
+    permissions: tuple[Permission, ...] = ()
+
+    @field_validator("task")
+    @classmethod
+    def _known_task(cls, value: str) -> str:
+        if value not in MODEL_TASKS:
+            raise ValueError(f"unknown model task {value!r}; expected one of {MODEL_TASKS}")
+        return value
+
+    @field_validator("hyperparameter_schema")
+    @classmethod
+    def _valid_hyperparameter_schema(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_config_schema(value)
 
 
 class AICapabilitySpec(BaseModel):

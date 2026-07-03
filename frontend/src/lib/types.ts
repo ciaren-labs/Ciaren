@@ -176,6 +176,13 @@ export interface MlModelCatalogItem {
   requires: string[];
   missing: string[];
   warning: string | null;
+  /** Contributing provider: "ciaren.ml" for built-ins, a plugin id otherwise. */
+  provider?: string;
+  /** Display label (plugin model types only; built-ins are mirrored statically). */
+  label?: string | null;
+  supervised?: boolean;
+  default_hyperparameters?: Record<string, unknown>;
+  hyperparameter_schema?: ConfigSchema;
 }
 
 export interface MlExperimentSummary {
@@ -437,10 +444,38 @@ export interface ConnectionCreate {
 
 export type ConnectionUpdate = Partial<ConnectionCreate>;
 
+/** One field of a schema-driven config form (mirrors app/plugin_api ConfigFieldSpec). */
+export interface ConfigField {
+  key: string;
+  label?: string;
+  type?:
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "select"
+    | "string_list"
+    | "column"
+    | "column_list";
+  required?: boolean;
+  default?: unknown;
+  placeholder?: string;
+  help?: string;
+  options?: string[];
+  min?: number | null;
+  max?: number | null;
+  secret?: boolean;
+}
+
+export interface ConfigSchema {
+  fields?: ConfigField[];
+}
+
 export interface ProviderInfo {
   name: string;
   label: string;
-  kind: "sql" | "mongo" | "storage" | "mlflow";
+  /** Core kinds are closed; a plugin connector may declare its own (e.g. "api"). */
+  kind: "sql" | "mongo" | "storage" | "mlflow" | (string & {});
   available: boolean;
   driver_module: string | null;
   extra: string | null;
@@ -451,6 +486,11 @@ export interface ProviderInfo {
   needs_bucket: boolean;
   needs_region: boolean;
   needs_endpoint: boolean;
+  /** Present (true) only for plugin-contributed connectors. */
+  plugin?: boolean;
+  plugin_id?: string;
+  /** Extra connector-specific form fields, stored in the connection's options. */
+  config_schema?: ConfigSchema;
 }
 
 export interface ConnectionTestResult {
@@ -543,12 +583,12 @@ export interface CatalogNode {
   requires_ml: boolean;
   is_model_sink: boolean;
   is_flow_terminal?: boolean;
-  config_schema: Record<string, unknown>;
+  config_schema: ConfigSchema;
 }
 
 // ---- Plugins ---------------------------------------------------------------
 
-export type PluginStatus = "loaded" | "disabled" | "needs_permissions";
+export type PluginStatus = "loaded" | "disabled" | "needs_permissions" | "needs_license";
 
 export interface PluginInfo {
   id: string;
@@ -558,6 +598,8 @@ export interface PluginInfo {
   description: string;
   source: string;
   status: PluginStatus;
+  /** Human-readable context for a gated status (e.g. why the license is invalid). */
+  status_detail: string;
   capabilities: string[];
   /** Permissions the plugin requests. */
   permissions: string[];
@@ -567,10 +609,17 @@ export interface PluginInfo {
   missing_permissions: string[];
   /** How the package verified at install time: trusted | untrusted | unsigned | invalid | "". */
   signature: string;
+  /** First-party: verified as trusted under a publisher key pinned into the app
+   *  itself (not merely a user-added trusted key). Derived, never declared. */
+  official: boolean;
   /** Node type ids this plugin contributes to the editor palette. */
   nodes: string[];
   /** Palette category/subgroup for each contributed node. */
   node_categories: Record<string, string>;
+  /** Connector ids this plugin contributes (loaded plugins only). */
+  connectors?: string[];
+  /** Trainable model-type ids this plugin contributes to the ML catalog. */
+  model_types?: string[];
   /** True when the plugin lives in the managed install dir and can be uninstalled
    *  via DELETE. False for dev-dir / entry-point plugins (disable-only). */
   uninstallable: boolean;
@@ -628,7 +677,8 @@ export interface MarketplaceEntry {
   publisher: string;
   description: string;
   license: string;
-  /** Derived by verifying the local artifact's signature: "trusted" | "community". */
+  /** Derived by verifying the local artifact's signature:
+   *  "official" (first-party pinned key) | "trusted" | "community". */
   trust: string;
   capabilities: string[];
   permissions: string[];
@@ -643,6 +693,12 @@ export interface MarketplaceEntry {
   license_required: boolean;
   /** A plugin with this id is already installed. */
   installed: boolean;
+  /** The installed plugin's version ("" when not installed or unknown). */
+  installed_version: string;
+  /** The catalog offers a strictly newer version than the installed one. */
+  update_available: boolean;
+  /** The catalog has withdrawn this plugin (installing is refused). */
+  revoked: boolean;
   /** The artifact is available locally for one-click install. */
   installable: boolean;
 }
@@ -651,4 +707,6 @@ export interface MarketplaceCatalog {
   /** False when no index is configured (the UI explains how to enable it). */
   configured: boolean;
   plugins: MarketplaceEntry[];
+  /** Installed plugin ids the catalog has revoked (may already be delisted). */
+  revoked_installed: string[];
 }

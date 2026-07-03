@@ -181,3 +181,21 @@ describe("runtime overlay", () => {
     expect(getNodeTypeDef("hello.greeting")).toBeUndefined();
   });
 });
+
+describe("config_schema passthrough", () => {
+  it("copies a node spec's config_schema fields onto the def", () => {
+    const def = nodeSpecToDef(
+      spec({
+        id: "rest.fetch",
+        label: "REST Fetch",
+        config_schema: { fields: [{ key: "path", type: "string", required: true }] },
+      }),
+    );
+    expect(def.configSchema).toEqual([{ key: "path", type: "string", required: true }]);
+  });
+
+  it("leaves configSchema undefined for empty schemas", () => {
+    const def = nodeSpecToDef(spec({ id: "x", label: "X" }));
+    expect(def.configSchema).toBeUndefined();
+  });
+});

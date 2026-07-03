@@ -93,6 +93,14 @@ class VerifyResult:
         decides whether to *require* ``trusted``."""
         return self.outcome != "invalid"
 
+    @property
+    def official(self) -> bool:
+        """Whether the package is first-party: a valid signature from one of the
+        publisher keys pinned into the app (:data:`OFFICIAL_PUBLISHER_KEYS`).
+        A refinement of ``trusted``, not a separate outcome — every official
+        package is trusted, so ``require_trusted`` policies need no change."""
+        return self.outcome == "trusted" and is_official_key(self.key_id)
+
 
 def compute_digest_from_zip(zf: ZipFile) -> str:
     """Deterministic SHA-256 over all entries except the signature file."""
@@ -155,6 +163,13 @@ def read_signature(path: str | os.PathLike[str]) -> PackageSignature | None:
 OFFICIAL_PUBLISHER_KEYS: dict[str, str] = {
     # "ciaren-official-2026": "<ed25519 public key hex>",
 }
+
+
+def is_official_key(key_id: str) -> bool:
+    """Whether ``key_id`` is one of the publisher keys pinned into the app —
+    the basis for the "Official" badge (first-party plugins), distinct from a
+    key the *user* chose to trust."""
+    return bool(key_id) and key_id in OFFICIAL_PUBLISHER_KEYS
 
 
 def load_trusted_keys() -> dict[str, str]:

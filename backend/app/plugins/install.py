@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile
 
-from app.plugin_api import PluginManifest, validate_manifest
+from app.plugin_api import PLUGIN_API_VERSION, PluginManifest, validate_manifest
 from app.plugins.package import (
     MANIFEST_FILENAME,
     PackageError,
@@ -25,6 +25,7 @@ from app.plugins.package import (
     read_manifest,
     verify_package,
 )
+from app.version import ciaren_version
 
 INSTALL_DIR_ENV = "CIAREN_PLUGIN_INSTALL_DIR"
 
@@ -108,6 +109,24 @@ def _extract_safely(zf: ZipFile, target: Path) -> None:
         dest.write_bytes(zf.read(name))
 
 
+def _ensure_compatible(manifest: PluginManifest) -> None:
+    """Refuse a plugin the running host cannot load — *before* touching the install
+    directory. This mirrors the loader's compatibility gate (app ``ciaren`` spec +
+    plugin-contract ``api_version``), but the loader only guards runtime import: it
+    can't stop a force-install/marketplace-update from ``shutil.rmtree``-ing a
+    working plugin and dropping an incompatible one that then fails to load. Checking
+    here keeps a bad update from replacing the existing install at all."""
+    if not manifest.is_compatible_with(ciaren_version()):
+        raise InstallError(
+            f"refusing to install {manifest.id!r}: requires Ciaren {manifest.ciaren!r}, running {ciaren_version()}"
+        )
+    if not manifest.is_api_compatible_with(PLUGIN_API_VERSION):
+        raise InstallError(
+            f"refusing to install {manifest.id!r}: targets plugin-API {manifest.api_version}, "
+            f"backend provides {PLUGIN_API_VERSION}"
+        )
+
+
 def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
     """Persist how the package verified (trust badge) and enforce TOFU signer
     pinning: a plugin id is claimable, so approval the user gave to one publisher's
@@ -149,6 +168,7 @@ def install_ciarenplugin(
         raise InstallError(f"refusing to install {manifest.id!r}: {result.reason}")
     if require_trusted and result.outcome != "trusted":
         raise InstallError(f"refusing to install {manifest.id!r}: not signed by a trusted key ({result.reason})")
+    _ensure_compatible(manifest)  # before we replace any existing install
 
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
@@ -177,6 +197,7 @@ def install_directory(
     if not (src / MANIFEST_FILENAME).is_file():
         raise PackageError(f"{src} has no {MANIFEST_FILENAME}")
     manifest = read_manifest_from_dir(src)
+    _ensure_compatible(manifest)  # before we replace any existing install
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
     if target.exists():

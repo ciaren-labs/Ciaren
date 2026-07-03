@@ -157,9 +157,14 @@ Ciaren is early, and useful contributions are welcome: bug reports,
 reproducible flows, docs improvements, examples, transformation nodes, plugin
 SDK improvements, and frontend workflow polish.
 
+The open core is intentionally lightweight. New niche databases, SaaS products,
+internal APIs, and proprietary storage systems should normally be built and
+maintained as plugins with the public Plugin API/SDK rather than added to core.
+If the SDK blocks that work, please open an SDK-focused issue or discussion.
+
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). Ideas and support requests can
 go to [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
-bugs or feature requests can go to
+reproducible bugs or focused core/SDK feature requests can go to
 [GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues).
 
 ## Security

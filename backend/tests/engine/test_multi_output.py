@@ -2,6 +2,7 @@
 EmitsNodeMetadata side-channel, and engine.from_pandas — the foundation the ML
 nodes build on. Uses lightweight stub transformations so it has no ML deps.
 """
+
 from typing import Any
 
 import pandas as pd

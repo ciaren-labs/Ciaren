@@ -50,6 +50,9 @@ export interface NodeTypeDef {
   requiresMl?: boolean;
   /** Registered for backward-compat but not shown in the palette (superseded). */
   hidden?: boolean;
+  /** Schema-driven config form fields (plugin nodes). When present, the sidebar
+   *  renders these instead of a hand-written per-type form. */
+  configSchema?: import("./types").ConfigField[];
   description: string;
 }
 

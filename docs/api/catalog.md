@@ -20,7 +20,7 @@ contributes a node makes it appear without a frontend rebuild.
 | `GET` | `/api/catalog/exporters` | Code/artifact exporters (python, eager-polars, lazy-polars) with capabilities. |
 | `GET` | `/api/catalog/categories` | Palette categories in display order. |
 
-ML nodes are included only when the ML extension is ready (matching
+Built-in ML nodes are included only when ML is enabled and ready (matching
 `GET /api/transformations`).
 
 A node spec looks like:
@@ -40,6 +40,7 @@ A node spec looks like:
   "permissions": [],
   "requires_ml": false,
   "is_model_sink": false,
+  "is_flow_terminal": false,
   "config_schema": {}
 }
 ```
@@ -56,6 +57,8 @@ Introspection **and** management of installed plugins.
 | `POST` | `/api/plugins/{id}/disable` | Disable a plugin (its code stops loading). |
 | `POST` | `/api/plugins/{id}/grant` | Grant permissions (empty body grants all requested → one-click approve). |
 | `POST` | `/api/plugins/{id}/revoke` | Revoke permissions (may move the plugin back to pending). |
+| `GET` | `/api/plugins/{id}/license` | Report the plugin's resolved license status. |
+| `DELETE` | `/api/plugins/{id}` | Uninstall a managed plugin and forget its saved state. |
 
 Each plugin reports a `status`:
 
@@ -77,11 +80,16 @@ appear in the catalog without a restart.
 
 ## Marketplace
 
-`GET /api/marketplace` returns the Explore catalog. By default it is configured
-from Ciaren's bundled community catalog, which includes a Hello Plugin package
-as `installable: true` and `installed: false`. Installing it uses the same
-verification and permission-gated path as uploading a `.ciarenplugin`; the plugin is
-not imported until the user approves it. Plugin and marketplace responses include
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/marketplace` | Explore catalog entries, annotated with `installed` and `installable`. |
+| `POST` | `/api/marketplace/{id}/install` | Install a locally available catalog artifact after digest/signature verification. |
+
+By default, Explore is configured from Ciaren's bundled community catalog, which
+includes Hello Plugin and MLP Classifier example packages as `installable: true`
+and `installed: false`. Installing one uses the same verification and
+permission-gated path as uploading a `.ciarenplugin`; the plugin is not imported
+until the user approves it. Plugin and marketplace responses include
 `nodes` and `node_categories`, derived from the plugin manifest's `ui.nodes` and
 `ui.nodeCategories`, so the UI can show where the plugin will appear in the
 editor. Missing or invalid node categories default to `plugins`. Set

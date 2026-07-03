@@ -88,3 +88,61 @@ def test_export_error_when_runtime_has_no_code():
     tf = PluginTransformation(_spec(), _NoCodeRuntime())
     with pytest.raises(PluginNodeExportError):
         tf.to_python_code({"in": "df_1"}, {"out": "df_2"}, {})
+
+
+# -- output validation: the runtime is held to its own NodeSpec ---------------
+
+
+class _ReturnsRuntime(NodeRuntime):
+    """Returns whatever the test wires in."""
+
+    def __init__(self, result):
+        self._result = result
+
+    def execute(self, inputs, config):
+        return self._result
+
+
+def _run(spec, result):
+    engine = get_engine("pandas")
+    tf = PluginTransformation(spec, _ReturnsRuntime(result))
+    return tf.execute(engine, {"in": engine.from_pandas(pd.DataFrame({"a": [1]}))}, {})
+
+
+def test_missing_declared_output_fails_clearly():
+    spec = _spec(outputs=(PortSpec(id="out"), PortSpec(id="metrics")))
+    with pytest.raises(ValueError, match=r"missing declared output\(s\) \['metrics'\]"):
+        _run(spec, {"out": pd.DataFrame({"a": [1]})})
+
+
+def test_undeclared_output_fails_clearly():
+    with pytest.raises(ValueError, match=r"undeclared output\(s\) \['extra'\]"):
+        _run(_spec(), {"out": pd.DataFrame({"a": [1]}), "extra": pd.DataFrame()})
+
+
+def test_non_dict_result_fails_clearly():
+    with pytest.raises(ValueError, match="must return a dict"):
+        _run(_spec(), pd.DataFrame({"a": [1]}))
+
+
+def test_non_dataframe_output_fails_clearly():
+    with pytest.raises(ValueError, match="must be a pandas DataFrame"):
+        _run(_spec(), {"out": [1, 2, 3]})
+
+
+def test_model_output_must_carry_a_model_reference():
+    from app.plugin_api import ModelRef
+
+    spec = _spec(outputs=(PortSpec(id="model", type="model"),))
+    with pytest.raises(ValueError, match="model reference"):
+        _run(spec, {"model": pd.DataFrame({"a": [1]})})
+    # A real reference frame passes.
+    ref = ModelRef(task_type="classification", model_type="t")
+    out = _run(spec, {"model": ref.to_frame()})
+    assert "model" in out
+
+
+def test_empty_outputs_default_to_the_out_handle():
+    spec = _spec(outputs=())
+    out = _run(spec, {"out": pd.DataFrame({"a": [1]})})
+    assert "out" in out

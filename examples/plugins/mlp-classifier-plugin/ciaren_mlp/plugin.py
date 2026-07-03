@@ -1,21 +1,32 @@
-"""The MLP Classifier plugin: train and evaluate a scikit-learn ``MLPClassifier``.
+"""The MLP Classifier plugin: a neural-network classifier for Ciaren, twice over.
 
-It contributes one node, ``sklearn.mlpClassifierTrain``, that trains a multi-layer
-perceptron classifier on the input frame and outputs a one-row **metrics summary**
-(train/test accuracy, iterations, final loss, …). It is the "advanced" companion to
-the Hello plugin: it shows a realistic plugin node with several **hyperparameters**,
-thorough **config validation**, an executable pandas runtime, and Python-code export
-that reproduces the training with scikit-learn.
+This is the "advanced" companion to the Hello plugin, and it demonstrates both of
+the ML extension points added in plugin API 1.1:
 
-Design notes:
+1. **A model type for the core Train Classifier node** (``ModelProvider``): the
+   ``mlp_classifier`` model type appears in the standard *Train Classifier* model
+   picker next to the built-ins, and trains through the exact same pipeline —
+   preprocessing bundled into the sklearn ``Pipeline``, hyperparameter
+   sanitization, size limits, MLflow logging, and code export. The plugin only
+   supplies the estimator builder and the hyperparameter form schema.
 
-- The node stays within the plugin runtime contract (**pandas in → pandas out**), so
-  Ciaren runs it end-to-end and exports it on both the pandas and polars engines. It
-  therefore emits a *metrics report*, not a raw model object (the plugin contract
-  carries dataframes, not estimators).
-- ``scikit-learn``/``numpy`` are imported **lazily** inside ``execute``/``to_python_code``
-  so the plugin still registers and appears in the catalog where scikit-learn is not
-  installed; running the node then raises a clear "install scikit-learn" error.
+2. **A standalone train node** (``sklearn.mlpClassifierTrain``): a plugin node
+   with a typed ``model`` output. It fits an ``MLPClassifier``, persists it
+   through the host's :class:`ModelStore` (``context.models`` — an MLflow
+   artifact, never a raw pickle on the wire), and emits:
+
+   - ``model``  — a one-row :class:`ModelRef` frame the core **Predict** /
+     **Feature Importance** nodes consume directly, and
+   - ``metrics`` — a one-row train/test metrics summary you can wire to any
+     output.
+
+   Its sidebar form is driven by the ``config_schema`` declared on the node spec
+   (no frontend code needed), and it skips fitting during editor previews
+   (``context.in_preview``), exactly like the core train nodes.
+
+scikit-learn/numpy are imported lazily inside ``execute``/``to_python_code`` so
+the plugin still registers and appears in the catalog where scikit-learn is not
+installed; running then raises a clear "install scikit-learn" error.
 """
 
 from __future__ import annotations
@@ -23,6 +34,9 @@ from __future__ import annotations
 from typing import Any
 
 from app.plugin_api import (
+    ModelProvider,
+    ModelTypeSpec,
+    NodeContext,
     NodeProvider,
     NodeRuntime,
     NodeSpec,
@@ -31,9 +45,11 @@ from app.plugin_api import (
     PortSpec,
     ServiceRegistry,
 )
+from app.plugin_api.model_ref import ModelRef
 
 PLUGIN_ID = "community.mlp-classifier"
 NODE_ID = "sklearn.mlpClassifierTrain"
+MODEL_TYPE = "mlp_classifier"
 
 #: Hyperparameter value sets we support, validated up front so the UI (and export)
 #: fail fast with a clear message instead of deep inside scikit-learn.
@@ -52,6 +68,54 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "test_size": 0.2,
     "random_state": 42,
     "stratify": True,
+}
+
+#: The node's sidebar form — rendered by Ciaren from this schema, no frontend code.
+CONFIG_SCHEMA: dict[str, Any] = {
+    "fields": [
+        {"key": "target_column", "label": "Target column", "type": "column", "required": True},
+        {
+            "key": "feature_columns",
+            "label": "Feature columns",
+            "type": "column_list",
+            "help": "Empty = every numeric column except the target.",
+        },
+        {
+            "key": "hidden_layer_sizes",
+            "label": "Hidden layers",
+            "type": "string",
+            "default": "100",
+            "placeholder": "64,32",
+            "help": "Comma-separated layer sizes, e.g. 64,32.",
+        },
+        {"key": "activation", "label": "Activation", "type": "select", "options": list(ACTIVATIONS), "default": "relu"},
+        {"key": "solver", "label": "Solver", "type": "select", "options": list(SOLVERS), "default": "adam"},
+        {"key": "alpha", "label": "L2 penalty (alpha)", "type": "number", "min": 0, "default": 0.0001},
+        {"key": "learning_rate_init", "label": "Learning rate", "type": "number", "default": 0.001},
+        {"key": "max_iter", "label": "Max iterations", "type": "integer", "min": 1, "default": 200},
+        {"key": "test_size", "label": "Test split", "type": "number", "min": 0.05, "max": 0.95, "default": 0.2},
+        {"key": "random_state", "label": "Random seed", "type": "integer", "default": 42},
+        {"key": "stratify", "label": "Stratify the split", "type": "boolean", "default": True},
+    ]
+}
+
+#: Hyperparameters for the mlp_classifier *model type* (used inside the core
+#: Train Classifier node, which supplies target/features/seed itself).
+HYPERPARAMETER_SCHEMA: dict[str, Any] = {
+    "fields": [
+        {
+            "key": "hidden_layer_sizes",
+            "label": "Hidden layers",
+            "type": "string",
+            "default": "100",
+            "placeholder": "64,32",
+            "help": "Comma-separated layer sizes, e.g. 64,32.",
+        },
+        {"key": "activation", "label": "Activation", "type": "select", "options": list(ACTIVATIONS), "default": "relu"},
+        {"key": "solver", "label": "Solver", "type": "select", "options": list(SOLVERS), "default": "adam"},
+        {"key": "alpha", "label": "L2 penalty (alpha)", "type": "number", "min": 0, "default": 0.0001},
+        {"key": "max_iter", "label": "Max iterations", "type": "integer", "min": 1, "default": 200},
+    ]
 }
 
 
@@ -143,14 +207,57 @@ def resolve_config(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_mlp(hyperparameters: dict[str, Any], seed: int | None) -> Any:
+    """Estimator builder for the ``mlp_classifier`` model type (core train nodes).
+
+    Receives already-sanitized, JSON-native hyperparameters; coerces the friendly
+    ``"64,32"`` layer syntax and injects the run seed unless the user set one."""
+    try:
+        from sklearn.neural_network import MLPClassifier
+    except ImportError as exc:  # pragma: no cover - exercised only without sklearn
+        raise ValueError("mlp_classifier needs scikit-learn — install it with `pip install scikit-learn`") from exc
+
+    params = dict(hyperparameters or {})
+    if "hidden_layer_sizes" in params:
+        params["hidden_layer_sizes"] = parse_hidden_layers(params["hidden_layer_sizes"])
+    if "activation" in params and params["activation"] not in ACTIVATIONS:
+        raise ValueError(f"mlp_classifier: 'activation' must be one of {ACTIVATIONS}")
+    if "solver" in params and params["solver"] not in SOLVERS:
+        raise ValueError(f"mlp_classifier: 'solver' must be one of {SOLVERS}")
+    if "max_iter" in params:
+        params["max_iter"] = _as_int(params["max_iter"], "max_iter")
+    if seed is not None and "random_state" not in params:
+        params["random_state"] = seed
+    return MLPClassifier(**params)
+
+
 class MlpClassifierTrainRuntime(NodeRuntime):
-    """Trains an ``MLPClassifier`` and returns a metrics summary frame."""
+    """Trains an ``MLPClassifier`` and emits a model reference + metrics summary."""
 
     def validate_config(self, config: dict[str, Any]) -> None:
         resolve_config(config)  # raises ValueError on anything we don't support
 
-    def execute(self, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    def execute_with_context(
+        self,
+        inputs: dict[str, Any],
+        config: dict[str, Any],
+        context: NodeContext,
+    ) -> dict[str, Any]:
         import pandas as pd
+
+        p = resolve_config(config)
+        target = p["target_column"]
+
+        # Editor previews run on sampled data and must not fit or persist a
+        # model — hand downstream a placeholder reference, like the core nodes.
+        if context.in_preview:
+            placeholder = ModelRef(
+                task_type="classification",
+                model_type=MODEL_TYPE,
+                target_column=target,
+                feature_columns=tuple(p["feature_columns"]),
+            )
+            return {"model": placeholder.to_frame(), "metrics": pd.DataFrame()}
 
         try:
             from sklearn.metrics import accuracy_score
@@ -162,8 +269,6 @@ class MlpClassifierTrainRuntime(NodeRuntime):
             ) from exc
 
         df = inputs["in"]
-        p = resolve_config(config)
-        target = p["target_column"]
         if target not in df.columns:
             raise ValueError(f"mlpClassifierTrain: target column {target!r} is not in the input {list(df.columns)}")
 
@@ -194,24 +299,47 @@ class MlpClassifierTrainRuntime(NodeRuntime):
             random_state=p["random_state"],
         )
         clf.fit(X_train, y_train)
-        metrics = pd.DataFrame(
-            [
-                {
-                    "n_samples": int(len(df)),
-                    "n_features": int(len(features)),
-                    "n_classes": int(len(clf.classes_)),
-                    "train_accuracy": float(accuracy_score(y_train, clf.predict(X_train))),
-                    "test_accuracy": float(accuracy_score(y_test, clf.predict(X_test))),
-                    "n_iterations": int(clf.n_iter_),
-                    "final_loss": float(clf.loss_),
-                    # Stored as text so the cell survives the pandas→polars bridge tidily.
-                    "hidden_layer_sizes": "x".join(str(n) for n in p["hidden_layer_sizes"]),
-                    "activation": p["activation"],
-                    "solver": p["solver"],
-                }
-            ]
+
+        metrics = {
+            "n_samples": int(len(df)),
+            "n_features": int(len(features)),
+            "n_classes": int(len(clf.classes_)),
+            "train_accuracy": float(accuracy_score(y_train, clf.predict(X_train))),
+            "test_accuracy": float(accuracy_score(y_test, clf.predict(X_test))),
+            "n_iterations": int(clf.n_iter_),
+            "final_loss": float(clf.loss_),
+        }
+
+        if context.models is None:
+            raise ValueError(
+                "mlpClassifierTrain: this server has no ML/MLflow support installed, "
+                "so the trained model cannot be persisted (install ciaren[ml])."
+            )
+        # The sanctioned persistence path: the fitted estimator becomes an MLflow
+        # artifact; only the typed reference travels through the graph.
+        # params land in the reference's model_config_json as the recorded
+        # hyperparameters — keep them builder-compatible (the "64,32" layer
+        # syntax build_mlp accepts) so core Cross-Validate can rebuild this
+        # estimator from the reference alone.
+        ref = context.models.log_sklearn_model(
+            clf,
+            model_type=MODEL_TYPE,
+            task_type="classification",
+            target_column=target,
+            feature_columns=tuple(features),
+            params={
+                "hidden_layer_sizes": ",".join(str(n) for n in p["hidden_layer_sizes"]),
+                "activation": p["activation"],
+                "solver": p["solver"],
+                "alpha": p["alpha"],
+                "learning_rate_init": p["learning_rate_init"],
+                "max_iter": p["max_iter"],
+            },
+            metrics={"train_accuracy": metrics["train_accuracy"], "test_accuracy": metrics["test_accuracy"]},
+            input_example=X_train.head(5),
+            seed=p["random_state"],
         )
-        return {"out": metrics}
+        return {"model": ref.to_frame(), "metrics": pd.DataFrame([metrics])}
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         return [
@@ -227,12 +355,14 @@ class MlpClassifierTrainRuntime(NodeRuntime):
         config: dict[str, Any],
     ) -> str:
         p = resolve_config(config)
-        inp, out = input_vars["in"], output_vars["out"]
-        # Unique helper names (derived from the output var) so two train nodes in one
-        # flow can't collide in the exported script.
-        feat, mlp = f"{out}_features", f"{out}_mlp"
-        x_tr, x_te = f"{out}_X_train", f"{out}_X_test"
-        y_tr, y_te = f"{out}_y_train", f"{out}_y_test"
+        inp = input_vars["in"]
+        model_var = output_vars.get("model", "mlp_model")
+        metrics_var = output_vars.get("metrics", "mlp_metrics")
+        # Unique helper names (derived from the model var) so two train nodes in
+        # one flow can't collide in the exported script.
+        feat = f"{model_var}_features"
+        x_tr, x_te = f"{model_var}_X_train", f"{model_var}_X_test"
+        y_tr, y_te = f"{model_var}_y_train", f"{model_var}_y_test"
         target = p["target_column"]
         feat_expr = (
             repr(list(p["feature_columns"]))
@@ -247,22 +377,22 @@ class MlpClassifierTrainRuntime(NodeRuntime):
                 f"    {inp}[{feat}], {inp}[{target!r}],",
                 f"    test_size={p['test_size']!r}, random_state={p['random_state']!r}, stratify={stratify_expr},",
                 ")",
-                f"{mlp} = MLPClassifier(",
+                f"{model_var} = MLPClassifier(",
                 f"    hidden_layer_sizes={p['hidden_layer_sizes']!r}, activation={p['activation']!r}, "
                 f"solver={p['solver']!r},",
                 f"    alpha={p['alpha']!r}, learning_rate_init={p['learning_rate_init']!r}, "
                 f"max_iter={p['max_iter']!r},",
                 f"    random_state={p['random_state']!r},",
                 ")",
-                f"{mlp}.fit({x_tr}, {y_tr})",
-                f"{out} = pd.DataFrame([{{",
+                f"{model_var}.fit({x_tr}, {y_tr})",
+                f"{metrics_var} = pd.DataFrame([{{",
                 f"    'n_samples': len({inp}),",
                 f"    'n_features': len({feat}),",
-                f"    'n_classes': len({mlp}.classes_),",
-                f"    'train_accuracy': accuracy_score({y_tr}, {mlp}.predict({x_tr})),",
-                f"    'test_accuracy': accuracy_score({y_te}, {mlp}.predict({x_te})),",
-                f"    'n_iterations': {mlp}.n_iter_,",
-                f"    'final_loss': {mlp}.loss_,",
+                f"    'n_classes': len({model_var}.classes_),",
+                f"    'train_accuracy': accuracy_score({y_tr}, {model_var}.predict({x_tr})),",
+                f"    'test_accuracy': accuracy_score({y_te}, {model_var}.predict({x_te})),",
+                f"    'n_iterations': {model_var}.n_iter_,",
+                f"    'final_loss': {model_var}.loss_,",
                 "}])",
             ]
         )
@@ -273,18 +403,25 @@ class _MlpNodeProvider(NodeProvider):
         return [
             NodeSpec(
                 id=NODE_ID,
-                label="MLP Classifier (train + evaluate)",
+                label="MLP Classifier (train)",
                 category="ml",
                 description=(
-                    "Trains a scikit-learn MLPClassifier on the input and outputs a "
-                    "metrics summary (train/test accuracy, iterations, final loss)."
+                    "Trains a scikit-learn MLPClassifier, persists it to MLflow, and emits "
+                    "a typed model reference (for Predict / Feature Importance) plus a "
+                    "train/test metrics summary."
                 ),
                 provider=PLUGIN_ID,
-                version="0.1.0",
+                version="0.2.0",
                 inputs=(PortSpec(id="in"),),
-                outputs=(PortSpec(id="out"),),
+                outputs=(
+                    PortSpec(id="model", type="model"),
+                    PortSpec(id="metrics"),
+                ),
                 default_config=dict(DEFAULT_CONFIG),
                 capabilities=("node.sklearn.mlp",),
+                is_model_sink=True,
+                is_flow_terminal=True,
+                config_schema=CONFIG_SCHEMA,
             )
         ]
 
@@ -292,15 +429,42 @@ class _MlpNodeProvider(NodeProvider):
         return {NODE_ID: MlpClassifierTrainRuntime()}
 
 
+class _MlpModelProvider(ModelProvider):
+    def model_types(self) -> list[ModelTypeSpec]:
+        return [
+            ModelTypeSpec(
+                id=MODEL_TYPE,
+                label="MLP (neural network)",
+                task="classification",
+                supervised=True,
+                provider=PLUGIN_ID,
+                description="Multi-layer perceptron classifier (scikit-learn MLPClassifier).",
+                requires=("sklearn",),
+                install_hint="pip install scikit-learn",
+                default_hyperparameters={"hidden_layer_sizes": "100", "max_iter": 200},
+                hyperparameter_schema=HYPERPARAMETER_SCHEMA,
+                import_lines=("from sklearn.neural_network import MLPClassifier",),
+            )
+        ]
+
+    def model_builders(self) -> dict[str, Any]:
+        return {MODEL_TYPE: build_mlp}
+
+
 class MlpClassifierPlugin(Plugin):
     def metadata(self) -> PluginMetadata:
         return PluginMetadata(
             id=PLUGIN_ID,
             name="MLP Classifier",
-            version="0.1.0",
+            version="0.2.0",
             publisher="community",
-            description="Train and evaluate a scikit-learn MLPClassifier from a node on the canvas.",
+            description=(
+                "Neural-network classification for Ciaren: adds the mlp_classifier model "
+                "type to the core Train Classifier node and a standalone MLP train node "
+                "that emits a typed model reference."
+            ),
         )
 
     def register(self, registry: ServiceRegistry) -> None:
         registry.register_node_provider(_MlpNodeProvider())
+        registry.register_model_provider(_MlpModelProvider())

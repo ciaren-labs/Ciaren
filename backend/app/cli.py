@@ -319,6 +319,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Where to write the manifest (default: <src_dir>/ciaren-plugin.json). Use '-' for stdout.",
     )
     p_manifest.add_argument("--ciaren", default=">=0.1", help="PEP 440 compatible-Ciaren specifier.")
+    p_manifest.add_argument(
+        "--api-version",
+        dest="api_version",
+        default=None,
+        help="Plugin-contract version the plugin targets (MAJOR.MINOR). "
+        "Defaults to the installed SDK's PLUGIN_API_VERSION. Set a lower minor to "
+        "run on more hosts when you only use older-contract features.",
+    )
     p_manifest.add_argument("--license", default="community", choices=("community", "commercial"))
     p_manifest.add_argument("--trust", default="community", choices=("trusted", "verified", "community"))
 
@@ -905,6 +913,7 @@ def _plugin_manifest(args: argparse.Namespace) -> None:
     import json as _json
     from pathlib import Path
 
+    from app.plugin_api import PLUGIN_API_VERSION
     from app.plugins.authoring import manifest_json_from_plugin
     from app.plugins.loader import load_entrypoint
 
@@ -932,6 +941,7 @@ def _plugin_manifest(args: argparse.Namespace) -> None:
             plugin,
             entrypoint=entrypoint,
             ciaren=args.ciaren,
+            api_version=args.api_version or PLUGIN_API_VERSION,
             license=args.license,
             trust=args.trust,
         )

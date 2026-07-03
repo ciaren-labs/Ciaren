@@ -7,6 +7,8 @@ body:
     attributes:
       value: |
         Use this for concrete product or engineering proposals. For early brainstorming, usage questions, or "would this be useful?" conversations, please start in Discussions first.
+
+        Ciaren's open core stays intentionally lightweight. Requests for niche databases, SaaS products, internal APIs, or proprietary storage systems should normally be built as plugins with the Plugin SDK. Please do not open a feature request asking maintainers to add a long-tail connector to core unless you are proposing a broadly useful core capability or an SDK gap that blocks plugin authors.
   - type: checkboxes
     id: preflight
     attributes:
@@ -15,6 +17,8 @@ body:
         - label: I searched existing issues, PRs, and docs for this request.
           required: true
         - label: This is a concrete feature request, not a support question.
+          required: true
+        - label: If this is about a new connector/integration, I considered the Plugin SDK path first.
           required: true
         - label: I am willing to clarify requirements or help test the feature.
           required: false
@@ -28,7 +32,7 @@ body:
         - Flow editor
         - Transformation engine
         - Data connectors/storage
-        - Plugins/marketplace
+        - Plugins/SDK
         - CLI/client
         - Documentation
         - Docker/deployment
@@ -45,7 +49,8 @@ body:
         - Small improvement
         - New option or setting
         - New transformation node
-        - New connector or integration
+        - Plugin SDK gap
+        - Broad core connector capability
         - Large architecture or product change
         - Unsure
     validations:

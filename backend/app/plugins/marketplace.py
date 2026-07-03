@@ -21,6 +21,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.plugin_api import Permission
 from app.plugin_api.specs import DEFAULT_PLUGIN_NODE_CATEGORY
 
+#: The index schema major version this client understands. Minor additions
+#: (new optional fields) parse fine; a new *major* means a shape change this
+#: client cannot safely interpret, so it is refused rather than misread.
+SUPPORTED_SCHEMA_MAJOR = 1
+
+
+class MarketplaceIndexError(ValueError):
+    """An index this client cannot use (malformed or incompatible schema version)."""
+
 
 class MarketplaceEntry(BaseModel):
     """One plugin as advertised in a marketplace index."""
@@ -62,9 +71,17 @@ class MarketplaceIndex(BaseModel):
 
     schema_version: str = Field(default="1.0.0", alias="schemaVersion")
     plugins: list[MarketplaceEntry] = Field(default_factory=list)
+    #: Plugin ids the catalog has withdrawn (e.g. malicious or broken releases).
+    #: Independent of ``plugins``: an id stays revocable after it is delisted, so
+    #: users who already installed it can still be warned. Clients refuse to
+    #: install a revoked id and flag it where it is already installed.
+    revoked: list[str] = Field(default_factory=list)
 
     def find(self, plugin_id: str) -> MarketplaceEntry | None:
         return next((p for p in self.plugins if p.id == plugin_id), None)
+
+    def is_revoked(self, plugin_id: str) -> bool:
+        return plugin_id in self.revoked
 
     def search(self, query: str) -> list[MarketplaceEntry]:
         """Case-insensitive match over id, name, description, and capabilities."""
@@ -81,18 +98,32 @@ class MarketplaceIndex(BaseModel):
         ]
 
 
+def _check_schema(index: MarketplaceIndex) -> MarketplaceIndex:
+    """Refuse an index whose schema major this client does not understand —
+    misreading a future shape is worse than a clear error."""
+    major = index.schema_version.split(".", 1)[0]
+    if not major.isdigit() or int(major) != SUPPORTED_SCHEMA_MAJOR:
+        raise MarketplaceIndexError(
+            f"unsupported marketplace index schemaVersion {index.schema_version!r} "
+            f"(this Ciaren understands major {SUPPORTED_SCHEMA_MAJOR})"
+        )
+    return index
+
+
 def load_index(path: str | os.PathLike[str]) -> MarketplaceIndex:
-    """Load a marketplace index from a local JSON file."""
+    """Load a marketplace index from a local JSON file. Raises
+    :class:`MarketplaceIndexError` on an incompatible schema version."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return MarketplaceIndex.model_validate(data)
+    return _check_schema(MarketplaceIndex.model_validate(data))
 
 
 def parse_index(data: dict[str, Any] | str) -> MarketplaceIndex:
     """Parse an index from an already-loaded mapping or JSON string (e.g. an HTTP
-    response body, when a hosted index is added later)."""
+    response body, when a hosted index is added later). Raises
+    :class:`MarketplaceIndexError` on an incompatible schema version."""
     if isinstance(data, str):
         data = json.loads(data)
-    return MarketplaceIndex.model_validate(data)
+    return _check_schema(MarketplaceIndex.model_validate(data))
 
 
 # -- configured catalog source ------------------------------------------------
@@ -177,7 +208,7 @@ def build_entry(package_path: str | os.PathLike[str], *, download_url: str = "")
 def upsert_entry(index: MarketplaceIndex, entry: MarketplaceEntry) -> MarketplaceIndex:
     """Return a copy of ``index`` with ``entry`` added or replacing the same id."""
     kept = [e for e in index.plugins if e.id != entry.id]
-    return MarketplaceIndex(schema_version=index.schema_version, plugins=[*kept, entry])
+    return MarketplaceIndex(schema_version=index.schema_version, plugins=[*kept, entry], revoked=index.revoked)
 
 
 def add_to_index_file(
