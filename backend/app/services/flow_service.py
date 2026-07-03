@@ -14,13 +14,69 @@ from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.parameters import ParameterError, validate_parameter_specs
 from app.engine.registry import list_transformation_types
-from app.schemas.flow import FlowCreate, FlowImport, FlowRead, FlowUpdate
+from app.flow_schema import (
+    CURRENT_SCHEMA_VERSION,
+    FlowSchemaError,
+    MigrationError,
+    document_version,
+    migrate,
+    validate,
+    validate_document,
+)
+from app.schemas.flow import (
+    FlowCreate,
+    FlowImport,
+    FlowMigrateDocumentResponse,
+    FlowRead,
+    FlowUpdate,
+)
 from app.services.project_service import ProjectService
 
 # Config keys that bind a node to *this* environment (a specific uploaded dataset,
 # a saved connection). They are stripped on import so the flow is portable; the
 # importer re-selects them. (model_uri is a logical MLflow reference, kept as-is.)
 _ENV_BOUND_CONFIG_KEYS = ("dataset_id", "dataset_version", "connection_id")
+
+
+def _normalize_import_payload(data: FlowImport) -> dict[str, Any]:
+    """Build the raw dict ``app.flow_schema.migrate``/``validate_document``
+    expect from either import envelope: the legacy ``graph_json`` shape
+    (today's real export format) or the versioned ``graph``/``schemaVersion``
+    shape."""
+    if data.graph is not None:
+        raw: dict[str, Any] = {
+            "graph": data.graph,
+            "project": {"name": data.name or "Imported flow", "description": data.description},
+        }
+        if data.schema_version is not None:
+            raw["schemaVersion"] = data.schema_version
+        return raw
+    return {
+        "name": data.name or "Imported flow",
+        "description": data.description,
+        "graph_json": data.graph_json or {},
+    }
+
+
+def migrate_flow_document(data: dict[str, Any], target: str = CURRENT_SCHEMA_VERSION) -> FlowMigrateDocumentResponse:
+    """Migrate/validate a raw ``.flow`` document to ``target`` without
+    persisting anything — the standalone file-to-file utility backing
+    ``POST /api/flows/migrate-document``. Unlike :meth:`FlowService.import_flow`,
+    this uses the full ``validate()`` (shape + graph structure) since it's a
+    generic file tool, decoupled from Ciaren's node-type registry, so
+    structural issues (dangling edges, duplicate ids) should be reported as
+    real errors."""
+    from_version = document_version(data)
+    try:
+        document = validate(migrate(data, target=target))
+    except (MigrationError, FlowSchemaError) as exc:
+        raise ValidationError(str(exc)) from exc
+    return FlowMigrateDocumentResponse(
+        document=document.to_json_dict(),
+        migrated=from_version != document.schema_version,
+        from_version=from_version,
+        to_version=document.schema_version,
+    )
 
 
 def _references_dataset(graph: dict[str, Any], dataset_id: str) -> bool:
@@ -84,8 +140,20 @@ class FlowService:
 
     async def import_flow(self, data: FlowImport) -> FlowRead:
         """Create a flow from an exported document, stripping environment-specific
-        bindings so it is portable across machines (CI/CD friendly)."""
-        graph = self._sanitize_imported_graph(data.graph_json)
+        bindings so it is portable across machines (CI/CD friendly).
+
+        Routes through ``app.flow_schema`` (migrate to the current schema
+        version, then shape-validate) so a future ``schemaVersion`` bump has a
+        real upgrade path instead of silently mis-parsing older exports. Uses
+        ``validate_document`` (shape only), not the full ``validate`` — the
+        latter treats dangling edges as a hard error, and import is
+        deliberately lenient about those (they're dropped below instead)."""
+        raw = _normalize_import_payload(data)
+        try:
+            document = validate_document(migrate(raw))
+        except (MigrationError, FlowSchemaError) as exc:
+            raise ValidationError(str(exc)) from exc
+        graph = self._sanitize_imported_graph(document.graph.model_dump(mode="json"))
         project_id = await ProjectService(self.db).resolve_id(data.project_id)
         flow = Flow(
             name=(data.name or "Imported flow").strip()[:255] or "Imported flow",

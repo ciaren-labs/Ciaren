@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class FlowCreate(BaseModel):
@@ -36,13 +36,41 @@ class FlowDocument(BaseModel):
 
 class FlowImport(BaseModel):
     """Payload for importing a flow document. Environment-specific bindings
-    (dataset/connection ids) in the graph are stripped on import."""
+    (dataset/connection ids) in the graph are stripped on import.
+
+    Accepts either envelope: the legacy ``graph_json`` shape (today's real
+    export format) or the versioned ``graph``/``schemaVersion`` shape from
+    ``app.flow_schema`` — whichever is present is routed through the
+    ``flow_schema`` migrate/validate pipeline before import."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     format: str | None = None
     name: str | None = Field(None, max_length=255)
     description: str | None = None
     project_id: str | None = None
-    graph_json: dict[str, Any]
+    graph_json: dict[str, Any] | None = None
+    graph: dict[str, Any] | None = None
+    schema_version: str | None = Field(None, alias="schemaVersion")
+
+    @model_validator(mode="after")
+    def _require_a_graph(self) -> "FlowImport":
+        if self.graph_json is None and self.graph is None:
+            raise ValueError("either 'graph_json' or 'graph' is required")
+        return self
+
+
+class FlowMigrateDocumentRequest(BaseModel):
+    """Raw .flow document (legacy or versioned) to migrate. Not persisted."""
+
+    document: dict[str, Any]
+
+
+class FlowMigrateDocumentResponse(BaseModel):
+    document: dict[str, Any]
+    migrated: bool
+    from_version: str
+    to_version: str
 
 
 class CodeExportResponse(BaseModel):
