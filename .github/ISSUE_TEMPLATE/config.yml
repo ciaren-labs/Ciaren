@@ -3,6 +3,9 @@ contact_links:
   - name: Questions, setup help, and troubleshooting
     url: https://github.com/ciaren-labs/Ciaren/discussions
     about: Please use Discussions for usage questions, setup help, design ideas, and open-ended troubleshooting.
+  - name: New connector or integration idea
+    url: https://github.com/ciaren-labs/Ciaren/discussions
+    about: Ciaren keeps core connectors limited; please discuss new database, SaaS, API, or storage integrations as community plugin ideas.
   - name: Security vulnerability report
     url: https://github.com/ciaren-labs/Ciaren/security/advisories/new
     about: Please report suspected vulnerabilities privately. Do not open a public issue for security problems.

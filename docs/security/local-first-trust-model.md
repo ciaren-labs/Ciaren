@@ -45,9 +45,15 @@ are intentionally available. They run with the privileges of the local process.
   inside the configured artifact directory (no `..` traversal, no absolute paths
   elsewhere); otherwise an MLflow `runs:/` / `models:/` URI is required.
 - **Plugin code is gated before import.** A drop-in plugin that declares
-  permissions is not imported until you approve it.
-- **Tampered packages are refused.** A `.ciarenplugin` whose contents don't match its
-  signature digest never installs.
+  permissions is not imported until you approve it, and the app upload flow adds a
+  risk confirmation (an off-by-default acknowledgement toggle) before installing.
+- **Tampered or incompatible packages are refused.** A `.ciarenplugin` whose
+  contents don't match its signature digest never installs, and one whose declared
+  `ciaren`/`api_version` is incompatible with this build is rejected before it can
+  replace a working install.
+- **Optional plugin permission enforcement.** `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn|enforce`
+  logs or blocks ungranted network/file-write/subprocess/shell actions by plugin
+  code at runtime (a bar-raiser, not a sandbox — see the caveat above).
 - **Cross-site requests can't drive the local API.** Any website you visit can
   *send* requests to `http://127.0.0.1` — CORS only stops it from reading the
   responses. Ciaren therefore refuses state-changing `/api` requests whose

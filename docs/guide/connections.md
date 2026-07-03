@@ -46,6 +46,12 @@ scrubbed from driver error messages.
 
 ## Supported databases
 
+Ciaren keeps built-in connectors selective so the open core stays lightweight.
+The list below covers common local, SQL, document, storage, and API workflows.
+For niche databases, SaaS products, internal APIs, or proprietary systems, use a
+[connector plugin](/plugins/connector-plugins) instead of adding the integration
+to core.
+
 | Provider | Driver (optional) | Install |
 | ---------- | ------------------- | --------- |
 | PostgreSQL | `psycopg` | `pip install ciaren[postgres]` |
@@ -90,6 +96,57 @@ for your OS.
    SQLite asks only for a file path; the others ask for host, port, database,
    username, and the **password env-var name** (the actual secret is never stored).
 1. Save, then click **Test** to verify connectivity.
+
+## Web APIs
+
+The built-in **REST API** connector reads HTTP JSON/CSV endpoints like database
+tables — no driver required. It covers the connection options commercial tools
+offer:
+
+| Option | What it does |
+| --- | --- |
+| **Base URL** | Every endpoint path is resolved against it. |
+| **Authentication** | None, **API key header** (configurable header name), **Bearer token**, or **HTTP Basic**. The secret always comes from an env var — never stored. |
+| **Endpoints** | Relative paths declared on the connection; each appears as a *table* in SQL Input. |
+| **Custom headers / default query params** | Applied to every request (tenant headers, API versions, fixed filters). |
+| **Response format & records path** | Auto/JSON/CSV, plus a dot path (e.g. `data.items`) for APIs that wrap their rows. |
+| **Pagination** | Page-number pagination: page/page-size param names, page size, and a max-pages cap — the connector loops pages automatically. |
+| **Timeout & TLS verification** | Per-connection request timeout and a TLS-verify toggle for internal endpoints. |
+
+![Configure connection form for the REST API connector — base URL, authentication method, secret env var, endpoints, and advanced options for headers, parsing, and pagination](/screenshots/connection-form-rest-api.png)
+
+In a flow, use **SQL Input**: pick the API connection, then choose a declared
+**endpoint** or switch to **Custom request path** (e.g. `users?active=true`).
+Each run snapshots the response to parquet like any other input, so runs stay
+reproducible. API connections are **read-only** — SQL Output doesn't list them.
+
+The connector applies the same SSRF host guard as every other connector, and
+responses are size-capped before parsing — 256 MiB per request **and**
+cumulatively across the pages of one paginated read (with a hard ceiling of
+1000 pages per read, whatever `max_pages` says). For larger extractions,
+filter or window the endpoint and split the read across runs.
+
+## Connectors from plugins
+
+Plugins can add connectors Ciaren doesn't ship in core — niche databases,
+SaaS-specific integrations, proprietary stores. Once a connector plugin is
+installed and approved (see [Installing & Managing Plugins](/plugins/managing-plugins)):
+
+- its card appears in the Add-connection dialog under **From plugins**, with a
+  *Plugin* badge;
+- its form is driven by the connector's own metadata and schema — the plugin
+  declares which fields it needs;
+- **Test**, table/object listing, and the SQL / Storage nodes work exactly like
+  a built-in provider. Secrets follow the same env-var-only rule.
+
+See [Connector Plugins](/plugins/connector-plugins) to build one.
+
+:::tip Requesting a new connector
+For long-tail integrations, the preferred contribution is a plugin or an
+improvement to the Plugin SDK that makes the plugin possible. Core connector
+requests are accepted only when the integration is broadly useful and maintainable
+inside the lightweight open core.
+:::
 
 ## Using SQL nodes in a flow
 

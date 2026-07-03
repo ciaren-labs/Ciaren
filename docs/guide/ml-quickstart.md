@@ -124,6 +124,26 @@ Train / Test Split has two outputs (`train`, `test`). Train Classifier emits a
 model reference; blue wires are data.
 :::
 
+### What travels on a model wire
+
+A model wire never carries the model itself. Train nodes persist the fitted
+estimator to **MLflow** and pass a small, typed **model reference** downstream —
+the MLflow run/model URI plus the task, model type, target, and feature columns.
+That keeps flows serializable and reproducible, and it means loading a model
+always goes through Ciaren's safety checks (URI allowlist, artifact-directory
+confinement, no pickles). **Predict** and **Feature Importance** read the
+reference and load the artifact themselves; production flows can instead pin a
+registry URI like `models:/churn/Production` directly in Predict's config.
+
+### Models from plugins
+
+Plugins can contribute additional algorithms to the model picker — they appear
+in the same dropdown, grouped by task, and train/log/export exactly like the
+built-ins (a warning shows if the plugin's library isn't installed). Plugins can
+also ship whole custom train nodes whose `model` output feeds Predict like any
+other. Try the bundled **MLP Classifier** example from the Plugins page, or see
+[ML Model Plugins](/plugins/ml-model-plugins) to build your own.
+
 ## Add cross-validation
 
 To estimate generalization before training the final artifact:

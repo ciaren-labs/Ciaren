@@ -20,6 +20,7 @@ from app.plugin_api.providers import (
     ExecutionProvider,
     ExporterProvider,
     LicenseProvider,
+    ModelProvider,
     NodeProvider,
     Plugin,
     StorageProvider,
@@ -32,6 +33,7 @@ from app.plugin_api.specs import (
     ExecutionSpec,
     ExporterSpec,
     LicenseStatus,
+    ModelTypeSpec,
     NodeSpec,
     PluginMetadata,
     StorageSpec,
@@ -52,6 +54,9 @@ class ServiceRegistry:
         self._node_specs: dict[str, NodeSpec] = {}
         self._node_impls: dict[str, Any] = {}
         self._connectors: dict[str, ConnectorSpec] = {}
+        self._connector_impls: dict[str, Any] = {}
+        self._model_types: dict[str, ModelTypeSpec] = {}
+        self._model_builders: dict[str, Any] = {}
         self._storage: dict[str, StorageSpec] = {}
         self._execution: dict[str, ExecutionSpec] = {}
         self._exporters: dict[str, ExporterSpec] = {}
@@ -91,9 +96,20 @@ class ServiceRegistry:
                 self._node_impls[spec.id] = impls[spec.id]
 
     def register_connector_provider(self, provider: ConnectorProvider) -> None:
+        impls = provider.connector_implementations()
         for spec in provider.connectors():
             self._put(self._connectors, spec.id, spec, "connector")
             self._record_capabilities(spec.capabilities, spec.provider)
+            if spec.id in impls:
+                self._connector_impls[spec.id] = impls[spec.id]
+
+    def register_model_provider(self, provider: ModelProvider) -> None:
+        builders = provider.model_builders()
+        for spec in provider.model_types():
+            self._put(self._model_types, spec.id, spec, "model type")
+            self._record_capabilities((f"model.{spec.id}",), spec.provider)
+            if spec.id in builders:
+                self._model_builders[spec.id] = builders[spec.id]
 
     def register_storage_provider(self, provider: StorageProvider) -> None:
         for spec in provider.storage_backends():
@@ -144,6 +160,25 @@ class ServiceRegistry:
 
     def connector_specs(self) -> list[ConnectorSpec]:
         return [self._connectors[k] for k in sorted(self._connectors)]
+
+    def connector_spec(self, connector_id: str) -> ConnectorSpec | None:
+        return self._connectors.get(connector_id)
+
+    def connector_implementation(self, connector_id: str) -> Any | None:
+        """The executable :class:`ConnectorRuntime` for a connector id, or ``None``
+        for catalog-only/core connectors."""
+        return self._connector_impls.get(connector_id)
+
+    def model_type_specs(self) -> list[ModelTypeSpec]:
+        return [self._model_types[k] for k in sorted(self._model_types)]
+
+    def model_type_spec(self, model_type: str) -> ModelTypeSpec | None:
+        return self._model_types.get(model_type)
+
+    def model_builder(self, model_type: str) -> Any | None:
+        """The estimator builder for a contributed model type, or ``None`` when
+        the type is catalog-only (or unknown)."""
+        return self._model_builders.get(model_type)
 
     def storage_specs(self) -> list[StorageSpec]:
         return [self._storage[k] for k in sorted(self._storage)]
@@ -209,6 +244,9 @@ class ServiceRegistry:
         "_node_specs",
         "_node_impls",
         "_connectors",
+        "_connector_impls",
+        "_model_types",
+        "_model_builders",
         "_storage",
         "_execution",
         "_exporters",

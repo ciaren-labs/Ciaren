@@ -39,7 +39,7 @@ export function modelsForNodeType(nodeType: string): MlModelDef[] {
   return task ? ML_MODELS.filter((m) => m.task === task) : ML_MODELS;
 }
 
-export type HyperControl = "int" | "float" | "bool" | "select";
+export type HyperControl = "int" | "float" | "bool" | "select" | "text";
 
 export interface HyperParam {
   name: string;

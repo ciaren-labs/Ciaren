@@ -183,16 +183,12 @@ async def test_mlflow_connection_requires_uri(client: AsyncClient):
 
 
 async def test_mlflow_connection_type_is_mlflow(client: AsyncClient, tmp_path):
-    created = await _create(
-        client, name="ml-conn", provider="mlflow", database=str(tmp_path / "mlruns")
-    )
+    created = await _create(client, name="ml-conn", provider="mlflow", database=str(tmp_path / "mlruns"))
     assert created["connection_type"] == "mlflow"
 
 
 async def test_mlflow_connection_test_succeeds_for_local_store(client: AsyncClient, tmp_path):
-    created = await _create(
-        client, name="ml-local", provider="mlflow", database=str(tmp_path / "mlruns")
-    )
+    created = await _create(client, name="ml-local", provider="mlflow", database=str(tmp_path / "mlruns"))
     r = await client.post(f"/api/connections/{created['id']}/test")
     assert r.status_code == 200
     assert r.json()["ok"] is True

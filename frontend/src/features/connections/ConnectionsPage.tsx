@@ -9,6 +9,7 @@ import {
   Database,
   FlaskConical,
   FolderOpen,
+  Globe,
   HardDrive,
   Loader2,
   Pencil,
@@ -39,9 +40,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ApiError } from "@/lib/api";
+import { SchemaConfigFields } from "@/components/flow/SchemaConfigFields";
 import type { Connection, ConnectionCreate, ProviderInfo } from "@/lib/types";
 import {
   useConnectionProviders,
@@ -135,6 +138,12 @@ const PROVIDER_META: Record<string, ProviderMeta> = {
     color: "64748b",
     lucideIcon: FolderOpen,
     description: "Local folder on the server",
+  },
+  rest_api: {
+    brandIcon: null,
+    color: "0EA5E9",
+    lucideIcon: Globe,
+    description: "Any REST / HTTP API returning JSON or CSV",
   },
   mlflow: {
     brandIcon: null,
@@ -320,6 +329,9 @@ function connectionTarget(connection: Connection): string {
   if (connection.provider === "sqlite" || connection.provider === "duckdb") {
     return connection.database ?? connection.provider;
   }
+  if (connection.connection_type === "api") {
+    return connection.host ?? connection.provider;
+  }
   return `${connection.host ?? ""}${connection.port ? `:${connection.port}` : ""}/${connection.database ?? ""}`;
 }
 
@@ -503,8 +515,13 @@ function ProviderCard({
         <div>
           <p className="text-sm font-semibold leading-snug">{provider.label}</p>
           <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-            {meta.description}
+            {meta.description || (provider.plugin ? `Contributed by ${provider.plugin_id}` : "")}
           </p>
+          {provider.plugin && (
+            <span className="mt-1.5 inline-block rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+              Plugin
+            </span>
+          )}
         </div>
       </button>
 
@@ -614,18 +631,25 @@ function ConnectionDialog({
   const setOption = (key: string, value: string) =>
     set({ options: { ...(form.options ?? {}), [key]: value || undefined } });
 
+  // Schema-driven plugin fields can hold any JSON value (booleans, numbers, lists).
+  const setOptionValue = (key: string, value: unknown) =>
+    set({ options: { ...(form.options ?? {}), [key]: value === "" ? undefined : value } });
+
   const provider = useMemo(
     () => providers.find((p) => p.name === form.provider),
     [providers, form.provider],
   );
   const isStorage = provider?.kind === "storage";
   const isMlflow = provider?.kind === "mlflow";
+  const isApi = provider?.kind === "api" && !provider?.plugin;
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
 
   const selectableProviders = providers;
-  const dbProviders = selectableProviders.filter((p) => p.kind === "sql" || p.kind === "mongo");
-  const storageProviders = selectableProviders.filter((p) => p.kind === "storage");
-  const trackingProviders = selectableProviders.filter((p) => p.kind === "mlflow");
+  const dbProviders = selectableProviders.filter((p) => !p.plugin && (p.kind === "sql" || p.kind === "mongo"));
+  const apiProviders = selectableProviders.filter((p) => !p.plugin && p.kind === "api");
+  const storageProviders = selectableProviders.filter((p) => !p.plugin && p.kind === "storage");
+  const trackingProviders = selectableProviders.filter((p) => !p.plugin && p.kind === "mlflow");
+  const pluginProviders = selectableProviders.filter((p) => p.plugin);
 
   const selectProvider = (p: ProviderInfo) => {
     testConfig.reset();
@@ -714,6 +738,11 @@ function ConnectionDialog({
                   onSelect={selectProvider}
                 />
                 <ProviderSection
+                  label="APIs"
+                  providers={apiProviders}
+                  onSelect={selectProvider}
+                />
+                <ProviderSection
                   label="Storage"
                   providers={storageProviders}
                   onSelect={selectProvider}
@@ -721,6 +750,11 @@ function ConnectionDialog({
                 <ProviderSection
                   label="Experiment tracking"
                   providers={trackingProviders}
+                  onSelect={selectProvider}
+                />
+                <ProviderSection
+                  label="From plugins"
+                  providers={pluginProviders}
                   onSelect={selectProvider}
                 />
               </div>
@@ -791,7 +825,16 @@ function ConnectionDialog({
                 />
               </Field>
 
-              {isMlflow ? (
+              {provider?.plugin ? (
+                <PluginProviderFields
+                  form={form}
+                  provider={provider}
+                  set={set}
+                  setOptionValue={setOptionValue}
+                />
+              ) : isApi ? (
+                <ApiFields form={form} set={set} setOptionValue={setOptionValue} />
+              ) : isMlflow ? (
                 <Field
                   label="Tracking URI"
                   hint="A local folder (./mlruns), sqlite:///path/mlflow.db, or a tracking server (http://host:5000)."
@@ -892,6 +935,311 @@ function ConnectionDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── REST API connector fields ────────────────────────────────────────────────
+
+const API_AUTH_STYLES = [
+  { value: "none", label: "No authentication" },
+  { value: "api_key", label: "API key header" },
+  { value: "bearer", label: "Bearer token" },
+  { value: "basic", label: "Basic (username + password)" },
+];
+
+/** Parse a "key: value" line-based textarea into a mapping (empty → undefined). */
+function parseKeyValueLines(text: string): Record<string, string> | undefined {
+  const entries = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const idx = line.indexOf(":");
+      return idx === -1 ? [line, ""] : [line.slice(0, idx).trim(), line.slice(idx + 1).trim()];
+    })
+    .filter(([k]) => k);
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+function keyValueLines(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  return Object.entries(value as Record<string, string>)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join("\n");
+}
+
+/** The core REST API connector form — modeled on commercial API connectors:
+ *  base URL + auth method up front, endpoints-as-tables, and an advanced
+ *  section for headers, params, parsing, and pagination. */
+function ApiFields({
+  form,
+  set,
+  setOptionValue,
+}: {
+  form: ConnectionCreate;
+  set: (patch: Partial<ConnectionCreate>) => void;
+  setOptionValue: (key: string, value: unknown) => void;
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const opts = (form.options ?? {}) as Record<string, unknown>;
+  const authStyle = String(opts.auth_style ?? "none");
+  const endpoints = Array.isArray(opts.endpoints) ? (opts.endpoints as string[]) : [];
+
+  return (
+    <>
+      <Field label="Base URL" hint="Endpoint paths are resolved against this URL">
+        <Input
+          value={form.host ?? ""}
+          onChange={(e) => set({ host: e.target.value })}
+          placeholder="https://api.example.com/v1"
+        />
+      </Field>
+
+      <Field label="Authentication">
+        <Select value={authStyle} onChange={(e) => setOptionValue("auth_style", e.target.value)}>
+          {API_AUTH_STYLES.map((a) => (
+            <option key={a.value} value={a.value}>
+              {a.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      {authStyle === "api_key" && (
+        <Field label="API key header" hint='The header the key is sent in (default "X-API-Key")'>
+          <Input
+            value={String(opts.api_key_header ?? "")}
+            onChange={(e) => setOptionValue("api_key_header", e.target.value)}
+            placeholder="X-API-Key"
+          />
+        </Field>
+      )}
+      {authStyle === "basic" && (
+        <Field label="Username">
+          <Input value={form.username ?? ""} onChange={(e) => set({ username: e.target.value })} />
+        </Field>
+      )}
+      {authStyle !== "none" && (
+        <Field
+          label="Secret env var"
+          hint={
+            authStyle === "basic"
+              ? "Env var holding the password — the value is never stored"
+              : "Env var holding the token / API key — the value is never stored"
+          }
+        >
+          <Input
+            value={form.password_env ?? ""}
+            onChange={(e) => set({ password_env: e.target.value })}
+            placeholder="MY_API_TOKEN"
+          />
+        </Field>
+      )}
+
+      <Field
+        label="Endpoints"
+        hint="Comma-separated relative paths — each one appears as a table in SQL Input"
+      >
+        <Input
+          value={endpoints.join(", ")}
+          onChange={(e) =>
+            setOptionValue(
+              "endpoints",
+              e.target.value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            )
+          }
+          placeholder="users, orders, invoices"
+        />
+      </Field>
+
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((s) => !s)}
+        className="self-start text-[11px] font-medium text-primary hover:underline"
+      >
+        {showAdvanced ? "Hide advanced options" : "Advanced options (headers, parsing, pagination)"}
+      </button>
+
+      {showAdvanced && (
+        <>
+          <Field label="Custom headers" hint="One per line, e.g. X-Tenant: acme">
+            <textarea
+              className="min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm"
+              value={keyValueLines(opts.headers)}
+              onChange={(e) => setOptionValue("headers", parseKeyValueLines(e.target.value))}
+              placeholder={"X-Tenant: acme\nAccept-Language: en"}
+            />
+          </Field>
+          <Field label="Default query params" hint="Appended to every request — one per line, e.g. limit: 500">
+            <textarea
+              className="min-h-[48px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm"
+              value={keyValueLines(opts.query_params)}
+              onChange={(e) => setOptionValue("query_params", parseKeyValueLines(e.target.value))}
+              placeholder="active: true"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Response format">
+              <Select
+                value={String(opts.response_format ?? "auto")}
+                onChange={(e) => setOptionValue("response_format", e.target.value)}
+              >
+                <option value="auto">Auto-detect</option>
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+              </Select>
+            </Field>
+            <Field label="Records path" hint='Dot path to the rows, e.g. "data.items"'>
+              <Input
+                value={String(opts.records_path ?? "")}
+                onChange={(e) => setOptionValue("records_path", e.target.value)}
+                placeholder="data.items"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Page param" hint="Enables page-number pagination">
+              <Input
+                value={String(opts.page_param ?? "")}
+                onChange={(e) => setOptionValue("page_param", e.target.value)}
+                placeholder="page"
+              />
+            </Field>
+            <Field label="Page size param">
+              <Input
+                value={String(opts.page_size_param ?? "")}
+                onChange={(e) => setOptionValue("page_size_param", e.target.value)}
+                placeholder="per_page"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Page size">
+              <Input
+                type="number"
+                min={1}
+                value={opts.page_size == null ? "" : Number(opts.page_size)}
+                onChange={(e) =>
+                  setOptionValue("page_size", e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="100"
+              />
+            </Field>
+            <Field label="Max pages">
+              <Input
+                type="number"
+                min={1}
+                value={opts.max_pages == null ? "" : Number(opts.max_pages)}
+                onChange={(e) =>
+                  setOptionValue("max_pages", e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="100"
+              />
+            </Field>
+            <Field label="Timeout (s)">
+              <Input
+                type="number"
+                min={1}
+                value={opts.timeout_seconds == null ? "" : Number(opts.timeout_seconds)}
+                onChange={(e) =>
+                  setOptionValue("timeout_seconds", e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="30"
+              />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={opts.verify_tls !== false}
+              onChange={(e) => setOptionValue("verify_tls", e.target.checked ? undefined : false)}
+            />
+            Verify TLS certificates
+          </label>
+        </>
+      )}
+    </>
+  );
+}
+
+// ─── Plugin connector config fields ───────────────────────────────────────────
+
+/** Form for a plugin-contributed connector: the standard fields its provider
+ *  flags ask for (host/port, database or bucket, username + password env var)
+ *  plus the connector's own `config_schema` fields, which are stored in the
+ *  connection's `options`. */
+function PluginProviderFields({
+  form,
+  provider,
+  set,
+  setOptionValue,
+}: {
+  form: ConnectionCreate;
+  provider: ProviderInfo;
+  set: (patch: Partial<ConnectionCreate>) => void;
+  setOptionValue: (key: string, value: unknown) => void;
+}) {
+  const schemaFields = provider.config_schema?.fields ?? [];
+  const isStorageKind = provider.kind === "storage";
+  return (
+    <>
+      {provider.needs_host && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Host">
+            <Input
+              value={form.host ?? ""}
+              onChange={(e) => set({ host: e.target.value })}
+              placeholder="localhost"
+            />
+          </Field>
+          <Field label="Port">
+            <Input
+              type="number"
+              value={form.port ?? ""}
+              onChange={(e) => set({ port: e.target.value ? Number(e.target.value) : null })}
+            />
+          </Field>
+        </div>
+      )}
+      {(provider.needs_bucket || isStorageKind) && (
+        <Field label={isStorageKind ? "Bucket / folder" : "Bucket"}>
+          <Input
+            value={form.database ?? ""}
+            onChange={(e) => set({ database: e.target.value })}
+          />
+        </Field>
+      )}
+      {(provider.kind === "sql" || provider.kind === "mongo") && (
+        <Field label="Database">
+          <Input value={form.database ?? ""} onChange={(e) => set({ database: e.target.value })} />
+        </Field>
+      )}
+      {provider.needs_auth && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Username">
+            <Input
+              value={form.username ?? ""}
+              onChange={(e) => set({ username: e.target.value })}
+            />
+          </Field>
+          <Field label="Password env var" hint="Name of the env var holding the secret">
+            <Input
+              value={form.password_env ?? ""}
+              onChange={(e) => set({ password_env: e.target.value })}
+              placeholder="MY_SECRET"
+            />
+          </Field>
+        </div>
+      )}
+      <SchemaConfigFields
+        fields={schemaFields}
+        config={(form.options ?? {}) as Record<string, unknown>}
+        onChange={setOptionValue}
+      />
+    </>
   );
 }
 

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -35,6 +37,7 @@ def test_manifest_defaults():
     assert m.publisher == "community"
     assert m.license == "community"
     assert m.ciaren == ">=0.1"
+    assert m.api_version == "0.1.0-alpha.1"
     assert m.permissions == []
     assert m.trust == "community"
 
@@ -89,3 +92,72 @@ def test_compatibility_check(spec, version, expected):
 def test_compatibility_with_garbage_version_is_false():
     m = PluginManifest(id="x", name="X", ciaren=">=0.1")
     assert m.is_compatible_with("not-a-version") is False
+
+
+def test_invalid_api_version_rejected():
+    with pytest.raises(ValidationError):
+        validate_manifest({"id": "x", "name": "X", "api_version": "not-a-version"})
+
+
+@pytest.mark.parametrize(
+    "plugin_api,backend_api,expected",
+    [
+        ("1.0", "1.1", True),  # older plugin on newer backend (additive minor)
+        ("1.1", "1.1", True),  # exact match
+        ("1.0", "1.0", True),
+        ("1.2", "1.1", False),  # plugin needs a minor the backend lacks
+        ("2.0", "1.1", False),  # plugin built for a newer major (breaking)
+        ("1.0", "2.0", False),  # backend dropped the plugin's major (breaking)
+    ],
+)
+def test_api_compatibility_check(plugin_api, backend_api, expected):
+    m = PluginManifest(id="x", name="X", api_version=plugin_api)
+    assert m.is_api_compatible_with(backend_api) is expected
+
+
+@pytest.mark.parametrize(
+    "plugin_api,backend_api,expected",
+    [
+        ("0.1.0-alpha.1", "0.1.0-alpha.1", True),  # exact alpha match
+        ("0.1", "0.1.0-alpha.1", True),  # patch/pre-release ignored — both are 0.1
+        ("0.1", "0.2", False),  # pre-1.0: a minor bump is breaking, no back-compat
+        ("0.2", "0.1", False),  # …in either direction
+        ("0.1", "1.0", False),  # crossing into 1.x is a major change
+    ],
+)
+def test_api_compatibility_pre_1_0_requires_exact_minor(plugin_api, backend_api, expected):
+    """Below 1.0 the contract promises nothing across versions, so major.minor must
+    match exactly — unlike the additive-minor rule that kicks in at 1.0."""
+    m = PluginManifest(id="x", name="X", api_version=plugin_api)
+    assert m.is_api_compatible_with(backend_api) is expected
+
+
+def test_api_compatibility_with_garbage_version_is_false():
+    m = PluginManifest(id="x", name="X", api_version="1.0")
+    assert m.is_api_compatible_with("not-a-version") is False
+
+
+@pytest.mark.parametrize(
+    "plugin_api,backend_api,expected",
+    [
+        ("1.1.0", "1.1", True),  # a patch component is ignored — only major/minor decide
+        ("1", "1.1", True),  # bare major means minor 0 → compatible with any 1.x backend
+        ("1.1", "1.1.9", True),  # backend patch component is likewise ignored
+        ("2", "1.9", False),  # bare newer major is still a breaking mismatch
+    ],
+)
+def test_api_compatibility_ignores_patch_and_handles_bare_major(plugin_api, backend_api, expected):
+    m = PluginManifest(id="x", name="X", api_version=plugin_api)
+    assert m.is_api_compatible_with(backend_api) is expected
+
+
+def test_empty_api_version_rejected():
+    with pytest.raises(ValidationError):
+        validate_manifest({"id": "x", "name": "X", "api_version": ""})
+
+
+def test_api_version_round_trips_through_json():
+    m = validate_manifest({"id": "x", "name": "X", "api_version": "0.1.0-alpha.1"})
+    reparsed = validate_manifest(json.loads(m.model_dump_json(by_alias=True)))
+    assert reparsed.api_version == "0.1.0-alpha.1"
+    assert reparsed == m

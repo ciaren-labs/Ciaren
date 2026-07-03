@@ -119,11 +119,16 @@ contracts** so nearly every capability can be added by a small Python package:
 Plugins can be packaged as portable `.ciarenplugin` files and **cryptographically
 signed** — install only what you trust.
 
+The open core stays intentionally focused. If you need a niche connector,
+SaaS-specific integration, internal API, or custom workflow node, the preferred
+path is a plugin maintained outside core. Core changes should improve the shared
+platform or the SDK that plugin authors build on.
+
 [Explore the plugin platform →](/plugins/overview)
 
 ## The Built-In Toolbox
 
-42 transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
+40+ transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
 
 - **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
 - **Transform:** Filter, aggregate, join, calculated columns, replace/round values
@@ -219,7 +224,7 @@ Ciaren is an open, community-driven project. The best ways to get involved:
 
 - ⭐ **[Star us on GitHub](https://github.com/ciaren-labs/Ciaren)** — it helps others discover the project
 - 💬 **[Ask in Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — questions and ideas welcome
-- 🐛 **[Report a bug](https://github.com/ciaren-labs/Ciaren/issues)** — or request a feature
+- 🐛 **[Report a bug](https://github.com/ciaren-labs/Ciaren/issues)** — or propose focused core/SDK improvements
 - 🧩 **[Build a plugin](/plugins/overview)** — extend the platform and share it
 - 🤝 **[Contribute](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md)** — good first issues are labelled
 

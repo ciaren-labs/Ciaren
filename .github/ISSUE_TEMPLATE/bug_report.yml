@@ -31,7 +31,7 @@ body:
         - Flow editor
         - Transformation engine
         - Data connectors/storage
-        - Plugins/marketplace
+        - Plugins/SDK
         - CLI/client
         - Documentation site
         - Docker/deployment

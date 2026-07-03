@@ -47,6 +47,7 @@ export function nodeSpecToDef(spec: CatalogNode): NodeTypeDef {
   if (spec.inputs.some((p) => p.multi)) def.multiInput = true;
   if (spec.is_model_sink) def.isModelSink = true;
   if (spec.is_flow_terminal) def.isFlowTerminal = true;
+  if (spec.config_schema?.fields?.length) def.configSchema = spec.config_schema.fields;
   return def;
 }
 

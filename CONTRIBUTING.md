@@ -8,6 +8,20 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 
 ## ✨ What We Need
 
+### Project Philosophy
+
+Ciaren is an **open-core** project with a deliberately small built-in surface.
+The core should stay lightweight, local-first, and easy to understand. It will
+include a focused set of broadly useful connectors and transformations, but it
+is not meant to collect every database, SaaS API, proprietary storage system, or
+organization-specific integration.
+
+Use the public Plugin API/SDK for long-tail integrations. If you need a niche
+connector, a product-specific node, or a company-specific workflow, the expected
+path is to build and maintain it as a plugin. Core changes are reserved for
+capabilities that benefit many users, improve the SDK, fix bugs, or unblock
+plugin authors.
+
 ### Code Contributions
 
 - **New transformation nodes** — filters, aggregations, joins, reshaping operations
@@ -15,6 +29,8 @@ This document explains how to contribute — whether you're fixing bugs, adding 
 - **Performance improvements** — especially in the execution engine and preview system
 - **Frontend improvements** — better UX, accessibility, responsive design
 - **Backend improvements** — better error handling, validation, API design
+- **Plugin SDK improvements** — extension points, docs, tests, and examples that
+  make community plugins easier to build
 
 ### Non-Code Contributions
 
@@ -141,6 +157,11 @@ Use descriptive branch names:
 
 - Ciaren is local-first visual ETL for small and medium datasets.
 - Keep the core lightweight; it is not an Airflow, dbt, Spark, or SaaS replacement.
+- Keep built-in connectors selective. New database, SaaS, API, or storage
+  integrations should usually be plugins unless maintainers explicitly accept
+  the integration as core.
+- Prefer improving the Plugin API/SDK over adding long-tail integrations to the
+  open core.
 - The backend is the source of truth for validation, execution, persistence, and code export.
 - Every visual node should map to one clear dataframe operation.
 - Generated Python must be readable and runnable outside Ciaren.
@@ -330,7 +351,10 @@ npm run test:e2e
 
 1. **Check existing issues/PRs** — search [open issues](https://github.com/ciaren-labs/Ciaren/issues) to avoid duplicate work
 2. **Open an issue first for big features** — [start a discussion](https://github.com/ciaren-labs/Ciaren/discussions) before coding
-3. **Keep PRs focused** — one feature or fix per PR, not multiple unrelated changes
+3. **Use plugins for niche integrations** — if your idea is a new connector or
+   product-specific integration, start with the Plugin SDK docs and open a
+   discussion if the SDK blocks you
+4. **Keep PRs focused** — one feature or fix per PR, not multiple unrelated changes
 
 ### Commit Messages
 
@@ -496,6 +520,9 @@ This project includes code generated or assisted by AI. When contributing:
 ## 🚫 What We Won't Accept
 
 - PRs that add **enterprise features** such as multi-tenant auth, cloud sync, distributed execution, or real-time collaboration without prior maintainer agreement
+- PRs that add **long-tail connectors or product-specific integrations to core**
+  without prior maintainer agreement. Build these as plugins instead, or propose
+  an SDK improvement if the plugin path is blocked.
 - **Breaking changes** without discussion — file an issue first
 - **Unmaintained code** — if you add a feature, help maintain it
 - **Security vulnerabilities** — see [SECURITY.md](SECURITY.md) for responsible disclosure

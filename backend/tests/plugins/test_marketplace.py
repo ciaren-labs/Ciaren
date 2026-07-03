@@ -1,10 +1,12 @@
-"""The marketplace index data contract: parse, find, search."""
+"""The marketplace index data contract: parse, find, search, schema gate, revocation."""
 
 from __future__ import annotations
 
 import json
 
-from app.plugins.marketplace import load_index, parse_index
+import pytest
+
+from app.plugins.marketplace import MarketplaceIndexError, load_index, parse_index
 
 _INDEX = {
     "schemaVersion": "1.0.0",
@@ -70,3 +72,23 @@ def test_load_index_from_file(tmp_path):
     index = load_index(path)
     assert len(index.plugins) == 2
     assert index.schema_version == "1.0.0"
+
+
+def test_minor_schema_bump_is_accepted():
+    # Additive (minor) changes parse fine; unknown fields are ignored by pydantic.
+    index = parse_index({**_INDEX, "schemaVersion": "1.7.0", "futureField": True})
+    assert len(index.plugins) == 2
+
+
+@pytest.mark.parametrize("version", ["2.0.0", "0.9.0", "banana"])
+def test_incompatible_or_malformed_schema_is_refused(version):
+    with pytest.raises(MarketplaceIndexError, match="schemaVersion"):
+        parse_index({**_INDEX, "schemaVersion": version})
+
+
+def test_revoked_ids_parse_and_answer():
+    index = parse_index({**_INDEX, "revoked": ["acme.databricks", "gone.plugin"]})
+    assert index.is_revoked("acme.databricks") is True
+    # Revocation works even for an id no longer listed in plugins.
+    assert index.is_revoked("gone.plugin") is True
+    assert index.is_revoked("community.hello") is False
