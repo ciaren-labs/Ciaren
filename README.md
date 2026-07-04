@@ -30,7 +30,7 @@
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
 </p>
 
-![Ciaren generating standalone pandas, Polars, and lazy Polars code live from the same visual flow](docs/public/screenshots/export-python-code.gif)
+![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
 
 ## What Is Ciaren?
 
