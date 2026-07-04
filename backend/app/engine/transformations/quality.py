@@ -45,6 +45,10 @@ class _BaseAssertion(BaseTransformation, EmitsNodeMetadata):
     """Shared skeleton for all assertion nodes."""
 
     emits_metadata: bool = True
+    # Assertions must count violations *now*: the emitted polars checks use
+    # .height / len() / .to_series() / .to_pandas(), none of which exist on a
+    # LazyFrame. In lazy mode the driver materializes around each assert.
+    polars_lazy_safe = False
 
     def execute(
         self,

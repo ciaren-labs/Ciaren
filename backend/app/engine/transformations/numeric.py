@@ -18,6 +18,9 @@ def _codegen_num(value: Any, cast: Callable[[Any], Any]) -> Any:
 
 class RemoveOutliersTransformation(BaseTransformation):
     type = "removeOutliers"
+    # The emitted polars loop computes per-column bounds via series subscripts
+    # (df[_col].quantile(...)), which a LazyFrame doesn't support.
+    polars_lazy_safe = False
 
     _METHODS = {"iqr", "zscore", "percentile"}
     _ACTIONS = {"drop", "clip"}
@@ -123,6 +126,10 @@ class RoundNumbersTransformation(BaseTransformation):
 
 class BinColumnTransformation(BaseTransformation):
     type = "binColumn"
+    # equalwidth needs the column min/max as concrete numbers for .cut()'s
+    # break list — computed via series subscripts a LazyFrame doesn't support.
+    # (The flag is per node, so quantile mode materializes too.)
+    polars_lazy_safe = False
 
     _METHODS = {"equalwidth", "quantile"}
 
