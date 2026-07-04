@@ -74,6 +74,18 @@ test carefully before using it for critical production jobs.
   </div>
 </div>
 
+## From Two Sources to a Model — on One Canvas
+
+Join a CSV file and a SQL table, clean each side, train a classifier, preview the
+result on real data, and export it as clean Polars — without leaving the editor.
+
+<div style="margin: 1.5rem 0 2.5rem; border-radius: 14px; overflow: hidden; box-shadow: 0 16px 48px -16px rgba(109,40,217,0.4); border: 1px solid var(--vp-c-divider);">
+  <video autoplay loop muted playsinline poster="/screenshots/hero-ml-pipeline-poster.jpg" style="display:block; width:100%; height:auto;">
+    <source src="/hero-ml-pipeline.mp4" type="video/mp4" />
+    <img src="/screenshots/hero-ml-pipeline.gif" alt="Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code" style="width:100%" />
+  </video>
+</div>
+
 ## See the Whole System
 
 Ciaren is not only a drag-and-drop editor. It is a local workflow platform with a
