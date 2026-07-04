@@ -292,3 +292,112 @@ img {
   background-color: var(--vp-c-blue-lighter);
   color: var(--vp-c-blue);
 }
+
+/* Home page proof and path cards */
+.ciaren-proof-grid,
+.ciaren-path-grid,
+.ciaren-next-grid {
+  display: grid;
+  gap: 14px;
+  margin: 28px 0;
+}
+
+.ciaren-proof-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ciaren-proof-card,
+.ciaren-path-card,
+.ciaren-next-grid a {
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-soft);
+  border-radius: 8px;
+}
+
+.ciaren-proof-card {
+  padding: 18px;
+}
+
+.ciaren-proof-card strong {
+  display: block;
+  color: var(--vp-c-text-1);
+  font-size: 18px;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.ciaren-proof-card span,
+.ciaren-path-card span,
+.ciaren-path-card p {
+  color: var(--vp-c-text-2);
+}
+
+.ciaren-path-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ciaren-path-card {
+  display: block;
+  padding: 20px;
+  transition:
+    border-color var(--vp-transition-duration-base),
+    box-shadow var(--vp-transition-duration-base),
+    transform var(--vp-transition-duration-base);
+}
+
+.ciaren-path-card:hover,
+.ciaren-next-grid a:hover {
+  border-color: var(--vp-c-brand-2);
+  color: var(--vp-c-brand-1);
+  box-shadow: 0 8px 26px rgba(76, 29, 149, 0.1);
+  transform: translateY(-1px);
+}
+
+.ciaren-path-card span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ciaren-path-card strong {
+  display: block;
+  color: var(--vp-c-text-1);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.ciaren-path-card p {
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+
+.ciaren-next-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ciaren-next-grid a {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+  padding: 14px 16px;
+  transition:
+    border-color var(--vp-transition-duration-base),
+    box-shadow var(--vp-transition-duration-base),
+    transform var(--vp-transition-duration-base);
+}
+
+@media (max-width: 960px) {
+  .ciaren-proof-grid,
+  .ciaren-path-grid,
+  .ciaren-next-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ciaren-proof-grid,
+  .ciaren-path-grid,
+  .ciaren-next-grid {
+    grid-template-columns: 1fr;
+  }
+}

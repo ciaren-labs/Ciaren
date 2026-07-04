@@ -227,7 +227,6 @@ export default defineConfig({
           items: [
             { text: 'Introduction', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
-            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
             { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
             { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
             { text: 'Interface Tour', link: '/guide/interface' },
@@ -276,6 +275,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Docker', link: '/guide/docker' },
+            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
           ],
         },
         {

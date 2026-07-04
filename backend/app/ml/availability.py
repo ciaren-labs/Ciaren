@@ -79,9 +79,10 @@ def guard_graph_ml_enabled(graph: dict[str, Any] | None) -> None:
     """Reject executing/previewing a graph that uses ML nodes when the ML
     extension is off.
 
-    ML node types are registered whenever the [ml] libraries are importable, so
-    without this a crafted graph could reach ML nodes even with ML_ENABLED false.
-    Shared by run and preview so the feature flag is a real gate everywhere.
+    ML node types are registered whenever the core ML libraries are importable,
+    so without this a crafted graph could reach ML nodes even with ML_ENABLED
+    false. Shared by run and preview so the feature flag is a real gate
+    everywhere.
     """
     from app.core.exceptions import MLNotEnabledError
     from app.engine.registry import ml_node_types
@@ -94,7 +95,8 @@ def guard_graph_ml_enabled(graph: dict[str, Any] | None) -> None:
     if graph_types & ml_types and not ml_extension_ready():
         raise MLNotEnabledError(
             "This flow uses machine-learning nodes, but ML support is not enabled "
-            "on this server (set ML_ENABLED and install the [ml] extra)."
+            "on this server (set CIAREN_ML_ENABLED=true and ensure the core ML "
+            "dependencies are installed)."
         )
 
 

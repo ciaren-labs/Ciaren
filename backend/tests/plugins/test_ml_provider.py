@@ -1,8 +1,8 @@
-"""ML nodes are contributed by an independent, optional provider.
+"""ML nodes are contributed by an independent provider.
 
 This proves the Phase 5 goal: the open-core ETL core (BuiltinNodeProvider) is
 complete on its own, and ML plugs in like any other provider — registerable and
-unregisterable without touching the core.
+unregisterable without touching the ETL core.
 """
 
 from __future__ import annotations
@@ -34,19 +34,19 @@ def test_core_provider_has_no_ml_implementations():
             assert reg.node_implementation(node_type) is None
 
 
-@pytest.mark.skipif(not _ML_AVAILABLE, reason="[ml] extra not installed")
+@pytest.mark.skipif(not _ML_AVAILABLE, reason="core ML dependencies unavailable")
 def test_ml_provider_contributes_only_ml_nodes():
     reg = ServiceRegistry()
     reg.register_node_provider(MlNodeProvider())
     specs = reg.node_specs()
-    assert specs, "expected ML nodes when [ml] is installed"
+    assert specs, "expected ML nodes when core ML dependencies are available"
     assert all(s.requires_ml for s in specs)
     assert all(s.provider == "ciaren.ml" for s in specs)
     # Implementations are present so ML nodes execute once registered.
     assert reg.node_implementation("mlTrainClassifier") is not None
 
 
-@pytest.mark.skipif(not _ML_AVAILABLE, reason="[ml] extra not installed")
+@pytest.mark.skipif(not _ML_AVAILABLE, reason="core ML dependencies unavailable")
 def test_core_and_ml_providers_are_disjoint_and_complete():
     core = ServiceRegistry()
     core.register_node_provider(BuiltinNodeProvider())
@@ -60,7 +60,7 @@ def test_core_and_ml_providers_are_disjoint_and_complete():
     assert ml_ids == set(ml_node_types())
 
 
-@pytest.mark.skipif(not _ML_AVAILABLE, reason="[ml] extra not installed")
+@pytest.mark.skipif(not _ML_AVAILABLE, reason="core ML dependencies unavailable")
 def test_ml_provider_can_be_added_and_omitted_independently():
     # Omitting the ML provider yields a registry with no ML nodes…
     core_only = ServiceRegistry()

@@ -6,7 +6,8 @@ search: cli ciaren-plugin install uninstall verify enable disable keygen pack si
 
 # Plugin CLI Reference
 
-Installing the backend (`pip install -e .`) exposes a `ciaren-plugin` command —
+Installing Ciaren (`pip install --pre ciaren`, or `pip install -e .` from a
+source checkout) exposes a `ciaren-plugin` command —
 a separate entry point from `ciaren` for the plugin lifecycle (install,
 enable/disable) and, for publishers, authoring tooling (signing, packaging,
 manifest generation, marketplace indexing, license issuance). It's split out

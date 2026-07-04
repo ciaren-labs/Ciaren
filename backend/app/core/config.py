@@ -95,7 +95,7 @@ class Settings(BaseSettings):
 
     # After the demo project is first seeded, run every demo flow once so run
     # history (and MLflow models for the ML flows) aren't empty out of the box.
-    # Off by default: it adds startup time and the ML flows need the [ml] extra.
+    # Off by default because it adds startup time.
     # Enable with `ciaren serve --run-seed-flows` or this env var.
     SEED_RUN_FLOWS: bool = False
 

@@ -17,9 +17,10 @@ async def list_transformations(
 ) -> list[str]:
     """The transformation node types the engine supports.
 
-    ML nodes are only listed when the ML extension is ready (``ML_ENABLED`` and the
-    ``[ml]`` extra installed). ``category=ml`` returns just the ML nodes (empty when
-    not ready); ``category=etl`` returns just the core ETL nodes.
+    ML nodes are only listed when the ML extension is ready (``ML_ENABLED`` and
+    the core ML libraries are available). ``category=ml`` returns just the ML
+    nodes (empty when not ready); ``category=etl`` returns just the core ETL
+    nodes.
     """
     all_types = list_transformation_types()
     ml_types = ml_node_types()
@@ -42,6 +43,6 @@ async def preview_transformation(body: TransformationPreviewRequest, service: Pr
     if is_ml_node(body.type) and not ml_extension_ready():
         raise MLNotEnabledError(
             f"'{body.type}' is a machine-learning node, but ML support is not enabled. "
-            f"Set ML_ENABLED and install the [ml] extra."
+            f"Set CIAREN_ML_ENABLED=true and ensure the core ML dependencies are installed."
         )
     return await service.preview_transformation(body)

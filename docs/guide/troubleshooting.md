@@ -80,8 +80,11 @@ cd backend
 rm -rf .venv
 python -m venv .venv
 source .venv/bin/activate   # or .venv\Scripts\activate on Windows
-pip install -e .
+python -m pip install --pre ciaren
 ```
+
+If you are working from a source checkout, reinstall the local package instead:
+`pip install -e .` from the `backend/` directory.
 
 ## Still stuck?
 

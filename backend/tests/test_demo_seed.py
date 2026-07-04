@@ -48,8 +48,8 @@ _EXPECTED_FLOWS = {
 async def demo_db(db_session: AsyncSession, tmp_path, monkeypatch):
     """Seed the demo project with DATA_DIR pointed at an isolated temp dir.
 
-    ML is pinned OFF here so the base ETL datasets/flows are seeded deterministically
-    regardless of whether the [ml] extra is installed in the test environment.
+    ML is pinned OFF here so the base ETL datasets/flows are seeded
+    deterministically regardless of the test environment's ML libraries.
     """
     from app.core.config import get_settings
 
