@@ -209,6 +209,41 @@ def test_augmented_and_tuple_assigns_are_boundaries() -> None:
     assert fuse_method_chains(list(lines)) == lines
 
 
+def test_unicode_column_names_split_at_real_spine_dots() -> None:
+    # ast col offsets are UTF-8 byte offsets; str slicing is per character.
+    # Accented names before a spine dot used to shift the split point — in the
+    # worst case onto a '.' inside a later string literal, emitting code that
+    # doesn't compile.
+    lines = [
+        "df_1 = df_1.groupby(['ééééééé']).agg({'.y': 'sum'}).reset_index()",
+        "df_1 = df_1.rename(columns={'zzzzzzzzzzzzzzzzzzzzzz': 'w'})",
+    ]
+    fused = fuse_method_chains(list(lines))
+    compile("\n".join(fused), "<fused>", "exec")
+    assert fused == [
+        "df_1 = (",
+        "    df_1.groupby(['ééééééé'])",
+        "    .agg({'.y': 'sum'})",
+        "    .reset_index()",
+        "    .rename(columns={'zzzzzzzzzzzzzzzzzzzzzz': 'w'})",
+        ")",
+    ]
+
+
+def test_unicode_fused_statements_compute_same_frame() -> None:
+    df = pd.DataFrame({"région": ["n", "s", "n"], "montant": [1.0, 2.0, 3.0]})
+    lines = [
+        "df_1 = df_1.groupby(['région']).agg({'montant': 'sum'}).reset_index()",
+        "df_1 = df_1.rename(columns={'montant': 'total récolté'})",
+        "df_1 = df_1.sort_values(by=['total récolté'], ascending=False)",
+    ]
+    plain = _exec_lines(list(lines), {"df_1": df.copy()})
+    fused_lines = fuse_method_chains(list(lines))
+    assert fused_lines[0] == "df_1 = ("  # long enough to take the paren path
+    fused = _exec_lines(fused_lines, {"df_1": df.copy()})
+    pd.testing.assert_frame_equal(plain["df_1"], fused["df_1"])
+
+
 # --- runtime: fused output computes the same frames ---------------------------
 
 

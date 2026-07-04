@@ -103,11 +103,20 @@ def _chain_step(line: str) -> _ChainStep | None:
             break
     if not isinstance(node, ast.Name) or not _DF_VAR.match(node.id):
         return None
-    rhs_start = assign.value.col_offset
+    # ast col offsets count UTF-8 *bytes*; str slicing counts characters. Any
+    # non-ASCII text (accented column names) shifts byte offsets past the char
+    # position — translate before slicing or a split lands mid-string-literal.
+    if line.isascii():
+        rhs_start = assign.value.col_offset
+        char_dots = dots
+    else:
+        raw = line.encode("utf-8")
+        rhs_start = len(raw[: assign.value.col_offset].decode("utf-8"))
+        char_dots = [len(raw[:d].decode("utf-8")) for d in dots]
     rhs = line[rhs_start:]
     # Keep only offsets that really are spine dots (generated code never puts
     # whitespace around them; if it ever did, we skip that split point).
-    rel_dots = sorted(d - rhs_start for d in dots if rhs[d - rhs_start : d - rhs_start + 1] == ".")
+    rel_dots = sorted(d - rhs_start for d in char_dots if rhs[d - rhs_start : d - rhs_start + 1] == ".")
     target_refs = sum(1 for n in ast.walk(assign.value) if isinstance(n, ast.Name) and n.id == target)
     return _ChainStep(target, node.id, rhs, rel_dots, target_refs)
 
