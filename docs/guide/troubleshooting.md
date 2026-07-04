@@ -86,6 +86,28 @@ python -m pip install --pre ciaren
 If you are working from a source checkout, reinstall the local package instead:
 `pip install -e .` from the `backend/` directory.
 
+## Install fails on Windows with a long-path error
+
+A `pip install` can fail on Windows with an error like
+`OSError: [Errno 2] No such file or directory: '...\mlflow\store\db_migrations\versions\...'`
+and a hint about enabling *long-path support*. Ciaren bundles MLflow, whose
+internal file paths are long, so installing into a deeply nested folder can push
+the full path past Windows' legacy 260-character limit.
+
+Fix it either way:
+
+- **Enable long paths (recommended, one-time).** In an Administrator PowerShell:
+
+  ```powershell
+  Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' LongPathsEnabled 1
+  ```
+
+  Reopen your terminal, then reinstall. See the
+  [pip long-paths note](https://pip.pypa.io/warnings/enable-long-paths).
+- **Or install into a shorter path** — create the virtual environment close to
+  the drive root (for example `C:\ciaren\.venv`) instead of a deeply nested
+  directory.
+
 ## Still stuck?
 
 - [Installation Guide](/guide/installation)
