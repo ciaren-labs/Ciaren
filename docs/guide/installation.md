@@ -22,7 +22,86 @@ You can run the backend on its own and drive it through the
 - A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
   are supported via an async driver.
 
-## Quick Start
+## Recommended: PyPI Alpha Package
+
+Use the PyPI package when you want the simplest local install. During alpha, use
+`--pre` so pip is allowed to install pre-release versions.
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install --pre ciaren
+ciaren serve
+```
+
+Open `http://localhost:8055`.
+
+The published wheel bundles the web UI, so `ciaren serve` can serve the visual
+editor, API, and background scheduler from one process. The first start creates
+the SQLite database automatically and seeds a **Demo project** with sample
+datasets and example flows.
+
+:::tip Pin the alpha if you need reproducibility
+For repeatable tutorials, CI jobs, or controlled internal evaluation, pin the
+exact alpha version:
+
+```bash
+python -m pip install "ciaren==0.1.0a1"
+```
+
+PyPI normalizes `0.1.0-alpha.1` to the PEP 440 version `0.1.0a1`.
+:::
+
+:::tip Optional extras from PyPI
+The base install includes the core app, scikit-learn models, MLflow tracking,
+pandas, and polars. Install extras only when you need specific drivers or
+optional model families:
+
+```bash
+python -m pip install --pre "ciaren[postgres]"
+python -m pip install --pre "ciaren[s3]"
+python -m pip install --pre "ciaren[ml]"   # adds XGBoost and LightGBM choices
+```
+
+For a full list, see [Connections](/guide/connections) and
+[Machine Learning Quick Start](/guide/ml-quickstart).
+:::
+
+## Alternative: Docker
+
+Use Docker when you want to try Ciaren quickly or evaluate the full app without
+setting up Python and Node.js separately. It builds the backend, builds the
+visual editor, serves everything at one URL, and keeps app data in a Docker
+volume.
+
+```bash
+git clone https://github.com/ciaren-labs/Ciaren.git
+cd Ciaren
+docker compose up --build
+```
+
+Open `http://localhost:8055`.
+
+On first start, Ciaren creates its SQLite database automatically and seeds a
+**Demo project** with sample datasets and example flows. Open **Projects → Demo**
+to preview, run, and export working flows before uploading your own files.
+
+:::tip Optional Docker extras
+The base Docker build keeps dependencies lean. To include optional connector or
+ML packages, pass `EXTRAS` at build time:
+
+```bash
+EXTRAS=ml docker compose up --build
+EXTRAS=all-connectors docker compose up --build
+```
+
+The available extras are documented in `docker-compose.yml` and the backend
+package metadata.
+:::
+
+## Run From Source
+
+Use this path when you want to contribute, debug locally, or run the backend and
+frontend in development mode.
 
 ### 1. Clone the repository
 
@@ -41,7 +120,7 @@ python -m venv .venv
 source .venv/bin/activate    # macOS/Linux
 # .venv\Scripts\activate     # Windows (PowerShell)
 
-# Install Ciaren (exposes the `ciaren` command)
+# Install Ciaren from the local checkout (exposes the `ciaren` command)
 pip install -e .
 
 # Run the API + background scheduler in one process
@@ -50,13 +129,15 @@ ciaren serve
 
 The backend runs on `http://localhost:8055`. The database schema is **created
 automatically** on first start — there is no migration step. Open the interactive
-API docs at `http://localhost:8055/docs`.
+API docs at `http://localhost:8055/docs`. The default startup also seeds the
+Demo project; use `ciaren serve --no-demo` if you want an empty workspace.
 
 :::tip Database connectors are optional
 The core install stays lightweight. To use external databases from SQL Input /
 SQL Output nodes, install the matching connector extra — e.g.
-`pip install -e ".[mysql]"`, or grab the connector set with
-`pip install -e ".[all]"`. These connector extras are separate from the async
+`pip install "ciaren[mysql]"`, or grab the connector set with
+`pip install "ciaren[all]"`. From a source checkout, use the editable form:
+`pip install -e ".[mysql]"`. These connector extras are separate from the async
 driver used by `CIAREN_DATABASE_URL`; if you want Ciaren's own metadata
 database on MySQL, install `aiomysql` and use a `mysql+aiomysql://` URL. See
 [Connections](/guide/connections) for the connector list.
@@ -71,7 +152,7 @@ background scheduler together. It accepts flags like `--port`, `--reload`,
 prefer.)
 :::
 
-### 3. Start the frontend (visual editor)
+### 3. Start the frontend
 
 In a second terminal:
 
@@ -87,12 +168,10 @@ backend on port `8055`.
 
 ### 4. Open in your browser
 
-Visit `http://localhost:5173`. The first thing you'll see is a marketing/start
-page ("The simplest visual data & ML builder") with a **Get started** button —
-clicking it takes you to the **Flows** page (`/flows`), not Projects. Use the
-top nav to reach **Projects** (where the Demo project lives) or any other page.
-(During development `:5173` is the URL to open — **not** the backend's
-`:8055`, which serves the API.)
+Visit `http://localhost:5173`. During development, this is the URL for the
+React editor. The backend URL (`http://localhost:8055`) serves the API and
+interactive API docs unless you build the frontend and let `ciaren serve` serve
+the compiled UI.
 
 ![Projects page, with the Demo project ready to explore](/screenshots/projects.png)
 
@@ -118,7 +197,7 @@ Only the XGBoost/LightGBM model types need an extra, since they pull in
 native-compiled gradient-boosting libraries:
 
 ```bash
-pip install -e ".[ml]"   # adds XGBoost + LightGBM model choices
+pip install "ciaren[ml]"   # adds XGBoost + LightGBM model choices
 ```
 
 If the **Machine Learning** palette section is missing entirely, check

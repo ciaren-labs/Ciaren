@@ -46,6 +46,7 @@ asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ciaren_client"]
+artifacts = ["ciaren_client/py.typed"]
 
 [tool.hatch.build.targets.sdist]
 include = [

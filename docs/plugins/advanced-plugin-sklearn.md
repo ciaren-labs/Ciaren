@@ -190,7 +190,7 @@ class MlpClassifierTrainRuntime(NodeRuntime):
         # Persist through the host: the estimator becomes an MLflow artifact and
         # only the typed reference travels through the graph.
         if context.models is None:
-            raise ValueError("this server has no ML/MLflow support installed (install ciaren[ml])")
+            raise ValueError("this server has no ML/MLflow support enabled")
         # params + seed land in the reference's model_config_json — the model-wire
         # contract core Cross-Validate rebuilds the estimator from.
         ref = context.models.log_sklearn_model(

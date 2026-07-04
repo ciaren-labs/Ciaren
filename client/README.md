@@ -8,7 +8,7 @@ Ciaren REST API without installing the full application.
 ## Install
 
 ```bash
-pip install ciaren-client
+python -m pip install --pre ciaren-client
 ```
 
 For local development from this repository:
@@ -47,4 +47,4 @@ Use `webhook_secret` only for `trigger()`, which calls the webhook endpoint.
 
 License: Apache-2.0.
 
-See the documentation at https://ciaren.com/docs/guide/sdk.
+See the [SDK documentation](https://ciaren.com/docs/guide/sdk).

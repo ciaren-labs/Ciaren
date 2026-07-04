@@ -805,7 +805,7 @@ def _product_catalog_scoring(ds: dict[str, str]) -> DemoFlow:
 
 
 # ---------------------------------------------------------------------------
-# Machine-learning demo flows (only seeded when the [ml] extra is installed)
+# Machine-learning demo flows (only seeded when core ML dependencies are available)
 # ---------------------------------------------------------------------------
 
 _IRIS_FEATURES = ["sepal_length", "sepal_width", "petal_length", "petal_width"]

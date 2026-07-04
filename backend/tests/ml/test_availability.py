@@ -1,5 +1,5 @@
 """ML availability + feature-gate logic. No ML libraries are imported here, so
-these pass whether or not the [ml] extra is installed."""
+these pass whether or not optional gradient-boosting libraries are installed."""
 
 import pytest
 

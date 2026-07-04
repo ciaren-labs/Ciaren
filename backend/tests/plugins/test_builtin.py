@@ -17,7 +17,7 @@ def test_every_builtin_node_has_metadata():
 
 def test_metadata_has_no_stragglers_beyond_ml():
     # Any metadata entry not currently built must be an ML node (ML metadata is
-    # static but the transform only registers when the [ml] extra is installed).
+    # static but the transform only registers when core ML deps are available).
     built = set(builtin_node_types())
     extra = set(NODE_META_BY_TYPE) - built
     assert all(NODE_META_BY_TYPE[t].category == "ml" for t in extra), f"unexpected stragglers: {extra}"
@@ -73,7 +73,7 @@ def test_concat_input_is_variadic():
 
 def test_ml_train_emits_model_output_and_is_sink():
     if "mlTrainClassifier" not in list_transformation_types():
-        return  # ML extra not installed
+        return  # Core ML deps unavailable
     spec = build_registry().node_spec("mlTrainClassifier")
     assert spec is not None
     model_outputs = [p for p in spec.outputs if p.type == "model"]

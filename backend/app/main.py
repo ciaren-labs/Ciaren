@@ -37,6 +37,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.core.logging import setup_logging
+from app.version import ciaren_version
 
 logger = logging.getLogger("app.main")
 
@@ -183,7 +184,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         description="Visual data and ML workflow builder — local-first, dataframe-based",
-        version="0.1.0",
+        version=ciaren_version(),
         lifespan=lifespan,
         # Optional API-token gate (no-op unless CIAREN_API_TOKEN is set) plus the
         # browser-origin CSRF guard for the unauthenticated local posture. As

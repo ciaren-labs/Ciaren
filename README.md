@@ -2,52 +2,99 @@
   <img src="brand-assets/wordmark-light-800.png" alt="Ciaren" width="320">
 </p>
 
-**Visual workflow builder for local data pipelines and lightweight ML workflows.
-Build visually, run locally, export clean Python.**
+<p align="center">
+  <strong>Local-first visual data and ML workflows that export clean Python.</strong>
+</p>
 
-Ciaren helps you build data workflows on a visual canvas, run them locally,
-preview intermediate results, and export readable Python using pandas, Polars,
-or lazy Polars. It is designed for local-first experimentation, repeatable data
-preparation, and lightweight machine-learning workflows without adopting a
-heavy orchestration stack.
+<p align="center">
+  Build on a canvas. Preview every step. Run locally. Export readable pandas,
+  Polars, or lazy Polars code with no proprietary runtime.
+</p>
 
-[![Backend Tests](https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml)
-[![Frontend CI](https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml)
-[![Docker](https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml)
-[![Docs](https://github.com/ciaren-labs/Ciaren/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/ciaren-labs/Ciaren/actions/workflows/docs-deploy.yml)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Plugin API: Apache-2.0](https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg)](backend/app/plugin_api/)
-![Python](https://img.shields.io/badge/Python-3.12%2B-blue)
-![React](https://img.shields.io/badge/React-19-blue)
-![Status](https://img.shields.io/badge/Status-Alpha-orange)
+<p align="center">
+  <a href="https://ciaren.com/docs/">Docs</a>
+  · <a href="https://ciaren.com/docs/guide/quick-start">Quick Start</a>
+  · <a href="https://ciaren.com/docs/plugins/overview">Plugins</a>
+  · <a href="https://github.com/ciaren-labs/Ciaren/discussions">Discussions</a>
+  · <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-![Ciaren visual workflow editor — Drop Nulls and Remove Duplicates cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline in the same flow](docs/public/screenshots/editor-clean-and-ml.png)
+<p align="center">
+  <a href="https://pypi.org/project/ciaren/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ciaren.svg"></a>
+  <a href="https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml"><img alt="Backend Tests" src="https://github.com/ciaren-labs/Ciaren/actions/workflows/backend-tests.yml/badge.svg"></a>
+  <a href="https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml"><img alt="Frontend CI" src="https://github.com/ciaren-labs/Ciaren/actions/workflows/frontend-tests.yml/badge.svg"></a>
+  <a href="https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml"><img alt="Docker" src="https://github.com/ciaren-labs/Ciaren/actions/workflows/docker.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg"></a>
+  <a href="backend/app/plugin_api/"><img alt="Plugin API: Apache-2.0" src="https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg"></a>
+  <img alt="Python 3.12+" src="https://img.shields.io/badge/Python-3.12%2B-blue">
+  <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
+</p>
+
+![Ciaren visual workflow editor showing cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline](docs/public/screenshots/editor-clean-and-ml.png)
+
+## What Is Ciaren?
+
+Ciaren is an open-core, plugin-first platform for building data engineering and
+lightweight machine-learning workflows visually, then exporting them as ordinary
+Python.
+
+It is built for people who want the speed of a visual tool without giving up the
+clarity, portability, and reviewability of code.
+
+```bash
+python -m pip install --pre ciaren
+ciaren serve
+```
+
+Open `http://localhost:8055`. The PyPI wheel bundles the React editor, so users
+do **not** install a separate frontend package. One install starts the API,
+scheduler, and web UI.
 
 > **Alpha software.** Ciaren is under active development. APIs, workflow
 > formats, generated code, plugin interfaces, and internal data models may
-> change between releases. Use it for experimentation, prototyping, and
-> controlled internal workflows before relying on it for critical production
-> jobs.
+> change before `1.0.0`. Use it for learning, prototypes, and controlled
+> internal workflows before relying on it for critical production jobs.
 
-## Why Try Ciaren
+## Why It Feels Different
 
-- **Build visually:** assemble file, SQL, transformation, validation, and output
-  steps on a canvas.
-- **Run locally:** use SQLite by default and keep data on infrastructure you
-  control.
-- **Preview each step:** inspect intermediate results before running the full
-  workflow.
-- **Export Python:** generate readable pandas, Polars, or lazy Polars code that
-  can be reviewed and run outside Ciaren.
-- **Automate lightly:** use the alpha scheduler, CLI, REST API, or webhooks for
-  controlled local/self-hosted workflows.
-- **Extend carefully:** build against the public Plugin API/SDK, which is still
-  evolving during alpha.
+| You get | Why it matters |
+| --- | --- |
+| **Visual workflow building** | Design pipelines faster than writing every dataframe step by hand. |
+| **Live node previews** | Inspect data samples and schema changes before running the full flow. |
+| **Clean Python export** | Generate standalone pandas, Polars, or lazy Polars scripts you can review and run outside Ciaren. |
+| **Local-first execution** | SQLite works out of the box, and your data does not need to leave your machine. |
+| **Data engineering + ML** | Ingest, clean, validate, engineer features, train, evaluate, predict, and export from one canvas. |
+| **Plugin-first architecture** | Add custom nodes, connectors, engines, model providers, validators, and exporters outside core. |
+
+Ciaren is not a hosted no-code black box. Every node maps to understandable
+dataframe behavior, every run leaves inspectable results, and every flow can
+become code.
 
 ## Quickstart
 
-The fastest way to try Ciaren is Docker — one command builds and serves the
-whole app (backend + visual editor) at a single URL:
+### Install From PyPI
+
+During alpha, use `--pre` so pip can install pre-release versions:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install --pre ciaren
+ciaren serve
+```
+
+Open `http://localhost:8055`, then open **Projects -> Demo**. The first start
+seeds sample datasets and working example flows, so you can preview, run, and
+export something real before uploading your own data.
+
+For repeatable evaluation, pin the first alpha release:
+
+```bash
+python -m pip install "ciaren==0.1.0a1"
+```
+
+PyPI normalizes `0.1.0-alpha.1` to the PEP 440 version `0.1.0a1`.
+
+### Run With Docker
 
 ```bash
 git clone https://github.com/ciaren-labs/Ciaren.git
@@ -55,24 +102,13 @@ cd Ciaren
 docker compose up --build
 ```
 
-<!-- Before public launch, verify the clone URL after the repository transfer. -->
-
-Then open `http://localhost:8055`. The first start seeds a **Demo project**
-with sample datasets and example flows, so there is something real to open,
-preview, and run before you upload anything of your own — see the
-[Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project).
-Seeding the demo is optional but recommended, especially on a first install:
-it gives you working examples of flows, joins, and ML nodes to explore. If you
-prefer a completely empty workspace, start with `ciaren serve --no-demo` (or
-set `CIAREN_SEED_DEMO=false`).
+Open `http://localhost:8055`.
 
 ### Run From Source
 
-Requirements: Python 3.12+, Node.js 18+ (for the visual editor), and Git.
-SQLite is the zero-setup default database; PostgreSQL and MySQL are available
-through `CIAREN_DATABASE_URL` with async drivers.
+Use this path when contributing to the backend, frontend, docs, or plugin SDK.
 
-**Backend** (terminal 1):
+Requirements: Python 3.12+, Node.js 18+, and Git.
 
 ```bash
 git clone https://github.com/ciaren-labs/Ciaren.git
@@ -85,11 +121,7 @@ pip install -e .
 ciaren serve
 ```
 
-The backend starts at `http://localhost:8055`, creates its database
-automatically, and serves interactive API docs at `http://localhost:8055/docs`.
-Run `ciaren check` at any time to validate the setup.
-
-**Frontend** (terminal 2):
+In a second terminal:
 
 ```bash
 cd Ciaren/frontend
@@ -97,82 +129,139 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`, explore the Demo project or upload your own
-CSV/Excel/Parquet file, build a flow, preview each step, run it, and export
-Python.
+Open `http://localhost:5173` for the live development frontend. The backend API
+and Swagger docs stay on `http://localhost:8055`.
 
-> **Prefer a single URL without a second terminal?** Build the frontend once
-> (`cd frontend && npm run build`) and `ciaren serve` detects and serves the
-> web UI itself at `http://localhost:8055`. See the
-> [Installation guide](https://ciaren.com/docs/guide/installation) for
-> details, configuration, and troubleshooting.
+## What You Can Build
+
+![Ciaren editor with a canvas of connected nodes and a live data preview table](docs/public/screenshots/editor-data-preview.png)
+
+- **Input and output:** CSV, TSV, Excel, Parquet, JSON/JSONL, text, SQL
+  databases, S3, GCS, and Azure Blob.
+- **Cleaning:** drop/fill nulls, remove duplicates, rename/select/drop columns,
+  cast types, replace values.
+- **Transformation:** filters, joins, group by, aggregate, calculated columns,
+  maps, pivots, windows, sorting, sampling.
+- **Data quality:** assert not-null, unique, value ranges, row count,
+  expressions, and allowed values.
+- **Machine learning:** split, train, cross-validate, predict, evaluate,
+  feature engineering, importance, and MLflow tracking.
+- **Operations:** run history, scheduling, REST API, CLI, webhook trigger, and
+  Python SDK.
+
+## Exported Code Is the Escape Hatch
+
+A simple read -> clean -> aggregate -> write flow can export to code like this:
+
+```python
+import polars as pl
+
+df_1 = pl.read_csv("sales.csv")
+df_1 = df_1.drop_nulls(subset=["amount"])
+df_1 = df_1.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
+df_1.write_csv("summary.csv")
+```
+
+The same flow can also export pandas or lazy Polars variants where supported.
+That makes Ciaren useful for prototyping, teaching, code review, and migration
+from visual exploration into normal Python projects.
+
+## Built for Extension
+
+Ciaren's open core stays focused on the shared workflow platform. Specialized
+integrations should usually be plugins, not one-off patches to core.
+
+| Extension point | Examples |
+| --- | --- |
+| **Nodes** | Custom transforms, validators, AI-assisted steps, domain-specific operations |
+| **Connectors and storage** | Internal APIs, SaaS tools, warehouses, object stores, document databases |
+| **Model providers** | Local models, scikit-learn estimators, organization-specific training logic |
+| **Execution engines** | Alternative dataframe engines and future runtime targets |
+| **Exporters** | Code targets, deployment bundles, validation reports |
+
+Plugins can be packaged as `.ciarenplugin` files, signed, inspected, installed,
+enabled, disabled, and distributed independently.
+
+Start here:
+
+- [Plugins Overview](https://ciaren.com/docs/plugins/overview)
+- [Build Your First Plugin](https://ciaren.com/docs/plugins/first-plugin)
+- [Plugin API Reference](https://ciaren.com/docs/plugins/api-reference)
 
 ## Who It Is For
 
 - **Data analysts:** clean, reshape, validate, and export datasets without
   writing every step by hand.
-- **Data engineers:** prototype repeatable transformations locally before
-  turning them into code.
+- **Data engineers:** prototype repeatable local pipelines, inspect generated
+  code, then automate with CLI/API/SDK workflows.
 - **Python learners:** see how visual dataframe operations become pandas and
   Polars code.
-- **ML practitioners:** try lightweight ML workflows with MLflow tracking,
-  built in from a plain `pip install ciaren`.
-- **Plugin authors:** build custom nodes and integrations against the public
-  Plugin API/SDK.
-
-## Features
-
-- **Visual workflow builder:** available in the alpha build.
-- **File input/output:** CSV, Excel, Parquet, JSON/JSONL, text, and related
-  formats.
-- **Transformation nodes:** 42 built-in transformation nodes available in the
-  alpha build.
-- **Preview and run history:** available for inspecting workflow behavior.
-- **Code export:** pandas, Polars, and lazy Polars Python export.
-- **SQL databases:** early support through saved connections.
-- **Scheduling:** alpha cron scheduler with retries, catch-up, overlap
-  protection, and auto-disable.
-- **Machine Learning:** built in, MLflow-tracked (alpha); XGBoost/LightGBM
-  models are an optional extra (`pip install ciaren[ml]`).
-- **Plugins:** alpha Plugin API/SDK with local discovery and signed package
-  support.
-
-For full details, see the [documentation](https://ciaren.com/docs/).
+- **ML practitioners:** try lightweight ML flows with local MLflow tracking.
+- **Plugin authors:** ship custom nodes, connectors, engines, and model
+  providers without maintaining a fork.
+- **Open-source contributors:** help polish the editor, execution engine,
+  transformations, docs, tests, and plugin SDK.
 
 ## Documentation
 
-- [Installation](https://ciaren.com/docs/guide/installation) — get running locally or with Docker
-- [Quick Start](https://ciaren.com/docs/guide/quick-start) — first flow in 5 minutes
-- [Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project) — walk through the built-in sample flows
-- [Examples](https://ciaren.com/docs/examples/sales-analysis) — end-to-end, real-world workflows
-- [Machine Learning Quick Start](https://ciaren.com/docs/guide/ml-quickstart) — train and evaluate a model on the canvas
-- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin) — build your first plugin
+- [Installation](https://ciaren.com/docs/guide/installation) - PyPI, Docker,
+  source installs, extras, and troubleshooting.
+- [Quick Start](https://ciaren.com/docs/guide/quick-start) - build your first
+  flow in five minutes.
+- [Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project) - walk
+  through the seeded example flows.
+- [Examples](https://ciaren.com/docs/examples/sales-analysis) - end-to-end
+  workflow walkthroughs.
+- [Machine Learning Quick Start](https://ciaren.com/docs/guide/ml-quickstart) -
+  train and evaluate a model on the canvas.
+- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin) - build your
+  first plugin.
 - [Roadmap](https://ciaren.com/docs/guide/roadmap)
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
+## Optional Extras
+
+The base install includes the core app, pandas, Polars, scikit-learn models,
+MLflow tracking, and the bundled web UI.
+
+Install extras only when you need specific drivers or optional model families:
+
+```bash
+python -m pip install --pre "ciaren[postgres]"
+python -m pip install --pre "ciaren[s3]"
+python -m pip install --pre "ciaren[ml]"        # XGBoost and LightGBM choices
+python -m pip install --pre "ciaren[signing]"   # plugin signing support
+```
+
+The separate `ciaren-client` package is only for scripts that need to call a
+running Ciaren server. It is not required to use the visual app.
+
 ## Contributing
 
-Ciaren is early, and useful contributions are welcome: bug reports,
-reproducible flows, docs improvements, examples, transformation nodes, plugin
-SDK improvements, and frontend workflow polish.
+Ciaren is early, and useful contributions are welcome: reproducible bugs,
+example flows, docs improvements, transformation nodes, plugin SDK improvements,
+frontend workflow polish, tests, and focused core fixes.
 
 The open core is intentionally lightweight. New niche databases, SaaS products,
-internal APIs, and proprietary storage systems should normally be built and
-maintained as plugins with the public Plugin API/SDK rather than added to core.
-If the SDK blocks that work, please open an SDK-focused issue or discussion.
+internal APIs, proprietary storage systems, and organization-specific model
+logic should normally be built as plugins. If the SDK blocks that work, open an
+SDK-focused issue or discussion.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). Ideas and support requests can
-go to [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
-reproducible bugs or focused core/SDK feature requests can go to
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas can go to
+[GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
+reproducible bugs or focused feature requests can go to
 [GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues).
+
+If Ciaren is the kind of local-first Python data tool you want to see grow, a
+GitHub star helps the launch and makes the project easier for others to find.
 
 ## Security
 
-Ciaren is alpha software intended for local-first experimentation,
-prototyping, and controlled self-hosted workflows. Review exported Python code,
-test flows before using important data, and add appropriate operational
-controls before using Ciaren in sensitive or critical environments.
+Ciaren is alpha software intended for local-first experimentation, prototyping,
+and controlled self-hosted workflows. Review exported Python code, test flows
+before using important data, and add appropriate operational controls before
+using Ciaren in sensitive or critical environments.
 
 Please report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
 
@@ -192,7 +281,8 @@ complete license texts and notices.
 
 - Current stage: **Alpha**
 - First public release target: `v0.1.0-alpha.1`
+- PyPI version for the first alpha: `0.1.0a1`
 - Breaking changes are expected before `1.0.0`
 
-**Made for data practitioners who value simplicity, reproducibility, and useful
-local workflows.**
+Made for data practitioners who value local workflows, transparent execution,
+and Python they can actually read.

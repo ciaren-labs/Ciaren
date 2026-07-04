@@ -82,7 +82,7 @@ async def test_catalog_nodes_shows_ml_when_enabled(client, monkeypatch):
     from app.ml.availability import ml_core_available
 
     if not ml_core_available():
-        pytest.skip("[ml] extra not installed")
+        pytest.skip("core ML dependencies unavailable")
 
     monkeypatch.setenv("CIAREN_ML_ENABLED", "true")
     get_settings.cache_clear()

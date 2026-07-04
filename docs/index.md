@@ -1,68 +1,85 @@
 ---
 layout: home
 title: Ciaren
-description: Open-core, plugin-first platform for building data engineering and machine-learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.
-search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first
+description: Open-core, plugin-first platform for building data engineering and machine-learning workflows visually, running them locally, and exporting clean pandas/polars Python.
+search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
 
 hero:
   name: <span class="ciaren-c">C</span>iaren
-  text: Build data & ML workflows visually. Ship clean Python.
-  tagline: An open-core, plugin-first, local-first platform for data engineering and machine learning — design workflows on a canvas, run them on polars or pandas, and export portable Python with no lock-in.
+  text: Visual data and ML workflows that stay Python-native.
+  tagline: Build pipelines on a canvas, preview every step on real data, run locally, and export readable pandas, polars, or lazy polars code with no proprietary runtime.
   image:
     src: /logo.svg
     alt: Ciaren
   actions:
     - theme: brand
-      text: Get Started
-      link: /guide/getting-started
+      text: Start in 5 Minutes
+      link: /guide/quick-start
     - theme: alt
-      text: ⭐ Star on GitHub
+      text: Install Locally
+      link: /guide/installation
+    - theme: alt
+      text: Star on GitHub
       link: https://github.com/ciaren-labs/Ciaren
-    - theme: alt
-      text: Explore Plugins
-      link: /plugins/overview
 
 features:
   - icon: 🧩
-    title: Plugin-First Platform
-    details: Nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points. Build, package, sign, and share plugins.
+    title: Plugin-first by design
+    details: Nodes, connectors, storage, engines, exporters, validators, and AI capabilities are extension points, not afterthoughts.
 
   - icon: 🐍
-    title: Python-Native, No Lock-In
-    details: Every flow exports to readable, standalone pandas or polars code. No black box, no proprietary runtime — copy the script and run it anywhere.
-
-  - icon: 🤖
-    title: Data Engineering + ML
-    details: One canvas for the whole lifecycle — ingest, clean, validate, engineer features, train, evaluate, and predict. ML is built in and tracked with MLflow.
-
-  - icon: ⚙️
-    title: Multi-Engine
-    details: Runs on polars by default, switch to pandas per run — behind a pluggable engine contract designed to grow.
+    title: Clean Python export
+    details: Every flow can become standalone pandas, polars, or lazy polars code that you can review, version, and run outside Ciaren.
 
   - icon: 🔒
-    title: Local-First
-    details: Runs entirely on your machine. You own your data and execution — no SaaS, no cloud upload, no subscriptions.
+    title: Local-first execution
+    details: Run on your machine or self-hosted infrastructure. Use SQLite by default, keep data under your control, and avoid SaaS lock-in.
+
+  - icon: ⚙️
+    title: Built for data engineering and ML
+    details: Ingest, clean, validate, engineer features, train, evaluate, predict, export, schedule, and automate from one workflow model.
 
   - icon: 👀
-    title: Live Preview & Scheduling
-    details: See your data transform on real rows before running the full pipeline, then schedule flows with a built-in cron scheduler.
+    title: Live preview at each node
+    details: Inspect row samples, schema changes, and node results before committing to a full run.
+
+  - icon: 🛡️
+    title: Trustable extensions
+    details: Package plugins as portable .ciarenplugin files, sign them, audit permissions, and install only what you trust.
 ---
 
 :::warning Alpha software
-Ciaren is in early development. APIs, the data model, and generated code may
-change between releases. Use it for experimentation, prototypes, and controlled
-internal workflows before relying on it for critical production jobs.
+Ciaren is in early development. APIs, the data model, generated code, and plugin
+contracts may change between releases. It is already useful for learning,
+experimentation, prototypes, and controlled internal workflows, but you should
+test carefully before using it for critical production jobs.
 :::
 
-## More Than a Visual Data Tool
+<div class="ciaren-proof-grid">
+  <div class="ciaren-proof-card">
+    <strong>40+ nodes</strong>
+    <span>files, SQL, storage, cleaning, reshape, quality checks, ML, and outputs</span>
+  </div>
+  <div class="ciaren-proof-card">
+    <strong>3 Python targets</strong>
+    <span>pandas, eager polars, and lazy polars export from the same flow</span>
+  </div>
+  <div class="ciaren-proof-card">
+    <strong>Open core</strong>
+    <span>AGPL-3.0 core with Apache-2.0 public Plugin API/SDK</span>
+  </div>
+  <div class="ciaren-proof-card">
+    <strong>Runs locally</strong>
+    <span>SQLite by default, optional external databases and object storage</span>
+  </div>
+</div>
 
-Ciaren covers the **whole workflow lifecycle** on one canvas — and turns it into
-portable Python. It's built on a few principles:
+## See the Whole System
 
-- **🧩 Plugin-first** — almost every capability is an extension point you can build on
-- **🐍 Python-native** — export readable pandas/polars code anytime, no lock-in
-- **🔒 Local-first** — your data and execution stay on your machine
-- **⚙️ Multi-engine** — polars or pandas today, behind a pluggable engine contract
+Ciaren is not only a drag-and-drop editor. It is a local workflow platform with a
+transparent execution model: every canvas node maps to an understandable
+dataframe operation, every run leaves inspectable results, and every flow can be
+exported to ordinary Python.
 
 <FlowPipeline
   :nodes='[
@@ -71,25 +88,73 @@ portable Python. It's built on a few principles:
     {"type":"transform","label":"Transform","detail":"join · group · pivot · window"},
     {"type":"clean","label":"Validate","detail":"not-null · unique · ranges · contracts"},
     {"type":"ml","label":"ML","detail":"split · train · evaluate · predict"},
-    {"type":"output","label":"Export","detail":"Python code · file · SQL · storage"}
+    {"type":"output","label":"Export","detail":"Python · file · SQL · storage"}
   ]'
 />
 
-## What It Looks Like
+![Ciaren editor with a canvas of connected nodes and a live data preview table](/screenshots/editor-data-preview.png)
 
-![Ciaren editor — canvas with connected nodes, data preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
+## Why People Try It
 
-Cleaning and machine learning aren't separate tools — they're nodes on the same
-canvas. Here a flow drops nulls and duplicates, then feeds straight into a
-train/test split, a Random Forest regressor, prediction, and evaluation:
+<div class="ciaren-path-grid">
+  <a class="ciaren-path-card" href="/guide/quick-start">
+    <span>For first-time users</span>
+    <strong>Build and run a real flow in five minutes</strong>
+    <p>Use the demo project or upload a small CSV, add cleaning and aggregation nodes, preview the result, run it, and export Python.</p>
+  </a>
+  <a class="ciaren-path-card" href="/guide/engines">
+    <span>For Python engineers</span>
+    <strong>Keep the generated code readable</strong>
+    <p>Export pandas, polars, or lazy polars code that looks like code a person would write, with no hidden runtime dependency.</p>
+  </a>
+  <a class="ciaren-path-card" href="/plugins/overview">
+    <span>For contributors and builders</span>
+    <strong>Extend the platform instead of forking it</strong>
+    <p>Add custom nodes, connectors, model providers, engines, validators, and exporters through the plugin architecture.</p>
+  </a>
+</div>
 
-![Ciaren editor — one flow combining Drop Nulls and Remove Duplicates with Train/Test Split, Train Regressor, Predict, and Evaluate ML nodes](/screenshots/editor-clean-and-ml.png)
+## Install and Open the Demo
 
-## Export to Clean, Portable Python
+For the alpha package on PyPI, the fastest way to evaluate Ciaren is a normal
+Python install. The wheel bundles the web UI, so `ciaren serve` can start the
+API, scheduler, and visual editor at one URL.
 
-There's no black box. Every flow generates a readable, standalone script — copy it
-and run it anywhere Python runs. Steps on a straight chain reuse one variable, the
-way a person would write it. A read → drop-nulls → group-and-sum flow exports to:
+```bash
+python -m pip install --pre ciaren
+ciaren serve
+```
+
+Open `http://localhost:8055`, then open **Projects → Demo**. You can inspect,
+preview, run, and export working flows before uploading your own data.
+
+Prefer an isolated container instead?
+
+```bash
+git clone https://github.com/ciaren-labs/Ciaren.git
+cd Ciaren
+docker compose up --build
+```
+
+Use the [Installation guide](/guide/installation) for PyPI alpha installs,
+Docker, source installs, optional ML extras, database drivers, and development
+setup.
+
+## What Makes It Different
+
+| Decision | What it means in practice |
+| --- | --- |
+| **Local-first** | Your data does not need to leave your machine. SQLite works out of the box, and external services are opt-in. |
+| **Python-native** | Visual work stays portable because flows export to readable dataframe code. |
+| **Plugin-first** | Niche connectors, internal APIs, custom model providers, and specialized nodes can live outside core. |
+| **Multi-engine** | polars is the default engine, pandas is available per run, and the engine contract is designed to grow. |
+| **Data quality included** | Assertions for not-null, uniqueness, value ranges, expressions, row counts, and allowed values are first-class nodes. |
+| **Automation-ready** | Use the CLI, REST API, webhook trigger, scheduler, and Python SDK for controlled local or self-hosted workflows. |
+
+## Export to Portable Python
+
+There is no black box. A simple read → clean → aggregate → write flow can export
+to code like this:
 
 ```python
 import polars as pl
@@ -100,140 +165,62 @@ df_1 = df_1.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
 df_1.write_csv("summary.csv")
 ```
 
-Need scale? Export the **lazy polars** variant (`scan_*` → `collect()`) for pushdown
-and join optimization on large files. [Learn about engines →](/guide/engines)
+For larger files, export the lazy polars variant (`scan_*` → `collect()`) to use
+pushdown and query optimization where the engine supports it.
+[Learn about engines →](/guide/engines)
 
-## Extend Everything: the Plugin Platform
+## From Cleaning to Machine Learning
 
-Ciaren is designed as an ecosystem. Its plugin API defines stable **provider
-contracts** so nearly every capability can be added by a small Python package:
+Cleaning, validation, feature engineering, training, prediction, and evaluation
+are all workflow nodes. You can move from raw data to a tracked model without
+switching tools, and still export or inspect the underlying Python.
 
-| Extend | Add |
-| --- | --- |
-| **Nodes** | New canvas operations that run end-to-end |
-| **Connectors & storage** | New databases, APIs, and object stores |
-| **Execution engines** | New dataframe engines beyond polars/pandas |
-| **Exporters & validators** | New code targets and data-quality checks |
-| **AI capabilities** | Pipeline builders, debuggers, optimizers |
-
-Plugins can be packaged as portable `.ciarenplugin` files and **cryptographically
-signed** — install only what you trust.
-
-The open core stays intentionally focused. If you need a niche connector,
-SaaS-specific integration, internal API, or custom workflow node, the preferred
-path is a plugin maintained outside core. Core changes should improve the shared
-platform or the SDK that plugin authors build on.
-
-[Explore the plugin platform →](/plugins/overview)
+![Ciaren editor showing cleaning nodes feeding Train/Test Split, Train Regressor, Predict, and Evaluate nodes](/screenshots/editor-clean-and-ml.png)
 
 ## The Built-In Toolbox
 
-40+ transformation nodes plus file, SQL, and cloud-storage input/output out of the box:
+- **Input and output:** CSV, TSV, Excel, Parquet, JSON/JSONL, text, SQL databases, S3, GCS, and Azure Blob
+- **Cleaning:** drop/fill nulls, remove duplicates, rename/select/drop columns, cast types
+- **Transformation:** filters, joins, group by, aggregate, calculated columns, maps, pivots, windows
+- **Data quality:** assert not-null, unique, value ranges, row count, expressions, allowed values
+- **Machine learning:** split, train, cross-validate, predict, evaluate, feature engineering, importance
+- **Operations:** run history, scheduling, REST API, CLI, webhook trigger, Python SDK
 
-- **Cleaning:** Drop/fill nulls, remove duplicates, rename/select columns, cast types
-- **Transform:** Filter, aggregate, join, calculated columns, replace/round values
-- **Reshape:** Group by, union, pivot, unpivot, bin, extract date parts, sort, sample
-- **Data quality:** Assert not-null, unique, value range, expression, row count
-- **I/O:** CSV, Excel, Parquet, SQL databases, and cloud storage (S3/GCS/Azure)
+[Browse all transformations →](/transformations/overview)
 
-[See all transformations →](/transformations/overview)
+## Built for Extension
 
-## Who Uses Ciaren?
+Ciaren's plugin API defines provider contracts for capabilities that should not
+be hard-coded into core:
 
-- **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
-- **Developers** — Prototype visually, then export and version the generated Python
-- **Plugin Authors** — Extend the platform with custom nodes, connectors, and engines
-- **Data Scientists** — Go from raw data to a tracked model on one canvas
-- **Data Analysts** — Clean, join, and explore data visually
-- **Educators & Python Learners** — See pandas/polars operations come to life
+| Extend | Examples |
+| --- | --- |
+| **Nodes** | Custom transforms, validators, AI-assisted steps, domain-specific operations |
+| **Connectors and storage** | Internal APIs, SaaS tools, warehouses, object stores, document databases |
+| **Model providers** | Local models, scikit-learn estimators, organization-specific training logic |
+| **Execution engines** | Alternative dataframe engines and future runtime targets |
+| **Exporters** | New code targets, deployment bundles, validation reports |
 
-## Get Started Now
+The open core stays focused on the shared platform. When you need a niche
+integration, the preferred path is a plugin that can be packaged, signed, shared,
+and versioned independently.
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+[Explore the plugin platform →](/plugins/overview)
 
-### Installation (2 minutes)
+## Pick Your Next Step
 
-```bash
-git clone https://github.com/ciaren-labs/Ciaren
-cd Ciaren/backend
-pip install -e .
-ciaren serve
-```
-
-The backend starts on `http://localhost:8055` and creates its database
-automatically — including a seeded **Demo project** with sample datasets and
-example flows to explore right away. To use the visual editor, also run the
-frontend (`cd frontend && npm install && npm run dev`), or use
-`docker compose up --build` to get both in one container.
-
-[Full installation guide →](/guide/installation) ·
-[Demo project tutorials →](/guide/demo-project)
-
-### Explore the API (5 minutes)
-
-1. Open the interactive docs at <http://localhost:8055/docs>
-2. Upload a CSV with `POST /api/datasets/upload`
-3. Create a flow with `POST /api/flows`
-4. Export Python with `POST /api/flows/{id}/export/python`
-
-[API reference →](/api/rest-api)
-
+<div class="ciaren-next-grid">
+  <a href="/guide/getting-started">Understand the project</a>
+  <a href="/guide/installation">Install Ciaren</a>
+  <a href="/guide/quick-start">Build your first flow</a>
+  <a href="/guide/demo-project">Explore the demo project</a>
+  <a href="/examples/sales-analysis">Read an end-to-end example</a>
+  <a href="/plugins/first-plugin">Build your first plugin</a>
+  <a href="https://github.com/ciaren-labs/Ciaren">Star on GitHub</a>
+  <a href="https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md">Contribute</a>
 </div>
-
-## Real-World Examples
-
-### Data Engineering
-
-- [Sales Data Analysis](/examples/sales-analysis) — Clean sales data, aggregate by region
-- [Customer Segmentation](/examples/customer-segmentation) — Group customers by behavior
-- [Time Series](/examples/time-series) — Resample and smooth time-based data
-- [Data Quality](/examples/data-quality) — Validate and clean messy datasets
-- [DuckDB Analytics](/examples/duckdb-analytics) — Query and write back a DuckDB database
-
-### Machine Learning
-
-- [Customer Churn Classification](/examples/ml-classification) — Split, train, evaluate, export
-- [Feature Engineering](/examples/feature-engineering) — Scale, encode, select, reduce
-
-In a hurry? Browse short [Recipes](/recipes/overview) for common tasks, or see
-[how Ciaren compares](/guide/comparison) to notebooks and orchestrators.
-
-## Why Ciaren?
-
-| Capability | Details |
-| --------- | --------- |
-| **Plugin-First** | Nodes, connectors, engines, exporters, validators, and AI are all extensible |
-| **Python-Native** | Every flow generates readable, standalone pandas/polars code — no lock-in |
-| **Local-First** | Runs entirely on your machine — no accounts, no cloud upload |
-| **Data Engineering + ML** | One canvas for ingest → transform → validate → train → predict |
-| **Multi-Engine** | polars by default, pandas per run, pluggable engine contract for more |
-| **Live Preview** | See data changes at each step before executing the full flow |
-| **Open Core** | Core is AGPL-3.0; the public Plugin API/SDK is Apache-2.0 |
-
-## How Ciaren Compares
-
-Ciaren fills the gap between throwaway notebooks and heavyweight orchestrators:
-
-- **vs. notebooks/scripts** — repeatable, reviewable, and visual, with the same code on export
-- **vs. Airflow / dbt / Spark** — local-first and lightweight; no cluster or infra to run a flow
-- **Not** a distributed/streaming engine — built for small and medium datasets on one machine
-
-## Join the Community
-
-Ciaren is an open, community-driven project. The best ways to get involved:
-
-- ⭐ **[Star us on GitHub](https://github.com/ciaren-labs/Ciaren)** — it helps others discover the project
-- 💬 **[Ask in Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — questions and ideas welcome
-- 🐛 **[Report a bug](https://github.com/ciaren-labs/Ciaren/issues)** — or propose focused core/SDK improvements
-- 🧩 **[Build a plugin](/plugins/overview)** — extend the platform and share it
-- 🤝 **[Contribute](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md)** — good first issues are labelled
-
-Created and maintained by [Rodrigo Arenas](https://www.rodrigo-arenas.com/), machine-learning engineer and open-source creator ([GitHub](https://github.com/rodrigo-arenas), [LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/)).
 
 ## License
 
-Ciaren Core is AGPL-3.0-only. The public Plugin API/SDK is Apache-2.0, and plugins may use the license selected by their authors.
-
----
-
-**Ready to build your first data or ML workflow?** [Get Started →](/guide/getting-started) · [Explore Plugins →](/plugins/overview)
+Ciaren Core is AGPL-3.0-only. The public Plugin API/SDK is Apache-2.0, and
+plugins may use the license selected by their authors.

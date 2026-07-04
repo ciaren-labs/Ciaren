@@ -1,141 +1,144 @@
 ---
 title: Getting Started
-description: Learn what Ciaren is and how to get started in minutes
-search: getting started introduction what is ciaren
+description: Understand what Ciaren is, who it is for, and the fastest path to try it
+search: getting started introduction what is ciaren beginner technical overview
 ---
 
 # Getting Started with Ciaren
 
-Welcome to Ciaren! This guide will help you understand what Ciaren is and get you up and running in minutes.
+Ciaren is a visual workflow builder for local data engineering and lightweight
+machine-learning work. You build flows on a canvas, preview real data at each
+step, run them locally, and export readable pandas, polars, or lazy polars
+Python.
+
+If you are new to the project, start here. This page gives you the mental model
+before you install anything.
 
 :::warning Alpha software
-Ciaren is in early development. APIs and generated code may change between
-releases. Use it for learning, experimentation, and controlled internal
-workflows before relying on it for critical production jobs.
+Ciaren is in early development. APIs, generated code, workflow files, and plugin
+contracts may change between releases. Use it for learning, experimentation,
+prototypes, and controlled internal workflows before relying on it for critical
+production jobs.
 :::
 
-## What is Ciaren?
+## The Short Version
 
-Ciaren is an open-core, **plugin-first, local-first platform** for building
-**Data Engineering and Machine Learning workflows** visually — and turning them
-into clean, portable Python. It runs on **polars** by default (or pandas, per run)
-and lets you:
+Ciaren sits between three familiar tools:
 
-- **Ingest** from CSV, TSV, Excel, Parquet, JSON/JSONL, text, SQL databases, and cloud storage
-- **Build** transformation pipelines visually on a drag-and-drop canvas
-- **Validate** data with built-in quality/contract checks
-- **Preview** results in real-time at every step
-- **Train** machine-learning models on the same canvas, tracked with MLflow
-- **Export** the equivalent, readable Python — pandas or polars, no lock-in
-- **Schedule** flows to run automatically with a built-in cron scheduler
-- **Extend** almost everything — nodes, connectors, engines, exporters, and more —
-  through [plugins](/plugins/overview)
+| If you know... | Ciaren feels like... |
+| --- | --- |
+| **Spreadsheets** | A repeatable, inspectable flow instead of a sequence of manual edits |
+| **Notebooks/scripts** | A visual way to design pipelines that still exports normal Python |
+| **Orchestrators** | A lighter local tool for building and running one flow without cluster setup |
 
-It's more than a visual data tool: every node maps to one clear dataframe operation,
-so the generated code is readable and the platform stays transparent and extensible.
-Approachable enough to start without writing code — and Python-native when you want
-full control.
+It is not trying to hide Python. It is trying to make dataframe workflows easier
+to design, inspect, teach, share, and export.
 
-## How It Works
-
-Upload your data, arrange nodes on a canvas, preview every step, then run the full
-pipeline and export readable Python — all without writing a line of code.
+## What You Can Build
 
 <FlowPipeline :vertical="true" :nodes='[
-  {"type":"input","label":"Upload Data","detail":"CSV, TSV, Excel, Parquet, JSON, or SQL"},
-  {"type":"clean","label":"Build Your Pipeline","detail":"drag nodes · connect handles · configure each step"},
-  {"type":"clean","label":"Live Preview","detail":"see your data transform on real rows instantly"},
-  {"type":"transform","label":"Run the Full Flow","detail":"executes on polars (or pandas) · saves a run record"},
-  {"type":"output","label":"Download Results + Python Code","detail":"standalone script — runs anywhere without Ciaren"}
+  {"type":"input","label":"Bring data in","detail":"CSV, Excel, Parquet, JSON, SQL, storage"},
+  {"type":"clean","label":"Clean and shape it","detail":"nulls · types · dedupe · rename · filter"},
+  {"type":"transform","label":"Transform it","detail":"join · group · aggregate · pivot · window"},
+  {"type":"clean","label":"Validate it","detail":"not-null · unique · ranges · expressions"},
+  {"type":"ml","label":"Train or score models","detail":"split · train · evaluate · predict · MLflow"},
+  {"type":"output","label":"Send it out","detail":"file · SQL · storage · Python export"}
 ]' />
 
-## Who is Ciaren For?
+Each node has configuration, preview output, and generated code. That matters:
+you can explain a flow to a beginner, inspect it as an engineer, and move the
+result into a regular Python workflow when you need full control.
 
-- **Data Engineers** — Build repeatable, reviewable pipelines without orchestration overhead
-- **Developers** — Prototype visually, then export and version the generated Python
-- **Plugin Authors** — Extend the platform with custom nodes, connectors, and engines
-- **Data Scientists** — Go from raw data to a tracked model on one canvas
-- **Data Analysts** — Clean, join, and explore data visually
-- **Educators & Python Learners** — See pandas/polars operations come to life
+## Why Ciaren Exists
 
-## What You'll Need
+Many data tools force an early tradeoff:
 
-- **No Python knowledge required** — just point and click
-- **A CSV or Excel file** — or nothing at all: every install seeds a
-  [Demo project](/guide/demo-project) with sample datasets and example flows
-- **A web browser** — Chrome, Firefox, Safari, or Edge
-- **5 minutes** — to build your first flow
+- spreadsheets are approachable, but hard to reproduce and review;
+- notebooks are flexible, but can become fragile execution histories;
+- orchestration systems are powerful, but heavy for local exploration;
+- no-code tools can be fast, but often trap work inside a proprietary runtime.
 
-## What You Can't Do (Yet)
+Ciaren's answer is a local, plugin-first workflow model where the visual graph is
+the product experience and Python export is the escape hatch. You can start with
+the UI and still end with code.
 
-Ciaren is designed for **local, single-machine data transformation**. It is
-**not** an Airflow/Spark/dbt replacement and doesn't support:
+## Who It Is For
 
-- Distributed computing (Spark, Dask)
-- Real-time streaming pipelines
-- 100GB+ datasets
-- Cross-flow DAG dependencies or complex orchestration
-- Multi-user collaboration and enterprise permissions
+- **Data analysts:** clean, join, validate, and export datasets without writing
+  every operation by hand.
+- **Python learners:** see how visual dataframe operations become pandas and
+  polars code.
+- **Data engineers:** prototype repeatable flows locally, review generated code,
+  and use the CLI/API for automation.
+- **ML practitioners:** move from raw data to tracked lightweight ML workflows on
+  the same canvas.
+- **Plugin authors:** add custom nodes, connectors, engines, model providers,
+  exporters, and validators without changing core.
+- **Contributors:** improve the editor, execution engine, transformations,
+  examples, docs, tests, and plugin SDK.
 
-It *does* include a lightweight cron scheduler for running a single flow on a
-schedule — see [Scheduling](/guide/scheduling).
+## What You Need First
 
-## Next Steps
+For the fastest evaluation:
 
-1. **[Install Ciaren](/guide/installation)** — get it running locally (2 minutes)
-2. **[Explore the Demo Project](/guide/demo-project)** — sample data and flows, seeded on first start
-3. **[5-Minute Quick Start](/guide/quick-start)** — build your first flow
-4. **[Interface Tour](/guide/interface)** — learn the UI
-5. **[Transformation Reference](/transformations/overview)** — all available operations
-6. **[Examples](/examples/sales-analysis)** — real-world workflows
+- **Python 3.12+** for the PyPI alpha package;
+- **Docker** if you prefer an isolated container;
+- **a browser** to open the visual editor;
+- **five minutes** to inspect the Demo project or build a small flow.
+
+You do not need your own dataset. Fresh installs seed a
+[Demo project](/guide/demo-project) with sample datasets and working flows.
+
+## Choose Your Path
+
+| Goal | Start here |
+| --- | --- |
+| "I just want to see it running" | [Installation](/guide/installation), install from PyPI or use Docker, then open the Demo project |
+| "I want to build my first flow" | [Quick Start](/guide/quick-start) |
+| "I want to understand the UI" | [Interface Tour](/guide/interface) |
+| "I want a realistic example" | [Sales Analysis](/examples/sales-analysis) or [Data Quality Checks](/examples/data-quality) |
+| "I care about generated code" | [Engines and Python export](/guide/engines) |
+| "I want to automate it" | [CLI Reference](/guide/cli), [REST API](/api/rest-api), and [Python SDK](/guide/sdk) |
+| "I want to extend it" | [Plugins Overview](/plugins/overview) and [Build Your First Plugin](/plugins/first-plugin) |
+| "I want to contribute" | [CONTRIBUTING.md](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md) and [Roadmap](/guide/roadmap) |
+
+## What Ciaren Is Not
+
+Ciaren is designed for local, single-machine workflows. It is not currently:
+
+- a distributed compute engine like Spark;
+- a real-time streaming platform;
+- a full Airflow/dbt replacement;
+- a multi-user enterprise collaboration system;
+- a tool for unbounded 100GB+ local datasets.
+
+It does include a lightweight scheduler for running individual flows on a cron
+schedule. See [Scheduling](/guide/scheduling).
 
 ## Quick Preview
 
-Here's what Ciaren looks like in action — a flow with real data loaded in the preview panel:
+![Ciaren editor with data preview, node palette, canvas, and configuration panel](/screenshots/editor-data-preview.png)
 
-![Ciaren editor with data preview — canvas, node palette, and 116-row preview table](/screenshots/editor-data-preview.png)
-
-Here is what a typical sales-summary pipeline looks like in Ciaren. Each colored
-card is one node; you drag them from the palette and connect them on the canvas.
+Here is the kind of pipeline you will build in the
+[Quick Start](/guide/quick-start):
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"sales.csv"},
-  {"type":"clean","label":"Drop Columns","detail":"remove internal_id, temp_notes"},
-  {"type":"clean","label":"Filter Rows","detail":"amount > 0"},
-  {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},
-  {"type":"transform","label":"Group By + Aggregate","detail":"by region · sum amount"},
-  {"type":"clean","label":"Rename Columns","detail":"sum_amount → total_sales"},
+  {"type":"clean","label":"Drop Nulls","detail":"remove rows missing amount"},
+  {"type":"clean","label":"Remove Duplicates","detail":"dedupe repeated orders"},
+  {"type":"transform","label":"Group By + Aggregate","detail":"sum amount by region"},
   {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' />
 
-## FAQ
+## Next Step
 
-### Do I need to know Python?
+Install Ciaren and open the Demo project:
 
-No! Ciaren is designed for non-programmers. The visual editor guides you through each step.
+```bash
+python -m pip install --pre ciaren
+ciaren serve
+```
 
-### Can I save my flows?
+Then open `http://localhost:8055`.
 
-Yes! Flows are saved to a database and can be run again anytime.
-
-### Can I export as Python code?
-
-Yes! Every flow generates readable **polars and pandas** code you can use in scripts or Jupyter notebooks.
-
-### Is my data secure?
-
-Ciaren runs entirely locally on your machine. No data is sent anywhere. (No SaaS, no cloud uploads.)
-
-### Can I use my own database?
-
-Yes! Use a **SQL Input** or **SQL Output** node with a saved [Connection](/guide/connections). PostgreSQL, MySQL, SQLite, SQL Server, and MongoDB are supported.
-
-## Still Have Questions?
-
-- **[Troubleshooting Guide](/guide/troubleshooting)** — Common issues and solutions
-- **[FAQ](/faq)** — More frequently asked questions
-- **[GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — Ask the community
-
----
-
-**Ready to dive in?** [Install and get started →](/guide/installation)
+[Continue to Installation →](/guide/installation)

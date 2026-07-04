@@ -21,6 +21,7 @@ _DEFAULT_EXPERIMENT = "ciaren"
 
 # NodeResult keys that make a node "ML" for the metrics view.
 _ML_KEYS = ("ml_metrics", "model_uri", "task_type", "cv_scores", "mlflow_run_id")
+_ML_NOT_READY = "ML support requires CIAREN_ML_ENABLED=true and the core ML dependencies."
 
 
 def _ms_to_iso(ms: int | None) -> str | None:
@@ -81,7 +82,7 @@ class MLService:
         tagging the new version with an alias (MLflow 3 replaced stages with
         aliases; the ``stage`` value is applied as a lowercase alias)."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("Model registration requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Model registration requires the ML extension ({_ML_NOT_READY})")
         if not model_name or not model_name.strip():
             raise ValidationError("A non-empty 'model_name' is required to register a model.")
 
@@ -116,7 +117,7 @@ class MLService:
         the response reflects what actually exists.
         """
         if not ml_extension_ready():
-            raise MLNotEnabledError("Listing experiments requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Listing experiments requires the ML extension ({_ML_NOT_READY})")
         flow = await self._get_flow(flow_id)
         names = self._experiment_names(flow.graph_json or {})
         if not names:
@@ -147,7 +148,7 @@ class MLService:
         This is the value-add over MLflow's own UI: each version links back to the
         Ciaren flow and run that trained it via the reproducibility tags."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("The model registry requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"The model registry requires the ML extension ({_ML_NOT_READY})")
 
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
@@ -195,7 +196,7 @@ class MLService:
     async def set_model_alias(self, model_name: str, version: str, alias: str) -> dict[str, Any]:
         """Point an alias (e.g. ``production``) at a registered model version."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("Managing aliases requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Managing aliases requires the ML extension ({_ML_NOT_READY})")
         alias = (alias or "").strip().lower()
         if not alias:
             raise ValidationError("An alias name is required.")
@@ -213,7 +214,7 @@ class MLService:
     async def clear_model_alias(self, model_name: str, alias: str) -> dict[str, Any]:
         """Remove an alias from a registered model."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("Managing aliases requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Managing aliases requires the ML extension ({_ML_NOT_READY})")
 
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
@@ -229,7 +230,7 @@ class MLService:
         """All MLflow experiments with a run count and last-run time, for the
         Experiments tab leaderboard navigation."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("Listing experiments requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Listing experiments requires the ML extension ({_ML_NOT_READY})")
 
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
@@ -254,7 +255,7 @@ class MLService:
         """Runs in an experiment with metrics, params, and Ciaren lineage — the
         data behind the leaderboard and side-by-side comparison."""
         if not ml_extension_ready():
-            raise MLNotEnabledError("Listing runs requires the ML extension (ML_ENABLED + [ml] extra).")
+            raise MLNotEnabledError(f"Listing runs requires the ML extension ({_ML_NOT_READY})")
 
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 

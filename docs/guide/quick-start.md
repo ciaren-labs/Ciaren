@@ -6,16 +6,17 @@ search: quick start tutorial first flow editor api
 
 # Quick Start (5 Minutes)
 
-This walkthrough builds your first pipeline end to end: upload a file, clean it,
+This walkthrough builds your first pipeline end to end: bring in data, clean it,
 run it, and export Python. We'll use the visual editor; an API-only version is at
-the bottom.
+the bottom for developers who want to inspect the REST surface.
 
-## Prerequisites
+## Before You Start
 
-- The backend and frontend running locally (see [Installation](/guide/installation)).
-  In short: `ciaren serve` in `backend/`, and `npm run dev` in `frontend/`.
-- A small CSV to upload. Any file with a header row works — for example
-  `sales.csv`:
+- Ciaren running locally. If you installed from PyPI or used Docker, open
+  `http://localhost:8055`. If you run from source in development mode, open
+  `http://localhost:5173`.
+- Either the built-in Demo project or a small CSV. Any file with a header row
+  works — for example `sales.csv`:
 
   ```csv
   order_id,region,amount,notes
@@ -25,16 +26,16 @@ the bottom.
   3,,80,
   ```
 
-:::tip No file handy? Use the built-in Demo project
-Every fresh install seeds a **Demo** project with 11 sample datasets and 18
-ready-made example flows (including several ML-focused ones) — open
-**Projects → Demo** and you can preview, run, and export without uploading
-anything. The [Demo Project & Tutorials](/guide/demo-project) page walks
-through the four foundational tutorial flows step by step.
+:::tip Fastest route: use the built-in Demo project
+Every fresh install seeds a **Demo** project with sample datasets and ready-made
+example flows, including ML-focused ones. Open **Projects → Demo** and you can
+preview, run, and export without uploading anything.
 
 The demo is optional but recommended for a first install — it's the fastest
-way to see working examples. If you'd rather start empty, launch the backend
-with `ciaren serve --no-demo` (or set `CIAREN_SEED_DEMO=false`).
+way to see working examples. The
+[Demo Project & Tutorials](/guide/demo-project) page walks through the
+foundational tutorial flows step by step. If you'd rather start empty, launch
+the backend with `ciaren serve --no-demo` or set `CIAREN_SEED_DEMO=false`.
 :::
 
 ## What you'll build
@@ -50,13 +51,18 @@ aggregates, and outputs a summary CSV — plus the equivalent Python script.
   {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' />
 
-## 1. Upload a dataset
+## 1. Pick or Upload a Dataset
 
-1. Open `http://localhost:5173` and go to **Datasets**.
-2. Use the **Choose a project** dropdown to pick a project (e.g. "Default" or
-   "Demo") — this reveals a **Step 2** drop zone.
-3. Drag your file onto the drop zone, or click it to browse and select one.
-   It accepts CSV, TSV, Excel, Parquet, JSON, JSON Lines, or plain text.
+If you are using the Demo project, you can skip the upload and use an existing
+sample dataset.
+
+To upload your own file:
+
+1. Open the app and go to **Datasets**.
+2. Use the **Choose a project** dropdown to pick a project, such as "Default".
+   This reveals a **Step 2** drop zone.
+3. Drag your file onto the drop zone, or click it to browse and select one. It
+   accepts CSV, TSV, Excel, Parquet, JSON, JSON Lines, or plain text.
 
 Ciaren infers the column schema and stores a sample. Datasets are
 **versioned** — re-uploading a file with the same name adds a new version rather
@@ -65,10 +71,9 @@ than overwriting the old one, so existing flows stay reproducible.
 ## 2. Create a flow
 
 1. Go to **Flows → New flow**. This opens a modal with Name/Description/Project
-   fields and 5 starter templates: **Blank flow**, **Clean & Deduplicate**,
-   **Filter & Aggregate**, **Data Quality Checks**, and **Tidy Columns** (each
-   pre-populates a small node chain). Pick **Blank flow** for an empty canvas,
-   as this walkthrough assumes.
+   fields and starter templates such as **Blank flow**, **Clean & Deduplicate**,
+   **Filter & Aggregate**, **Data Quality Checks**, and **Tidy Columns**. Pick
+   **Blank flow** for an empty canvas, as this walkthrough assumes.
 2. Drag a **File Input** node from the palette, select the dataset you
    uploaded, and set its **File type** to CSV.
 3. Add a few transformation nodes and connect them in order:
@@ -95,8 +100,9 @@ Open the run from the **Runs** page to inspect each node and download the output
 ## 4. Export Python
 
 Click **Export → Python**. Ciaren returns standalone, readable code for your
-flow — both the **polars** and the **pandas** version. Paste it into a script or
-a Jupyter notebook and it runs on its own, no Ciaren required.
+flow, including **polars**, **pandas**, and **lazy polars** variants where
+available. Paste it into a script or a Jupyter notebook and it runs on its own,
+no Ciaren required.
 
 ## 5. (Optional) Schedule it
 
@@ -138,6 +144,7 @@ the [Transformations Reference](/transformations/overview) and the
 
 ## Next Steps
 
+- [Demo Project & Tutorials](/guide/demo-project) — inspect working flows without setup
 - [Interface Tour](/guide/interface) — learn the editor
 - [Transformations Reference](/transformations/overview) — all node types
 - [Examples](/examples/sales-analysis) — real-world, end-to-end walkthroughs
