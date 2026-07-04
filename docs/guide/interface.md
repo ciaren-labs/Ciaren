@@ -64,7 +64,7 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
   previews use the last saved version of the flow; save before previewing if the
   canvas has unsaved edits.
 
-  ![Data Preview panel showing 116 rows of joined customer-order data](/screenshots/editor-data-preview.png)
+  ![Previewing the joined customer-order data (116 rows), then switching to per-column Profile statistics — live, on the canvas](/screenshots/live-data-preview.gif)
 - **Profile** — alongside the preview, a one-click **Profile** view shows
   per-column statistics for the selected node's output: null count and
   percentage, distinct count, numeric min/mean/max, datetime range, and the top
@@ -76,7 +76,7 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 
 Building a pipeline is drag, configure, connect — no code required to start:
 
-![Dragging a File Input node onto the canvas, picking a dataset, then dragging a Fill Nulls node and connecting the two](/screenshots/flow-editor-build-pipeline.gif)
+![Building a flow from scratch — dropping a File Input, two cleaning nodes, a Train/Test Split and a classifier onto the canvas, then connecting and auto-arranging them](/screenshots/build-flow-from-scratch.gif)
 
 ## Node handles
 

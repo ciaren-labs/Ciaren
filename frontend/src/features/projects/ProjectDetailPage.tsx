@@ -193,7 +193,7 @@ function ProjectFlows({ projectId }: { projectId: string }) {
               {flow.description || "No description"}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              {flow.graph_json?.nodes.length ?? 0} nodes
+              {flow.graph_json?.nodes?.length ?? 0} nodes
             </p>
           </button>
         ))}
