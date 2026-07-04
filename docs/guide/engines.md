@@ -47,7 +47,7 @@ can see which engine produced a given output.
 code, all generated from the same graph. In the editor's **Generated code** dialog
 they appear as three tabs (click **Export** in the toolbar):
 
-![Generated code dialog — pandas/polars/polars-lazy/Flow JSON tabs with syntax-highlighted code and Free intermediate tables option](/screenshots/export-dialog.png)
+![Switching the Generated code dialog between pandas, Polars, and lazy Polars — the code regenerates live from the same graph](/screenshots/export-python-code.gif)
  All three are standalone and readable — use whichever
 your downstream code prefers.
 

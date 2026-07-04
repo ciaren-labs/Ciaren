@@ -311,4 +311,3 @@ CIAREN_PORT=9001 docker compose up
 
 - [CLI Reference](./cli.md) — all `ciaren` sub-commands and flags
 - [Advanced Setup](./advanced-setup.md) — environment variables, database config
-- [CI/CD Pipeline](../CI_CD.md) — how Docker builds are tested in GitHub Actions

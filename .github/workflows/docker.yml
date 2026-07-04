@@ -1,7 +1,10 @@
 name: Docker
 
 on:
-  push:
+  # Base build+smoke gates PRs targeting main only. Direct pushes to main do NOT
+  # build the image (the PR already validated it); a broken Dockerfile pushed
+  # straight to main is caught by the weekly schedule and at release-tag time.
+  pull_request:
     branches: [main]
     paths:
       - Dockerfile
@@ -10,16 +13,15 @@ on:
       - backend/**
       - frontend/**
       - .github/workflows/docker.yml
-  pull_request:
-    # Run on PRs to both branches; the expensive ML build is skipped for development PRs below.
-    branches: [main, development]
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - docker-compose.yml
-      - backend/**
-      - frontend/**
-      - .github/workflows/docker.yml
+  # Release tags run the full build including the heavy ML image; the weekly
+  # schedule keeps the image buildable even without a change landing.
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+  schedule:
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -116,8 +118,10 @@ jobs:
     name: Build with ML extras
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # ML build is slow (~1 GB of packages) — only on push to main or PRs targeting main.
-    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    # ML build is slow (~1 GB of packages), so it's reserved for the moments that
+    # actually ship or need the guarantee: release tags, the weekly schedule, and
+    # manual dispatch. It intentionally does NOT run on PRs.
+    if: github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import logging
+import mimetypes
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -299,6 +300,30 @@ def frontend_dist_path(settings: object | None = None) -> Path | None:
     return None
 
 
+# Correct Content-Type for the web bundle's file types. Python's ``mimetypes`` seeds
+# itself from the OS: on Windows the registry frequently maps ``.js`` to
+# ``text/plain``, which makes browsers refuse the ES module scripts (strict MIME
+# checking) so the SPA renders a blank page. Forcing these overrides the registry for
+# the process and fixes both the ``/assets`` StaticFiles mount and the SPA
+# ``FileResponse`` fallback, since both resolve types through ``mimetypes``.
+_WEB_MIME_TYPES: dict[str, str] = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".map": "application/json",
+    ".svg": "image/svg+xml",
+    ".wasm": "application/wasm",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+}
+
+
+def _ensure_web_mime_types() -> None:
+    for ext, media_type in _WEB_MIME_TYPES.items():
+        mimetypes.add_type(media_type, ext)
+
+
 def _mount_frontend(app: FastAPI, settings: object) -> None:
     """Serve the built web UI (with SPA fallback) when it's available, so the whole
     app is reachable at the server URL. No-op when the frontend isn't built.
@@ -309,6 +334,9 @@ def _mount_frontend(app: FastAPI, settings: object) -> None:
     dist = frontend_dist_path(settings)
     if dist is None:
         return
+
+    # Must run before any static file is served so the right Content-Type is sent.
+    _ensure_web_mime_types()
 
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles

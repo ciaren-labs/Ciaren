@@ -3,6 +3,12 @@ name: Backend Tests
 on:
   push:
     branches: [main, development]
+    # `paths` is NOT evaluated for tag pushes (GitHub applies it to branch
+    # pushes only), so the release tags below always trigger the full matrix
+    # regardless of which files the tagged commit touched.
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml
@@ -11,6 +17,11 @@ on:
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml
+  # Weekly safety net so Windows/macOS drift and newly released Python patch
+  # versions are caught even without a change landing.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,12 +38,26 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - id: set-matrix
+        shell: bash
+        # Cost-tiered matrix (this is a private repo: Linux bills 1x, Windows 2x,
+        # macOS 10x). Ciaren is pure Python, so Linux already exercises the macOS
+        # code paths; macOS only earns its 10x cost at release/packaging time
+        # (e.g. the libomp/OpenMP concern), so it's reserved for tags + the weekly
+        # run. Tiers:
+        #   full  — release tag, weekly schedule, manual dispatch: all 3 OSes.
+        #   gate  — PR targeting main: Linux (all Pythons) + Windows (edges).
+        #   smoke — everything else (push to main after merge, direct pushes,
+        #           dev-branch push/PR): a single Linux job.
         run: |
-          # Full matrix when landing on main (push or PR); light otherwise (development branch).
-          if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ github.base_ref }}" == "main" ]; then
-            echo 'matrix={"os":["ubuntu-latest","windows-latest","macos-latest"],"python-version":["3.12","3.13"]}' >> $GITHUB_OUTPUT
+          full='{"include":[{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.14"},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.14"},{"os":"macos-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.14"}]}'
+          gate='{"include":[{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"ubuntu-latest","python-version":"3.14"},{"os":"windows-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.14"}]}'
+          smoke='{"include":[{"os":"ubuntu-latest","python-version":"3.12"}]}'
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "matrix=$full" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ]; then
+            echo "matrix=$gate" >> "$GITHUB_OUTPUT"
           else
-            echo 'matrix={"os":["ubuntu-latest"],"python-version":["3.12"]}' >> $GITHUB_OUTPUT
+            echo "matrix=$smoke" >> "$GITHUB_OUTPUT"
           fi
 
   test:

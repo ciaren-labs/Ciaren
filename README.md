@@ -30,7 +30,7 @@
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
 </p>
 
-![Ciaren visual workflow editor showing cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline](docs/public/screenshots/editor-clean-and-ml.png)
+![Ciaren generating standalone pandas, Polars, and lazy Polars code live from the same visual flow](docs/public/screenshots/export-python-code.gif)
 
 ## What Is Ciaren?
 
@@ -280,8 +280,10 @@ complete license texts and notices.
 ## Project Status
 
 - Current stage: **Alpha**
-- First public release target: `v0.1.0-alpha.1`
-- PyPI version for the first alpha: `0.1.0a1`
+- First public release: `0.1.0-alpha.1` — this is also the **git tag** to push.
+  Push it **without** a `v` prefix (`git tag 0.1.0-alpha.1`); the tag is what
+  triggers the PyPI publish workflow, and it only matches unprefixed versions.
+- PyPI version for the first alpha: `0.1.0a1` (PyPI normalizes the tag to PEP 440).
 - Breaking changes are expected before `1.0.0`
 
 Made for data practitioners who value local workflows, transparent execution,
