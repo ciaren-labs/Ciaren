@@ -84,8 +84,9 @@ def test_pandas_linear_chain_uses_single_variable() -> None:
     code = CodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"})
     assert "df_1 = pd.read_csv('in.csv')" in code
     assert "df_1 = df_1.dropna()" in code
-    assert "df_1 = df_1[df_1['age'] > 21]" in code
-    assert "df_1 = df_1.sort_values(by=['age'], ascending=True)" in code
+    # The filter's mask references df_1 twice, so it starts a fresh fused
+    # chain that the sort joins (see test_codegen_fluent for the fusion rules).
+    assert "df_1 = df_1[df_1['age'] > 21].sort_values(by=['age'], ascending=True)" in code
     assert "df_1.to_csv('out.csv', index=False)" in code
     assert "df_2" not in code
 
@@ -94,8 +95,10 @@ def test_polars_linear_chain_uses_single_variable() -> None:
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"}, lazy=lazy)
         assert "df_2" not in code
-        assert "df_1 = df_1.drop_nulls()" in code
-        assert "df_1 = df_1.filter(pl.col('age') > 21)" in code
+        # The whole chain fuses into one fluent statement on df_1.
+        assert "df_1 = (" in code
+        assert "    df_1.drop_nulls()" in code
+        assert "    .filter(pl.col('age') > 21)" in code
 
 
 def _fanout_graph() -> dict:

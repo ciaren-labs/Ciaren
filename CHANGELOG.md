@@ -10,6 +10,16 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Fluent method chains in exported code** — both code generators now merge
+  consecutive single-variable steps of a linear flow into one chained
+  expression, the way a person would write it: short runs on one line
+  (`df_1 = df_1.dropna().head(5)`), longer ones in parenthesized fluent style
+  with one call per line (`df_1 = (\n    df_1.filter(...)\n    .group_by(...)…`).
+  The fusion pass is AST-validated and conservative: statements whose
+  right-hand side references the running variable more than once (e.g. pandas
+  boolean masks) may open a chain but never continue one, and joins, fan-outs,
+  `del` statements (memory-freeing mode), comments, and multi-line snippets
+  keep their exact previous shape and semantics.
 - **`ciaren-client` plugin license/uninstall methods** — the Python SDK was
   missing wrappers for three plugin endpoints the server and web UI already
   exposed: `activate_plugin_license`, `remove_plugin_license`, and

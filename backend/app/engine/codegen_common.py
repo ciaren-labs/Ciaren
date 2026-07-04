@@ -14,8 +14,9 @@ instead of minting ``df_2``), and, under the optional ``del``
 (see :class:`DelScheduler`).
 """
 
+import ast
 import re
-from typing import Any
+from typing import Any, NamedTuple
 
 from app.engine.sql_codegen import engine_url_expr
 
@@ -32,6 +33,183 @@ def strip_self_assign(code: str) -> str:
     aware."""
     lines = [line for line in code.split("\n") if not _SELF_ASSIGN.match(line)]
     return "\n".join(lines) or code
+
+
+# Only generated dataframe variables participate in chain fusion; everything
+# else (module aliases like pd/pl, _eager_N temps, _engine_N) is left alone.
+_DF_VAR = re.compile(r"df_\d+$")
+
+# A fused chain longer than this is rendered in parenthesized fluent style,
+# one method call per line; at or below it, as a plain single-line statement.
+_MAX_SINGLE_LINE = 88
+
+
+class _ChainStep(NamedTuple):
+    """One fusible statement ``target = root.method(...)…``, decomposed.
+
+    ``dots`` are offsets into ``rhs`` of the spine dots — the ``.`` of each
+    method call applied directly to the running dataframe (not dots inside
+    arguments) — used to break a long chain one call per line.
+    ``target_refs`` counts occurrences of ``target`` in the RHS: a statement
+    whose RHS mentions its own target more than once (``df_1 =
+    df_1[df_1['a'] > 0]``) reads the *pre-statement* value in those extra
+    references, so it may only start a fused chain, never continue one
+    (mid-chain, the extra references would see the pre-chain frame while the
+    spine sees the running result — a semantic change).
+    """
+
+    target: str
+    root: str
+    rhs: str
+    dots: list[int]
+    target_refs: int
+
+
+def _chain_step(line: str) -> _ChainStep | None:
+    """Decompose ``line`` if it is a fusible single-statement assignment.
+
+    Fusible means: one physical line, no comment, a single ``Assign`` to a bare
+    ``df_N`` name, whose RHS is a chain of calls / attribute accesses /
+    subscripts rooted at another bare ``df_N`` name. Anything else — reads
+    (``pd.read_csv``), writes, ``del``, ``with`` blocks, multi-line snippets,
+    temps — returns None and acts as a chain boundary.
+    """
+    if "\n" in line or "#" in line or " = " not in line:
+        return None
+    try:
+        tree = ast.parse(line)
+    except SyntaxError:
+        return None
+    if len(tree.body) != 1 or not isinstance(tree.body[0], ast.Assign):
+        return None
+    assign = tree.body[0]
+    if len(assign.targets) != 1 or not isinstance(assign.targets[0], ast.Name):
+        return None
+    target = assign.targets[0].id
+    if not _DF_VAR.match(target):
+        return None
+    node: ast.expr = assign.value
+    dots: list[int] = []
+    while True:
+        if isinstance(node, ast.Call):
+            node = node.func
+        elif isinstance(node, ast.Attribute):
+            if node.value.end_col_offset is not None:
+                dots.append(node.value.end_col_offset)
+            node = node.value
+        elif isinstance(node, ast.Subscript):
+            node = node.value
+        else:
+            break
+    if not isinstance(node, ast.Name) or not _DF_VAR.match(node.id):
+        return None
+    rhs_start = assign.value.col_offset
+    rhs = line[rhs_start:]
+    # Keep only offsets that really are spine dots (generated code never puts
+    # whitespace around them; if it ever did, we skip that split point).
+    rel_dots = sorted(d - rhs_start for d in dots if rhs[d - rhs_start : d - rhs_start + 1] == ".")
+    target_refs = sum(1 for n in ast.walk(assign.value) if isinstance(n, ast.Name) and n.id == target)
+    return _ChainStep(target, node.id, rhs, rel_dots, target_refs)
+
+
+def _step_suffix(step: _ChainStep) -> str | None:
+    """What a continuation step appends to the running chain (``.method(...)``
+    or a plain subscript), or None if the RHS doesn't literally start with the
+    root variable followed by ``.`` or ``[``."""
+    if not step.rhs.startswith(step.root):
+        return None
+    suffix = step.rhs[len(step.root) :]
+    if not suffix or suffix[0] not in ".[":
+        return None
+    return suffix
+
+
+def _segments(step: _ChainStep) -> list[str]:
+    """Split a step's RHS at its spine dots: ``df_1.groupby(x).agg(y)`` →
+    ``['df_1', '.groupby(x)', '.agg(y)']``."""
+    bounds = [0, *step.dots, len(step.rhs)]
+    return [step.rhs[a:b] for a, b in zip(bounds, bounds[1:]) if step.rhs[a:b]]
+
+
+def _render_chain(group: list[_ChainStep]) -> list[str]:
+    """Render a run of ≥2 fusible steps as one fluent statement."""
+    target = group[0].target
+    suffixes = [_step_suffix(s) or "" for s in group[1:]]  # caller guarantees not None
+    single = f"{target} = {group[0].rhs}" + "".join(suffixes)
+    if len(single) <= _MAX_SINGLE_LINE:
+        return [single]
+    # One fragment per spine call: the first step contributes its full RHS
+    # (split at its spine dots), each continuation its suffix (likewise split).
+    fragments = _segments(group[0])
+    for step in group[1:]:
+        segs = _segments(step)
+        head = segs[0][len(step.root) :]  # subscript between root and first dot, if any
+        if head:
+            fragments.append(head)
+        fragments.extend(segs[1:])
+    # A subscript fragment continues the previous physical line — a leading
+    # `[` on its own line reads as indexing thin air.
+    pieces: list[str] = []
+    for frag in fragments:
+        if pieces and frag.startswith("["):
+            pieces[-1] += frag
+        else:
+            pieces.append(frag)
+    # Don't leave a bare `df_1` line; open with `df_1.first_call(...)`.
+    if len(pieces) > 1 and pieces[0] == group[0].root:
+        pieces[0:2] = [pieces[0] + pieces[1]]
+    return [f"{target} = (", *(f"    {p}" for p in pieces), ")"]
+
+
+def fuse_method_chains(lines: list[str]) -> list[str]:
+    """Merge consecutive ``df = df.method(...)`` statements into one fluent chain.
+
+    Both drivers emit one statement per node; on linear chains variable reuse
+    already collapses names (``df_1 = df_1.dropna()`` line after line). This
+    pass rewrites each such run the way a person would: short runs on one line
+    (``df_1 = df_1.dropna().head(5)``), longer ones in parenthesized fluent
+    style with one call per line.
+
+    Safety comes from :func:`_chain_step`'s AST validation plus two rules:
+
+    - a run only *continues* while each statement assigns the same variable it
+      roots its RHS in and references it exactly once (see ``_ChainStep``);
+    - any non-fusible entry (``del``, writes, comments, multi-line snippets)
+      breaks the run, so liveness / ``free_intermediates`` behavior is
+      untouched — fusion never reorders or crosses statements.
+
+    The first statement of a run may root in a *different* dataframe
+    (``df_2 = df_1.agg(...)`` on a fan-out) and may reference it any number of
+    times: at that point every reference still sees the same pre-chain frame.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        step = _chain_step(lines[i])
+        if step is None:
+            out.append(lines[i])
+            i += 1
+            continue
+        group = [step]
+        j = i + 1
+        while j < len(lines):
+            nxt = _chain_step(lines[j])
+            if (
+                nxt is None
+                or nxt.target != step.target
+                or nxt.root != nxt.target
+                or nxt.target_refs != 1
+                or _step_suffix(nxt) is None
+            ):
+                break
+            group.append(nxt)
+            j += 1
+        if len(group) >= 2:
+            out.extend(_render_chain(group))
+        else:
+            out.append(lines[i])
+        i = j  # j == i + 1 when the group stayed a singleton
+    return out
 
 
 def incoming_by_target(graph: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:

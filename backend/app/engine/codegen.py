@@ -14,9 +14,11 @@ de-duplicated into the script header.
 
 On linear chains a node writes its result back into its input's variable
 (``df_1 = df_1.dropna()``) instead of minting a new ``df_N`` — see
-:func:`app.engine.codegen_common.reusable_output_var` for when that is safe —
-so a straight-line flow exports as a single ``df_1`` reassigned step by step,
-the way a person would write it.
+:func:`app.engine.codegen_common.reusable_output_var` for when that is safe.
+A final pass (:func:`app.engine.codegen_common.fuse_method_chains`) then merges
+each such run of statements into one fluent chained expression, so a
+straight-line flow exports the way a person would write it:
+``df_1 = df_1.dropna().head(5)``, or parenthesized one-call-per-line when long.
 
 The optional ``free_intermediates`` mode emits a ``del`` once each dataframe's last
 consumer has run, lowering peak memory on long pipelines (see
@@ -30,6 +32,7 @@ from app.engine.codegen_common import (
     DelScheduler,
     collect_input_vars,
     edge_source_var,
+    fuse_method_chains,
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
@@ -232,4 +235,4 @@ class CodeGenerator:
 
         header = base_header + ordered_imports(extra_imports)
         prelude = [*parameter_lines, ""] if parameter_lines else []
-        return "\n".join([*header, "", *prelude, *body]) + "\n"
+        return "\n".join([*header, "", *prelude, *fuse_method_chains(body)]) + "\n"

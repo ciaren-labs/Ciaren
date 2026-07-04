@@ -7,7 +7,9 @@ transformation node to its own ``to_polars_code`` method, so each node's polars
 mapping lives next to its ``execute`` and ``to_python_code``. On linear chains
 a node writes its result back into its input's variable (``df_1 =
 df_1.drop_nulls()``) instead of minting a new ``df_N`` — see
-:func:`app.engine.codegen_common.reusable_output_var`.
+:func:`app.engine.codegen_common.reusable_output_var` — and a final pass fuses
+each run of such statements into one fluent chained expression
+(:func:`app.engine.codegen_common.fuse_method_chains`).
 
 Two opt-in modes:
 
@@ -28,6 +30,7 @@ from app.engine.codegen_common import (
     DelScheduler,
     collect_input_vars,
     edge_source_var,
+    fuse_method_chains,
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
@@ -334,4 +337,4 @@ class PolarsCodeGenerator:
 
         header = [*base_header, *ordered_imports(extra_imports)]
         prelude = [*parameter_lines, ""] if parameter_lines else []
-        return "\n".join([*header, "", *prelude, *lines]) + "\n"
+        return "\n".join([*header, "", *prelude, *fuse_method_chains(lines)]) + "\n"
