@@ -43,7 +43,7 @@ type PendingAction =
 type FlowSortKey = "name" | "nodes" | "status" | "created" | "last_run";
 const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
   name: (f) => f.name.toLowerCase(),
-  nodes: (f) => f.graph_json?.nodes.length ?? 0,
+  nodes: (f) => f.graph_json?.nodes?.length ?? 0,
   status: (f) => (f.is_disabled ? "disabled" : "active"),
   created: (f) => f.created_at,
   last_run: (f) => f.last_run_at ?? null,
@@ -670,7 +670,7 @@ function FlowCard({
           {flow.description || "No description"}
         </p>
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{flow.graph_json?.nodes.length ?? 0} nodes</span>
+          <span>{flow.graph_json?.nodes?.length ?? 0} nodes</span>
         </div>
         <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
           <span>Created {fmt(flow.created_at)}</span>
@@ -775,7 +775,7 @@ function FlowTable({
                   </button>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
-                  {flow.graph_json?.nodes.length ?? 0}
+                  {flow.graph_json?.nodes?.length ?? 0}
                 </td>
                 <td className="px-4 py-2.5">
                   {flow.is_disabled ? (

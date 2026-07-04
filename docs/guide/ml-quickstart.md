@@ -163,7 +163,7 @@ training flow to create the model artifact used by Predict or registration.
 
 Run the flow, then open the run. The run detail page shows the full DAG with green checkmarks on every node and row counts at each step:
 
-![Run detail for an ML flow — csvInput, scaleFeatures, trainTestSplit, mlTrainClassifier, featureImportance, mlPredict, mlEvaluate, and two csvOutput nodes all succeeded](/screenshots/run-detail.png)
+![Running an ML flow — the DAG fills in green with per-node row counts, and selecting the Evaluate node surfaces accuracy, precision, recall and F1](/screenshots/run-ml-pipeline.gif)
 
 Click the **Train Classifier** node to see its **Machine learning** panel:
 

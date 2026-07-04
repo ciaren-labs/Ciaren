@@ -103,7 +103,6 @@ npm run lint
 │   ├── privacy.md
 │   └── terms.md
 ├── faq.md
-├── CI_CD.md
 └── .vitepress/
     ├── config.ts              # VitePress configuration
     └── theme/
@@ -217,8 +216,8 @@ description: What this example shows
 
 ## Deployment
 
-This repo does not deploy the docs site. `docs-deploy.yml` (see
-[CI_CD.md](./CI_CD.md)) only lints and validates `docs/**` as a PR/push gate:
+This repo does not deploy the docs site. `docs-deploy.yml` only lints and
+validates `docs/**` as a PR/push gate:
 
 1. **Lint** — `npm run lint` (markdownlint).
 2. **Build & test** — `npm run build`, then the build output is validated and

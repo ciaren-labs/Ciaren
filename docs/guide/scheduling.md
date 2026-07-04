@@ -30,9 +30,9 @@ The **Recent runs** column shows each schedule's last five runs as status icons
 (oldest to newest), so you can spot a flaky or failing schedule at a glance.
 Click an icon to open that run in the [run detail view](/guide/projects-and-runs#runs).
 
-The frequency picker updates its human-readable summary and cron expression live as you switch between Weekly and Custom (cron):
+The frequency picker updates its human-readable summary and cron expression live as you switch between presets and Custom (cron):
 
-![Switching the schedule frequency from Weekly to Custom (cron) — the "Every Monday at 09:00" summary and cron expression update live](/screenshots/schedule-frequency-picker.gif)
+![Switching the schedule frequency across Daily, Weekly, Monthly, and Custom (cron) — the human-readable summary and cron expression update live](/screenshots/schedule-frequency-picker.gif)
 
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
 expression and timezone. Over the API:
