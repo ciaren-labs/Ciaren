@@ -217,15 +217,16 @@ description: What this example shows
 
 ## Deployment
 
-Fully automated via the `docs-deploy.yml` GitHub Actions workflow (see
-[CI_CD.md](./CI_CD.md) for the full pipeline description). On every change to
-`docs/**`:
+This repo does not deploy the docs site. `docs-deploy.yml` (see
+[CI_CD.md](./CI_CD.md)) only lints and validates `docs/**` as a PR/push gate:
 
 1. **Lint** — `npm run lint` (markdownlint).
 2. **Build & test** — `npm run build`, then the build output is validated and
    checked for broken internal links (`npm run test:links`).
-3. **Deploy** — on push to `main`, the built site is published to GitHub Pages
-   automatically. No manual deploy step or `gh-pages` branch is involved.
+
+`ciaren.com/docs` is published elsewhere, pulled from `docs/` here manually
+after cutting a release. There is no GitHub Pages
+deploy and no automatic sync in either direction.
 
 Run the same checks locally before pushing:
 

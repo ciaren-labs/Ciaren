@@ -142,12 +142,13 @@ cd frontend && npm audit --audit-level=high
 
 ### Workflow: `docs-deploy.yml`
 
-Runs on changes to `docs/**`.
+Runs on changes to `docs/**`. Lint/build/link-check gate only — this repo does
+not publish the docs site itself. `ciaren.com/docs` is published elsewhere,
+pulled from `docs/` here manually after a release.
 
 - **Lint:** `npm run lint` (markdownlint)
 - **Build & test:** `npm run build`, then validates the build output and checks
   for broken internal links
-- **Deploy:** on push to `main`, publishes the built site to GitHub Pages
 
 Run locally:
 
