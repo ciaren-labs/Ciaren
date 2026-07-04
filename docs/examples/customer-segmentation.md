@@ -85,11 +85,17 @@ import pandas as pd
 
 df_1 = pd.read_csv("orders.csv")
 df_2 = pd.read_csv("customers.csv")
-df_1 = df_1.groupby(['customer_id']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
-df_1 = df_1.rename(columns={'amount': 'total_spent', 'order_id': 'num_orders'})
+df_1 = (
+    df_1.groupby(['customer_id'])
+    .agg({'amount': 'sum', 'order_id': 'count'})
+    .reset_index()
+    .rename(columns={'amount': 'total_spent', 'order_id': 'num_orders'})
+)
 df_3 = pd.merge(df_1, df_2, on=['customer_id'], how='left', suffixes=('_x', '_y'))
-df_3 = df_3.assign(**{'tier': pd.qcut(df_3['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string')})
-df_3 = df_3.sort_values(by=['total_spent'], ascending=[False])
+df_3 = (
+    df_3.assign(**{'tier': pd.qcut(df_3['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string')})
+    .sort_values(by=['total_spent'], ascending=[False])
+)
 df_3.to_csv("segments.csv", index=False)
 ```
 

@@ -172,8 +172,11 @@ to code like this:
 import polars as pl
 
 df_1 = pl.read_csv("sales.csv")
-df_1 = df_1.drop_nulls(subset=["amount"])
-df_1 = df_1.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
+df_1 = (
+    df_1.drop_nulls(subset=["amount"])
+    .group_by(["region"])
+    .agg([pl.col("amount").sum().alias("amount")])
+)
 df_1.write_csv("summary.csv")
 ```
 

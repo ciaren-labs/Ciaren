@@ -67,7 +67,8 @@ Use the **live preview** after each node to watch the data take shape, then
 ## Exported Python
 
 Click **Export → Python**. The generated pandas script is standalone — on a
-straight chain like this one, every step reuses a single variable:
+straight chain like this one, consecutive steps fuse into fluent
+method chains on a single variable:
 
 ```python
 import pandas as pd
@@ -75,15 +76,21 @@ import pandas as pd
 df_1 = pd.read_csv("sales.csv")
 df_1 = df_1.drop(columns=['internal_note'])
 df_1 = df_1.assign(**{'amount': df_1['amount'].astype('float64')})
-df_1 = df_1.assign(**{'ordered_at': pd.to_datetime(df_1['ordered_at'])})
-df_1 = df_1.dropna(subset=['amount'])
+df_1 = (
+    df_1.assign(**{'ordered_at': pd.to_datetime(df_1['ordered_at'])})
+    .dropna(subset=['amount'])
+)
 df_1 = df_1[df_1['amount'] > 0]
 df_1 = df_1.assign(**{'region': df_1['region'].replace('north', 'North')})
 df_1 = df_1.assign(**{'region': df_1['region'].replace('south', 'South')})
-df_1 = df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
-df_1 = df_1.groupby(['region']).agg({'amount': 'sum', 'order_id': 'count'}).reset_index()
-df_1 = df_1.rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
-df_1 = df_1.sort_values(by=['total_sales'], ascending=[False])
+df_1 = (
+    df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
+    .groupby(['region'])
+    .agg({'amount': 'sum', 'order_id': 'count'})
+    .reset_index()
+    .rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
+    .sort_values(by=['total_sales'], ascending=[False])
+)
 df_1.to_csv("sales_summary.csv", index=False)
 ```
 
