@@ -50,11 +50,11 @@ Each method has its own parameter: `iqr` uses `factor`, `zscore` uses
 # method: iqr, action: drop
 df_2 = df_1
 for _col in ['amount']:
-    s = df_2[_col]
-    q1, q3 = s.quantile(0.25), s.quantile(0.75)
-    iqr = q3 - q1
-    lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-    df_2 = df_2[s.between(lo, hi) | s.isna()]
+    _s = df_2[_col]
+    _q1, _q3 = _s.quantile(0.25), _s.quantile(0.75)
+    _iqr = _q3 - _q1
+    _lo, _hi = _q1 - 1.5 * _iqr, _q3 + 1.5 * _iqr
+    df_2 = df_2[_s.between(_lo, _hi) | _s.isna()]
 ```
 
 ## Tips & common mistakes

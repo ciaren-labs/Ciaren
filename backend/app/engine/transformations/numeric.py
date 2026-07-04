@@ -59,7 +59,11 @@ class RemoveOutliersTransformation(BaseTransformation):
         }
 
     def _bounds_lines(self, config: dict[str, Any], series: str) -> str:
-        """Lines (indented one loop-body level) that set ``lo, hi`` from ``series``."""
+        """Lines (indented one loop-body level) that set ``_lo, _hi`` from ``series``.
+
+        Every helper identifier is underscore-prefixed: the ``_`` namespace is
+        reserved for generated temps (flow parameters may not start with ``_``,
+        see ``app.engine.parameters``), so a parameter can never be clobbered."""
         method = config.get("method", "iqr")
         # Code generation only: pass parameter references through as variables.
         factor = _codegen_num(config.get("factor", 1.5), float)
@@ -68,33 +72,37 @@ class RemoveOutliersTransformation(BaseTransformation):
         upper = _codegen_num(config.get("upper", 99.0), float)
         if method == "iqr":
             return (
-                f"q1, q3 = {series}.quantile(0.25), {series}.quantile(0.75)\n"
-                f"    iqr = q3 - q1\n"
-                f"    lo, hi = q1 - {factor!r} * iqr, q3 + {factor!r} * iqr"
+                f"_q1, _q3 = {series}.quantile(0.25), {series}.quantile(0.75)\n"
+                f"    _iqr = _q3 - _q1\n"
+                f"    _lo, _hi = _q1 - {factor!r} * _iqr, _q3 + {factor!r} * _iqr"
             )
         if method == "zscore":
             return (
-                f"lo = {series}.mean() - {threshold!r} * {series}.std()\n"
-                f"    hi = {series}.mean() + {threshold!r} * {series}.std()"
+                f"_lo = {series}.mean() - {threshold!r} * {series}.std()\n"
+                f"    _hi = {series}.mean() + {threshold!r} * {series}.std()"
             )
-        return f"lo, hi = {series}.quantile({lower!r} / 100), {series}.quantile({upper!r} / 100)"
+        return f"_lo, _hi = {series}.quantile({lower!r} / 100), {series}.quantile({upper!r} / 100)"
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
-        bounds = self._bounds_lines(config, "s")
+        bounds = self._bounds_lines(config, "_s")
         header = f"{dst} = {src}.copy()" if action == "clip" else f"{dst} = {src}"
-        body = f"{dst}[_col] = s.clip(lo, hi)" if action == "clip" else f"{dst} = {dst}[s.between(lo, hi) | s.isna()]"
-        return f"{header}\nfor _col in {config['columns']!r}:\n    s = {dst}[_col]\n    {bounds}\n    {body}"
+        body = (
+            f"{dst}[_col] = _s.clip(_lo, _hi)"
+            if action == "clip"
+            else f"{dst} = {dst}[_s.between(_lo, _hi) | _s.isna()]"
+        )
+        return f"{header}\nfor _col in {config['columns']!r}:\n    _s = {dst}[_col]\n    {bounds}\n    {body}"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
         bounds = self._bounds_lines(config, f"{dst}[_col]")
         body = (
-            f"{dst} = {dst}.with_columns(pl.col(_col).clip(lo, hi))"
+            f"{dst} = {dst}.with_columns(pl.col(_col).clip(_lo, _hi))"
             if action == "clip"
-            else f"{dst} = {dst}.filter(pl.col(_col).is_between(lo, hi) | pl.col(_col).is_null())"
+            else f"{dst} = {dst}.filter(pl.col(_col).is_between(_lo, _hi) | pl.col(_col).is_null())"
         )
         return f"{dst} = {src}\nfor _col in {config['columns']!r}:\n    {bounds}\n    {body}"
 

@@ -66,8 +66,10 @@ def test_duplicate_spec_name_raises():
         resolve_values(specs, {})
 
 
-@pytest.mark.parametrize("bad_name", ["1bad", "with space", "", None])
+@pytest.mark.parametrize("bad_name", ["1bad", "with space", "", None, "_hidden", "_engine_1", "_eager_2", "_w"])
 def test_invalid_name_raises(bad_name):
+    # Leading underscores are rejected wholesale: the `_` namespace belongs to
+    # the code generators' helper temps.
     with pytest.raises(ParameterError, match="Invalid parameter name"):
         resolve_values([{"name": bad_name, "default": 1}], {})
 
@@ -84,10 +86,16 @@ def test_python_keyword_names_rejected(kw):
         resolve_values([{"name": kw, "default": 1}], {})
 
 
-@pytest.mark.parametrize("name", ["pd", "pl", "np", "os", "df"])
+@pytest.mark.parametrize("name", ["pd", "pl", "np", "os", "df", "df_1", "df_2", "df_99"])
 def test_reserved_codegen_names_rejected(name):
+    # df_N would be overwritten by (or overwrite) a generated dataframe variable.
     with pytest.raises(ParameterError, match="reserved"):
         resolve_values([{"name": name, "default": 1}], {})
+
+
+@pytest.mark.parametrize("name", ["df_", "df_1x", "dfx", "keep", "input_path", "q1"])
+def test_non_reserved_names_accepted(name):
+    assert resolve_values([{"name": name, "type": "integer", "default": 1}], {}) == {name: 1}
 
 
 # -- coercion ----------------------------------------------------------------

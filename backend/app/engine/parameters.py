@@ -33,11 +33,18 @@ from app.core.enums import ParameterType
 # string (the latter triggers typed — not stringified — replacement).
 _REF = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _FULL_REF = re.compile(r"^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$")
-_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# No leading underscore: the `_` namespace belongs to the code generators'
+# helper temps (_engine_N, _eager_N, _w, _dt, _sch, _col, _lo/_hi, assert
+# counters, …) — a parameter named like one would be silently clobbered in the
+# exported script.
+_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 # Names that would collide with the exported scripts' own identifiers (a parameter
 # becomes a top-level variable), producing broken or wrong Python. Python keywords
 # would be a SyntaxError; the module aliases would shadow `import pandas as pd` etc.
 _RESERVED_PARAM_NAMES = frozenset({"pd", "pl", "np", "os", "df"})
+# The generators name each node's frame df_1, df_2, … — a parameter with one of
+# those names would be overwritten by (or overwrite) a dataframe mid-script.
+_GENERATED_VAR_RE = re.compile(r"^df_\d+$")
 
 
 class ParameterError(ValueError):
@@ -149,12 +156,12 @@ def _build_specs_by_name(specs: list[dict[str, Any]]) -> dict[str, dict[str, Any
         name = spec.get("name")
         if not isinstance(name, str) or not _NAME_RE.match(name):
             raise ParameterError(
-                f"Invalid parameter name {name!r}: must start with a letter or underscore "
+                f"Invalid parameter name {name!r}: must start with a letter "
                 "and contain only letters, digits and underscores."
             )
         if keyword.iskeyword(name) or keyword.issoftkeyword(name):
             raise ParameterError(f"Parameter name {name!r} is a Python keyword — choose another.")
-        if name in _RESERVED_PARAM_NAMES:
+        if name in _RESERVED_PARAM_NAMES or _GENERATED_VAR_RE.match(name):
             raise ParameterError(
                 f"Parameter name {name!r} is reserved (it would clash with the exported code) — choose another."
             )

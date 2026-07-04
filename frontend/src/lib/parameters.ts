@@ -4,7 +4,11 @@
 
 import type { ParameterSpec, ParameterType, ParameterValues } from "@/lib/types";
 
-const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// Mirrors app/engine/parameters.py: no leading underscore (generated temps own
+// the `_` namespace) and no names the exported script defines itself.
+const NAME_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
+const RESERVED_NAMES = new Set(["pd", "pl", "np", "os", "df"]);
+const GENERATED_VAR_RE = /^df_\d+$/;
 
 /** An editable parameter row: `default` is held as raw text while editing. */
 export interface ParamRow {
@@ -81,7 +85,11 @@ export function validateRows(rows: ParamRow[]): ParamValidation {
       return;
     }
     if (!NAME_RE.test(name)) {
-      errors.set(i, "Use letters, digits, underscores; must not start with a digit.");
+      errors.set(i, "Use letters, digits, underscores; must start with a letter.");
+      return;
+    }
+    if (RESERVED_NAMES.has(name) || GENERATED_VAR_RE.test(name)) {
+      errors.set(i, `"${name}" is reserved (it would clash with the exported code).`);
       return;
     }
     if (seen.has(name)) {
