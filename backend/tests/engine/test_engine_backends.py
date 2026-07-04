@@ -179,6 +179,28 @@ def test_fill_numeric_strategies(engine_name: str, strategy: str) -> None:
 
 
 @pytest.mark.parametrize("engine_name", ENGINES)
+@pytest.mark.parametrize("strategy", ["median", "mode"])
+def test_fill_all_null_column_left_untouched(engine_name: str, strategy: str) -> None:
+    # No median/mode exists for an all-null column: both engines leave it as-is
+    # (polars used to raise on median — fill_null(None) is invalid).
+    engine = get_engine(engine_name)
+    frame = _make(engine_name, {"a": [None, None], "b": [1.0, None]})
+    out = _pdf(engine, engine.fill_nulls(frame, None, strategy, None))
+    assert out["a"].isna().all()
+    assert out["b"].isna().sum() == 0
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
+def test_fill_mode_multimodal_tie_break_is_smallest(engine_name: str) -> None:
+    # polars returns multi-modal values in random order; both engines must pick
+    # the smallest so app runs are reproducible and pandas/polars agree.
+    engine = get_engine(engine_name)
+    frame = _make(engine_name, {"a": [2.0, 2.0, 1.0, 1.0, None]})
+    out = _pdf(engine, engine.fill_nulls(frame, ["a"], "mode", None))
+    assert out["a"].tolist() == [2.0, 2.0, 1.0, 1.0, 1.0]
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
 def test_fill_constant(engine_name: str) -> None:
     engine = get_engine(engine_name)
     frame = _make(engine_name, {"a": [1.0, None, 3.0]})

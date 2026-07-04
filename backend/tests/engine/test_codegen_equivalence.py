@@ -76,6 +76,18 @@ def _single_col() -> pd.DataFrame:
     return pd.DataFrame({"a": [1.0, 2.0, None]})
 
 
+def _all_null_float() -> pd.DataFrame:
+    # 'n' has no median: both the engine and the emitted code must leave it
+    # untouched instead of raising (float dtype so pandas treats it as numeric).
+    return pd.DataFrame({"a": [1.0, None, 3.0], "n": pd.Series([None, None, None], dtype="float64")})
+
+
+def _multimodal() -> pd.DataFrame:
+    # Two modes (1.0 and 2.0): the fill must deterministically pick the
+    # smallest on both engines (polars' mode order is random run to run).
+    return pd.DataFrame({"a": [2.0, 2.0, 1.0, 1.0, None]})
+
+
 def _text_special() -> pd.DataFrame:
     # "z.b" vs "zxb" separates regex from literal contains; "x5"/"5 stars"
     # exercise a numeric search value against stringified cells.
@@ -138,7 +150,9 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "fill_mean": {"in": _num},
     "fill_mean_cols": {"in": _num},
     "fill_median": {"in": _num},
+    "fill_median_all_null": {"in": _all_null_float},
     "fill_mode": {"in": _num},
+    "fill_mode_multimodal": {"in": _multimodal},
     "groupby": {"in": _num},
     "concat": {"in": _num, "in_1": _num},
     "calc": {"in": _num},

@@ -70,7 +70,9 @@ CODEGEN_CASES = [
     ("fill_mean", "fillNulls", {"strategy": "mean"}),
     ("fill_mean_cols", "fillNulls", {"strategy": "mean", "columns": ["a"]}),
     ("fill_median", "fillNulls", {"strategy": "median", "columns": ["a"]}),
+    ("fill_median_all_null", "fillNulls", {"strategy": "median"}),
     ("fill_mode", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
+    ("fill_mode_multimodal", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
     # reshape / compute
     ("groupby", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "sum"}}),
     ("concat", "concatRows", {}),

@@ -216,10 +216,16 @@ class PolarsEngine:
             elif strategy in self._FILL_STRATEGY:
                 exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":
-                exprs.append(col.fill_null(df[col_name].median()))
+                # An all-null column has no median: leave it untouched (like
+                # mode, and like the pandas engine) instead of raising.
+                med = df[col_name].median()
+                exprs.append(col.fill_null(med) if med is not None else col)
             elif strategy == "mode":
                 modes = df[col_name].drop_nulls().mode()
-                exprs.append(col.fill_null(modes[0]) if len(modes) else col)
+                # polars returns multi-modal values in random order run to run;
+                # take the smallest so ties are reproducible and match pandas
+                # (whose Series.mode() is sorted, so iloc[0] is the smallest).
+                exprs.append(col.fill_null(modes.min()) if len(modes) else col)
             else:
                 raise ValueError(f"Unknown fill strategy: {strategy!r}")
         return df.with_columns(exprs)

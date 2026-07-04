@@ -135,10 +135,12 @@ class FillNullsTransformation(BaseTransformation):
         if strategy == "median":
             return f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in {cols_iter}])"
         # mode: drop nulls first (with nulls present, null itself can be the
-        # mode). On an all-null column mode().first() is null and filling nulls
-        # with null is a no-op — the column is left untouched, mirroring
-        # PolarsEngine.fill_nulls.
+        # mode), and take min() of the modes — polars returns multi-modal
+        # values in random order, min() makes ties reproducible and matches
+        # pandas' sorted mode. On an all-null column mode().min() is null and
+        # filling nulls with null is a no-op — the column is left untouched,
+        # mirroring PolarsEngine.fill_nulls.
         return (
             f"{dst} = {src}.with_columns("
-            f"[pl.col(c).fill_null(pl.col(c).drop_nulls().mode().first()) for c in {cols_iter}])"
+            f"[pl.col(c).fill_null(pl.col(c).drop_nulls().mode().min()) for c in {cols_iter}])"
         )

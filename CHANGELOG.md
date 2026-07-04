@@ -128,6 +128,15 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- **Polars-lazy exports crashed for several node kinds** — three bundled demo
+  flows exported lazy scripts that failed at runtime. `fillNulls`
+  median/mode emitted series subscripts a `LazyFrame` doesn't support (they
+  now emit pure, mode-agnostic expressions), and Remove Outliers, Bin Column,
+  and all assertion nodes — which must compute concrete numbers from the
+  frame — are now materialized around in lazy mode like pivot/sample already
+  were. Every previously broken node kind is covered by a new lazy-vs-eager
+  equivalence test, and all demo flows now generate and run in every
+  engine/mode combination.
 - Plugin API audit fixes (second iteration over the new extension points):
   - A plugin model type's `default_hyperparameters` were advertised in the
     catalog but never applied — an untouched hyperparameter form trained with
