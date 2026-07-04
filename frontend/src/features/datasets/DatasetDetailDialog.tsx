@@ -245,7 +245,7 @@ function FlowsTab({
           <Workflow className="h-4 w-4 text-brand-600" />
           <span className="flex-1 font-medium">{flow.name}</span>
           <span className="text-xs text-muted-foreground">
-            {flow.graph_json?.nodes.length ?? 0} nodes
+            {flow.graph_json?.nodes?.length ?? 0} nodes
           </span>
         </button>
       ))}

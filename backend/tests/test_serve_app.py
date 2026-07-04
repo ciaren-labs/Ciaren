@@ -1,12 +1,43 @@
 """The server can also serve the built web UI (single-URL `ciaren serve`)."""
 
+import mimetypes
+
 import httpx
+import pytest
 
 from app.core.config import get_settings
 
 
 def _clear() -> None:
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def _restore_js_mime():
+    """Snapshot/restore the global ``.js`` mimetype so a test can safely simulate a
+    Windows registry that maps ``.js`` to ``text/plain`` without leaking to others."""
+    saved = mimetypes.types_map.get(".js")
+    try:
+        yield
+    finally:
+        mimetypes.types_map.pop(".js", None)
+        if saved is not None:
+            mimetypes.add_type(saved, ".js")
+
+
+def test_ensure_web_mime_types_overrides_registry_js_mapping(_restore_js_mime) -> None:
+    # Simulate Windows, where the registry frequently maps .js -> text/plain and
+    # browsers then refuse the module scripts (blank SPA).
+    from app.main import _ensure_web_mime_types
+
+    mimetypes.add_type("text/plain", ".js")
+    assert mimetypes.guess_type("bundle.js")[0] == "text/plain"
+
+    _ensure_web_mime_types()
+
+    assert mimetypes.guess_type("bundle.js")[0] == "text/javascript"
+    assert mimetypes.guess_type("index.mjs")[0] == "text/javascript"
+    assert mimetypes.guess_type("styles.css")[0] == "text/css"
 
 
 def test_frontend_dist_path_prefers_configured(tmp_path, monkeypatch) -> None:
@@ -38,11 +69,16 @@ def test_frontend_dist_path_falls_back_when_configured_invalid(tmp_path, monkeyp
         _clear()
 
 
-async def test_serves_spa_and_keeps_api_json_404(tmp_path, monkeypatch) -> None:
+async def test_serves_spa_and_keeps_api_json_404(tmp_path, monkeypatch, _restore_js_mime) -> None:
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text("<div id='root'></div>", encoding="utf-8")
     (dist / "assets" / "app.js").write_text("// bundle", encoding="utf-8")
+
+    # Reproduce the Windows failure mode end-to-end: poison .js -> text/plain before
+    # the app mounts its static handler. Serving the JS as text/plain is what makes
+    # browsers refuse the module and render a blank page; the fix must override it.
+    mimetypes.add_type("text/plain", ".js")
 
     monkeypatch.setenv("CIAREN_FRONTEND_DIST", str(dist))
     monkeypatch.setenv("CIAREN_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
@@ -59,9 +95,11 @@ async def test_serves_spa_and_keeps_api_json_404(tmp_path, monkeypatch) -> None:
             # client-side route falls back to index.html
             spa = await c.get("/flows/abc-123")
             assert spa.status_code == 200 and "id='root'" in spa.text
-            # static asset is served
+            # static asset is served with a JS content-type (not text/plain), so the
+            # browser accepts it as a module script.
             asset = await c.get("/assets/app.js")
             assert asset.status_code == 200 and "bundle" in asset.text
+            assert "javascript" in asset.headers["content-type"]
             # health + unknown API stay JSON (not the SPA shell)
             assert (await c.get("/health")).json() == {"status": "ok"}
             api404 = await c.get("/api/nope/x")

@@ -30,7 +30,7 @@
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
 </p>
 
-![Ciaren visual workflow editor showing cleaning nodes feeding a Train/Test Split, Train Regressor, Predict, and Evaluate ML pipeline](docs/public/screenshots/editor-clean-and-ml.png)
+![Ciaren generating standalone pandas, Polars, and lazy Polars code live from the same visual flow](docs/public/screenshots/export-python-code.gif)
 
 ## What Is Ciaren?
 

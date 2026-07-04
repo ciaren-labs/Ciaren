@@ -82,7 +82,7 @@ than overwriting the old one, so existing flows stay reproducible.
    - **Group by & Aggregate** — group by `region`, sum `amount`.
 4. Add a **File Output** node at the end and connect it.
 
-![Flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
+![Building the flow on the canvas — drag nodes from the palette, connect them in order, and auto-arrange the pipeline](/screenshots/build-flow-from-scratch.gif)
 
 Each node has a config panel on the side. As you edit a node, the **live
 preview** updates on a sample of your data, so you can confirm each step before
