@@ -29,7 +29,11 @@ class FrontendBundleHook(BuildHookInterface):
         dist = frontend / "dist"
         target = root / "app" / "web"
 
-        if not dist.is_dir():
+        # Rebuild when dist is missing OR stale relative to the frontend source, so a
+        # wheel never silently ships an out-of-date UI from a leftover local `dist`.
+        # A clean CI checkout builds dist after checkout (fresh, not stale) and skips
+        # the rebuild, so this stays cheap on the release path.
+        if self._dist_is_stale(frontend, dist):
             self._build_frontend(frontend)
 
         if not (dist / "index.html").is_file():
@@ -45,6 +49,27 @@ class FrontendBundleHook(BuildHookInterface):
         # Include the generated (VCS-ignored) files in the wheel.
         build_data.setdefault("artifacts", []).append("app/web/**")
         self.app.display_info(f"Bundled web UI into {target.relative_to(root)}")
+
+    def _dist_is_stale(self, frontend: Path, dist: Path) -> bool:
+        """True if dist is missing, or any tracked frontend source is newer than the
+        built index.html. Build inputs checked: package.json, the entry index.html,
+        config files, and everything under src/ and public/."""
+        index = dist / "index.html"
+        if not index.is_file():
+            return True
+        built_at = index.stat().st_mtime
+        inputs: list[Path] = [
+            frontend / "package.json",
+            frontend / "package-lock.json",
+            frontend / "index.html",
+        ]
+        inputs.extend(frontend.glob("*.config.*"))
+        inputs.extend(frontend.glob("tsconfig*.json"))
+        for base in ("src", "public"):
+            root = frontend / base
+            if root.is_dir():
+                inputs.extend(p for p in root.rglob("*") if p.is_file())
+        return any(p.is_file() and p.stat().st_mtime > built_at for p in inputs)
 
     def _build_frontend(self, frontend: Path) -> None:
         if not frontend.is_dir():
