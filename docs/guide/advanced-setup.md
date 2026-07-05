@@ -143,20 +143,61 @@ dir stores the actual files.
 ## Execution tuning
 
 Ciaren runs synchronous dataframe work off the event loop so the API stays
-responsive. See [Engines](/guide/engines) for the full picture.
+responsive. `CIAREN_EXECUTION_MODE` (also editable on the
+[Settings page](#the-settings-page)) chooses **how** that work is offloaded.
+This section is the practical guidance on which mode to use; for the engine
+(polars/pandas) side of performance, see [Engines](/guide/engines).
 
-- **`CIAREN_EXECUTION_MODE=thread`** (default) — a worker thread; simplest.
-- **`CIAREN_EXECUTION_MODE=process`** — a `ProcessPoolExecutor` for true
-  multi-core parallelism. Only picklable arguments cross the process boundary, so
-  the database session always stays in the parent process.
+### `thread` vs `process`: which to use
 
-- **`CIAREN_RUN_TIMEOUT_SECONDS`** abandons an over-running run. In `process`
-  mode the worker is recycled to reclaim the CPU; in `thread` mode the run is
-  abandoned but the thread finishes. `0` disables the limit.
+**Stay on `thread` (the default) unless a symptom below pushes you off it.**
+For the typical setup — one person, one run at a time, the polars engine — it
+is simpler, fully featured, and just as fast: polars compute is multithreaded
+Rust that releases the GIL, so a *single* run already uses every core in
+either mode. `process` pays off in specific server scenarios, not in general.
+
+| | `thread` (default) | `process` |
+| --- | --- | --- |
+| Parallelism **between** concurrent runs | GIL-serialized for pandas-heavy work | true multi-core across runs |
+| Parallelism **within** one run | full (polars is multi-core internally) | same |
+| Cancelling a run | cooperative and precise | coarse: recycles the whole pool, and is **refused** while other runs share it |
+| `RUN_TIMEOUT_SECONDS` | run is abandoned but its thread finishes — CPU stays busy | worker recycled — CPU actually reclaimed |
+| A run segfaults or exhausts memory | can take down the whole server | only the worker dies; the API stays up |
+| Plugin **node-level** hooks | fire | don't fire (graph-level hooks only) |
+| Startup cost per worker | none | spawn re-imports the app — noticeably slower first run, especially on Windows |
+
+Switch to **`process`** when:
+
+- Ciaren is a **long-lived shared server running scheduled jobs** — crash
+  isolation and a timeout that really reclaims CPU matter more than precise
+  cancellation.
+- You raised `SCHEDULER_MAX_CONCURRENT_RUNS` above 1 **and** your flows are
+  pandas-heavy — the one case where the GIL actually serializes work.
+
+Stay on **`thread`** when:
+
+- You use Ciaren interactively on your own machine (the install default):
+  full cancel support, plugin node hooks, no spawn overhead.
+- Your flows run on polars — `process` adds moving parts without adding speed
+  for a single run.
+
+### Practical notes
+
+- **Neither mode is a security boundary.** A `process` worker has the same
+  privileges and filesystem access as the server; it isolates *crashes*, not
+  *code*. For untrusted Python Transform scripts see
+  `CIAREN_PYTHON_TRANSFORM_STRICT` and the
+  [security docs](/security/plugin-security).
+- Switching the mode at runtime (Settings page) is safe: it applies from the
+  next run.
+- `SCHEDULER_MAX_CONCURRENT_RUNS` also sizes the process pool, and the pool is
+  created once — that setting needs a restart to fully apply.
+- **`CIAREN_RUN_TIMEOUT_SECONDS`** (`0` = no limit) abandons an over-running
+  run in both modes; only `process` mode gets the CPU back immediately (the
+  worker is recycled). Pair a timeout with `process` on unattended servers.
 
 ```bash
-ciaren serve --execution-mode process
-# with a 5-minute cap per run:
+# a shared box running scheduled jobs: isolation + a 5-minute cap per run
 CIAREN_RUN_TIMEOUT_SECONDS=300 ciaren serve --execution-mode process
 ```
 

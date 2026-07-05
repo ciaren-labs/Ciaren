@@ -126,8 +126,11 @@ _SPECS: tuple[SettingSpec, ...] = (
         key="EXECUTION_MODE",
         label="Execution mode",
         description=(
-            "How flow compute is offloaded: 'thread' shares the GIL; 'process' uses "
-            "a process pool for true multi-core parallelism."
+            "How flow compute is offloaded. 'thread' (recommended) is simplest and "
+            "fully featured — precise run cancel, plugin node hooks; a single polars "
+            "run is already multi-core. 'process' adds crash isolation and multi-core "
+            "across concurrent runs for shared servers running scheduled jobs, at the "
+            "cost of coarser cancel and a slower first run. Applies from the next run."
         ),
         category="Execution",
         value_type="select",

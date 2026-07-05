@@ -133,12 +133,18 @@ loop** to avoid blocking the API. `EXECUTION_MODE` selects how:
 
 | Mode | Parallelism | Notes |
 | --- | --- | --- |
-| **`thread`** (default) | GIL-limited | Simple; lowest overhead; fine for most workloads |
-| **`process`** | True multi-core | `ProcessPoolExecutor`; only picklable args cross the boundary; DB session stays in parent |
+| **`thread`** (default) | GIL-limited *across* runs; polars is still multi-core *within* a run | Simplest and fully featured (precise cancel, plugin node hooks); the right choice for local/interactive use |
+| **`process`** | True multi-core across concurrent runs | Crash isolation and real timeout enforcement, but coarser cancel, no node-level plugin hooks, and slower first run (worker spawn); only picklable args cross the boundary — the DB session stays in the parent |
 
 ```bash
 ciaren serve --execution-mode process
 ```
+
+**Recommendation:** stay on `thread` unless Ciaren runs as a long-lived shared
+server with scheduled jobs, or you need concurrent pandas-heavy runs to use
+multiple cores. The full decision guide — including cancellation, timeout, and
+plugin-hook trade-offs — is in
+[Advanced Setup → Execution tuning](/guide/advanced-setup#execution-tuning).
 
 ## Run timeouts
 
