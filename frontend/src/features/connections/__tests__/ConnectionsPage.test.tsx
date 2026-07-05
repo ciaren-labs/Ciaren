@@ -161,14 +161,14 @@ describe("save secret to OS keychain", () => {
     fireEvent.click(screen.getByText("PostgreSQL"));
 
     // The affordance shows because the keychain is available (mocked).
-    fireEvent.click(screen.getByText(/Save a secret to the system keychain/));
+    fireEvent.click(screen.getByText(/Store a value in the OS keychain/));
     fireEvent.change(screen.getByPlaceholderText("pg-main"), { target: { value: "pg-main" } });
     fireEvent.change(screen.getByPlaceholderText("the password / token"), {
       target: { value: "hunter2" },
     });
     fireEvent.click(screen.getByRole("button", { name: /save to keychain/i }));
 
-    await screen.findByText(/references/);
+    await screen.findByText(/Saved to the OS keychain/);
     expect(stored).toEqual([{ name: "pg-main", value: "hunter2", overwrite: false }]);
     // The secret input never shows the raw value as a reference — the field is
     // now keyring:pg-main.
@@ -181,7 +181,7 @@ describe("save secret to OS keychain", () => {
     } as any);
     openDialog();
     fireEvent.click(screen.getByText("PostgreSQL"));
-    expect(screen.queryByText(/Save a secret to the system keychain/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Store a value in the OS keychain/)).not.toBeInTheDocument();
   });
 });
 

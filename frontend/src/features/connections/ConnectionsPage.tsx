@@ -914,22 +914,20 @@ function ConnectionDialog({
                       onChange={(e) => set({ database: e.target.value })}
                     />
                   </Field>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Username">
-                      <Input
-                        value={form.username ?? ""}
-                        onChange={(e) => set({ username: e.target.value })}
-                      />
-                    </Field>
-                    <SecretRefField
-                      label="Password secret"
-                      hint="Env var name, keyring:NAME (OS keychain), or file:/path"
-                      placeholder="PG_PASSWORD"
-                      value={form.password_env ?? ""}
-                      onChange={(v) => set({ password_env: v })}
-                      suggestedName={form.name}
+                  <Field label="Username">
+                    <Input
+                      value={form.username ?? ""}
+                      onChange={(e) => set({ username: e.target.value })}
                     />
-                  </div>
+                  </Field>
+                  <SecretRefField
+                    label="Password secret"
+                    hint="Env var name, keyring:NAME (OS keychain), or file:/path"
+                    placeholder="PG_PASSWORD"
+                    value={form.password_env ?? ""}
+                    onChange={(v) => set({ password_env: v })}
+                    suggestedName={form.name}
+                  />
                 </>
               )}
 
@@ -1251,7 +1249,7 @@ function PluginProviderFields({
         </Field>
       )}
       {provider.needs_auth && (
-        <div className="grid grid-cols-2 gap-3">
+        <>
           <Field label="Username">
             <Input
               value={form.username ?? ""}
@@ -1266,7 +1264,7 @@ function PluginProviderFields({
             onChange={(v) => set({ password_env: v })}
             suggestedName={form.name}
           />
-        </div>
+        </>
       )}
       <SchemaConfigFields
         fields={schemaFields}
@@ -1523,61 +1521,79 @@ function SecretRefField({
   return (
     <Field label={label} hint={hint}>
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
-      {canKeychain && !open && (
+      {saved ? (
+        <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+          <Check className="h-3 w-3" />
+          Saved to the OS keychain as <code>{saved}</code>.
+        </p>
+      ) : (
+        canKeychain && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        )
+      )}
+      {canKeychain && !saved && (
         <button
           type="button"
           onClick={openPanel}
-          className="mt-0.5 inline-flex items-center gap-1 self-start text-[11px] font-medium text-primary hover:underline"
+          className="mt-1.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/10"
         >
-          <KeyRound className="h-3 w-3" />
-          Save a secret to the system keychain
+          <KeyRound className="h-3.5 w-3.5" />
+          Store a value in the OS keychain
         </button>
       )}
-      {saved && !open && (
-        <p className="mt-0.5 text-[11px] text-emerald-600">
-          Stored in the OS keychain — this connection references <code>{saved}</code>.
-        </p>
-      )}
-      {canKeychain && open && (
-        <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-2.5">
-          <p className="text-[11px] text-muted-foreground">
-            The value is written to your OS keychain and never stored by Ciaren; the connection keeps
-            only a <code>keyring:NAME</code> reference.
-          </p>
-          <div className="flex flex-col gap-1">
-            <Label className="text-[11px]">Keychain name</Label>
-            <Input
-              value={entryName}
-              onChange={(e) => setEntryName(e.target.value)}
-              placeholder="pg-main"
-            />
+
+      {/* Centered modal — keeps the panel out of the form's two-column grid so it
+          isn't cramped against the right edge, and reads as a first-class option. */}
+      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : cancel())}>
+        <DialogContent className="max-w-sm gap-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Store a secret in the OS keychain
+            </DialogTitle>
+            <DialogDescription>
+              The value is written to your operating system&rsquo;s keychain and never stored by
+              Ciaren. The connection keeps only a <code>keyring:NAME</code> reference.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Field label="Keychain name" hint="You'll reference it as keyring:NAME">
+              <Input
+                value={entryName}
+                onChange={(e) => setEntryName(e.target.value)}
+                placeholder="pg-main"
+                autoFocus
+              />
+            </Field>
+            <Field label="Secret value">
+              <Input
+                type="password"
+                value={secretValue}
+                onChange={(e) => setSecretValue(e.target.value)}
+                placeholder="the password / token"
+                autoComplete="new-password"
+                maxLength={4096}
+              />
+            </Field>
+            {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-[11px]">Secret value</Label>
-            <Input
-              type="password"
-              value={secretValue}
-              onChange={(e) => setSecretValue(e.target.value)}
-              placeholder="the password / token"
-              autoComplete="new-password"
-              maxLength={4096}
-            />
-          </div>
-          {error && <p className="text-[11px] text-destructive">{error}</p>}
           <div className="flex items-center justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={cancel}>
+            <Button variant="ghost" onClick={cancel}>
               Cancel
             </Button>
             <Button
-              size="sm"
               onClick={() => void save(false)}
               disabled={!entryName || !secretValue || store.isPending}
             >
               {store.isPending ? "Saving…" : "Save to keychain"}
             </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </Field>
   );
 }
