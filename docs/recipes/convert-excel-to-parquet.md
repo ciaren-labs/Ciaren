@@ -28,8 +28,8 @@ keeps column types. Converting takes two nodes.
 ```python
 import pandas as pd
 
-df_1 = pd.read_excel("data.xlsx")
-df_1.to_parquet("data.parquet", index=False)
+df_1 = pd.read_excel('data.xlsx')
+df_1.to_parquet('data.parquet', index=False)
 ```
 
 ## Tips

@@ -59,8 +59,8 @@ features.
      final model first.
 4. **Predict** — wire the **`test`** split as the data input and the **`model`**
    wire from the train node. It adds a `prediction` column.
-5. **Evaluate** — `task: classification`, `prediction_column: "prediction"`. It
-   returns a tidy `metric` / `value` table.
+5. **Evaluate** — `task_type: classification`, `target_column: "churn"`,
+   `prediction_column: "prediction"`. It returns a tidy `metric` / `value` table.
 6. **File Output** — write the metrics table as `metrics.csv`.
 
 Use the **live preview** at each step, then **Run** the flow. Open the **Models**
@@ -87,24 +87,37 @@ scikit-learn script (this is the real codegen pattern — preprocessing is bundl
 into the `Pipeline` so it's reapplied identically at predict time):
 
 ```python
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-train_df, test_df = train_test_split(df_1, test_size=0.25, random_state=42, stratify=df_1['churn'])
-train_df = train_df.reset_index(drop=True)
-test_df = test_df.reset_index(drop=True)
+df_2, df_3 = train_test_split(df_1, test_size=0.25, random_state=42, stratify=df_1['churn'])
+df_2 = df_2.reset_index(drop=True)
+df_3 = df_3.reset_index(drop=True)
 
-_features = [c for c in train_df.columns if c != 'churn']
-X = train_df[_features]
-y = train_df['churn']
-model = Pipeline([('model', RandomForestClassifier(random_state=42))])
-model.fit(X, y)
+_features = [c for c in df_2.columns if c != 'churn']
+_X = df_2[_features]
+_numeric = [c for c in _features if pd.api.types.is_numeric_dtype(_X[c])]
+_categorical = [c for c in _features if c not in _numeric]
+_transformers = []
+if _numeric:
+    _transformers.append(('num', Pipeline([('impute', SimpleImputer(strategy='median')), ('scale', StandardScaler())]), _numeric))
+if _categorical:
+    _transformers.append(('cat', Pipeline([('impute', SimpleImputer(strategy='most_frequent')), ('encode', OneHotEncoder(handle_unknown='ignore'))]), _categorical))
+_preprocessor = ColumnTransformer(_transformers, remainder='drop')
+_y = df_2['churn']
+df_4 = Pipeline([('preprocessor', _preprocessor), ('model', RandomForestClassifier(random_state=42))])
+df_4.fit(_X, _y)
 ```
 
-The Predict and Evaluate nodes continue the script — scoring `test_df` and
-computing the metric table — so the whole flow runs anywhere scikit-learn is
-installed, with no Ciaren dependency.
+Variables follow Ciaren's generated naming (`df_1`, `df_2`, … for each node's
+output; `_`-prefixed locals for intermediates) rather than hand-picked names —
+export the flow yourself to see it verbatim. The Predict and Evaluate nodes
+continue the script — scoring `df_3` and computing the metric table — so the
+whole flow runs anywhere scikit-learn is installed, with no Ciaren dependency.
 
 ## Variations
 
@@ -112,7 +125,7 @@ installed, with no Ciaren dependency.
   LightGBM, SVM, or KNN in the Train Classifier node — the rest of the flow is
   unchanged.
 - **Regression instead?** Use **Train Regressor** with a numeric target and an
-  Evaluate node set to `task: regression` (RMSE, MAE, R²).
+  Evaluate node set to `task_type: regression` (RMSE, MAE, R²).
 - **Which features matter?** Add a **Feature Importance** node off the `model`
   wire (tree-based and linear models).
 - **Retrain on a schedule?** Attach a [schedule](/guide/scheduling) to retrain
