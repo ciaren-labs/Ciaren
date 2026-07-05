@@ -37,10 +37,14 @@ export function NodeSidebar() {
   useEffect(() => { setSchemaWarning(0); }, [selectedNodeId]);
 
   // Columns available on the wire into the selected node, derived from the
-  // upstream input datasets' schemas (recomputed as the graph changes).
+  // upstream input datasets' schemas. Keyed on structureVersion, not `nodes`:
+  // column propagation doesn't depend on node positions, and `nodes` is
+  // replaced on every drag frame.
+  const structureVersion = useFlowEditorStore((s) => s.structureVersion);
   const columnsByNode = useMemo(
     () => computeNodeColumns(nodes, edges, datasets ?? []),
-    [nodes, edges, datasets],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- structureVersion tracks nodes/edges structurally
+    [structureVersion, datasets],
   );
 
   const node = nodes.find((n) => n.id === selectedNodeId);
@@ -66,24 +70,36 @@ export function NodeSidebar() {
 
   const handleConfigChange = (newConfig: Record<string, unknown>) => {
     // When a file-input node's dataset changes, scan downstream nodes for
-    // column references that no longer exist in the new schema and clear them.
+    // column references that no longer resolve and clear them. Each node is
+    // checked against its OWN propagated input columns (rename/calculated
+    // columns upstream, both sides of a join), not the raw dataset schema —
+    // validating against the schema wiped perfectly valid references to
+    // derived columns and to the join's other, unchanged branch.
     if (isInputType(node.type)) {
       const oldId = node.data.config.dataset_id;
       const newId = newConfig.dataset_id;
       if (oldId !== newId && typeof newId === "string" && newId) {
         const ds = (datasets ?? []).find((d) => d.id === newId);
-        if (ds?.column_schema) {
-          const validCols = new Set(ds.column_schema.map((f) => f.name));
+        if (ds?.column_schema?.length) {
+          const nodesWithNewConfig = nodes.map((n) =>
+            n.id === node.id ? { ...n, data: { ...n.data, config: newConfig } } : n,
+          );
+          const colsByNode = computeNodeColumns(nodesWithNewConfig, edges, datasets ?? []);
           const downstream = getDownstreamNodeIds(node.id, edges);
           const patches: Record<string, Record<string, unknown>> = { [node.id]: newConfig };
           let staleCount = 0;
           for (const did of downstream) {
             const dn = nodes.find((n) => n.id === did);
             if (!dn) continue;
+            const inputCols = colsByNode.get(did)?.input ?? [];
+            // No schema information for this node's inputs (e.g. an unprofiled
+            // dataset on another branch): leave its config alone rather than
+            // wiping references we can't actually check.
+            if (!inputCols.length) continue;
             const { patched, hadStale } = cleanStaleColumnRefs(
               dn.type ?? "",
               dn.data.config,
-              validCols,
+              new Set(inputCols),
             );
             if (hadStale) { patches[did] = patched; staleCount++; }
           }

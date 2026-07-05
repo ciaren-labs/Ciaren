@@ -91,8 +91,11 @@ export function NodeConfigForm({
       setErrors(map);
       onErrors(true);
     }
+    // By reference, not JSON.stringify: the editor store replaces the config
+    // object on every edit, and stringifying on each sidebar render is wasted
+    // work in a hot path (the sidebar re-renders with every store change).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, JSON.stringify(config)]);
+  }, [type, config]);
 
   const set = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
   const c = config as Record<string, any>;

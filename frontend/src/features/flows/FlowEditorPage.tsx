@@ -114,9 +114,13 @@ export function FlowEditorPage() {
   const createSchedule = useCreateSchedule();
   const toggleFlow = useToggleFlow();
 
+  // Keyed on structureVersion, not `nodes`: validation doesn't depend on node
+  // positions, and `nodes` is replaced on every drag frame.
+  const structureVersion = useFlowEditorStore((s) => s.structureVersion);
   const validation = useMemo(
     () => validateFlow(nodes, edges, datasets ?? []),
-    [nodes, edges, datasets],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- structureVersion tracks nodes/edges structurally
+    [structureVersion, datasets],
   );
 
   // Push the set of invalid node ids into the store so the canvas can badge them.

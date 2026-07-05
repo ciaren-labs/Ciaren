@@ -120,8 +120,11 @@ function isValidField(token: string, min: number, max: number): boolean {
   if (token === "*") return true;
   // Split comma lists and validate each member.
   return token.split(",").every((member) => {
-    // Step syntax: "*/5" or "1-10/2".
-    const [rangePart, stepPart] = member.split("/");
+    // Step syntax: "*/5" or "1-10/2" — exactly one slash allowed, so garbage
+    // like "*/5/7" doesn't slip through to a server-side rejection.
+    const parts = member.split("/");
+    if (parts.length > 2) return false;
+    const [rangePart, stepPart] = parts;
     if (stepPart !== undefined && !isInt(stepPart, 1, max)) return false;
     if (rangePart === "*") return true;
     // Range "a-b".

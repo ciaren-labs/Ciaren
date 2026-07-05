@@ -130,13 +130,16 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  // `...options` first, `headers` last: the other way round, any caller
+  // passing options.headers would replace the merged object wholesale and
+  // silently drop Content-Type / auth headers.
   const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...authHeaders(),
       ...(options.headers ?? {}),
     },
-    ...options,
   });
   if (!res.ok) {
     throw await parseError(res);

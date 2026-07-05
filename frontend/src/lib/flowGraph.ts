@@ -122,8 +122,9 @@ export function topologicalOrder(
 
   const order: string[] = [];
   const seen = new Set<string>();
-  while (queue.length) {
-    const id = queue.shift()!;
+  // Index pointer instead of shift(): shift() is O(n) per pop.
+  for (let head = 0; head < queue.length; head++) {
+    const id = queue[head];
     if (seen.has(id)) continue;
     seen.add(id);
     order.push(id);
@@ -152,8 +153,8 @@ export function hasCycle(nodes: GraphNodeLike[], edges: GraphEdgeLike[]): boolea
 
   const queue = nodes.filter((n) => (indegree.get(n.id) ?? 0) === 0).map((n) => n.id);
   let visited = 0;
-  while (queue.length) {
-    const id = queue.shift()!;
+  for (let head = 0; head < queue.length; head++) {
+    const id = queue[head];
     visited += 1;
     for (const next of outgoing.get(id) ?? []) {
       indegree.set(next, (indegree.get(next) ?? 1) - 1);
@@ -226,9 +227,23 @@ function outputColumns(
       const cols = [...groupBy, ...aggs];
       return cols.length ? Array.from(new Set(cols)) : inputCols;
     }
-    case "binColumn": {
+    // Every transform that adds a single `new_column` to the frame. mapValues
+    // only adds one when new_column is set (otherwise it maps in place).
+    case "binColumn":
+    case "windowFunction":
+    case "rollingAggregate":
+    case "rowDifference":
+    case "conditionalColumn":
+    case "mapValues": {
       const name = typeof config.new_column === "string" ? config.new_column : "";
       return name && !inputCols.includes(name) ? [...inputCols, name] : inputCols;
+    }
+    case "splitColumn": {
+      const col = typeof config.column === "string" ? config.column : "";
+      const into = asStringArray(config.into);
+      const keepOriginal = config.keep_original !== false;
+      const base = keepOriginal || !col ? inputCols : inputCols.filter((c) => c !== col || into.includes(c));
+      return Array.from(new Set([...base, ...into]));
     }
     case "extractDateParts": {
       const col = typeof config.column === "string" ? config.column : "";
@@ -455,9 +470,10 @@ export function computeNodeColumns(
   const datasetById = new Map(datasets.map((d) => [d.id, d]));
   const incoming = incomingByTarget(edges);
   const result = new Map<string, NodeColumns>();
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
   for (const id of topologicalOrder(nodes, edges)) {
-    const node = nodes.find((n) => n.id === id);
+    const node = nodeById.get(id);
     if (!node) continue;
 
     if (isInputType(node.type)) {

@@ -27,6 +27,14 @@ const COALESCE_WINDOW_MS = 700;
 interface FlowEditorState {
   nodes: FlowNodeType[];
   edges: FlowEdgeType[];
+  /**
+   * Bumped on every change to the graph's *structure* — node set, types,
+   * configs, labels, edges — but NOT on position-only changes (drags) or
+   * selection. Derived computations whose output doesn't depend on layout
+   * (validation, column propagation, edge styling) key their memos on this
+   * instead of `nodes`, so dragging stays O(1) per frame on large graphs.
+   */
+  structureVersion: number;
   selectedNodeId: string | null;
   sidebarOpen: boolean;
   previewOpen: boolean;
@@ -107,6 +115,7 @@ const HISTORY_RESET = {
 export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   nodes: [],
   edges: [],
+  structureVersion: 0,
   selectedNodeId: null,
   sidebarOpen: false,
   previewOpen: false,
@@ -117,7 +126,14 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   ...HISTORY_RESET,
 
   setGraph: (nodes, edges) =>
-    set({ nodes, edges, dirty: false, selectedNodeId: null, ...HISTORY_RESET }),
+    set((state) => ({
+      nodes,
+      edges,
+      structureVersion: state.structureVersion + 1,
+      dirty: false,
+      selectedNodeId: null,
+      ...HISTORY_RESET,
+    })),
 
   setParameters: (parameters) => set({ parameters }),
 
@@ -140,6 +156,9 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       if (meaningful.length === 0) {
         return { nodes: applyNodeChanges(changes, state.nodes) };
       }
+      // Drags and dimension changes move nodes without changing what the
+      // graph *is* — they don't invalidate structure-keyed memos.
+      const isLayoutOnly = meaningful.every((c) => c.type === "position" || c.type === "dimensions");
       const isPureDrag = meaningful.every((c) => c.type === "position");
       const draggedId =
         isPureDrag && meaningful[0].type === "position" ? meaningful[0].id : null;
@@ -147,6 +166,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       return {
         ...checkpoint(state, key),
         nodes: applyNodeChanges(changes, state.nodes),
+        structureVersion: isLayoutOnly ? state.structureVersion : state.structureVersion + 1,
         dirty: true,
       };
     }),
@@ -160,6 +180,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       return {
         ...checkpoint(state, `edgeschange:${Date.now()}`),
         edges: applyEdgeChanges(changes, state.edges),
+        structureVersion: state.structureVersion + 1,
         dirty: true,
       };
     }),
@@ -168,6 +189,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     set((state) => ({
       ...checkpoint(state, `add:${Date.now()}`),
       nodes: [...state.nodes, node],
+      structureVersion: state.structureVersion + 1,
       selectedNodeId: node.id,
       sidebarOpen: true,
       dirty: true,
@@ -177,6 +199,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     set((state) => ({
       ...checkpoint(state, `remove:${Date.now()}`),
       nodes: state.nodes.filter((n) => n.id !== id),
+      structureVersion: state.structureVersion + 1,
       edges: state.edges.filter((e) => e.source !== id && e.target !== id),
       selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
       dirty: true,
@@ -186,6 +209,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     set((state) => ({
       ...checkpoint(state, `edges:${Date.now()}`),
       edges,
+      structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
 
@@ -197,6 +221,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
           ? { ...n, data: { ...n.data, config } }
           : n,
       ),
+      structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
 
@@ -206,6 +231,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       nodes: state.nodes.map((n) =>
         n.id in patches ? { ...n, data: { ...n.data, config: patches[n.id] } } : n,
       ),
+      structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
 
@@ -215,6 +241,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       nodes: state.nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, label } } : n,
       ),
+      structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
 
@@ -248,6 +275,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
         ),
         nodes: previous.nodes,
         edges: previous.edges,
+        structureVersion: state.structureVersion + 1,
         selectedNodeId: null,
         dirty: true,
         historyGroupKey: null,
@@ -266,6 +294,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
         ),
         nodes: next.nodes,
         edges: next.edges,
+        structureVersion: state.structureVersion + 1,
         selectedNodeId: null,
         dirty: true,
         historyGroupKey: null,
@@ -274,9 +303,10 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     }),
 
   reset: () =>
-    set({
+    set((state) => ({
       nodes: [],
       edges: [],
+      structureVersion: state.structureVersion + 1,
       selectedNodeId: null,
       sidebarOpen: false,
       previewOpen: false,
@@ -285,5 +315,5 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       flowProjectId: null,
       parameters: [],
       ...HISTORY_RESET,
-    }),
+    })),
 }));
