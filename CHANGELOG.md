@@ -10,6 +10,11 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Chainable pandas filters and calculated columns in exported code** — the
+  pandas emitters for Filter Rows, Filter by Expression, and Calculated
+  Column now use the idiomatic callable forms (`.loc[lambda _d: …]`,
+  `assign(total=lambda _d: …)`), so a straight pandas flow exports as a
+  single fluent chain end to end, just like polars.
 - **Fluent method chains in exported code** — both code generators now merge
   consecutive single-variable steps of a linear flow into one chained
   expression, the way a person would write it: short runs on one line
@@ -134,6 +139,22 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- **Editor: changing an input's dataset wiped valid downstream config** — the
+  stale-column cleanup validated every downstream reference against the new
+  dataset's raw schema, clearing references to derived columns (Calculated
+  Column and friends) and to a join's other, unchanged branch even when the
+  schema was identical. Each node is now checked against its own propagated
+  input columns, column propagation covers every column-adding transform,
+  and unknown schemas are left alone instead of wiped.
+- **Editor performance on large flows** — validation, column propagation, and
+  edge styling no longer recompute on every drag frame (they re-run only
+  when the graph's structure actually changes), and several quadratic graph
+  helpers are linear now.
+- **Previews are sliced, off-thread, and fail clearly** — previewing a node
+  now computes only that node's upstream ancestors (a failing assertion or a
+  typo'd column on an unrelated branch no longer breaks it), runs off the
+  event loop so a heavy preview can't stall the API, and a node failing on
+  the user's data returns a 400 naming the node instead of a bare 500.
 - **Flow import dropped `parameters` and `engine`** — importing an exported
   flow document rebuilt only nodes and edges, silently losing the flow's
   declared parameters and its pandas/polars engine choice. Both now survive
