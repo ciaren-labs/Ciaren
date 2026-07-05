@@ -27,6 +27,7 @@ const ScheduleDetailPage = named(() => import("@/features/schedules/ScheduleDeta
 const ProjectsPage = named(() => import("@/features/projects/ProjectsPage"), "ProjectsPage");
 const ProjectDetailPage = named(() => import("@/features/projects/ProjectDetailPage"), "ProjectDetailPage");
 const PluginsPage = named(() => import("@/features/plugins/PluginsPage"), "PluginsPage");
+const SettingsPage = named(() => import("@/features/settings/SettingsPage"), "SettingsPage");
 
 function RouteFallback() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/schedules" element={<SchedulesPage />} />
           <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/flows/:flowId" element={<FlowEditorPage />} />
         </Routes>
         </Suspense>

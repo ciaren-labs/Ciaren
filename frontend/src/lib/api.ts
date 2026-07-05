@@ -2,6 +2,7 @@
 // All requests go through the Vite dev proxy: /api -> http://localhost:8055
 
 import type {
+  AppSetting,
   CatalogNode,
   ColumnProfile,
   Connection,
@@ -448,4 +449,17 @@ export const marketplaceApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+};
+
+// ---- App settings (runtime-editable server configuration) ------------------
+
+export const settingsApi = {
+  list: () => request<AppSetting[]>("/settings"),
+  update: (key: string, value: number | string) =>
+    request<AppSetting>(`/settings/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify({ value }),
+    }),
+  reset: (key: string) =>
+    request<AppSetting>(`/settings/${encodeURIComponent(key)}`, { method: "DELETE" }),
 };

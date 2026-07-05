@@ -28,6 +28,7 @@ Each resource has its own reference page:
 - [Catalog & Plugins](./catalog.md) — backend-fed node catalog and installed-plugin introspection
 - [Schedules](./schedules.md) — run flows automatically on a cron schedule
 - [Connections](./connections.md) — reusable database connections for SQL nodes
+- [Settings](./settings.md) — read and override the runtime-editable server settings
 - **ML endpoints** — model metrics, registration, aliases, experiments, and runs under `/api/ml/*`, `/api/runs/{id}/ml/*`, and `/api/flows/{id}/ml/*`
 - **Marketplace** — plugin Explore catalog and install endpoint under `/api/marketplace`
 

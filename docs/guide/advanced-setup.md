@@ -21,9 +21,35 @@ The backend (`Settings`) reads configuration in this order — **later wins**:
 4. **`ciaren serve` flags** (e.g. `--port`, `--db-url`, `--engine`,
    `--execution-mode`, `--data-dir`, `--no-scheduler`), which are applied as env
    vars before the app loads.
+5. **Settings page overrides** for a small editable subset (marked **UI** below).
+   Saved in Ciaren's database, applied immediately, and re-applied on every
+   startup — so once a value is edited in the UI, it wins over the environment
+   until you press **Reset** on that setting.
 
 Scaffold a commented file with `ciaren init`, confirm the resolved values with
 `ciaren info`, and validate the environment with `ciaren check`.
+
+## The Settings page
+
+The gear icon in the header opens **Settings** — runtime configuration editable
+from the browser: default engine, execution mode, run timeout, upload size,
+dataset retention, scheduler tuning, and the ML guardrail limits. Each setting
+shows where its current value comes from (default, environment, or a saved
+override) and what **Reset** would restore. Changes apply to the whole server
+and persist across restarts; the few marked "takes effect after restart" are
+consumed once at startup. Overrides are designed for the standard
+single-process `ciaren serve`; if you run multiple server processes, a change
+applies live to the process that handled it and to every process after restart.
+
+Everything else is deliberately **environment-only**: bootstrap values the
+server needs before the database is up (`DATABASE_URL`, `DATA_DIR`, …), secrets
+(`API_TOKEN`, `WEBHOOK_SECRET`, `NOTIFY_WEBHOOK_SECRET`), the failure-webhook
+URL (Ciaren sends the webhook secret to that URL, so only someone with access
+to the environment may point it somewhere), and the security guards (CORS/CSRF,
+secret allowlists, storage confinement, plugin enforcement). The Settings page
+and its API are reachable by exactly the audience those guards constrain, so
+exposing them there would let that audience weaken its own guardrails —
+changing them requires access to the server's environment.
 
 ## Environment variables
 
@@ -31,18 +57,17 @@ All settings use the `CIAREN_` prefix.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `CIAREN_APP_NAME` | `Ciaren` | Display name |
 | `CIAREN_ENVIRONMENT` | `development` | Environment label (`development`, `production`, …) |
 | `CIAREN_DEBUG` | `false` | Extra debug behavior |
 | `CIAREN_LOG_FORMAT` | `auto` | Log output: `auto` (color on a TTY, else plain) \| `text` \| `json` |
 | `CIAREN_DATABASE_URL` | `sqlite+aiosqlite:///./ciaren.db` | Async database URL (see below) |
 | `CIAREN_DATA_DIR` | `.data` | Directory for uploads, run outputs, and previews |
-| `CIAREN_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) |
-| `CIAREN_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) |
-| `CIAREN_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) |
+| `CIAREN_DEFAULT_ENGINE` | `polars` | Default dataframe engine (`polars` \| `pandas`) **UI** |
+| `CIAREN_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) **UI** |
+| `CIAREN_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (`0` = no limit) **UI** |
 | `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list); also trusted by the CSRF origin guard |
 | `CIAREN_TRUSTED_HOSTS` | `[]` | Extra hostnames the CSRF origin guard trusts beyond localhost (see [Security](/security/local-first-trust-model)) |
-| `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB |
+| `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size in MB **UI** |
 | `CIAREN_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
 | `CIAREN_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` with `X-Ciaren-Secret` |
 | `CIAREN_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
@@ -51,28 +76,30 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_SECRET_ENV_ALLOWLIST` | `[]` | Env vars (or `PREFIX*` patterns) a connection's `env:` secret reference may name; Ciaren's own config vars are always refused |
 | `CIAREN_SECRET_FILE_DIRS` | `[]` | Folders `file:` secret references may read (default: `<DATA_DIR>/secrets` and `/run/secrets`); always enforced |
 | `CIAREN_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
-| `CIAREN_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
+| `CIAREN_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge **UI** |
 | `CIAREN_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
 | `CIAREN_SEED_RUN_FLOWS` | `false` | Run newly seeded demo flows once |
 | `CIAREN_SCHEDULER_ENABLED` | `true` | Run the background scheduler |
-| `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs |
-| `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
+| `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | How often the scheduler polls for due runs **UI** |
+| `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs **UI** |
 | `CIAREN_NOTIFY_WEBHOOK_URL` | _(unset)_ | POST a JSON alert here when a run fails or a schedule auto-disables |
 | `CIAREN_NOTIFY_WEBHOOK_SECRET` | _(unset)_ | Sent as `X-Ciaren-Secret` so the receiver can verify the sender |
-| `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) |
+| `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before a schedule auto-disables (`0` = never) **UI** |
 | `CIAREN_ML_ENABLED` | `true` | Enable ML routes/nodes (built in; set `false` to disable) |
 | `CIAREN_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
 | `CIAREN_MLFLOW_REGISTRY_URI` | — | Optional MLflow registry URI; defaults to tracking URI |
 | `CIAREN_ML_ARTIFACT_DIR` | `ml_artifacts` | Local model artifact root, under `DATA_DIR` when relative |
-| `CIAREN_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails |
-| `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
-| `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
+| `CIAREN_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails **UI** |
+| `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job **UI** |
+| `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job **UI** |
 | `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
 | `CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS` | unset | Registers a `TokenLicenseProvider` per configured issuer key, for validating plugin license tokens at startup |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 | `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` (log ungranted actions) / `enforce` (block them). Not a sandbox — see [Plugin Security](/security/plugin-security#opt-in-runtime-enforcement) |
 
 Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
+Variables marked **UI** can also be edited at runtime from the Settings
+page; a saved override takes precedence over the variable until reset.
 
 ## Database
 

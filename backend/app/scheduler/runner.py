@@ -76,12 +76,14 @@ class SchedulerRunner:
     # -- Internals ------------------------------------------------------
 
     async def _loop(self) -> None:
-        interval = max(1, self._settings.SCHEDULER_POLL_INTERVAL_SECONDS)
         while not self._stopped.is_set():
             try:
                 await self._tick()
             except Exception:  # noqa: BLE001 - the loop must never die
                 logger.exception("Scheduler tick failed")
+            # Read the interval each iteration so a runtime override from the
+            # Settings page takes effect on the next tick, not after a restart.
+            interval = max(1, self._settings.SCHEDULER_POLL_INTERVAL_SECONDS)
             try:
                 # Sleep until the next poll, but wake immediately on shutdown.
                 await asyncio.wait_for(self._stopped.wait(), timeout=interval)

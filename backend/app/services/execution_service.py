@@ -154,6 +154,8 @@ class ExecutionService:
                 # processes. Only the picklable compute crosses the boundary.
                 # ContextVars don't cross processes, so pass the context explicitly.
                 loop = asyncio.get_running_loop()
+                from app.core.runtime_settings import get_active_overrides
+
                 compute = loop.run_in_executor(
                     get_process_pool(),
                     run_graph_in_process,
@@ -164,6 +166,7 @@ class ExecutionService:
                     sql_input_paths,
                     storage_input_paths,
                     ctx_data,
+                    get_active_overrides(),
                 )
             else:
                 compute = asyncio.to_thread(

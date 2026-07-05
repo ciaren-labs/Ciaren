@@ -13,7 +13,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
-    APP_NAME: str = "Ciaren"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 

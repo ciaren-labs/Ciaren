@@ -80,6 +80,9 @@ ciaren init --no-ml         # skip provisioning the default local MLflow directo
 
 Print the **resolved** configuration the server would use (the database password
 is redacted). Handy for confirming which `.env` / env vars are in effect.
+Note: values overridden from the [Settings page](/guide/advanced-setup#the-settings-page)
+live in the database and take precedence once the server is running; `ciaren info`
+shows the environment-level resolution only.
 
 ```bash
 ciaren info
@@ -87,7 +90,6 @@ ciaren info
 
 ```text
 Ciaren resolved configuration:
-  app_name             Ciaren
   environment          development
   database_url         sqlite+aiosqlite:///./ciaren.db
   data_dir             /path/to/.data

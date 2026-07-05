@@ -75,4 +75,5 @@ export const queryKeys = {
   pluginDiagnostics: ["plugins", "diagnostics"] as const,
   pluginLicense: (id: string) => ["plugins", id, "license"] as const,
   marketplace: ["marketplace"] as const,
+  appSettings: ["app-settings"] as const,
 };

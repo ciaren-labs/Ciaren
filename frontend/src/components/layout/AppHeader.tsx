@@ -9,6 +9,7 @@ import {
   History,
   Moon,
   Plug,
+  Settings,
   Sun,
   Workflow,
 } from "lucide-react";
@@ -98,6 +99,21 @@ export function AppHeader() {
           }))}
         />
       </div>
+
+      {/* Server settings (runtime-editable configuration) */}
+      <Link
+        to="/settings"
+        title="Settings"
+        aria-label="Settings"
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
+          isActive(pathname, "/settings")
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <Settings className="h-4 w-4" />
+      </Link>
 
       <button
         onClick={toggleTheme}

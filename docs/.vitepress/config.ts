@@ -478,6 +478,7 @@ export default defineConfig({
             { text: 'Catalog & Plugins', link: '/api/catalog' },
             { text: 'Schedules', link: '/api/schedules' },
             { text: 'Connections', link: '/api/connections' },
+            { text: 'Settings', link: '/api/settings' },
           ],
         },
         {

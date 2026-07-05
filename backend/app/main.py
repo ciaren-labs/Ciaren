@@ -26,6 +26,7 @@ from app.api.routes import (
     transformations,
     webhooks,
 )
+from app.api.routes import settings as settings_routes
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal, get_db, init_db
 from app.core.exceptions import (
@@ -139,6 +140,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     await init_db()
 
+    # Re-apply persisted setting overrides (Settings page) so they take
+    # precedence over env/defaults for everything below (scheduler, seeds) and
+    # for request handling. Best-effort: a bad row is skipped, never fatal.
+    try:
+        from app.core.runtime_settings import load_and_apply_overrides
+
+        async with AsyncSessionLocal() as session:
+            await load_and_apply_overrides(session)
+    except Exception:  # noqa: BLE001 - settings overrides must never block startup
+        logger.warning("Could not load persisted app settings; using env/defaults.", exc_info=True)
+
     # Discover plugins and bridge their executable nodes into the engine registry
     # before any request, so a run that uses a plugin node resolves it even if the
     # catalog endpoint was never hit first.
@@ -183,7 +195,7 @@ def create_app() -> FastAPI:
     from app.core.csrf import verify_browser_origin
 
     app = FastAPI(
-        title=settings.APP_NAME,
+        title="Ciaren",
         description="Visual data and ML workflow builder — local-first, dataframe-based",
         version=ciaren_version(),
         lifespan=lifespan,
@@ -251,6 +263,10 @@ def create_app() -> FastAPI:
     app.include_router(plugins.router, prefix="/api/plugins", tags=["plugins"])
     app.include_router(marketplace.router, prefix="/api/marketplace", tags=["marketplace"])
     app.include_router(webhooks.router, prefix="/api", tags=["webhook"])
+    # Registered after webhooks so the legacy GET /api/settings/webhook keeps
+    # resolving there; the settings router has no GET /{key}, so today there is
+    # no overlap — keep it that way (add-only PUT/DELETE per key).
+    app.include_router(settings_routes.router, prefix="/api/settings", tags=["settings"])
 
     @app.get("/health", tags=["health"])
     async def health() -> dict[str, str]:

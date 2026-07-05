@@ -25,6 +25,7 @@ def run_graph_in_process(
     sql_input_paths: dict[str, Path] | None = None,
     storage_input_paths: dict[str, Path] | None = None,
     run_context_data: dict[str, Any] | None = None,
+    settings_overrides: dict[str, Any] | None = None,
 ) -> RunResult:
     """Run a flow graph and return its :class:`RunResult`.
 
@@ -34,10 +35,17 @@ def run_graph_in_process(
     inputs are pre-materialized to parquet in the parent (picklable paths cross here).
     ``run_context_data`` re-establishes the run context (ContextVars don't cross
     process boundaries) so ML nodes can tag their MLflow runs.
+    ``settings_overrides`` mirrors the parent's Settings-page overrides into this
+    worker (its ``get_settings()`` is built from env only), so runtime-edited
+    values like the ML guardrail limits hold in process mode too. Synced per
+    task — with ``reset_missing`` — because workers are reused across runs.
     """
     from contextlib import nullcontext
 
+    from app.core.runtime_settings import apply_overrides
     from app.engine.run_context import run_context
+
+    apply_overrides(settings_overrides or {}, reset_missing=True)
 
     ctx = (
         run_context(

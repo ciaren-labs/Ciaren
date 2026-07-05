@@ -21,6 +21,20 @@ def _clear_settings_cache() -> None:
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _restore_ciaren_env() -> "object":
+    """The code under test (_apply_serve_env, _load_env_file) writes os.environ
+    directly, and monkeypatch.delenv(raising=False) records nothing to restore
+    when the var was absent — so those writes used to leak into later tests.
+    Snapshot and restore every CIAREN_* var around each test instead."""
+    before = {k: v for k, v in os.environ.items() if k.startswith("CIAREN_")}
+    yield
+    for k in [k for k in os.environ if k.startswith("CIAREN_")]:
+        if k not in before:
+            del os.environ[k]
+    os.environ.update(before)
+
+
 # -- serve: parsing + env wiring ---------------------------------------
 
 
@@ -223,7 +237,7 @@ def test_info_json_output(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
     finally:
         _clear_settings_cache()
     data = json.loads(capsys.readouterr().out)
-    assert data["app_name"] == "Ciaren"
+    assert data["environment"] == "development"
     assert data["default_engine"] in ("polars", "pandas")
 
 

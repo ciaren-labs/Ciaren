@@ -37,6 +37,12 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 - **Plugins** (`/plugins`) — install, approve, and manage plugin extensions
   (custom nodes, connectors, and more); see [Plugins Overview](/plugins/overview)
   and [Managing Plugins](/plugins/managing-plugins).
+- **Settings** (`/settings`, the gear icon on the right of the navigation bar) —
+  runtime server configuration: default engine, execution mode, timeouts, upload
+  and scheduler limits, and ML guardrails. Edits are
+  saved server-side and survive restarts; each setting shows whether it comes
+  from a default, an environment variable, or a saved override. See
+  [Advanced Setup](/guide/advanced-setup#the-settings-page).
 
 ## The flow editor
 
