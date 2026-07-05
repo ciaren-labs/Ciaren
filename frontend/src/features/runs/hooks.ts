@@ -22,7 +22,7 @@ export function useRun(id: string | null) {
     enabled: !!id,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (status === "success" || status === "failed") return false;
+      if (status === "success" || status === "failed" || status === "cancelled") return false;
       return 1500;
     },
   });

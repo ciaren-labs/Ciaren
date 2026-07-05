@@ -20,8 +20,14 @@ from app.core.notifications import notify, notify_in_background
 
 class _Receiver(BaseHTTPRequestHandler):
     received: list[dict] = []
+    redirect_to: str | None = None
 
     def do_POST(self) -> None:  # noqa: N802 - http.server API
+        if _Receiver.redirect_to:
+            self.send_response(302)
+            self.send_header("Location", _Receiver.redirect_to)
+            self.end_headers()
+            return
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length))
         _Receiver.received.append({"body": body, "secret": self.headers.get("X-Ciaren-Secret")})
@@ -35,6 +41,7 @@ class _Receiver(BaseHTTPRequestHandler):
 @pytest.fixture()
 def webhook_server(monkeypatch):
     _Receiver.received = []
+    _Receiver.redirect_to = None
     server = HTTPServer(("127.0.0.1", 0), _Receiver)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -83,6 +90,14 @@ async def test_notify_never_raises_on_unreachable_host(monkeypatch) -> None:
 async def test_notify_rejects_non_http_urls(monkeypatch) -> None:
     monkeypatch.setattr(get_settings(), "NOTIFY_WEBHOOK_URL", "file:///etc/passwd")
     assert await notify("run_failed", {}) is False
+
+
+async def test_notify_refuses_redirects(webhook_server) -> None:
+    """A redirect would move the POST (secret included) to a host the SSRF
+    guard never checked — delivery must fail instead of following it."""
+    _Receiver.redirect_to = "http://127.0.0.1:1/elsewhere"
+    assert await notify("run_failed", {"run_id": "r1"}) is False
+    assert webhook_server == []  # nothing recorded, nothing followed
 
 
 async def test_notify_in_background_is_cheap_noop_when_unconfigured(monkeypatch) -> None:

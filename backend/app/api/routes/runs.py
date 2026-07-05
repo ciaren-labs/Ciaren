@@ -120,7 +120,7 @@ async def _sse_log_stream(
     ``event: done`` frame. Uses scalar column selects to bypass the
     SQLAlchemy session identity map so each poll is a genuine DB round-trip.
     """
-    TERMINAL = {RunStatus.SUCCESS, RunStatus.FAILED}
+    TERMINAL = {RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED}
     deadline = asyncio.get_event_loop().time() + max_wait_seconds
 
     while True:

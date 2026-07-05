@@ -15,7 +15,7 @@ from app.core.notifications import notify_in_background
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
-from app.engine.cancellation import register_run, request_cancel, unregister_run
+from app.engine.cancellation import active_run_count, register_run, request_cancel, unregister_run
 from app.engine.executor import FlowExecutor, RunResult
 from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
@@ -173,11 +173,13 @@ class ExecutionService:
 
             # to_thread copies this context into the worker thread (thread mode);
             # process mode re-establishes it from ctx_data inside the worker.
+            compute_finished = False
             with run_context(flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri):
                 if timeout > 0:
                     result = await asyncio.wait_for(compute, timeout=timeout)
                 else:
                     result = await compute
+            compute_finished = True
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
             if result.cancelled:
@@ -246,14 +248,23 @@ class ExecutionService:
             # abandoned and the event loop is freed.
             if execution_mode == "process":
                 recycle_process_pool()
-            run.status = "failed"
-            run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
-            run.logs_json = [{"level": "error", "message": run.error_message}]
-        except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             if cancel_event.is_set():
+                # The user cancelled and the deadline fired in the same window:
+                # honor the deliberate stop (and don't page the operator).
+                run.status = "cancelled"
+                run.error_message = "Cancelled by user."
+                run.logs_json = [{"level": "info", "message": "Run cancelled by user."}]
+            else:
+                run.status = "failed"
+                run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
+                run.logs_json = [{"level": "error", "message": run.error_message}]
+        except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
+            if cancel_event.is_set() and not compute_finished:
                 # Process-mode cancel recycles the pool under the worker; the
                 # resulting BrokenProcessPool/cancelled future is the cancel
-                # taking effect, not a failure.
+                # taking effect, not a failure. Scoped to the compute phase: a
+                # SQL/storage sink failure AFTER a successful compute is a real
+                # data-delivery failure and must never be masked as a cancel.
                 run.status = "cancelled"
                 run.error_message = "Cancelled by user."
                 run.logs_json = [{"level": "info", "message": "Run cancelled by user."}]
@@ -278,7 +289,8 @@ class ExecutionService:
                         "run_id": run.id,
                         "trigger": trigger,
                         "engine": engine,
-                        "error": run.error_message,
+                        # Capped: a node error can embed megabytes of data.
+                        "error": (run.error_message or "")[:2000],
                     },
                 )
 
@@ -309,7 +321,15 @@ class ExecutionService:
             # startup recovery handles crash leftovers. Report honestly.
             raise ValidationError("This run is not executing anymore; refresh to see its final status.")
         if self.settings.EXECUTION_MODE == "process":
-            # The worker process can't see the event — abandon it like a timeout.
+            # The worker process can't see the event; the only lever is
+            # recycling the shared pool (like the timeout path). That would
+            # abort every OTHER in-flight process run too — refuse instead of
+            # silently failing innocent runs.
+            if active_run_count() > 1:
+                raise ValidationError(
+                    "Cannot cancel: other runs share the process pool and would be aborted "
+                    "with it. Wait for them to finish, or switch to thread execution mode."
+                )
             recycle_process_pool()
         return {"run_id": run_id, "status": "cancelling"}
 

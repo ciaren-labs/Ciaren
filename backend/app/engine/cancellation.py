@@ -52,6 +52,12 @@ def request_cancel(run_id: str) -> bool:
     return True
 
 
+def active_run_count() -> int:
+    """How many runs are currently executing in this process."""
+    with _lock:
+        return len(_active)
+
+
 def is_cancel_requested(run_id: str) -> bool:
     with _lock:
         event = _active.get(run_id)

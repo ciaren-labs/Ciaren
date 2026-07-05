@@ -164,6 +164,58 @@ async def test_cancel_running_run_via_api(client: AsyncClient) -> None:
     assert "cancelled" in again.json()["detail"]
 
 
+async def test_process_mode_cancel_refuses_when_siblings_share_the_pool(client: AsyncClient, monkeypatch) -> None:
+    """Recycling the shared process pool would abort every other in-flight
+    process run — the endpoint must refuse rather than fail innocent runs."""
+    from app.core.config import get_settings
+    from app.engine.cancellation import register_run, unregister_run
+
+    ds_id = await _upload_csv(client, "poolguard.csv")
+    graph = {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": ds_id}}},
+            {
+                "id": "slow",
+                "type": "pythonTransform",
+                "data": {"config": {"script": "import time\ntime.sleep(0.6)\nreturn df"}},
+            },
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "slow"},
+            {"id": "e2", "source": "slow", "target": "out"},
+        ],
+    }
+    r = await client.post("/api/flows", json={"name": "poolguard", "graph_json": graph})
+    flow_id = r.json()["id"]
+    run_task = asyncio.create_task(client.post(f"/api/flows/{flow_id}/runs", json={}))
+    run_id = None
+    for _ in range(200):
+        await asyncio.sleep(0.02)
+        rows = (await client.get("/api/runs", params={"flow_id": flow_id})).json()
+        if rows and rows[0]["status"] == "running":
+            run_id = rows[0]["id"]
+            break
+    assert run_id
+
+    # Simulate process mode with a sibling run sharing the pool.
+    monkeypatch.setattr(get_settings(), "EXECUTION_MODE", "process")
+    register_run("sibling-run")
+    try:
+        r = await client.post(f"/api/runs/{run_id}/cancel")
+        assert r.status_code == 400
+        assert "process pool" in r.json()["detail"]
+    finally:
+        unregister_run("sibling-run")
+        monkeypatch.setattr(get_settings(), "EXECUTION_MODE", "thread")
+
+    # Thread mode again: the cancel goes through and the run ends cancelled.
+    r = await client.post(f"/api/runs/{run_id}/cancel")
+    assert r.status_code == 202
+    finished = (await run_task).json()
+    assert finished["status"] == "cancelled"
+
+
 async def test_cancel_unknown_run_is_404(client: AsyncClient) -> None:
     r = await client.post("/api/runs/does-not-exist/cancel")
     assert r.status_code == 404

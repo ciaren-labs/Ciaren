@@ -47,12 +47,24 @@ def webhook_configured() -> bool:
     return bool(get_settings().NOTIFY_WEBHOOK_URL)
 
 
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects: the SSRF guard checks the CONFIGURED host, and a
+    redirect would silently move the POST (secret header included) to a host
+    nobody validated. Receivers must answer at the configured URL."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+
+_opener = urllib.request.build_opener(_NoRedirects)
+
+
 def _post(url: str, body: bytes, secret: str) -> None:
     headers = {"Content-Type": "application/json", "User-Agent": "ciaren-notify"}
     if secret:
         headers["X-Ciaren-Secret"] = secret
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=_TIMEOUT_SECONDS):  # noqa: S310 - scheme validated below
+    with _opener.open(req, timeout=_TIMEOUT_SECONDS):  # noqa: S310 - scheme validated in notify()
         pass
 
 

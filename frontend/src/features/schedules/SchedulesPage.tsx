@@ -68,6 +68,7 @@ const RUN_ICON: Record<
   success: { label: "Success", icon: CheckCircle2, className: "text-success" },
   failed: { label: "Failed", icon: AlertCircle, className: "text-destructive" },
   skipped: { label: "Skipped", icon: MinusCircle, className: "text-muted-foreground" },
+  cancelled: { icon: MinusCircle, className: "text-warning", label: "Cancelled" },
 };
 
 /** The last few runs a schedule fired, as clickable status icons (oldest → newest). */

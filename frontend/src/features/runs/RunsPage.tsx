@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const DATE_CLASS =
   "h-10 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-const STATUSES: RunStatus[] = ["success", "failed", "running", "pending"];
+const STATUSES: RunStatus[] = ["success", "failed", "cancelled", "running", "pending"];
 const PAGE_SIZE = 25;
 
 /** Dataset cell label: a single name, or "first +N" for multi-input runs. */
