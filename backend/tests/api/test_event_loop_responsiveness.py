@@ -26,7 +26,7 @@ _HEALTH_PRE_SLEEP = 0.25
 
 
 def _slow_parse_and_describe(
-    content: bytes, source_type: str, filename: str
+    content: bytes, source_type: str, filename: str, options: dict[str, Any] | None = None
 ) -> tuple[pd.DataFrame, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     time.sleep(_SLOW_PARSE_SECONDS)  # blocking on purpose: must land in a worker thread
     df = pd.DataFrame({"a": [1]})

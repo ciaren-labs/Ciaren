@@ -28,6 +28,12 @@ from app.core.exceptions import (
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
 from app.engine.backends import get_engine
+from app.engine.ingest import (
+    ParseOptionsError,
+    detect_csv_options,
+    is_default_dialect,
+    validate_parse_options,
+)
 from app.engine.profile import profile_frame
 from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.services.project_service import ProjectService
@@ -57,24 +63,51 @@ class DatasetService:
     # Public API
     # ------------------------------------------------------------------
 
-    async def upload(self, file: UploadFile, project_id: str | None = None) -> DatasetRead:
+    async def upload(
+        self,
+        file: UploadFile,
+        project_id: str | None = None,
+        parse_options: dict[str, Any] | None = None,
+    ) -> DatasetRead:
         """Store an upload as a new version.
 
         A new name creates a dataset at version 1; an existing name appends the
         next version (immutably), so flows pinned to an earlier version are
         unaffected. The file type must match the dataset's existing type.
         ``project_id`` only applies when creating a new dataset.
+
+        ``parse_options`` (delimiter/encoding/decimal for CSV/TSV, sheet for
+        Excel) override auto-detection; whatever ends up used is recorded on
+        the version, and the stored file is *normalized* to the default
+        dialect so all later readers work with plain default reads.
         """
         filename = file.filename or "upload"
         source_type = _validate_extension(filename)
         name = Path(filename).name
+
+        try:
+            explicit = validate_parse_options(parse_options or {}, source_type)
+        except ParseOptionsError as exc:
+            raise DatasetParseError(filename, str(exc)) from exc
 
         content = await self._read_within_limit(file)
 
         # Parsing + profiling an upload (up to MAX_UPLOAD_SIZE_MB) is heavy
         # pandas work: run it in a worker thread so a big file can't stall the
         # event loop (and with it every other request and the scheduler).
-        df, schema, sample, profile = await asyncio.to_thread(_parse_and_describe, content, source_type, filename)
+        def _ingest() -> tuple[
+            pd.DataFrame, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]
+        ]:
+            options: dict[str, Any] = {}
+            if source_type in ("csv", "tsv"):
+                options = {**detect_csv_options(content, source_type), **explicit}
+            elif source_type == "excel":
+                options = dict(explicit)
+            frame, schema_, sample_, profile_ = _parse_and_describe(content, source_type, filename, options)
+            return frame, schema_, sample_, profile_, options
+
+        df, schema, sample, profile, used_options = await asyncio.to_thread(_ingest)
+        normalized = not is_default_dialect(used_options, source_type)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -108,13 +141,21 @@ class DatasetService:
             schema_json=schema,
             sample_json=sample,
             profile_json=profile,
+            parse_options_json=used_options if normalized else None,
             row_count=int(len(df)),
         )
         self.db.add(version)
         await self.db.flush()
 
         save_path = self.upload_dir / _storage_filename(version.id, filename)
-        await _write_file(content, save_path)
+        if normalized:
+            # Store the canonical form (UTF-8, default separators, the chosen
+            # sheet) so both engines, previews, runs, and lazy scans read this
+            # version with plain defaults — the original dialect can never
+            # produce a different frame at run time than the upload showed.
+            await asyncio.to_thread(_write_normalized, df, save_path, source_type)
+        else:
+            await _write_file(content, save_path)
         version.location = str(save_path)
 
         await self.db.commit()
@@ -363,6 +404,7 @@ class DatasetService:
             column_schema=latest.schema_json if latest else None,
             data_sample=latest.sample_json if latest else None,
             column_profile=latest.profile_json if latest else None,
+            parse_options=latest.parse_options_json if latest else None,
             created_at=dataset.created_at,
             updated_at=dataset.updated_at,
         )
@@ -420,15 +462,32 @@ def _validate_extension(filename: str) -> str:
     return _ALLOWED_EXTENSIONS[ext]
 
 
-def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.DataFrame:
+def _parse_dataframe(
+    content: bytes, source_type: str, filename: str, options: dict[str, Any] | None = None
+) -> pd.DataFrame:
+    """Parse upload bytes. ``options`` describe the original dialect (see
+    app/engine/ingest.py); omitted keys fall back to the format's defaults."""
+    opts = options or {}
     buf = io.BytesIO(content)
     try:
         if source_type == "csv":
-            return pd.read_csv(buf)
+            return pd.read_csv(
+                buf,
+                sep=opts.get("delimiter", ","),
+                encoding=opts.get("encoding", "utf-8"),
+                decimal=opts.get("decimal", "."),
+            )
         if source_type == "tsv":
-            return pd.read_csv(buf, sep="\t")
+            return pd.read_csv(
+                buf,
+                sep="\t",
+                encoding=opts.get("encoding", "utf-8"),
+                decimal=opts.get("decimal", "."),
+            )
         if source_type == "excel":
-            return pd.read_excel(buf)
+            frame = pd.read_excel(buf, sheet_name=opts.get("sheet", 0))
+            assert isinstance(frame, pd.DataFrame)  # single sheet requested, never a dict
+            return frame
         if source_type == "parquet":
             return pd.read_parquet(buf)
         if source_type == "json":
@@ -443,15 +502,27 @@ def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.Data
     raise DatasetParseError(filename, f"unknown source_type '{source_type}'")
 
 
+def _write_normalized(df: pd.DataFrame, path: Path, source_type: str) -> None:
+    """Persist the parsed frame in the format's default dialect."""
+    if source_type == "csv":
+        df.to_csv(path, index=False)
+    elif source_type == "tsv":
+        df.to_csv(path, index=False, sep="\t")
+    elif source_type == "excel":
+        df.to_excel(path, index=False)
+    else:  # pragma: no cover - only dialect-bearing types are ever normalized
+        raise ValueError(f"cannot normalize source_type {source_type!r}")
+
+
 def _parse_and_describe(
-    content: bytes, source_type: str, filename: str
+    content: bytes, source_type: str, filename: str, options: dict[str, Any] | None = None
 ) -> tuple[pd.DataFrame, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Parse a file and derive its schema, sample, and profile in one go.
 
     Bundled so callers can push the whole CPU-bound pipeline into a single
     ``asyncio.to_thread`` call instead of blocking the event loop per step.
     """
-    df = _parse_dataframe(content, source_type, filename)
+    df = _parse_dataframe(content, source_type, filename, options)
     return df, _extract_schema(df), _df_to_records(df, _SAMPLE_ROWS), _profile_dataframe(df)
 
 

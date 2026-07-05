@@ -51,8 +51,20 @@ export interface Dataset {
   column_schema: DatasetSchemaField[] | null;
   data_sample: Record<string, unknown>[] | null;
   column_profile: ColumnProfile[] | null;
+  /** The ORIGINAL upload's dialect (delimiter/encoding/decimal/sheet) when it
+   *  wasn't the default; the stored copy is normalized at ingest. Optional so
+   *  test fixtures predating the field stay valid. */
+  parse_options?: Record<string, string | number> | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Optional dialect overrides for an upload; omitted fields are auto-detected. */
+export interface UploadParseOptions {
+  delimiter?: string;
+  encoding?: string;
+  decimal?: string;
+  sheet?: string;
 }
 
 /** Per-column statistics (see backend app/engine/profile.py). Most fields are

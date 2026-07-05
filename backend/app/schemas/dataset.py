@@ -20,6 +20,9 @@ class DatasetVersionRead(BaseModel):
     # Aliased from the ORM's schema_json; never exposes the filesystem location.
     column_schema: list[dict[str, Any]] | None = Field(None, validation_alias="schema_json")
     column_profile: list[dict[str, Any]] | None = Field(None, validation_alias="profile_json")
+    # The original upload's dialect (delimiter/encoding/decimal/sheet) when it
+    # wasn't the default — the stored file itself is normalized at ingest.
+    parse_options: dict[str, Any] | None = Field(None, validation_alias="parse_options_json")
     source_run_id: str | None = None  # set when the version was created by a flow run
     created_at: datetime
 
@@ -41,6 +44,7 @@ class DatasetRead(BaseModel):
     version_count: int
     column_schema: list[dict[str, Any]] | None = None
     data_sample: list[dict[str, Any]] | None = None
+    parse_options: dict[str, Any] | None = None
     column_profile: list[dict[str, Any]] | None = None
     created_at: datetime
     updated_at: datetime

@@ -249,6 +249,53 @@ def assert_params_do_not_shadow_imports(header: list[str], parameter_lines: list
         )
 
 
+def pandas_dialect_kwargs(source_type: str, options: dict[str, Any] | None) -> str:
+    """Extra ``pd.read_*`` keywords reproducing an upload's ORIGINAL dialect.
+
+    Exported scripts read the user's own file by name — which still has the
+    dialect the upload had (the copy Ciaren stores is normalized, the user's
+    file is not). Only non-default values are emitted, so standard files keep
+    the clean bare read."""
+    if not options:
+        return ""
+    parts: list[str] = []
+    if source_type == "csv" and options.get("delimiter", ",") != ",":
+        parts.append(f"sep={options['delimiter']!r}")
+    if source_type in ("csv", "tsv"):
+        if options.get("encoding", "utf-8") != "utf-8":
+            parts.append(f"encoding={options['encoding']!r}")
+        if options.get("decimal", ".") == ",":
+            parts.append("decimal=','")
+    if source_type == "excel" and options.get("sheet") not in (None, 0):
+        parts.append(f"sheet_name={options['sheet']!r}")
+    return "".join(f", {p}" for p in parts)
+
+
+def polars_dialect_kwargs(source_type: str, options: dict[str, Any] | None) -> str:
+    """The polars equivalent of :func:`pandas_dialect_kwargs` for UTF-8 files
+    (non-UTF-8 needs a decode wrapper — the drivers handle that separately).
+    Excel sheet indexes are 0-based here; polars' ``sheet_id`` is 1-based."""
+    if not options:
+        return ""
+    parts: list[str] = []
+    if source_type == "csv" and options.get("delimiter", ",") != ",":
+        parts.append(f"separator={options['delimiter']!r}")
+    if source_type in ("csv", "tsv") and options.get("decimal", ".") == ",":
+        parts.append("decimal_comma=True")
+    if source_type == "excel" and options.get("sheet") not in (None, 0):
+        sheet = options["sheet"]
+        parts.append(f"sheet_id={sheet + 1!r}" if isinstance(sheet, int) else f"sheet_name={sheet!r}")
+    return "".join(f", {p}" for p in parts)
+
+
+def dialect_needs_decode(source_type: str, options: dict[str, Any] | None) -> bool:
+    """Whether the original file's encoding forces the polars script to decode
+    via Python first (polars itself only reads UTF-8)."""
+    if not options or source_type not in ("csv", "tsv"):
+        return False
+    return bool(options.get("encoding", "utf-8") != "utf-8")
+
+
 def incoming_by_target(graph: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """Index a graph's edges by target node id (every node gets an entry)."""
     incoming: dict[str, list[dict[str, Any]]] = {n["id"]: [] for n in graph["nodes"]}

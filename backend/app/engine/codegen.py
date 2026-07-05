@@ -37,6 +37,7 @@ from app.engine.codegen_common import (
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
+    pandas_dialect_kwargs,
     placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
@@ -100,6 +101,7 @@ class CodeGenerator:
         *,
         free_intermediates: bool = False,
         parameter_lines: list[str] | None = None,
+        dataset_parse_options: dict[str, dict[str, Any]] | None = None,
     ) -> str:
         """Return the pandas script for ``graph`` as a single string.
 
@@ -108,7 +110,9 @@ class CodeGenerator:
         Set ``free_intermediates`` to emit ``del`` statements that free each
         intermediate dataframe after its last use. ``parameter_lines`` is an
         optional ``name = default`` prelude (flow parameters) inserted after the
-        imports.
+        imports. ``dataset_parse_options`` maps dataset ids to the original
+        upload's dialect so the emitted read reproduces the user's own file
+        (Ciaren's stored copy is normalized; the user's file is not).
         """
         validate_graph(graph)
         order = topological_sort(graph)
@@ -189,6 +193,8 @@ class CodeGenerator:
                         kwargs = ", sep='\\t'"
                     elif source_type == "jsonl":
                         kwargs = ", lines=True"
+                    dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
+                    kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
                 elif source_type == "text":
                     body.append(

@@ -13,8 +13,24 @@ router = APIRouter()
 
 
 @router.post("/upload", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)
-async def upload_dataset(file: UploadFile, service: DatasetServiceDep, project_id: str | None = None) -> DatasetRead:
-    return await service.upload(file, project_id)
+async def upload_dataset(
+    file: UploadFile,
+    service: DatasetServiceDep,
+    project_id: str | None = None,
+    delimiter: str | None = None,
+    encoding: str | None = None,
+    decimal: str | None = None,
+    sheet: str | None = None,
+) -> DatasetRead:
+    """Store an upload. Dialect options are optional: CSV/TSV delimiter,
+    encoding and decimal mark are auto-detected when omitted; Excel reads the
+    first sheet unless ``sheet`` (name or 0-based index) says otherwise."""
+    parse_options = {
+        k: v
+        for k, v in {"delimiter": delimiter, "encoding": encoding, "decimal": decimal, "sheet": sheet}.items()
+        if v is not None
+    }
+    return await service.upload(file, project_id, parse_options=parse_options)
 
 
 @router.get("", response_model=list[DatasetRead])

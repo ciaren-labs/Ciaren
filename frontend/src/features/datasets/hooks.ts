@@ -1,3 +1,4 @@
+import type { UploadParseOptions } from "@/lib/types";
 import {
   useMutation,
   useQuery,
@@ -90,14 +91,32 @@ export function useDeleteDataset() {
 export function useUploadDataset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ file, projectId }: { file: File; projectId?: string }) =>
-      datasetsApi.upload(file, projectId),
+    mutationFn: ({
+      file,
+      projectId,
+      options,
+    }: {
+      file: File;
+      projectId?: string;
+      options?: UploadParseOptions;
+    }) => datasetsApi.upload(file, projectId, options),
     // The upload dropzone shows failures inline, next to where the file was dropped.
     meta: { suppressErrorToast: true },
     onSuccess: (dataset) => {
       qc.invalidateQueries({ queryKey: queryKeys.datasets });
       qc.invalidateQueries({ queryKey: queryKeys.projects });
-      toast.success(`Dataset "${dataset.name}" uploaded`);
+      const dialect = dataset.parse_options;
+      const detected = dialect
+        ? ` (dialect: ${[
+            dialect.delimiter === "	" ? "tab" : dialect.delimiter,
+            dialect.encoding,
+            dialect.decimal === "," ? "decimal ," : null,
+            dialect.sheet !== undefined ? `sheet ${dialect.sheet}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")})`
+        : "";
+      toast.success(`Dataset "${dataset.name}" uploaded${detected}`);
     },
   });
 }

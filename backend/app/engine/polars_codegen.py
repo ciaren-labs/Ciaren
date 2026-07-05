@@ -30,12 +30,14 @@ from app.engine.codegen_common import (
     DelScheduler,
     assert_params_do_not_shadow_imports,
     collect_input_vars,
+    dialect_needs_decode,
     edge_source_var,
     fuse_method_chains,
     incoming_by_target,
     last_consumer_index,
     ordered_imports,
     placeholder_input_path,
+    polars_dialect_kwargs,
     reusable_output_var,
     sql_engine_var,
     strip_self_assign,
@@ -113,6 +115,7 @@ class PolarsCodeGenerator:
         lazy: bool = False,
         free_intermediates: bool = False,
         parameter_lines: list[str] | None = None,
+        dataset_parse_options: dict[str, dict[str, Any]] | None = None,
     ) -> str:
         validate_graph(graph)
         order = topological_sort(graph)
@@ -306,20 +309,31 @@ class PolarsCodeGenerator:
                 node_outputs[node_id] = {"out": var}
                 source_type = input_source_type(node_type, config)
                 path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
+                dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
+                dialect_kwargs = polars_dialect_kwargs(source_type, dialect)
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
-                if node_type == FILE_INPUT_TYPE:
+                if dialect_needs_decode(source_type, dialect):
+                    # polars only reads UTF-8; the user's original file isn't.
+                    # Decode via Python, then parse the UTF-8 bytes — eager even
+                    # in lazy mode (scan_csv cannot re-encode a file).
+                    assert dialect is not None  # dialect_needs_decode implies it
+                    suffix = ".lazy()" if lazy else ""
+                    sep_kwargs = dialect_kwargs or (', separator="\\t"' if source_type == "tsv" else "")
+                    lines.append(f"with open({path!r}, encoding={dialect['encoding']!r}) as _f:")
+                    lines.append(f"    {var} = pl.read_csv(_f.read().encode(){sep_kwargs}){suffix}")
+                elif node_type == FILE_INPUT_TYPE:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
                     scan = _INPUT_SCAN_BY_FORMAT.get(source_type)
-                    extra = ', separator="\\t"' if source_type == "tsv" else ""
+                    extra = (', separator="\\t"' if source_type == "tsv" else "") + dialect_kwargs
                     if lazy and scan is not None:
                         lines.append(f"{var} = {scan}({path!r}{extra})")
                     else:
                         suffix = ".lazy()" if lazy else ""
                         lines.append(f"{var} = {read}({path!r}{extra}){suffix}")
                 elif lazy and node_type in _INPUT_SCAN:
-                    lines.append(f"{var} = {_INPUT_SCAN[node_type]}({path!r})")
+                    lines.append(f"{var} = {_INPUT_SCAN[node_type]}({path!r}{dialect_kwargs})")
                 else:
-                    extra = _INPUT_READ_KWARGS.get(node_type, "")
+                    extra = _INPUT_READ_KWARGS.get(node_type, "") + dialect_kwargs
                     suffix = ".lazy()" if lazy else ""
                     lines.append(f"{var} = {_INPUT_READ[node_type]}({path!r}{extra}){suffix}")
             elif node_type == FILE_OUTPUT_TYPE:

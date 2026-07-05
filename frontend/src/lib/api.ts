@@ -44,6 +44,7 @@ import type {
   ScheduleUpdate,
   TableInfo,
   TransformationPreviewRequest,
+  UploadParseOptions,
 } from "./types";
 
 /** Build a `?a=b&c=d` query string from defined values only. */
@@ -346,11 +347,15 @@ export const datasetsApi = {
       body: JSON.stringify(body),
     }),
   remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
-  upload: async (file: File, projectId?: string): Promise<Dataset> => {
+  upload: async (
+    file: File,
+    projectId?: string,
+    options?: UploadParseOptions,
+  ): Promise<Dataset> => {
     const form = new FormData();
     form.append("file", file);
     const res = await fetch(
-      `${BASE_URL}/datasets/upload${queryString({ project_id: projectId })}`,
+      `${BASE_URL}/datasets/upload${queryString({ project_id: projectId, ...options })}`,
       { method: "POST", body: form, headers: authHeaders() },
     );
     if (!res.ok) {

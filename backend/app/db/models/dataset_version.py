@@ -37,6 +37,12 @@ class DatasetVersion(Base):
     sample_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     # Per-column statistics computed at creation time (see app/engine/profile.py).
     profile_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    # The dialect the ORIGINAL upload used (delimiter/encoding/decimal/sheet),
+    # when it wasn't already the default. The stored file itself is normalized
+    # to the default dialect at ingest (see app/engine/ingest.py), so readers
+    # never need these — they exist for UI transparency and so exported scripts
+    # can read the user's original file correctly.
+    parse_options_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # set for flow-generated versions
     source_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

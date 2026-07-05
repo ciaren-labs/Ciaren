@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.connection import Connection
 from app.db.models.dataset import Dataset
+from app.db.models.dataset_version import DatasetVersion
 from app.db.models.flow import Flow
 from app.engine.codegen import CodeGenerator
 from app.engine.codegen_params import parameter_block_lines, substitute_for_codegen
@@ -42,6 +43,9 @@ class CodegenService:
         # dataset_id / connection_id bindings are never parameterized, so the raw
         # graph is fine for resolving those names.
         dataset_names = await self._dataset_filenames(graph)
+        # The stored copies are normalized at ingest, but the exported script
+        # reads the user's ORIGINAL files by name — emit their real dialect.
+        parse_options = await self._dataset_parse_options(dataset_names)
         connections = await self._connection_meta(graph)
 
         # Flow parameters render as real variables: a `name = default` prelude plus
@@ -67,17 +71,32 @@ class CodegenService:
             return {
                 "pandas": safe(
                     lambda g, p: CodeGenerator().generate(
-                        g, dataset_names, connections, free_intermediates=free_intermediates, parameter_lines=p
+                        g,
+                        dataset_names,
+                        connections,
+                        free_intermediates=free_intermediates,
+                        parameter_lines=p,
+                        dataset_parse_options=parse_options,
                     )
                 ),
                 "polars": safe(
                     lambda g, p: PolarsCodeGenerator().generate(
-                        g, dataset_names, connections, free_intermediates=free_intermediates, parameter_lines=p
+                        g,
+                        dataset_names,
+                        connections,
+                        free_intermediates=free_intermediates,
+                        parameter_lines=p,
+                        dataset_parse_options=parse_options,
                     )
                 ),
                 "polars_lazy": safe(
                     lambda g, p: PolarsCodeGenerator().generate(
-                        g, dataset_names, connections, lazy=True, parameter_lines=p
+                        g,
+                        dataset_names,
+                        connections,
+                        lazy=True,
+                        parameter_lines=p,
+                        dataset_parse_options=parse_options,
                     )
                 ),
                 "flow_document": FlowDocument(name=flow.name, description=flow.description, graph_json=graph),
@@ -107,6 +126,25 @@ class CodegenService:
         if missing:
             raise NotFoundError("Dataset", ", ".join(sorted(missing)))
         return {ds_id: ds.name for ds_id, ds in datasets.items()}
+
+    async def _dataset_parse_options(self, dataset_names: dict[str, str]) -> dict[str, dict[str, Any]]:
+        """Latest-version parse options per referenced dataset (only entries whose
+        original upload had a non-default dialect)."""
+        if not dataset_names:
+            return {}
+        result = await self.db.execute(
+            select(DatasetVersion)
+            .where(DatasetVersion.dataset_id.in_(dataset_names.keys()))
+            .order_by(DatasetVersion.dataset_id, DatasetVersion.version_number)
+        )
+        options: dict[str, dict[str, Any]] = {}
+        for ver in result.scalars().all():
+            # Ordered ascending: the last row per dataset wins (latest version).
+            if ver.parse_options_json:
+                options[ver.dataset_id] = ver.parse_options_json
+            else:
+                options.pop(ver.dataset_id, None)
+        return options
 
     async def _connection_meta(self, graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """Connection details for SQL nodes — provider/host/.../password_env only.
