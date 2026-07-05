@@ -58,6 +58,7 @@ CASES: dict[str, tuple[str, dict, str]] = {
     "assert_expression": ("assertExpression", {"expression": "v > -100"}, _CSV_NUMERIC),
     "assert_row_count": ("assertRowCount", {"min_rows": 1, "max_rows": 100}, _CSV_WITH_NULL),
     "drop_nulls_all": ("dropNulls", {"how": "all"}, _CSV_WITH_NULL),
+    "explode_delimiter": ("explodeRows", {"column": "g", "delimiter": ","}, 'id,g,v\n1,"a,b",1.5\n2,c,2.0\n'),
 }
 
 
@@ -111,6 +112,15 @@ def test_lazy_scripts_emit_no_performance_warnings(case: str, tmp_path: Path) ->
     env = dict(os.environ, PYTHONWARNINGS="error::polars.exceptions.PerformanceWarning")
     result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, capture_output=True, text=True, env=env)
     assert result.returncode == 0, f"lazy script warned or failed:\n{result.stderr}\n---\n{code}"
+
+
+def test_explode_rows_stays_lazy() -> None:
+    # Both explodeRows forms are pure expressions; neither may break the plan.
+    gen = PolarsCodeGenerator()
+    for config in ({"column": "g", "delimiter": ","}, {"column": "g"}):
+        code = gen.generate(_graph("explodeRows", config), {"d": "in.csv"}, lazy=True)
+        assert "has no lazy equivalent" not in code
+        assert "_eager_" not in code
 
 
 def test_bin_quantile_stays_lazy_but_equalwidth_materializes() -> None:

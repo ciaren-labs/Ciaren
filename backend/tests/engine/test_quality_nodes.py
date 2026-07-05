@@ -586,14 +586,17 @@ def test_executor_non_assertion_node_has_none_fields(tmp_path: Path, sample_csv:
 
 
 def _exec_codegen(code: str, df_in: pd.DataFrame) -> pd.DataFrame:
-    """Execute generated pandas code in an isolated namespace."""
-    ns: dict = {"df_1": df_in, "pd": pd}
+    """Execute generated pandas code in an isolated namespace.
+
+    warn-mode snippets rely on `import warnings` living in the script header
+    (collected via the node's imports()); provide it like the drivers do."""
+    ns: dict = {"df_1": df_in, "pd": pd, "warnings": warnings}
     exec(code, ns)  # noqa: S102
     return ns["df_2"]
 
 
 def _exec_polars_codegen(code: str, df_in: pl.DataFrame) -> pl.DataFrame:
-    ns: dict = {"df_1": df_in, "pl": pl}
+    ns: dict = {"df_1": df_in, "pl": pl, "warnings": warnings}
     exec(code, ns)  # noqa: S102
     return ns["df_2"]
 
@@ -741,7 +744,7 @@ def test_polars_codegen_not_null_count_matches_runtime():
     runtime = get_transformation("assertNotNull")._check(pdf.copy(), {"columns": cols})
     t = get_transformation("assertNotNull")
     code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"columns": cols, "mode": "warn"})
-    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl}
+    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl, "warnings": warnings}
     with warnings.catch_warnings(record=True):
         exec(code, ns)  # noqa: S102
     assert ns["_null_count"] == runtime.violation_count == 2
@@ -754,7 +757,7 @@ def test_polars_codegen_value_range_counts_nulls_as_violations():
     pdf = pd.DataFrame({"x": [1, 2, None, 5, 100]})
     runtime = t._check(pdf.copy(), {"column": "x", "min": 0, "max": 10})
     code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"column": "x", "min": 0, "max": 10, "mode": "warn"})
-    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl}
+    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl, "warnings": warnings}
     with warnings.catch_warnings(record=True):
         exec(code, ns)  # noqa: S102
     assert ns["_range_violations"] == runtime.violation_count == 2

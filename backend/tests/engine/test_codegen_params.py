@@ -126,3 +126,37 @@ def test_non_colliding_parameter_names_export_fine():
     }
     code = CodeGenerator().generate(graph, {"d": "in.csv"}, parameter_lines=["keep = 2"])
     assert "keep = 2" in code
+
+
+def test_parameter_named_warnings_with_warn_mode_assert_is_refused():
+    import pytest
+
+    from app.engine.codegen import CodeGenerator
+    from app.engine.graph import GraphValidationError
+    from app.engine.polars_codegen import PolarsCodeGenerator
+
+    # Warn-mode asserts need `import warnings` — emitted into the header
+    # (never the body) precisely so this collision is caught, not silent.
+    graph = {
+        "parameters": [{"name": "warnings", "type": "integer", "default": 2}],
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "a", "type": "assertNotNull", "data": {"config": {"columns": ["x"], "mode": "warn"}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "a"},
+            {"id": "e2", "source": "a", "target": "out"},
+        ],
+    }
+    lines = ["warnings = 2"]
+    for gen in (CodeGenerator(), PolarsCodeGenerator()):
+        with pytest.raises(GraphValidationError, match="warnings"):
+            gen.generate(graph, {"d": "in.csv"}, parameter_lines=lines)
+    # Without the parameter the same flow exports fine, with the import in the
+    # header and the bare warn call in the body.
+    graph["parameters"] = []
+    for gen in (CodeGenerator(), PolarsCodeGenerator()):
+        code = gen.generate(graph, {"d": "in.csv"})
+        assert "import warnings\n" in code
+        assert "import warnings; warnings.warn" not in code

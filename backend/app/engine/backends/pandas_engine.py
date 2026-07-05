@@ -148,8 +148,11 @@ class PandasEngine:
                 # Series.mode() is sorted, so iloc[0] is the smallest — except
                 # for categoricals, which sort by *category order*; take the
                 # lexicographic smallest there to match the polars engine.
+                # key=str keeps the value's original dtype: a str() result
+                # would be a brand-new category on numeric categoricals and
+                # make fillna raise.
                 if isinstance(series.dtype, pd.CategoricalDtype):
-                    fill = min(map(str, modes))
+                    fill = min(modes, key=str)
                 else:
                     fill = modes.iloc[0]
             elif strategy == "ffill":

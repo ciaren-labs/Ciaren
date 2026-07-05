@@ -238,6 +238,10 @@ class PolarsCodeGenerator:
             def out_var() -> str:
                 return reuse if reuse is not None else next_var()
 
+            # Polars-dialect nodes may need header imports too (e.g. warn-mode
+            # asserts need `import warnings`); the bridge path above collects
+            # its own.
+            add_imports(transformation.imports(config))
             if lazy and not transformation.polars_lazy_safe_for(config):
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.

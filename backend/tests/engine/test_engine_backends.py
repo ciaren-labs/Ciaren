@@ -212,6 +212,15 @@ def test_fill_mode_categorical_tie_break_matches_across_engines(engine_name: str
     assert list(out["c"].astype(str)) == ["b", "b", "a", "a", "a"]
 
 
+def test_fill_mode_numeric_categorical_keeps_value_dtype() -> None:
+    # The tie-break must not stringify the fill value: on a numeric categorical
+    # (dictionary-encoded parquet), str('1') is a brand-new category and
+    # fillna raises. min(key=str) keeps the original typed value.
+    pdf = pd.DataFrame({"c": pd.Categorical([1, 1, 2, None])})
+    out = _pdf(get_engine("pandas"), get_engine("pandas").fill_nulls(pdf, ["c"], "mode", None))
+    assert list(out["c"]) == [1, 1, 2, 1]
+
+
 @pytest.mark.parametrize("engine_name", ENGINES)
 def test_fill_constant(engine_name: str) -> None:
     engine = get_engine(engine_name)

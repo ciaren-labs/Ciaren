@@ -280,7 +280,8 @@ class ExplodeRowsTransformation(BaseTransformation):
     (``"a,b"`` -> two rows); without one, an existing list column is exploded."""
 
     type = "explodeRows"
-    polars_lazy_safe = False  # explode + split materialize
+    # Both forms are pure expressions (str.split + explode / explode), so the
+    # emitted code runs on a LazyFrame unchanged — no materialization needed.
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):

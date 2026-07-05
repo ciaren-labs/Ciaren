@@ -82,10 +82,18 @@ class _BaseAssertion(BaseTransformation, EmitsNodeMetadata):
     # -- codegen helpers ---------------------------------------------------
 
     def _violation_action(self, mode: str, msg_expr: str) -> str:
-        """One-liner that raises or warns, for inline codegen."""
+        """One-liner that raises or warns, for inline codegen.
+
+        warn mode relies on ``import warnings`` in the script *header* (see
+        :meth:`imports`) — a body-level ``import warnings`` would silently
+        rebind a flow parameter of that name below the prelude, the exact
+        collision the generators' import-shadow check exists to refuse."""
         if mode == "warn":
-            return f"import warnings; warnings.warn({msg_expr})"
+            return f"warnings.warn({msg_expr})"
         return f"raise ValueError({msg_expr})"
+
+    def imports(self, config: dict[str, Any]) -> list[str]:
+        return ["import warnings"] if config.get("mode", "error") == "warn" else []
 
 
 # ---------------------------------------------------------------------------
