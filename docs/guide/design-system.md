@@ -63,7 +63,8 @@ same token names, so components need no changes to support it.
 
 Nodes stay distinguishable on the canvas while harmonising with the brand. Each
 category has a badge / card / ring / text / dot theme in
-`frontend/src/lib/nodeVisuals.ts`. There are 8 categories, 58 nodes total:
+`frontend/src/lib/nodeVisuals.ts`. There are 8 categories, 64 nodes total (58
+transformation nodes plus 6 file/SQL/storage input-output nodes):
 
 | Category | Hue | Example nodes |
 | --- | --- | --- |

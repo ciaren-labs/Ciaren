@@ -24,8 +24,8 @@ rows. It works on both the polars and pandas engines.
    - **Numeric:** `strategy: "median"` (or `"mean"`) with `columns: ["age"]`.
    - **Categorical:** `strategy: "constant"`, `value: "Unknown"`,
      `columns: ["region"]`.
-   - **Ordered/time-series:** `strategy: "forward"` (carry the last value forward)
-     or `"backward"`.
+   - **Ordered/time-series:** `strategy: "ffill"` (carry the last value forward)
+     or `"bfill"` (carry the next value backward).
    Add a second Fill Nulls node when different columns need different strategies.
 3. **File Output** — write the filled result.
 

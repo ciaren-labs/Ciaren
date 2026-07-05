@@ -245,7 +245,7 @@ public/
 ├── logo.svg
 ├── favicon.ico / favicon.svg
 ├── screenshots/
-│   ├── feature-preview.png
+│   ├── your-screenshot.png
 │   └── ...
 └── samples/
     ├── sales.csv
@@ -256,7 +256,7 @@ public/
 Reference in markdown:
 
 ```markdown
-![Alt text](/screenshots/feature-preview.png)
+![Alt text](/screenshots/your-screenshot.png)
 [Download sample](/samples/sales.csv)
 ```
 

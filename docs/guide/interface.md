@@ -56,7 +56,7 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input
   handle to create an edge.
-- **Node palette** — 58 nodes grouped into 8 categories, each with its own
+- **Node palette** — 64 nodes grouped into 8 categories, each with its own
   color: **Inputs** (3, emerald), **Cleaning** (9, sky), **Columns** (10,
   indigo), **Reshape** (6, violet), **Analytics** (11, fuchsia), **Data
   Quality** (6, orange), **Machine Learning** (16, purple), and **Outputs**

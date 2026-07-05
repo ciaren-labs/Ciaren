@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.engine.backends import AnyFrame, EngineBackend, get_engine
-from app.engine.graph import GraphValidationError, topological_sort, validate_graph
+from app.engine.graph import GraphValidationError, topological_sort, validate_graph, validate_node_configs
 from app.engine.node_kinds import FILE_INPUT_TYPE, PRE_MATERIALIZED_INPUT_TYPES, primary_output_handle
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_SUFFIX as _OUTPUT_SUFFIX
@@ -246,6 +246,7 @@ class FlowExecutor:
         storage_input_paths: dict[str, Path] | None = None,
     ) -> dict[str, NodeOutputs]:
         validate_graph(graph, require_output=require_output)
+        validate_node_configs(graph)
         order = topological_sort(graph)
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
@@ -314,6 +315,7 @@ class FlowExecutor:
         """
         engine = get_engine(engine_name)
         validate_graph(graph, require_output=True)
+        validate_node_configs(graph)
         order = topological_sort(graph)
 
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}

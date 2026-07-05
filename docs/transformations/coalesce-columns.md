@@ -32,7 +32,7 @@ null.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(phone=lambda _d: _d['mobile'].fillna(_d['home']).fillna(_d['work']))
+df_2 = df_1.assign(phone=lambda _d: _d['mobile'].where(pd.notna, _d['home']).where(pd.notna, _d['work']))
 ```
 
 ## Tips & common mistakes

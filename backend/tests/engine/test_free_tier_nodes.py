@@ -318,6 +318,20 @@ class TestRowDifference:
         ).sort_values("t")
         assert out["p"].tolist()[1:] == [0.5, -0.5]
 
+    def test_pct_change_propagates_nulls(self, engine):
+        # A null in the target must yield null pct rows (no forward-filling):
+        # pandas' deprecated fill_method='pad' default would instead pad the
+        # null and fabricate 0.0/ghost changes — both engines must agree.
+        df = pd.DataFrame({"t": [1, 2, 3, 4], "v": [100.0, None, 150.0, 300.0]})
+        out = run(
+            engine, "rowDifference", df, {"target": "v", "method": "pct_change", "order_by": ["t"], "new_column": "p"}
+        ).sort_values("t")
+        p = out["p"].tolist()
+        assert math.isnan(p[0])  # no previous row
+        assert math.isnan(p[1])  # null current value
+        assert math.isnan(p[2])  # null previous value
+        assert p[3] == 1.0  # 300 / 150 - 1
+
     def test_periods_greater_than_one(self, engine):
         df = pd.DataFrame({"t": [1, 2, 3, 4], "v": [1.0, 2.0, 4.0, 8.0]})
         out = run(

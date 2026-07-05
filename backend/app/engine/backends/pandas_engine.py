@@ -523,7 +523,11 @@ class PandasEngine:
         new_column: str,
         keep_original: bool,
     ) -> pd.DataFrame:
-        coalesced = df[columns].bfill(axis=1).iloc[:, 0]
+        # where() instead of bfill/fillna: those attempt a silent downcast on
+        # object-dtype results (deprecated, FutureWarning); where() never does.
+        coalesced = df[columns[0]]
+        for c in columns[1:]:
+            coalesced = coalesced.where(coalesced.notna(), df[c])
         result = df.assign(**{new_column: coalesced})
         if not keep_original:
             drop = [c for c in columns if c != new_column]
@@ -575,7 +579,10 @@ class PandasEngine:
         if order_by:
             work = work.sort_values(by=order_by, ascending=[not descending] * len(order_by), kind="stable")
         series = work.groupby(partition_by, sort=False)[target] if partition_by else work[target]
-        values = series.pct_change(periods) if method == "pct_change" else series.diff(periods)
+        # fill_method=None: nulls propagate instead of being forward-filled —
+        # the future pandas default (the 'pad' default is deprecated) and what
+        # polars' pct_change does, so both engines agree on null handling.
+        values = series.pct_change(periods, fill_method=None) if method == "pct_change" else series.diff(periods)
         work = work.assign(**{new_column: values})
         return work.sort_index().reset_index(drop=True)
 

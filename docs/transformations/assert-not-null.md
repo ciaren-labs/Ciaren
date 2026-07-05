@@ -41,13 +41,9 @@ The per-node result in the run detail always includes `assertion_passed`,
 ## Generated Python code
 
 ```python
-# assertNotNull: ['user_id', 'email'] — mode: error
-_nulls = df_1[['user_id', 'email']].isnull().sum()
-_bad = _nulls[_nulls > 0]
-if not _bad.empty:
-    _msg = f"assertNotNull: null values found — {_bad.to_dict()}"
-    raise AssertionError(_msg)
-df_2 = df_1
+_null_mask = df_1[['user_id', 'email']].isnull().any(axis=1)
+if _null_mask.any():
+    raise ValueError(f"assertNotNull: {_null_mask.sum()} row(s) contain nulls in ['user_id', 'email']")
 ```
 
 In `warn` mode the `raise` is replaced by a `warnings.warn(...)` call and

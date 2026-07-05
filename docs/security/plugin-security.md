@@ -172,7 +172,8 @@ than silently rewritten, so one plugin can't clobber another's install directory
 Some operations execute code or touch credentials. Ciaren already enforces:
 
 - **Pickle model files are refused** — loading a pickle runs arbitrary code; only
-  `.joblib` / native `.json` artifacts load, and only from inside the artifact root.
+  `.joblib` artifacts load directly, and only from inside the artifact root
+  (other formats, including `.json`, must be referenced via an MLflow model URI).
 - **Connection secrets are referenced, not stored** — passwords live in environment
   variables (`password_env`); they never enter the flow graph, `.flow` files, or
   exported code.

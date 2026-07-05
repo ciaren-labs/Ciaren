@@ -108,6 +108,15 @@ Only run scripts from sources you trust, and never expose the Ciaren API
 publicly without authentication when Python Transform nodes are in use.
 :::
 
+Setting `CIAREN_PYTHON_TRANSFORM_STRICT=true` adds two opt-in, defense-in-depth
+checks: an AST scan that rejects dangerous imports (`os`, `sys`, `subprocess`,
+`socket`, `ctypes`, `importlib`, …), exec-style builtins, and dunder-attribute
+traversal; and a restricted `__builtins__` at execution time with `open`,
+`__import__`, and `eval` removed. It's off by default so existing scripts
+(e.g. `import numpy`) keep working, and it is **not a sandbox** — a determined
+attacker can still find a bypass — so the real controls remain network auth
+and running Ciaren as an unprivileged user.
+
 ## Tips & common mistakes
 
 - **You must `return` the dataframe.** Forgetting the `return` causes a runtime

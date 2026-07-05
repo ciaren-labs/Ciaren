@@ -202,9 +202,13 @@ dedicated view over everything MLflow tracked:
 
 ## Try the demo flows
 
-With ML enabled (the default), the built-in **Demo** project includes four
-ready-to-run ML flows: *Iris — Quick Classifier*, *Iris — Train, Validate &
-Evaluate*, *House Prices — Regression*, and *Iris — PCA Explore*. Boot with
+With ML enabled (the default), the built-in **Demo** project includes nine
+ready-to-run ML flows — the four tutorial flows above (*Iris — Quick
+Classifier*, *Iris — Train, Validate & Evaluate*, *House Prices — Regression*,
+*Iris — PCA Explore*) plus five more covering cross-validation, KNN with
+encoded features, feature selection, and clustering (*Iris — Logistic CV
+Report*, *Iris — KNN with Encoded Species*, *House Price — Feature Selection*,
+*House Price — Customer Segments*, *House Price — PCA Model*). Boot with
 `ciaren serve --run-seed-flows` to run them all once on first start, so the
 Runs history and the Models page are populated out of the box.
 

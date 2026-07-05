@@ -37,7 +37,9 @@ export function RunDag({ graph, results, selectedNodeId, onSelectNode }: RunDagP
         return {
           id: n.id,
           type: "runNode",
-          position: n.position,
+          // Nodes created outside the editor (raw API/SDK, malformed imports)
+          // may omit position entirely — React Flow requires one to render.
+          position: n.position ?? { x: 0, y: 0 },
           selected: n.id === selectedNodeId,
           data: {
             label: n.data?.label ?? n.type,

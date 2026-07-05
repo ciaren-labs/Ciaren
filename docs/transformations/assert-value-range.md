@@ -25,7 +25,7 @@ the run (`error` mode) or logs a warning and continues (`warn` mode).
 | `column` | string | Yes | Column to check |
 | `min` | number | Conditional | Lower bound (at least one of `min`/`max` required) |
 | `max` | number | Conditional | Upper bound (at least one of `min`/`max` required) |
-| `inclusive` | `"both"` \| `"left"` \| `"right"` \| `"neither"` | No | Which bounds are inclusive (default `"both"`) |
+| `inclusive` | boolean | No | `true` (default) checks inclusive bounds (`>=`/`<=`); `false` checks strict bounds (`>`/`<`) on **both** ends — there's no way to make only one side strict |
 | `mode` | `"error"` \| `"warn"` | No | `"error"` (default) stops the run; `"warn"` continues and logs |
 
 You can set only `min` (no upper bound), only `max` (no lower bound), or both.
@@ -44,13 +44,9 @@ The per-node result in the run detail always includes `assertion_passed`,
 ## Generated Python code
 
 ```python
-# assertValueRange: column='price', min=0, max=None, inclusive='both' — mode: error
-_mask = ~(df_1['price'] >= 0)
-_violations = df_1[_mask]
-if not _violations.empty:
-    _msg = f"assertValueRange: {len(_violations)} value(s) in 'price' out of range [0, ∞)"
-    raise AssertionError(_msg)
-df_2 = df_1
+_range_mask = (pd.to_numeric(df_1['price'], errors='coerce') >= 0)
+if not _range_mask.all():
+    raise ValueError(f"assertValueRange: {(~_range_mask).sum()} row(s) in 'price' outside range")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution
@@ -62,9 +58,9 @@ continues.
   in nor out of range by pandas convention; the node counts it as a violation.
   Precede this node with [Drop nulls](./drop-nulls.md) or [Fill nulls](./fill-nulls.md)
   if that isn't what you want.
-- **`inclusive="neither"` means strict inequalities.** `min=0, max=100,
-  inclusive="neither"` passes values in `(0, 100)`, rejecting 0 and 100
-  themselves.
+- **`inclusive: false` means strict inequalities on both ends.** `min=0, max=100,
+  inclusive=false` passes values in `(0, 100)`, rejecting 0 and 100 themselves —
+  there's no way to make just one bound strict.
 - Use [Filter rows](./filter-rows.md) if you want to *remove* out-of-range rows
   rather than assert they don't exist.
 

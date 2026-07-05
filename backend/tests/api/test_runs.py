@@ -112,6 +112,30 @@ async def test_run_flow_records_failure(client: AsyncClient) -> None:
     assert run["error_message"]
 
 
+async def test_run_with_misconfigured_node_is_400_and_creates_no_run(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    # selectColumns with no columns can never execute: the run must be refused
+    # up front (no run row, no dataset materialization), naming the node.
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "sel", "type": "selectColumns", "data": {"config": {}, "label": "Pick columns"}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "sel"},
+            {"id": "e2", "source": "sel", "target": "out1"},
+        ],
+    }
+    flow = await _create_flow(client, graph)
+    before = len((await client.get("/api/runs")).json())
+
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 400, r.text
+    assert "Pick columns" in r.json()["detail"]
+    assert len((await client.get("/api/runs")).json()) == before  # no run row
+
+
 async def test_run_on_polars_engine_records_engine(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))

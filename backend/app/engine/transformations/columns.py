@@ -149,9 +149,10 @@ class CoalesceColumnsTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns, new_column, keep_original = self._args(config)
-        # Chained fillna is the idiomatic pandas coalesce; same first-non-null
-        # semantics as the engine's row-wise bfill, without the axis-1 shuffle.
-        expr = f"_d[{columns[0]!r}]" + "".join(f".fillna(_d[{c!r}])" for c in columns[1:])
+        # Chained where(pd.notna, ...) keeps first-non-null semantics like the
+        # engine; fillna would try a silent downcast on object-dtype results
+        # (deprecated, FutureWarning), which where() never does.
+        expr = f"_d[{columns[0]!r}]" + "".join(f".where(pd.notna, _d[{c!r}])" for c in columns[1:])
         line = f"{dst} = {src}.assign({pd_assign_args({new_column: f'lambda _d: {expr}'})})"
         if not keep_original:
             drop = [c for c in columns if c != new_column]

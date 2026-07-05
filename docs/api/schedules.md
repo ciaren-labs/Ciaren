@@ -8,7 +8,7 @@ search: api schedules cron timezone engine retries catch_up run-now runs
 
 Run a flow automatically on a cron schedule. A schedule carries a `cron`
 expression, a `timezone`, an optional `engine`, and reliability settings
-(`max_retries`, `retry_delay_seconds`, `catch_up`). See
+(`max_retries`, `retry_delay_seconds`, `catch_up`, `run_timeout_seconds`). See
 [Scheduling](/guide/scheduling) for the behavior.
 
 A schedule for a parameterized flow may also carry a `parameters` object —

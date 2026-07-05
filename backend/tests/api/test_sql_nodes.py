@@ -95,9 +95,10 @@ async def test_sql_input_requires_connection(client: AsyncClient) -> None:
     }
     flow = await _create_flow(client, graph)
     r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
-    # The run is recorded as failed (validation error inside execution).
-    assert r.status_code == 201
-    assert r.json()["status"] == "failed"
+    # Refused up front: graph validation now runs before a run row is created,
+    # so a misconfigured SQL input is a clean 400, not a failed run.
+    assert r.status_code == 400
+    assert "connection" in r.json()["detail"]
 
 
 def test_codegen_reads_secret_from_env_not_inline() -> None:

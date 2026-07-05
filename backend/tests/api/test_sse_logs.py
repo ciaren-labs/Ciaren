@@ -125,8 +125,22 @@ async def test_stream_logs_done_event_is_last(client: AsyncClient) -> None:
 
 
 async def test_stream_logs_failed_run(client: AsyncClient) -> None:
-    # Create a flow with no graph — execution will fail
-    flow_r = await client.post("/api/flows", json={"name": "bad", "graph_json": {"nodes": [], "edges": []}})
+    # A structurally valid flow that fails while executing (the graph itself
+    # must pass validation — an invalid graph is refused with a 400 up front
+    # and never produces a run to stream).
+    ds = await _upload(client)
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "drop", "type": "dropColumns", "data": {"config": {"columns": ["ghost"]}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "drop", "target": "out1"},
+        ],
+    }
+    flow_r = await client.post("/api/flows", json={"name": "bad", "graph_json": graph})
     assert flow_r.status_code == 201
     run_r = await client.post(f"/api/flows/{flow_r.json()['id']}/runs", json={})
     assert run_r.status_code == 201

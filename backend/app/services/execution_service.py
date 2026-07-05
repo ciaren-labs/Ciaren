@@ -23,6 +23,7 @@ from app.engine.cancellation import (
     unregister_run,
 )
 from app.engine.executor import FlowExecutor, RunResult
+from app.engine.graph import GraphValidationError, validate_graph, validate_node_configs
 from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.process_pool import (
@@ -83,6 +84,16 @@ class ExecutionService:
         try:
             graph, param_values = apply_parameters(flow.graph_json, data.parameters or {})
         except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        # Fail fast on a graph that cannot execute: a wiring or node-config
+        # error is a clean 400 *before* a run row exists and before any
+        # dataset / SQL input is materialized. The executor re-checks both, so
+        # the process-mode worker is covered independently of this shortcut.
+        try:
+            validate_graph(graph)
+            validate_node_configs(graph)
+        except GraphValidationError as exc:
             raise ValidationError(str(exc)) from exc
 
         run = FlowRun(

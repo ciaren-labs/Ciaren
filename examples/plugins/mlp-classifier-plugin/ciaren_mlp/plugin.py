@@ -1,7 +1,7 @@
 """The MLP Classifier plugin: a neural-network classifier for Ciaren, twice over.
 
 This is the "advanced" companion to the Hello plugin, and it demonstrates both of
-the ML extension points added in plugin API 1.1:
+the ML extension points in plugin API 0.1.0-alpha.1:
 
 1. **A model type for the core Train Classifier node** (``ModelProvider``): the
    ``mlp_classifier`` model type appears in the standard *Train Classifier* model

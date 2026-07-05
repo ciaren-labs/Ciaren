@@ -40,12 +40,9 @@ violating rows.
 ## Generated Python code
 
 ```python
-# assertUnique: ['order_id'] — mode: error
-_dupes = df_1[df_1.duplicated(subset=['order_id'], keep=False)]
-if not _dupes.empty:
-    _msg = f"assertUnique: {len(_dupes)} duplicate row(s) across columns ['order_id']"
-    raise AssertionError(_msg)
-df_2 = df_1
+_dup_mask = df_1.duplicated(subset=['order_id'], keep=False)
+if _dup_mask.any():
+    raise ValueError(f"assertUnique: {_dup_mask.sum()} duplicate row(s)")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution

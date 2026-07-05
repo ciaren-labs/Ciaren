@@ -97,6 +97,17 @@ it reports:
 If a node fails, its error is captured and downstream nodes are marked `skipped`.
 Output files are only written when **every** node succeeds.
 
+### Cancelling a running run
+
+A run that's still `running` can be stopped from its detail page, or via
+`POST /api/runs/{run_id}/cancel` (`202`). The executor checks for the request
+between nodes, so the in-flight node finishes and everything after it is
+marked `skipped`; the run ends with status `cancelled` and doesn't trigger a
+failure notification or count toward a schedule's auto-disable threshold.
+Cancelling a run that already finished returns `400`. In `process` execution
+mode, cancelling refuses (`400`) if another run is sharing the same worker
+pool, since recycling the pool would abort that other run too.
+
 ### Triggers
 
 Runs carry a `trigger` (and a `schedule_id` when applicable), so you can tell

@@ -10,7 +10,9 @@ export function graphToStore(graph: GraphJson): {
   const nodes: FlowNodeType[] = (graph.nodes ?? []).map((n: GraphNode) => ({
     id: n.id,
     type: n.type,
-    position: n.position,
+    // Nodes created outside the editor (raw API/SDK, malformed imports) may
+    // omit position entirely — React Flow requires one to render.
+    position: n.position ?? { x: 0, y: 0 },
     data: {
       label: n.data?.label ?? n.type,
       config: n.data?.config ?? {},

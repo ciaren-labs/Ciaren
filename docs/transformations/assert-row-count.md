@@ -42,12 +42,8 @@ or both. The check is inclusive on both bounds.
 ## Generated Python code
 
 ```python
-# assertRowCount: min_rows=1, max_rows=None — mode: error
-_count = len(df_1)
-if not (_count >= 1):
-    _msg = f"assertRowCount: got {_count} row(s), expected at least 1"
-    raise AssertionError(_msg)
-df_2 = df_1
+if len(df_1) < 1:
+    raise ValueError(f"assertRowCount: got {len(df_1)} row(s), expected [1, None]")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution

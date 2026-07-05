@@ -315,8 +315,12 @@ class RowDifferenceTransformation(BaseTransformation):
             if partition_by
             else f"{sorted_d}[{target!r}]"
         )
-        periods_arg = f"{periods!r}" if periods != 1 else ""  # 1 is the pandas default
-        value = f"{base}.{method}({periods_arg})"
+        args = [repr(periods)] if periods != 1 else []  # 1 is the pandas default
+        if method == "pct_change":
+            # Match the engine (and polars): nulls propagate, never forward-fill.
+            # Also keeps the exported script clean of pandas' deprecation warning.
+            args.append("fill_method=None")
+        value = f"{base}.{method}({', '.join(args)})"
         # Sorted-view computation + assign's index alignment restores row order.
         return f"{dst} = {src}.assign({pd_assign_args({new: f'lambda _d: {value}'})})"
 

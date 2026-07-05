@@ -7,7 +7,7 @@ them with a clear error rather than silently dropping inputs or crashing.
 
 import pytest
 
-from app.engine.graph import GraphValidationError, validate_graph
+from app.engine.graph import GraphValidationError, validate_graph, validate_node_configs
 
 
 def _node(node_id, node_type, config=None):
@@ -349,3 +349,48 @@ def test_ancestor_subgraph_keeps_dangling_edges_into_the_slice():
     sub = ancestor_subgraph(graph, "b")
     assert {n["id"] for n in sub["nodes"]} == {"a", "b"}
     assert {(e["source"], e["target"]) for e in sub["edges"]} == {("missing", "b"), ("a", "b")}
+
+
+# -- Node-config validation (validate_node_configs) ------------------------
+
+
+def _configured_graph(config):
+    return {
+        "nodes": [_input(), _node("sel", "selectColumns", config), _node("out", "csvOutput")],
+        "edges": [_edge("in1", "sel"), _edge("sel", "out")],
+    }
+
+
+def test_valid_node_configs_pass():
+    validate_node_configs(_configured_graph({"columns": ["name"]}))  # no raise
+
+
+def test_missing_required_config_rejected_with_node_label():
+    graph = _configured_graph({})
+    graph["nodes"][1]["data"]["label"] = "Pick columns"
+    with pytest.raises(GraphValidationError, match=r"Pick columns: .*columns"):
+        validate_node_configs(graph)
+
+
+def test_missing_required_config_falls_back_to_node_type_label():
+    with pytest.raises(GraphValidationError, match="selectColumns"):
+        validate_node_configs(_configured_graph({}))
+
+
+def test_unknown_node_type_rejected():
+    graph = {
+        "nodes": [_input(), _node("x", "notATransform"), _node("out", "csvOutput")],
+        "edges": [_edge("in1", "x"), _edge("x", "out")],
+    }
+    with pytest.raises(GraphValidationError, match="Unknown node type"):
+        validate_node_configs(graph)
+
+
+def test_input_and_output_nodes_are_skipped():
+    # Input/output config rules live in validate_graph; validate_node_configs
+    # must not require e.g. a dataset on an input node.
+    graph = {
+        "nodes": [_node("in1", "csvInput"), _node("out", "csvOutput")],
+        "edges": [_edge("in1", "out")],
+    }
+    validate_node_configs(graph)  # no raise

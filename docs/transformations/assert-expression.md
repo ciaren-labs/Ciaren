@@ -44,13 +44,9 @@ The per-node result in the run detail always includes `assertion_passed`,
 ## Generated Python code
 
 ```python
-# assertExpression: 'revenue >= cost' — mode: error
-_mask = ~df_1.eval('revenue >= cost')
-_violations = df_1[_mask]
-if not _violations.empty:
-    _msg = f"assertExpression: {len(_violations)} row(s) violate 'revenue >= cost'"
-    raise AssertionError(_msg)
-df_2 = df_1
+_expr_mask = ~df_1.eval('revenue >= cost').astype(bool)
+if _expr_mask.any():
+    raise ValueError(f"assertExpression: {_expr_mask.sum()} row(s) violate 'revenue >= cost'")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution

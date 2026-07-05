@@ -151,6 +151,43 @@ def _validate_connections(nodes: list[dict[str, Any]], edges: list[dict[str, Any
                 raise GraphValidationError(f"{label}: the {handle!r} input accepts only one connection.")
 
 
+def validate_node_configs(graph: dict[str, Any]) -> None:
+    """Fail fast when a transformation node's saved config cannot execute.
+
+    Every transformation ships a cheap, data-independent ``validate_config``
+    (the same check the single-node preview runs), but nothing called it on
+    the run path — a filter saved without a column would materialize every
+    input and run all upstream nodes before failing mid-flow. Calling this
+    alongside :func:`validate_graph` turns that into an immediate,
+    node-labelled error before any data is touched.
+
+    Kept separate from ``validate_graph`` on purpose: the code generators
+    validate structure on graphs whose configs hold ``CodeRef`` placeholders
+    (parameterized export), which these concrete-value checks would falsely
+    reject. Execution-path callers pass the *resolved* graph, where every
+    config value is concrete.
+    """
+    # Imported lazily so this pure module isn't loaded with the whole engine.
+    from app.engine.registry import get_transformation
+
+    for node in graph.get("nodes", []):
+        node_type = node.get("type", "")
+        # Input/output/SQL/storage config checks live in validate_graph.
+        if node_type in _INPUT_TYPES or node_type in _OUTPUT_TYPES:
+            continue
+        try:
+            transformation = get_transformation(node_type)
+        except KeyError as exc:
+            raise GraphValidationError(f"Unknown node type: {node_type!r}") from exc
+        label = node.get("data", {}).get("label") or node_type
+        try:
+            transformation.validate_config(node.get("data", {}).get("config") or {})
+        except GraphValidationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — name the node even if a (plugin) validator misbehaves
+            raise GraphValidationError(f"{label}: {exc}") from exc
+
+
 def _validate_model_handles(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
     """Enforce that a model wire only ever connects a model output to a model input.
 
