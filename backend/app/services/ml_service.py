@@ -94,16 +94,21 @@ class MLService:
 
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
-        mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        uri = await resolve_tracking_uri(self.db)
 
         # MLflow registry calls hit a REST server or a file-backed store —
-        # blocking IO either way, so keep them off the event loop.
+        # blocking IO either way, so keep them off the event loop. The URI is
+        # re-applied *inside* the thread (and passed to the client explicitly)
+        # because configure_mlflow sets process-global state: configuring on
+        # the loop and using it later from a thread would let a concurrently
+        # configured request's URI leak in between.
         def _register() -> tuple[Any, str | None]:
+            mlflow = configure_mlflow(tracking_uri=uri)
             version = mlflow.register_model(model_uri, model_name.strip())
             alias = None
             if stage:
                 alias = stage.strip().lower()
-                client = mlflow.tracking.MlflowClient()
+                client = mlflow.tracking.MlflowClient(tracking_uri=mlflow.get_tracking_uri())
                 client.set_registered_model_alias(model_name.strip(), alias, version.version)
             return version, alias
 
@@ -133,9 +138,16 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
 
         def _lookup() -> list[dict[str, Any]]:
-            client = mlflow.tracking.MlflowClient()
+            # Explicit URI: the module-global one may be re-pointed by a
+            # concurrent request before this thread runs.
+            client = mlflow.tracking.MlflowClient(tracking_uri=uri)
             experiments: list[dict[str, Any]] = []
             for name in sorted(names):
                 exp = client.get_experiment_by_name(name)
@@ -164,9 +176,16 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
 
         def _list() -> list[dict[str, Any]]:
-            client = mlflow.tracking.MlflowClient()
+            # Explicit URI: the module-global one may be re-pointed by a
+            # concurrent request before this thread runs.
+            client = mlflow.tracking.MlflowClient(tracking_uri=uri)
             models: list[dict[str, Any]] = []
             for rm in client.search_registered_models():
                 versions = []
@@ -218,9 +237,17 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
         try:
             await asyncio.to_thread(
-                mlflow.tracking.MlflowClient().set_registered_model_alias, model_name, alias, str(version)
+                mlflow.tracking.MlflowClient(tracking_uri=uri).set_registered_model_alias,
+                model_name,
+                alias,
+                str(version),
             )
         except Exception as exc:  # noqa: BLE001 - surfaced as a 400
             raise ValidationError(f"Could not set alias {alias!r}: {exc}") from None
@@ -234,9 +261,16 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
         try:
             await asyncio.to_thread(
-                mlflow.tracking.MlflowClient().delete_registered_model_alias, model_name, alias.strip().lower()
+                mlflow.tracking.MlflowClient(tracking_uri=uri).delete_registered_model_alias,
+                model_name,
+                alias.strip().lower(),
             )
         except Exception as exc:  # noqa: BLE001
             raise ValidationError(f"Could not clear alias {alias!r}: {exc}") from None
@@ -251,9 +285,16 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
 
         def _list() -> list[dict[str, Any]]:
-            client = mlflow.tracking.MlflowClient()
+            # Explicit URI: the module-global one may be re-pointed by a
+            # concurrent request before this thread runs.
+            client = mlflow.tracking.MlflowClient(tracking_uri=uri)
             experiments: list[dict[str, Any]] = []
             for exp in client.search_experiments():
                 runs = client.search_runs([exp.experiment_id], max_results=1, order_by=["start_time DESC"])
@@ -280,9 +321,16 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
+        # Snapshot the normalized URI configure_mlflow just set (same sync
+        # block, so no other request can have re-pointed the global yet) and
+        # hand it to the client explicitly — the thread runs later, when the
+        # global may already belong to someone else.
+        uri = mlflow.get_tracking_uri()
 
         def _list() -> list[dict[str, Any]]:
-            client = mlflow.tracking.MlflowClient()
+            # Explicit URI: the module-global one may be re-pointed by a
+            # concurrent request before this thread runs.
+            client = mlflow.tracking.MlflowClient(tracking_uri=uri)
             runs: list[dict[str, Any]] = []
             for run in client.search_runs([experiment_id], max_results=limit, order_by=["start_time DESC"]):
                 runs.append(

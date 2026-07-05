@@ -8,6 +8,7 @@ no change to this contract or the frontend. Installing an entry reuses the exact
 verified, permission-gated path as a hand-uploaded package.
 """
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -129,30 +130,37 @@ async def list_marketplace() -> MarketplaceCatalog:
     if index is None or index_path is None:
         return MarketplaceCatalog(configured=False)
     installed = _installed_versions()
-    entries = [
-        MarketplaceEntryInfo(
-            id=e.id,
-            name=e.name,
-            version=e.version,
-            publisher=e.publisher,
-            description=e.description,
-            license=e.license,
-            trust=_derived_trust(e, index_path),
-            capabilities=list(e.capabilities),
-            permissions=list(e.permissions),
-            ciaren_spec=e.ciaren_spec,
-            dependencies=list(e.dependencies),
-            nodes=list(e.nodes),
-            node_categories=dict(e.node_categories),
-            license_required=e.license_required,
-            installed=e.id in installed,
-            installed_version=installed.get(e.id, ""),
-            update_available=_update_available(e.version, installed.get(e.id, "")),
-            revoked=index.is_revoked(e.id),
-            installable=bool((p := marketplace.resolve_artifact_path(e, index_path)) and p.is_file()),
-        )
-        for e in index.plugins
-    ]
+
+    # _derived_trust signature-verifies each entry's artifact zip — file IO +
+    # crypto per plugin — so the catalog build runs in a worker thread instead
+    # of stalling the event loop. It only reads files and local dicts.
+    def _build_entries() -> list[MarketplaceEntryInfo]:
+        return [
+            MarketplaceEntryInfo(
+                id=e.id,
+                name=e.name,
+                version=e.version,
+                publisher=e.publisher,
+                description=e.description,
+                license=e.license,
+                trust=_derived_trust(e, index_path),
+                capabilities=list(e.capabilities),
+                permissions=list(e.permissions),
+                ciaren_spec=e.ciaren_spec,
+                dependencies=list(e.dependencies),
+                nodes=list(e.nodes),
+                node_categories=dict(e.node_categories),
+                license_required=e.license_required,
+                installed=e.id in installed,
+                installed_version=installed.get(e.id, ""),
+                update_available=_update_available(e.version, installed.get(e.id, "")),
+                revoked=index.is_revoked(e.id),
+                installable=bool((p := marketplace.resolve_artifact_path(e, index_path)) and p.is_file()),
+            )
+            for e in index.plugins
+        ]
+
+    entries = await asyncio.to_thread(_build_entries)
     return MarketplaceCatalog(
         configured=True,
         plugins=entries,
@@ -200,6 +208,6 @@ async def install_from_marketplace(plugin_id: str) -> PluginInstallResult:
             status_code=400,
             detail=f"catalog entry for {plugin_id!r} has no digest; refusing to install an unverifiable artifact",
         )
-    if compute_package_digest(artifact) != entry.digest:
+    if await asyncio.to_thread(compute_package_digest, artifact) != entry.digest:
         raise HTTPException(status_code=400, detail="artifact digest does not match the catalog entry")
     return install_package_and_report(str(artifact), require_trusted=get_settings().REQUIRE_TRUSTED_PLUGINS)

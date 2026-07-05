@@ -8,6 +8,7 @@ architecture plan. Changes take effect live: the registry is rebuilt so a grante
 plugin's nodes appear in the catalog without a restart.
 """
 
+import asyncio
 import os
 import tempfile
 from typing import Literal
@@ -313,7 +314,9 @@ async def install_plugin(
             total += len(chunk)
             if total > limit:
                 raise HTTPException(status_code=413, detail="package exceeds the maximum upload size")
-            tmp.write(chunk)
+            # Disk write off the loop; install/reload below deliberately stay ON
+            # the loop so the plugin-registry swap remains atomic wrt requests.
+            await asyncio.to_thread(tmp.write, chunk)
         tmp.close()
         return install_package_and_report(tmp.name, require_trusted=must_trust)
     finally:
