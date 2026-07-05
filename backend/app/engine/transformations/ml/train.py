@@ -385,7 +385,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         est_repr = self._estimator_repr(config)
         lines = [
             f"_features = {feat_expr}",
-            f"X = {src}[_features]",
+            f"_X = {src}[_features]",
         ]
         # Mirror execute(): bundle the same preprocessing into the Pipeline so the
         # exported script reproduces the run (imputation/scaling/encoding) and runs
@@ -396,14 +396,14 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         pipeline_expr = "Pipeline([" + ", ".join(steps) + "])"
         if spec.supervised:
             lines += [
-                f"y = {src}[{target!r}]",
+                f"_y = {src}[{target!r}]",
                 f"{model_var} = {pipeline_expr}",
-                f"{model_var}.fit(X, y)",
+                f"{model_var}.fit(_X, _y)",
             ]
         else:
             lines += [
                 f"{model_var} = {pipeline_expr}",
-                f"{model_var}.fit(X)",
+                f"{model_var}.fit(_X)",
             ]
         return "\n".join(lines)
 

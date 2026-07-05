@@ -213,6 +213,10 @@ class PolarsEngine:
                     exprs.append(col.fill_null(typed_value))
                 except Exception:
                     exprs.append(col)
+            elif strategy == "mean" and not df.schema[col_name].is_numeric():
+                # Mean only exists for numbers: skip other columns like the
+                # pandas engine instead of raising mid-run.
+                exprs.append(col)
             elif strategy in self._FILL_STRATEGY:
                 exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":

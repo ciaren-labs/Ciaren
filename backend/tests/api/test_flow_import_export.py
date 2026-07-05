@@ -89,6 +89,43 @@ async def test_import_graph_json_not_object_is_400_or_422(client: AsyncClient) -
     assert r.status_code in (400, 422), r.text
 
 
+async def test_import_invalid_parameter_name_is_400(client: AsyncClient) -> None:
+    # Same gate as create/update: a document with a reserved/invalid parameter
+    # name fails at import with a clear 400, not at first run.
+    r = await client.post(
+        "/api/flows/import",
+        json={
+            "graph_json": {
+                "nodes": [{"id": "a", "type": "csvInput", "data": {"config": {}}}],
+                "edges": [],
+                "parameters": [{"name": "df_1", "type": "integer", "default": 1}],
+            }
+        },
+    )
+    assert r.status_code == 400, r.text
+    assert "reserved" in r.json()["detail"].lower()
+
+
+async def test_import_preserves_parameters_and_engine(client: AsyncClient) -> None:
+    # parameters/{{ name }} refs and the engine choice travel with the
+    # document; import used to rebuild only nodes+edges and drop both.
+    r = await client.post(
+        "/api/flows/import",
+        json={
+            "graph_json": {
+                "nodes": [{"id": "a", "type": "csvInput", "data": {"config": {}}}],
+                "edges": [],
+                "engine": "polars",
+                "parameters": [{"name": "keep", "type": "integer", "default": 5}],
+            }
+        },
+    )
+    assert r.status_code == 201, r.text
+    graph = r.json()["graph_json"]
+    assert graph["engine"] == "polars"
+    assert graph["parameters"] == [{"name": "keep", "type": "integer", "default": 5}]
+
+
 async def test_import_node_without_type_is_400(client: AsyncClient) -> None:
     r = await client.post(
         "/api/flows/import",

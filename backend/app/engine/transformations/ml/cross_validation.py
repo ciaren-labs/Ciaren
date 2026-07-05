@@ -345,13 +345,13 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             "_task = _model_ref.get('task_type')",
             "_target = _model_config['target_column']",
             f"_features = _model_config.get('feature_columns') or [c for c in {src}.columns if c != _target]",
-            f"X = {src}[_features]",
-            f"y = {src}[_target]",
+            f"_X = {src}[_features]",
+            f"_y = {src}[_target]",
             "_pre = _model_config.get('preprocessing') or {}",
             "if 'numeric_columns' in _pre:",
             "    _numeric = _pre.get('numeric_columns')",
             "else:",
-            "    _numeric = [c for c in _features if pd.api.types.is_numeric_dtype(X[c])]",
+            "    _numeric = [c for c in _features if pd.api.types.is_numeric_dtype(_X[c])]",
             "if 'categorical_columns' in _pre:",
             "    _categorical = _pre.get('categorical_columns')",
             "else:",
@@ -396,7 +396,8 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         lines.append("        _scoring = ['r2', 'neg_root_mean_squared_error']")
         groups_arg = f", groups={src}[{group_col!r}]" if group_col else ""
         lines.append(
-            f"_scores = cross_validate(_pipeline, X, y, cv=_cv, scoring=_scoring{groups_arg}, return_train_score=False)"
+            f"_scores = cross_validate(_pipeline, _X, _y, cv=_cv, "
+            f"scoring=_scoring{groups_arg}, return_train_score=False)"
         )
         # Build a tidy fold-by-metric frame, mirroring execute(): negate neg_* and
         # drop the prefix so e.g. RMSE reads positive.

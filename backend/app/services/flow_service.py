@@ -154,6 +154,10 @@ class FlowService:
         except (MigrationError, FlowSchemaError) as exc:
             raise ValidationError(str(exc)) from exc
         graph = self._sanitize_imported_graph(document.graph.model_dump(mode="json"))
+        # Same parameter-spec gate as create/update: an imported document with
+        # invalid parameter names should fail here with a clear 400, not only
+        # when the flow is first run.
+        self._validate_parameters(graph)
         project_id = await ProjectService(self.db).resolve_id(data.project_id)
         flow = Flow(
             name=(data.name or "Imported flow").strip()[:255] or "Imported flow",
@@ -211,7 +215,14 @@ class FlowService:
             if edge.get("source") in node_ids and edge.get("target") in node_ids:
                 clean_edges.append(copy.deepcopy(edge))
 
-        return {"nodes": clean_nodes, "edges": clean_edges}
+        sanitized: dict[str, Any] = {"nodes": clean_nodes, "edges": clean_edges}
+        # Flow-level keys the engine understands travel with the document
+        # (parameters power {{ name }} references; engine picks pandas/polars).
+        # Rebuilding only nodes+edges silently dropped both on import.
+        for key in ("parameters", "engine"):
+            if key in graph:
+                sanitized[key] = copy.deepcopy(graph[key])
+        return sanitized
 
     async def get(self, flow_id: str) -> FlowRead:
         flow = await self._get_or_raise(flow_id)

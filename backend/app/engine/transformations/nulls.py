@@ -111,9 +111,19 @@ class FillNullsTransformation(BaseTransformation):
         if strategy in ("ffill", "bfill"):
             method = strategy
             return f"{dst} = {src}.assign(**{{c: {src}[c].{method}() for c in {target}}})  # fill nulls ({cols})"
+        # Mirror PandasEngine.fill_nulls' skips, or the exported script crashes
+        # where the app run succeeds: mean/median only fill numeric columns
+        # (median of a string column raises), and mode skips columns with no
+        # non-null values (mode().iloc[0] on an empty result is an IndexError).
+        guard = ""
+        if strategy in ("mean", "median"):
+            guard = f" if pd.api.types.is_numeric_dtype({src}[c])"
+        elif strategy == "mode":
+            guard = f" if not {src}[c].mode().empty"
         fill_expr = self._STRATEGY_FILL[strategy].format(s=src)
         return (
-            f"{dst} = {src}.assign(**{{c: {src}[c].fillna({fill_expr}) for c in {target}}})  # {strategy} fill ({cols})"
+            f"{dst} = {src}.assign(**{{c: {src}[c].fillna({fill_expr}) "
+            f"for c in {target}{guard}}})  # {strategy} fill ({cols})"
         )
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
@@ -129,11 +139,27 @@ class FillNullsTransformation(BaseTransformation):
             return f"{dst} = {src}.fill_null({value!r})"
         if strategy in self._POLARS_STRATEGY:
             strat = self._POLARS_STRATEGY[strategy]
+            # Mean only exists for numbers — mirror the engine's skip of other
+            # columns (see PolarsEngine.fill_nulls) with a schema guard.
+            if strategy == "mean":
+                return (
+                    f"_sch = {src}.collect_schema()\n"
+                    f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) "
+                    f"for c in {cols_iter} if _sch[c].is_numeric()])"
+                )
             return f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
         # median / mode as pure expressions: no {src}[c] series subscripts, so
         # the emitted code also runs on a LazyFrame in lazy mode.
         if strategy == "median":
-            return f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in {cols_iter}])"
+            # The engine skips columns whose Series.median() is None (strings,
+            # categoricals); the *expression* median raises on those dtypes, so
+            # mirror the skip with a schema guard. Boolean/Null stay included:
+            # there the expression behaves like the engine (raise / no-op).
+            return (
+                f"_sch = {src}.collect_schema()\n"
+                f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in {cols_iter} "
+                f"if _sch[c].is_numeric() or _sch[c].is_temporal() or _sch[c] in (pl.Boolean, pl.Null)])"
+            )
         # mode: drop nulls first (with nulls present, null itself can be the
         # mode), and take min() of the modes — polars returns multi-modal
         # values in random order, min() makes ties reproducible and matches

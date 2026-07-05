@@ -71,6 +71,9 @@ CODEGEN_CASES = [
     ("fill_mean_cols", "fillNulls", {"strategy": "mean", "columns": ["a"]}),
     ("fill_median", "fillNulls", {"strategy": "median", "columns": ["a"]}),
     ("fill_median_all_null", "fillNulls", {"strategy": "median"}),
+    ("fill_median_mixed", "fillNulls", {"strategy": "median"}),
+    ("fill_mean_mixed", "fillNulls", {"strategy": "mean"}),
+    ("fill_mode_with_empty", "fillNulls", {"strategy": "mode"}),
     ("fill_mode", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
     ("fill_mode_multimodal", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
     # reshape / compute

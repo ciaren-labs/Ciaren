@@ -82,6 +82,18 @@ def _all_null_float() -> pd.DataFrame:
     return pd.DataFrame({"a": [1.0, None, 3.0], "n": pd.Series([None, None, None], dtype="float64")})
 
 
+def _mixed_dtypes() -> pd.DataFrame:
+    # A string column among numerics: mean/median fills must skip it (the app
+    # engines do), not crash the exported script.
+    return pd.DataFrame({"a": [1.0, None, 3.0], "s": ["x", None, "y"]})
+
+
+def _with_empty_col() -> pd.DataFrame:
+    # 'empty' has no mode: both engines and both emitted scripts must leave it
+    # untouched (pandas mode().iloc[0] on an empty result is an IndexError).
+    return pd.DataFrame({"a": [1.0, 1.0, None], "empty": pd.Series([None, None, None], dtype="float64")})
+
+
 def _multimodal() -> pd.DataFrame:
     # Two modes (1.0 and 2.0): the fill must deterministically pick the
     # smallest on both engines (polars' mode order is random run to run).
@@ -151,6 +163,9 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "fill_mean_cols": {"in": _num},
     "fill_median": {"in": _num},
     "fill_median_all_null": {"in": _all_null_float},
+    "fill_median_mixed": {"in": _mixed_dtypes},
+    "fill_mean_mixed": {"in": _mixed_dtypes},
+    "fill_mode_with_empty": {"in": _with_empty_col},
     "fill_mode": {"in": _num},
     "fill_mode_multimodal": {"in": _multimodal},
     "groupby": {"in": _num},

@@ -169,7 +169,7 @@ class SklearnPipelineMixin:
             lines.append(f"_numeric = {list(pre.get('numeric_columns') or [])!r}")
             lines.append(f"_categorical = {list(pre.get('categorical_columns') or [])!r}")
         else:
-            lines.append("_numeric = [c for c in _features if pd.api.types.is_numeric_dtype(X[c])]")
+            lines.append("_numeric = [c for c in _features if pd.api.types.is_numeric_dtype(_X[c])]")
             lines.append("_categorical = [c for c in _features if c not in _numeric]")
 
         num_steps = [f"('impute', SimpleImputer(strategy={impute_numeric!r}))"]

@@ -5,10 +5,19 @@
 import type { ParameterSpec, ParameterType, ParameterValues } from "@/lib/types";
 
 // Mirrors app/engine/parameters.py: no leading underscore (generated temps own
-// the `_` namespace) and no names the exported script defines itself.
+// the `_` namespace), no names the exported script defines itself, and no
+// Python (soft) keywords — a parameter becomes a variable in exported code.
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
 const RESERVED_NAMES = new Set(["pd", "pl", "np", "os", "df"]);
 const GENERATED_VAR_RE = /^df_\d+$/;
+// prettier-ignore
+const PYTHON_KEYWORDS = new Set([
+  "False", "None", "True", "and", "as", "assert", "async", "await", "break",
+  "class", "continue", "def", "del", "elif", "else", "except", "finally",
+  "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal",
+  "not", "or", "pass", "raise", "return", "try", "while", "with", "yield",
+  "match", "case", "type",
+]);
 
 /** An editable parameter row: `default` is held as raw text while editing. */
 export interface ParamRow {
@@ -88,7 +97,7 @@ export function validateRows(rows: ParamRow[]): ParamValidation {
       errors.set(i, "Use letters, digits, underscores; must start with a letter.");
       return;
     }
-    if (RESERVED_NAMES.has(name) || GENERATED_VAR_RE.test(name)) {
+    if (RESERVED_NAMES.has(name) || GENERATED_VAR_RE.test(name) || PYTHON_KEYWORDS.has(name)) {
       errors.set(i, `"${name}" is reserved (it would clash with the exported code).`);
       return;
     }
