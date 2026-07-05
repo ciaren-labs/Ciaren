@@ -109,7 +109,8 @@ async def materialize_storage_inputs(
 
             df = await asyncio.to_thread(_read)
         snap_path = Path(work_dir) / f"{node['id']}__storageinput.parquet"
-        df.to_parquet(snap_path, index=False)
+        # Serializing a big snapshot is CPU/IO-bound — keep it off the event loop.
+        await asyncio.to_thread(df.to_parquet, snap_path, index=False)
         paths[node["id"]] = snap_path
     return paths
 
@@ -128,7 +129,8 @@ async def push_storage_outputs(db: AsyncSession, graph: dict[str, Any], output_p
             continue
         config = node.get("data", {}).get("config", {})
         conn = await _load_connection(db, config.get("connection_id"))
-        df = pd.read_parquet(path)
+        # Reading a large run output back is CPU/IO-bound — off the event loop.
+        df = await asyncio.to_thread(pd.read_parquet, path)
         dest_path = config.get("path") or f"{node_id}.parquet"
         fmt = config.get("format", "parquet")
         if_exists = config.get("if_exists", "overwrite")

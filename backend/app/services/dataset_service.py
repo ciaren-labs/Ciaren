@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import re
@@ -70,10 +71,10 @@ class DatasetService:
 
         content = await self._read_within_limit(file)
 
-        df = _parse_dataframe(content, source_type, filename)
-        schema = _extract_schema(df)
-        sample = _df_to_records(df, _SAMPLE_ROWS)
-        profile = _profile_dataframe(df)
+        # Parsing + profiling an upload (up to MAX_UPLOAD_SIZE_MB) is heavy
+        # pandas work: run it in a worker thread so a big file can't stall the
+        # event loop (and with it every other request and the scheduler).
+        df, schema, sample, profile = await asyncio.to_thread(_parse_and_describe, content, source_type, filename)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -145,12 +146,17 @@ class DatasetService:
         if ver.profile_json:
             return ver.profile_json
         dataset = await self._get_or_raise(dataset_id)
-        try:
+
+        # Read + parse + profile off the event loop — same reasoning as upload().
+        def _backfill() -> list[dict[str, Any]]:
             content = Path(ver.location).read_bytes()
             df = _parse_dataframe(content, dataset.source_type, ver.location)
+            return _profile_dataframe(df)
+
+        try:
+            profile = await asyncio.to_thread(_backfill)
         except Exception:  # noqa: BLE001 - missing/unreadable file → no profile
             return []
-        profile = _profile_dataframe(df)
         ver.profile_json = profile
         await self.db.commit()
         return profile
@@ -225,8 +231,6 @@ class DatasetService:
 
         if not ml_extension_ready():
             return
-        import asyncio
-
         from app.ml.registry_deps import production_models_for_dataset
         from app.ml.tracking import resolve_tracking_uri
 
@@ -299,11 +303,13 @@ class DatasetService:
         run_id: str | None = None,
     ) -> DatasetRead:
         """Register a flow-generated output file as a versioned output dataset."""
-        content = file_path.read_bytes()
-        df = _parse_dataframe(content, source_type, str(file_path))
-        schema = _extract_schema(df)
-        sample = _df_to_records(df, _SAMPLE_ROWS)
-        profile = _profile_dataframe(df)
+
+        # Runs when a flow finishes: the read + parse + profile of a possibly
+        # large output must not stall the event loop — same reasoning as upload().
+        def _describe_output() -> tuple[pd.DataFrame, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+            return _parse_and_describe(file_path.read_bytes(), source_type, str(file_path))
+
+        df, schema, sample, profile = await asyncio.to_thread(_describe_output)
 
         dataset = await self._get_by_name(name)
         if dataset is None:
@@ -435,6 +441,18 @@ def _parse_dataframe(content: bytes, source_type: str, filename: str) -> pd.Data
     except Exception as exc:
         raise DatasetParseError(filename, str(exc)) from exc
     raise DatasetParseError(filename, f"unknown source_type '{source_type}'")
+
+
+def _parse_and_describe(
+    content: bytes, source_type: str, filename: str
+) -> tuple[pd.DataFrame, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse a file and derive its schema, sample, and profile in one go.
+
+    Bundled so callers can push the whole CPU-bound pipeline into a single
+    ``asyncio.to_thread`` call instead of blocking the event loop per step.
+    """
+    df = _parse_dataframe(content, source_type, filename)
+    return df, _extract_schema(df), _df_to_records(df, _SAMPLE_ROWS), _profile_dataframe(df)
 
 
 def _extract_schema(df: pd.DataFrame) -> list[dict[str, Any]]:

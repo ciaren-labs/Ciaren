@@ -4,6 +4,7 @@ promoting a run's trained model into the MLflow registry."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from typing import Any
@@ -94,13 +95,19 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        version = mlflow.register_model(model_uri, model_name.strip())
 
-        alias = None
-        if stage:
-            alias = stage.strip().lower()
-            client = mlflow.tracking.MlflowClient()
-            client.set_registered_model_alias(model_name.strip(), alias, version.version)
+        # MLflow registry calls hit a REST server or a file-backed store —
+        # blocking IO either way, so keep them off the event loop.
+        def _register() -> tuple[Any, str | None]:
+            version = mlflow.register_model(model_uri, model_name.strip())
+            alias = None
+            if stage:
+                alias = stage.strip().lower()
+                client = mlflow.tracking.MlflowClient()
+                client.set_registered_model_alias(model_name.strip(), alias, version.version)
+            return version, alias
+
+        version, alias = await asyncio.to_thread(_register)
 
         return {
             "model_name": version.name,
@@ -126,20 +133,24 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
-        experiments: list[dict[str, Any]] = []
-        for name in sorted(names):
-            exp = client.get_experiment_by_name(name)
-            if exp is not None:
-                experiments.append(
-                    {
-                        "name": exp.name,
-                        "experiment_id": exp.experiment_id,
-                        "lifecycle_stage": exp.lifecycle_stage,
-                        "artifact_location": exp.artifact_location,
-                    }
-                )
-        return experiments
+
+        def _lookup() -> list[dict[str, Any]]:
+            client = mlflow.tracking.MlflowClient()
+            experiments: list[dict[str, Any]] = []
+            for name in sorted(names):
+                exp = client.get_experiment_by_name(name)
+                if exp is not None:
+                    experiments.append(
+                        {
+                            "name": exp.name,
+                            "experiment_id": exp.experiment_id,
+                            "lifecycle_stage": exp.lifecycle_stage,
+                            "artifact_location": exp.artifact_location,
+                        }
+                    )
+            return experiments
+
+        return await asyncio.to_thread(_lookup)
 
     async def list_registered_models(self) -> list[dict[str, Any]]:
         """Every registered model with its versions, aliases, key metrics, and the
@@ -153,25 +164,28 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
 
-        models: list[dict[str, Any]] = []
-        for rm in client.search_registered_models():
-            versions = []
-            for mv in client.search_model_versions(f"name='{rm.name}'"):
-                versions.append(self._model_version_view(client, mv))
-            versions.sort(key=lambda v: int(v["version"]), reverse=True)
-            models.append(
-                {
-                    "name": rm.name,
-                    "description": getattr(rm, "description", None) or None,
-                    "aliases": dict(getattr(rm, "aliases", {}) or {}),
-                    "last_updated": _ms_to_iso(getattr(rm, "last_updated_timestamp", None)),
-                    "versions": versions,
-                }
-            )
-        models.sort(key=lambda m: m["name"].lower())
-        return models
+        def _list() -> list[dict[str, Any]]:
+            client = mlflow.tracking.MlflowClient()
+            models: list[dict[str, Any]] = []
+            for rm in client.search_registered_models():
+                versions = []
+                for mv in client.search_model_versions(f"name='{rm.name}'"):
+                    versions.append(self._model_version_view(client, mv))
+                versions.sort(key=lambda v: int(v["version"]), reverse=True)
+                models.append(
+                    {
+                        "name": rm.name,
+                        "description": getattr(rm, "description", None) or None,
+                        "aliases": dict(getattr(rm, "aliases", {}) or {}),
+                        "last_updated": _ms_to_iso(getattr(rm, "last_updated_timestamp", None)),
+                        "versions": versions,
+                    }
+                )
+            models.sort(key=lambda m: m["name"].lower())
+            return models
+
+        return await asyncio.to_thread(_list)
 
     def _model_version_view(self, client: Any, mv: Any) -> dict[str, Any]:
         metrics: dict[str, float] = {}
@@ -204,9 +218,10 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
         try:
-            client.set_registered_model_alias(model_name, alias, str(version))
+            await asyncio.to_thread(
+                mlflow.tracking.MlflowClient().set_registered_model_alias, model_name, alias, str(version)
+            )
         except Exception as exc:  # noqa: BLE001 - surfaced as a 400
             raise ValidationError(f"Could not set alias {alias!r}: {exc}") from None
         return {"model_name": model_name, "alias": alias, "version": str(version)}
@@ -219,9 +234,10 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
         try:
-            client.delete_registered_model_alias(model_name, alias.strip().lower())
+            await asyncio.to_thread(
+                mlflow.tracking.MlflowClient().delete_registered_model_alias, model_name, alias.strip().lower()
+            )
         except Exception as exc:  # noqa: BLE001
             raise ValidationError(f"Could not clear alias {alias!r}: {exc}") from None
         return {"model_name": model_name, "alias": alias.strip().lower(), "cleared": True}
@@ -235,21 +251,25 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
-        experiments: list[dict[str, Any]] = []
-        for exp in client.search_experiments():
-            runs = client.search_runs([exp.experiment_id], max_results=1, order_by=["start_time DESC"])
-            last = runs[0].info.start_time if runs else None
-            experiments.append(
-                {
-                    "experiment_id": exp.experiment_id,
-                    "name": exp.name,
-                    "lifecycle_stage": exp.lifecycle_stage,
-                    "last_run": _ms_to_iso(last),
-                }
-            )
-        experiments.sort(key=lambda e: e["last_run"] or "", reverse=True)
-        return experiments
+
+        def _list() -> list[dict[str, Any]]:
+            client = mlflow.tracking.MlflowClient()
+            experiments: list[dict[str, Any]] = []
+            for exp in client.search_experiments():
+                runs = client.search_runs([exp.experiment_id], max_results=1, order_by=["start_time DESC"])
+                last = runs[0].info.start_time if runs else None
+                experiments.append(
+                    {
+                        "experiment_id": exp.experiment_id,
+                        "name": exp.name,
+                        "lifecycle_stage": exp.lifecycle_stage,
+                        "last_run": _ms_to_iso(last),
+                    }
+                )
+            experiments.sort(key=lambda e: e["last_run"] or "", reverse=True)
+            return experiments
+
+        return await asyncio.to_thread(_list)
 
     async def list_experiment_runs(self, experiment_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Runs in an experiment with metrics, params, and Ciaren lineage — the
@@ -260,21 +280,25 @@ class MLService:
         from app.ml.tracking import configure_mlflow, resolve_tracking_uri
 
         mlflow = configure_mlflow(tracking_uri=await resolve_tracking_uri(self.db))
-        client = mlflow.tracking.MlflowClient()
-        runs: list[dict[str, Any]] = []
-        for run in client.search_runs([experiment_id], max_results=limit, order_by=["start_time DESC"]):
-            runs.append(
-                {
-                    "run_id": run.info.run_id,
-                    "run_name": run.data.tags.get("mlflow.runName") or run.info.run_id[:8],
-                    "status": run.info.status,
-                    "start_time": _ms_to_iso(run.info.start_time),
-                    "metrics": {k: float(v) for k, v in run.data.metrics.items()},
-                    "params": dict(run.data.params),
-                    "lineage": _lineage_from_tags(run.data.tags),
-                }
-            )
-        return runs
+
+        def _list() -> list[dict[str, Any]]:
+            client = mlflow.tracking.MlflowClient()
+            runs: list[dict[str, Any]] = []
+            for run in client.search_runs([experiment_id], max_results=limit, order_by=["start_time DESC"]):
+                runs.append(
+                    {
+                        "run_id": run.info.run_id,
+                        "run_name": run.data.tags.get("mlflow.runName") or run.info.run_id[:8],
+                        "status": run.info.status,
+                        "start_time": _ms_to_iso(run.info.start_time),
+                        "metrics": {k: float(v) for k, v in run.data.metrics.items()},
+                        "params": dict(run.data.params),
+                        "lineage": _lineage_from_tags(run.data.tags),
+                    }
+                )
+            return runs
+
+        return await asyncio.to_thread(_list)
 
     def _experiment_names(self, graph: dict[str, Any]) -> set[str]:
         from app.engine.node_kinds import is_model_sink

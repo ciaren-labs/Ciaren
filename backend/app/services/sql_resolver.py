@@ -113,7 +113,8 @@ async def materialize_sql_inputs(
         if limit is not None and len(df) > limit:
             df = df.head(limit)
         path = Path(work_dir) / f"{node['id']}__sqlinput.parquet"
-        df.to_parquet(path, index=False)
+        # Serializing a big snapshot is CPU/IO-bound — keep it off the event loop.
+        await asyncio.to_thread(df.to_parquet, path, index=False)
         paths[node["id"]] = path
     return paths
 
@@ -132,7 +133,8 @@ async def push_sql_outputs(db: AsyncSession, graph: dict[str, Any], output_paths
             continue
         config = node.get("data", {}).get("config", {})
         conn = await _load_connection(db, config.get("connection_id"))
-        df = pd.read_parquet(path)
+        # Reading a large run output back is CPU/IO-bound — off the event loop.
+        df = await asyncio.to_thread(pd.read_parquet, path)
         plugin = plugin_connector(conn.provider)
 
         if plugin is not None:
