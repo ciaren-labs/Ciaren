@@ -54,7 +54,7 @@ keeps the value type aligned to the column.
 ## Generated Python code
 
 ```python
-df_2 = df_1[df_1['amount'] > 0]
+df_2 = df_1.loc[lambda _d: _d['amount'] > 0]
 ```
 
 ## Tips & common mistakes

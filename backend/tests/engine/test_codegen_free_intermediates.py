@@ -171,7 +171,7 @@ def test_pandas_fanout_input_not_freed_before_second_branch(tmp_path: Path) -> N
     # in1 (df_1) feeds both filters; the second one takes the variable over, so
     # its del (now holding that branch's result) must come after both filters.
     del_line = next(i for i, ln in enumerate(code.splitlines()) if ln.strip() == "del df_1")
-    filter_lines = [i for i, ln in enumerate(code.splitlines()) if ".isin" in ln or "[df_1[" in ln]
+    filter_lines = [i for i, ln in enumerate(code.splitlines()) if ".isin" in ln or ".loc[lambda" in ln]
     assert del_line > max(filter_lines)
 
     out = _run(code, tmp_path)

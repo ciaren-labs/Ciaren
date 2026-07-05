@@ -91,7 +91,10 @@ class CreateCalculatedColumnTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column_name"]
         expr = config["expression"]
-        return f"{dst} = {src}.assign(**{{{col!r}: {src}.eval({expr!r})}})"
+        # assign() with a callable evaluates against the *running* frame, so the
+        # statement chains cleanly (the `src.eval(...)` argument form referenced
+        # src twice and broke fluent fusion). `_d`: `_` names are parameter-free.
+        return f"{dst} = {src}.assign(**{{{col!r}: lambda _d: _d.eval({expr!r})}})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]

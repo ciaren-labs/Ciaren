@@ -65,7 +65,7 @@ Watch the **live preview** at steps 5–8 to confirm each rule does what you exp
 ```python
 import pandas as pd
 
-df_1 = pd.read_csv("contacts.csv")
+df_1 = pd.read_csv('contacts.csv')
 df_1 = df_1.assign(**{'name': df_1['name'].astype('string').str.strip()})
 df_1 = df_1.assign(**{'email': df_1['email'].astype('string').str.strip()})
 df_1 = df_1.assign(**{'email': df_1['email'].astype('string').str.lower()})
@@ -73,9 +73,9 @@ df_1 = (
     df_1.assign(**{'age': pd.to_numeric(df_1['age'], errors='coerce').astype('Int64')})
     .dropna(subset=['name', 'age'])
     .drop_duplicates(subset=['email'], keep='first')
+    .loc[lambda _d: _d['age'].between(0, 120)]
 )
-df_1 = df_1[df_1['age'].between(0, 120)]
-df_1.to_csv("contacts_clean.csv", index=False)
+df_1.to_csv('contacts_clean.csv', index=False)
 ```
 
 ## Result

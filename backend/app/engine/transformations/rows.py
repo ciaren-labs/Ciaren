@@ -41,23 +41,28 @@ class FilterRowsTransformation(BaseTransformation):
         return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        # `.loc[lambda _d: …]` instead of `src[src[col] …]`: the callable form is
+        # the idiomatic chainable filter — the mask reads the *running* frame, so
+        # exported linear flows fuse into one fluent expression (the subscript
+        # form references src twice and breaks the chain; see fuse_method_chains).
+        # `_d` because `_` names are reserved away from flow parameters.
         src, dst = input_vars["in"], output_vars["out"]
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}[{src}[{col!r}] {op} {val!r}]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {val!r}]"
         if op == "isnull":
-            return f"{dst} = {src}[{src}[{col!r}].isna()]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isna()]"
         if op == "notnull":
-            return f"{dst} = {src}[{src}[{col!r}].notna()]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].notna()]"
         if op == "between":
             low, high = self._values(config)
-            return f"{dst} = {src}[{src}[{col!r}].between({low!r}, {high!r})]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low!r}, {high!r})]"
         if op == "in":
-            return f"{dst} = {src}[{src}[{col!r}].isin({self._values(config)!r})]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({self._values(config)!r})]"
         if op in {"contains", "startswith", "endswith"}:
             # str() like the engine: a numeric search value must not emit .str.contains(5).
-            return f"{dst} = {src}[{src}[{col!r}].astype(str).str.{op}({str(val)!r})]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].astype(str).str.{op}({str(val)!r})]"
         raise ValueError(f"Unknown filter operator: {op!r}")
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
@@ -109,7 +114,8 @@ class FilterExpressionTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         expr = config["expression"]
-        return f"{dst} = {src}[{src}.eval({expr!r}).astype(bool)].reset_index(drop=True)"
+        # Chainable callable form — see FilterRowsTransformation.to_python_code.
+        return f"{dst} = {src}.loc[lambda _d: _d.eval({expr!r}).astype(bool)].reset_index(drop=True)"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]

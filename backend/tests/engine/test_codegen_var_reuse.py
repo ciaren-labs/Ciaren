@@ -83,10 +83,13 @@ def _linear_graph() -> dict:
 def test_pandas_linear_chain_uses_single_variable() -> None:
     code = CodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"})
     assert "df_1 = pd.read_csv('in.csv')" in code
-    assert "df_1 = df_1.dropna()" in code
-    # The filter's mask references df_1 twice, so it starts a fresh fused
-    # chain that the sort joins (see test_codegen_fluent for the fusion rules).
-    assert "df_1 = df_1[df_1['age'] > 21].sort_values(by=['age'], ascending=True)" in code
+    # The whole chain fuses into one fluent statement: the filter's callable
+    # `.loc[lambda _d: …]` form reads the running frame, so it continues the
+    # chain instead of breaking it (see test_codegen_fluent for the rules).
+    assert "df_1 = (" in code
+    assert "    df_1.dropna()" in code
+    assert "    .loc[lambda _d: _d['age'] > 21]" in code
+    assert "    .sort_values(by=['age'], ascending=True)" in code
     assert "df_1.to_csv('out.csv', index=False)" in code
     assert "df_2" not in code
 
@@ -126,8 +129,8 @@ def test_pandas_fanout_keeps_live_branches_distinct() -> None:
     code = CodeGenerator().generate(_fanout_graph(), {"ds1": "in.csv"})
     # First branch must not overwrite df_1 (the second branch still reads it);
     # the second branch may. Concat is multi-input, so it gets a fresh var.
-    assert "df_2 = df_1[df_1['age'] > 25]" in code
-    assert "df_1 = df_1[df_1['age'] <= 25]" in code
+    assert "df_2 = df_1.loc[lambda _d: _d['age'] > 25]" in code
+    assert "df_1 = df_1.loc[lambda _d: _d['age'] <= 25]" in code
     assert "df_3 = pd.concat([df_2, df_1], ignore_index=True)" in code
 
 

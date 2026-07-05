@@ -96,6 +96,29 @@ def test_multi_ref_statement_may_start_but_not_continue() -> None:
     assert fused[1] == "df_1 = df_1[df_1['a'] > 0].sort_values(by=['a'], ascending=True)"
 
 
+def test_loc_lambda_filter_continues_a_chain() -> None:
+    # The pandas filter emitters use `.loc[lambda _d: …]` precisely so the
+    # statement references its variable once and can sit mid-chain; the lambda
+    # body's `_d` names must not count as extra references.
+    lines = [
+        "df_1 = df_1.dropna()",
+        "df_1 = df_1.loc[lambda _d: _d['age'] > 21]",
+        "df_1 = df_1.sort_values(by=['age'], ascending=True)",
+    ]
+    fused = fuse_method_chains(list(lines))
+    assert fused == [
+        "df_1 = (",
+        "    df_1.dropna()",
+        "    .loc[lambda _d: _d['age'] > 21]",
+        "    .sort_values(by=['age'], ascending=True)",
+        ")",
+    ]
+    df = pd.DataFrame({"age": [30.0, None, 25.0, 18.0], "name": ["a", "b", "c", "d"]})
+    plain = _exec_lines(list(lines), {"df_1": df.copy()})
+    fused_ns = _exec_lines(fused, {"df_1": df.copy()})
+    pd.testing.assert_frame_equal(plain["df_1"], fused_ns["df_1"])
+
+
 def test_assign_referencing_source_may_start_chain() -> None:
     # calculatedColumn's pandas form references src in its argument; as the
     # first step every reference still sees the same pre-chain frame.
@@ -353,8 +376,8 @@ def test_pandas_generator_emits_fluent_chain(tmp_path: Path) -> None:
     paths = _write_sales(tmp_path)
     code = CodeGenerator().generate(_sales_graph(), paths)
     assert "df_1 = (" in code
-    # filterRows' mask references df_1 twice, so it opens the chain.
-    assert "\n    df_1[df_1['amount'] > 0]\n" in code
+    # The filter's callable form chains like any other step.
+    assert "\n    df_1.loc[lambda _d: _d['amount'] > 0]\n" in code
     assert "\n    .groupby(['region'])\n" in code
     out = _run(code, tmp_path)
     assert list(out["region"]) == ["north", "south", "east"]
