@@ -15,11 +15,11 @@ new immutable version, so flows pinned to an earlier version stay reproducible.
 | `POST` | `/api/datasets/upload` | Upload a file (optionally `?project_id=`); creates a dataset or a new version |
 | `GET` | `/api/datasets` | List datasets (optionally `?project_id=` and `?include_deleted=true`) |
 | `GET` | `/api/datasets/{dataset_id}` | Get one dataset |
-| `PATCH` | `/api/datasets/{dataset_id}` | Update dataset metadata/state; disabling cascades to flows that use it |
+| `PATCH` | `/api/datasets/{dataset_id}` | Update a dataset's `is_disabled` state; disabling cascades to flows that use it |
 | `DELETE` | `/api/datasets/{dataset_id}` | Soft-delete a dataset; `?purge=true` deletes files immediately |
 | `POST` | `/api/datasets/{dataset_id}/restore` | Restore a soft-deleted dataset |
 | `POST` | `/api/datasets/purge-expired` | Permanently delete soft-deleted datasets past the retention window |
-| `GET` | `/api/datasets/{dataset_id}/versions` | List all versions, newest first |
+| `GET` | `/api/datasets/{dataset_id}/versions` | List all versions, newest first (`limit` 1-1000, default 100, and `offset`) |
 | `GET` | `/api/datasets/{dataset_id}/versions/{version_number}/download` | Download a specific dataset version file |
 | `GET` | `/api/datasets/{dataset_id}/flows` | Flows that use this dataset (lineage) |
 | `GET` | `/api/datasets/{dataset_id}/schema` | Inferred column schema (optionally `?version=`) |
@@ -29,7 +29,9 @@ new immutable version, so flows pinned to an earlier version stay reproducible.
 `POST /api/datasets/upload` uses multipart form data. Accepted extensions are
 `.csv`, `.tsv`, `.xlsx`, `.xls`, `.parquet`, `.json`, `.jsonl`, and `.txt`.
 Re-uploading under an existing name appends a version rather than replacing the
-file.
+file. CSV/text uploads accept optional dialect overrides — `delimiter`,
+`encoding`, and `decimal` — and Excel uploads accept `sheet` to pick a
+non-default worksheet; omitted values fall back to auto-detection.
 
 Soft deletes retain files for `CIAREN_DATASET_RETENTION_DAYS` days by default.
 Immediate purge refuses if a Production model was trained from the dataset unless

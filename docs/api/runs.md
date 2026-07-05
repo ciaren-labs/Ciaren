@@ -7,15 +7,20 @@ search: api runs execute engine status logs node results duration filter stream 
 # Runs API
 
 Execute a flow and read run metadata, status, logs, and per-node results.
-The run request accepts an optional `engine` (`polars` default, or `pandas`),
-which is recorded on the run for reproducibility. Each run also stores a
-per-node result (status, row/column counts, a small sample, and `duration_ms`)
-for the read-only run view.
+The run request accepts an optional `engine`; when omitted it falls back to
+the flow's saved `graph_json.engine`, and if that's also unset, to the
+server's `DEFAULT_ENGINE` (`polars` out of the box). The resolved engine is
+recorded on the run for reproducibility. Each run also stores a per-node
+result (status, row/column counts, a small sample, and `duration_ms`) for the
+read-only run view.
 
 A run request may also include a `parameters` object to override the flow's
 declared [parameters](/guide/parameters) for this run. The resolved values are
 returned on the run (and re-used by **Retry**). Unknown names, missing required
-values, or type mismatches return `400`.
+values, or type mismatches return `400`. It may also include `input_dataset_id`
+(attribute the run to a specific dataset, overriding the graph's own input
+node) and `timeout_seconds` (override the server's default run timeout; `0`
+means no limit).
 
 ```bash
 curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
@@ -29,6 +34,8 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \
 | `GET` | `/api/runs` | List runs, filterable by `flow_id`, `project_id`, `dataset_id`, `status`, `schedule_id`, and start-time range |
 | `GET` | `/api/runs/{run_id}` | Get run status, output location, logs, and per-node results |
 | `POST` | `/api/runs/{run_id}/retry` | Re-run this run's flow with the same config; produces a new run (new id) |
+| `POST` | `/api/runs/{run_id}/cancel` | Request cancellation of a running run (`202`); `400` if it's not `running`, if the row is stale with no active worker, or if process-mode execution shares the pool with other runs |
+| `GET` | `/api/runs/{run_id}/output` | Stream a specific output node's result file (`?node_id=`) |
 | `GET` | `/api/runs/{run_id}/logs/stream` | Stream run log entries as [server-sent events](#log-streaming-sse) |
 
 Runs created by a schedule carry a `trigger` and `schedule_id` — filter with

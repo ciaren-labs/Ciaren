@@ -11,12 +11,14 @@ Flow-compatible graph (`nodes` and `edges`).
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/flows` | List flows |
+| `GET` | `/api/flows` | List flows (optionally `?project_id=`) |
 | `POST` | `/api/flows` | Create a flow |
 | `POST` | `/api/flows/import` | Import a portable `.flow` document; environment bindings are stripped |
+| `POST` | `/api/flows/migrate-document` | Validate/migrate a raw `.flow` document to the current schema version without persisting it |
 | `GET` | `/api/flows/{flow_id}` | Get one flow |
 | `PUT` | `/api/flows/{flow_id}` | Update a flow |
-| `DELETE` | `/api/flows/{flow_id}` | Delete a flow |
+| `DELETE` | `/api/flows/{flow_id}` | Delete a flow; also deletes its run history and schedules |
+| `POST` | `/api/flows/{flow_id}/duplicate` | Duplicate a flow (optional `?name=`); copies the graph into a new flow with no run history |
 | `POST` | `/api/flows/{flow_id}/preview` | Preview the flow output without saving a run; body accepts `node_id`, `limit`, `profile`, and parameter overrides |
 | `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code; `?free_intermediates=true` also releases intermediate frames in generated code |
 

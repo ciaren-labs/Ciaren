@@ -53,11 +53,14 @@ Introspection **and** management of installed plugins.
 | --- | --- | --- |
 | `GET` | `/api/plugins` | Every discovered plugin with its `status` (the core is not listed). |
 | `GET` | `/api/plugins/diagnostics` | `loaded`, `gated`, and isolated load/validation `errors`. |
+| `POST` | `/api/plugins/install` | Upload and install a `.ciarenplugin` package (multipart, size-limited). |
 | `POST` | `/api/plugins/{id}/enable` | Re-enable a disabled plugin. |
 | `POST` | `/api/plugins/{id}/disable` | Disable a plugin (its code stops loading). |
 | `POST` | `/api/plugins/{id}/grant` | Grant permissions (empty body grants all requested → one-click approve). |
 | `POST` | `/api/plugins/{id}/revoke` | Revoke permissions (may move the plugin back to pending). |
 | `GET` | `/api/plugins/{id}/license` | Report the plugin's resolved license status. |
+| `POST` | `/api/plugins/{id}/license` | Activate a license token for the plugin. |
+| `DELETE` | `/api/plugins/{id}/license` | Remove the plugin's cached license. |
 | `DELETE` | `/api/plugins/{id}` | Uninstall a managed plugin and forget its saved state. |
 
 Each plugin reports a `status`:
@@ -68,6 +71,8 @@ Each plugin reports a `status`:
   code is **not imported** until you approve them (`missing_permissions` lists
   which). This is the trust/UX boundary — see
   [plugin security](/security/plugin-security).
+- `needs_license` — permissions are granted but the plugin requires a paid
+  license that isn't active; activate one via `POST /api/plugins/{id}/license`.
 
 Plugins are discovered via the `ciaren.plugins` entry-point group and local
 plugin directories (`CIAREN_PLUGINS_DIR`, `~/.ciaren/plugins`). A malformed
