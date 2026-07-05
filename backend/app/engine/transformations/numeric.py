@@ -136,8 +136,12 @@ class BinColumnTransformation(BaseTransformation):
     type = "binColumn"
     # equalwidth needs the column min/max as concrete numbers for .cut()'s
     # break list — computed via series subscripts a LazyFrame doesn't support.
-    # (The flag is per node, so quantile mode materializes too.)
     polars_lazy_safe = False
+
+    def polars_lazy_safe_for(self, config: dict[str, Any]) -> bool:
+        # quantile mode is a pure .qcut() expression — no reason to break the
+        # lazy plan for it.
+        return bool(config.get("method", "equalwidth") == "quantile")
 
     _METHODS = {"equalwidth", "quantile"}
 

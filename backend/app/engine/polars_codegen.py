@@ -237,7 +237,7 @@ class PolarsCodeGenerator:
             def out_var() -> str:
                 return reuse if reuse is not None else next_var()
 
-            if lazy and not transformation.polars_lazy_safe:
+            if lazy and not transformation.polars_lazy_safe_for(config):
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
                 lines.append(f"# {node_type} has no lazy equivalent — materialize here")

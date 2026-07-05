@@ -93,6 +93,27 @@ def test_lazy_script_runs_and_matches_eager(case: str, tmp_path: Path) -> None:
     pd.testing.assert_frame_equal(eager, lazy)
 
 
+def test_bin_quantile_stays_lazy_but_equalwidth_materializes() -> None:
+    # Lazy safety is config-aware for binColumn: quantile is a pure .qcut()
+    # expression and must not break the lazy plan; equal-width needs eager
+    # min/max, so the driver materializes around it.
+    gen = PolarsCodeGenerator()
+    quantile = gen.generate(
+        _graph("binColumn", {"column": "v", "new_column": "band", "bins": 3, "method": "quantile"}),
+        {"d": "in.csv"},
+        lazy=True,
+    )
+    assert "has no lazy equivalent" not in quantile
+    assert "_eager_" not in quantile
+    equalwidth = gen.generate(
+        _graph("binColumn", {"column": "v", "new_column": "band", "bins": 3, "method": "equalwidth"}),
+        {"d": "in.csv"},
+        lazy=True,
+    )
+    assert "has no lazy equivalent" in equalwidth
+    assert "_eager_" in equalwidth
+
+
 def test_fill_mode_all_null_column_left_untouched(tmp_path: Path) -> None:
     # mode().first() on an all-null column is null; filling nulls with null is
     # a no-op — must not raise, in either mode (mirrors PolarsEngine).

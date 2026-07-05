@@ -81,6 +81,14 @@ class BaseTransformation(ABC):
     #: them (``.collect()`` before, ``.lazy()`` after).
     polars_lazy_safe: bool = True
 
+    def polars_lazy_safe_for(self, config: dict[str, Any]) -> bool:
+        """Whether the emitted polars code for *this configuration* runs on a
+        ``LazyFrame``. Defaults to the class-level flag; a node whose lazy
+        compatibility depends on its config (e.g. ``binColumn``: quantile is a
+        pure expression, equal-width needs eager min/max) overrides this so the
+        lazy generator only materializes when it truly has to."""
+        return self.polars_lazy_safe
+
     #: Whether this node's ``to_polars_code`` actually emits **pandas** code (e.g. ML
     #: nodes that wrap scikit-learn). The polars code generator bridges these by
     #: converting inputs to pandas (``.to_pandas()``) and results back
