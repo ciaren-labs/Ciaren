@@ -139,6 +139,13 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- **The API stays responsive during heavy work** — dataset upload parsing
+  and profiling (up to the upload size limit), on-demand profile backfills,
+  run-output registration, SQL/storage parquet snapshots, MLflow registry
+  calls, and plugin marketplace verification/hashing all ran on the event
+  loop, freezing every other request (and the scheduler) while they worked.
+  They now run in worker threads; runs and previews already did. A
+  regression test asserts /health answers while a slow upload parses.
 - **Editor: changing an input's dataset wiped valid downstream config** — the
   stale-column cleanup validated every downstream reference against the new
   dataset's raw schema, clearing references to derived columns (Calculated
