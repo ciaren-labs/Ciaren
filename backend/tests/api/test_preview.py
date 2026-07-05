@@ -180,3 +180,37 @@ async def test_preview_flow_unknown_node(client: AsyncClient) -> None:
 async def test_preview_flow_missing_flow(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/preview", json={})
     assert r.status_code == 404
+
+
+async def test_preview_only_computes_the_upstream_slice(client: AsyncClient) -> None:
+    """A failing node elsewhere in the flow (violated assertion) must not break
+    previews of nodes that don't depend on it — preview computes only the
+    requested node's ancestors."""
+    ds = await _upload(client)
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "drop", "type": "dropNulls", "data": {"config": {}}},
+            # A sibling branch whose assertion always fails (needs >= 99 rows).
+            {"id": "boom", "type": "assertRowCount", "data": {"config": {"min_rows": 99}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "drop"},
+            {"id": "e2", "source": "in1", "target": "boom"},
+        ],
+    }
+    r = await client.post("/api/flows", json={"name": "f2", "graph_json": graph})
+    assert r.status_code == 201, r.text
+    flow_id = r.json()["id"]
+
+    # The clean branch previews fine…
+    r = await client.post(f"/api/flows/{flow_id}/preview", json={"node_id": "drop"})
+    assert r.status_code == 200, r.text
+    assert r.json()["row_count"] == 2
+
+    # …while previewing the failing node itself surfaces a clear 400 naming
+    # the node (previously an unhandled 500).
+    r = await client.post(f"/api/flows/{flow_id}/preview", json={"node_id": "boom"})
+    assert r.status_code == 400, r.text
+    detail = r.json()["detail"]
+    assert "boom" in detail and "assertRowCount" in detail

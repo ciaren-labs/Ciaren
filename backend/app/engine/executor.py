@@ -20,6 +20,23 @@ from app.plugin_api.events import EventBus, Hook
 NodeOutputs = dict[str, AnyFrame]
 
 
+class NodeExecutionError(Exception):
+    """A node's execute() raised while computing frames (preview path).
+
+    Carries which node failed so the API can answer "your Filter Rows node
+    broke, and here's why" instead of a bare 500 — the run path doesn't need
+    this because :meth:`FlowExecutor.run_with_results` records failures per
+    node itself.
+    """
+
+    def __init__(self, node_id: str, node_type: str, label: str, original: Exception) -> None:
+        self.node_id = node_id
+        self.node_type = node_type
+        self.original = original
+        name = label or node_type
+        super().__init__(f"{name} ({node_id}) failed: {original}")
+
+
 @dataclass
 class NodeResult:
     """Per-node outcome captured during a run, for the read-only run DAG view."""
@@ -234,7 +251,11 @@ class FlowExecutor:
         outputs: dict[str, NodeOutputs] = {}
         for node_id in order:
             node = nodes_by_id[node_id]
-            node_outputs, _meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
+            try:
+                node_outputs, _meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
+            except Exception as exc:
+                label = str(node.get("data", {}).get("label") or "")
+                raise NodeExecutionError(node_id, node["type"], label, exc) from exc
             outputs[node_id] = node_outputs
         return outputs
 

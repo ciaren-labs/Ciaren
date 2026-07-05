@@ -278,3 +278,71 @@ def test_data_into_model_input_rejected():
     }
     with pytest.raises(GraphValidationError, match="needs a model reference"):
         validate_graph(graph)
+
+
+# -- ancestor_subgraph --------------------------------------------------------
+
+
+def _n(nid: str, ntype: str = "dropNulls") -> dict:
+    return {"id": nid, "type": ntype, "data": {"config": {}}}
+
+
+def _e(src: str, dst: str, **extra) -> dict:
+    return {"id": f"{src}-{dst}", "source": src, "target": dst, **extra}
+
+
+def test_ancestor_subgraph_keeps_only_upstream_slice():
+    from app.engine.graph import ancestor_subgraph
+
+    graph = {
+        "engine": "polars",
+        "parameters": [{"name": "keep", "type": "integer", "default": 1}],
+        "nodes": [_n("in", "csvInput"), _n("a"), _n("b"), _n("sibling"), _n("down")],
+        "edges": [_e("in", "a"), _e("a", "b"), _e("in", "sibling"), _e("b", "down")],
+    }
+    sub = ancestor_subgraph(graph, "b")
+    assert {n["id"] for n in sub["nodes"]} == {"in", "a", "b"}
+    assert {(e["source"], e["target"]) for e in sub["edges"]} == {("in", "a"), ("a", "b")}
+    # Flow-level keys ride along untouched.
+    assert sub["engine"] == "polars"
+    assert sub["parameters"] == graph["parameters"]
+
+
+def test_ancestor_subgraph_diamond_keeps_both_parents():
+    from app.engine.graph import ancestor_subgraph
+
+    graph = {
+        "nodes": [_n("in", "csvInput"), _n("l"), _n("r"), _n("j", "join")],
+        "edges": [
+            _e("in", "l"),
+            _e("in", "r"),
+            _e("l", "j", targetHandle="left"),
+            _e("r", "j", targetHandle="right"),
+        ],
+    }
+    sub = ancestor_subgraph(graph, "j")
+    assert {n["id"] for n in sub["nodes"]} == {"in", "l", "r", "j"}
+    # Handle metadata on kept edges is preserved verbatim.
+    handles = {e.get("targetHandle") for e in sub["edges"]}
+    assert {"left", "right"} <= handles
+
+
+def test_ancestor_subgraph_unknown_node_raises():
+    import pytest as _pytest
+
+    from app.engine.graph import GraphValidationError, ancestor_subgraph
+
+    with _pytest.raises(GraphValidationError, match="ghost"):
+        ancestor_subgraph({"nodes": [_n("a")], "edges": []}, "ghost")
+
+
+def test_ancestor_subgraph_ignores_dangling_edge_sources():
+    from app.engine.graph import ancestor_subgraph
+
+    graph = {
+        "nodes": [_n("a"), _n("b")],
+        "edges": [_e("missing", "b"), _e("a", "b")],
+    }
+    sub = ancestor_subgraph(graph, "b")
+    assert {n["id"] for n in sub["nodes"]} == {"a", "b"}
+    assert [(e["source"], e["target"]) for e in sub["edges"]] == [("a", "b")]

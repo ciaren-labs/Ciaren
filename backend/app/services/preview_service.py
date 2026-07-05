@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import asyncio
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -9,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, get_engine
-from app.engine.executor import FlowExecutor
-from app.engine.graph import GraphValidationError, topological_sort
+from app.engine.executor import FlowExecutor, NodeExecutionError
+from app.engine.graph import GraphValidationError, ancestor_subgraph, topological_sort
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
@@ -44,16 +45,24 @@ class PreviewService:
 
         # Transformation preview always reads the dataset's latest version.
         version = await resolve_version(self.db, req.dataset_id, None)
-        df = self.engine.read(version.location, version.dataset.source_type)
-        # ML nodes expose a data-aware validation hook (column presence, row/feature
-        # limits) that needs the upstream schema. Preview has the real dataset in
-        # hand, so run it here to surface those errors in the node config UI.
-        self._validate_with_schema(transformation, req.config, df)
-        # preview_mode keeps ML nodes from fitting/logging during a preview.
-        with preview_mode():
-            result = transformation.execute(self.engine, {"in": df}, req.config)
-        out = result.get("out", next(iter(result.values())))
-        return self._to_response(out, req.limit, req.profile)
+
+        # The read + compute are CPU/IO-bound pandas work: run them in a worker
+        # thread so a big dataset can't stall the event loop (and with it every
+        # other request and the scheduler).
+        def _compute() -> PreviewResponse:
+            df = self.engine.read(version.location, version.dataset.source_type)
+            # ML nodes expose a data-aware validation hook (column presence,
+            # row/feature limits) that needs the upstream schema. Preview has
+            # the real dataset in hand, so run it here to surface those errors
+            # in the node config UI.
+            self._validate_with_schema(transformation, req.config, df)
+            # preview_mode keeps ML nodes from fitting/logging during a preview.
+            with preview_mode():
+                result = transformation.execute(self.engine, {"in": df}, req.config)
+            out = result.get("out", next(iter(result.values())))
+            return self._to_response(out, req.limit, req.profile)
+
+        return await asyncio.to_thread(_compute)
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
@@ -65,6 +74,19 @@ class PreviewService:
         try:
             graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
         except ParameterError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        # Only the previewed node's upstream slice is computed: unrelated
+        # branches cost time, and a failing node elsewhere (violated assertion,
+        # typo'd column) must not break this node's preview.
+        try:
+            node_id = req.node_id or self._default_node(graph)
+            if not any(n.get("id") == node_id for n in graph.get("nodes", [])):
+                raise NotFoundError("Node", node_id)
+            graph = ancestor_subgraph(graph, node_id)
+        except GraphValidationError as exc:
+            # A malformed graph (no nodes, dangling edge, cycle) is a bad
+            # request, not a server error.
             raise ValidationError(str(exc)) from exc
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
@@ -81,8 +103,12 @@ class PreviewService:
                 if has_storage_inputs(graph)
                 else {}
             )
-            # preview_mode keeps ML nodes from fitting/logging during a preview.
-            try:
+
+            # The graph compute is CPU-bound pandas work: run it in a worker
+            # thread so a heavy preview can't stall the event loop (and with it
+            # every other request and the scheduler).
+            def _compute() -> PreviewResponse:
+                # preview_mode keeps ML nodes from fitting/logging in a preview.
                 with preview_mode():
                     frames = FlowExecutor().compute_frames(
                         graph,
@@ -92,14 +118,19 @@ class PreviewService:
                         sql_input_paths=sql_input_paths,
                         storage_input_paths=storage_input_paths,
                     )
+                return self._to_response(frames[node_id], req.limit, req.profile)
+
+            try:
+                return await asyncio.to_thread(_compute)
             except GraphValidationError as exc:
                 # An invalid graph (no nodes, dangling edge, cycle) is a bad
                 # request, not a server error.
                 raise ValidationError(str(exc)) from exc
-            node_id = req.node_id or self._default_node(graph)
-            if node_id not in frames:
-                raise NotFoundError("Node", node_id)
-            return self._to_response(frames[node_id], req.limit, req.profile)
+            except NodeExecutionError as exc:
+                # A node failing on the user's data/config (violated assertion,
+                # missing column) is their flow's problem — report it with the
+                # node named, not as a bare 500.
+                raise ValidationError(str(exc)) from exc
 
     # -- Internals ------------------------------------------------------
 

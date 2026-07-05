@@ -217,6 +217,37 @@ def _validate_sql_output(label: str, config: dict[str, Any]) -> None:
         raise GraphValidationError(f"{label}: no target table specified.")
 
 
+def ancestor_subgraph(graph: dict[str, Any], node_id: str) -> dict[str, Any]:
+    """The subgraph one node's output depends on: the node, its transitive
+    ancestors, and the edges among them.
+
+    Previewing a node only needs its upstream slice — computing unrelated
+    branches wastes time, and a *failing* node elsewhere in the flow (a
+    violated assertion, a typo'd column) would break previews of nodes that
+    don't depend on it. Flow-level keys (``engine``, ``parameters``) are kept;
+    node/edge dicts are shared with the input graph, not copied.
+    """
+    nodes_by_id = {n["id"]: n for n in graph.get("nodes", [])}
+    if node_id not in nodes_by_id:
+        raise GraphValidationError(f"Unknown node: {node_id!r}")
+    incoming: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in graph.get("edges", []):
+        incoming[edge["target"]].append(edge)
+    keep: set[str] = set()
+    stack = [node_id]
+    while stack:
+        nid = stack.pop()
+        if nid in keep:
+            continue
+        keep.add(nid)
+        stack.extend(e["source"] for e in incoming[nid] if e["source"] in nodes_by_id)
+    return {
+        **{k: v for k, v in graph.items() if k not in ("nodes", "edges")},
+        "nodes": [n for n in graph.get("nodes", []) if n["id"] in keep],
+        "edges": [e for e in graph.get("edges", []) if e["source"] in keep and e["target"] in keep],
+    }
+
+
 def topological_sort(graph: dict[str, Any]) -> list[str]:
     nodes: list[dict[str, Any]] = graph.get("nodes", [])
     edges: list[dict[str, Any]] = graph.get("edges", [])
