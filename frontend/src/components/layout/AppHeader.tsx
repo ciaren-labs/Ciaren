@@ -53,7 +53,7 @@ export function AppHeader() {
   ];
 
   return (
-    <header className="flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="relative z-40 flex h-14 items-center gap-6 border-b border-border bg-background/80 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <Link to="/" className="flex items-center gap-2 font-bold tracking-tight shrink-0">
         <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-lg shadow-sm shadow-brand-600/30">
           <img src={ciarenSymbol} alt="" className="h-4 w-4" />
