@@ -74,12 +74,12 @@ ciaren flow validate path/to/project.flow --output json
 ## Migrations
 
 Forward migrations are registered as `from_version -> to_version` and applied as a
-chain (`app/flow_schema/migrations.py`). There are none yet (first version), but
-the framework exists from day one. Migration **never** writes to disk on its own;
-the CLI keeps a `.bak` backup when `--write` is used:
+chain (`app/flow_schema/migrations.py`). There are none yet (first version, still
+`1.0.0`), but the framework exists from day one. Migration **never** writes to
+disk on its own; the CLI keeps a `.bak` backup when `--write` is used:
 
 ```bash
-ciaren flow migrate project.flow --to 1.1.0 --write
+ciaren flow migrate project.flow --write
 ```
 
 Rules: never silently mutate a user project without a backup; keep migration tests;
