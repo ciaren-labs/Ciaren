@@ -52,8 +52,9 @@ Each rule's `conditions` is a list of `{ column, operator, value }`, and `match`
 is `all` (AND, the default) or `any` (OR). A single-condition rule may also be
 written flat as `{ column, operator, value, result }`.
 
-**Condition operators:** `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`,
-`startswith`, `endswith`, `isnull`, `notnull`.
+**Condition operators:** `==` (or `eq`), `!=` (or `ne`), `>` (or `gt`), `>=`
+(or `gte`), `<` (or `lt`), `<=` (or `lte`), `contains`, `startswith`,
+`endswith`, `isnull`, `notnull`.
 
 ## Generated Python code
 
