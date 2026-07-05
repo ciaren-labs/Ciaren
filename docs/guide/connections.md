@@ -60,6 +60,17 @@ ciaren secret set pg-main
 then use `keyring:pg-main` as the connection's secret. `ciaren secret unset`
 removes it.
 
+You don't have to drop to the CLI, though: when the host has a usable keychain,
+the connection form shows **"Save a secret to the system keychain"** under the
+secret field. Enter a name and the value, click save, and Ciaren writes the
+value to the OS keychain and fills the field with the resulting
+`keyring:NAME` reference — the plaintext is sent once, stored only in the
+keychain, and never persisted, echoed back, or logged. The affordance is hidden
+on headless servers and containers (no keychain daemon), where `env:` or
+`file:` references apply instead.
+
+![Saving a secret to the OS keychain from the connection form: entering a value, clicking save, and the Password secret field becoming a keyring:warehouse reference](/screenshots/save-secret-to-keychain.gif)
+
 `file:` references are confined to the allowed secrets folders —
 `<DATA_DIR>/secrets` and `/run/secrets` by default, configurable with
 `CIAREN_SECRET_FILE_DIRS` — so a connection can never point one at an arbitrary
@@ -157,10 +168,13 @@ them like defaults rather than connections you created.
 
 1. Pick a **provider**. After selecting one (e.g. PostgreSQL) the connection form appears:
 
-   ![Configure connection form — name, host, port, database, username, and Password env var fields with "PG_PASSWORD" hint](/screenshots/connection-form-postgres.png)
+   ![Configure connection form — name, host, port, database, username, and a "Password secret" field with a "Save a secret to the system keychain" action beneath it](/screenshots/connection-form-postgres.png)
 
    SQLite asks only for a file path; the others ask for host, port, database,
-   username, and the **password env-var name** (the actual secret is never stored).
+   username, and the **password secret** — a reference (env var name,
+   `keyring:NAME`, or `file:/path`), or use **Save a secret to the system
+   keychain** to store the value in the OS keychain in place. The actual secret
+   is never stored by Ciaren.
 1. Save, then click **Test** to verify connectivity.
 
 ## Web APIs
