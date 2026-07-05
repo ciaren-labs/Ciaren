@@ -91,6 +91,12 @@ release, breaking changes may still happen between alpha versions.
 
 ### Changed
 
+- **Stricter flow-parameter names** — parameter names may no longer start
+  with an underscore (the code generators reserve the `_` namespace for
+  their helper temps) or match a generated dataframe variable (`df_1`,
+  `df_2`, …); either would be silently clobbered in exported scripts. The
+  editor rejects these (and Python keywords) inline. Existing flows with
+  such names keep loading but fail save/run/import with a clear message.
 - **Breaking: plugin commands moved to a new `ciaren-plugin` console script.**
   `ciaren plugin {list,install,uninstall,verify,enable,disable,keygen,pack,
   manifest,sign,search,index,license,licenses}` are now top-level subcommands
@@ -128,6 +134,17 @@ release, breaking changes may still happen between alpha versions.
 
 ### Fixed
 
+- **Flow import dropped `parameters` and `engine`** — importing an exported
+  flow document rebuilt only nodes and edges, silently losing the flow's
+  declared parameters and its pandas/polars engine choice. Both now survive
+  the round-trip, and imported parameter specs are validated at import time
+  (clear 400) instead of failing at first run.
+- **Exported fill-nulls scripts crashed where app runs succeeded** — the
+  mean/median/mode fill strategies now skip non-applicable columns in the
+  generated pandas and polars code exactly like the engines do (string
+  columns for mean/median, all-null columns for mode), and tied modes now
+  deterministically pick the smallest value on both engines so runs are
+  reproducible.
 - **Polars-lazy exports crashed for several node kinds** — three bundled demo
   flows exported lazy scripts that failed at runtime. `fillNulls`
   median/mode emitted series subscripts a `LazyFrame` doesn't support (they
