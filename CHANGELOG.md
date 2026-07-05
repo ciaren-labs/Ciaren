@@ -10,6 +10,28 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Import options with auto-detection** — European Excel exports (semicolon
+  separator, Latin-1/Windows-1252 encoding, decimal commas) and multi-sheet
+  workbooks now just work: CSV/TSV dialect is auto-detected at upload, an
+  "Import options" row overrides it explicitly (separator, encoding, decimal
+  mark, Excel sheet by name or index), the stored copy is normalized so both
+  engines always read exactly what the upload showed, and exported Python
+  scripts reproduce the original file's dialect.
+- **Failure notifications** — set `CIAREN_NOTIFY_WEBHOOK_URL` and Ciaren
+  POSTs a JSON alert when a run fails or a schedule auto-disables (optional
+  `CIAREN_NOTIFY_WEBHOOK_SECRET` is sent as `X-Ciaren-Secret`). Delivery is
+  fire-and-forget with a hard timeout, refuses redirects, and can never
+  affect the run itself.
+- **Cancel a running run** — POST `/runs/{id}/cancel` and a Stop button on
+  the run page. Thread mode stops cooperatively at the next node boundary
+  (the in-flight node finishes, the rest are skipped, no outputs written);
+  process mode abandons the worker like the timeout path. Cancelled is a
+  distinct run status: it doesn't alert, and a cancelled scheduled run
+  doesn't count toward auto-disable.
+- **Duplicate flows and copy/paste nodes** — a Duplicate action on flow
+  cards/rows copies the definition (graph, parameters, engine — not
+  schedules or run history), and the editor supports Ctrl/Cmd+C/V/D for
+  nodes with the edges between them, fresh ids, and one undo step per paste.
 - **Chainable pandas filters and calculated columns in exported code** — the
   pandas emitters for Filter Rows, Filter by Expression, and Calculated
   Column now use the idiomatic callable forms (`.loc[lambda _d: …]`,
