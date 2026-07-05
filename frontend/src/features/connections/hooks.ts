@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { connectionsApi } from "@/lib/api";
+import { ApiError, connectionsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
 import type { ConnectionCreate, ConnectionUpdate } from "@/lib/types";
@@ -60,8 +60,15 @@ export function useUpdateConnection() {
 export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => connectionsApi.remove(id),
-    meta: { errorMessage: "Couldn't delete the connection" },
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) => connectionsApi.remove(id, force),
+    // A 409 ("still used by flows") is handled by the caller with a confirm →
+    // force retry, so it must not also fire the global error toast.
+    meta: { suppressErrorToast: true },
+    onError: (err) => {
+      if (!(err instanceof ApiError && err.status === 409)) {
+        toast.error("Couldn't delete the connection");
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.connections });
       toast.success("Connection deleted");

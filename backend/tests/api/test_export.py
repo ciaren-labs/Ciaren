@@ -188,6 +188,56 @@ def test_sql_codegen_rejects_invalid_password_env() -> None:
             engine_url_expr({"provider": "postgresql", "host": "localhost", "database": "db", "password_env": bad})
 
 
+def test_sql_codegen_secret_reference_schemes() -> None:
+    """keyring:/file: references emit the matching fetch code (never a value)."""
+    from app.engine.sql_codegen import engine_url_parts, sql_secret_imports
+
+    base = {"provider": "postgresql", "host": "localhost", "database": "db", "username": "u"}
+    _, env = engine_url_parts({**base, "password_env": "PG_PASSWORD"})
+    assert "os.environ['PG_PASSWORD']" in env
+    _, kr = engine_url_parts({**base, "password_env": "keyring:pg-main"})
+    assert "keyring.get_password('ciaren', 'pg-main')" in kr
+    # file: refs fetch via a named prelude statement, not inline (the path may
+    # carry backslashes/quotes, illegal in f-string expressions before 3.12).
+    prelude, fl = engine_url_parts({**base, "password_env": "file:/run/secrets/pg"}, secret_var="_secret_1")
+    assert prelude == ["_secret_1 = Path('/run/secrets/pg').read_text(encoding='utf-8').strip()"]
+    assert "{_secret_1}" in fl
+    for expr in (env, kr, fl):
+        compile(expr, "<test>", "eval")
+
+    imports = sql_secret_imports(
+        {
+            "c1": {**base, "password_env": "keyring:pg-main"},
+            "c2": {**base, "password_env": "file:/run/secrets/pg"},
+            "c3": {**base, "password_env": "PG_PASSWORD"},
+        }
+    )
+    assert "import keyring" in imports
+    assert "from pathlib import Path" in imports
+    assert sql_secret_imports({"c": {**base, "password_env": "PG_PASSWORD"}}) == []
+
+
+def test_sql_codegen_hostile_file_paths_stay_inert_and_compile() -> None:
+    """Adversarial file: paths (Windows backslashes, quotes, braces, code-shaped
+    text) must produce a script that compiles with the payload trapped in a
+    string literal — on any Python version's f-string rules (prelude, not inline)."""
+    from app.engine.sql_codegen import engine_url_parts
+
+    base = {"provider": "postgresql", "host": "localhost", "database": "db", "username": "u"}
+    hostile = [
+        r"file:C:\secrets\pw",
+        "file:/run/secrets/o'brien",
+        "file:/run/secrets/{brace}",
+        "file:/run/secrets/x')+__import__('os').system('id')#",
+    ]
+    for ref in hostile:
+        prelude, expr = engine_url_parts({**base, "password_env": ref}, secret_var="_secret_1")
+        script = "\n".join(["from pathlib import Path", *prelude, f"x = {expr}"])
+        compile(script, "<test>", "exec")  # valid …
+        assert "__import__" not in expr  # … and the payload never leaves the prelude literal
+        assert prelude[0].startswith("_secret_1 = Path(")
+
+
 async def test_export_python_incomplete_graph_is_400(client: AsyncClient) -> None:
     ds = await _upload(client)
     # No output node -> invalid for export.

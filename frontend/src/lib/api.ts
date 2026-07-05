@@ -309,7 +309,8 @@ export const connectionsApi = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
-  remove: (id: string) => request<void>(`/connections/${id}`, { method: "DELETE" }),
+  remove: (id: string, force = false) =>
+    request<void>(`/connections/${id}${force ? "?force=true" : ""}`, { method: "DELETE" }),
   test: (id: string) =>
     request<ConnectionTestResult>(`/connections/${id}/test`, { method: "POST" }),
   testConfig: (body: ConnectionCreate) =>

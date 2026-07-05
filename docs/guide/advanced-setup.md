@@ -48,6 +48,8 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
 | `CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS` | `false` | Block connector endpoints resolving to private/internal addresses |
 | `CIAREN_STORAGE_ALLOWED_ROOTS` | `[]` | Restrict Local Storage roots and SQLite/DuckDB database files to these directories |
+| `CIAREN_SECRET_ENV_ALLOWLIST` | `[]` | Env vars (or `PREFIX*` patterns) a connection's `env:` secret reference may name; Ciaren's own config vars are always refused |
+| `CIAREN_SECRET_FILE_DIRS` | `[]` | Folders `file:` secret references may read (default: `<DATA_DIR>/secrets` and `/run/secrets`); always enforced |
 | `CIAREN_FRONTEND_DIST` | — | Explicit path to a built frontend served by the backend |
 | `CIAREN_DATASET_RETENTION_DAYS` | `30` | Days to retain soft-deleted dataset files before purge |
 | `CIAREN_SEED_DEMO` | `true` | Seed the built-in Demo project on first boot |
@@ -66,6 +68,7 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
 | `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
 | `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
+| `CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS` | unset | Registers a `TokenLicenseProvider` per configured issuer key, for validating plugin license tokens at startup |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 | `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` (log ungranted actions) / `enforce` (block them). Not a sandbox — see [Plugin Security](/security/plugin-security#opt-in-runtime-enforcement) |
 

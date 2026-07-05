@@ -43,6 +43,45 @@ _DRIVERNAMES = {
 # Cap rows scanned when previewing/snapshotting a table without an explicit limit.
 _READ_GUARD_LIMIT = 1_000_000
 
+# Driver query params that redirect the connection to a different target than the
+# structured host/port fields — e.g. psycopg's `host`/`hostaddr` or `service`
+# (loads the target from pg_service.conf), pymysql's `read_default_file` (reads
+# host/credentials from an option file), pyodbc's `odbc_connect` (a full ODBC
+# connection string), snowflake's `account`, or a unix socket path. Allowing them
+# through `options` would bypass the SSRF guard (which only checks ``spec.host``)
+# and break the "URL is built from structured fields" model. A blocklist trails
+# driver features by nature; it covers the known redirectors of the shipped
+# providers (psycopg, pymysql, pyodbc, duckdb, snowflake).
+_TARGET_OVERRIDE_OPTIONS = frozenset(
+    {
+        "host",
+        "hostaddr",
+        "addr",
+        "address",
+        "server",
+        "port",
+        "odbc_connect",
+        "dsn",
+        "unix_socket",
+        "socket",
+        "service",
+        "passfile",
+        "read_default_file",
+        "read_default_group",
+        "account",
+        "protocol",
+    }
+)
+
+
+def _reject_target_overrides(options: dict[str, Any] | None) -> None:
+    for key in options or {}:
+        if str(key).lower() in _TARGET_OVERRIDE_OPTIONS:
+            raise ConnectorError(
+                f"Connection option {key!r} is not allowed — the target host/port must "
+                "come from the connection's own fields, not driver options."
+            )
+
 
 class SqlConnector:
     provider_kind = "sql"
@@ -66,6 +105,7 @@ class SqlConnector:
 
                 ensure_allowed_path(Path(database), "Database file", hint="the database path")
             return URL.create(drivername, database=database)
+        _reject_target_overrides(spec.options)
         if spec.provider == "snowflake":
             # Snowflake: host = account identifier, options carry warehouse/schema.
             opts = {str(k): str(v) for k, v in (spec.options or {}).items() if v}

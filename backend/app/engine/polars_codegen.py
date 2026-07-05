@@ -55,7 +55,7 @@ from app.engine.node_kinds import (
     output_source_type,
 )
 from app.engine.registry import get_transformation
-from app.engine.sql_codegen import graph_has_sql
+from app.engine.sql_codegen import graph_has_sql, sql_secret_imports
 
 _INPUT_READ = {
     "fileInput": "pl.read_csv",
@@ -133,7 +133,10 @@ class PolarsCodeGenerator:
 
         base_header = ["import polars as pl"]
         if graph_has_sql(graph):
-            base_header = ["import os", "import polars as pl", "from sqlalchemy import create_engine"]
+            base_header = ordered_imports(
+                ["import os", "import polars as pl", "from sqlalchemy import create_engine"]
+                + sql_secret_imports(connections)
+            )
         # ML nodes emit pandas code; their imports (sklearn, joblib, numpy) plus a
         # pandas import are collected during the walk and merged into the header so
         # a polars flow containing an ML node still produces a runnable script.

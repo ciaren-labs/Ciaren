@@ -8,6 +8,7 @@ GET        /api/connections/{id}/tables
 """
 
 import pandas as pd
+import pytest
 from httpx import AsyncClient
 
 from app.connectors import ConnectionSpec, get_connector, get_provider
@@ -164,6 +165,170 @@ async def test_invalid_password_env_names_are_rejected(client: AsyncClient):
             json={"name": "bad_conn", "provider": "sqlite", "database": "/tmp/x.db", "password_env": bad},
         )
         assert r.status_code == 422, f"Expected 422 for password_env={bad!r}, got {r.status_code}"
+
+
+async def test_password_env_cannot_name_app_config(client: AsyncClient):
+    """Ciaren's own config vars (API token, webhook secrets, …) are never usable
+    as a connection secret — that would let a connection exfiltrate them to a
+    user-chosen host."""
+    r = await client.post(
+        "/api/connections",
+        json={
+            "name": "sneaky",
+            "provider": "sqlite",
+            "database": "/tmp/x.db",
+            "password_env": "CIAREN_API_TOKEN",
+        },
+    )
+    assert r.status_code == 400
+    assert "configuration" in r.json()["detail"].lower()
+
+
+async def test_secret_env_allowlist_enforced(client: AsyncClient, monkeypatch):
+    """With CIAREN_SECRET_ENV_ALLOWLIST set, only listed names (or `PREFIX*`
+    entries) are accepted; anything else is refused at save time."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "SECRET_ENV_ALLOWLIST", ["PG_*", "MY_DB_PASSWORD"])
+    denied = await client.post(
+        "/api/connections",
+        json={"name": "denied", "provider": "sqlite", "database": "/tmp/x.db", "password_env": "AWS_SECRET_KEY"},
+    )
+    assert denied.status_code == 400
+    assert "allowlist" in denied.json()["detail"].lower()
+    for ok_name in ("PG_PASSWORD", "MY_DB_PASSWORD"):
+        r = await client.post(
+            "/api/connections",
+            json={"name": f"ok-{ok_name}", "provider": "sqlite", "database": "/tmp/x.db", "password_env": ok_name},
+        )
+        assert r.status_code == 201, r.text
+
+
+async def test_keyring_and_file_secret_refs_accepted(client: AsyncClient, monkeypatch, tmp_path):
+    """The new reference schemes save fine; file: refs are confined at save time."""
+    from app.core.config import get_settings
+
+    r = await client.post(
+        "/api/connections",
+        json={"name": "kr", "provider": "sqlite", "database": "/tmp/x.db", "password_env": "keyring:pg-main"},
+    )
+    assert r.status_code == 201, r.text
+
+    monkeypatch.setattr(get_settings(), "SECRET_FILE_DIRS", [str(tmp_path / "secrets")])
+    ok = await client.post(
+        "/api/connections",
+        json={
+            "name": "file-ok",
+            "provider": "sqlite",
+            "database": "/tmp/x.db",
+            "password_env": f"file:{tmp_path / 'secrets' / 'pg'}",
+        },
+    )
+    assert ok.status_code == 201, ok.text
+    outside = await client.post(
+        "/api/connections",
+        json={
+            "name": "file-outside",
+            "provider": "sqlite",
+            "database": "/tmp/x.db",
+            "password_env": f"file:{tmp_path / 'elsewhere' / 'pg'}",
+        },
+    )
+    assert outside.status_code == 400
+    assert "secrets folder" in outside.json()["detail"].lower()
+
+
+async def test_unknown_secret_scheme_rejected(client: AsyncClient):
+    r = await client.post(
+        "/api/connections",
+        json={"name": "bad-scheme", "provider": "sqlite", "database": "/tmp/x.db", "password_env": "vault:pg"},
+    )
+    assert r.status_code == 422
+
+
+def test_sql_options_cannot_override_target():
+    """Driver options that redirect the connection (host/odbc_connect/…) are
+    refused — they would bypass the SSRF guard, which only checks spec.host."""
+    from app.connectors.base import ConnectorError
+    from app.connectors.sql import SqlConnector
+
+    for options in (
+        {"host": "internal-db"},
+        {"ODBC_CONNECT": "DRIVER=x;SERVER=evil"},
+        {"port": "9999"},
+        {"service": "other-target"},  # psycopg: loads the target from pg_service.conf
+        {"read_default_file": "/tmp/evil.cnf"},  # pymysql: option file with host/creds
+    ):
+        spec = ConnectionSpec(provider="postgresql", host="db.example.com", database="d", options=options)
+        with pytest.raises(ConnectorError, match="not allowed"):
+            SqlConnector()._url(spec)
+    # Benign driver options still pass through.
+    spec = ConnectionSpec(provider="postgresql", host="db.example.com", database="d", options={"sslmode": "require"})
+    assert SqlConnector()._url(spec).query["sslmode"] == "require"
+
+
+async def test_api_connection_rejects_secret_headers(client: AsyncClient):
+    """A static Authorization/API-key header would store the credential in plain
+    text — refused in favor of auth_style + the secret env var."""
+    r = await client.post(
+        "/api/connections",
+        json={
+            "name": "leaky-api",
+            "provider": "rest_api",
+            "host": "https://api.example.com",
+            "options": {"headers": {"Authorization": "Bearer hardcoded-token"}},
+        },
+    )
+    assert r.status_code == 400
+    assert "authentication settings" in r.json()["detail"].lower()
+    # Non-secret custom headers are fine.
+    ok = await client.post(
+        "/api/connections",
+        json={
+            "name": "ok-api",
+            "provider": "rest_api",
+            "host": "https://api.example.com",
+            "options": {"headers": {"Accept-Language": "en"}},
+        },
+    )
+    assert ok.status_code == 201, ok.text
+
+
+# -- Delete-in-use guard ------------------------------------------------------
+
+
+async def test_delete_connection_used_by_flow_conflicts(client: AsyncClient):
+    created = await _create(client, name="in-use")
+    graph = {
+        "nodes": [
+            {
+                "id": "in1",
+                "type": "sqlInput",
+                "data": {"config": {"connection_id": created["id"], "mode": "table", "table": "t"}},
+            },
+            # A node with null data must not crash the reference scan.
+            {"id": "odd", "type": "filterRows", "data": None},
+        ],
+        "edges": [],
+    }
+    flow = await client.post("/api/flows", json={"name": "uses-conn", "graph_json": graph})
+    assert flow.status_code == 201, flow.text
+
+    refused = await client.delete(f"/api/connections/{created['id']}")
+    assert refused.status_code == 409
+    assert "uses-conn" in refused.json()["detail"]
+    # The connection is still there.
+    assert (await client.get(f"/api/connections/{created['id']}")).status_code == 200
+
+    forced = await client.delete(f"/api/connections/{created['id']}?force=true")
+    assert forced.status_code == 204
+    assert (await client.get(f"/api/connections/{created['id']}")).status_code == 404
+
+
+async def test_delete_unused_connection_needs_no_force(client: AsyncClient):
+    created = await _create(client, name="unused")
+    r = await client.delete(f"/api/connections/{created['id']}")
+    assert r.status_code == 204
 
 
 # -- MLflow tracking connection ---------------------------------------------

@@ -271,6 +271,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the migrated document back in place (a .bak backup is kept).",
     )
 
+    secret = sub.add_parser(
+        "secret",
+        help="Manage connection secrets in the OS keychain (used via keyring:NAME references).",
+    )
+    secret_sub = secret.add_subparsers(dest="secret_command")
+    secret_set = secret_sub.add_parser(
+        "set",
+        help="Store a secret in the OS keychain (prompts for the value; never echoed or persisted by Ciaren).",
+    )
+    secret_set.add_argument("name", help="Secret name — reference it from a connection as keyring:NAME.")
+    secret_unset = secret_sub.add_parser("unset", help="Remove a secret from the OS keychain.")
+    secret_unset.add_argument("name", help="Secret name previously stored with `ciaren secret set`.")
+
     return parser
 
 
@@ -390,7 +403,6 @@ def _info(args: argparse.Namespace) -> None:
 
     s = get_settings()
     rows = {
-        "app_name": s.APP_NAME,
         "environment": s.ENVIRONMENT,
         "database_url": _redact_url(s.DATABASE_URL),
         "data_dir": str(Path(s.DATA_DIR).resolve()),
@@ -650,6 +662,51 @@ def _flow(args: argparse.Namespace) -> None:
         print(json.dumps(migrated, indent=2))
 
 
+def _keyring_or_exit() -> Any:
+    try:
+        import keyring
+    except ImportError:  # pragma: no cover — keyring is a core dependency; broken installs only
+        raise SystemExit("The 'keyring' package is missing — reinstall Ciaren (pip install ciaren).") from None
+    return keyring
+
+
+def _secret(args: argparse.Namespace) -> None:
+    from app.core.exceptions import ValidationError
+    from app.core.secrets import KEYRING_SERVICE, parse_secret_ref
+
+    command = getattr(args, "secret_command", None)
+    if command not in ("set", "unset"):
+        raise SystemExit("Usage: ciaren secret {set|unset} NAME")
+    try:
+        parse_secret_ref(f"keyring:{args.name}")
+    except ValidationError as exc:
+        raise SystemExit(str(exc)) from None
+    keyring = _keyring_or_exit()
+
+    if command == "unset":
+        from keyring.errors import PasswordDeleteError
+
+        try:
+            keyring.delete_password(KEYRING_SERVICE, args.name)
+        except PasswordDeleteError:
+            raise SystemExit(f"No secret named '{args.name}' in the OS keychain.") from None
+        except Exception as exc:  # noqa: BLE001 — locked keychain / no daemon: show the real cause
+            raise SystemExit(f"The OS keychain could not be updated: {exc}") from None
+        print(f"Removed secret '{args.name}' from the OS keychain.")
+        return
+
+    import getpass
+
+    value = getpass.getpass(f"Secret value for '{args.name}': ")
+    if not value:
+        raise SystemExit("Empty value — nothing stored.")
+    if getpass.getpass("Repeat to confirm: ") != value:
+        raise SystemExit("Values don't match — nothing stored.")
+    keyring.set_password(KEYRING_SERVICE, args.name, value)
+    print(f"Stored secret '{args.name}' in the OS keychain.")
+    print(f"Reference it from a connection's secret field as: keyring:{args.name}")
+
+
 def main(argv: list[str] | None = None) -> None:
     raw = sys.argv[1:] if argv is None else argv
     if raw and raw[0] == "plugin":
@@ -668,6 +725,7 @@ def main(argv: list[str] | None = None) -> None:
         "db": _db,
         "transformations": _transformations,
         "flow": _flow,
+        "secret": _secret,
     }
     handler = handlers.get(args.command)
     if handler is None:

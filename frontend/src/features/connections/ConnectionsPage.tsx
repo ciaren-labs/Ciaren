@@ -489,7 +489,23 @@ function ConnectionCard({
           size="sm"
           variant="ghost"
           onClick={() => {
-            if (confirm(`Delete connection "${connection.name}"?`)) del.mutate(connection.id);
+            if (!confirm(`Delete connection "${connection.name}"?`)) return;
+            del.mutate(
+              { id: connection.id },
+              {
+                onError: (err) => {
+                  // Still referenced by flows → surface which ones and offer a
+                  // force delete (those flows fail at run time until repointed).
+                  if (
+                    err instanceof ApiError &&
+                    err.status === 409 &&
+                    confirm(`${err.message}\n\nDelete it anyway?`)
+                  ) {
+                    del.mutate({ id: connection.id, force: true });
+                  }
+                },
+              },
+            );
           }}
         >
           <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -794,8 +810,8 @@ function ConnectionDialog({
                     {isMlflow
                       ? "Where Ciaren logs experiments and models. Used by all ML flows."
                       : isStorage
-                        ? "Secret keys are read at runtime from env vars and never stored."
-                        : "Passwords are read at runtime from env vars and never stored."}
+                        ? "Secret keys are read at runtime (env var, OS keychain, or secret file) and never stored."
+                        : "Passwords are read at runtime (env var, OS keychain, or secret file) and never stored."}
                   </DialogDescription>
                 </div>
               </div>
@@ -902,7 +918,10 @@ function ConnectionDialog({
                         onChange={(e) => set({ username: e.target.value })}
                       />
                     </Field>
-                    <Field label="Password env var" hint="e.g. PG_PASSWORD">
+                    <Field
+                      label="Password secret"
+                      hint="Env var name, keyring:NAME (OS keychain — ciaren secret set), or file:/path"
+                    >
                       <Input
                         value={form.password_env ?? ""}
                         onChange={(e) => set({ password_env: e.target.value })}
@@ -1035,11 +1054,12 @@ function ApiFields({
       )}
       {authStyle !== "none" && (
         <Field
-          label="Secret env var"
+          label="Secret"
           hint={
-            authStyle === "basic"
-              ? "Env var holding the password — the value is never stored"
-              : "Env var holding the token / API key — the value is never stored"
+            (authStyle === "basic"
+              ? "The password — the value is never stored. "
+              : "The token / API key — the value is never stored. ") +
+            "Env var name, keyring:NAME, or file:/path"
           }
         >
           <Input
@@ -1239,7 +1259,10 @@ function PluginProviderFields({
               onChange={(e) => set({ username: e.target.value })}
             />
           </Field>
-          <Field label="Password env var" hint="Name of the env var holding the secret">
+          <Field
+            label="Password secret"
+            hint="Env var name, keyring:NAME (OS keychain), or file:/path"
+          >
             <Input
               value={form.password_env ?? ""}
               onChange={(e) => set({ password_env: e.target.value })}
@@ -1309,8 +1332,8 @@ function StorageFields({
           />
         </Field>
         <Field
-          label="Secret Access Key env var"
-          hint="Name of the env var holding the secret key (optional if using IAM)"
+          label="Secret Access Key"
+          hint="Env var name, keyring:NAME, or file:/path holding the secret key (optional if using IAM)"
         >
           <Input
             value={form.password_env ?? ""}
@@ -1355,7 +1378,10 @@ function StorageFields({
             placeholder="mystorageaccount"
           />
         </Field>
-        <Field label="Account key env var" hint="Name of the env var holding the account key">
+        <Field
+          label="Account key"
+          hint="Env var name, keyring:NAME, or file:/path holding the account key"
+        >
           <Input
             value={form.password_env ?? ""}
             onChange={(e) => set({ password_env: e.target.value })}
@@ -1387,8 +1413,8 @@ function StorageFields({
           />
         </Field>
         <Field
-          label="Service account key env var"
-          hint="Env var holding the path to a service account JSON file. Leave empty for Application Default Credentials."
+          label="Service account key"
+          hint="Env var name (or keyring:/file: ref) holding the path to a service account JSON file. Leave empty for Application Default Credentials."
         >
           <Input
             value={form.password_env ?? ""}

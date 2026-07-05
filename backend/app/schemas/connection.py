@@ -1,18 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-import re
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.core.exceptions import ValidationError
+from app.core.secrets import parse_secret_ref
 
 # Provider names mapped to their kind — kept in sync with providers.py.
 _STORAGE_PROVIDERS = frozenset({"local", "s3", "azure_blob", "gcs"})
 _MONGO_PROVIDERS = frozenset({"mongodb"})
 _MLFLOW_PROVIDERS = frozenset({"mlflow"})
 _API_PROVIDERS = frozenset({"rest_api"})
-
-# Valid POSIX env var names: start with letter or underscore, then letters/digits/underscores.
-_ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _empty_to_none(v: str | None) -> str | None:
@@ -26,6 +25,20 @@ def _normalize_path(v: str | None) -> str | None:
         return None
     # Replace backslashes so pathlib parses Windows paths on any OS.
     return v.replace("\\", "/")
+
+
+def _validate_secret_ref_syntax(v: str | None) -> str | None:
+    """Syntax check for the secret reference (bare env name, env:, keyring:,
+    file:). Policy (env allowlist, file confinement) is enforced by the service
+    at save time and by resolve_secret at connect time."""
+    v = _empty_to_none(v)
+    if v is None:
+        return None
+    try:
+        parse_secret_ref(v)
+    except ValidationError as exc:
+        raise ValueError(str(exc)) from None
+    return v
 
 
 def _plugin_connector_kind(provider: str) -> str | None:
@@ -46,7 +59,8 @@ class ConnectionBase(BaseModel):
     port: int | None = None
     database: str | None = None
     username: str | None = None
-    # The NAME of an environment variable holding the password (never the secret).
+    # A secret REFERENCE (never the secret itself): a bare env var name,
+    # env:NAME, keyring:NAME, or file:/path — see app/core/secrets.py.
     password_env: str | None = None
     options: dict[str, Any] | None = None
 
@@ -65,13 +79,7 @@ class ConnectionBase(BaseModel):
     @field_validator("password_env", mode="before")
     @classmethod
     def validate_password_env(cls, v: str | None) -> str | None:
-        v = _empty_to_none(v)
-        if v is not None and not _ENV_VAR_RE.match(v):
-            raise ValueError(
-                f"password_env must be a valid environment variable name "
-                f"(letters, digits, underscores; must not start with a digit). Got: {v!r}"
-            )
-        return v
+        return _validate_secret_ref_syntax(v)
 
 
 class ConnectionCreate(ConnectionBase):
@@ -101,20 +109,14 @@ class ConnectionUpdate(BaseModel):
     @field_validator("password_env", mode="before")
     @classmethod
     def validate_password_env(cls, v: str | None) -> str | None:
-        v = _empty_to_none(v)
-        if v is not None and not _ENV_VAR_RE.match(v):
-            raise ValueError(
-                f"password_env must be a valid environment variable name "
-                f"(letters, digits, underscores; must not start with a digit). Got: {v!r}"
-            )
-        return v
+        return _validate_secret_ref_syntax(v)
 
 
 class ConnectionRead(BaseModel):
     """A connection as returned to clients.
 
-    Contains no secret — only the *name* of the password env var — so it is
-    safe to serialize. ``connection_type`` is derived from the provider name and
+    Contains no secret — only the secret *reference* (env var name, keyring:
+    or file: ref) — so it is safe to serialize. ``connection_type`` is derived from the provider name and
     tells the frontend which form to show (sql | mongo | api | storage | mlflow;
     plugin connectors report their spec's kind).
     """

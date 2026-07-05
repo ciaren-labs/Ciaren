@@ -68,6 +68,28 @@ class Settings(BaseSettings):
     # Opt-in SSRF guard for connector hosts/endpoints.
     CONNECTOR_BLOCK_PRIVATE_HOSTS: bool = False
 
+    # Which environment variables a connection's `password_env` may name. Empty
+    # (default) allows any variable — the local-first posture, where the person
+    # writing connections owns the process environment anyway. On shared
+    # deployments set it to the vars (or prefixes ending in `*`, e.g.
+    # ["CIAREN_SECRET_*", "PG_PASSWORD"]) that hold connection secrets: without
+    # it, anyone who can save a connection can point `password_env` at ANY env
+    # var and exfiltrate its value to a host they control (the connector sends
+    # it as a password/API key). Ciaren's own config vars (CIAREN_API_TOKEN, …)
+    # are always refused, allowlist or not. Entries match case-sensitively —
+    # on Windows (case-insensitive env vars) list the exact spelling users put
+    # in `password_env`. Applies to `env:`/bare references only; `keyring:` is
+    # namespaced to the ciaren service and `file:` has SECRET_FILE_DIRS.
+    # See app/core/secrets.py.
+    SECRET_ENV_ALLOWLIST: list[str] = []
+
+    # Folders a `file:` secret reference may read from (Docker/K8s secrets).
+    # Empty (default) allows `<DATA_DIR>/secrets` and `/run/secrets`. Always
+    # enforced — unlike STORAGE_ALLOWED_ROOTS there is no unrestricted mode,
+    # because a free-form file reference would let any connection author read
+    # arbitrary server files. See app/core/secrets.py.
+    SECRET_FILE_DIRS: list[str] = []
+
     # Optional confinement for connector-reachable filesystem paths. Empty
     # (default) keeps the historical behavior: a Local Storage connection may
     # point at any folder the server process can access. When set to one or more

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import (
@@ -22,8 +24,9 @@ from app.connectors import (
 from app.connectors.base import DataConnector
 from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.core.secrets import resolve_secret
+from app.core.secrets import ensure_permitted_secret_ref, resolve_secret
 from app.db.models.connection import Connection
+from app.db.models.flow import Flow
 from app.plugin_api import ConnectorRuntime
 from app.plugin_api import ConnectorSpec as PluginConnectorSpec
 from app.plugins.connectors import (
@@ -42,6 +45,33 @@ from app.schemas.connection import (
     ConnectionUpdate,
     TableInfo,
 )
+
+# Header names whose value is (or carries) a credential. A REST API connection
+# must take its secret from `password_env` (auth_style / api_key_header), never
+# from a static header — that would store the secret in plain text in the
+# database and echo it back in every API response. Best-effort defense in depth,
+# not a guarantee: unconventional header names (and credential-bearing
+# query_params, which some APIs require and the auth styles don't cover yet)
+# still pass — the real control is the env-var-only secret model.
+_SECRET_HEADER_NAMES = frozenset({"authorization", "proxy-authorization", "cookie", "x-api-key"})
+
+
+def _reject_secret_headers(options: dict[str, Any] | None) -> None:
+    raw = (options or {}).get("headers") or {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw) if raw.strip() else {}
+        except ValueError:
+            return  # malformed JSON gets the connector's own, clearer error
+    if not isinstance(raw, dict):
+        return
+    for header in raw:
+        if str(header).strip().lower() in _SECRET_HEADER_NAMES:
+            raise ValidationError(
+                f"Custom header '{header}' would store a credential in plain text. "
+                "Use the connection's authentication settings instead — the secret "
+                "then comes from an environment variable and is never stored."
+            )
 
 
 def build_connection_spec(conn: Connection) -> ConnectionSpec:
@@ -96,6 +126,8 @@ class ConnectionService:
 
     async def create(self, data: ConnectionCreate) -> ConnectionRead:
         self._validate(data.provider, data.host, data.database, data.options)
+        # Reject a forbidden secret reference at save time, not first use.
+        ensure_permitted_secret_ref(data.password_env)
         if await self._by_name(data.name):
             raise ConflictError(f"A connection named '{data.name}' already exists.")
         conn = Connection(
@@ -109,7 +141,7 @@ class ConnectionService:
             options_json=data.options,
         )
         self.db.add(conn)
-        await self.db.commit()
+        await self._commit_or_conflict(data.name)
         await self.db.refresh(conn)
         return ConnectionRead.model_validate(conn)
 
@@ -121,17 +153,28 @@ class ConnectionService:
         for field_name, value in updates.items():
             setattr(conn, field_name, value)
         self._validate(conn.provider, conn.host, conn.database, conn.options_json)
+        ensure_permitted_secret_ref(conn.password_env)
         if "name" in updates:
             existing = await self._by_name(conn.name)
             if existing and existing.id != conn.id:
                 raise ConflictError(f"A connection named '{conn.name}' already exists.")
         conn.updated_at = datetime.now(UTC).replace(tzinfo=None)
-        await self.db.commit()
+        await self._commit_or_conflict(conn.name)
         await self.db.refresh(conn)
         return ConnectionRead.model_validate(conn)
 
-    async def delete(self, connection_id: str) -> None:
+    async def delete(self, connection_id: str, force: bool = False) -> None:
         conn = await self._get_or_raise(connection_id)
+        if not force:
+            used_by = await self._referencing_flows(connection_id)
+            if used_by:
+                shown = ", ".join(f"'{name}'" for name in used_by[:5])
+                more = f" and {len(used_by) - 5} more" if len(used_by) > 5 else ""
+                raise ConflictError(
+                    f"Connection '{conn.name}' is used by {len(used_by)} flow(s): {shown}{more}. "
+                    "Point those nodes at another connection first, or delete with ?force=true "
+                    "(their runs will fail until reconfigured)."
+                )
         await self.db.delete(conn)
         await self.db.commit()
 
@@ -394,11 +437,35 @@ class ConnectionService:
         if p.kind == "api":
             if not host or not host.startswith(("http://", "https://")):
                 raise ValidationError(f"{p.label} needs a base URL starting with http:// or https://.")
+            _reject_secret_headers(options)
             return
         if p.needs_host and not host:
             raise ValidationError(f"{p.label} needs a host.")
         if not database:
             raise ValidationError(f"{p.label} needs a database name.")
+
+    async def _commit_or_conflict(self, name: str) -> None:
+        """Commit, translating a unique-name IntegrityError (two concurrent saves
+        that both passed the pre-check) into the same 409 the pre-check raises."""
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise ConflictError(f"A connection named '{name}' already exists.") from None
+
+    async def _referencing_flows(self, connection_id: str) -> list[str]:
+        """Names of flows with at least one node configured with this connection
+        (sqlInput/sqlOutput/storageInput/… all use the ``connection_id`` config key)."""
+        result = await self.db.execute(select(Flow.name, Flow.graph_json))
+        names: list[str] = []
+        for name, graph in result.all():
+            for node in (graph or {}).get("nodes") or []:
+                # Graphs are user-supplied JSON: `data`/`config` may be null, not just absent.
+                config = ((node.get("data") or {}).get("config")) or {}
+                if config.get("connection_id") == connection_id:
+                    names.append(name)
+                    break
+        return names
 
     async def _by_name(self, name: str) -> Connection | None:
         result = await self.db.execute(select(Connection).where(func.lower(Connection.name) == name.lower()))

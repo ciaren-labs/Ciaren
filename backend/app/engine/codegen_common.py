@@ -19,7 +19,7 @@ import re
 from typing import Any, NamedTuple
 
 from app.engine.graph import GraphValidationError
-from app.engine.sql_codegen import engine_url_expr
+from app.engine.sql_codegen import engine_url_parts
 
 _SELF_ASSIGN = re.compile(r"^(\w+) = \1$")
 
@@ -364,9 +364,14 @@ def sql_engine_var(
     """The sqlalchemy engine variable for a connection, emitting its
     ``create_engine`` line into ``lines`` on first use."""
     if connection_id not in engine_vars:
-        var = f"_engine_{len(engine_vars) + 1}"
+        n = len(engine_vars) + 1
+        var = f"_engine_{n}"
         info = connections.get(connection_id, {"provider": "sqlite", "database": ""})
-        lines.append(f"{var} = create_engine({engine_url_expr(info)})")
+        # A file: secret reference needs a prelude line fetching the secret into
+        # a named variable (see engine_url_parts); env/keyring inline in the URL.
+        prelude, url_expr = engine_url_parts(info, secret_var=f"_secret_{n}")
+        lines.extend(prelude)
+        lines.append(f"{var} = create_engine({url_expr})")
         engine_vars[connection_id] = var
     return engine_vars[connection_id]
 

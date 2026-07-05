@@ -56,7 +56,7 @@ from app.engine.node_kinds import (
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.registry import get_transformation
-from app.engine.sql_codegen import graph_has_sql
+from app.engine.sql_codegen import graph_has_sql, sql_secret_imports
 
 _READ_FUNCS = {
     "fileInput": "pd.read_csv",
@@ -130,7 +130,10 @@ class CodeGenerator:
 
         base_header = ["import pandas as pd"]
         if graph_has_sql(graph):
-            base_header = ["import os", "import pandas as pd", "from sqlalchemy import create_engine"]
+            base_header = ordered_imports(
+                ["import os", "import pandas as pd", "from sqlalchemy import create_engine"]
+                + sql_secret_imports(connections)
+            )
         body: list[str] = []
 
         var_counter = 0

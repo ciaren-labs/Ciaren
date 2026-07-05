@@ -25,24 +25,77 @@ on the Connections page, then reuse it across as many flows and nodes as you lik
 
 > **Ciaren never stores your database password.**
 
-A connection stores only the **name** of an environment variable
-(`password_env`) — for example `PG_PASSWORD`. The actual secret is read from the
-process environment when a connection is used, and is:
+A connection stores only a **secret reference** — never the value. Like
+Airflow's secrets backends, the reference picks where the secret lives; all
+sources are local, with no external service required:
+
+| Reference | Source | When to use it |
+| --- | --- | --- |
+| `PG_PASSWORD` or `env:PG_PASSWORD` | Environment variable | The classic default; simplest for `.env`-style setups |
+| `keyring:pg-main` | **OS keychain** (Windows Credential Manager, macOS Keychain, Secret Service on Linux) | Recommended on desktop installs — encrypted at rest, not inherited by child processes |
+| `file:/run/secrets/pg_password` | **Secret file** | Docker / Kubernetes secrets, which mount as files |
+
+Whatever the source, the value is read only when a connection is used, and is:
 
 - never written to the database,
 - never returned by the API,
-- never embedded in exported Python (generated code reads `os.environ[...]`).
+- never embedded in exported Python (generated code fetches from the same
+  reference at runtime — `os.environ[...]`, `keyring.get_password(...)`, or the
+  secret file).
 
-Set the variable before starting Ciaren, e.g. in your shell or `.env`:
+For an env var reference, set the variable before starting Ciaren:
 
 ```bash
 export PG_PASSWORD="super-secret"
 ciaren serve
 ```
 
+For the OS keychain (included in core), store the secret once — the value is
+prompted, never echoed:
+
+```bash
+ciaren secret set pg-main
+```
+
+then use `keyring:pg-main` as the connection's secret. `ciaren secret unset`
+removes it.
+
+`file:` references are confined to the allowed secrets folders —
+`<DATA_DIR>/secrets` and `/run/secrets` by default, configurable with
+`CIAREN_SECRET_FILE_DIRS` — so a connection can never point one at an arbitrary
+server file. A trailing newline (as Docker secrets carry) is stripped. On a
+hardened shared install, keep `CIAREN_SECRET_FILE_DIRS` and
+`CIAREN_STORAGE_ALLOWED_ROOTS` pointing at **disjoint** locations, so no
+storage connection can write into a folder secrets are read from.
+
 Other safeguards: the SQLAlchemy URL is built from structured fields (no raw DSN
-to inject into), table/schema identifiers are validated, and any secret is
-scrubbed from driver error messages.
+to inject into), driver options can't override the connection's host/port
+(so the SSRF guard can't be bypassed through `options`), table/schema
+identifiers are validated, and any secret is scrubbed from driver error
+messages. REST API connections refuse the well-known credential headers
+(`Authorization`, `Cookie`, `X-API-Key`, …) as custom headers — the secret must
+come from the authentication settings and its env var, so it is never stored.
+This check is best-effort: a credential under an unconventional header name or
+in a default query param would still be stored in plain text, so keep secrets
+in the authentication settings.
+
+Two rules govern **which** env vars an `env:` (or bare) reference may name:
+
+- Ciaren's **own configuration variables** (`CIAREN_API_TOKEN`,
+  `CIAREN_WEBHOOK_SECRET`, …) are always refused — otherwise a connection could
+  send their values to a host of the author's choosing.
+- On shared deployments, set `CIAREN_SECRET_ENV_ALLOWLIST` (exact names, or
+  prefixes ending in `*`, e.g. `["CIAREN_SECRET_*", "PG_PASSWORD"]`) so
+  connections can only use the variables you've designated as connection
+  secrets. Empty (the default) allows any variable — fine for the local
+  single-user posture, where the connection author owns the environment anyway.
+
+## Deleting a connection
+
+Deleting a connection that flows still reference is refused with a message
+listing those flows — repoint their SQL/Storage nodes first, or force the
+delete (the UI asks; the API takes `?force=true`), after which those flows
+fail at run time until reconfigured.
 
 ## Supported databases
 

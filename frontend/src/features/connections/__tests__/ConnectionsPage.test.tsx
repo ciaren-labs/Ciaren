@@ -118,9 +118,9 @@ describe("ConnectionsPage plugin connectors", () => {
     openDialog();
     fireEvent.click(screen.getByText("REST API"));
 
-    // Standard flag-driven fields: needs_auth → username + password env var.
+    // Standard flag-driven fields: needs_auth → username + password secret ref.
     expect(screen.getByText("Username")).toBeInTheDocument();
-    expect(screen.getByText("Password env var")).toBeInTheDocument();
+    expect(screen.getByText("Password secret")).toBeInTheDocument();
     // Schema fields from config_schema.
     expect(screen.getByText("Base URL *")).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeChecked(); // verify_tls default
@@ -167,12 +167,12 @@ describe("core REST API connector", () => {
     expect(screen.getByText("Authentication")).toBeInTheDocument();
     expect(screen.getByText("Endpoints")).toBeInTheDocument();
     // No auth by default → no secret field until an auth method is picked.
-    expect(screen.queryByText("Secret env var")).not.toBeInTheDocument();
+    expect(screen.queryByText("Secret", { selector: "label" })).not.toBeInTheDocument();
 
-    // Picking API-key auth reveals the header + secret env var fields.
+    // Picking API-key auth reveals the header + secret reference fields.
     fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "api_key" } });
     expect(screen.getByText("API key header", { selector: "label" })).toBeInTheDocument();
-    expect(screen.getByText("Secret env var")).toBeInTheDocument();
+    expect(screen.getByText("Secret", { selector: "label" })).toBeInTheDocument();
 
     // Advanced options are collapsed behind a toggle.
     fireEvent.click(screen.getByText(/Advanced options/));

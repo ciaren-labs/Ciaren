@@ -48,8 +48,10 @@ async def update_connection(
 
 
 @router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_connection(connection_id: str, service: ConnectionServiceDep) -> None:
-    await service.delete(connection_id)
+async def delete_connection(connection_id: str, service: ConnectionServiceDep, force: bool = False) -> None:
+    """Delete a connection. Refused with 409 while flows still reference it,
+    unless ``?force=true`` (those flows then fail at run time until repointed)."""
+    await service.delete(connection_id, force=force)
 
 
 @router.post("/{connection_id}/test", response_model=ConnectionTestResult)

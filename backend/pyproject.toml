@@ -46,6 +46,12 @@ dependencies = [
     "scikit-learn>=1.5",
     "mlflow>=3.0",
     "joblib>=1.3",
+    # OS keychain-backed connection secrets (`keyring:NAME` references and the
+    # `ciaren secret` command) — the recommended secret source on desktop
+    # installs, so it ships in core. On headless servers/containers there is no
+    # keychain daemon; env:/file: references cover those (keyring degrades with
+    # a clear error, never crashes the app).
+    "keyring>=25",
 ]
 
 [project.optional-dependencies]
