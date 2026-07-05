@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, connectionsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { ConnectionCreate, ConnectionUpdate } from "@/lib/types";
+import type { ConnectionCreate, ConnectionUpdate, KeyringSecretWrite } from "@/lib/types";
 
 export function useConnections() {
   return useQuery({
@@ -100,5 +100,25 @@ export function useConnectionObjects(id: string | null, enabled = true) {
     queryKey: id ? queryKeys.connectionObjects(id) : ["connections", "none", "objects"],
     queryFn: () => connectionsApi.objects(id as string),
     enabled: !!id && enabled,
+  });
+}
+
+/** Whether this host has a usable OS keychain, so the form can offer or hide
+ * the "save to keychain" action. Cached for the session — it can't change. */
+export function useKeyringAvailability() {
+  return useQuery({
+    queryKey: ["connections", "keyring", "availability"],
+    queryFn: () => connectionsApi.keyringStatus(),
+    staleTime: Infinity,
+  });
+}
+
+/** Store a secret in the OS keychain from the connection form. A 409 (name
+ * already taken) is surfaced to the caller to confirm an overwrite; the value
+ * is never cached, logged, or echoed back. */
+export function useStoreKeyringSecret() {
+  return useMutation({
+    mutationFn: (body: KeyringSecretWrite) => connectionsApi.storeKeyringSecret(body),
+    meta: { suppressErrorToast: true },
   });
 }

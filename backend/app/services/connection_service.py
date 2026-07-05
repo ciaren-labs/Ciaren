@@ -24,7 +24,14 @@ from app.connectors import (
 from app.connectors.base import DataConnector
 from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.core.secrets import ensure_permitted_secret_ref, resolve_secret
+from app.core.secrets import (
+    delete_keyring_secret,
+    ensure_permitted_secret_ref,
+    keyring_availability,
+    keyring_secret_exists,
+    resolve_secret,
+    set_keyring_secret,
+)
 from app.db.models.connection import Connection
 from app.db.models.flow import Flow
 from app.plugin_api import ConnectorRuntime
@@ -43,6 +50,9 @@ from app.schemas.connection import (
     ConnectionRead,
     ConnectionTestResult,
     ConnectionUpdate,
+    KeyringAvailability,
+    KeyringSecretStatus,
+    KeyringSecretWrite,
     TableInfo,
 )
 
@@ -324,6 +334,43 @@ class ConnectionService:
             return await asyncio.to_thread(connector.list_objects, spec, prefix)
         except ConnectorError as exc:
             raise ValidationError(str(exc)) from None
+
+    # -- OS keychain secrets --------------------------------------------
+    #
+    # The connection form can store a secret straight into the OS keychain and
+    # keep only a ``keyring:NAME`` reference. The plaintext value is written to
+    # the platform keychain and is never persisted by Ciaren, echoed back, or
+    # logged. Keyring calls block, so they run off the event loop.
+
+    async def keyring_status(self) -> KeyringAvailability:
+        # Backend discovery can open a D-Bus connection (Linux Secret Service),
+        # so keep it off the event loop like the other keyring calls.
+        available, backend, detail = await asyncio.to_thread(keyring_availability)
+        return KeyringAvailability(available=available, backend=backend, detail=detail)
+
+    async def keyring_secret_status(self, name: str) -> KeyringSecretStatus:
+        exists = await asyncio.to_thread(keyring_secret_exists, name)
+        return KeyringSecretStatus(name=name, exists=exists, reference=f"keyring:{name}")
+
+    async def store_keyring_secret(self, data: KeyringSecretWrite) -> KeyringSecretStatus:
+        """Write a secret to the OS keychain. Refuses to clobber an existing
+        entry (used by another connection) unless ``overwrite`` is set.
+
+        The exists-then-set check is advisory, not atomic (keyring has no
+        compare-and-set): two concurrent non-overwrite writes for the same name
+        could race, last-writer-wins. Acceptable under the single-user,
+        local-first posture — the loser only clobbers a secret this same user
+        just wrote to Ciaren's own namespace."""
+        if not data.overwrite and await asyncio.to_thread(keyring_secret_exists, data.name):
+            raise ConflictError(
+                f"A keychain secret named '{data.name}' already exists. "
+                "Reuse it as keyring:" + data.name + ", pick another name, or overwrite it."
+            )
+        await asyncio.to_thread(set_keyring_secret, data.name, data.value)
+        return KeyringSecretStatus(name=data.name, exists=True, reference=f"keyring:{data.name}")
+
+    async def remove_keyring_secret(self, name: str) -> None:
+        await asyncio.to_thread(delete_keyring_secret, name)
 
     # -- Plugin connectors ------------------------------------------------
 

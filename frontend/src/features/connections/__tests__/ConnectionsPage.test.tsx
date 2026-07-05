@@ -2,12 +2,12 @@
 // picker section with a Plugin badge, and their form is driven by the
 // connector's config_schema (fields stored into options).
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ProviderInfo } from "@/lib/types";
 import { ConnectionsPage } from "../ConnectionsPage";
-import { useTestConnectionConfig } from "../hooks";
+import { useKeyringAvailability, useStoreKeyringSecret, useTestConnectionConfig } from "../hooks";
 
 // vi.mock factories are hoisted above imports, so the fixtures they close over
 // must be hoisted too.
@@ -90,6 +90,11 @@ vi.mock("../hooks", () => {
     useDeleteConnection: mutationStub,
     useTestConnection: mutationStub,
     useTestConnectionConfig: vi.fn(mutationStub),
+    useStoreKeyringSecret: vi.fn(mutationStub),
+    // Default: keychain available, so the "save to keychain" affordance renders.
+    useKeyringAvailability: vi.fn(() => ({
+      data: { available: true, backend: null, detail: null },
+    })),
   };
 });
 
@@ -126,6 +131,57 @@ describe("ConnectionsPage plugin connectors", () => {
     expect(screen.getByRole("checkbox")).toBeChecked(); // verify_tls default
     // No host fields (needs_host false).
     expect(screen.queryByText("Host")).not.toBeInTheDocument();
+  });
+});
+
+describe("save secret to OS keychain", () => {
+  afterEach(() => {
+    // Restore the module-mock defaults so per-test overrides don't leak.
+    vi.mocked(useKeyringAvailability).mockReturnValue({
+      data: { available: true, backend: null, detail: null },
+    } as any);
+  });
+
+  it("stores the value and sets the field to the keyring: reference", async () => {
+    const stored: { name: string; value: string }[] = [];
+    vi.mocked(useStoreKeyringSecret).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(async (body: { name: string; value: string }) => {
+        stored.push(body);
+        return { name: body.name, exists: true, reference: `keyring:${body.name}` };
+      }),
+      reset: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+      data: undefined,
+    } as any);
+
+    openDialog();
+    fireEvent.click(screen.getByText("PostgreSQL"));
+
+    // The affordance shows because the keychain is available (mocked).
+    fireEvent.click(screen.getByText(/Save a secret to the system keychain/));
+    fireEvent.change(screen.getByPlaceholderText("pg-main"), { target: { value: "pg-main" } });
+    fireEvent.change(screen.getByPlaceholderText("the password / token"), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save to keychain/i }));
+
+    await screen.findByText(/references/);
+    expect(stored).toEqual([{ name: "pg-main", value: "hunter2", overwrite: false }]);
+    // The secret input never shows the raw value as a reference — the field is
+    // now keyring:pg-main.
+    expect(screen.getByDisplayValue("keyring:pg-main")).toBeInTheDocument();
+  });
+
+  it("hides the affordance when no OS keychain is available", () => {
+    vi.mocked(useKeyringAvailability).mockReturnValue({
+      data: { available: false, backend: null, detail: "headless" },
+    } as any);
+    openDialog();
+    fireEvent.click(screen.getByText("PostgreSQL"));
+    expect(screen.queryByText(/Save a secret to the system keychain/)).not.toBeInTheDocument();
   });
 });
 

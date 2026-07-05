@@ -21,6 +21,9 @@ import type {
   FlowRun,
   FlowRunSummary,
   FlowUpdate,
+  KeyringAvailability,
+  KeyringSecretStatus,
+  KeyringSecretWrite,
   MlExperiment,
   MlExperimentRun,
   MlExperimentSummary,
@@ -322,6 +325,14 @@ export const connectionsApi = {
   tables: (id: string) => request<TableInfo[]>(`/connections/${id}/tables`),
   objects: (id: string, prefix?: string) =>
     request<string[]>(`/connections/${id}/objects${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ""}`),
+  // OS keychain secrets: store a value once, keep only a keyring:NAME reference.
+  keyringStatus: () => request<KeyringAvailability>("/connections/keyring"),
+  keyringSecretStatus: (name: string) =>
+    request<KeyringSecretStatus>(`/connections/keyring/${encodeURIComponent(name)}`),
+  storeKeyringSecret: (body: KeyringSecretWrite) =>
+    request<KeyringSecretStatus>("/connections/keyring", { method: "POST", body: JSON.stringify(body) }),
+  deleteKeyringSecret: (name: string) =>
+    request<void>(`/connections/keyring/${encodeURIComponent(name)}`, { method: "DELETE" }),
 };
 
 // ---- Datasets --------------------------------------------------------------

@@ -662,36 +662,19 @@ def _flow(args: argparse.Namespace) -> None:
         print(json.dumps(migrated, indent=2))
 
 
-def _keyring_or_exit() -> Any:
-    try:
-        import keyring
-    except ImportError:  # pragma: no cover — keyring is a core dependency; broken installs only
-        raise SystemExit("The 'keyring' package is missing — reinstall Ciaren (pip install ciaren).") from None
-    return keyring
-
-
 def _secret(args: argparse.Namespace) -> None:
     from app.core.exceptions import ValidationError
-    from app.core.secrets import KEYRING_SERVICE, parse_secret_ref
+    from app.core.secrets import delete_keyring_secret, set_keyring_secret
 
     command = getattr(args, "secret_command", None)
     if command not in ("set", "unset"):
         raise SystemExit("Usage: ciaren secret {set|unset} NAME")
-    try:
-        parse_secret_ref(f"keyring:{args.name}")
-    except ValidationError as exc:
-        raise SystemExit(str(exc)) from None
-    keyring = _keyring_or_exit()
 
     if command == "unset":
-        from keyring.errors import PasswordDeleteError
-
         try:
-            keyring.delete_password(KEYRING_SERVICE, args.name)
-        except PasswordDeleteError:
-            raise SystemExit(f"No secret named '{args.name}' in the OS keychain.") from None
-        except Exception as exc:  # noqa: BLE001 — locked keychain / no daemon: show the real cause
-            raise SystemExit(f"The OS keychain could not be updated: {exc}") from None
+            delete_keyring_secret(args.name)
+        except ValidationError as exc:
+            raise SystemExit(str(exc)) from None
         print(f"Removed secret '{args.name}' from the OS keychain.")
         return
 
@@ -702,7 +685,10 @@ def _secret(args: argparse.Namespace) -> None:
         raise SystemExit("Empty value — nothing stored.")
     if getpass.getpass("Repeat to confirm: ") != value:
         raise SystemExit("Values don't match — nothing stored.")
-    keyring.set_password(KEYRING_SERVICE, args.name, value)
+    try:
+        set_keyring_secret(args.name, value)
+    except ValidationError as exc:
+        raise SystemExit(str(exc)) from None
     print(f"Stored secret '{args.name}' in the OS keychain.")
     print(f"Reference it from a connection's secret field as: keyring:{args.name}")
 

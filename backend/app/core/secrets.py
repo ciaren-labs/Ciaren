@@ -191,18 +191,111 @@ def resolve_secret(ref: str | None) -> str | None:
     return _resolve_keyring(value)
 
 
-def _resolve_keyring(name: str) -> str:
+#: Cap on a keychain secret's length. Secrets are small; this only guards
+#: against a runaway payload (some OS backends have their own smaller limits,
+#: surfaced as a clear error when they reject the write).
+MAX_KEYRING_SECRET_BYTES = 4096
+
+
+def _import_keyring() -> object:
     try:
         import keyring
     except ImportError:  # pragma: no cover — keyring is a core dependency; broken installs only
         raise ValidationError("The 'keyring' package is missing — reinstall Ciaren (pip install ciaren).") from None
+    return keyring
+
+
+def keyring_availability() -> tuple[bool, str | None, str | None]:
+    """``(available, backend_name, detail)`` for the current host's OS keychain.
+
+    A headless server has no keychain daemon; ``keyring`` then selects a "fail"
+    backend whose reads/writes raise. Detecting that lets the UI hide the
+    'save to keychain' action instead of offering an operation that will error.
+    Never touches any secret value.
+    """
     try:
-        secret: str | None = keyring.get_password(KEYRING_SERVICE, name)
+        import keyring
+        from keyring.backends.fail import Keyring as FailKeyring
+    except ImportError:  # pragma: no cover — keyring is a core dependency
+        return False, None, "The 'keyring' package is not installed."
+    try:
+        backend = keyring.get_keyring()
+    except Exception as exc:  # noqa: BLE001 — a broken backend must not 500 the probe
+        return False, None, str(exc)
+    name = type(backend).__module__ + "." + type(backend).__qualname__
+    if isinstance(backend, FailKeyring):
+        return False, name, "No usable OS keychain on this host (typical on headless servers)."
+    return True, name, None
+
+
+#: Upper bound on a keychain entry name, shared by every entry point (API,
+#: CLI, path params) — well under any platform keychain's own limit.
+MAX_KEYRING_NAME_LEN = 255
+
+
+def validate_keyring_name(name: str) -> str:
+    """Validate a keychain entry name against the ``keyring:`` grammar, returning
+    it unchanged. Raises :class:`ValidationError` on a bad or over-long name."""
+    if len(name) > MAX_KEYRING_NAME_LEN:
+        raise ValidationError(f"keyring: name must be at most {MAX_KEYRING_NAME_LEN} characters.")
+    scheme, value = parse_secret_ref(f"keyring:{name}")
+    return value
+
+
+def _resolve_keyring(name: str) -> str:
+    keyring = _import_keyring()
+    try:
+        secret: str | None = keyring.get_password(KEYRING_SERVICE, name)  # type: ignore[attr-defined]
     except Exception as exc:  # noqa: BLE001 — backend errors (locked/no daemon) must be a clear 400
         raise ValidationError(f"The OS keychain could not be read: {exc}") from None
     if secret is None:
         raise ValidationError(f"No secret named '{name}' in the OS keychain. Store it with `ciaren secret set {name}`.")
     return secret
+
+
+def keyring_secret_exists(name: str) -> bool:
+    """Whether a Ciaren-namespaced keychain entry ``name`` exists. Never returns
+    or logs the value."""
+    validate_keyring_name(name)
+    keyring = _import_keyring()
+    try:
+        return keyring.get_password(KEYRING_SERVICE, name) is not None  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        raise ValidationError(f"The OS keychain could not be read: {exc}") from None
+
+
+def set_keyring_secret(name: str, value: str) -> None:
+    """Store ``value`` in the OS keychain under the Ciaren service and ``name``.
+
+    The value is written straight to the platform keychain — never to Ciaren's
+    database, an API response, or a log. Validates the name and bounds the size;
+    a backend error (locked keychain, no daemon, size limit) surfaces as a clear
+    :class:`ValidationError`.
+    """
+    validate_keyring_name(name)
+    if not value:
+        raise ValidationError("The secret value is empty.")
+    if len(value.encode("utf-8")) > MAX_KEYRING_SECRET_BYTES:
+        raise ValidationError(f"The secret exceeds the {MAX_KEYRING_SECRET_BYTES}-byte limit.")
+    keyring = _import_keyring()
+    try:
+        keyring.set_password(KEYRING_SERVICE, name, value)  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001 — surface a backend failure, never the value
+        raise ValidationError(f"The OS keychain could not be written: {exc}") from None
+
+
+def delete_keyring_secret(name: str) -> None:
+    """Remove a Ciaren-namespaced keychain entry. Raises if it does not exist."""
+    validate_keyring_name(name)
+    keyring = _import_keyring()
+    from keyring.errors import PasswordDeleteError
+
+    try:
+        keyring.delete_password(KEYRING_SERVICE, name)  # type: ignore[attr-defined]
+    except PasswordDeleteError:
+        raise ValidationError(f"No secret named '{name}' in the OS keychain.") from None
+    except Exception as exc:  # noqa: BLE001 — locked keychain / no daemon
+        raise ValidationError(f"The OS keychain could not be updated: {exc}") from None
 
 
 def scrub(text: str, *secrets: str | None) -> str:

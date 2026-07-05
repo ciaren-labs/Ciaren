@@ -12,6 +12,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.connectors import ConnectionSpec, get_connector, get_provider
+from tests._keyring_fake import install_fake_keyring
 
 
 def _seed_sqlite(path: str) -> None:
@@ -165,6 +166,95 @@ async def test_invalid_password_env_names_are_rejected(client: AsyncClient):
             json={"name": "bad_conn", "provider": "sqlite", "database": "/tmp/x.db", "password_env": bad},
         )
         assert r.status_code == 422, f"Expected 422 for password_env={bad!r}, got {r.status_code}"
+
+
+# -- OS keychain secret endpoints --------------------------------------------
+
+
+async def test_keyring_store_status_and_delete(client: AsyncClient, monkeypatch):
+    store = install_fake_keyring(monkeypatch)
+
+    # Availability probe reports a usable keychain.
+    avail = await client.get("/api/connections/keyring")
+    assert avail.status_code == 200
+    assert avail.json()["available"] is True
+
+    # Not present yet.
+    before = await client.get("/api/connections/keyring/pg-main")
+    assert before.status_code == 200
+    assert before.json() == {"name": "pg-main", "exists": False, "reference": "keyring:pg-main"}
+
+    # Store it — response carries the reference, never the value.
+    created = await client.post("/api/connections/keyring", json={"name": "pg-main", "value": "hunter2"})
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body == {"name": "pg-main", "exists": True, "reference": "keyring:pg-main"}
+    assert "hunter2" not in created.text
+    # The value really landed in the (fake) keychain, namespaced to ciaren.
+    assert store["ciaren\x00pg-main"] == "hunter2"
+
+    # Now present.
+    after = await client.get("/api/connections/keyring/pg-main")
+    assert after.json()["exists"] is True
+
+    # A connection can reference it and resolve at connect time.
+    conn = await _create(client, name="via-keyring", password_env="keyring:pg-main")
+    assert conn["password_env"] == "keyring:pg-main"
+
+    # Delete it.
+    gone = await client.delete("/api/connections/keyring/pg-main")
+    assert gone.status_code == 204
+    assert "ciaren\x00pg-main" not in store
+
+
+async def test_keyring_store_refuses_clobber_without_overwrite(client: AsyncClient, monkeypatch):
+    install_fake_keyring(monkeypatch)
+    first = await client.post("/api/connections/keyring", json={"name": "shared", "value": "a"})
+    assert first.status_code == 201
+    # A second connection's secret under the same name is refused (would clobber).
+    clash = await client.post("/api/connections/keyring", json={"name": "shared", "value": "b"})
+    assert clash.status_code == 409
+    # Explicit overwrite replaces it.
+    ok = await client.post("/api/connections/keyring", json={"name": "shared", "value": "b", "overwrite": True})
+    assert ok.status_code == 201
+
+
+async def test_keyring_store_rejects_bad_name_and_oversize(client: AsyncClient, monkeypatch):
+    install_fake_keyring(monkeypatch)
+    bad = await client.post("/api/connections/keyring", json={"name": "bad name", "value": "x"})
+    assert bad.status_code == 422
+    empty = await client.post("/api/connections/keyring", json={"name": "ok", "value": ""})
+    assert empty.status_code == 422
+    big = await client.post("/api/connections/keyring", json={"name": "ok", "value": "x" * 4097})
+    assert big.status_code == 422
+
+
+async def test_keyring_validation_errors_never_echo_the_secret(client: AsyncClient, monkeypatch):
+    """A 422 must not leak the submitted secret value in its body (the default
+    FastAPI handler echoes `input`; a global handler redacts it)."""
+    install_fake_keyring(monkeypatch)
+    secret = "TOPSECRET-do-not-leak-1234567890"
+    # Oversize value → 422 on the value field.
+    oversize = await client.post("/api/connections/keyring", json={"name": "ok", "value": secret + "x" * 4097})
+    assert oversize.status_code == 422
+    assert secret not in oversize.text
+    # Missing name, but value present → 422 whose input would be the whole body.
+    missing_name = await client.post("/api/connections/keyring", json={"value": secret})
+    assert missing_name.status_code == 422
+    assert secret not in missing_name.text
+
+
+async def test_keyring_unavailable_on_headless(client: AsyncClient, monkeypatch):
+    install_fake_keyring(monkeypatch, available=False)
+    avail = await client.get("/api/connections/keyring")
+    assert avail.status_code == 200
+    assert avail.json()["available"] is False
+
+
+async def test_keyring_delete_missing_is_400(client: AsyncClient, monkeypatch):
+    install_fake_keyring(monkeypatch)
+    r = await client.delete("/api/connections/keyring/absent")
+    assert r.status_code == 400
 
 
 async def test_password_env_cannot_name_app_config(client: AsyncClient):

@@ -17,6 +17,7 @@ from app.core.secrets import (
     parse_secret_ref,
     resolve_secret,
 )
+from tests._keyring_fake import install_fake_keyring
 
 # -- parsing ------------------------------------------------------------------
 
@@ -138,6 +139,7 @@ def test_file_ref_symlink_escape_refused(monkeypatch, tmp_path):
 
 
 def _stub_keyring(monkeypatch, store: dict[str, str]):
+    """Legacy read-only stub keyed by bare name (keeps existing resolve tests)."""
     stub = types.ModuleType("keyring")
     stub.get_password = lambda service, name: store.get(name) if service == KEYRING_SERVICE else None  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "keyring", stub)
@@ -160,3 +162,55 @@ def test_keyring_package_missing_gives_install_hint(monkeypatch):
     monkeypatch.setitem(sys.modules, "keyring", None)  # import keyring -> ImportError
     with pytest.raises(ValidationError, match="keyring.*missing"):
         resolve_secret("keyring:pg-main")
+
+
+# -- keyring write / status helpers -------------------------------------------
+
+
+def test_set_get_delete_roundtrip(monkeypatch):
+    from app.core.secrets import (
+        delete_keyring_secret,
+        keyring_secret_exists,
+        resolve_secret,
+        set_keyring_secret,
+    )
+
+    install_fake_keyring(monkeypatch)
+    assert keyring_secret_exists("pg-main") is False
+    set_keyring_secret("pg-main", "hunter2")
+    assert keyring_secret_exists("pg-main") is True
+    assert resolve_secret("keyring:pg-main") == "hunter2"
+    delete_keyring_secret("pg-main")
+    assert keyring_secret_exists("pg-main") is False
+
+
+def test_set_rejects_bad_name_empty_and_oversize(monkeypatch):
+    from app.core.secrets import MAX_KEYRING_SECRET_BYTES, set_keyring_secret
+
+    install_fake_keyring(monkeypatch)
+    with pytest.raises(ValidationError, match="keyring: reference"):
+        set_keyring_secret("bad name", "x")
+    with pytest.raises(ValidationError, match="empty"):
+        set_keyring_secret("ok", "")
+    with pytest.raises(ValidationError, match="limit"):
+        set_keyring_secret("ok", "x" * (MAX_KEYRING_SECRET_BYTES + 1))
+
+
+def test_delete_missing_entry_is_clear_error(monkeypatch):
+    from app.core.secrets import delete_keyring_secret
+
+    install_fake_keyring(monkeypatch)
+    with pytest.raises(ValidationError, match="No secret named"):
+        delete_keyring_secret("absent")
+
+
+def test_keyring_availability_reports_backend(monkeypatch):
+    from app.core.secrets import keyring_availability
+
+    install_fake_keyring(monkeypatch, available=True)
+    available, backend, detail = keyring_availability()
+    assert available is True and backend and detail is None
+
+    install_fake_keyring(monkeypatch, available=False)
+    available, backend, detail = keyring_availability()
+    assert available is False and "headless" in (detail or "")

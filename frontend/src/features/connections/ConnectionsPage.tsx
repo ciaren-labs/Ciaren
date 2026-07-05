@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Globe,
   HardDrive,
+  KeyRound,
   Loader2,
   Pencil,
   Plus,
@@ -51,6 +52,8 @@ import {
   useConnections,
   useCreateConnection,
   useDeleteConnection,
+  useKeyringAvailability,
+  useStoreKeyringSecret,
   useTestConnection,
   useTestConnectionConfig,
   useUpdateConnection,
@@ -918,16 +921,14 @@ function ConnectionDialog({
                         onChange={(e) => set({ username: e.target.value })}
                       />
                     </Field>
-                    <Field
+                    <SecretRefField
                       label="Password secret"
-                      hint="Env var name, keyring:NAME (OS keychain — ciaren secret set), or file:/path"
-                    >
-                      <Input
-                        value={form.password_env ?? ""}
-                        onChange={(e) => set({ password_env: e.target.value })}
-                        placeholder="PG_PASSWORD"
-                      />
-                    </Field>
+                      hint="Env var name, keyring:NAME (OS keychain), or file:/path"
+                      placeholder="PG_PASSWORD"
+                      value={form.password_env ?? ""}
+                      onChange={(v) => set({ password_env: v })}
+                      suggestedName={form.name}
+                    />
                   </div>
                 </>
               )}
@@ -1053,7 +1054,7 @@ function ApiFields({
         </Field>
       )}
       {authStyle !== "none" && (
-        <Field
+        <SecretRefField
           label="Secret"
           hint={
             (authStyle === "basic"
@@ -1061,13 +1062,11 @@ function ApiFields({
               : "The token / API key — the value is never stored. ") +
             "Env var name, keyring:NAME, or file:/path"
           }
-        >
-          <Input
-            value={form.password_env ?? ""}
-            onChange={(e) => set({ password_env: e.target.value })}
-            placeholder="MY_API_TOKEN"
-          />
-        </Field>
+          placeholder="MY_API_TOKEN"
+          value={form.password_env ?? ""}
+          onChange={(v) => set({ password_env: v })}
+          suggestedName={form.name}
+        />
       )}
 
       <Field
@@ -1259,16 +1258,14 @@ function PluginProviderFields({
               onChange={(e) => set({ username: e.target.value })}
             />
           </Field>
-          <Field
+          <SecretRefField
             label="Password secret"
             hint="Env var name, keyring:NAME (OS keychain), or file:/path"
-          >
-            <Input
-              value={form.password_env ?? ""}
-              onChange={(e) => set({ password_env: e.target.value })}
-              placeholder="MY_SECRET"
-            />
-          </Field>
+            placeholder="MY_SECRET"
+            value={form.password_env ?? ""}
+            onChange={(v) => set({ password_env: v })}
+            suggestedName={form.name}
+          />
         </div>
       )}
       <SchemaConfigFields
@@ -1331,16 +1328,14 @@ function StorageFields({
             placeholder="AKIAIOSFODNN7EXAMPLE"
           />
         </Field>
-        <Field
+        <SecretRefField
           label="Secret Access Key"
           hint="Env var name, keyring:NAME, or file:/path holding the secret key (optional if using IAM)"
-        >
-          <Input
-            value={form.password_env ?? ""}
-            onChange={(e) => set({ password_env: e.target.value })}
-            placeholder="AWS_SECRET_ACCESS_KEY"
-          />
-        </Field>
+          placeholder="AWS_SECRET_ACCESS_KEY"
+          value={form.password_env ?? ""}
+          onChange={(v) => set({ password_env: v })}
+          suggestedName={`${form.name || "s3"}-secret-key`}
+        />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Region" hint="e.g. us-east-1 (optional)">
             <Input
@@ -1378,16 +1373,14 @@ function StorageFields({
             placeholder="mystorageaccount"
           />
         </Field>
-        <Field
+        <SecretRefField
           label="Account key"
           hint="Env var name, keyring:NAME, or file:/path holding the account key"
-        >
-          <Input
-            value={form.password_env ?? ""}
-            onChange={(e) => set({ password_env: e.target.value })}
-            placeholder="AZURE_STORAGE_ACCOUNT_KEY"
-          />
-        </Field>
+          placeholder="AZURE_STORAGE_ACCOUNT_KEY"
+          value={form.password_env ?? ""}
+          onChange={(v) => set({ password_env: v })}
+          suggestedName={`${form.name || "azure"}-account-key`}
+        />
       </>
     );
   }
@@ -1412,16 +1405,17 @@ function StorageFields({
             placeholder="my-gcp-project"
           />
         </Field>
-        <Field
+        {/* GCS holds a *path* to a JSON credentials file, not a secret value,
+            so the keychain-save affordance doesn't apply here. */}
+        <SecretRefField
           label="Service account key"
-          hint="Env var name (or keyring:/file: ref) holding the path to a service account JSON file. Leave empty for Application Default Credentials."
-        >
-          <Input
-            value={form.password_env ?? ""}
-            onChange={(e) => set({ password_env: e.target.value })}
-            placeholder="GOOGLE_APPLICATION_CREDENTIALS"
-          />
-        </Field>
+          hint="Env var name (or file: ref) holding the path to a service account JSON file. Leave empty for Application Default Credentials."
+          placeholder="GOOGLE_APPLICATION_CREDENTIALS"
+          value={form.password_env ?? ""}
+          onChange={(v) => set({ password_env: v })}
+          suggestedName={form.name}
+          allowKeychain={false}
+        />
       </>
     );
   }
@@ -1446,5 +1440,144 @@ function Field({
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+/** Turn a connection name into a valid keychain entry name (keyring: grammar). */
+function keyringNameFrom(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  return slug || "secret";
+}
+
+/**
+ * A connection secret field: the input holds a *reference*
+ * (env var name, keyring:NAME, or file:/path). When the host has a usable OS
+ * keychain, it also offers "Save a secret to the system keychain" — the entered
+ * value is written straight to the OS keychain (never persisted by Ciaren) and
+ * the field is set to the resulting keyring:NAME reference.
+ */
+function SecretRefField({
+  label,
+  hint,
+  placeholder,
+  value,
+  onChange,
+  suggestedName,
+  allowKeychain = true,
+}: {
+  label: string;
+  hint?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  suggestedName: string;
+  allowKeychain?: boolean;
+}) {
+  const keyring = useKeyringAvailability();
+  const store = useStoreKeyringSecret();
+  const [open, setOpen] = useState(false);
+  const [entryName, setEntryName] = useState("");
+  const [secretValue, setSecretValue] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const canKeychain = allowKeychain && keyring.data?.available === true;
+
+  function openPanel() {
+    setEntryName(keyringNameFrom(suggestedName));
+    setSecretValue("");
+    setError(null);
+    setSaved(null);
+    setOpen(true);
+  }
+
+  async function save(overwrite = false): Promise<void> {
+    setError(null);
+    try {
+      const res = await store.mutateAsync({ name: entryName, value: secretValue, overwrite });
+      onChange(res.reference);
+      setSaved(res.reference);
+      setSecretValue("");
+      setOpen(false);
+      // Drop the plaintext value react-query keeps as the mutation's `variables`.
+      store.reset();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && !overwrite) {
+        if (confirm(`${e.message}\n\nOverwrite it?`)) return save(true);
+        return;
+      }
+      setError(e instanceof ApiError ? e.message : "Could not save to the keychain.");
+    }
+  }
+
+  function cancel() {
+    setSecretValue(""); // don't leave the plaintext secret lingering in state
+    setError(null);
+    setOpen(false);
+  }
+
+  return (
+    <Field label={label} hint={hint}>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      {canKeychain && !open && (
+        <button
+          type="button"
+          onClick={openPanel}
+          className="mt-0.5 inline-flex items-center gap-1 self-start text-[11px] font-medium text-primary hover:underline"
+        >
+          <KeyRound className="h-3 w-3" />
+          Save a secret to the system keychain
+        </button>
+      )}
+      {saved && !open && (
+        <p className="mt-0.5 text-[11px] text-emerald-600">
+          Stored in the OS keychain — this connection references <code>{saved}</code>.
+        </p>
+      )}
+      {canKeychain && open && (
+        <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+          <p className="text-[11px] text-muted-foreground">
+            The value is written to your OS keychain and never stored by Ciaren; the connection keeps
+            only a <code>keyring:NAME</code> reference.
+          </p>
+          <div className="flex flex-col gap-1">
+            <Label className="text-[11px]">Keychain name</Label>
+            <Input
+              value={entryName}
+              onChange={(e) => setEntryName(e.target.value)}
+              placeholder="pg-main"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-[11px]">Secret value</Label>
+            <Input
+              type="password"
+              value={secretValue}
+              onChange={(e) => setSecretValue(e.target.value)}
+              placeholder="the password / token"
+              autoComplete="new-password"
+              maxLength={4096}
+            />
+          </div>
+          {error && <p className="text-[11px] text-destructive">{error}</p>}
+          <div className="flex items-center justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={cancel}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void save(false)}
+              disabled={!entryName || !secretValue || store.isPending}
+            >
+              {store.isPending ? "Saving…" : "Save to keychain"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Field>
   );
 }

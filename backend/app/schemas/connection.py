@@ -164,3 +164,45 @@ class TableInfo(BaseModel):
     name: str
     schema_name: str | None = None
     qualified: str
+
+
+class KeyringSecretWrite(BaseModel):
+    """Request to store a secret in the OS keychain from the connection form.
+
+    The ``value`` is written straight to the platform keychain and is **never**
+    persisted by Ciaren, returned in a response, or logged. ``overwrite`` guards
+    an existing entry (used by another connection): the write is refused with 409
+    unless set.
+    """
+
+    name: str = Field(min_length=1, max_length=255)
+    value: str = Field(min_length=1, max_length=4096, repr=False)
+    overwrite: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, v: str) -> str:
+        from app.core.secrets import validate_keyring_name
+
+        try:
+            return validate_keyring_name(v)
+        except ValidationError as exc:
+            raise ValueError(str(exc)) from None
+
+
+class KeyringSecretStatus(BaseModel):
+    """A keychain entry's presence — never its value. ``reference`` is the string
+    to put in a connection's secret field (``keyring:NAME``)."""
+
+    name: str
+    exists: bool
+    reference: str
+
+
+class KeyringAvailability(BaseModel):
+    """Whether this host has a usable OS keychain, so the UI can offer (or hide)
+    the 'save to keychain' action. Headless servers have no keychain daemon."""
+
+    available: bool
+    backend: str | None = None
+    detail: str | None = None

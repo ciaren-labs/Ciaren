@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -242,6 +243,19 @@ def create_app() -> FastAPI:
     @app.exception_handler(ValidationError)
     async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Redact the echoed request input from validation errors. FastAPI's default
+        # 422 body includes the offending `input` (and `ctx`) verbatim — for a body
+        # carrying a plaintext secret (e.g. POST /api/connections/keyring) that would
+        # leak the secret into a response. Keep loc/msg/type so clients still see
+        # what failed, but never the submitted value.
+        safe = [
+            {"loc": list(err.get("loc", [])), "msg": str(err.get("msg", "")), "type": str(err.get("type", ""))}
+            for err in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": safe})
 
     @app.exception_handler(ConflictError)
     async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
