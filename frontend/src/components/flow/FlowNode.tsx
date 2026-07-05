@@ -1,9 +1,16 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertCircle } from "lucide-react";
 import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
+import {
+  handleCompatibility,
+  nodeHasNoCompatibleHandle,
+  type HandleStatus,
+} from "@/lib/connectionRules";
 import { getNodeIcon } from "@/lib/nodeVisuals";
-import { getModelDef, TRAIN_NODE_TASKS } from "@/lib/mlModels";
+import { getNodeSummary } from "@/lib/nodeSummary";
+import { TRAIN_NODE_TASKS } from "@/lib/mlModels";
 import { cn } from "@/lib/utils";
+import { useDatasets } from "@/features/datasets/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowNodeType } from "@/stores/flowEditorStore";
 
@@ -27,6 +34,21 @@ function labelNudge(idx: number, count: number): number {
   if (count < 2) return 0;
   const NUDGE = 11;
   return (idx / (count - 1) - 0.5) * 2 * NUDGE;
+}
+
+/** Handle styling: model handles are purple, data handles brand-blue. While a
+ * wire is being dragged, a handle that could complete it grows and gains a
+ * ring; one that can't fades out, so the eye lands on the legal drop points. */
+function handleClasses(model: boolean, status: HandleStatus): string {
+  return cn(
+    "!h-2.5 !w-2.5 !border-2 !border-background transition-all duration-150",
+    model ? "!bg-purple-400" : "!bg-brand-300",
+    status === "compatible" &&
+      (model
+        ? "!h-3.5 !w-3.5 !bg-purple-500 ring-2 ring-purple-300"
+        : "!h-3.5 !w-3.5 !bg-brand-500 ring-2 ring-brand-300"),
+    status === "incompatible" && "!opacity-30",
+  );
 }
 
 /** A small label pinned just outside the card near a handle, nudged off the wire. */
@@ -64,7 +86,10 @@ function HandleLabel({
 /**
  * Minimalist node: a neutral surface with a thin purple border and a small icon.
  * Multi-handle nodes (split, train, predict, join) label each port so it's clear
- * which wire is which; mlTrain shows the chosen model.
+ * which wire is which. Under the label sits a one-line config summary (dataset,
+ * filter expression, join keys, …) so a misconfigured node is spotted without
+ * opening the sidebar. During a connection drag, handles that can accept the
+ * wire light up and everything incompatible dims.
  */
 export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) {
   const def = getNodeTypeDef(type ?? "");
@@ -76,11 +101,27 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
   const Icon = getNodeIcon(type);
   const hasError = useFlowEditorStore((s) => s.invalidNodeIds.includes(id));
 
-  // A train node shows the selected model under its label.
-  const subtitle =
-    type in TRAIN_NODE_TASKS
-      ? getModelDef(String((data.config as Record<string, unknown>)?.model_type ?? ""))?.label
-      : undefined;
+  // Live connection feedback: while a wire is dragged from some handle, style
+  // this node's handles by whether they could legally complete the connection.
+  const pending = useFlowEditorStore((s) => s.pendingConnection);
+  const pendingDef = pending ? getNodeTypeDef(pending.nodeType) : undefined;
+  const dimmed = nodeHasNoCompatibleHandle(pending, pendingDef, id, def);
+
+  // Config summary: input nodes show their dataset's name, so resolve it here.
+  // The query only runs for nodes that reference a dataset (react-query dedupes
+  // the request across all such nodes; other nodes never subscribe-fetch).
+  const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
+  const referencesDataset =
+    typeof (data.config as Record<string, unknown> | undefined)?.dataset_id === "string" &&
+    (data.config as Record<string, unknown>).dataset_id !== "";
+  const { data: datasets } = useDatasets(flowProjectId ?? undefined, referencesDataset);
+  const config = (data.config ?? {}) as Record<string, unknown>;
+  const datasetName = referencesDataset
+    ? datasets?.find((d) => d.id === config.dataset_id)?.name ?? null
+    : null;
+  const subtitle = getNodeSummary(type ?? "", config, { datasetName });
+  // Train/model nodes keep their purple "model" accent; other summaries are muted.
+  const subtitleIsModel = (type ?? "") in TRAIN_NODE_TASKS;
 
   return (
     <div
@@ -89,10 +130,12 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
         "transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-md",
         selected && "border-brand-500 ring-2 ring-brand-300/60",
         hasError && "border-destructive/60 ring-2 ring-destructive/40",
+        dimmed && "opacity-40",
       )}
     >
       {inputHandles.map((handleId, idx) => {
         const top = topPct(idx, inputHandles.length);
+        const status = handleCompatibility(pending, pendingDef, id, def, handleId, "target");
         return (
           <div key={handleId}>
             <Handle
@@ -100,10 +143,7 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
               type="target"
               position={Position.Left}
               style={{ top }}
-              className={cn(
-                "!h-2.5 !w-2.5 !border-2 !border-background",
-                isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
-              )}
+              className={handleClasses(isModelHandle(handleId), status)}
             />
             {inputHandles.length > 1 && (
               <HandleLabel
@@ -127,7 +167,15 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
             {data.label}
           </div>
           {subtitle && (
-            <div className="truncate text-[10px] leading-tight text-purple-600">{subtitle}</div>
+            <div
+              className={cn(
+                "max-w-[180px] truncate text-[10px] leading-tight",
+                subtitleIsModel ? "text-purple-600" : "text-slate-400",
+              )}
+              title={subtitle}
+            >
+              {subtitle}
+            </div>
           )}
         </div>
         {hasError && <AlertCircle className="ml-auto h-3.5 w-3.5 shrink-0 text-destructive" />}
@@ -135,6 +183,7 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
 
       {outputHandles.map((handleId, idx) => {
         const top = topPct(idx, outputHandles.length);
+        const status = handleCompatibility(pending, pendingDef, id, def, handleId, "source");
         return (
           <div key={handleId}>
             <Handle
@@ -142,10 +191,7 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
               type="source"
               position={Position.Right}
               style={{ top }}
-              className={cn(
-                "!h-2.5 !w-2.5 !border-2 !border-background",
-                isModelHandle(handleId) ? "!bg-purple-400" : "!bg-brand-300",
-              )}
+              className={handleClasses(isModelHandle(handleId), status)}
             />
             {outputHandles.length > 1 && (
               <HandleLabel

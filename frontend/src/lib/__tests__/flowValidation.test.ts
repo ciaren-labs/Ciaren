@@ -235,6 +235,131 @@ describe("validateFlow", () => {
     expect(codes(v.errors)).not.toContain("MODEL_SOURCE_MISMATCH");
   });
 
+  // The canvas blocks these connections interactively; these cases cover
+  // graphs that arrive with edges already in place (imported / hand-edited).
+  it("flags a model output wired into a data input", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("t", "mlTrainClassifier", {
+        model_type: "logistic_regression",
+        target_column: "a",
+        feature_columns: ["a"],
+      }),
+      node("clean", "dropNulls", { subset: [], how: "any" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      edge("in", "t"),
+      // A train node's only output is its model wire — even without an
+      // explicit sourceHandle it must not feed a data input.
+      { source: "t", target: "clean", sourceHandle: null, targetHandle: null },
+      edge("clean", "out"),
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("MODEL_WIRE_MISMATCH");
+    expect(v.canRun).toBe(false);
+  });
+
+  it("flags a dataframe wired into a model input", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("p", "mlPredict", { output_column: "prediction", model_uri: "models:/m@prod" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      edge("in", "p"),
+      { source: "in", target: "p", sourceHandle: "out", targetHandle: "model" },
+      edge("p", "out"),
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("MODEL_WIRE_MISMATCH");
+  });
+
+  it("accepts a proper model wire without a mismatch error", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("t", "mlTrainClassifier", {
+        model_type: "logistic_regression",
+        target_column: "a",
+        feature_columns: ["a"],
+      }),
+      node("p", "mlPredict", { output_column: "prediction" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      edge("in", "t"),
+      edge("t", "p", "model"),
+      edge("in", "p"),
+      edge("p", "out"),
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).not.toContain("MODEL_WIRE_MISMATCH");
+  });
+
+  it("flags two edges into a single-input handle (imported graphs)", () => {
+    const nodes = [
+      node("in1", "csvInput", { dataset_id: "csv1" }),
+      node("in2", "csvInput", { dataset_id: "csv1" }),
+      node("clean", "dropNulls", { subset: [], how: "any" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      // One edge with a null handle, one explicit — both resolve to "in".
+      { source: "in1", target: "clean", sourceHandle: null, targetHandle: null },
+      { source: "in2", target: "clean", sourceHandle: null, targetHandle: "in" },
+      edge("clean", "out"),
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("INPUT_CONFLICT");
+    expect(v.canRun).toBe(false);
+  });
+
+  it("allows many edges into a multi-input node without conflict", () => {
+    const nodes = [
+      node("in1", "csvInput", { dataset_id: "csv1" }),
+      node("in2", "csvInput", { dataset_id: "csv1" }),
+      node("stack", "concatRows", {}),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges = [edge("in1", "stack"), edge("in2", "stack"), edge("stack", "out")];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).not.toContain("INPUT_CONFLICT");
+  });
+
+  it("flags an ambiguous edge leaving a multi-output node", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("split", "trainTestSplit", { test_size: 0.2, stratify_column: null, seed: 42 }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      edge("in", "split"),
+      // Which output — train or test? The backend refuses this; so do we.
+      { source: "split", target: "out", sourceHandle: null, targetHandle: null },
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("SOURCE_HANDLE_INVALID");
+
+    const ok = validateFlow(
+      nodes,
+      [edge("in", "split"), { source: "split", target: "out", sourceHandle: "train", targetHandle: null }],
+      [csvDs],
+    );
+    expect(codes(ok.errors)).not.toContain("SOURCE_HANDLE_INVALID");
+  });
+
+  it("flags an edge leaving an undeclared output handle", () => {
+    const nodes = [
+      node("in", "csvInput", { dataset_id: "csv1" }),
+      node("out", "csvOutput", { dataset_name: "output" }),
+    ];
+    const edges: GraphEdgeLike[] = [
+      { source: "in", target: "out", sourceHandle: "bogus", targetHandle: null },
+    ];
+    const v = validateFlow(nodes, edges, [csvDs]);
+    expect(codes(v.errors)).toContain("SOURCE_HANDLE_INVALID");
+  });
+
   it("flags invalid node config", () => {
     const nodes = [
       node("in", "csvInput", { dataset_id: "" }), // empty -> zod error

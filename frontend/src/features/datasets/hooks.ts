@@ -8,10 +8,11 @@ import { datasetsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
 
-export function useDatasets(projectId?: string) {
+export function useDatasets(projectId?: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.datasetsByProject(projectId),
     queryFn: () => datasetsApi.list(projectId),
+    enabled,
   });
 }
 

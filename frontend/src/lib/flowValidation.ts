@@ -6,6 +6,7 @@
 import {
   canConnectModelToTarget,
   getNodeTypeDef,
+  getOutputHandles,
   isModelInputHandle,
   isModelOutputHandle,
 } from "./nodeCatalog";
@@ -188,6 +189,23 @@ export function validateFlow(
             });
           }
         }
+        // More than one wire into a single-input handle can't happen through
+        // the canvas, but an imported graph can carry it — and the backend
+        // refuses to run it, so surface the error here too.
+        for (const [handle, count] of counts) {
+          if (count > 1) {
+            const which =
+              def.inputHandles.length + (def.optionalInputHandles?.length ?? 0) > 1
+                ? ` "${handle}"`
+                : "";
+            issues.push({
+              severity: "error",
+              code: "INPUT_CONFLICT",
+              nodeId: node.id,
+              message: `${def.label}: the${which} input has ${count} connections but accepts only one. Remove the extra wires.`,
+            });
+          }
+        }
       }
 
       // 3b. mlPredict needs a model: either the "model" input wired from an
@@ -210,14 +228,57 @@ export function validateFlow(
   }
 
   // 4. Model-wire compatibility --------------------------------------------
+  // The canvas blocks these interactively, but a graph can also arrive with
+  // its edges already in place (imported, migrated, hand-edited JSON), so the
+  // same rules are re-checked here — mirroring the backend guard.
   for (const edge of edges) {
     const source = nodeById.get(edge.source);
     const target = nodeById.get(edge.target);
     const sourceDef = source ? getNodeTypeDef(source.type ?? "") : undefined;
     const targetDef = target ? getNodeTypeDef(target.type ?? "") : undefined;
     if (!sourceDef || !targetDef) continue;
+    // A multi-output source (train/test split) must say which output the edge
+    // leaves from; the backend rejects an ambiguous or unknown source handle.
+    const outs = getOutputHandles(sourceDef);
+    if (
+      (outs.length > 1 && edge.sourceHandle == null) ||
+      (edge.sourceHandle != null && !outs.includes(edge.sourceHandle))
+    ) {
+      issues.push({
+        severity: "error",
+        code: "SOURCE_HANDLE_INVALID",
+        nodeId: edge.source,
+        message:
+          edge.sourceHandle == null
+            ? `${sourceDef.label}: an outgoing connection must choose one of its outputs (${outs.join(", ")}).`
+            : `${sourceDef.label}: an outgoing connection uses unknown output "${edge.sourceHandle}".`,
+      });
+      continue;
+    }
     const carriesModel = isModelOutputHandle(sourceDef, edge.sourceHandle);
-    const wantsModel = isModelInputHandle(targetDef, edge.targetHandle);
+    const wantsModel = isModelInputHandle(targetDef, edge.targetHandle ?? "in");
+    if (carriesModel && !wantsModel) {
+      issues.push({
+        severity: "error",
+        code: "MODEL_WIRE_MISMATCH",
+        nodeId: edge.target,
+        message:
+          `${targetDef.label}: the connection from ${sourceDef.label} carries a trained model, ` +
+          `but this input expects data. Wire the model into a "model" input instead.`,
+      });
+      continue;
+    }
+    if (!carriesModel && wantsModel) {
+      issues.push({
+        severity: "error",
+        code: "MODEL_WIRE_MISMATCH",
+        nodeId: edge.target,
+        message:
+          `${targetDef.label}: the "model" input expects a trained model, ` +
+          `but ${sourceDef.label} outputs data. Connect a train or model node instead.`,
+      });
+      continue;
+    }
     if (carriesModel && wantsModel && !canConnectModelToTarget(sourceDef, targetDef)) {
       issues.push({
         severity: "error",

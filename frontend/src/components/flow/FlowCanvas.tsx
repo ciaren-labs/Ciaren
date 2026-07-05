@@ -12,6 +12,7 @@ import {
   type Edge,
   type IsValidConnection,
   type Node,
+  type OnConnectStart,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { ChevronDown, LayoutGrid } from "lucide-react";
@@ -19,12 +20,12 @@ import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
+import { getNodeTypeDef, getOutputHandles, isModelOutputHandle } from "@/lib/nodeCatalog";
 import {
-  canConnectModelToTarget,
-  getNodeTypeDef,
-  isModelInputHandle,
-  isModelOutputHandle,
-} from "@/lib/nodeCatalog";
+  buildEdgeId,
+  isCompatibleConnection,
+  isDuplicateEdge,
+} from "@/lib/connectionRules";
 import { cloneSelection, hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
@@ -58,20 +59,18 @@ export function FlowCanvas() {
       );
       let nextEdges = edges;
       if (targetDef && !targetDef.multiInput) {
+        // Normalize null → "in" like the runtime does, so an imported edge
+        // stored without an explicit handle is still replaced (not doubled up)
+        // when the user drops a new wire on the same single-input handle.
         nextEdges = edges.filter(
           (e) =>
             !(
               e.target === connection.target &&
-              (e.targetHandle ?? null) === (connection.targetHandle ?? null)
+              (e.targetHandle ?? "in") === (connection.targetHandle ?? "in")
             ),
         );
       }
-      const newEdge: Edge = {
-        ...connection,
-        id: `e_${connection.source}_${connection.target}_${
-          connection.targetHandle ?? "in"
-        }`,
-      };
+      const newEdge: Edge = { ...connection, id: buildEdgeId(connection) };
       setEdges(addEdge(newEdge, nextEdges));
     },
     [edges, nodes, setEdges],
@@ -86,35 +85,40 @@ export function FlowCanvas() {
       const targetDef = getNodeTypeDef(
         nodes.find((n) => n.id === conn.target)?.type ?? "",
       );
-      if (!sourceDef?.hasOutput) return false;
-      if (!targetDef || targetDef.inputHandles.length === 0) return false;
-      // A model wire only connects a model output to a model input (and vice
-      // versa) — mirrors the backend guard so a model can't be dropped onto a
-      // data input or a dataframe onto a model input.
+      // Topology rules (model wires, declared handles, CV restriction) live in
+      // connectionRules so validation and the drag highlight share them.
+      if (!isCompatibleConnection(sourceDef, conn.sourceHandle, targetDef, conn.targetHandle)) {
+        return false;
+      }
+      // Duplicate detection keys on the source handle too: a split node's
+      // "train" and "test" outputs are distinct edges even to the same target.
       if (
-        isModelOutputHandle(sourceDef, conn.sourceHandle) !==
-        isModelInputHandle(targetDef, conn.targetHandle)
+        sourceDef &&
+        isDuplicateEdge(edges, conn, getOutputHandles(sourceDef)[0])
       ) {
         return false;
       }
-      if (
-        isModelOutputHandle(sourceDef, conn.sourceHandle) &&
-        isModelInputHandle(targetDef, conn.targetHandle) &&
-        !canConnectModelToTarget(sourceDef, targetDef)
-      ) {
-        return false;
-      }
-      const duplicate = edges.some(
-        (e) =>
-          e.source === conn.source &&
-          e.target === conn.target &&
-          (e.targetHandle ?? null) === (conn.targetHandle ?? null),
-      );
-      if (duplicate) return false;
       return !wouldCreateCycle(edges, conn.source, conn.target);
     },
     [nodes, edges],
   );
+
+  // While a wire is being dragged, publish its origin so every node can light
+  // up compatible handles and dim incompatible ones (see FlowNode).
+  const setPendingConnection = useFlowEditorStore((s) => s.setPendingConnection);
+  const onConnectStart = useCallback<OnConnectStart>(
+    (_event, { nodeId, handleId, handleType }) => {
+      if (!nodeId || !handleType) return;
+      setPendingConnection({
+        nodeId,
+        handleId: handleId ?? null,
+        handleType,
+        nodeType: nodes.find((n) => n.id === nodeId)?.type ?? "",
+      });
+    },
+    [nodes, setPendingConnection],
+  );
+  const onConnectEnd = useCallback(() => setPendingConnection(null), [setPendingConnection]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -256,6 +260,10 @@ export function FlowCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
+        onClickConnectStart={onConnectStart}
+        onClickConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         onNodeClick={(_, node) => selectNode(node.id)}
         onPaneClick={() => selectNode(null)}

@@ -9,6 +9,7 @@ import type {
 } from "@xyflow/react";
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import type { GraphNodeData, ParameterSpec } from "@/lib/types";
+import type { PendingConnection } from "@/lib/connectionRules";
 
 export type FlowNodeType = Node<GraphNodeData>;
 export type FlowEdgeType = Edge;
@@ -45,6 +46,10 @@ interface FlowEditorState {
   flowProjectId: string | null;
   /** Parameter specs declared on the current flow (graph_json.parameters). */
   parameters: ParameterSpec[];
+  /** Origin of the connection currently being dragged, if any. Nodes read it
+   *  to highlight compatible handles. Transient UI state: never dirties the
+   *  flow and never enters the undo history. */
+  pendingConnection: PendingConnection | null;
 
   /** Undo/redo stacks. Only nodes/edges are versioned — panel state isn't. */
   past: HistoryEntry[];
@@ -53,6 +58,7 @@ interface FlowEditorState {
   historyGroupKey: string | null;
   historyGroupAt: number;
 
+  setPendingConnection: (pending: PendingConnection | null) => void;
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   setParameters: (parameters: ParameterSpec[]) => void;
   setInvalidNodeIds: (ids: string[]) => void;
@@ -125,7 +131,10 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   invalidNodeIds: [],
   flowProjectId: null,
   parameters: [],
+  pendingConnection: null,
   ...HISTORY_RESET,
+
+  setPendingConnection: (pending) => set({ pendingConnection: pending }),
 
   setGraph: (nodes, edges) =>
     set((state) => ({
@@ -134,6 +143,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       structureVersion: state.structureVersion + 1,
       dirty: false,
       selectedNodeId: null,
+      pendingConnection: null,
       ...HISTORY_RESET,
     })),
 
@@ -326,6 +336,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       invalidNodeIds: [],
       flowProjectId: null,
       parameters: [],
+      pendingConnection: null,
       ...HISTORY_RESET,
     })),
 }));
