@@ -138,6 +138,23 @@ class FlowService:
         await self.db.refresh(flow)
         return FlowRead.model_validate(flow)
 
+    async def duplicate(self, flow_id: str, name: str | None = None) -> FlowRead:
+        """Create an independent copy of a flow: same graph, parameters, and
+        engine choice; nothing operational comes along (no schedules, no run
+        history — those belong to the original)."""
+        original = await self._get_or_raise(flow_id)
+        copy_name = (name or f"{original.name} (copy)").strip()[:255]
+        flow = Flow(
+            name=copy_name,
+            description=original.description,
+            project_id=original.project_id,
+            graph_json=copy.deepcopy(original.graph_json),
+        )
+        self.db.add(flow)
+        await self.db.commit()
+        await self.db.refresh(flow)
+        return FlowRead.model_validate(flow)
+
     async def import_flow(self, data: FlowImport) -> FlowRead:
         """Create a flow from an exported document, stripping environment-specific
         bindings so it is portable across machines (CI/CD friendly).

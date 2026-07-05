@@ -76,6 +76,18 @@ export function useUpdateFlow() {
   });
 }
 
+export function useDuplicateFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => flowsApi.duplicate(id),
+    meta: { errorMessage: "Couldn't duplicate the flow" },
+    onSuccess: (flow) => {
+      qc.invalidateQueries({ queryKey: ["flows"] });
+      toast.success(`Duplicated as "${flow.name}"`);
+    },
+  });
+}
+
 export function useDeleteFlow() {
   const qc = useQueryClient();
   return useMutation({

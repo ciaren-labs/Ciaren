@@ -314,6 +314,45 @@ function outputColumns(
   }
 }
 
+let _cloneCounter = 0;
+
+/** Deep-copy a node/edge selection with fresh ids for pasting.
+ *
+ * Edges are kept only when BOTH endpoints are inside the selection (a pasted
+ * half-edge would dangle); handles and configs are preserved verbatim, and
+ * every pasted node is offset so the copy doesn't sit exactly on the
+ * original. Pure so it's unit-testable — the canvas only wires clipboard
+ * events to it. */
+export function cloneSelection<
+  N extends { id: string; position?: { x: number; y: number }; selected?: boolean },
+  E extends { id: string; source: string; target: string },
+>(nodes: N[], edges: E[], offset = 32): { nodes: N[]; edges: E[] } {
+  const idMap = new Map<string, string>();
+  const clonedNodes = nodes.map((n) => {
+    _cloneCounter += 1;
+    const id = `${n.id.split("_")[0]}_${Date.now()}_c${_cloneCounter}`;
+    idMap.set(n.id, id);
+    const cloned = structuredClone(n);
+    cloned.id = id;
+    cloned.selected = true; // pasted copy becomes the new selection
+    if (cloned.position) {
+      cloned.position = { x: cloned.position.x + offset, y: cloned.position.y + offset };
+    }
+    return cloned;
+  });
+  const clonedEdges = edges
+    .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+    .map((e) => {
+      _cloneCounter += 1;
+      const cloned = structuredClone(e);
+      cloned.id = `e_${Date.now()}_c${_cloneCounter}`;
+      cloned.source = idMap.get(e.source)!;
+      cloned.target = idMap.get(e.target)!;
+      return cloned;
+    });
+  return { nodes: clonedNodes, edges: clonedEdges };
+}
+
 export interface NodeColumns {
   /** Columns available on the wire(s) entering this node. */
   input: string[];

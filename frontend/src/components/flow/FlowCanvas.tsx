@@ -18,13 +18,14 @@ import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
 import {
   canConnectModelToTarget,
   getNodeTypeDef,
   isModelInputHandle,
   isModelOutputHandle,
 } from "@/lib/nodeCatalog";
-import { hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
+import { cloneSelection, hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
 import { createFlowNode } from "@/lib/createNode";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
 import { cn } from "@/lib/utils";
@@ -153,6 +154,47 @@ export function FlowCanvas() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
+
+  // Copy/paste of the selected nodes (plus the edges between them). The
+  // clipboard is a ref, not OS clipboard: node configs may reference local
+  // datasets, so they're only meaningful inside this editor session anyway.
+  const clipboardRef = useRef<{ nodes: FlowNodeType[]; edges: FlowEdgeType[] } | null>(null);
+  const pasteSelection = useFlowEditorStore((s) => s.pasteSelection);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement | null;
+      // Never hijack copy/paste from form fields or editable content.
+      if (target && (target.closest("input, textarea, select, [contenteditable=true]") !== null)) return;
+      const key = e.key.toLowerCase();
+      if (key === "c") {
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length === 0) return;
+        const ids = new Set(selected.map((n) => n.id));
+        clipboardRef.current = {
+          nodes: structuredClone(selected),
+          edges: structuredClone(edges.filter((ed) => ids.has(ed.source) && ids.has(ed.target))),
+        };
+      } else if (key === "v") {
+        if (!clipboardRef.current) return;
+        const cloned = cloneSelection(clipboardRef.current.nodes, clipboardRef.current.edges);
+        pasteSelection(cloned.nodes, cloned.edges);
+      } else if (key === "d") {
+        // Ctrl+D: duplicate the selection in place (copy+paste in one).
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length === 0) return;
+        e.preventDefault();
+        const ids = new Set(selected.map((n) => n.id));
+        const cloned = cloneSelection(
+          selected,
+          edges.filter((ed) => ids.has(ed.source) && ids.has(ed.target)),
+        );
+        pasteSelection(cloned.nodes, cloned.edges);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [nodes, edges, pasteSelection]);
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   // Remember the last layout the user picked so the main button reapplies it.

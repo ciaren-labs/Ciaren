@@ -59,6 +59,8 @@ interface FlowEditorState {
   onNodesChange: OnNodesChange<FlowNodeType>;
   onEdgesChange: OnEdgesChange<FlowEdgeType>;
   addNode: (node: FlowNodeType) => void;
+  /** Paste a cloned selection (nodes + their internal edges) as one undo step. */
+  pasteSelection: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   removeNode: (id: string) => void;
   setEdges: (edges: FlowEdgeType[]) => void;
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
@@ -192,6 +194,16 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       structureVersion: state.structureVersion + 1,
       selectedNodeId: node.id,
       sidebarOpen: true,
+      dirty: true,
+    })),
+
+  pasteSelection: (nodes, edges) =>
+    set((state) => ({
+      ...checkpoint(state, `paste:${Date.now()}`),
+      // Deselect the originals so the pasted copy is the active selection.
+      nodes: [...state.nodes.map((n) => ({ ...n, selected: false })), ...nodes],
+      edges: [...state.edges, ...edges],
+      structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
 

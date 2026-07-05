@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, FileText, Loader2, Pencil, Play, Plus, Power, RefreshCw, Trash2, Upload, Workflow } from "lucide-react";
-import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useMigrateFlowDocument, useRunFlow, useToggleFlow, useUpdateFlow } from "./hooks";
+import { AlertCircle, CalendarClock, Copy as CopyIcon, FileText, Loader2, Pencil, Play, Plus, Power, RefreshCw, Trash2, Upload, Workflow } from "lucide-react";
+import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useMigrateFlowDocument, useRunFlow, useToggleFlow, useUpdateFlow, useDuplicateFlow } from "./hooks";
 import { MigrateFlowDialog } from "./MigrateFlowDialog";
 import { FLOW_TEMPLATES, buildTemplateGraph } from "@/lib/flowTemplates";
 import { useProjects } from "@/features/projects/hooks";
@@ -54,6 +54,7 @@ export function FlowListPage() {
   const { data: projects } = useProjects();
   const createFlow = useCreateFlow();
   const deleteFlow = useDeleteFlow();
+  const duplicateFlow = useDuplicateFlow();
   const toggleFlow = useToggleFlow();
   const updateFlow = useUpdateFlow();
   const navigate = useNavigate();
@@ -434,6 +435,7 @@ export function FlowListPage() {
                       onSchedule={() => setSchedulingFlow(flow)}
                       onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                       onDelete={() => setPendingAction({ kind: "delete", flow })}
+                      onDuplicate={() => duplicateFlow.mutate(flow.id)}
                     />
                   ))}
                 </div>
@@ -448,6 +450,7 @@ export function FlowListPage() {
                   onSchedule={(flow) => setSchedulingFlow(flow)}
                   onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                   onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
+                  onDuplicate={(flow) => duplicateFlow.mutate(flow.id)}
                 />
               )}
             </CollapsibleSection>
@@ -644,6 +647,7 @@ function FlowCard({
   onSchedule,
   onToggle,
   onDelete,
+  onDuplicate,
 }: {
   flow: Flow;
   onOpen: () => void;
@@ -652,6 +656,7 @@ function FlowCard({
   onSchedule: () => void;
   onToggle: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const fmt = useFormatDateTime();
   return (
@@ -715,6 +720,13 @@ function FlowCard({
           <Power className="h-4 w-4" />
         </button>
         <button
+          onClick={onDuplicate}
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title="Duplicate flow (graph, parameters and engine — not schedules or history)"
+        >
+          <CopyIcon className="h-4 w-4" />
+        </button>
+        <button
           onClick={onDelete}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           title="Delete flow"
@@ -736,6 +748,7 @@ function FlowTable({
   onSchedule,
   onToggle,
   onDelete,
+  onDuplicate,
 }: {
   flows: Flow[];
   sort: SortState<FlowSortKey>;
@@ -746,6 +759,7 @@ function FlowTable({
   onSchedule: (flow: Flow) => void;
   onToggle: (flow: Flow) => void;
   onDelete: (flow: Flow) => void;
+  onDuplicate: (flow: Flow) => void;
 }) {
   const fmt = useFormatDateTime();
   if (flows.length === 0) return null;
@@ -826,6 +840,13 @@ function FlowTable({
                       title={flow.is_disabled ? "Enable" : "Disable"}
                     >
                       <Power className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => onDuplicate(flow)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Duplicate"
+                    >
+                      <CopyIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => onDelete(flow)}

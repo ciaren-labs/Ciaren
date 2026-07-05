@@ -43,6 +43,13 @@ async def create_flow(body: FlowCreate, service: FlowServiceDep) -> FlowRead:
     return await service.create(body)
 
 
+@router.post("/{flow_id}/duplicate", response_model=FlowRead, status_code=status.HTTP_201_CREATED)
+async def duplicate_flow(flow_id: str, service: FlowServiceDep, name: str | None = None) -> FlowRead:
+    """Copy a flow (graph, parameters, engine). Schedules and run history stay
+    with the original."""
+    return await service.duplicate(flow_id, name)
+
+
 @router.get("/{flow_id}", response_model=FlowRead)
 async def get_flow(flow_id: str, service: FlowServiceDep) -> FlowRead:
     return await service.get(flow_id)

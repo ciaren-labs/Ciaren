@@ -157,6 +157,8 @@ export const flowsApi = {
   list: (projectId?: string) =>
     request<Flow[]>(`/flows${queryString({ project_id: projectId })}`),
   get: (id: string) => request<Flow>(`/flows/${id}`),
+  duplicate: (id: string, name?: string) =>
+    request<Flow>(`/flows/${id}/duplicate${queryString({ name })}`, { method: "POST" }),
   create: (body: FlowCreate) =>
     request<Flow>("/flows", {
       method: "POST",
