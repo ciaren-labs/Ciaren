@@ -15,7 +15,13 @@ from app.core.notifications import notify_in_background
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
-from app.engine.cancellation import active_run_count, register_run, request_cancel, unregister_run
+from app.engine.cancellation import (
+    active_run_count,
+    is_run_active,
+    register_run,
+    request_cancel,
+    unregister_run,
+)
 from app.engine.executor import FlowExecutor, RunResult
 from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
@@ -315,21 +321,28 @@ class ExecutionService:
             raise NotFoundError("FlowRun", run_id)
         if run.status != "running":
             raise ValidationError(f"Only running runs can be cancelled (this one is '{run.status}').")
-        if not request_cancel(run_id):
+        # All refusal paths run BEFORE the cancel event is set: a refused
+        # cancel must leave no trace, or the still-running run would later
+        # record a genuine timeout/failure as "cancelled" (and skip the
+        # failure webhook).
+        if not is_run_active(run_id):
             # A "running" row with no in-process worker can only be a stale row
             # (e.g. the finalizer lost a race with this request); the scheduler's
             # startup recovery handles crash leftovers. Report honestly.
             raise ValidationError("This run is not executing anymore; refresh to see its final status.")
-        if self.settings.EXECUTION_MODE == "process":
+        if self.settings.EXECUTION_MODE == "process" and active_run_count() > 1:
             # The worker process can't see the event; the only lever is
             # recycling the shared pool (like the timeout path). That would
             # abort every OTHER in-flight process run too — refuse instead of
             # silently failing innocent runs.
-            if active_run_count() > 1:
-                raise ValidationError(
-                    "Cannot cancel: other runs share the process pool and would be aborted "
-                    "with it. Wait for them to finish, or switch to thread execution mode."
-                )
+            raise ValidationError(
+                "Cannot cancel: other runs share the process pool and would be aborted "
+                "with it. Wait for them to finish, or switch to thread execution mode."
+            )
+        if not request_cancel(run_id):
+            # The finalizer won the race between the check above and here.
+            raise ValidationError("This run is not executing anymore; refresh to see its final status.")
+        if self.settings.EXECUTION_MODE == "process":
             recycle_process_pool()
         return {"run_id": run_id, "status": "cancelling"}
 

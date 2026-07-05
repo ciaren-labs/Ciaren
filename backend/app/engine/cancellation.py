@@ -52,6 +52,15 @@ def request_cancel(run_id: str) -> bool:
     return True
 
 
+def is_run_active(run_id: str) -> bool:
+    """Whether ``run_id`` is executing in this process — without touching its
+    cancel event. Lets the cancel endpoint refuse (guards, stale rows) before
+    setting the event; a refused cancel must leave no trace, or a later
+    timeout/real failure would be mislabeled "cancelled"."""
+    with _lock:
+        return run_id in _active
+
+
 def active_run_count() -> int:
     """How many runs are currently executing in this process."""
     with _lock:

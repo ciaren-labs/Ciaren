@@ -435,7 +435,13 @@ export function FlowListPage() {
                       onSchedule={() => setSchedulingFlow(flow)}
                       onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                       onDelete={() => setPendingAction({ kind: "delete", flow })}
-                      onDuplicate={() => duplicateFlow.mutate(flow.id)}
+                      onDuplicate={() => {
+                        // A double-click would silently create two copies —
+                        // but only guard THIS flow's in-flight request, so
+                        // duplicating a different flow meanwhile still works.
+                        if (duplicateFlow.isPending && duplicateFlow.variables === flow.id) return;
+                        duplicateFlow.mutate(flow.id);
+                      }}
                     />
                   ))}
                 </div>
@@ -450,7 +456,10 @@ export function FlowListPage() {
                   onSchedule={(flow) => setSchedulingFlow(flow)}
                   onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                   onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
-                  onDuplicate={(flow) => duplicateFlow.mutate(flow.id)}
+                  onDuplicate={(flow) => {
+                    if (duplicateFlow.isPending && duplicateFlow.variables === flow.id) return;
+                    duplicateFlow.mutate(flow.id);
+                  }}
                 />
               )}
             </CollapsibleSection>

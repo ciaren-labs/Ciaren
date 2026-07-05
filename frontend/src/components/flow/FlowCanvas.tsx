@@ -163,15 +163,24 @@ export function FlowCanvas() {
   // clipboard is a ref, not OS clipboard: node configs may reference local
   // datasets, so they're only meaningful inside this editor session anyway.
   const clipboardRef = useRef<{ nodes: FlowNodeType[]; edges: FlowEdgeType[] } | null>(null);
+  // How many times the current clipboard has been pasted — each paste lands a
+  // step further so repeated pastes don't stack pixel-identically.
+  const pasteCountRef = useRef(0);
   const pasteSelection = useFlowEditorStore((s) => s.pasteSelection);
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
+      // Plain Ctrl/Cmd only: combos like Ctrl+Shift+V (paste without
+      // formatting) or Ctrl+Alt+V belong to the browser/OS, not the canvas.
+      if (e.shiftKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       // Never hijack copy/paste from form fields or editable content.
       if (target && (target.closest("input, textarea, select, [contenteditable=true]") !== null)) return;
       const key = e.key.toLowerCase();
       if (key === "c") {
+        // Copying selected page text must win over the node clipboard.
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) return;
         const selected = nodes.filter((n) => n.selected);
         if (selected.length === 0) return;
         const ids = new Set(selected.map((n) => n.id));
@@ -179,9 +188,15 @@ export function FlowCanvas() {
           nodes: structuredClone(selected),
           edges: structuredClone(edges.filter((ed) => ids.has(ed.source) && ids.has(ed.target))),
         };
+        pasteCountRef.current = 0;
       } else if (key === "v") {
         if (!clipboardRef.current) return;
-        const cloned = cloneSelection(clipboardRef.current.nodes, clipboardRef.current.edges);
+        pasteCountRef.current += 1;
+        const cloned = cloneSelection(
+          clipboardRef.current.nodes,
+          clipboardRef.current.edges,
+          32 * pasteCountRef.current,
+        );
         pasteSelection(cloned.nodes, cloned.edges);
       } else if (key === "d") {
         // Ctrl+D: duplicate the selection in place (copy+paste in one).

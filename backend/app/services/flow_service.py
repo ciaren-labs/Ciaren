@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import copy
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -36,6 +37,8 @@ from app.services.project_service import ProjectService
 # a saved connection). They are stripped on import so the flow is portable; the
 # importer re-selects them. (model_uri is a logical MLflow reference, kept as-is.)
 _ENV_BOUND_CONFIG_KEYS = ("dataset_id", "dataset_version", "connection_id")
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_import_payload(data: FlowImport) -> dict[str, Any]:
@@ -139,16 +142,36 @@ class FlowService:
         return FlowRead.model_validate(flow)
 
     async def duplicate(self, flow_id: str, name: str | None = None) -> FlowRead:
-        """Create an independent copy of a flow: same graph, parameters, and
-        engine choice; nothing operational comes along (no schedules, no run
-        history — those belong to the original)."""
+        """Create an independent copy of a flow: same graph, parameters, engine
+        choice, and disabled state; nothing operational comes along (no
+        schedules, no run history — those belong to the original)."""
         original = await self._get_or_raise(flow_id)
-        copy_name = (name or f"{original.name} (copy)").strip()[:255]
+        # An explicit name follows the same rules FlowCreate enforces: trimmed,
+        # ≤255 (rejected, not silently truncated), and a blank one falls back
+        # to the default. The default truncates the base first so the " (copy)"
+        # marker always survives — otherwise a max-length name would duplicate
+        # to an identical name.
+        suffix = " (copy)"
+        default_name = f"{original.name[: 255 - len(suffix)]}{suffix}"
+        trimmed = (name or "").strip()
+        if len(trimmed) > 255:
+            raise ValidationError("name must be at most 255 characters.")
+        copy_name = trimmed or default_name
+        # Same parameter gate as create/update/import — but duplicate must not
+        # fail on a legacy row that predates the gate, so copy verbatim and
+        # log instead of raising; the copy fails loudly if it is ever run.
+        try:
+            self._validate_parameters(original.graph_json)
+        except ValidationError as exc:
+            logger.warning("Flow %s has invalid parameter specs (%s); duplicated verbatim.", flow_id, exc)
         flow = Flow(
             name=copy_name,
             description=original.description,
             project_id=original.project_id,
             graph_json=copy.deepcopy(original.graph_json),
+            # An auto-disabled flow (e.g. its input dataset was deleted) must
+            # not yield an enabled, schedulable copy with the same broken graph.
+            is_disabled=original.is_disabled,
         )
         self.db.add(flow)
         await self.db.commit()

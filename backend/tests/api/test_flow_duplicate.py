@@ -73,3 +73,71 @@ async def test_duplicate_does_not_copy_schedules(client: AsyncClient) -> None:
 async def test_duplicate_unknown_flow_is_404(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/duplicate")
     assert r.status_code == 404
+
+
+async def test_duplicate_blank_name_falls_back_to_default(client: AsyncClient) -> None:
+    """A whitespace-only ?name= must not create a flow named "" — the same
+    invariant FlowCreate enforces with min_length=1."""
+    original = await _create(client, "blanked")
+    r = await client.post(f"/api/flows/{original['id']}/duplicate", params={"name": "   "})
+    assert r.status_code == 201, r.text
+    assert r.json()["name"] == "blanked (copy)"
+
+
+async def test_duplicate_over_long_name_is_rejected(client: AsyncClient) -> None:
+    """Same contract as FlowCreate (max_length=255): reject, don't silently
+    truncate an explicitly chosen name."""
+    original = await _create(client, "longname")
+    r = await client.post(f"/api/flows/{original['id']}/duplicate", params={"name": "y" * 300})
+    assert r.status_code == 400, r.text
+    assert "255" in r.json()["detail"]
+
+    # Exactly 255 is fine.
+    r = await client.post(f"/api/flows/{original['id']}/duplicate", params={"name": "y" * 255})
+    assert r.status_code == 201, r.text
+    assert r.json()["name"] == "y" * 255
+
+
+async def test_duplicate_max_length_name_keeps_copy_suffix(client: AsyncClient) -> None:
+    """The default name must never be byte-identical to the original's — a
+    255-char original truncates so " (copy)" still fits."""
+    original = await _create(client, "z" * 255)
+    r = await client.post(f"/api/flows/{original['id']}/duplicate")
+    assert r.status_code == 201, r.text
+    name = r.json()["name"]
+    assert name != original["name"]
+    assert name.endswith(" (copy)")
+    assert len(name) <= 255
+
+
+async def test_duplicate_preserves_disabled_state(client: AsyncClient) -> None:
+    """A disabled flow (e.g. auto-disabled because its dataset was deleted)
+    must not duplicate into an enabled, schedulable copy of the same graph."""
+    original = await _create(client, "off")
+    r = await client.put(f"/api/flows/{original['id']}", json={"is_disabled": True})
+    assert r.status_code == 200, r.text
+    copy = (await client.post(f"/api/flows/{original['id']}/duplicate")).json()
+    assert copy["is_disabled"] is True
+
+    # And an enabled original still duplicates enabled.
+    other = await _create(client, "on")
+    copy2 = (await client.post(f"/api/flows/{other['id']}/duplicate")).json()
+    assert copy2["is_disabled"] is False
+
+
+async def test_duplicate_tolerates_legacy_invalid_parameters(client: AsyncClient, db_session) -> None:
+    """A legacy row whose parameter specs predate the create/update gate must
+    stay duplicatable (copied verbatim), not 400."""
+    original = await _create(client, "legacy")
+    # Corrupt the stored row directly — the API itself refuses such specs.
+    from sqlalchemy import update
+
+    from app.db.models.flow import Flow
+
+    bad_graph = dict(_GRAPH, parameters=[{"name": "1 not an identifier!!", "type": "bogus"}])
+    await db_session.execute(update(Flow).where(Flow.id == original["id"]).values(graph_json=bad_graph))
+    await db_session.commit()
+
+    r = await client.post(f"/api/flows/{original['id']}/duplicate")
+    assert r.status_code == 201, r.text
+    assert r.json()["graph_json"]["parameters"] == bad_graph["parameters"]
