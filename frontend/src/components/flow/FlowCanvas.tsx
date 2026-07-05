@@ -182,22 +182,26 @@ export function FlowCanvas() {
   // glance: blue = data flow, purple = model flow. Resolve via the source node's
   // def so a single-output model edge (no explicit sourceHandle, e.g. seeded or
   // imported flows) is still recognised as a model wire.
-  // Keyed on structureVersion, not `nodes`: edge styling only needs each
-  // source node's *type*, which drags don't change — and the id→type Map
-  // makes the pass O(E) instead of O(E×N).
+  // Two memos: the id→type Map only changes with graph structure (keyed on
+  // structureVersion, so node drags don't rebuild it), while styledEdges must
+  // follow the `edges` array's own identity — select-only edge changes replace
+  // it without bumping structureVersion, and a stale cached array here would
+  // make edges unselectable (and thus undeletable) in controlled mode.
   const structureVersion = useFlowEditorStore((s) => s.structureVersion);
+  const typeById = useMemo(
+    () => new Map(nodes.map((n) => [n.id, n.type ?? ""])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- structureVersion tracks the node set structurally
+    [structureVersion],
+  );
   const styledEdges = useMemo(
-    () => {
-      const typeById = new Map(nodes.map((n) => [n.id, n.type ?? ""]));
-      return edges.map((e) => {
+    () =>
+      edges.map((e) => {
         const sourceDef = getNodeTypeDef(typeById.get(e.source) ?? "");
         return sourceDef && isModelOutputHandle(sourceDef, e.sourceHandle)
           ? { ...e, animated: false, style: { ...e.style, stroke: "#a855f7", strokeWidth: 2 } }
           : e;
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- structureVersion tracks nodes/edges structurally
-    [structureVersion],
+      }),
+    [edges, typeById],
   );
 
   return (

@@ -238,6 +238,21 @@ function outputColumns(
       const name = typeof config.new_column === "string" ? config.new_column : "";
       return name && !inputCols.includes(name) ? [...inputCols, name] : inputCols;
     }
+    // combineColumns / coalesceColumns add `new_column` and, with
+    // keep_original: false, drop their source columns. dateDifference adds
+    // `new_column` and keeps everything.
+    case "combineColumns":
+    case "coalesceColumns": {
+      const name = typeof config.new_column === "string" ? config.new_column : "";
+      const sources = new Set(asStringArray(config.columns));
+      const keepOriginal = config.keep_original !== false;
+      const base = keepOriginal ? inputCols : inputCols.filter((c) => !sources.has(c) || c === name);
+      return name && !base.includes(name) ? [...base, name] : base;
+    }
+    case "dateDifference": {
+      const name = typeof config.new_column === "string" ? config.new_column : "";
+      return name && !inputCols.includes(name) ? [...inputCols, name] : inputCols;
+    }
     case "splitColumn": {
       const col = typeof config.column === "string" ? config.column : "";
       const into = asStringArray(config.into);

@@ -336,7 +336,10 @@ def test_ancestor_subgraph_unknown_node_raises():
         ancestor_subgraph({"nodes": [_n("a")], "edges": []}, "ghost")
 
 
-def test_ancestor_subgraph_ignores_dangling_edge_sources():
+def test_ancestor_subgraph_keeps_dangling_edges_into_the_slice():
+    # Traversal skips the unknown source, but the corrupt edge itself stays in
+    # the slice so downstream validate_graph rejects the graph instead of the
+    # target node silently computing with one input missing.
     from app.engine.graph import ancestor_subgraph
 
     graph = {
@@ -345,4 +348,4 @@ def test_ancestor_subgraph_ignores_dangling_edge_sources():
     }
     sub = ancestor_subgraph(graph, "b")
     assert {n["id"] for n in sub["nodes"]} == {"a", "b"}
-    assert [(e["source"], e["target"]) for e in sub["edges"]] == [("a", "b")]
+    assert {(e["source"], e["target"]) for e in sub["edges"]} == {("missing", "b"), ("a", "b")}

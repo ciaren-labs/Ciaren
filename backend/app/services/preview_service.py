@@ -66,10 +66,6 @@ class PreviewService:
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
-        # Same ML feature gate as a run — previewing executes the graph too.
-        from app.ml.availability import guard_graph_ml_enabled
-
-        guard_graph_ml_enabled(flow.graph_json)
         # Resolve flow parameters so the preview reflects the values a run would use.
         try:
             graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
@@ -88,6 +84,12 @@ class PreviewService:
             # A malformed graph (no nodes, dangling edge, cycle) is a bad
             # request, not a server error.
             raise ValidationError(str(exc)) from exc
+        # Same ML feature gate as a run — previewing executes the slice. After
+        # pruning on purpose: an ML node on an unrelated branch must not block
+        # previewing a clean ETL node when ML is unavailable.
+        from app.ml.availability import guard_graph_ml_enabled
+
+        guard_graph_ml_enabled(graph)
         dataset_paths, _ = await build_dataset_paths(self.db, graph)
 
         # SQL and storage inputs are materialized into parquet snapshots in a temp

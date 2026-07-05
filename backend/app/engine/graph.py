@@ -241,10 +241,14 @@ def ancestor_subgraph(graph: dict[str, Any], node_id: str) -> dict[str, Any]:
             continue
         keep.add(nid)
         stack.extend(e["source"] for e in incoming[nid] if e["source"] in nodes_by_id)
+    # Keep every edge whose *target* is in the slice: a kept target's source is
+    # either kept too (it was traversed) or dangling — and a dangling edge must
+    # stay visible so downstream validation rejects the corrupt graph instead
+    # of silently computing the node with one input missing.
     return {
         **{k: v for k, v in graph.items() if k not in ("nodes", "edges")},
         "nodes": [n for n in graph.get("nodes", []) if n["id"] in keep],
-        "edges": [e for e in graph.get("edges", []) if e["source"] in keep and e["target"] in keep],
+        "edges": [e for e in graph.get("edges", []) if e["target"] in keep],
     }
 
 
