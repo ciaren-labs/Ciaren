@@ -201,6 +201,18 @@ def test_fill_mode_multimodal_tie_break_is_smallest(engine_name: str) -> None:
 
 
 @pytest.mark.parametrize("engine_name", ENGINES)
+def test_fill_mode_categorical_tie_break_matches_across_engines(engine_name: str) -> None:
+    # Categorical columns sort by category order in pandas ('z' first here),
+    # lexically in polars: both engines must pick the lexicographic smallest
+    # mode so an engine switch doesn't change the data.
+    pdf = pd.DataFrame({"c": pd.Categorical(["b", "b", "a", "a", None], categories=["z", "b", "a"])})
+    frame = pl.from_pandas(pdf) if engine_name == "polars" else pdf
+    engine = get_engine(engine_name)
+    out = _pdf(engine, engine.fill_nulls(frame, ["c"], "mode", None))
+    assert list(out["c"].astype(str)) == ["b", "b", "a", "a", "a"]
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
 def test_fill_constant(engine_name: str) -> None:
     engine = get_engine(engine_name)
     frame = _make(engine_name, {"a": [1.0, None, 3.0]})

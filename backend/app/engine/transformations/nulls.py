@@ -65,6 +65,10 @@ class FillNullsTransformation(BaseTransformation):
         "bfill",
     }
     # Strategy -> the per-column pandas expression that computes the fill value.
+    # mode: Series.mode() is sorted, so iloc[0] is the smallest — matching the
+    # engines' deterministic tie-break for every dtype a flow can build. (A
+    # categorical column loaded from parquet sorts modes by category order
+    # here; the engines use the lexicographic smallest — accepted corner.)
     _STRATEGY_FILL = {
         "mean": "{s}[c].mean()",
         "median": "{s}[c].median()",

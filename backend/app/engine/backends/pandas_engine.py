@@ -145,7 +145,13 @@ class PandasEngine:
                 modes = series.mode(dropna=True)
                 if modes.empty:
                     continue
-                fill = modes.iloc[0]
+                # Series.mode() is sorted, so iloc[0] is the smallest — except
+                # for categoricals, which sort by *category order*; take the
+                # lexicographic smallest there to match the polars engine.
+                if isinstance(series.dtype, pd.CategoricalDtype):
+                    fill = min(map(str, modes))
+                else:
+                    fill = modes.iloc[0]
             elif strategy == "ffill":
                 result[col] = series.ffill()
                 continue
