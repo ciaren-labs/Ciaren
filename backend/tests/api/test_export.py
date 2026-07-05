@@ -163,7 +163,7 @@ def test_sql_codegen_duckdb_driver_name() -> None:
     from app.engine.sql_codegen import engine_url_expr
 
     expr = engine_url_expr({"provider": "duckdb", "database": "/data/warehouse.ddb"})
-    assert "duckdb:///" in expr
+    assert "URL.create('duckdb'" in expr
     assert "/data/warehouse.ddb" in expr
     compile(expr, "<test>", "eval")  # must be valid Python
 
@@ -173,7 +173,7 @@ def test_sql_codegen_snowflake_driver_name() -> None:
     from app.engine.sql_codegen import engine_url_expr
 
     expr = engine_url_expr({"provider": "snowflake", "host": "my-account", "database": "mydb", "username": "user"})
-    assert "snowflake://" in expr
+    assert "URL.create('snowflake'" in expr
     compile(expr, "<test>", "eval")
 
 
@@ -201,7 +201,7 @@ def test_sql_codegen_secret_reference_schemes() -> None:
     # carry backslashes/quotes, illegal in f-string expressions before 3.12).
     prelude, fl = engine_url_parts({**base, "password_env": "file:/run/secrets/pg"}, secret_var="_secret_1")
     assert prelude == ["_secret_1 = Path('/run/secrets/pg').read_text(encoding='utf-8').strip()"]
-    assert "{_secret_1}" in fl
+    assert "password=_secret_1" in fl
     for expr in (env, kr, fl):
         compile(expr, "<test>", "eval")
 
@@ -236,6 +236,53 @@ def test_sql_codegen_hostile_file_paths_stay_inert_and_compile() -> None:
         compile(script, "<test>", "exec")  # valid …
         assert "__import__" not in expr  # … and the payload never leaves the prelude literal
         assert prelude[0].startswith("_secret_1 = Path(")
+
+
+def test_sql_codegen_hostile_host_user_database_stay_inert() -> None:
+    """host/username/database are connection-author-controlled. A value carrying a
+    quote/brace/newline/code-shaped payload must stay trapped in a repr'd string
+    argument to URL.create — never break out of the generated script (which on a
+    shared deployment would inject code into whoever exports and runs the flow)."""
+    from app.engine.sql_codegen import engine_url_parts
+
+    payload = 'x"); __import__("os").system("id"); create_engine(URL.create("sqlite'
+    cases = [
+        ("postgresql", "host"),
+        ("postgresql", "username"),
+        ("postgresql", "database"),
+        # sqlite/duckdb take a separate branch — the database path must be inert too.
+        ("sqlite", "database"),
+        ("duckdb", "database"),
+    ]
+    for provider, field in cases:
+        info = {
+            "provider": provider,
+            "host": "localhost",
+            "database": "db",
+            "username": "u",
+            "password_env": "PG_PASSWORD",
+            field: payload,
+        }
+        prelude, expr = engine_url_parts(info)
+        # The whole statement must compile with the payload inert inside a literal…
+        compile("\n".join([*prelude, f"import os\nx = {expr}"]), "<test>", "exec")
+        # …and the dangerous tokens must not appear as live code (only inside repr).
+        assert "__import__" not in expr.replace(repr(payload), "")
+        assert "system(" not in expr.replace(repr(payload), "")
+
+
+def test_sql_codegen_password_is_passed_to_url_create_not_string_interpolated() -> None:
+    """The secret must reach URL.create as a keyword argument (so SQLAlchemy
+    percent-encodes it) rather than being spliced into a raw URL string, where a
+    password with URL metacharacters (@ / :) could redirect the connection."""
+    from app.engine.sql_codegen import engine_url_parts
+
+    info = {"provider": "postgresql", "host": "localhost", "database": "db", "username": "u"}
+    _, expr = engine_url_parts({**info, "password_env": "PG_PASSWORD"})
+    assert expr.startswith("URL.create(")
+    assert "password=os.environ['PG_PASSWORD']" in expr
+    # No hand-built "user:password@host" authority section anywhere.
+    assert "@" not in expr
 
 
 async def test_export_python_incomplete_graph_is_400(client: AsyncClient) -> None:

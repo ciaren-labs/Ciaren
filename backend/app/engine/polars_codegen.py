@@ -134,7 +134,7 @@ class PolarsCodeGenerator:
         base_header = ["import polars as pl"]
         if graph_has_sql(graph):
             base_header = ordered_imports(
-                ["import os", "import polars as pl", "from sqlalchemy import create_engine"]
+                ["import os", "import polars as pl", "from sqlalchemy import URL, create_engine"]
                 + sql_secret_imports(connections)
             )
         # ML nodes emit pandas code; their imports (sklearn, joblib, numpy) plus a

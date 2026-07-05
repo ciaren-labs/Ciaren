@@ -41,7 +41,8 @@ Whatever the source, the value is read only when a connection is used, and is:
 - never returned by the API,
 - never embedded in exported Python (generated code fetches from the same
   reference at runtime — `os.environ[...]`, `keyring.get_password(...)`, or the
-  secret file).
+  secret file, then hands it to `sqlalchemy.URL.create` exactly like the live
+  connector, so the value is percent-encoded and never spliced into a URL string).
 
 For an env var reference, set the variable before starting Ciaren:
 
@@ -90,8 +91,11 @@ hardened shared install, keep `CIAREN_SECRET_FILE_DIRS` and
 `CIAREN_STORAGE_ALLOWED_ROOTS` pointing at **disjoint** locations, so no
 storage connection can write into a folder secrets are read from.
 
-Other safeguards: the SQLAlchemy URL is built from structured fields (no raw DSN
-to inject into), driver options can't override the connection's host/port
+Other safeguards: the SQLAlchemy URL is built from structured fields with
+`URL.create` (no raw DSN to inject into) — both when Ciaren connects and in the
+Python it exports, so a host, username, or database containing quotes or other
+code-shaped characters stays an inert string argument rather than breaking out
+of the generated script. Driver options can't override the connection's host/port
 (so the SSRF guard can't be bypassed through `options`), table/schema
 identifiers are validated, and any secret is scrubbed from driver error
 messages. REST API connections refuse the well-known credential headers

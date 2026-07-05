@@ -50,11 +50,12 @@ def _split_secret_ref(ref: str) -> tuple[str, str]:
 
 
 def _inline_secret_expr(scheme: str, value: str) -> str:
-    """A Python expression fetching an env/keyring secret at script runtime.
-    Both grammars are quote- and backslash-free, so the expression may sit
-    inside an f-string on any Python version. ``file:`` paths may not
-    (backslashes / nested quotes need PEP 701, Python 3.12+) — those are
-    emitted as a named prelude statement by :func:`engine_url_parts`."""
+    """A Python expression fetching an env/keyring secret at script runtime,
+    passed straight as the ``password=`` argument to ``URL.create``. Both
+    grammars are validated (quote- and backslash-free), so the expression is a
+    safe literal lookup. ``file:`` references instead read the value into a named
+    prelude variable (see :func:`engine_url_parts`) — a path can carry arbitrary
+    characters, so it belongs in a ``repr``'d statement, not inline."""
     if scheme == "env":
         if not _ENV_VAR_RE.match(value):
             raise ValueError(f"password_env {value!r} is not a valid environment variable name.")
@@ -77,23 +78,36 @@ def sql_secret_imports(connections: dict[str, dict[str, Any]]) -> list[str]:
 def engine_url_parts(info: dict[str, Any], secret_var: str = "_secret") -> tuple[list[str], str]:
     """``(prelude_lines, url_expr_text)`` for ``create_engine``.
 
-    The password is fetched at script runtime from the connection's secret
-    reference, never embedded. env/keyring fetches are inlined in the URL
-    f-string; a ``file:`` fetch is emitted as a prelude statement assigning
-    ``secret_var`` (its path may carry backslashes or quotes, which are illegal
-    inside f-string expressions before Python 3.12 — and a named statement
-    reads better anyway).
+    Emits a :func:`sqlalchemy.URL.create` call — the same safe URL *construction*
+    the live connector uses (``app/connectors/sql.py``; driver options / ``query``
+    are not carried into exported scripts) — never a hand-built URL string. This
+    matters for two reasons:
+
+    - **No code injection.** ``host``/``username``/``database``/``port`` are
+      connection-author-controlled and are emitted as ``repr()``-quoted literal
+      arguments, so a value containing a quote, brace, or newline stays trapped
+      inside a string literal instead of breaking out of the generated script
+      (which, on a shared deployment, would be stored-code-injection into
+      whoever exports and runs the flow).
+    - **Correct credentials.** ``URL.create`` percent-encodes the password, so a
+      secret containing URL metacharacters (``@ / : # ?``) no longer corrupts the
+      URL — a raw f-string could otherwise redirect the connection to a host
+      embedded in the password.
+
+    The password is still fetched at script runtime from the connection's secret
+    reference and never embedded: env/keyring resolve inline (``os.environ[...]``
+    / ``keyring.get_password(...)``), while a ``file:`` fetch is emitted as a
+    prelude statement assigning ``secret_var`` (its path may carry backslashes or
+    quotes, and a named statement reads better anyway).
     """
     provider = info.get("provider", "")
+    drivername = _DRIVERNAMES.get(provider, provider)
     database = info.get("database") or ""
     if provider in ("sqlite", "duckdb"):
-        drivername = _DRIVERNAMES.get(provider, provider)
-        return [], f'"{drivername}:///{database}"'
-    drivername = _DRIVERNAMES.get(provider, provider)
-    host = info.get("host") or "localhost"
-    user = info.get("username") or ""
-    pw_ref = info.get("password_env")
+        return [], f"URL.create({drivername!r}, database={database!r})"
     prelude: list[str] = []
+    password_kw = ""
+    pw_ref = info.get("password_env")
     if pw_ref:
         scheme, value = _split_secret_ref(str(pw_ref))
         if scheme == "file":
@@ -104,16 +118,21 @@ def engine_url_parts(info: dict[str, Any], secret_var: str = "_secret") -> tuple
             secret_expr = secret_var
         else:
             secret_expr = _inline_secret_expr(scheme, value)
-        # Produces the literal:  user:{os.environ['ENV_VAR']}@  (or the
-        # keyring/file-variable equivalent), interpolated when the script runs.
-        auth = f"{user}:{{{secret_expr}}}@"
-    elif user:
-        auth = f"{user}@"
-    else:
-        auth = ""
+        password_kw = f", password={secret_expr}"
+    # Every non-secret part is a repr'd literal, so a hostile host/username/
+    # database can't escape its string; the password stays a runtime expression.
+    args = [repr(drivername)]
+    user = info.get("username")
+    if user:
+        args.append(f"username={user!r}")
+    host = info.get("host") or "localhost"
+    args.append(f"host={host!r}")
     port = info.get("port")
-    port_part = f":{port}" if port else ""
-    return prelude, f'f"{drivername}://{auth}{host}{port_part}/{database}"'
+    if port:
+        args.append(f"port={int(port)!r}")
+    args.append(f"database={database!r}")
+    joined = ", ".join(args)
+    return prelude, f"URL.create({joined}{password_kw})"
 
 
 def engine_url_expr(info: dict[str, Any]) -> str:

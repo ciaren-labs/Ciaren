@@ -131,7 +131,7 @@ class CodeGenerator:
         base_header = ["import pandas as pd"]
         if graph_has_sql(graph):
             base_header = ordered_imports(
-                ["import os", "import pandas as pd", "from sqlalchemy import create_engine"]
+                ["import os", "import pandas as pd", "from sqlalchemy import URL, create_engine"]
                 + sql_secret_imports(connections)
             )
         body: list[str] = []
