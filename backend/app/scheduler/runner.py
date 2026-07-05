@@ -24,6 +24,7 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
+from app.core.notifications import notify_in_background
 from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.scheduler.cron import compute_next_run
@@ -141,6 +142,19 @@ class SchedulerRunner:
             else:
                 self._on_failure(schedule)
             await db.commit()
+            if status != "success" and not schedule.is_enabled and schedule.disabled_reason:
+                # The failed run itself already notified (run_failed); this is
+                # the louder signal that the schedule gave up entirely.
+                notify_in_background(
+                    "schedule_auto_disabled",
+                    {
+                        "schedule_id": schedule.id,
+                        "flow_id": schedule.flow_id,
+                        "reason": schedule.disabled_reason,
+                        "consecutive_failures": schedule.consecutive_failures,
+                        "last_run_id": run_id,
+                    },
+                )
 
     def _on_success(self, schedule: Schedule) -> None:
         schedule.consecutive_failures = 0

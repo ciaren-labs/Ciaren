@@ -110,6 +110,16 @@ class Settings(BaseSettings):
     # is reclaimed; in "thread" mode the run is abandoned but the thread finishes.
     RUN_TIMEOUT_SECONDS: int = 0
 
+    # -- Failure notifications ---------------------------------------------------
+
+    # When set, Ciaren POSTs a JSON document to this URL whenever a run fails or
+    # a schedule auto-disables (see app/core/notifications.py). Point it at a
+    # Slack/Discord webhook bridge, an ntfy topic, or any internal endpoint.
+    NOTIFY_WEBHOOK_URL: str = ""
+    # Optional shared secret, sent as `X-Ciaren-Secret` so receivers can reject
+    # posts that didn't come from this Ciaren instance.
+    NOTIFY_WEBHOOK_SECRET: str = ""
+
     # -- API authentication ----------------------------------------------------
     # Optional bearer token for the REST API. Unset (default) keeps Ciaren's
     # local-first, no-auth posture — safe when bound to 127.0.0.1. When set, every

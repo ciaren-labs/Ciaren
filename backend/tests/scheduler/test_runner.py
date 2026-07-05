@@ -251,3 +251,35 @@ async def test_fire_executes_flow_and_records_outcome(client: AsyncClient, engin
         assert len(runs) == 1
         assert runs[0].trigger == "schedule"
         assert runs[0].status == "success"
+
+
+async def test_auto_disable_sends_notification(engine: AsyncEngine, monkeypatch) -> None:
+    """When a schedule gives up (auto-disable), the operator hears about it —
+    the disable itself is silent in the UI until someone looks."""
+    from app.scheduler import runner as runner_module
+
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(runner_module, "notify_in_background", lambda event, payload: events.append((event, payload)))
+    factory = _factory(engine)
+    sid = await _make_failing_schedule(factory, consecutive_failures=4)
+
+    await SchedulerRunner(factory, get_settings())._fire(sid)
+
+    disabled = [payload for event, payload in events if event == "schedule_auto_disabled"]
+    assert len(disabled) == 1
+    assert disabled[0]["schedule_id"] == sid
+    assert "Auto-disabled" in disabled[0]["reason"]
+    assert disabled[0]["consecutive_failures"] == 5
+
+
+async def test_plain_scheduled_failure_does_not_send_disable_event(engine: AsyncEngine, monkeypatch) -> None:
+    from app.scheduler import runner as runner_module
+
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(runner_module, "notify_in_background", lambda event, payload: events.append((event, payload)))
+    factory = _factory(engine)
+    sid = await _make_failing_schedule(factory, max_retries=2, retry_delay_seconds=60)
+
+    await SchedulerRunner(factory, get_settings())._fire(sid)
+
+    assert all(event != "schedule_auto_disabled" for event, _ in events)

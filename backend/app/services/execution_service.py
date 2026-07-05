@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.enums import ExecutionMode
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.notifications import notify_in_background
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
@@ -249,6 +250,18 @@ class ExecutionService:
                 events.emit(Hook.after_graph_execute, flow_id=flow_id, run_id=run.id, status=run.status)
             await self.db.commit()
             await self.db.refresh(run)
+            if run.status == "failed":
+                notify_in_background(
+                    "run_failed",
+                    {
+                        "flow_id": flow_id,
+                        "flow_name": flow.name,
+                        "run_id": run.id,
+                        "trigger": trigger,
+                        "engine": engine,
+                        "error": run.error_message,
+                    },
+                )
 
         return FlowRunRead.model_validate(run)
 

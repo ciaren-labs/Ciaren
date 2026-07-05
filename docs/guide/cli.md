@@ -254,6 +254,8 @@ All settings use the `CIAREN_` prefix and can be set via the environment or a
 | `CIAREN_SCHEDULER_ENABLED` | `true` | Run the background scheduler |
 | `CIAREN_SCHEDULER_POLL_INTERVAL_SECONDS` | `30` | Scheduler poll interval |
 | `CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS` | `1` | Max simultaneous scheduled runs |
+| `CIAREN_NOTIFY_WEBHOOK_URL` | _(unset)_ | POST a JSON alert here when a run fails or a schedule auto-disables |
+| `CIAREN_NOTIFY_WEBHOOK_SECRET` | _(unset)_ | Sent as `X-Ciaren-Secret` so the receiver can verify the sender |
 | `CIAREN_SCHEDULER_MAX_CONSECUTIVE_FAILURES` | `5` | Failures before auto-disable (0 = never) |
 | `CIAREN_ML_ENABLED` | `true` | Enable ML routes/nodes (built in; set `false` to disable) |
 | `CIAREN_MLFLOW_TRACKING_URI` | `./mlruns` | Default MLflow tracking URI |
