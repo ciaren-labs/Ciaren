@@ -103,6 +103,15 @@ class DatasetService:
                 options = {**detect_csv_options(content, source_type), **explicit}
             elif source_type == "excel":
                 options = dict(explicit)
+                sheet = options.get("sheet")
+                if isinstance(sheet, str) and sheet.isdigit():
+                    # Name first, index fallback: a sheet literally named "2"
+                    # wins over the 0-based index reading. Record whichever
+                    # interpretation succeeded so exported code matches.
+                    try:
+                        _parse_dataframe(content, source_type, filename, {"sheet": sheet})
+                    except DatasetParseError:
+                        options["sheet"] = int(sheet)
             frame, schema_, sample_, profile_ = _parse_and_describe(content, source_type, filename, options)
             return frame, schema_, sample_, profile_, options
 

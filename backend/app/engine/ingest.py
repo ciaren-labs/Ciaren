@@ -41,7 +41,15 @@ _MAX_SHEET_NAME_LEN = 128
 # thousand rows; independent of upload size.
 _SNIFF_BYTES = 64 * 1024
 
-_DECIMAL_COMMA_CELL = re.compile(r"^-?\d{1,3}(?:\.\d{3})*,\d+$|^-?\d+,\d+$")
+# Unambiguous decimal-comma evidence: a fraction that isn't exactly 3 digits
+# (1,50 / 1,2345 — can't be a thousands group), or dot-thousands + comma
+# (1.234,56). `1,234` alone is indistinguishable from US thousands notation
+# and must NOT flip the decimal mark — normalization would divide by 1000.
+_DECIMAL_COMMA_CELL = re.compile(
+    r"^-?\d{1,3}(?:\.\d{3})+,\d+$"  # 1.234,56 — dot thousands, comma decimals
+    r"|^-?\d+,\d{1,2}$"  # 1,5 / 1,50 — short fraction
+    r"|^-?\d+,\d{4,}$"  # 1,2345 — long fraction
+)
 _DECIMAL_POINT_CELL = re.compile(r"^-?\d+\.\d+$")
 
 
@@ -59,7 +67,11 @@ def validate_parse_options(
     "the feature doesn't work"). Options that don't apply to the file type are
     rejected too, for the same reason.
     """
-    allowed_keys = {"delimiter", "encoding", "decimal"} if source_type in ("csv", "tsv") else set()
+    allowed_keys: set[str] = set()
+    if source_type == "csv":
+        allowed_keys = {"delimiter", "encoding", "decimal"}
+    elif source_type == "tsv":
+        allowed_keys = {"encoding", "decimal"}  # tab-separated by definition
     if source_type == "excel":
         allowed_keys = {"sheet"}
     unknown = set(raw) - allowed_keys
@@ -90,11 +102,12 @@ def validate_parse_options(
         options["decimal"] = dec
     if "sheet" in raw:
         sheet = raw["sheet"]
-        if isinstance(sheet, str) and sheet.strip().isdigit():
-            options["sheet"] = int(sheet.strip())
-        elif isinstance(sheet, int):
+        if isinstance(sheet, int):
             options["sheet"] = sheet
         else:
+            # Digit strings stay strings here: the parser tries them as a NAME
+            # first and only then as a 0-based index, so a sheet literally
+            # named "2" remains reachable.
             name = str(sheet).strip()
             if not name or len(name) > _MAX_SHEET_NAME_LEN:
                 raise ParseOptionsError("sheet must be a sheet name or a 0-based sheet index")
@@ -113,11 +126,20 @@ def detect_encoding(content: bytes) -> str:
     if content.startswith(b"\xfe\xff"):
         return "utf-16"
     sample = content[:_SNIFF_BYTES]
+    truncated = len(content) > _SNIFF_BYTES
     try:
         sample.decode("utf-8")
         return "utf-8"
-    except UnicodeDecodeError:
-        pass
+    except UnicodeDecodeError as exc:
+        # A multibyte sequence cut off by the sample boundary is not evidence
+        # against UTF-8 — misreading it as cp1252 would permanently bake
+        # mojibake into the normalized copy. UTF-8 sequences are ≤4 bytes.
+        if truncated and exc.start >= len(sample) - 4:
+            try:
+                sample[: exc.start].decode("utf-8")
+                return "utf-8"
+            except UnicodeDecodeError:
+                pass
     try:
         sample.decode("cp1252")
         return "cp1252"

@@ -318,7 +318,16 @@ class PolarsCodeGenerator:
                     # in lazy mode (scan_csv cannot re-encode a file).
                     assert dialect is not None  # dialect_needs_decode implies it
                     suffix = ".lazy()" if lazy else ""
-                    sep_kwargs = dialect_kwargs or (', separator="\\t"' if source_type == "tsv" else "")
+                    # Build the separator explicitly: TSV always needs the tab
+                    # (polars_dialect_kwargs never emits it for tsv, and the
+                    # decimal flag being present must not displace it).
+                    sep_kwargs = ""
+                    if source_type == "tsv":
+                        sep_kwargs += ', separator="\\t"'
+                    elif dialect.get("delimiter", ",") != ",":
+                        sep_kwargs += f", separator={dialect['delimiter']!r}"
+                    if dialect.get("decimal", ".") == ",":
+                        sep_kwargs += ", decimal_comma=True"
                     lines.append(f"with open({path!r}, encoding={dialect['encoding']!r}) as _f:")
                     lines.append(f"    {var} = pl.read_csv(_f.read().encode(){sep_kwargs}){suffix}")
                 elif node_type == FILE_INPUT_TYPE:

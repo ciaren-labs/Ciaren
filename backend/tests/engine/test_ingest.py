@@ -94,6 +94,40 @@ def test_detect_csv_options_european_export() -> None:
     }
 
 
+def test_detect_encoding_multibyte_cut_at_sniff_boundary_stays_utf8() -> None:
+    # A multibyte char straddling the 64KiB sample edge must not demote a
+    # valid UTF-8 file to cp1252 (normalization would bake mojibake in).
+    from app.engine.ingest import _SNIFF_BYTES
+
+    content = ("a,b\n" + "x" * (_SNIFF_BYTES - 5) + "é,1\n").encode("utf-8")
+    assert len(content) > _SNIFF_BYTES
+    assert detect_encoding(content) == "utf-8"
+
+
+def test_detect_decimal_us_thousands_not_misread() -> None:
+    # `1,234` is indistinguishable from US thousands — never claim ',' on it
+    # (a wrong claim divides the stored values by 1000, permanently).
+    assert detect_decimal("id;amount\n1;1,234\n2;5,678\n", ";") == "."
+
+
+def test_detect_decimal_short_fraction_is_unambiguous() -> None:
+    assert detect_decimal("a;b\nx;1,5\ny;2,75\n", ";") == ","
+
+
+def test_detect_decimal_dot_thousands_comma_decimals() -> None:
+    assert detect_decimal("a;b\nx;1.234,56\n", ";") == ","
+
+
+def test_validate_rejects_delimiter_for_tsv() -> None:
+    # Tab-separated by definition: accepting-and-ignoring would lie.
+    with pytest.raises(ParseOptionsError, match="delimiter"):
+        validate_parse_options({"delimiter": ";"}, "tsv")
+    assert validate_parse_options({"encoding": "cp1252", "decimal": ","}, "tsv") == {
+        "encoding": "cp1252",
+        "decimal": ",",
+    }
+
+
 def test_detect_csv_options_tsv_keeps_tab() -> None:
     opts = detect_csv_options(b"a\tb\n1\t2\n", "tsv")
     assert opts["delimiter"] == "\t"
@@ -126,8 +160,11 @@ def test_validate_rejects_inapplicable_option() -> None:
         validate_parse_options({"delimiter": ";"}, "parquet")
 
 
-def test_validate_sheet_index_and_name() -> None:
-    assert validate_parse_options({"sheet": "2"}, "excel") == {"sheet": 2}
+def test_validate_sheet_keeps_digit_strings_for_name_first_resolution() -> None:
+    # The parser tries "2" as a NAME first, then as the 0-based index — so a
+    # sheet literally named "2" stays reachable. Real ints pass through.
+    assert validate_parse_options({"sheet": "2"}, "excel") == {"sheet": "2"}
+    assert validate_parse_options({"sheet": 2}, "excel") == {"sheet": 2}
     assert validate_parse_options({"sheet": "Ventas"}, "excel") == {"sheet": "Ventas"}
 
 

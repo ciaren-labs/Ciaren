@@ -120,6 +120,60 @@ async def test_excel_sheet_selection(client: AsyncClient) -> None:
     assert ds3["parse_options"] is None
 
 
+async def test_excel_sheet_literally_named_a_digit_wins_over_index(client: AsyncClient) -> None:
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf) as writer:
+        pd.DataFrame({"first": [1]}).to_excel(writer, sheet_name="Uno", index=False)
+        pd.DataFrame({"named_two": [2]}).to_excel(writer, sheet_name="2", index=False)
+    ds = await _upload(client, "digitsheet.xlsx", buf.getvalue(), params="?sheet=2")
+    assert [c["name"] for c in ds["column_schema"]] == ["named_two"]
+    assert ds["parse_options"] == {"sheet": "2"}
+
+
+async def test_tsv_with_encoding_and_decimal_exports_valid_polars(client: AsyncClient) -> None:
+    """Audit repro: TSV + cp1252 + decimal commas must emit the tab separator
+    in the polars decode wrapper (the decimal flag used to displace it)."""
+    content = "producto\tprecio\ncafé\t1,50\ntécnica\t2,75\n".encode("cp1252")
+    r = await client.post("/api/datasets/upload", files={"file": ("euro.tsv", content, "text/tab-separated-values")})
+    assert r.status_code == 201, r.text
+    ds = r.json()
+    assert {c["name"]: c["type"] for c in ds["column_schema"]}["precio"] == "float"
+
+    graph = {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [{"id": "e1", "source": "in", "target": "out"}],
+    }
+    r = await client.post("/api/flows", json={"name": "tsv-export", "graph_json": graph})
+    r = await client.post(f"/api/flows/{r.json()['id']}/export/python", json={})
+    body = r.json()
+    import pathlib
+    import tempfile
+
+    import polars as pl
+
+    for key in ("polars", "polars_lazy"):
+        code = body[key]
+        # Either quoting of the tab separator is fine — what matters is that
+        # the decimal flag didn't displace it (the audit's repro).
+        assert "separator=" in code and "\\t" in code, code
+        assert "decimal_comma=True" in code
+        # The emitted read must actually parse the original file.
+        ns: dict = {"pl": pl}
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = pathlib.Path(tmp) / "euro.tsv"
+            orig.write_bytes(content)
+            snippet = code.replace("'euro.tsv'", repr(str(orig)))
+            # Keep the exec focused on the read: drop the output write line.
+            snippet = "\n".join(ln for ln in snippet.splitlines() if ".write_csv(" not in ln)
+            exec(snippet, ns)  # noqa: S102 - executing generated code on the original file
+            frame = ns["df_1"]
+            frame = frame.collect() if hasattr(frame, "collect") else frame
+            assert frame["precio"].to_list() == [1.5, 2.75]
+
+
 async def test_export_reproduces_original_dialect(client: AsyncClient) -> None:
     """Exported scripts read the user's ORIGINAL file by name, so they must
     carry the original dialect — pandas via keywords, polars via a decode
