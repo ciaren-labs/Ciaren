@@ -340,6 +340,7 @@ def describe_settings() -> list[dict[str, Any]]:
     settings = get_settings()
     active = getattr(settings, _OVERRIDES_ATTR, {})
     baseline = _baseline()
+    env_prefix = str(Settings.model_config.get("env_prefix") or "")
     out: list[dict[str, Any]] = []
     for spec in _SPECS:
         base_value = getattr(baseline, spec.key)
@@ -361,6 +362,10 @@ def describe_settings() -> list[dict[str, Any]]:
                 "key": spec.key,
                 "label": spec.label,
                 "description": spec.description,
+                # The env var this setting maps to, so the UI can say exactly
+                # which variable an override shadows (edits to it are ignored
+                # until the override is reset).
+                "env_var": f"{env_prefix}{spec.key}",
                 "category": spec.category,
                 "value_type": spec.value_type,
                 "choices": list(spec.choices) if spec.choices else None,

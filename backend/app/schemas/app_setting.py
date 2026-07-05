@@ -15,6 +15,9 @@ class AppSettingRead(BaseModel):
     key: str
     label: str
     description: str
+    # The CIAREN_* environment variable this setting maps to. While an
+    # override exists, that variable is ignored (until the override is reset).
+    env_var: str
     category: str
     value_type: Literal["integer", "select", "url"]
     choices: list[str] | None = None

@@ -80,6 +80,13 @@ function SettingRow({ setting }: { setting: AppSetting }) {
           <SourceBadge setting={setting} />
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{setting.description}</p>
+        <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">{setting.env_var}</p>
+        {setting.source === "override" && (
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400">
+            <Info className="h-3 w-3 shrink-0" />
+            Set from this page — changes to {setting.env_var} are ignored until you press Reset.
+          </p>
+        )}
         {setting.restart_required && (
           <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
             <Info className="h-3 w-3 shrink-0" /> Takes full effect after the server restarts.

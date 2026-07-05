@@ -41,6 +41,14 @@ consumed once at startup. Overrides are designed for the standard
 single-process `ciaren serve`; if you run multiple server processes, a change
 applies live to the process that handled it and to every process after restart.
 
+::: warning An override mutes its environment variable
+While a setting has a saved override (shown as **Custom**), its `CIAREN_*`
+environment variable — and the matching `ciaren serve` flag — has **no
+effect**: editing or removing the variable changes nothing until you press
+**Reset** on that setting. Each row on the page names its variable and, when
+overridden, warns that changes to it are being ignored.
+:::
+
 Everything else is deliberately **environment-only**: bootstrap values the
 server needs before the database is up (`DATABASE_URL`, `DATA_DIR`, …), secrets
 (`API_TOKEN`, `WEBHOOK_SECRET`, `NOTIFY_WEBHOOK_SECRET`), the failure-webhook

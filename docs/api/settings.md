@@ -24,6 +24,7 @@ Each item carries the UI metadata and current state:
 ```json
 {
   "key": "MAX_UPLOAD_SIZE_MB",
+  "env_var": "CIAREN_MAX_UPLOAD_SIZE_MB",
   "label": "Max upload size (MB)",
   "description": "Largest dataset file the upload endpoint accepts.",
   "category": "Datasets",
@@ -43,6 +44,9 @@ Each item carries the UI metadata and current state:
   (`override` > `env` > `default`).
 - `env_value` is what a `DELETE` would restore (the environment variable if
   set, else the built-in default).
+- `env_var` names the environment variable the setting maps to. While an
+  override exists, editing that variable has **no effect** — the override wins
+  until it is deleted.
 - `value_type` is `integer` (with `min_value`/`max_value`), `select` (with
   `choices`), or `url` (http/https, empty string to disable; no current
   setting uses it).

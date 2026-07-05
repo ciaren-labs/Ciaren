@@ -764,6 +764,8 @@ export interface AppSetting {
   key: string;
   label: string;
   description: string;
+  /** The CIAREN_* env var this setting maps to; ignored while an override exists. */
+  env_var: string;
   category: string;
   value_type: "integer" | "select" | "url";
   choices: string[] | null;

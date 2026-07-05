@@ -32,6 +32,7 @@ async def test_list_exposes_registry_with_metadata(client):
     engine = await _get(client, "DEFAULT_ENGINE")
     assert engine["value_type"] == "select"
     assert sorted(engine["choices"]) == ["pandas", "polars"]
+    assert engine["env_var"] == "CIAREN_DEFAULT_ENGINE"
     timeout = await _get(client, "RUN_TIMEOUT_SECONDS")
     assert timeout["value_type"] == "integer"
     assert timeout["min_value"] == 0

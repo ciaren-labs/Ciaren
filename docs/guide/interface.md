@@ -40,8 +40,10 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 - **Settings** (`/settings`, the gear icon on the right of the navigation bar) —
   runtime server configuration: default engine, execution mode, timeouts, upload
   and scheduler limits, and ML guardrails. Edits are
-  saved server-side and survive restarts; each setting shows whether it comes
-  from a default, an environment variable, or a saved override. See
+  saved server-side and survive restarts; each setting names its `CIAREN_*`
+  variable and shows whether the value comes from a default, an environment
+  variable, or a saved override — while an override exists, the environment
+  variable is ignored until you press Reset. See
   [Advanced Setup](/guide/advanced-setup#the-settings-page).
 
 ## The flow editor

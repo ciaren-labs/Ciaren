@@ -8,6 +8,7 @@ import type { AppSetting } from "@/lib/types";
 const SETTINGS: AppSetting[] = [
   {
     key: "DEFAULT_ENGINE",
+    env_var: "CIAREN_DEFAULT_ENGINE",
     label: "Default engine",
     description: "Dataframe engine used for runs that don't request one explicitly.",
     category: "Execution",
@@ -23,6 +24,7 @@ const SETTINGS: AppSetting[] = [
   },
   {
     key: "MAX_UPLOAD_SIZE_MB",
+    env_var: "CIAREN_MAX_UPLOAD_SIZE_MB",
     label: "Max upload size (MB)",
     description: "Largest dataset file the upload endpoint accepts.",
     category: "Datasets",
@@ -38,6 +40,7 @@ const SETTINGS: AppSetting[] = [
   },
   {
     key: "SCHEDULER_MAX_CONCURRENT_RUNS",
+    env_var: "CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS",
     label: "Max concurrent scheduled runs",
     description: "Cap on simultaneous scheduled runs.",
     category: "Scheduler",
@@ -113,6 +116,14 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("reset-MAX_UPLOAD_SIZE_MB")).toBeInTheDocument();
     // Non-overridden settings offer no reset.
     expect(screen.queryByLabelText("reset-DEFAULT_ENGINE")).not.toBeInTheDocument();
+
+    // Every row names its env var, and ONLY the overridden row warns that
+    // the variable is being shadowed by the page's value.
+    expect(screen.getByText("CIAREN_DEFAULT_ENGINE")).toBeInTheDocument();
+    expect(screen.getByText("CIAREN_MAX_UPLOAD_SIZE_MB")).toBeInTheDocument();
+    const shadowNotes = screen.getAllByText(/are ignored until you press Reset/i);
+    expect(shadowNotes).toHaveLength(1);
+    expect(shadowNotes[0]).toHaveTextContent("CIAREN_MAX_UPLOAD_SIZE_MB");
   });
 
   it("flags restart-required settings", async () => {
