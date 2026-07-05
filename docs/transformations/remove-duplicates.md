@@ -49,7 +49,7 @@ duplicates and only the first is kept.
 ## Generated Python code
 
 ```python
-df_2 = df_1.drop_duplicates(keep='first')
+df_2 = df_1.drop_duplicates()
 ```
 
 ## Tips & common mistakes

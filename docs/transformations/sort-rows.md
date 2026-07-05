@@ -42,7 +42,7 @@ is primary, subsequent ones are tie-breakers.
 ## Generated Python code
 
 ```python
-df_2 = df_1.sort_values(by=['amount'], ascending=False)
+df_2 = df_1.sort_values('amount', ascending=False)
 ```
 
 ## Tips & common mistakes

@@ -74,22 +74,19 @@ method chains on a single variable:
 import pandas as pd
 
 df_1 = pd.read_csv('sales.csv')
-df_1 = df_1.drop(columns=['internal_note'])
-df_1 = df_1.assign(**{'amount': df_1['amount'].astype('float64')})
 df_1 = (
-    df_1.assign(**{'ordered_at': pd.to_datetime(df_1['ordered_at'])})
-    .dropna(subset=['amount'])
+    df_1.drop(columns=['internal_note'])
+    .assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
+    .dropna(subset='amount')
     .loc[lambda _d: _d['amount'] > 0]
-)
-df_1 = df_1.assign(**{'region': df_1['region'].replace('north', 'North')})
-df_1 = df_1.assign(**{'region': df_1['region'].replace('south', 'South')})
-df_1 = (
-    df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
-    .groupby(['region'])
+    .assign(region=lambda _d: _d['region'].replace('north', 'North'))
+    .assign(region=lambda _d: _d['region'].replace('south', 'South'))
+    .fillna({'region': 'Unknown'})
+    .groupby('region')
     .agg({'amount': 'sum', 'order_id': 'count'})
     .reset_index()
     .rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
-    .sort_values(by=['total_sales'], ascending=[False])
+    .sort_values('total_sales', ascending=False)
 )
 df_1.to_csv('sales_summary.csv', index=False)
 ```

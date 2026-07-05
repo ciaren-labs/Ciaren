@@ -49,7 +49,7 @@ All non-grouped, non-aggregated columns are dropped from the result.
 ## Generated Python code
 
 ```python
-df_2 = df_1.groupby(['region']).agg({'amount': 'sum'}).reset_index()
+df_2 = df_1.groupby('region').agg({'amount': 'sum'}).reset_index()
 ```
 
 ## Tips & common mistakes

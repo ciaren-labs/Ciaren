@@ -49,7 +49,7 @@ filling each cell by aggregating the `values` column for that row key.
 ## Generated Python code
 
 ```python
-df_2 = df_1.pivot_table(index=['region'], columns='month', values='amount', aggfunc='sum').reset_index()
+df_2 = df_1.pivot_table(index='region', columns='month', values='amount', aggfunc='sum').reset_index()
 ```
 
 ## Tips & common mistakes

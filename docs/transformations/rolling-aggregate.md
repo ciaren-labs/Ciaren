@@ -37,10 +37,7 @@ within each group. The original row order is preserved in the output.
 ## Generated Python code
 
 ```python
-_w = df_1.reset_index(drop=True)
-_w = _w.sort_values(by=["date"], ascending=[True], kind="stable")
-_w = _w.assign(**{"sales_ma": _w["sales"].rolling(7, min_periods=None).mean()})
-df_2 = _w.sort_index().reset_index(drop=True)
+df_2 = df_1.assign(sales_ma=lambda _d: _d.sort_values('date', kind='stable')['sales'].rolling(7).mean())
 ```
 
 ## Tips & common mistakes

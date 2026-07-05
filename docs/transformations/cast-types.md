@@ -47,8 +47,7 @@ unparseable values become null rather than crashing the run.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{'amount': df_1['amount'].astype('float64')})
-df_2 = df_2.assign(**{'ordered_at': pd.to_datetime(df_2['ordered_at'])})
+df_2 = df_1.assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
 ```
 
 ## Tips & common mistakes

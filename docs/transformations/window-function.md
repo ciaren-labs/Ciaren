@@ -64,10 +64,7 @@ running total without collapsing rows.
 
 ```python
 # function: cumsum, partition_by: ['region'], order_by: ['date'], target: 'amount'
-_w = df_1.reset_index(drop=True)
-_w = _w.sort_values(by=['date'], ascending=[True], kind='stable')
-_w = _w.assign(**{'running_total': _w.groupby(['region'], sort=False)['amount'].cumsum()})
-df_2 = _w.sort_index().reset_index(drop=True)
+df_2 = df_1.assign(running_total=lambda _d: _d.sort_values('date', kind='stable').groupby('region', sort=False)['amount'].cumsum())
 ```
 
 ## Tips & common mistakes

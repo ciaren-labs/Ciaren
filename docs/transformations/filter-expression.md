@@ -44,7 +44,7 @@ and you can ignore it and type the expression by hand instead.
 ## Generated Python code
 
 ```python
-df_2 = df_1.loc[lambda _d: _d.eval("amount > 100 and status == 'paid'").astype(bool)].reset_index(drop=True)
+df_2 = df_1.query("amount > 100 and status == 'paid'").reset_index(drop=True)
 ```
 
 ## Tips & common mistakes

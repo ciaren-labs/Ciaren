@@ -56,38 +56,30 @@ your downstream code prefers.
 ```python [pandas]
 import pandas as pd
 
-df_1 = pd.read_csv("sales.csv")
+df_1 = pd.read_csv('sales.csv')
 df_1 = (
-    df_1.dropna(subset=['amount'])
-    .groupby(['region'])
+    df_1.dropna(subset='amount')
+    .groupby('region')
     .agg({'amount': 'sum'})
     .reset_index()
 )
-df_1.to_csv("summary.csv", index=False)
+df_1.to_csv('summary.csv', index=False)
 ```
 
 ```python [polars (eager)]
 import polars as pl
 
-df_1 = pl.read_csv("sales.csv")
-df_1 = (
-    df_1.drop_nulls(subset=['amount'])
-    .group_by(['region'])
-    .agg([pl.col('amount').sum().alias('amount')])
-)
-df_1.write_csv("summary.csv")
+df_1 = pl.read_csv('sales.csv')
+df_1 = df_1.drop_nulls(subset='amount').group_by('region').agg(pl.col('amount').sum())
+df_1.write_csv('summary.csv')
 ```
 
 ```python [polars (lazy)]
 import polars as pl
 
-df_1 = pl.scan_csv("sales.csv")          # LazyFrame — reads only what's needed
-df_1 = (
-    df_1.drop_nulls(subset=['amount'])
-    .group_by(['region'])
-    .agg([pl.col('amount').sum().alias('amount')])
-)
-df_1.collect().write_csv("summary.csv")  # single optimised query runs here
+df_1 = pl.scan_csv('sales.csv')          # LazyFrame — reads only what's needed
+df_1 = df_1.drop_nulls(subset='amount').group_by('region').agg(pl.col('amount').sum())
+df_1.collect().write_csv('summary.csv')  # single optimised query runs here
 ```
 
 :::

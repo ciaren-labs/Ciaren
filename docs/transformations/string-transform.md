@@ -46,7 +46,7 @@ Chain multiple String transform nodes (one per operation) for multi-step cleanin
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{'region': df_1['region'].astype('string').str.strip()})
+df_2 = df_1.assign(region=lambda _d: _d['region'].astype('string').str.strip())
 ```
 
 ## Tips & common mistakes

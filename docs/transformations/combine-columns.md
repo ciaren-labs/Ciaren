@@ -33,7 +33,7 @@ Null cells become empty strings, so the separator's position is preserved
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{"full_name": df_1[["first", "last"]].astype("string").fillna("").apply(" ".join, axis=1).astype("string")})
+df_2 = df_1.assign(full_name=lambda _d: _d['first'].astype('string').fillna('') + ' ' + _d['last'].astype('string').fillna(''))
 ```
 
 ## Tips & common mistakes

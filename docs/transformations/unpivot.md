@@ -49,7 +49,7 @@ one naming the original column (`var_name`) and one holding the value (`value_na
 ## Generated Python code
 
 ```python
-df_2 = df_1.melt(id_vars=['region'], value_vars=None, var_name='variable', value_name='value')
+df_2 = df_1.melt(id_vars=['region'])
 ```
 
 ## Tips & common mistakes

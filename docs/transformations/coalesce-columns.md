@@ -32,7 +32,7 @@ null.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{"phone": df_1[["mobile", "home", "work"]].bfill(axis=1).iloc[:, 0]})
+df_2 = df_1.assign(phone=lambda _d: _d['mobile'].fillna(_d['home']).fillna(_d['work']))
 ```
 
 ## Tips & common mistakes

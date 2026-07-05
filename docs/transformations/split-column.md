@@ -50,8 +50,8 @@ one new column per name in `into`. Rows with fewer parts leave trailing columns 
 ## Generated Python code
 
 ```python
-_parts = df_1['name'].astype('string').str.split(' ', expand=True, regex=False)
-df_2 = df_1.assign(**{'first': _parts[0], 'last': _parts[1]})
+_parts = df_1['name'].astype('string').str.split(' ', expand=True)
+df_2 = df_1.assign(first=_parts[0], last=_parts[1])
 ```
 
 ## Tips & common mistakes

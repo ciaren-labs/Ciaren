@@ -10,6 +10,19 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Exports now read like hand-written code** — every node emitter was
+  reworked to produce what a person would type: keyword `assign(col=…)`
+  instead of `**{…}` dicts, `fillna({'age': df['age'].median()})` instead
+  of guarded comprehensions for explicitly picked columns,
+  `df.eval('total = price * quantity')`, `.query(…)` filters, `np.select`
+  conditional columns, one-statement casts, `df.round({…})`, joins as
+  `left.merge(right, on='id', how='left')`, and window/rolling/difference
+  nodes as a single chainable expression (pandas index alignment; polars
+  `.over(partition, order_by=…)`). Defaults the libraries already assume
+  are no longer spelled out. A ~40-case extension of the equivalence
+  harness proves the cleaner scripts still compute exactly what the app
+  runs, and the docs' generated-code snippets, example walkthroughs, and
+  the export GIF were regenerated from the new output.
 - **Import options with auto-detection** — European Excel exports (semicolon
   separator, Latin-1/Windows-1252 encoding, decimal commas) and multi-sheet
   workbooks now just work: CSV/TSV dialect is auto-detected at upload, an

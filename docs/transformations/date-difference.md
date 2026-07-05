@@ -27,13 +27,13 @@ chosen unit and written to a new numeric column. The result is fractional (e.g.
 | --- | --- | --- | --- |
 | `start_column` | string | Yes | The earlier date column |
 | `end_column` | string | Yes | The later date column (result is end − start) |
-| `unit` | string | Yes | `days`, `hours`, `minutes`, `seconds`, or `weeks` |
+| `unit` | string | No (default `days`) | `days`, `hours`, `minutes`, `seconds`, or `weeks` |
 | `new_column` | string | Yes | Name of the result column |
 
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{"days_between": (pd.to_datetime(df_1["ship_date"], errors="coerce") - pd.to_datetime(df_1["order_date"], errors="coerce")).dt.total_seconds() / 86400})
+df_2 = df_1.assign(days_between=lambda _d: (pd.to_datetime(_d['ship_date'], errors='coerce') - pd.to_datetime(_d['order_date'], errors='coerce')).dt.total_seconds() / 86400)
 ```
 
 ## Tips & common mistakes

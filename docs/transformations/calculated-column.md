@@ -48,7 +48,7 @@ column names.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{'total': lambda _d: _d.eval('price * quantity')})
+df_2 = df_1.eval('total = price * quantity')
 ```
 
 ## Tips & common mistakes

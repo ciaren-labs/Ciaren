@@ -45,8 +45,7 @@ when `errors=coerce` (the default).
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{c: pd.to_datetime(df_1[c], format=None, errors='coerce')
-    for c in ['ordered_at']})
+df_2 = df_1.assign(ordered_at=lambda _d: pd.to_datetime(_d['ordered_at'], errors='coerce'))
 ```
 
 ## Tips & common mistakes

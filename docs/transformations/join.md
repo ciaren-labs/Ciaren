@@ -60,7 +60,7 @@ Provide either `on` (same key name on both sides) **or** both `left_on` and
 ## Generated Python code
 
 ```python
-df_3 = pd.merge(df_1, df_2, on=['customer_id'], how='left', suffixes=('_x', '_y'))
+df_3 = df_1.merge(df_2, on='customer_id', how='left')
 ```
 
 ## Tips & common mistakes

@@ -27,7 +27,7 @@ group boundary. The original row order is preserved.
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
 | `target` | string | Yes | Numeric column to compare |
-| `method` | string | Yes | `diff` or `pct_change` |
+| `method` | string | No (default `diff`) | `diff` or `pct_change` |
 | `periods` | int | No | Rows back to compare against (default 1) |
 | `order_by` | string[] | No | Order rows first (e.g. a date) |
 | `partition_by` | string[] | No | Compare only within each group |
@@ -37,10 +37,7 @@ group boundary. The original row order is preserved.
 ## Generated Python code
 
 ```python
-_w = df_1.reset_index(drop=True)
-_w = _w.sort_values(by=["date"], ascending=[True], kind="stable")
-_w = _w.assign(**{"delta": _w.groupby(["customer"], sort=False)["amount"].diff(1)})
-df_2 = _w.sort_index().reset_index(drop=True)
+df_2 = df_1.assign(delta=lambda _d: _d.sort_values('date', kind='stable').groupby('customer', sort=False)['amount'].diff())
 ```
 
 ## Tips & common mistakes

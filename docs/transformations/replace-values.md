@@ -42,7 +42,7 @@ values pass through unchanged.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{'region': df_1['region'].replace('N', 'North')})
+df_2 = df_1.assign(region=lambda _d: _d['region'].replace('N', 'North'))
 ```
 
 ## Tips & common mistakes

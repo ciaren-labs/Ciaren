@@ -44,7 +44,7 @@ rows missing an `amount` are removed — rows with other nulls (like `region`) s
 ## Generated Python code
 
 ```python
-df_2 = df_1.dropna(subset=['amount'])
+df_2 = df_1.dropna(subset='amount')
 ```
 
 ## Tips & common mistakes

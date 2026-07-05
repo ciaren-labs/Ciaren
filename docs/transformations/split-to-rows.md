@@ -31,7 +31,7 @@ directly. Row count grows; all other columns are duplicated per value.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{"tags": df_1["tags"].astype("string").str.split(";")}).explode("tags").reset_index(drop=True)
+df_2 = df_1.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';')).explode('tags').reset_index(drop=True)
 ```
 
 ## Tips & common mistakes

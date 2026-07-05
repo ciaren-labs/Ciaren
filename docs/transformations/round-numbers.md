@@ -40,7 +40,7 @@ Rounds each value in the target columns to `decimals` decimal places in place.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{c: df_1[c].round(2) for c in ['amount']})
+df_2 = df_1.round({'amount': 2})
 ```
 
 ## Tips & common mistakes

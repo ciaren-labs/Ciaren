@@ -50,7 +50,7 @@ Each part becomes a new column named `<column>_<part>` (e.g. `ordered_at_year`).
 
 ```python
 _dt = pd.to_datetime(df_1['ordered_at'])
-df_2 = df_1.assign(**{'ordered_at_year': _dt.dt.year, 'ordered_at_month': _dt.dt.month})
+df_2 = df_1.assign(ordered_at_year=_dt.dt.year, ordered_at_month=_dt.dt.month)
 ```
 
 ## Tips & common mistakes

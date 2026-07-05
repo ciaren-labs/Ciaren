@@ -59,9 +59,7 @@ written flat as `{ column, operator, value, result }`.
 
 ```python
 # rule: age >= 18 AND country == "US" → "us_adult"; default "other"
-df_2 = df_1.copy()
-df_2['segment'] = 'other'
-df_2.loc[(df_2['age'] >= 18) & (df_2['country'] == 'US'), 'segment'] = 'us_adult'
+df_2 = df_1.assign(segment=lambda _d: np.select([(_d['age'] >= 18) & (_d['country'] == 'US')], ['us_adult'], default='other'))
 ```
 
 ## Tips & common mistakes

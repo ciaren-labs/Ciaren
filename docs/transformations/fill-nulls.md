@@ -51,7 +51,7 @@ propagate the previous/next value.
 
 ```python
 # strategy: "constant", value: "Unknown", columns: ["region"]
-df_2 = df_1.assign(**{c: df_1[c].fillna('Unknown') for c in ['region']})
+df_2 = df_1.fillna({'region': 'Unknown'})
 ```
 
 ## Tips & common mistakes

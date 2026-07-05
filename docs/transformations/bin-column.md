@@ -50,7 +50,7 @@ equal row counts.
 ## Generated Python code
 
 ```python
-df_2 = df_1.assign(**{'amount_band': pd.cut(df_1['amount'], bins=4, labels=None).astype('string')})
+df_2 = df_1.assign(amount_band=pd.cut(df_1['amount'], bins=4).astype('string'))
 ```
 
 ## Tips & common mistakes

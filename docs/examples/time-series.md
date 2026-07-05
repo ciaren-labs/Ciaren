@@ -65,19 +65,18 @@ Upload it on the **Datasets** page
 ```python
 import pandas as pd
 
-df_1 = pd.read_csv("events.csv")
-df_1 = df_1.assign(**{'occurred_at': pd.to_datetime(df_1['occurred_at'])})
-df_1 = df_1.assign(**{'value': df_1['value'].astype('float64')})
+df_1 = pd.read_csv('events.csv')
+df_1 = df_1.assign(occurred_at=lambda _d: pd.to_datetime(_d['occurred_at']), value=lambda _d: _d['value'].astype('float64'))
 _dt = pd.to_datetime(df_1['occurred_at'])
+df_1 = df_1.assign(occurred_at_year=_dt.dt.year, occurred_at_month=_dt.dt.month)
 df_1 = (
-    df_1.assign(**{'occurred_at_year': _dt.dt.year, 'occurred_at_month': _dt.dt.month})
-    .groupby(['occurred_at_year', 'occurred_at_month'])
+    df_1.groupby(['occurred_at_year', 'occurred_at_month'])
     .agg({'value': 'sum', 'event_id': 'count'})
     .reset_index()
     .rename(columns={'value': 'total_value', 'event_id': 'num_events'})
-    .sort_values(by=['occurred_at_year', 'occurred_at_month'], ascending=[True, True])
+    .sort_values(['occurred_at_year', 'occurred_at_month'])
 )
-df_1.to_csv("monthly_summary.csv", index=False)
+df_1.to_csv('monthly_summary.csv', index=False)
 ```
 
 ## Result
