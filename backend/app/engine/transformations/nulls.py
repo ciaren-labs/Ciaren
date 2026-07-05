@@ -37,8 +37,10 @@ class DropNullsTransformation(BaseTransformation):
         subset = config.get("subset")
         how = config.get("how", "any")
         if how == "all":
-            cols = subset or f"{src}.columns"
-            cols_expr = f"{subset!r}" if subset else f"{src}.columns"
+            cols = subset or "all columns"
+            # collect_schema().names() works on DataFrame and LazyFrame alike
+            # (LazyFrame.columns raises PerformanceWarning, removal candidate).
+            cols_expr = f"{subset!r}" if subset else f"{src}.collect_schema().names()"
             return (
                 f"{dst} = {src}.filter(~pl.all_horizontal("
                 f"[pl.col(c).is_null() for c in {cols_expr}]))  # drop rows all-null in {cols}"
@@ -130,13 +132,19 @@ class FillNullsTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         columns = config.get("columns")
         strategy = config.get("strategy", "constant")
-        cols_iter = f"{columns!r}" if columns else f"{src}.columns"
+        # collect_schema().names(), not .columns: it works identically on a
+        # DataFrame and a LazyFrame (where .columns raises PerformanceWarning
+        # and is slated for removal), so one emitted form serves both modes.
+        cols_iter = f"{columns!r}" if columns else f"{src}.collect_schema().names()"
 
         if strategy == "constant":
             value = config.get("value")
             if columns:
                 return f"{dst} = {src}.with_columns([pl.col(c).fill_null({value!r}) for c in {columns!r}])"
             return f"{dst} = {src}.fill_null({value!r})"
+        # The schema-guarded branches bind `_sch` anyway, so they iterate
+        # `_sch.names()` instead of collecting the schema twice.
+        sch_iter = f"{columns!r}" if columns else "_sch.names()"
         if strategy in self._POLARS_STRATEGY:
             strat = self._POLARS_STRATEGY[strategy]
             # Mean only exists for numbers — mirror the engine's skip of other
@@ -145,7 +153,7 @@ class FillNullsTransformation(BaseTransformation):
                 return (
                     f"_sch = {src}.collect_schema()\n"
                     f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) "
-                    f"for c in {cols_iter} if _sch[c].is_numeric()])"
+                    f"for c in {sch_iter} if _sch[c].is_numeric()])"
                 )
             return f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) for c in {cols_iter}])"
         # median / mode as pure expressions: no {src}[c] series subscripts, so
@@ -157,7 +165,7 @@ class FillNullsTransformation(BaseTransformation):
             # there the expression behaves like the engine (raise / no-op).
             return (
                 f"_sch = {src}.collect_schema()\n"
-                f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in {cols_iter} "
+                f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in {sch_iter} "
                 f"if _sch[c].is_numeric() or _sch[c].is_temporal() or _sch[c] in (pl.Boolean, pl.Null)])"
             )
         # mode: drop nulls first (with nulls present, null itself can be the

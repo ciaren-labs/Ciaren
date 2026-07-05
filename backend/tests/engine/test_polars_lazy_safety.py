@@ -14,6 +14,7 @@ output — shape-level equivalence between the two modes, not just "it didn't
 crash".
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -91,6 +92,25 @@ def test_lazy_script_runs_and_matches_eager(case: str, tmp_path: Path) -> None:
     eager = _run(gen.generate(graph, {"d": "in.csv"}), tmp_path, "eager")
     lazy = _run(gen.generate(graph, {"d": "in.csv"}, lazy=True), tmp_path, "lazy")
     pd.testing.assert_frame_equal(eager, lazy)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["fill_median_all_cols", "fill_mean", "drop_nulls_all"],
+)
+def test_lazy_scripts_emit_no_performance_warnings(case: str, tmp_path: Path) -> None:
+    # LazyFrame.columns raises PerformanceWarning (and is slated for removal);
+    # emitters iterate collect_schema().names() instead, so a lazy script runs
+    # clean even with polars warnings promoted to errors.
+    node_type, config, csv = CASES[case]
+    (tmp_path / "in.csv").write_text(csv)
+    code = PolarsCodeGenerator().generate(_graph(node_type, config), {"d": "in.csv"}, lazy=True)
+    assert ".columns" not in code
+    script = tmp_path / "script.py"
+    script.write_text(code, encoding="utf-8")
+    env = dict(os.environ, PYTHONWARNINGS="error::polars.exceptions.PerformanceWarning")
+    result = subprocess.run([sys.executable, str(script)], cwd=tmp_path, capture_output=True, text=True, env=env)
+    assert result.returncode == 0, f"lazy script warned or failed:\n{result.stderr}\n---\n{code}"
 
 
 def test_bin_quantile_stays_lazy_but_equalwidth_materializes() -> None:
