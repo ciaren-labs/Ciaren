@@ -18,6 +18,7 @@ import ast
 import re
 from typing import Any, NamedTuple
 
+from app.engine.graph import GraphValidationError
 from app.engine.sql_codegen import engine_url_expr
 
 _SELF_ASSIGN = re.compile(r"^(\w+) = \1$")
@@ -219,6 +220,33 @@ def fuse_method_chains(lines: list[str]) -> list[str]:
             out.append(lines[i])
         i = j  # j == i + 1 when the group stayed a singleton
     return out
+
+
+def assert_params_do_not_shadow_imports(header: list[str], parameter_lines: list[str]) -> None:
+    """Fail export clearly when a flow parameter would rebind a script import.
+
+    The parameter prelude (``name = default``) sits *after* the imports, so a
+    parameter named ``Pipeline`` or ``create_engine`` silently rebinds the
+    import and the exported script breaks in a confusing place. Which imports a
+    script needs depends on the flow's nodes and dialect, so this can't be a
+    static reserved-name list at save time — instead the generators check the
+    final header and name the offending parameter(s).
+    """
+    if not parameter_lines:
+        return
+    imported: set[str] = set()
+    for node in ast.walk(ast.parse("\n".join(header))):
+        if isinstance(node, ast.Import):
+            imported.update(a.asname or a.name.split(".")[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            imported.update(a.asname or a.name for a in node.names)
+    params = {ln.split(" = ", 1)[0] for ln in parameter_lines if " = " in ln and not ln.startswith("#")}
+    clash = sorted(imported & params)
+    if clash:
+        raise GraphValidationError(
+            f"Flow parameter name(s) {', '.join(clash)} collide with import(s) the exported "
+            "script needs — rename the parameter(s)."
+        )
 
 
 def incoming_by_target(graph: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:

@@ -77,3 +77,52 @@ def test_parameter_block_lines_define_defaults_with_descriptions():
 
 def test_parameter_block_lines_empty_without_parameters():
     assert parameter_block_lines({"nodes": [], "edges": []}) == []
+
+
+# -- import shadowing ---------------------------------------------------------
+
+
+def test_parameter_shadowing_an_import_fails_export_with_clear_message():
+    import pytest
+
+    from app.engine.codegen import CodeGenerator
+    from app.engine.graph import GraphValidationError
+    from app.engine.polars_codegen import PolarsCodeGenerator
+
+    # A sqlInput flow imports create_engine; a parameter with that name would
+    # rebind the import right below it. The generator must refuse, by name.
+    graph = {
+        "parameters": [{"name": "create_engine", "type": "integer", "default": 1}],
+        "nodes": [
+            {
+                "id": "in",
+                "type": "sqlInput",
+                "data": {"config": {"connection_id": "c1", "mode": "table", "table": "t"}},
+            },
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [{"id": "e1", "source": "in", "target": "out"}],
+    }
+    lines = ["# Flow parameters — override these to re-run with different values.", "create_engine = 1"]
+    for gen in (CodeGenerator(), PolarsCodeGenerator()):
+        with pytest.raises(GraphValidationError, match="create_engine"):
+            gen.generate(graph, {}, {"c1": {"provider": "sqlite", "database": "db"}}, parameter_lines=lines)
+
+
+def test_non_colliding_parameter_names_export_fine():
+    from app.engine.codegen import CodeGenerator
+
+    graph = {
+        "parameters": [{"name": "keep", "type": "integer", "default": 2}],
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "lim", "type": "limitRows", "data": {"config": {"n": 2}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "out.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "lim"},
+            {"id": "e2", "source": "lim", "target": "out"},
+        ],
+    }
+    code = CodeGenerator().generate(graph, {"d": "in.csv"}, parameter_lines=["keep = 2"])
+    assert "keep = 2" in code

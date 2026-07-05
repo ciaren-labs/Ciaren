@@ -28,6 +28,7 @@ from typing import Any
 
 from app.engine.codegen_common import (
     DelScheduler,
+    assert_params_do_not_shadow_imports,
     collect_input_vars,
     edge_source_var,
     fuse_method_chains,
@@ -336,5 +337,6 @@ class PolarsCodeGenerator:
             lines.extend(dels.flush(idx))
 
         header = [*base_header, *ordered_imports(extra_imports)]
+        assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
         return "\n".join([*header, "", *prelude, *fuse_method_chains(lines)]) + "\n"
