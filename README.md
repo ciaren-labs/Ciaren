@@ -231,8 +231,17 @@ Install extras only when you need specific drivers or optional model families:
 python -m pip install --pre "ciaren[postgres]"
 python -m pip install --pre "ciaren[s3]"
 python -m pip install --pre "ciaren[ml]"        # XGBoost and LightGBM choices
+python -m pip install --pre "ciaren[keyring]"   # recommended: store connection secrets in the OS keychain
 python -m pip install --pre "ciaren[signing]"   # plugin signing support
 ```
+
+On a desktop install, `ciaren[keyring]` is the **recommended** way to hold
+database and API secrets: the connection form (and the `ciaren secret set`
+command) stores the value in your OS keychain — Windows Credential Manager,
+macOS Keychain, or Secret Service on Linux — and the connection keeps only a
+`keyring:NAME` reference. Ciaren never writes the secret to its database.
+Without the extra, connections still work with environment-variable
+(`env:`/`PG_PASSWORD`) or secret-file (`file:/run/secrets/...`) references.
 
 The separate `ciaren-client` package is only for scripts that need to call a
 running Ciaren server. It is not required to use the visual app.

@@ -42,6 +42,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState"
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ApiError } from "@/lib/api";
@@ -1483,8 +1484,6 @@ function SecretRefField({
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canKeychain = allowKeychain && keyring.data?.available === true;
-
   function openPanel() {
     setEntryName(keyringNameFrom(suggestedName));
     setSecretValue("");
@@ -1527,23 +1526,48 @@ function SecretRefField({
           Saved to the OS keychain as <code>{saved}</code>.
         </p>
       ) : (
-        canKeychain && (
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">or</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
+        // Show the keychain option whenever it makes sense for this field
+        // (GCS opts out — it holds a file path). When the OS keychain isn't
+        // available it stays visible but disabled, with a hover explaining why,
+        // rather than silently vanishing.
+        allowKeychain &&
+        keyring.data && (
+          <>
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            {keyring.data.available ? (
+              <button
+                type="button"
+                onClick={openPanel}
+                className="mt-1.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/10"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                Store a value in the OS keychain
+              </button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="mt-1.5 block w-full cursor-not-allowed">
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Store a value in the OS keychain
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-center">
+                  {keyring.data.detail ?? "The OS keychain isn't available on this host."}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </>
         )
-      )}
-      {canKeychain && !saved && (
-        <button
-          type="button"
-          onClick={openPanel}
-          className="mt-1.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/60 hover:bg-primary/10"
-        >
-          <KeyRound className="h-3.5 w-3.5" />
-          Store a value in the OS keychain
-        </button>
       )}
 
       {/* Centered modal — keeps the panel out of the form's two-column grid so it

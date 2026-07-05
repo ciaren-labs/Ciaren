@@ -197,27 +197,31 @@ def resolve_secret(ref: str | None) -> str | None:
 MAX_KEYRING_SECRET_BYTES = 4096
 
 
+#: Shown wherever the optional keyring package is needed but missing.
+KEYRING_INSTALL_HINT = "Install the OS keychain support with: pip install ciaren[keyring]"
+
+
 def _import_keyring() -> object:
     try:
         import keyring
-    except ImportError:  # pragma: no cover — keyring is a core dependency; broken installs only
-        raise ValidationError("The 'keyring' package is missing — reinstall Ciaren (pip install ciaren).") from None
+    except ImportError:
+        raise ValidationError(f"The OS keychain needs the 'keyring' package. {KEYRING_INSTALL_HINT}") from None
     return keyring
 
 
 def keyring_availability() -> tuple[bool, str | None, str | None]:
     """``(available, backend_name, detail)`` for the current host's OS keychain.
 
-    A headless server has no keychain daemon; ``keyring`` then selects a "fail"
-    backend whose reads/writes raise. Detecting that lets the UI hide the
-    'save to keychain' action instead of offering an operation that will error.
-    Never touches any secret value.
+    Two "unavailable" cases the UI distinguishes via ``detail``: the optional
+    ``keyring`` package isn't installed (offer the install command), or it's
+    installed but the host has no usable backend — a headless server selects
+    keyring's "fail" backend whose reads/writes raise. Never touches any value.
     """
     try:
         import keyring
         from keyring.backends.fail import Keyring as FailKeyring
-    except ImportError:  # pragma: no cover — keyring is a core dependency
-        return False, None, "The 'keyring' package is not installed."
+    except ImportError:
+        return False, None, KEYRING_INSTALL_HINT
     try:
         backend = keyring.get_keyring()
     except Exception as exc:  # noqa: BLE001 — a broken backend must not 500 the probe

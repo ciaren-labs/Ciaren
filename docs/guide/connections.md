@@ -32,7 +32,7 @@ sources are local, with no external service required:
 | Reference | Source | When to use it |
 | --- | --- | --- |
 | `PG_PASSWORD` or `env:PG_PASSWORD` | Environment variable | The classic default; simplest for `.env`-style setups |
-| `keyring:pg-main` | **OS keychain** (Windows Credential Manager, macOS Keychain, Secret Service on Linux) | Recommended on desktop installs — encrypted at rest, not inherited by child processes |
+| `keyring:pg-main` | **OS keychain** (Windows Credential Manager, macOS Keychain, Secret Service on Linux) | **Recommended** on desktop — encrypted at rest, not inherited by child processes. Needs `pip install ciaren[keyring]` |
 | `file:/run/secrets/pg_password` | **Secret file** | Docker / Kubernetes secrets, which mount as files |
 
 Whatever the source, the value is read only when a connection is used, and is:
@@ -50,24 +50,35 @@ export PG_PASSWORD="super-secret"
 ciaren serve
 ```
 
-For the OS keychain (included in core), store the secret once — the value is
-prompted, never echoed:
+:::tip Recommended on desktop
+The OS keychain is the **recommended** way to hold connection secrets on a
+desktop install. Enable it once with the optional extra:
+
+```bash
+pip install ciaren[keyring]
+```
+
+It's an extra (not part of the base install) so servers and containers stay
+lean, and it's pure-Python on every OS — no compiler needed. Then store a
+secret; the value is prompted, never echoed:
 
 ```bash
 ciaren secret set pg-main
 ```
 
-then use `keyring:pg-main` as the connection's secret. `ciaren secret unset`
+and use `keyring:pg-main` as the connection's secret. `ciaren secret unset`
 removes it.
+:::
 
-You don't have to drop to the CLI, though: when the host has a usable keychain,
-the connection form shows **"Save a secret to the system keychain"** under the
-secret field. Enter a name and the value, click save, and Ciaren writes the
-value to the OS keychain and fills the field with the resulting
-`keyring:NAME` reference — the plaintext is sent once, stored only in the
-keychain, and never persisted, echoed back, or logged. The affordance is hidden
-on headless servers and containers (no keychain daemon), where `env:` or
-`file:` references apply instead.
+You don't have to drop to the CLI, though: the connection form has a
+**"Store a value in the OS keychain"** button under the secret field. Enter a
+name and the value, click save, and Ciaren writes the value to the OS keychain
+and fills the field with the resulting `keyring:NAME` reference — the plaintext
+is sent once, stored only in the keychain, and never persisted, echoed back, or
+logged. When `ciaren[keyring]` isn't installed, or the host has no keychain
+daemon (headless servers, containers), the button stays visible but **disabled**
+and a hover explains what to install; `env:` or `file:` references apply there
+instead.
 
 ![Saving a secret to the OS keychain from the connection form: entering a value, clicking save, and the Password secret field becoming a keyring:warehouse reference](/screenshots/save-secret-to-keychain.gif)
 
@@ -168,7 +179,7 @@ them like defaults rather than connections you created.
 
 1. Pick a **provider**. After selecting one (e.g. PostgreSQL) the connection form appears:
 
-   ![Configure connection form — name, host, port, database, username, and a "Password secret" field with a "Save a secret to the system keychain" action beneath it](/screenshots/connection-form-postgres.png)
+   ![Configure connection form — name, host, port, database, username, and a "Password secret" field with a full-width "Store a value in the OS keychain" button beneath it](/screenshots/connection-form-postgres.png)
 
    SQLite asks only for a file path; the others ask for host, port, database,
    username, and the **password secret** — a reference (env var name,

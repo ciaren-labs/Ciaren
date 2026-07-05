@@ -59,7 +59,8 @@ optional model families:
 ```bash
 python -m pip install --pre "ciaren[postgres]"
 python -m pip install --pre "ciaren[s3]"
-python -m pip install --pre "ciaren[ml]"   # adds XGBoost and LightGBM choices
+python -m pip install --pre "ciaren[ml]"        # adds XGBoost and LightGBM choices
+python -m pip install --pre "ciaren[keyring]"   # recommended on desktop: OS-keychain connection secrets
 ```
 
 For a full list, see [Connections](/guide/connections) and

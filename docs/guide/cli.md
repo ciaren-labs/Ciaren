@@ -215,13 +215,22 @@ writing the migrated version.
 ## `ciaren secret`
 
 Manage connection secrets in the **OS keychain** (Windows Credential Manager,
-macOS Keychain, Secret Service on Linux desktops). Headless servers and
-containers have no keychain daemon — use `env:` or `file:` references there.
+macOS Keychain, Secret Service on Linux desktops) — the **recommended** secret
+source on a desktop install. Requires the optional extra:
+
+```bash
+pip install ciaren[keyring]
+```
+
+Then:
 
 ```bash
 ciaren secret set pg-main      # prompts for the value (hidden, confirmed)
 ciaren secret unset pg-main    # removes it from the keychain
 ```
+
+Headless servers and containers have no keychain daemon — use `env:` or
+`file:` references there.
 
 A stored secret is referenced from a connection's secret field as
 `keyring:pg-main`. The value never touches Ciaren's database, the API, or your

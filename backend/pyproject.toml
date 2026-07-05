@@ -46,12 +46,6 @@ dependencies = [
     "scikit-learn>=1.5",
     "mlflow>=3.0",
     "joblib>=1.3",
-    # OS keychain-backed connection secrets (`keyring:NAME` references and the
-    # `ciaren secret` command) — the recommended secret source on desktop
-    # installs, so it ships in core. On headless servers/containers there is no
-    # keychain daemon; env:/file: references cover those (keyring degrades with
-    # a clear error, never crashes the app).
-    "keyring>=25",
 ]
 
 [project.optional-dependencies]
@@ -80,6 +74,15 @@ ml = [
     "xgboost>=3.3.0",
     "lightgbm>=4.0",
 ]
+# OS keychain-backed connection secrets — the **recommended** secret source on
+# desktop installs (`keyring:NAME` references and the `ciaren secret` command).
+# Optional so the base install stays lean on headless servers / containers, where
+# there is no keychain daemon anyway and env:/file: references apply. When it's
+# absent the app degrades cleanly: the availability probe reports it, the UI
+# disables the "store in keychain" action with a hint, and the `keyring:` scheme
+# raises a clear "pip install ciaren[keyring]" error. Pure-Python on every OS
+# (pywin32-ctypes on Windows, SecretStorage+jeepney on Linux), so no compiler.
+keyring = ["keyring>=25"]
 # Plugin signing / verification (Ed25519). Needed only to sign or verify signed
 # `.ciarenplugin` packages; the core runs fine without it (unsigned plugins still load).
 signing = ["cryptography>=42"]

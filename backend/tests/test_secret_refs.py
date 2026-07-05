@@ -157,11 +157,23 @@ def test_keyring_missing_entry_is_clear_error(monkeypatch):
 
 
 def test_keyring_package_missing_gives_install_hint(monkeypatch):
-    """keyring is a core dependency, but a broken install must still fail with a
-    clear message, not an ImportError traceback."""
+    """keyring is an optional extra; a keyring: reference without it must fail
+    with the install command, not an ImportError traceback."""
     monkeypatch.setitem(sys.modules, "keyring", None)  # import keyring -> ImportError
-    with pytest.raises(ValidationError, match="keyring.*missing"):
+    with pytest.raises(ValidationError, match=r"ciaren\[keyring\]"):
         resolve_secret("keyring:pg-main")
+
+
+def test_keyring_availability_reports_missing_package(monkeypatch):
+    """When keyring isn't installed, availability is False with an install hint
+    (so the UI can disable — not hide — the action and explain why)."""
+    from app.core.secrets import keyring_availability
+
+    monkeypatch.setitem(sys.modules, "keyring", None)
+    available, backend, detail = keyring_availability()
+    assert available is False
+    assert backend is None
+    assert "ciaren[keyring]" in (detail or "")
 
 
 # -- keyring write / status helpers -------------------------------------------

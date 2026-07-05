@@ -175,13 +175,23 @@ describe("save secret to OS keychain", () => {
     expect(screen.getByDisplayValue("keyring:pg-main")).toBeInTheDocument();
   });
 
-  it("hides the affordance when no OS keychain is available", () => {
+  it("disables (does not hide) the affordance when no OS keychain is available", () => {
     vi.mocked(useKeyringAvailability).mockReturnValue({
-      data: { available: false, backend: null, detail: "headless" },
+      data: {
+        available: false,
+        backend: null,
+        detail: "Install the OS keychain support with: pip install ciaren[keyring]",
+      },
     } as any);
     openDialog();
     fireEvent.click(screen.getByText("PostgreSQL"));
-    expect(screen.queryByText(/Store a value in the OS keychain/)).not.toBeInTheDocument();
+    // Still shown, so the user learns the option exists…
+    const btn = screen.getByText(/Store a value in the OS keychain/).closest("button");
+    expect(btn).toBeInTheDocument();
+    // …but disabled, and clicking it does not open the save modal.
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn!);
+    expect(screen.queryByText("Store a secret in the OS keychain")).not.toBeInTheDocument();
   });
 });
 
