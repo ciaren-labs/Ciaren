@@ -219,7 +219,8 @@ docker build --build-arg EXTRAS=ml,postgres -t ciaren:full .
 ## Production checklist
 
 - **Set `CIAREN_ENVIRONMENT=production`** — already the default in
-  `docker-compose.yml`; disables debug output and the `db reset` guard.
+  `docker-compose.yml`; disables debug output and activates the `db reset`
+  guard (`ciaren db reset` then refuses to run unless `--force` is also passed).
 - **Mount `/data` as a named volume or bind-mount** — so data survives
   container replacement.
 - **Set `CIAREN_CORS_ORIGINS`** if your frontend and API are on different

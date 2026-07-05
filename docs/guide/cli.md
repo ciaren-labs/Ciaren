@@ -116,6 +116,7 @@ ciaren check
 [ok]   async_driver: sqlite+aiosqlite:///./ciaren.db
 [ok]   database: reachable
 [ok]   engines: pandas, polars
+[ok]   ml: enabled, tracking=./mlruns
 
 All checks passed.
 ```
@@ -180,9 +181,9 @@ ciaren transformations list --output json
 
 ```text
 58 transformation node types:
-  binColumn         inputs=1
-  calculatedColumn  inputs=1
-  concatRows        inputs=many
+  assertExpression   inputs=1
+  assertNotNull      inputs=1
+  assertRowCount     inputs=1
   ...
 ```
 
@@ -195,8 +196,8 @@ project before importing it.
 ```bash
 ciaren flow validate project.flow              # schema + graph structure
 ciaren flow validate project.flow --output json
-ciaren flow migrate  project.flow --to 1.1.0   # print the migrated document
-ciaren flow migrate  project.flow --to 1.1.0 --write   # write back (keeps a .bak)
+ciaren flow migrate  project.flow              # print the document migrated to the current schema version
+ciaren flow migrate  project.flow --write      # write back (keeps a .bak)
 ```
 
 | Subcommand | Description |
@@ -239,7 +240,8 @@ All settings use the `CIAREN_` prefix and can be set via the environment or a
 | `CIAREN_EXECUTION_MODE` | `thread` | Compute offload mode (`thread` \| `process`) |
 | `CIAREN_RUN_TIMEOUT_SECONDS` | `0` | Abandon a run after N seconds (0 = no limit) |
 | `CIAREN_LOG_FORMAT` | `auto` | Log output format (`auto` \| `text` \| `json`) |
-| `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list) |
+| `CIAREN_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON list); also trusted by the CSRF origin guard |
+| `CIAREN_TRUSTED_HOSTS` | `[]` | Extra hostnames the CSRF origin guard trusts beyond localhost |
 | `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size |
 | `CIAREN_ENVIRONMENT` | `development` | Environment label |
 | `CIAREN_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
