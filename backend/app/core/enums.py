@@ -34,6 +34,9 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    # Stopped on user request (POST /runs/{id}/cancel) — distinct from FAILED so
+    # a deliberate stop doesn't read as (or alert like) a broken flow.
+    CANCELLED = "cancelled"
 
 
 class NodeStatus(StrEnum):

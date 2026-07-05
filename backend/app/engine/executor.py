@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,6 +104,9 @@ class RunResult:
     output_paths: dict[str, Path]
     node_results: list[NodeResult]
     error: str | None = None
+    # True when the run stopped because its cancel event was set — the caller
+    # records the run as "cancelled" rather than "failed".
+    cancelled: bool = False
 
 
 def dataset_ref_key(dataset_id: str, version: int | None) -> str:
@@ -298,6 +302,7 @@ class FlowExecutor:
         sample_rows: int = 20,
         sql_input_paths: dict[str, Path] | None = None,
         storage_input_paths: dict[str, Path] | None = None,
+        cancel_event: "threading.Event | None" = None,
     ) -> RunResult:
         """Execute the graph, capturing each node's row/column counts and a small
         sample for the read-only run view.
@@ -318,10 +323,17 @@ class FlowExecutor:
         outputs: dict[str, NodeOutputs] = {}
         node_results: list[NodeResult] = []
         error: str | None = None
+        cancelled = False
 
         for node_id in order:
             node = nodes_by_id[node_id]
             label = node.get("data", {}).get("label") or node["type"]
+            # Cooperative cancellation, checked between nodes: a Python thread
+            # cannot be killed mid-computation, so a long node finishes and the
+            # run stops at the next boundary; the rest is recorded "skipped".
+            if error is None and cancel_event is not None and cancel_event.is_set():
+                cancelled = True
+                error = "Cancelled by user."
             if error is not None:
                 node_results.append(NodeResult(node_id, node["type"], label, "skipped"))
                 continue
@@ -388,7 +400,7 @@ class FlowExecutor:
                 engine.write(outputs[node["id"]]["out"], str(out_path), source_type)
                 output_paths[node["id"]] = out_path
 
-        return RunResult(output_paths, node_results, error)
+        return RunResult(output_paths, node_results, error, cancelled=cancelled)
 
 
 def _elapsed_ms(started: float) -> float:

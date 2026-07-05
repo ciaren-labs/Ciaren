@@ -15,6 +15,7 @@ from app.core.notifications import notify_in_background
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
+from app.engine.cancellation import register_run, request_cancel, unregister_run
 from app.engine.executor import FlowExecutor, RunResult
 from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
@@ -96,6 +97,10 @@ class ExecutionService:
         await self.db.flush()  # assign run.id without committing
 
         timeout = await self._effective_timeout(data, schedule_id)
+        # Registered before any awaitable work so the exception handlers below
+        # can always consult it, and so a cancel arriving during input
+        # materialization is honored rather than racing the registration.
+        cancel_event = register_run(run.id)
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, graph)
@@ -163,6 +168,7 @@ class ExecutionService:
                     engine_name=engine,
                     sql_input_paths=sql_input_paths,
                     storage_input_paths=storage_input_paths,
+                    cancel_event=cancel_event,
                 )
 
             # to_thread copies this context into the worker thread (thread mode);
@@ -174,7 +180,11 @@ class ExecutionService:
                     result = await compute
 
             run.node_results_json = [r.as_dict() for r in result.node_results]
-            if result.error is None:
+            if result.cancelled:
+                run.status = "cancelled"
+                run.error_message = "Cancelled by user."
+                run.logs_json = [{"level": "info", "message": "Run cancelled by user."}]
+            elif result.error is None:
                 # Deliver SQL sinks before declaring success — a write failure
                 # must fail the run (the output never reached the database).
                 await push_sql_outputs(self.db, graph, result.output_paths)
@@ -240,10 +250,19 @@ class ExecutionService:
             run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
             run.logs_json = [{"level": "error", "message": run.error_message}]
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
-            run.status = "failed"
-            run.error_message = str(exc)
-            run.logs_json = [{"level": "error", "message": str(exc)}]
+            if cancel_event.is_set():
+                # Process-mode cancel recycles the pool under the worker; the
+                # resulting BrokenProcessPool/cancelled future is the cancel
+                # taking effect, not a failure.
+                run.status = "cancelled"
+                run.error_message = "Cancelled by user."
+                run.logs_json = [{"level": "info", "message": "Run cancelled by user."}]
+            else:
+                run.status = "failed"
+                run.error_message = str(exc)
+                run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
+            unregister_run(run.id)
             run.finished_at = datetime.now(UTC).replace(tzinfo=None)
             events = self._event_bus()
             if events is not None:
@@ -271,6 +290,28 @@ class ExecutionService:
         if run is None:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
+
+    async def cancel(self, run_id: str) -> dict[str, str]:
+        """Request cancellation of a running run.
+
+        Thread mode stops cooperatively at the next node boundary; process mode
+        abandons the worker (the pool is recycled) like the timeout path does.
+        The run's own task finalizes the row with status "cancelled"."""
+        result = await self.db.execute(select(FlowRun).where(FlowRun.id == run_id))
+        run = result.scalar_one_or_none()
+        if run is None:
+            raise NotFoundError("FlowRun", run_id)
+        if run.status != "running":
+            raise ValidationError(f"Only running runs can be cancelled (this one is '{run.status}').")
+        if not request_cancel(run_id):
+            # A "running" row with no in-process worker can only be a stale row
+            # (e.g. the finalizer lost a race with this request); the scheduler's
+            # startup recovery handles crash leftovers. Report honestly.
+            raise ValidationError("This run is not executing anymore; refresh to see its final status.")
+        if self.settings.EXECUTION_MODE == "process":
+            # The worker process can't see the event — abandon it like a timeout.
+            recycle_process_pool()
+        return {"run_id": run_id, "status": "cancelling"}
 
     async def retry(self, run_id: str) -> FlowRunRead:
         """Re-run a previous run's flow with the same config (engine + input),

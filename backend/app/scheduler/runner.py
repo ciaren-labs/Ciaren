@@ -139,10 +139,15 @@ class SchedulerRunner:
             schedule.last_run_id = run_id
             if status == "success":
                 self._on_success(schedule)
+            elif status == "cancelled":
+                # A user stopping a run is not a flow failure: don't count it
+                # toward auto-disable — just advance to the next cron slot.
+                now = datetime.now(UTC).replace(tzinfo=None)
+                schedule.next_run_at = compute_next_run(schedule.cron, now, schedule.timezone)
             else:
                 self._on_failure(schedule)
             await db.commit()
-            if status != "success" and not schedule.is_enabled and schedule.disabled_reason:
+            if status not in ("success", "cancelled") and not schedule.is_enabled and schedule.disabled_reason:
                 # The failed run itself already notified (run_failed); this is
                 # the louder signal that the schedule gave up entirely.
                 notify_in_background(

@@ -68,6 +68,13 @@ async def get_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
     return await service.get(run_id)
 
 
+@router.post("/runs/{run_id}/cancel", status_code=http_status.HTTP_202_ACCEPTED)
+async def cancel_run(run_id: str, service: ExecutionServiceDep) -> dict[str, str]:
+    """Stop a running run: cooperatively at the next node boundary (thread
+    mode) or by abandoning the worker (process mode)."""
+    return await service.cancel(run_id)
+
+
 @router.post("/runs/{run_id}/retry", response_model=FlowRunRead, status_code=http_status.HTTP_201_CREATED)
 async def retry_run(run_id: str, service: ExecutionServiceDep) -> FlowRunRead:
     """Re-run this run's flow with the same config, creating a new run (new id)."""

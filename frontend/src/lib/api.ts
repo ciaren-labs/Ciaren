@@ -237,6 +237,8 @@ export const runsApi = {
     request<FlowRunSummary[]>(`/runs${queryString({ ...filters })}`),
   // Re-run the run's flow with the same config; returns a brand-new run.
   retry: (id: string) => request<FlowRun>(`/runs/${id}/retry`, { method: "POST" }),
+  cancel: (id: string) =>
+    request<{ run_id: string; status: string }>(`/runs/${id}/cancel`, { method: "POST" }),
 };
 
 // ---- Machine learning ------------------------------------------------------

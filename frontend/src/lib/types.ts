@@ -104,7 +104,7 @@ export interface DatasetVersion {
 export type Engine = "pandas" | "polars";
 export const ENGINES: readonly Engine[] = ["pandas", "polars"];
 
-export type RunStatus = "pending" | "running" | "success" | "failed";
+export type RunStatus = "pending" | "running" | "success" | "failed" | "cancelled";
 
 export type NodeResultStatus = "success" | "failed" | "skipped";
 

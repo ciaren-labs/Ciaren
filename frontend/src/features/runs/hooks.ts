@@ -29,6 +29,20 @@ export function useRun(id: string | null) {
 }
 
 /** Re-run a run's flow with the same config (new run id). */
+export function useCancelRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => runsApi.cancel(id),
+    meta: { errorMessage: "Couldn't cancel the run" },
+    onSuccess: () => {
+      // The run's own task finalizes the row; the detail page's polling picks
+      // the cancelled status up.
+      qc.invalidateQueries({ queryKey: ["runs"] });
+      toast.success("Cancellation requested");
+    },
+  });
+}
+
 export function useRetryRun() {
   const qc = useQueryClient();
   return useMutation({

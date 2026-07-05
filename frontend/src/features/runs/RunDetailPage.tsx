@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import { AlertCircle, ArrowLeft, Download, Loader2, RotateCcw, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
-import { useRetryRun, useRun } from "./hooks";
+import { AlertCircle, ArrowLeft, Download, Loader2, RotateCcw, ShieldCheck, ShieldAlert, ShieldX, Square } from "lucide-react";
+import { useCancelRun, useRetryRun, useRun } from "./hooks";
 import { MlMetricsPanel } from "./MlMetricsPanel";
 import { useFlow } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
@@ -24,6 +24,7 @@ export function RunDetailPage() {
   const { data: flow } = useFlow(run?.flow_id ?? null);
   const { data: datasets } = useDatasets();
   const retry = useRetryRun();
+  const cancel = useCancelRun();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const handleRetry = () => {
@@ -84,6 +85,17 @@ export function RunDetailPage() {
           <StatusBadge status={run.status} />
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {run.status === "running" && (
+            <button
+              onClick={() => cancel.mutate(run.id)}
+              disabled={cancel.isPending}
+              title="Stop this run (finishes the current node, then stops)"
+              className="flex items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1.5 font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+              <Square className="h-3.5 w-3.5" />
+              {cancel.isPending ? "Stopping…" : "Stop"}
+            </button>
+          )}
           {run.status === "failed" && (
             <button
               onClick={handleRetry}

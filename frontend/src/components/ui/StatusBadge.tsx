@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Loader2, MinusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Status = "pending" | "running" | "success" | "failed" | "skipped";
+type Status = "pending" | "running" | "success" | "failed" | "skipped" | "cancelled";
 
 const META: Record<
   Status,
@@ -31,6 +31,11 @@ const META: Record<
   skipped: {
     label: "Skipped",
     className: "bg-muted text-muted-foreground",
+    icon: MinusCircle,
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-warning/10 text-warning",
     icon: MinusCircle,
   },
 };
