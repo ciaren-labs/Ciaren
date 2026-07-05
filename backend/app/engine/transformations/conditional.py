@@ -10,7 +10,7 @@ from app.engine.backends.base import (
     rule_combine_all,
     rule_conditions,
 )
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, pd_assign_args
 
 # Comparison operators (and aliases) that map straight to a Python/expr operator.
 _COMPARISON = {
@@ -99,12 +99,18 @@ class ConditionalColumnTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         new = config["new_column"]
-        lines = [f"{dst} = {src}.copy()", f"{dst}[{new!r}] = {config.get('default')!r}"]
-        # Apply in reverse so the first matching rule wins on overlaps.
-        for rule in reversed(config["rules"]):
-            mask = self._pandas_mask(dst, rule)
-            lines.append(f"{dst}.loc[{mask}, {new!r}] = {rule.get('result')!r}")
-        return "\n".join(lines)
+        # np.select is exactly what the engine runs (first matching rule wins),
+        # and one chainable assign replaces the copy + loc-overwrite cascade.
+        conds = ", ".join(self._pandas_mask("_d", rule) for rule in config["rules"])
+        choices = ", ".join(repr(rule.get("result")) for rule in config["rules"])
+        expr = f"lambda _d: np.select([{conds}], [{choices}], default={config.get('default')!r})"
+        return f"{dst} = {src}.assign({pd_assign_args({new: expr})})"
+
+    def imports(self, config: dict[str, Any]) -> list[str]:
+        return ["import numpy as np"]
+
+    def polars_imports(self, config: dict[str, Any]) -> list[str]:
+        return []  # the polars dialect is a pure when/then chain
 
     @staticmethod
     def _polars_cond(rule: dict[str, Any]) -> str:

@@ -2,7 +2,12 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation, polars_to_datetime_expr
+from app.engine.transformations.base import (
+    BaseTransformation,
+    pd_assign_args,
+    pl_exprs_arg,
+    polars_to_datetime_expr,
+)
 
 
 class DropColumnsTransformation(BaseTransformation):
@@ -98,10 +103,12 @@ class CombineColumnsTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns, new_column, separator, keep_original = self._args(config)
-        line = (
-            f"{dst} = {src}.assign(**{{{new_column!r}: "
-            f"{src}[{columns!r}].astype('string').fillna('').apply({separator!r}.join, axis=1).astype('string')}})"
-        )
+        # Plain string concatenation instead of apply(sep.join, axis=1): same
+        # result (each part is stringified and null-filled first), reads better,
+        # and the lambda keeps the statement chainable.
+        joiner = f" + {separator!r} + " if separator else " + "
+        parts = joiner.join(f"_d[{c!r}].astype('string').fillna('')" for c in columns)
+        line = f"{dst} = {src}.assign({pd_assign_args({new_column: f'lambda _d: {parts}'})})"
         if not keep_original:
             drop = [c for c in columns if c != new_column]
             line += f"\n{dst} = {dst}.drop(columns={drop!r})"
@@ -142,7 +149,10 @@ class CoalesceColumnsTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         columns, new_column, keep_original = self._args(config)
-        line = f"{dst} = {src}.assign(**{{{new_column!r}: {src}[{columns!r}].bfill(axis=1).iloc[:, 0]}})"
+        # Chained fillna is the idiomatic pandas coalesce; same first-non-null
+        # semantics as the engine's row-wise bfill, without the axis-1 shuffle.
+        expr = f"_d[{columns[0]!r}]" + "".join(f".fillna(_d[{c!r}])" for c in columns[1:])
+        line = f"{dst} = {src}.assign({pd_assign_args({new_column: f'lambda _d: {expr}'})})"
         if not keep_original:
             drop = [c for c in columns if c != new_column]
             line += f"\n{dst} = {dst}.drop(columns={drop!r})"
@@ -198,40 +208,38 @@ class CastDtypesTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         fmt = config.get("format") or None
         errors = config.get("errors", "raise")
-        lines = [f"{dst} = {src}"]
+        # Each cast only reads its own column, so all of them fit one assign —
+        # lambdas so the statement chains cleanly.
+        items: dict[Any, str] = {}
         for column, dtype in config["casts"].items():
             if dtype == "datetime":
                 extra = ""
                 if fmt:
                     extra += f", format={fmt!r}"
-                if errors != "raise":
+                if errors != "raise":  # pandas' own default
                     extra += f", errors={errors!r}"
-                lines.append(f"{dst} = {dst}.assign(**{{{column!r}: pd.to_datetime({dst}[{column!r}]{extra})}})")
+                items[column] = f"lambda _d: pd.to_datetime(_d[{column!r}]{extra})"
             elif dtype in ("integer", "float") and errors == "coerce":
                 pd_dtype = self._CODE_DTYPE[dtype]
-                lines.append(
-                    f"{dst} = {dst}.assign(**{{{column!r}: "
-                    f"pd.to_numeric({dst}[{column!r}], errors='coerce').astype({pd_dtype!r})}})"
-                )
+                items[column] = f"lambda _d: pd.to_numeric(_d[{column!r}], errors='coerce').astype({pd_dtype!r})"
             else:
                 pd_dtype = self._CODE_DTYPE[dtype]
-                lines.append(f"{dst} = {dst}.assign(**{{{column!r}: {dst}[{column!r}].astype({pd_dtype!r})}})")
-        return "\n".join(lines)
+                items[column] = f"lambda _d: _d[{column!r}].astype({pd_dtype!r})"
+        return f"{dst} = {src}.assign({pd_assign_args(items)})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         fmt = config.get("format") or None
         strict = config.get("errors", "raise") != "coerce"
-        lines = [f"{dst} = {src}"]
-        if any(dtype == "datetime" for dtype in config["casts"].values()):
-            lines.append(f"_sch = {dst}.collect_schema()")
+        exprs = []
         for column, dtype in config["casts"].items():
             if dtype == "datetime":
-                lines.append(
-                    f"{dst} = {dst}.with_columns("
-                    f"{polars_to_datetime_expr('_sch', repr(column), fmt=fmt, strict=strict)})"
-                )
+                exprs.append(polars_to_datetime_expr("_sch", repr(column), fmt=fmt, strict=strict))
             else:
                 pl_dtype = self._POLARS_DTYPE[dtype]
-                lines.append(f"{dst} = {dst}.with_columns(pl.col({column!r}).cast({pl_dtype}, strict={strict}))")
-        return "\n".join(lines)
+                strict_arg = "" if strict else ", strict=False"  # strict is polars' default
+                exprs.append(f"pl.col({column!r}).cast({pl_dtype}{strict_arg})")
+        line = f"{dst} = {src}.with_columns({pl_exprs_arg(exprs)})"
+        if any(dtype == "datetime" for dtype in config["casts"].values()):
+            return f"_sch = {src}.collect_schema()\n{line}"
+        return line

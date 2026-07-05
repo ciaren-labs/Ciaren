@@ -243,8 +243,9 @@ class PolarsCodeGenerator:
 
             # Polars-dialect nodes may need header imports too (e.g. warn-mode
             # asserts need `import warnings`); the bridge path above collects
-            # its own.
-            add_imports(transformation.imports(config))
+            # its own. polars_imports, not imports: a node's pandas code may
+            # need e.g. numpy where its polars code doesn't.
+            add_imports(transformation.polars_imports(config))
             if lazy and not transformation.polars_lazy_safe_for(config):
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.

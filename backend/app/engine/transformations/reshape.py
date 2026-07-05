@@ -2,7 +2,14 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation, polars_to_datetime_expr
+from app.engine.transformations.base import (
+    BaseTransformation,
+    is_safe_kwarg,
+    one_or_list,
+    pd_assign_args,
+    pl_exprs_arg,
+    polars_to_datetime_expr,
+)
 
 
 class GroupByAggregateTransformation(BaseTransformation):
@@ -33,16 +40,15 @@ class GroupByAggregateTransformation(BaseTransformation):
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        return f"{dst} = {src}.groupby({config['group_by']!r}).agg({config['aggregations']!r}).reset_index()"
+        by = one_or_list(config["group_by"])
+        return f"{dst} = {src}.groupby({by!r}).agg({config['aggregations']!r}).reset_index()"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        by = config["group_by"]
-        aggs = ", ".join(
-            f"pl.col({col!r}).{self._POLARS_AGG.get(func, func)}().alias({col!r})"
-            for col, func in config["aggregations"].items()
-        )
-        return f"{dst} = {src}.group_by({by!r}).agg([{aggs}])"
+        by = one_or_list(config["group_by"])
+        # No .alias(): every mapped agg method keeps its column's name.
+        aggs = [f"pl.col({col!r}).{self._POLARS_AGG.get(func, func)}()" for col, func in config["aggregations"].items()]
+        return f"{dst} = {src}.group_by({by!r}).agg({pl_exprs_arg(aggs)})"
 
 
 class ConcatRowsTransformation(BaseTransformation):
@@ -91,9 +97,13 @@ class CreateCalculatedColumnTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column_name"]
         expr = config["expression"]
-        # assign() with a callable evaluates against the *running* frame, so the
-        # statement chains cleanly (the `src.eval(...)` argument form referenced
-        # src twice and broke fluent fusion). `_d`: `_` names are parameter-free.
+        # eval's assignment form is the cleanest spelling and computes exactly
+        # what the engine does (df.eval(expr) assigned to the column). It needs
+        # a literal, single-line expression and an identifier target; otherwise
+        # fall back to a chainable assign-with-callable (`_d`: `_` names are
+        # reserved away from flow parameters).
+        if is_safe_kwarg(col) and isinstance(expr, str) and "\n" not in expr:
+            return f"{dst} = {src}.eval({f'{col} = {expr}'!r})"
         return f"{dst} = {src}.assign(**{{{col!r}: lambda _d: _d.eval({expr!r})}})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
@@ -126,8 +136,11 @@ class ExtractDatePartsTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, parts = config["column"], config["parts"]
-        items = ", ".join(f"{(col + '_' + p)!r}: _dt.dt.{p}" for p in parts)
-        return f"_dt = pd.to_datetime({src}[{col!r}])\n{dst} = {src}.assign(**{{{items}}})"
+        # col + "_" + p, not an f-string: a parameterized column arrives as a
+        # CodeRef whose + composes source; f-string interpolation would freeze
+        # the variable's *name* into the emitted column names.
+        items = {col + "_" + p: f"_dt.dt.{p}" for p in parts}
+        return f"_dt = pd.to_datetime({src}[{col!r}])\n{dst} = {src}.assign({pd_assign_args(items)})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -176,16 +189,26 @@ class ParseDatesTransformation(BaseTransformation):
         cols = config["columns"]
         fmt = config.get("format") or None
         errors = config.get("errors", "coerce")
-        return (
-            f"{dst} = {src}.assign(**{{c: pd.to_datetime({src}[c], "
-            f"format={fmt!r}, errors={errors!r}) for c in {cols!r}}})"
-        )
+        kwargs = ""
+        if fmt:
+            kwargs += f", format={fmt!r}"
+        if errors != "raise":  # pandas' own default
+            kwargs += f", errors={errors!r}"
+        if len(cols) <= 3:
+            # One parse per column, spelled out — callables so the statement chains.
+            items = {c: f"lambda _d: pd.to_datetime(_d[{c!r}]{kwargs})" for c in cols}
+            return f"{dst} = {src}.assign({pd_assign_args(items)})"
+        return f"{dst} = {src}.assign(**{{c: pd.to_datetime({src}[c]{kwargs}) for c in {cols!r}}})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         cols = config["columns"]
         fmt = config.get("format") or None
         strict = config.get("errors", "coerce") != "coerce"
+        if len(cols) == 1 and isinstance(cols[0], str):
+            # Both dispatch branches keep the column's name — no alias needed.
+            expr = polars_to_datetime_expr("_sch", repr(cols[0]), fmt=fmt, strict=strict)
+            return f"_sch = {src}.collect_schema()\n{dst} = {src}.with_columns({expr})"
         expr = polars_to_datetime_expr("_sch", "c", fmt=fmt, strict=strict)
         return f"_sch = {src}.collect_schema()\n{dst} = {src}.with_columns([{expr}.alias(c) for c in {cols!r}])"
 
@@ -212,21 +235,25 @@ class UnpivotTransformation(BaseTransformation):
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        return (
-            f"{dst} = {src}.melt(id_vars={config['id_vars']!r}, "
-            f"value_vars={config.get('value_vars') or None!r}, "
-            f"var_name={config.get('var_name', 'variable')!r}, "
-            f"value_name={config.get('value_name', 'value')!r})"
-        )
+        args = f"id_vars={config['id_vars']!r}"
+        if config.get("value_vars"):
+            args += f", value_vars={config['value_vars']!r}"
+        if config.get("var_name", "variable") != "variable":  # pandas' own default
+            args += f", var_name={config['var_name']!r}"
+        if config.get("value_name", "value") != "value":  # pandas' own default
+            args += f", value_name={config['value_name']!r}"
+        return f"{dst} = {src}.melt({args})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        return (
-            f"{dst} = {src}.unpivot(index={config['id_vars']!r}, "
-            f"on={config.get('value_vars') or None!r}, "
-            f"variable_name={config.get('var_name', 'variable')!r}, "
-            f"value_name={config.get('value_name', 'value')!r})"
-        )
+        args = f"index={config['id_vars']!r}"
+        if config.get("value_vars"):
+            args += f", on={config['value_vars']!r}"
+        if config.get("var_name", "variable") != "variable":  # polars' own default
+            args += f", variable_name={config['var_name']!r}"
+        if config.get("value_name", "value") != "value":  # polars' own default
+            args += f", value_name={config['value_name']!r}"
+        return f"{dst} = {src}.unpivot({args})"
 
 
 class PivotTransformation(BaseTransformation):
@@ -256,7 +283,7 @@ class PivotTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         index = config["index"]
-        index = [index] if isinstance(index, str) else index
+        index = one_or_list(index) if isinstance(index, list) else index
         return (
             f"{dst} = {src}.pivot_table(index={index!r}, columns={config['columns']!r}, "
             f"values={config['values']!r}, aggfunc={config.get('aggfunc', 'sum')!r})"
@@ -266,7 +293,7 @@ class PivotTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         index = config["index"]
-        index = [index] if isinstance(index, str) else index
+        index = one_or_list(index) if isinstance(index, list) else index
         aggfunc = config.get("aggfunc", "sum")
         agg = "len" if aggfunc == "count" else aggfunc
         return (
@@ -298,10 +325,8 @@ class ExplodeRowsTransformation(BaseTransformation):
         col = config["column"]
         delimiter = config.get("delimiter") or None
         if delimiter:
-            return (
-                f"{dst} = {src}.assign(**{{{col!r}: {src}[{col!r}].astype('string').str.split({delimiter!r})}})"
-                f".explode({col!r}).reset_index(drop=True)"
-            )
+            split = f"lambda _d: _d[{col!r}].astype('string').str.split({delimiter!r})"
+            return f"{dst} = {src}.assign({pd_assign_args({col: split})}).explode({col!r}).reset_index(drop=True)"
         return f"{dst} = {src}.explode({col!r}).reset_index(drop=True)"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
@@ -352,10 +377,10 @@ class DateDifferenceTransformation(BaseTransformation):
         start, end, unit, new = self._args(config)
         factor = self._UNITS[unit]
         diff = (
-            f"(pd.to_datetime({src}[{end!r}], errors='coerce') - "
-            f"pd.to_datetime({src}[{start!r}], errors='coerce')).dt.total_seconds() / {factor!r}"
+            f"lambda _d: (pd.to_datetime(_d[{end!r}], errors='coerce') - "
+            f"pd.to_datetime(_d[{start!r}], errors='coerce')).dt.total_seconds() / {factor!r}"
         )
-        return f"{dst} = {src}.assign(**{{{new!r}: {diff}}})"
+        return f"{dst} = {src}.assign({pd_assign_args({new: diff})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]

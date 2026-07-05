@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, one_or_list
 
 _SIMPLE_OPS = {"==", "!=", ">", ">=", "<", "<="}
 
@@ -114,8 +114,13 @@ class FilterExpressionTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         expr = config["expression"]
-        # Chainable callable form — see FilterRowsTransformation.to_python_code.
-        return f"{dst} = {src}.loc[lambda _d: _d.eval({expr!r}).astype(bool)].reset_index(drop=True)"
+        # .query() is the idiomatic form of "filter by an eval expression" and
+        # chains cleanly. Known divergence from PandasEngine.filter_expr (which
+        # coerces the mask with astype(bool)): an expression that doesn't
+        # evaluate to booleans raises here instead of keeping truthy rows —
+        # acceptable, since a non-boolean filter expression is almost certainly
+        # a mistake the script should surface.
+        return f"{dst} = {src}.query({expr!r}).reset_index(drop=True)"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -156,20 +161,37 @@ class SortRowsTransformation(BaseTransformation):
             )
         }
 
+    @staticmethod
+    def _collapse(flags: Any) -> Any:
+        """A per-column direction list where every entry agrees is just a bool."""
+        if isinstance(flags, list) and len(set(flags)) == 1:
+            return flags[0]
+        return flags
+
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        ascending = config.get("ascending", True)
+        ascending = self._collapse(config.get("ascending", True))
         na_position = config.get("na_position", "last")
-        extra = f", na_position={na_position!r}" if na_position != "last" else ""
-        return f"{dst} = {src}.sort_values(by={config['columns']!r}, ascending={ascending!r}{extra})"
+        args = f"{one_or_list(config['columns'])!r}"
+        if ascending is not True:
+            args += f", ascending={ascending!r}"
+        if na_position != "last":
+            args += f", na_position={na_position!r}"
+        return f"{dst} = {src}.sort_values({args})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        columns = config["columns"]
         ascending = config.get("ascending", True)
         descending = [not a for a in ascending] if isinstance(ascending, list) else not ascending
-        nulls_last = config.get("na_position", "last") == "last"
-        return f"{dst} = {src}.sort({columns!r}, descending={descending!r}, nulls_last={nulls_last!r})"
+        descending = self._collapse(descending)
+        args = f"{one_or_list(config['columns'])!r}"
+        if descending is not False:
+            args += f", descending={descending!r}"
+        if config.get("na_position", "last") == "last":
+            # Non-default in polars (its default puts nulls first) but the
+            # node's default — mirrors PolarsEngine.sort_rows / pandas.
+            args += ", nulls_last=True"
+        return f"{dst} = {src}.sort({args})"
 
 
 class LimitRowsTransformation(BaseTransformation):
@@ -262,16 +284,22 @@ class RemoveDuplicatesTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         subset = config.get("subset")
         keep = config.get("keep", "first")
-        args = f"keep={keep!r}"
+        args = []
         if subset:
-            args = f"subset={subset!r}, {args}"
-        return f"{dst} = {src}.drop_duplicates({args})"
+            args.append(f"subset={one_or_list(subset)!r}")
+        if keep != "first":  # pandas' own default
+            args.append(f"keep={keep!r}")
+        return f"{dst} = {src}.drop_duplicates({', '.join(args)})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         keep = self._POLARS_KEEP.get(config.get("keep", "first"), "first")
         subset = config.get("subset")
-        args = f"keep={keep!r}, maintain_order=True"
+        args = []
         if subset:
-            args = f"subset={subset!r}, {args}"
-        return f"{dst} = {src}.unique({args})"
+            args.append(f"subset={one_or_list(subset)!r}")
+        # keep and maintain_order are always spelled out: polars' defaults
+        # ('any', unordered) differ from the node's pandas-like semantics.
+        args.append(f"keep={keep!r}")
+        args.append("maintain_order=True")
+        return f"{dst} = {src}.unique({', '.join(args)})"

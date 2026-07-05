@@ -122,6 +122,26 @@ def _join_right() -> pd.DataFrame:
     return pd.DataFrame({"id": [2, 3, 4], "rid": [2, 3, 4], "v": [7.0, 8.0, 9.0]})
 
 
+def _grouped() -> pd.DataFrame:
+    # Window/rolling/diff input: two partitions, scrambled tie-free order key,
+    # and a null value so null propagation is exercised per engine.
+    return pd.DataFrame(
+        {
+            "g": ["a", "b", "a", "b", "a"],
+            "t": [3, 1, 1, 2, 2],
+            "v": [10.0, 20.0, 30.0, None, 50.0],
+        }
+    )
+
+
+def _csvish() -> pd.DataFrame:
+    return pd.DataFrame({"a": ["x,y", "z", None], "b": [1, 2, 3]})
+
+
+def _cast_multi() -> pd.DataFrame:
+    return pd.DataFrame({"a": ["2024-01-02", None, "not a date"], "b": ["1.5", "x", "3"]})
+
+
 # Case id -> input frames by handle. Ids whose result has no defined row order
 # (grouping, pivoting) are listed in _SORT_BEFORE_COMPARE.
 _CASE_INPUTS: dict[str, dict[str, Any]] = {
@@ -196,6 +216,42 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "bin_quantile": {"in": _num},
     "join_on": {"left": _join_left, "right": _join_right},
     "join_split": {"left": _join_left, "right": _join_right},
+    "join_outer": {"left": _join_left, "right": _join_right},
+    "sort_desc": {"in": _num},
+    "dedupe_keep_none": {"in": _num},
+    "fill_bfill": {"in": _num},
+    "fill_max_cols": {"in": _num},
+    "cast_multi": {"in": _cast_multi},
+    "parse_dates_two": {"in": _date_pair_str},
+    "combine_cols": {"in": _mixed_dtypes},
+    "combine_cols_drop": {"in": _mixed_dtypes},
+    "combine_cols_spacey": {"in": _mixed_dtypes},
+    "coalesce_cols": {"in": _mixed_dtypes},
+    "conditional_rules": {"in": _num},
+    "conditional_any": {"in": _num},
+    "map_default": {"in": _text},
+    "map_plain": {"in": _text},
+    "split_delim": {"in": _text_special},
+    "split_regex": {"in": _text},
+    "explode_delim": {"in": _csvish},
+    "filter_expr": {"in": _num},
+    "window_row_number": {"in": _grouped},
+    "window_rank": {"in": _grouped},
+    "window_rank_desc_nopart": {"in": _grouped},
+    "window_cumsum": {"in": _grouped},
+    "window_lag_nopart": {"in": _grouped},
+    "window_rownum_order_nopart": {"in": _grouped},
+    "window_rownum_null_order": {"in": _grouped},
+    "window_rownum_multiorder": {"in": _grouped},
+    "window_cumcount_noorder": {"in": _grouped},
+    "rolling_part": {"in": _grouped},
+    "rolling_nopart": {"in": _grouped},
+    "rolling_plain": {"in": _grouped},
+    "rowdiff_part": {"in": _grouped},
+    "rowdiff_pct": {"in": _grouped},
+    "outlier_iqr_multi": {"in": _num},
+    "outlier_clip_multi": {"in": _num},
+    "round_multi": {"in": _num},
 }
 
 _SORT_BEFORE_COMPARE = {"groupby", "pivot_str_index", "pivot_count"}
@@ -255,6 +311,8 @@ def test_pandas_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_python_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pd": pd, **{in_vars[h]: f.copy() for h, f in frames.items()}}
+    for imp in t.imports(config):  # the header the driver would emit (e.g. numpy)
+        exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<pandas:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
     _assert_frames_match(expected, ns["result"], case_id)
@@ -290,6 +348,8 @@ def test_polars_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_polars_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pl": pl, **{in_vars[h]: f for h, f in frames.items()}}
+    for imp in t.polars_imports(config):  # the header the polars driver would emit
+        exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<polars:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
     _assert_frames_match(expected.to_pandas(), ns["result"].to_pandas(), case_id)

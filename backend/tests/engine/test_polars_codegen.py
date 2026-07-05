@@ -80,8 +80,8 @@ def test_polars_codegen_is_valid_and_uses_polars() -> None:
     assert ".rename({'a': 'alpha'})" in code
     assert ".filter(pl.col('alpha') > 1)" in code
     assert "pl.sql_expr('alpha * 2').alias('x2')" in code
-    assert ".group_by(['alpha'])" in code
-    assert ".agg([pl.col('x2').sum().alias('x2')])" in code
+    assert ".group_by('alpha')" in code
+    assert ".agg(pl.col('x2').sum())" in code
     assert ".write_csv(" in code
     compile(code, "<generated-polars>", "exec")
 
@@ -221,8 +221,8 @@ def test_polars_lazy_uses_scan_and_collect() -> None:
     assert "pl.read_csv" not in code
     assert ".collect().write_csv(" in code  # materialize only at the sink
     assert ".drop_nulls()" in code  # transformation bodies are unchanged
-    assert ".group_by(['alpha'])" in code
-    assert ".agg([pl.col('x2').sum().alias('x2')])" in code
+    assert ".group_by('alpha')" in code
+    assert ".agg(pl.col('x2').sum())" in code
     compile(code, "<lazy-polars>", "exec")
 
 

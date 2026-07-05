@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, pd_assign_args
 
 
 class ReplaceValuesTransformation(BaseTransformation):
@@ -30,10 +30,8 @@ class ReplaceValuesTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         extra = ", regex=True" if config.get("regex") else ""
-        return (
-            f"{dst} = {src}.assign(**{{{col!r}: {src}[{col!r}]"
-            f".replace({config['to_replace']!r}, {config['value']!r}{extra})}})"
-        )
+        value = f"lambda _d: _d[{col!r}].replace({config['to_replace']!r}, {config['value']!r}{extra})"
+        return f"{dst} = {src}.assign({pd_assign_args({col: value})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -91,7 +89,7 @@ class StringTransformTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         col = config["column"]
         op = config["operation"]
-        accessor = f"{src}[{col!r}].astype('string').str"
+        accessor = f"_d[{col!r}].astype('string').str"
         if op in self._SIMPLE_OPS:
             method = self._SIMPLE_OPS[op][0]
             call = f"{accessor}.{method}()"
@@ -99,12 +97,8 @@ class StringTransformTransformation(BaseTransformation):
             call = f"{accessor}.replace({config['find']!r}, {config.get('replace_with', '')!r})"
         else:  # pad
             side = config.get("side", "left")
-            return (
-                f"{dst} = {src}.assign(**{{{col!r}: {accessor}"
-                f".pad({config['width']!r}, side={side!r}, "
-                f"fillchar={config.get('fill_char', ' ')!r})}})"
-            )
-        return f"{dst} = {src}.assign(**{{{col!r}: {call}}})"
+            call = f"{accessor}.pad({config['width']!r}, side={side!r}, fillchar={config.get('fill_char', ' ')!r})"
+        return f"{dst} = {src}.assign({pd_assign_args({col: f'lambda _d: {call}'})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -121,7 +115,8 @@ class StringTransformTransformation(BaseTransformation):
         else:  # pad
             method = "pad_end" if config.get("side") == "right" else "pad_start"
             expr = f"{base}.{method}({config['width']!r}, {config.get('fill_char', ' ')!r})"
-        return f"{dst} = {src}.with_columns({expr}.alias({col!r}))"
+        # No .alias(): every branch roots at pl.col(col) with name-preserving ops.
+        return f"{dst} = {src}.with_columns({expr})"
 
 
 class SplitColumnTransformation(BaseTransformation):
@@ -164,15 +159,19 @@ class SplitColumnTransformation(BaseTransformation):
         accessor = f"{src}[{col!r}].astype('string').str"
         if config.get("mode", "delimiter") == "regex":
             return f"{accessor}.extract({config['pattern']!r})"
-        return f"{accessor}.split({config['delimiter']!r}, expand=True, regex=False)"
+        delimiter = config["delimiter"]
+        # A one-character separator is already literal by default; only longer
+        # ones need regex=False to avoid regex interpretation.
+        regex_arg = "" if isinstance(delimiter, str) and len(delimiter) == 1 else ", regex=False"
+        return f"{accessor}.split({delimiter!r}, expand=True{regex_arg})"
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, into = config["column"], config["into"]
-        assigns = ", ".join(f"{name!r}: _parts[{i}]" for i, name in enumerate(into))
+        items = {name: f"_parts[{i}]" for i, name in enumerate(into)}
         lines = [
             f"_parts = {self._parts_expr(src, col, config)}",
-            f"{dst} = {src}.assign(**{{{assigns}}})",
+            f"{dst} = {src}.assign({pd_assign_args(items)})",
         ]
         if not config.get("keep_original", True) and col not in into:
             lines.append(f"{dst} = {dst}.drop(columns=[{col!r}])")
@@ -233,12 +232,12 @@ class MapValuesTransformation(BaseTransformation):
         mapping = config["mapping"]
         if self._use_default(config):
             mapped = (
-                f"{src}[{col!r}].map({mapping!r})"
-                f".where({src}[{col!r}].isin({list(mapping)!r}), {config.get('default')!r})"
+                f"lambda _d: _d[{col!r}].map({mapping!r})"
+                f".where(_d[{col!r}].isin({list(mapping)!r}), {config.get('default')!r})"
             )
         else:
-            mapped = f"{src}[{col!r}].replace({mapping!r})"
-        return f"{dst} = {src}.assign(**{{{target!r}: {mapped}}})"
+            mapped = f"lambda _d: _d[{col!r}].replace({mapping!r})"
+        return f"{dst} = {src}.assign({pd_assign_args({target: mapped})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -249,4 +248,6 @@ class MapValuesTransformation(BaseTransformation):
             expr = f"pl.col({col!r}).replace_strict({mapping!r}, default={config.get('default')!r})"
         else:
             expr = f"pl.col({col!r}).replace({mapping!r})"
-        return f"{dst} = {src}.with_columns({expr}.alias({target!r}))"
+        if target != col:
+            expr += f".alias({target!r})"
+        return f"{dst} = {src}.with_columns({expr})"

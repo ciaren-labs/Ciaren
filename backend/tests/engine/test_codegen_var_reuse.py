@@ -83,13 +83,11 @@ def _linear_graph() -> dict:
 def test_pandas_linear_chain_uses_single_variable() -> None:
     code = CodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"})
     assert "df_1 = pd.read_csv('in.csv')" in code
-    # The whole chain fuses into one fluent statement: the filter's callable
-    # `.loc[lambda _d: …]` form reads the running frame, so it continues the
-    # chain instead of breaking it (see test_codegen_fluent for the rules).
-    assert "df_1 = (" in code
-    assert "    df_1.dropna()" in code
-    assert "    .loc[lambda _d: _d['age'] > 21]" in code
-    assert "    .sort_values(by=['age'], ascending=True)" in code
+    # The whole chain fuses into one fluent statement — short enough that it
+    # stays on a single line: the filter's callable `.loc[lambda _d: …]` form
+    # reads the running frame, so it continues the chain instead of breaking it
+    # (see test_codegen_fluent for the rules).
+    assert "df_1 = df_1.dropna().loc[lambda _d: _d['age'] > 21].sort_values('age')" in code
     assert "df_1.to_csv('out.csv', index=False)" in code
     assert "df_2" not in code
 
@@ -98,10 +96,9 @@ def test_polars_linear_chain_uses_single_variable() -> None:
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"}, lazy=lazy)
         assert "df_2" not in code
-        # The whole chain fuses into one fluent statement on df_1.
-        assert "df_1 = (" in code
-        assert "    df_1.drop_nulls()" in code
-        assert "    .filter(pl.col('age') > 21)" in code
+        # The whole chain fuses into one fluent statement on df_1 (short
+        # enough for a single line).
+        assert "df_1 = df_1.drop_nulls().filter(pl.col('age') > 21).sort('age', nulls_last=True)" in code
 
 
 def _fanout_graph() -> dict:

@@ -120,6 +120,164 @@ CODEGEN_CASES = [
     # join: on vs left_on/right_on with custom suffixes
     ("join_on", "join", {"on": "id", "how": "inner"}),
     ("join_split", "join", {"left_on": "lid", "right_on": "rid", "how": "left", "suffixes": ["_l", "_r"]}),
+    ("join_outer", "join", {"on": "id", "how": "outer"}),
+    # sort: single-column descending collapses the direction list
+    ("sort_desc", "sortRows", {"columns": ["a"], "ascending": False}),
+    # dedupe keep=False (drop every duplicate)
+    ("dedupe_keep_none", "removeDuplicates", {"subset": ["a"], "keep": False}),
+    # fillNulls whole-frame bfill (frame-level strategy form)
+    ("fill_bfill", "fillNulls", {"strategy": "bfill"}),
+    ("fill_max_cols", "fillNulls", {"strategy": "max", "columns": ["a"]}),
+    # castDtypes: several casts fold into one statement
+    ("cast_multi", "castDtypes", {"casts": {"a": "datetime", "b": "float"}, "errors": "coerce"}),
+    # parseDates: two columns take the spelled-out form
+    ("parse_dates_two", "parseDates", {"columns": ["s", "e"]}),
+    # column combination / coalescing
+    ("combine_cols", "combineColumns", {"columns": ["a", "s"], "new_column": "joined", "separator": " - "}),
+    (
+        "combine_cols_drop",
+        "combineColumns",
+        {"columns": ["a", "s"], "new_column": "joined", "separator": "", "keep_original": False},
+    ),
+    (
+        "combine_cols_spacey",
+        "combineColumns",
+        {"columns": ["a", "s"], "new_column": "joined value", "separator": ","},
+    ),
+    ("coalesce_cols", "coalesceColumns", {"columns": ["s", "a"], "new_column": "first_seen"}),
+    # conditionalColumn: single rule, multi-condition rule, and rule priority
+    (
+        "conditional_rules",
+        "conditionalColumn",
+        {
+            "new_column": "tier",
+            "default": "low",
+            "rules": [
+                {"conditions": [{"column": "a", "operator": ">=", "value": 5}], "result": "high"},
+                {"conditions": [{"column": "a", "operator": ">=", "value": 2}], "result": "mid"},
+            ],
+        },
+    ),
+    (
+        "conditional_any",
+        "conditionalColumn",
+        {
+            "new_column": "flag",
+            "default": "no",
+            "rules": [
+                {
+                    "match": "any",
+                    "conditions": [
+                        {"column": "a", "operator": "isnull"},
+                        {"column": "b", "operator": "<", "value": 3},
+                    ],
+                    "result": "yes",
+                }
+            ],
+        },
+    ),
+    # mapValues with and without a default
+    ("map_default", "mapValues", {"column": "a", "mapping": {"x": "X"}, "default": "other"}),
+    ("map_plain", "mapValues", {"column": "a", "new_column": "mapped", "mapping": {"x": "X"}}),
+    # splitColumn: delimiter and regex modes
+    ("split_delim", "splitColumn", {"column": "a", "into": ["p1", "p2"], "delimiter": " "}),
+    (
+        "split_regex",
+        "splitColumn",
+        {"column": "a", "into": ["word"], "mode": "regex", "pattern": "(\\w+)", "keep_original": False},
+    ),
+    # explodeRows with a delimiter
+    ("explode_delim", "explodeRows", {"column": "a", "delimiter": ","}),
+    # filterExpression (pandas eval semantics on both engines)
+    ("filter_expr", "filterExpression", {"expression": "b >= 4"}),
+    # window functions across partition/order combinations
+    (
+        "window_row_number",
+        "windowFunction",
+        {"function": "row_number", "partition_by": ["g"], "order_by": ["t"], "new_column": "rn"},
+    ),
+    (
+        "window_rank",
+        "windowFunction",
+        {"function": "rank", "partition_by": ["g"], "order_by": ["t"], "new_column": "rk"},
+    ),
+    (
+        "window_rank_desc_nopart",
+        "windowFunction",
+        {"function": "dense_rank", "order_by": ["t"], "descending": True, "new_column": "rk"},
+    ),
+    (
+        "window_cumsum",
+        "windowFunction",
+        {"function": "cumsum", "partition_by": ["g"], "order_by": ["t"], "target": "v", "new_column": "cs"},
+    ),
+    (
+        "window_lag_nopart",
+        "windowFunction",
+        {"function": "lag", "order_by": ["t"], "target": "v", "offset": 1, "new_column": "prev"},
+    ),
+    (
+        "window_rownum_order_nopart",
+        "windowFunction",
+        {"function": "row_number", "order_by": ["t"], "new_column": "rn"},
+    ),
+    # null in the order key: rank(method='first') needs na_option='bottom' to
+    # number every row like the engine's na_position='last' sort (audit catch).
+    (
+        "window_rownum_null_order",
+        "windowFunction",
+        {"function": "cumcount", "order_by": ["v"], "new_column": "n"},
+    ),
+    (
+        "window_rownum_multiorder",
+        "windowFunction",
+        {"function": "row_number", "order_by": ["t", "v"], "new_column": "rn"},
+    ),
+    (
+        "window_cumcount_noorder",
+        "windowFunction",
+        {"function": "cumcount", "new_column": "n"},
+    ),
+    # rolling aggregates across partition/order combinations
+    (
+        "rolling_part",
+        "rollingAggregate",
+        {
+            "target": "v",
+            "function": "mean",
+            "window": 2,
+            "min_periods": 1,
+            "partition_by": ["g"],
+            "order_by": ["t"],
+            "new_column": "avg",
+        },
+    ),
+    (
+        "rolling_nopart",
+        "rollingAggregate",
+        {"target": "v", "function": "sum", "window": 2, "order_by": ["t"], "new_column": "s2"},
+    ),
+    (
+        "rolling_plain",
+        "rollingAggregate",
+        {"target": "v", "function": "max", "window": 2, "new_column": "m2"},
+    ),
+    # row differences
+    (
+        "rowdiff_part",
+        "rowDifference",
+        {"target": "v", "partition_by": ["g"], "order_by": ["t"], "new_column": "delta"},
+    ),
+    (
+        "rowdiff_pct",
+        "rowDifference",
+        {"target": "v", "method": "pct_change", "periods": 2, "order_by": ["t"], "new_column": "pct"},
+    ),
+    # removeOutliers over several columns keeps the loop form
+    ("outlier_iqr_multi", "removeOutliers", {"columns": ["a", "b"], "method": "iqr", "action": "drop"}),
+    ("outlier_clip_multi", "removeOutliers", {"columns": ["a", "b"], "method": "zscore", "action": "clip"}),
+    # roundNumbers over several columns
+    ("round_multi", "roundNumbers", {"columns": ["a", "b"], "decimals": 1}),
 ]
 
 
@@ -132,6 +290,19 @@ def test_codegen_branches_compile(node_type: str, config: dict) -> None:
     pl_code = t.to_polars_code(in_vars, out_vars, config)
     compile(py, "<pandas>", "exec")
     compile(pl_code, "<polars>", "exec")
+
+
+def test_extract_date_parts_parameterized_column_stays_a_reference() -> None:
+    """A CodeRef column must compose into the derived column names as source
+    (``datecol + '_' + 'year'``), not freeze the variable's *name* into a
+    literal ``datecol_year`` column (audit catch)."""
+    from app.engine.codegen_params import CodeRef
+
+    t = get_transformation("extractDateParts")
+    code = t.to_python_code({"in": "df"}, {"out": "out_df"}, {"column": CodeRef("datecol"), "parts": ["year"]})
+    assert "datecol + '_' + 'year'" in code
+    assert "datecol_year" not in code
+    compile(code, "<pandas>", "exec")
 
 
 def test_filter_codegen_unknown_operator_raises() -> None:

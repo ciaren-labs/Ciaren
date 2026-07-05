@@ -6,7 +6,26 @@ optional partition and order. Maps to pandas ``groupby`` + ordered ops and polar
 from typing import Any
 
 from app.engine.backends.base import ROLLING_FUNCS, AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, one_or_list, pd_assign_args
+
+
+def _pd_sorted(order: list[str], descending: bool) -> str:
+    """``_d`` sorted for a window computation: stable so ties keep input order,
+    matching the engines. Ascending is pandas' default and omitted."""
+    desc_arg = ", ascending=False" if descending else ""
+    return f"_d.sort_values({one_or_list(order)!r}{desc_arg}, kind='stable')"
+
+
+def _pl_over(part: list[str], order: list[str], descending: bool) -> str:
+    """A polars ``.over(...)`` clause ordering rows within each window — the
+    modern equivalent of the engine's row-index/sort/restore dance."""
+    args = f"{one_or_list(part)!r}"
+    if order:
+        args += f", order_by={one_or_list(order)!r}"
+        if descending:
+            args += ", descending=True"
+    return f".over({args})"
+
 
 _ROLLING_POLARS = {
     "mean": "rolling_mean",
@@ -79,59 +98,95 @@ class WindowFunctionTransformation(BaseTransformation):
 
     # -- codegen --------------------------------------------------------
 
-    def _pandas_value(self, config: dict[str, Any]) -> str:
+    def _pandas_value(self, config: dict[str, Any]) -> str | None:
+        """The window value as a single ``_d``-rooted expression, or ``None`` when
+        this configuration has no clean one-expression form.
+
+        The trick that replaces the engine's sort → compute → restore dance:
+        computing on ``_d.sort_values(...)`` yields a Series carrying the
+        original index labels, so ``assign`` aligns it back to the input row
+        order automatically. Rank functions don't even need the sort (min /
+        dense ranks are order-independent, and pandas' groupby ``rank`` handles
+        the partition), and ``method='first'`` reproduces stable row numbering
+        over a single order column.
+        """
         function, part, order, target, offset, desc, _ = self._args(config)
-        grp = f"_w.groupby({part!r}, sort=False)" if part else None
-        if function == "row_number":
-            return f"{grp}.cumcount() + 1" if grp else "range(1, len(_w) + 1)"
-        if function == "cumcount":
-            return f"{grp}.cumcount()" if grp else "range(len(_w))"
+        asc_arg = ", ascending=False" if desc else ""
+        sorted_d = _pd_sorted(order, desc) if order else "_d"
+        grp = f"{sorted_d}.groupby({one_or_list(part)!r}, sort=False)" if part else sorted_d
         if function in _RANK_FUNCS:
             method = "dense" if function == "dense_rank" else "min"
-            base = f"{grp}[{order[0]!r}]" if grp else f"_w[{order[0]!r}]"
-            return f"{base}.rank(method={method!r}, ascending={not desc!r}).astype('int64')"
+            base = f"_d.groupby({one_or_list(part)!r}, sort=False)[{order[0]!r}]" if part else f"_d[{order[0]!r}]"
+            return f"{base}.rank(method={method!r}{asc_arg}).astype('int64')"
+        if function in ("row_number", "cumcount"):
+            plus = " + 1" if function == "row_number" else ""
+            if part:
+                return f"{grp}.cumcount(){plus}"
+            if not order:
+                return "range(1, len(_d) + 1)" if function == "row_number" else "range(len(_d))"
+            if len(order) == 1:
+                # na_option='bottom' matches the engine's na_position='last'
+                # sort: null order keys still get a number (default 'keep'
+                # would yield NaN ranks and crash the int cast).
+                base = f"_d[{order[0]!r}].rank(method='first', na_option='bottom'{asc_arg}).astype('int64')"
+                return base if function == "row_number" else f"{base} - 1"
+            return None  # multi-column order without partition: no one-liner
         if function in ("cumsum", "cummax", "cummin"):
-            base = f"{grp}[{target!r}]" if grp else f"_w[{target!r}]"
-            return f"{base}.{function}()"
+            return f"{grp}[{target!r}].{function}()"
         periods = offset if function == "lag" else -offset  # lag / lead
-        base = f"{grp}[{target!r}]" if grp else f"_w[{target!r}]"
-        return f"{base}.shift({periods})"
+        return f"{grp}[{target!r}].shift({periods})"
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         _, _, order, _, _, desc, new = self._args(config)
-        lines = [f"_w = {src}.reset_index(drop=True)"]
-        if order:
-            asc = [not desc] * len(order)
-            lines.append(f"_w = _w.sort_values(by={order!r}, ascending={asc!r}, kind='stable')")
-        lines.append(f"_w = _w.assign(**{{{new!r}: {self._pandas_value(config)}}})")
-        lines.append(f"{dst} = _w.sort_index().reset_index(drop=True)")
-        return "\n".join(lines)
+        value = self._pandas_value(config)
+        if value is not None:
+            return f"{dst} = {src}.assign({pd_assign_args({new: f'lambda _d: {value}'})})"
+        # Fallback (positional numbering over a multi-column order without a
+        # partition): sort, number, restore the original row order.
+        asc = [not desc] * len(order)
+        rng = "range(1, len(_w) + 1)" if config["function"] == "row_number" else "range(len(_w))"
+        return (
+            f"_w = {src}.reset_index(drop=True).sort_values(by={order!r}, ascending={asc!r}, kind='stable')\n"
+            f"_w = _w.assign(**{{{new!r}: {rng}}})\n"
+            f"{dst} = _w.sort_index().reset_index(drop=True)"
+        )
 
-    def _polars_value(self, config: dict[str, Any]) -> str:
+    def _polars_expr(self, config: dict[str, Any]) -> str:
         function, part, order, target, offset, desc, _ = self._args(config)
         if function == "row_number":
-            expr = "pl.int_range(1, pl.len() + 1)"
-        elif function == "cumcount":
-            expr = "pl.int_range(0, pl.len())"
-        elif function in _RANK_FUNCS:
+            return "pl.int_range(1, pl.len() + 1)"
+        if function == "cumcount":
+            return "pl.int_range(0, pl.len())"
+        if function in _RANK_FUNCS:
+            desc_arg = ", descending=True" if desc else ""
             method = "dense" if function == "dense_rank" else "min"
-            expr = f"pl.col({order[0]!r}).rank(method={method!r}, descending={desc!r})"
-        elif function in ("cumsum", "cummax", "cummin"):
-            expr = f"pl.col({target!r}).{_CUM_POLARS[function]}()"
-        else:  # lag / lead
-            expr = f"pl.col({target!r}).shift({offset if function == 'lag' else -offset})"
-        return f"{expr}.over({part!r})" if part else expr
+            return f"pl.col({order[0]!r}).rank(method={method!r}{desc_arg})"
+        if function in ("cumsum", "cummax", "cummin"):
+            return f"pl.col({target!r}).{_CUM_POLARS[function]}()"
+        return f"pl.col({target!r}).shift({offset if function == 'lag' else -offset})"  # lag / lead
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
-        _, _, order, _, _, desc, new = self._args(config)
-        lines = [f"_w = {src}.with_row_index('__rn__')"]
-        if order:
-            lines.append(f"_w = _w.sort(by={order!r}, descending={desc!r})")
-        lines.append(
-            f"{dst} = _w.with_columns({self._polars_value(config)}.alias({new!r})).sort('__rn__').drop('__rn__')"
-        )
+        function, part, order, _, _, desc, new = self._args(config)
+        expr = self._polars_expr(config)
+        # Rank never needs an over-ordering (min/dense ranks are order-independent);
+        # everything else orders within the window via .over(order_by=...), which
+        # computes on the ordered rows and restores the frame's own order — the
+        # one-expression form of the engine's row-index/sort/restore.
+        if function in _RANK_FUNCS:
+            over = f".over({one_or_list(part)!r})" if part else ""
+            return f"{dst} = {src}.with_columns({expr}{over}.alias({new!r}))"
+        if part:
+            return f"{dst} = {src}.with_columns({expr}{_pl_over(part, order, desc)}.alias({new!r}))"
+        if not order:
+            return f"{dst} = {src}.with_columns({expr}.alias({new!r}))"
+        # No partition to hang .over(order_by=...) on: sort, compute, restore.
+        lines = [
+            f"_w = {src}.with_row_index('__rn__')",
+            f"_w = _w.sort(by={order!r}, descending={desc!r})",
+            f"{dst} = _w.with_columns({expr}.alias({new!r})).sort('__rn__').drop('__rn__')",
+        ]
         return "\n".join(lines)
 
 
@@ -181,30 +236,35 @@ class RollingAggregateTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         target, function, window, min_periods, partition_by, order_by, descending, new = self._args(config)
-        lines = [f"_w = {src}.reset_index(drop=True)"]
-        if order_by:
-            asc = [not descending] * len(order_by)
-            lines.append(f"_w = _w.sort_values(by={order_by!r}, ascending={asc!r}, kind='stable')")
-        roll = f".rolling({window!r}, min_periods={min_periods!r})"
+        base = _pd_sorted(order_by, descending) if order_by else "_d"
+        mp = f", min_periods={min_periods!r}" if min_periods is not None else ""
+        roll = f".rolling({window!r}{mp})"
         if partition_by:
-            base = f"_w.groupby({partition_by!r}, sort=False)[{target!r}]{roll}.{function}()"
-            value = f"{base}.reset_index(level={list(range(len(partition_by)))!r}, drop=True)"
+            levels = 0 if len(partition_by) == 1 else list(range(len(partition_by)))
+            value = (
+                f"{base}.groupby({one_or_list(partition_by)!r}, sort=False)[{target!r}]{roll}.{function}()"
+                f".reset_index(level={levels!r}, drop=True)"
+            )
         else:
-            value = f"_w[{target!r}]{roll}.{function}()"
-        lines.append(f"_w = _w.assign(**{{{new!r}: {value}}})")
-        lines.append(f"{dst} = _w.sort_index().reset_index(drop=True)")
-        return "\n".join(lines)
+            value = f"{base}[{target!r}]{roll}.{function}()"
+        # Computing on the sorted view keeps the original index labels, so
+        # assign aligns the result back to the input row order.
+        return f"{dst} = {src}.assign({pd_assign_args({new: f'lambda _d: {value}'})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         target, function, window, min_periods, partition_by, order_by, descending, new = self._args(config)
-        expr = f"pl.col({target!r}).{_ROLLING_POLARS[function]}(window_size={window!r}, min_samples={min_periods!r})"
+        mp = f", min_samples={min_periods!r}" if min_periods is not None else ""
+        expr = f"pl.col({target!r}).{_ROLLING_POLARS[function]}(window_size={window!r}{mp})"
         if partition_by:
-            expr += f".over({partition_by!r})"
-        lines = [f"_w = {src}.with_row_index('__rn__')"]
-        if order_by:
-            lines.append(f"_w = _w.sort(by={order_by!r}, descending={descending!r})")
-        lines.append(f"{dst} = _w.with_columns({expr}.alias({new!r})).sort('__rn__').drop('__rn__')")
+            return f"{dst} = {src}.with_columns({expr}{_pl_over(partition_by, order_by, descending)}.alias({new!r}))"
+        if not order_by:
+            return f"{dst} = {src}.with_columns({expr}.alias({new!r}))"
+        lines = [
+            f"_w = {src}.with_row_index('__rn__')",
+            f"_w = _w.sort(by={order_by!r}, descending={descending!r})",
+            f"{dst} = _w.with_columns({expr}.alias({new!r})).sort('__rn__').drop('__rn__')",
+        ]
         return "\n".join(lines)
 
 
@@ -249,25 +309,30 @@ class RowDifferenceTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         target, method, periods, partition_by, order_by, descending, new = self._args(config)
-        lines = [f"_w = {src}.reset_index(drop=True)"]
-        if order_by:
-            asc = [not descending] * len(order_by)
-            lines.append(f"_w = _w.sort_values(by={order_by!r}, ascending={asc!r}, kind='stable')")
-        base = f"_w.groupby({partition_by!r}, sort=False)[{target!r}]" if partition_by else f"_w[{target!r}]"
-        value = f"{base}.{method}({periods!r})"
-        lines.append(f"_w = _w.assign(**{{{new!r}: {value}}})")
-        lines.append(f"{dst} = _w.sort_index().reset_index(drop=True)")
-        return "\n".join(lines)
+        sorted_d = _pd_sorted(order_by, descending) if order_by else "_d"
+        base = (
+            f"{sorted_d}.groupby({one_or_list(partition_by)!r}, sort=False)[{target!r}]"
+            if partition_by
+            else f"{sorted_d}[{target!r}]"
+        )
+        periods_arg = f"{periods!r}" if periods != 1 else ""  # 1 is the pandas default
+        value = f"{base}.{method}({periods_arg})"
+        # Sorted-view computation + assign's index alignment restores row order.
+        return f"{dst} = {src}.assign({pd_assign_args({new: f'lambda _d: {value}'})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         target, method, periods, partition_by, order_by, descending, new = self._args(config)
         call = "pct_change" if method == "pct_change" else "diff"
-        expr = f"pl.col({target!r}).{call}({periods!r})"
+        periods_arg = f"{periods!r}" if periods != 1 else ""  # 1 is the polars default
+        expr = f"pl.col({target!r}).{call}({periods_arg})"
         if partition_by:
-            expr += f".over({partition_by!r})"
-        lines = [f"_w = {src}.with_row_index('__rn__')"]
-        if order_by:
-            lines.append(f"_w = _w.sort(by={order_by!r}, descending={descending!r})")
-        lines.append(f"{dst} = _w.with_columns({expr}.alias({new!r})).sort('__rn__').drop('__rn__')")
+            return f"{dst} = {src}.with_columns({expr}{_pl_over(partition_by, order_by, descending)}.alias({new!r}))"
+        if not order_by:
+            return f"{dst} = {src}.with_columns({expr}.alias({new!r}))"
+        lines = [
+            f"_w = {src}.with_row_index('__rn__')",
+            f"_w = _w.sort(by={order_by!r}, descending={descending!r})",
+            f"{dst} = _w.with_columns({expr}.alias({new!r})).sort('__rn__').drop('__rn__')",
+        ]
         return "\n".join(lines)

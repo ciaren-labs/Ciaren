@@ -4,7 +4,7 @@
 from typing import Any, Callable
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.base import BaseTransformation, pd_assign_args
 
 
 def _codegen_num(value: Any, cast: Callable[[Any], Any]) -> Any:
@@ -86,6 +86,17 @@ class RemoveOutliersTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
+        columns = config["columns"]
+        if len(columns) == 1 and isinstance(columns[0], str):
+            # One column: spell the bounds out instead of a one-iteration loop.
+            col = columns[0]
+            bounds = self._bounds_lines(config, "_s").replace("\n    ", "\n")
+            body = (
+                f"{dst} = {src}.assign(**{{{col!r}: _s.clip(_lo, _hi)}})"
+                if action == "clip"
+                else f"{dst} = {src}[_s.between(_lo, _hi) | _s.isna()]"
+            )
+            return f"_s = {src}[{col!r}]\n{bounds}\n{body}"
         bounds = self._bounds_lines(config, "_s")
         header = f"{dst} = {src}.copy()" if action == "clip" else f"{dst} = {src}"
         body = (
@@ -93,11 +104,21 @@ class RemoveOutliersTransformation(BaseTransformation):
             if action == "clip"
             else f"{dst} = {dst}[_s.between(_lo, _hi) | _s.isna()]"
         )
-        return f"{header}\nfor _col in {config['columns']!r}:\n    _s = {dst}[_col]\n    {bounds}\n    {body}"
+        return f"{header}\nfor _col in {columns!r}:\n    _s = {dst}[_col]\n    {bounds}\n    {body}"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         action = config.get("action", "drop")
+        columns = config["columns"]
+        if len(columns) == 1 and isinstance(columns[0], str):
+            col = columns[0]
+            bounds = self._bounds_lines(config, f"{src}[{col!r}]").replace("\n    ", "\n")
+            body = (
+                f"{dst} = {src}.with_columns(pl.col({col!r}).clip(_lo, _hi))"
+                if action == "clip"
+                else f"{dst} = {src}.filter(pl.col({col!r}).is_between(_lo, _hi) | pl.col({col!r}).is_null())"
+            )
+            return f"{bounds}\n{body}"
         bounds = self._bounds_lines(config, f"{dst}[_col]")
         body = (
             f"{dst} = {dst}.with_columns(pl.col(_col).clip(_lo, _hi))"
@@ -124,12 +145,19 @@ class RoundNumbersTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         decimals = _codegen_num(config.get("decimals", 0), int)
-        return f"{dst} = {src}.assign(**{{c: {src}[c].round({decimals!r}) for c in {config['columns']!r}}})"
+        # df.round accepts a {column: decimals} dict — the idiomatic spelling.
+        # (It silently skips a non-numeric column where the engine raises; a
+        # script that keeps working is the benign side of that divergence.)
+        rounds = ", ".join(f"{c!r}: {decimals!r}" for c in config["columns"])
+        return f"{dst} = {src}.round({{{rounds}}})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         decimals = _codegen_num(config.get("decimals", 0), int)
-        return f"{dst} = {src}.with_columns([pl.col(c).round({decimals!r}) for c in {config['columns']!r}])"
+        columns = config["columns"]
+        # pl.col takes several names at once — no comprehension needed.
+        names = ", ".join(repr(c) for c in columns)
+        return f"{dst} = {src}.with_columns(pl.col({names}).round({decimals!r}))"
 
 
 class BinColumnTransformation(BaseTransformation):
@@ -175,24 +203,30 @@ class BinColumnTransformation(BaseTransformation):
         col, new = config["column"], config["new_column"]
         bins = _codegen_num(config.get("bins", 4), int)
         labels = config.get("labels") or None
+        label_arg = f", labels={labels!r}" if labels else ""
         if config.get("method", "equalwidth") == "quantile":
-            binned = f"pd.qcut({src}[{col!r}], q={bins!r}, labels={labels!r}, duplicates='drop')"
+            binned = f"pd.qcut({src}[{col!r}], q={bins!r}{label_arg}, duplicates='drop')"
         else:
-            binned = f"pd.cut({src}[{col!r}], bins={bins!r}, labels={labels!r})"
-        return f"{dst} = {src}.assign(**{{{new!r}: {binned}.astype('string')}})"
+            binned = f"pd.cut({src}[{col!r}], bins={bins!r}{label_arg})"
+        # astype('string'), not str: the nullable dtype keeps NaN as <NA>
+        # instead of the literal text "nan" (mirrors PandasEngine.bin_column).
+        value = binned + ".astype('string')"
+        return f"{dst} = {src}.assign({pd_assign_args({new: value})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, new = config["column"], config["new_column"]
         bins = _codegen_num(config.get("bins", 4), int)
         labels = config.get("labels") or None
+        label_arg = f", labels={labels!r}" if labels else ""
         if config.get("method", "equalwidth") == "quantile":
-            quantiles = f"[i / {bins!r} for i in range(1, {bins!r})]"
-            expr = f"pl.col({col!r}).qcut({quantiles}, labels={labels!r}, allow_duplicates=True)"
+            # qcut accepts a bin count directly (uniform-probability bins) —
+            # the same quantile points the engine computes by hand.
+            expr = f"pl.col({col!r}).qcut({bins!r}{label_arg}, allow_duplicates=True)"
             return f"{dst} = {src}.with_columns({expr}.cast(pl.Utf8).alias({new!r}))"
         return (
             f"_lo, _hi = {src}[{col!r}].min(), {src}[{col!r}].max()\n"
             f"_breaks = [_lo + (_hi - _lo) / {bins!r} * i for i in range(1, {bins!r})]\n"
             f"{dst} = {src}.with_columns("
-            f"pl.col({col!r}).cut(_breaks, labels={labels!r}).cast(pl.Utf8).alias({new!r}))"
+            f"pl.col({col!r}).cut(_breaks{label_arg}).cast(pl.Utf8).alias({new!r}))"
         )

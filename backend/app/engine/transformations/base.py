@@ -1,9 +1,41 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import keyword
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+
+
+def is_safe_kwarg(name: Any) -> bool:
+    """Whether a column name can render as a keyword argument (``assign(col=...)``).
+
+    Must be a plain string identifier: parameterized names arrive as ``CodeRef``
+    objects (rendered via ``!r``), keywords aren't valid kwargs, and ``self``
+    would collide with the bound method's own first parameter.
+    """
+    return isinstance(name, str) and name.isidentifier() and not keyword.iskeyword(name) and name != "self"
+
+
+def pd_assign_args(items: dict[Any, str]) -> str:
+    """Render ``.assign(...)`` arguments the way a person would: keyword form
+    (``assign(total=...)``) when every column name allows it, ``**{...}`` otherwise."""
+    if all(is_safe_kwarg(k) for k in items):
+        return ", ".join(f"{k}={v}" for k, v in items.items())
+    return "**{" + ", ".join(f"{k!r}: {v}" for k, v in items.items()) + "}"
+
+
+def pl_exprs_arg(exprs: list[str]) -> str:
+    """Render a ``with_columns`` / ``agg`` argument list: a lone expression stays
+    bare, several are joined positionally (polars accepts both)."""
+    return ", ".join(exprs)
+
+
+def one_or_list(cols: list[Any]) -> Any:
+    """Collapse a single-element column list to its bare name for emission —
+    ``sort_values('a')`` instead of ``sort_values(['a'])``. Every call site
+    (pandas by/subset/on, polars sort/group_by/over/unique) accepts both forms."""
+    return cols[0] if len(cols) == 1 and isinstance(cols[0], str) else cols
 
 
 def polars_to_datetime_expr(schema_var: str, column_code: str, fmt: str | None = None, strict: bool = False) -> str:
@@ -124,6 +156,13 @@ class BaseTransformation(ABC):
         is provided because some nodes import different classes per option (e.g. the
         chosen scaler/imputer)."""
         return []
+
+    def polars_imports(self, config: dict[str, Any]) -> list[str]:
+        """Extra imports for the generated **polars** script. Defaults to
+        :meth:`imports` since most nodes need the same header in both dialects;
+        a node whose pandas code needs something its polars code doesn't (e.g.
+        conditionalColumn's ``numpy``) overrides this."""
+        return self.imports(config)
 
     @abstractmethod
     def to_polars_code(

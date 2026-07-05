@@ -88,7 +88,7 @@ async def test_numeric_node_parameter_renders_as_variable_not_fallback(client: A
         assert "# Flow parameters" in script  # not stripped by a fallback
         assert "ndp = 1" in script
         assert "keep = 2" in script
-        assert ".round(ndp)" in script  # the parameter reference, not the literal 1
+        assert ".round({'v': ndp})" in script or ".round(ndp)" in script  # the parameter reference, not the literal 1
         assert ".head(keep)" in script
         compile(script, "<export>", "exec")
 
