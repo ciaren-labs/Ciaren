@@ -10,11 +10,11 @@ A common first task: take a messy export of orders and turn it into a clean
 revenue summary by region. This walkthrough cleans the data, then groups and
 aggregates it.
 
-**You'll use:** CSV Input → Drop Columns → Change Types → Drop Nulls → Filter Rows →
+**You'll use:** File Input → Drop Columns → Change Types → Drop Nulls → Filter Rows →
 Fill Nulls → Group by + Aggregate → Rename → Sort → File Output.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"sales.csv"},
+  {"type":"input","label":"File Input","detail":"sales.csv"},
   {"type":"clean","label":"Drop Columns","detail":"remove internal_note"},
   {"type":"clean","label":"Change Types","detail":"amount→float · ordered_at→datetime"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: amount"},
@@ -47,7 +47,7 @@ missing amount, a negative (refund) amount, and a missing region.
 
 ## Build the flow
 
-1. **CSV Input** — select the `sales.csv` dataset.
+1. **File Input** — File type CSV, select the `sales.csv` dataset.
 2. **Drop Columns** — `columns: ["internal_note"]`.
 3. **Change Types** — `casts: { "amount": "float", "ordered_at": "datetime" }`.
 4. **Drop Nulls** — `subset: ["amount"]` (drop rows with no amount).

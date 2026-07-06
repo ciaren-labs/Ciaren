@@ -10,21 +10,21 @@ Group customers into spending tiers by combining two files: a customer list and
 an order history. This shows off **Join**, **Group by + Aggregate**, and
 **Bin Column**.
 
-**You'll use:** two CSV Inputs → Group by + Aggregate → Rename → Join → Bin Column
+**You'll use:** two File Inputs → Group by + Aggregate → Rename → Join → Bin Column
 → Sort → File Output.
 
-The key pattern here is a **fork-join**: two separate CSV inputs feed into a single
-Join node. The left branch aggregates orders first; the right branch is the raw
-customer list.
+The key pattern here is a **fork-join**: two separate File Input nodes feed into a
+single Join node. The left branch aggregates orders first; the right branch is
+the raw customer list.
 
 <ForkJoin
   :left='[
-    {"type":"input","label":"CSV Input","detail":"orders.csv"},
+    {"type":"input","label":"File Input","detail":"orders.csv"},
     {"type":"transform","label":"Group By + Aggregate","detail":"sum amount, count orders per customer"},
     {"type":"clean","label":"Rename Columns","detail":"amount→total_spent · order_id→num_orders"}
   ]'
   :right='[
-    {"type":"input","label":"CSV Input","detail":"customers.csv"}
+    {"type":"input","label":"File Input","detail":"customers.csv"}
   ]'
   :join='{"label":"Join","detail":"on: customer_id · how: left"}'
   :after='[
@@ -64,12 +64,12 @@ Upload both on the **Datasets** page (📥 download
 
 ## Build the flow
 
-1. **CSV Input** (orders) — select `orders.csv`.
+1. **File Input** (orders) — File type CSV, select `orders.csv`.
 2. **Group by + Aggregate** — `group_by: ["customer_id"]`,
    `aggregations: { "amount": "sum", "order_id": "count" }`. One row per customer
    with their total spend and order count.
 3. **Rename Columns** — `mapping: { "amount": "total_spent", "order_id": "num_orders" }`.
-4. **CSV Input** (customers) — select `customers.csv`.
+4. **File Input** (customers) — File type CSV, select `customers.csv`.
 5. **Join** — connect the renamed aggregate to the **left** handle and the
    customers input to the **right** handle. Config: `on: "customer_id"`,
    `how: "left"`.

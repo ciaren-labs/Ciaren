@@ -209,7 +209,8 @@ category.
 
 ## 5. Try it on the canvas
 
-1. Open the editor, create a flow, and add a **CSV Input** with any small file.
+1. Open the editor, create a flow, and add a **File Input** (File type: CSV) with
+   any small file.
 2. Drag in **Add Greeting** and wire the input into it.
 3. **Preview** — you'll see the new `greeting` column.
 4. **Export → Python** — the node emits the `assign(...)` line from

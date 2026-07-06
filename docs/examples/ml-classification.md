@@ -13,11 +13,11 @@ runnable scikit-learn script. Every model is logged to MLflow automatically.
 ML nodes appear under **Machine Learning** in the palette by default — see the
 [ML Quick Start](/guide/ml-quickstart) for setup details.
 
-**You'll use:** CSV Input → Train / Test Split → Train Classifier → Predict →
+**You'll use:** File Input → Train / Test Split → Train Classifier → Predict →
 Evaluate → File Output.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"customers.csv"},
+  {"type":"input","label":"File Input","detail":"customers.csv"},
   {"type":"ml","label":"Train / Test Split","detail":"test 25% · stratify churn · seed 42"},
   {"type":"ml","label":"Train Classifier","detail":"Random Forest → model wire"},
   {"type":"ml","label":"Predict","detail":"score the test set"},
@@ -47,7 +47,7 @@ features.
 
 ## Build the flow
 
-1. **CSV Input** — select the `customers.csv` dataset.
+1. **File Input** — File type CSV, select the `customers.csv` dataset.
 2. **Train / Test Split** — `test_size: 0.25`, `stratify_column: "churn"`,
    `seed: 42`. This node has **two outputs**: `train` and `test`.
 3. **Train Classifier** — wire the **`train`** output here. Pick **Random Forest**,

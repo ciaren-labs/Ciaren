@@ -53,7 +53,7 @@ this connection, so changing it re-points MLflow everywhere — no restart neede
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input","detail":"churn dataset"},
+    {"type":"input","label":"File Input","detail":"churn dataset"},
     {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
     {"type":"ml","label":"Scale Features","detail":"normalize numeric cols"},
     {"type":"ml","label":"Train Classifier","detail":"Random Forest → MLflow"},
@@ -102,8 +102,8 @@ models again.
 
 ## Build the flow
 
-1. **Input** — drag a **CSV Input** and pick your dataset (it needs a target
-   column, e.g. `churn`).
+1. **Input** — drag a **File Input**, set File type to CSV, and pick your dataset
+   (it needs a target column, e.g. `churn`).
 2. **Train / Test Split** — connect the input. Set a **seed** (required for
    reproducibility) and, for classification, stratify on your target.
 3. **Train Classifier** — connect the split's **train** output.
@@ -207,8 +207,8 @@ ready-to-run ML flows — the four tutorial flows above (*Iris — Quick
 Classifier*, *Iris — Train, Validate & Evaluate*, *House Prices — Regression*,
 *Iris — PCA Explore*) plus five more covering cross-validation, KNN with
 encoded features, feature selection, and clustering (*Iris — Logistic CV
-Report*, *Iris — KNN with Encoded Species*, *House Price — Feature Selection*,
-*House Price — Customer Segments*, *House Price — PCA Model*). Boot with
+Report*, *Iris — KNN with Encoded Species*, *House Prices — Feature Selection*,
+*House Prices — Customer Segments*, *House Prices — PCA Model*). Boot with
 `ciaren serve --run-seed-flows` to run them all once on first start, so the
 Runs history and the Models page are populated out of the box.
 

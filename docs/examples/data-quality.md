@@ -10,11 +10,11 @@ Real-world files are messy: stray whitespace, inconsistent casing, junk in
 numeric columns, duplicates, and out-of-range values. This flow standardizes a
 contact list and drops the rows that can't be trusted.
 
-**You'll use:** CSV Input → String Transform → Change Types → Drop Nulls →
+**You'll use:** File Input → String Transform → Change Types → Drop Nulls →
 Remove Duplicates → Filter Rows → File Output.
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"contacts.csv"},
+  {"type":"input","label":"File Input","detail":"contacts.csv"},
   {"type":"clean","label":"String Transform","detail":"strip whitespace from name"},
   {"type":"clean","label":"String Transform","detail":"strip + lowercase email"},
   {"type":"clean","label":"Change Types","detail":"age→integer, errors=coerce → nulls"},
@@ -43,7 +43,7 @@ row with no name.
 
 ## Build the flow
 
-1. **CSV Input** — select `contacts.csv`.
+1. **File Input** — File type CSV, select `contacts.csv`.
 2. **String Transform** — `column: "name"`, `operation: "strip"` (trim whitespace).
 3. **String Transform** — `column: "email"`, `operation: "strip"`.
 4. **String Transform** — `column: "email"`, `operation: "lower"` (normalize case

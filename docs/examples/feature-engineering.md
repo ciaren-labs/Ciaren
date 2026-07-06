@@ -11,11 +11,11 @@ Ciaren's **Machine Learning** nodes cover the common steps — scaling, encoding
 selection, and dimensionality reduction — and each one previews on real rows so you
 can see the effect immediately.
 
-**You'll use:** CSV Input → Fill Nulls → Encode Categories → Scale Features →
+**You'll use:** File Input → Fill Nulls → Encode Categories → Scale Features →
 Select Features → Reduce Dimensions (PCA).
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"CSV Input","detail":"applicants.csv"},
+  {"type":"input","label":"File Input","detail":"applicants.csv"},
   {"type":"clean","label":"Fill Nulls","detail":"income → median"},
   {"type":"ml","label":"Encode Categories","detail":"onehot: region"},
   {"type":"ml","label":"Scale Features","detail":"standard: age, income"},
@@ -40,7 +40,7 @@ applicant_id,age,income,region,score,approved
 
 ## Build the flow
 
-1. **CSV Input** — select the `applicants.csv` dataset.
+1. **File Input** — File type CSV, select the `applicants.csv` dataset.
 2. **Fill Nulls** — `strategy: "median"`, `columns: ["income"]`. (Use the standard
    cleaning [Fill Nulls](/transformations/fill-nulls) node — it works on both
    engines.)

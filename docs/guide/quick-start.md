@@ -58,10 +58,10 @@ sample dataset.
 
 To upload your own file:
 
-1. Open the app and go to **Datasets**.
-2. Use the **Choose a project** dropdown to pick a project, such as "Default".
-   This reveals a **Step 2** drop zone.
-3. Drag your file onto the drop zone, or click it to browse and select one. It
+1. Open the app and go to **Datasets**. The drop zone is visible immediately,
+   with the **Upload to project** dropdown defaulted to your first project
+   (e.g. "Default") — change it if you want the file to land somewhere else.
+2. Drag your file onto the drop zone, or click it to browse and select one. It
    accepts CSV, TSV, Excel, Parquet, JSON, JSON Lines, or plain text.
 
 Ciaren infers the column schema and stores a sample. Datasets are

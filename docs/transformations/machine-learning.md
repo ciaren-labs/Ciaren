@@ -17,7 +17,7 @@ they work whether the flow's engine is polars or pandas.
 
 <FlowPipeline
   :nodes='[
-    {"type":"input","label":"CSV Input","detail":"dataset with target"},
+    {"type":"input","label":"File Input","detail":"dataset with target"},
     {"type":"ml","label":"Train / Test Split","detail":"seed + stratify"},
     {"type":"ml","label":"Scale Features","detail":"normalize numerics"},
     {"type":"ml","label":"Train Classifier","detail":"model → MLflow"},
