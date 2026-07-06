@@ -497,6 +497,66 @@ async def test_async_retry_run():
     assert run == MOCK_RUN
 
 
+def test_sync_flow_run_settings_and_keyring_methods():
+    with respx.mock(base_url=BASE) as mock:
+        duplicate_route = mock.post(f"/api/flows/{FLOW_ID}/duplicate").mock(
+            return_value=httpx.Response(201, json={**MOCK_FLOW, "id": "flow-copy"})
+        )
+        mock.post("/api/flows/migrate-document").mock(
+            return_value=httpx.Response(
+                200, json={"document": {"v": 2}, "migrated": True, "from_version": "1", "to_version": "2"}
+            )
+        )
+        mock.post(f"/api/runs/{RUN_ID}/cancel").mock(
+            return_value=httpx.Response(202, json={"status": "cancelling"})
+        )
+        mock.get("/api/settings").mock(return_value=httpx.Response(200, json=[{"key": "poll_interval"}]))
+        update_route = mock.put("/api/settings/poll_interval").mock(
+            return_value=httpx.Response(200, json={"key": "poll_interval", "value": 5})
+        )
+        reset_route = mock.delete("/api/settings/poll_interval").mock(
+            return_value=httpx.Response(200, json={"key": "poll_interval", "value": 1})
+        )
+        mock.get("/api/connections/keyring").mock(return_value=httpx.Response(200, json={"available": True}))
+        store_route = mock.post("/api/connections/keyring").mock(
+            return_value=httpx.Response(201, json={"name": "db-pass", "exists": True, "reference": "keyring:db-pass"})
+        )
+        mock.get("/api/connections/keyring/db-pass").mock(
+            return_value=httpx.Response(200, json={"name": "db-pass", "exists": True, "reference": "keyring:db-pass"})
+        )
+        delete_secret_route = mock.delete("/api/connections/keyring/db-pass").mock(return_value=httpx.Response(204))
+        delete_conn_route = mock.delete("/api/connections/conn-1").mock(return_value=httpx.Response(204))
+
+        with Ciaren(BASE) as client:
+            duplicated = client.duplicate_flow(FLOW_ID, name="Copy")
+            migrated = client.migrate_flow_document({"v": 1})
+            cancelled = client.cancel_run(RUN_ID)
+            settings = client.list_settings()
+            updated_setting = client.update_setting("poll_interval", 5)
+            reset = client.reset_setting("poll_interval")
+            availability = client.keyring_availability()
+            stored = client.store_keyring_secret("db-pass", "s3cr3t", overwrite=True)
+            status_ = client.get_keyring_secret_status("db-pass")
+            client.delete_keyring_secret("db-pass")
+            client.delete_connection("conn-1", force=True)
+
+    assert duplicated["id"] == "flow-copy"
+    assert migrated["migrated"] is True
+    assert cancelled["status"] == "cancelling"
+    assert settings == [{"key": "poll_interval"}]
+    assert updated_setting["value"] == 5
+    assert reset["value"] == 1
+    assert availability["available"] is True
+    assert stored["reference"] == "keyring:db-pass"
+    assert status_["exists"] is True
+    assert duplicate_route.calls[0].request.url.params["name"] == "Copy"
+    assert json.loads(update_route.calls[0].request.content)["value"] == 5
+    assert reset_route.called
+    assert json.loads(store_route.calls[0].request.content)["overwrite"] is True
+    assert delete_secret_route.called
+    assert delete_conn_route.calls[0].request.url.params["force"] == "true"
+
+
 @pytest.mark.asyncio
 async def test_async_stream_logs():
     sse_body = (
@@ -515,3 +575,52 @@ async def test_async_stream_logs():
         {"level": "info", "message": "step 1"},
         {"level": "info", "message": "step 2"},
     ]
+
+
+@pytest.mark.asyncio
+async def test_async_flow_run_settings_and_keyring_methods():
+    with respx.mock(base_url=BASE) as mock:
+        mock.post(f"/api/flows/{FLOW_ID}/duplicate").mock(
+            return_value=httpx.Response(201, json={**MOCK_FLOW, "id": "flow-copy"})
+        )
+        mock.post("/api/flows/migrate-document").mock(
+            return_value=httpx.Response(
+                200, json={"document": {"v": 2}, "migrated": True, "from_version": "1", "to_version": "2"}
+            )
+        )
+        mock.post(f"/api/runs/{RUN_ID}/cancel").mock(return_value=httpx.Response(202, json={"status": "cancelling"}))
+        mock.get("/api/settings").mock(return_value=httpx.Response(200, json=[{"key": "poll_interval"}]))
+        mock.put("/api/settings/poll_interval").mock(
+            return_value=httpx.Response(200, json={"key": "poll_interval", "value": 5})
+        )
+        mock.delete("/api/settings/poll_interval").mock(
+            return_value=httpx.Response(200, json={"key": "poll_interval", "value": 1})
+        )
+        mock.get("/api/connections/keyring").mock(return_value=httpx.Response(200, json={"available": True}))
+        mock.post("/api/connections/keyring").mock(
+            return_value=httpx.Response(201, json={"name": "db-pass", "exists": True, "reference": "keyring:db-pass"})
+        )
+        mock.delete("/api/connections/keyring/db-pass").mock(return_value=httpx.Response(204))
+        delete_conn_route = mock.delete("/api/connections/conn-1").mock(return_value=httpx.Response(204))
+
+        async with AsyncCiaren(BASE) as client:
+            duplicated = await client.duplicate_flow(FLOW_ID, name="Copy")
+            migrated = await client.migrate_flow_document({"v": 1})
+            cancelled = await client.cancel_run(RUN_ID)
+            settings = await client.list_settings()
+            updated_setting = await client.update_setting("poll_interval", 5)
+            reset = await client.reset_setting("poll_interval")
+            availability = await client.keyring_availability()
+            stored = await client.store_keyring_secret("db-pass", "s3cr3t")
+            await client.delete_keyring_secret("db-pass")
+            await client.delete_connection("conn-1", force=True)
+
+    assert duplicated["id"] == "flow-copy"
+    assert migrated["migrated"] is True
+    assert cancelled["status"] == "cancelling"
+    assert settings == [{"key": "poll_interval"}]
+    assert updated_setting["value"] == 5
+    assert reset["value"] == 1
+    assert availability["available"] is True
+    assert stored["reference"] == "keyring:db-pass"
+    assert delete_conn_route.calls[0].request.url.params["force"] == "true"

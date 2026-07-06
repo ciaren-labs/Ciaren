@@ -10,13 +10,17 @@ from typing import Any
 import httpx
 
 from ciaren_client._types import (
+    AppSetting,
     CodeExport,
     Connection,
     ConnectionTestResult,
     Dataset,
     DatasetVersion,
     Flow,
+    FlowMigrationResult,
     JsonDict,
+    KeyringAvailability,
+    KeyringSecretStatus,
     Project,
     Run,
     Schedule,
@@ -212,6 +216,9 @@ class Ciaren:
             },
         )
 
+    def duplicate_flow(self, flow_id: str, *, name: str | None = None) -> Flow:
+        return self.post(f"/api/flows/{flow_id}/duplicate", params={"name": name} if name else None)
+
     def get_flow(self, flow_id: str) -> Flow:
         return self.get(f"/api/flows/{flow_id}")
 
@@ -226,6 +233,11 @@ class Ciaren:
 
     def export_flow_python(self, flow_id: str, *, free_intermediates: bool = True) -> CodeExport:
         return self.post(f"/api/flows/{flow_id}/export/python", params={"free_intermediates": free_intermediates})
+
+    def migrate_flow_document(self, document: JsonDict) -> FlowMigrationResult:
+        """Migrate/validate a raw .flow document to the current schema version
+        without persisting or importing it."""
+        return self.post("/api/flows/migrate-document", json={"document": document})
 
     # ------------------------------------------------------------------
     # Runs
@@ -289,6 +301,11 @@ class Ciaren:
 
     def get_run(self, run_id: str) -> Run:
         return self.get(f"/api/runs/{run_id}")
+
+    def cancel_run(self, run_id: str) -> dict[str, str]:
+        """Stop a running run: cooperatively at the next node boundary (thread
+        mode) or by abandoning the worker (process mode)."""
+        return self.post(f"/api/runs/{run_id}/cancel")
 
     def retry_run(self, run_id: str) -> Run:
         """Retry a run via POST /api/runs/{id}/retry.
@@ -381,14 +398,35 @@ class Ciaren:
     def test_connection_config(self, **payload: Any) -> ConnectionTestResult:
         return self.post("/api/connections/test-config", json=payload)
 
+    def keyring_availability(self) -> KeyringAvailability:
+        """Whether this host has a usable OS keychain (headless servers have none)."""
+        return self.get("/api/connections/keyring")
+
+    def store_keyring_secret(self, name: str, value: str, *, overwrite: bool = False) -> KeyringSecretStatus:
+        """Store a secret in the OS keychain, returning its ``keyring:NAME`` reference.
+
+        The value is written to the platform keychain and never persisted, returned,
+        or logged by Ciaren. Refused with 409 if the name is taken unless ``overwrite``.
+        """
+        return self.post("/api/connections/keyring", json={"name": name, "value": value, "overwrite": overwrite})
+
+    def get_keyring_secret_status(self, name: str) -> KeyringSecretStatus:
+        """Whether a keychain secret exists — never returns its value."""
+        return self.get(f"/api/connections/keyring/{name}")
+
+    def delete_keyring_secret(self, name: str) -> None:
+        self.delete(f"/api/connections/keyring/{name}")
+
     def get_connection(self, connection_id: str) -> Connection:
         return self.get(f"/api/connections/{connection_id}")
 
     def update_connection(self, connection_id: str, **fields: Any) -> Connection:
         return self.patch(f"/api/connections/{connection_id}", json=fields)
 
-    def delete_connection(self, connection_id: str) -> None:
-        self.delete(f"/api/connections/{connection_id}")
+    def delete_connection(self, connection_id: str, *, force: bool = False) -> None:
+        """Delete a connection. Refused with 409 while flows still reference it,
+        unless ``force=True`` (those flows then fail at run time until repointed)."""
+        self.delete(f"/api/connections/{connection_id}", params={"force": force})
 
     def test_connection(self, connection_id: str) -> ConnectionTestResult:
         return self.post(f"/api/connections/{connection_id}/test")
@@ -423,6 +461,20 @@ class Ciaren:
 
     def webhook_status(self) -> WebhookStatus:
         return self.get("/api/settings/webhook")
+
+    # ------------------------------------------------------------------
+    # Runtime app settings (Settings page allowlist)
+    # ------------------------------------------------------------------
+
+    def list_settings(self) -> list[AppSetting]:
+        return self.get("/api/settings")
+
+    def update_setting(self, key: str, value: int | str) -> AppSetting:
+        return self.put(f"/api/settings/{key}", json={"value": value})
+
+    def reset_setting(self, key: str) -> AppSetting:
+        """Remove ``key``'s override, falling back to the environment/default."""
+        return self.request("DELETE", f"/api/settings/{key}").json()
 
     # ------------------------------------------------------------------
     # Plugins / marketplace

@@ -39,8 +39,9 @@ async with AsyncCiaren("http://localhost:8055", webhook_secret="my-secret") as c
 ## What It Covers
 
 The client includes typed sync and async methods for projects, datasets, flows,
-runs, schedules, connections, catalog metadata, transformations, ML helpers,
-plugins, marketplace endpoints, webhook triggers, and SSE run logs.
+runs, schedules, connections (including OS-keychain secrets), catalog metadata,
+transformations, runtime app settings, ML helpers, plugins, marketplace
+endpoints, webhook triggers, and SSE run logs.
 
 Use `api_token` when the server is configured with `CIAREN_API_TOKEN`.
 Use `webhook_secret` only for `trigger()`, which calls the webhook endpoint.

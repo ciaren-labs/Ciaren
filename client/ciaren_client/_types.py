@@ -140,4 +140,40 @@ class WebhookStatus(TypedDict, total=False):
     configured: bool
 
 
+class AppSetting(TypedDict, total=False):
+    key: str
+    label: str
+    description: str
+    env_var: str
+    category: str
+    value_type: Literal["integer", "select", "url"]
+    choices: list[str] | None
+    min_value: int | None
+    max_value: int | None
+    restart_required: bool
+    value: int | str
+    source: Literal["default", "env", "override"]
+    default_value: int | str
+    env_value: int | str
+
+
+class KeyringAvailability(TypedDict, total=False):
+    available: bool
+    backend: str | None
+    detail: str | None
+
+
+class KeyringSecretStatus(TypedDict, total=False):
+    name: str
+    exists: bool
+    reference: str
+
+
+class FlowMigrationResult(TypedDict, total=False):
+    document: JsonDict
+    migrated: bool
+    from_version: str
+    to_version: str
+
+
 RunStatus = Literal["pending", "running", "success", "failed"]

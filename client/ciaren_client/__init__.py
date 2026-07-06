@@ -21,6 +21,7 @@ Async usage::
 from ciaren_client._async import AsyncCiaren
 from ciaren_client._sync import Ciaren
 from ciaren_client._types import (
+    AppSetting,
     CodeExport,
     Connection,
     ConnectionTestResult,
@@ -28,7 +29,10 @@ from ciaren_client._types import (
     DatasetVersion,
     Flow,
     FlowDocument,
+    FlowMigrationResult,
     JsonDict,
+    KeyringAvailability,
+    KeyringSecretStatus,
     Project,
     Run,
     RunStatus,
@@ -39,6 +43,7 @@ from ciaren_client._types import (
 __version__ = "0.1.0-alpha.1"
 
 __all__ = [
+    "AppSetting",
     "AsyncCiaren",
     "Ciaren",
     "CodeExport",
@@ -48,7 +53,10 @@ __all__ = [
     "DatasetVersion",
     "Flow",
     "FlowDocument",
+    "FlowMigrationResult",
     "JsonDict",
+    "KeyringAvailability",
+    "KeyringSecretStatus",
     "Project",
     "Run",
     "RunStatus",
