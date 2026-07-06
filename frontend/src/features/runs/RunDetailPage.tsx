@@ -7,6 +7,7 @@ import { MlMetricsPanel } from "./MlMetricsPanel";
 import { useFlow } from "@/features/flows/hooks";
 import { useDatasets } from "@/features/datasets/hooks";
 import { RunDag } from "@/components/run/RunDag";
+import { RunChartCard } from "@/components/run/RunChart";
 import { DataTable } from "@/components/flow/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDuration } from "@/lib/format";
@@ -332,6 +333,8 @@ function NodeInspector({ result, runId }: { result: NodeResult; runId: string })
       {result.assertion_passed != null && (
         <AssertionBadgePanel result={result} />
       )}
+
+      {result.chart != null && result.status === "success" && <RunChartCard result={result} />}
 
       {OUTPUT_NODE_TYPES.has(result.type) && result.status === "success" && (
         <div className="border-b border-border px-4 py-2">

@@ -1,5 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from app.engine.transformations.base import BaseTransformation
+from app.engine.transformations.charts import (
+    ChartAreaTransformation,
+    ChartBarTransformation,
+    ChartBoxPlotTransformation,
+    ChartHeatmapTransformation,
+    ChartHistogramTransformation,
+    ChartLineTransformation,
+    ChartPieTransformation,
+    ChartScatterTransformation,
+)
 from app.engine.transformations.columns import (
     CastDtypesTransformation,
     CoalesceColumnsTransformation,
@@ -110,6 +120,14 @@ _register(
     RollingAggregateTransformation(),
     RowDifferenceTransformation(),
     DateDifferenceTransformation(),
+    ChartBarTransformation(),
+    ChartLineTransformation(),
+    ChartAreaTransformation(),
+    ChartScatterTransformation(),
+    ChartPieTransformation(),
+    ChartHistogramTransformation(),
+    ChartBoxPlotTransformation(),
+    ChartHeatmapTransformation(),
 )
 
 

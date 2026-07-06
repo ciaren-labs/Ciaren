@@ -9,6 +9,7 @@ export type NodeCategory =
   | "reshape"
   | "analytics"
   | "quality"
+  | "chart"
   | "ml"
   | "output"
   | "plugins";
@@ -820,6 +821,89 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description:
       "Estimate a connected model's performance with k-fold, stratified, time-series, group, or other CV strategies.",
   },
+  // ----- Charts -----
+  // Pass-throughs: the frame flows on unchanged; the run stores a render-ready
+  // chart artifact computed over the full data (see the backend chart nodes).
+  {
+    type: "chartBar",
+    label: "Bar Chart",
+    category: "chart",
+    defaultConfig: { x: "", y: "", aggregate: "sum", group_by: "", orientation: "vertical", limit: null },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Aggregate a value per category and store a bar chart on the run (optionally stacked).",
+  },
+  {
+    type: "chartLine",
+    label: "Line Chart",
+    category: "chart",
+    defaultConfig: { x: "", y_columns: [], aggregate: "mean" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Plot one or more measures over an ordered axis (dates or numbers) and store it on the run.",
+  },
+  {
+    type: "chartArea",
+    label: "Area Chart",
+    category: "chart",
+    defaultConfig: { x: "", y_columns: [], aggregate: "mean" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "A line chart with a filled area, stored on the run.",
+  },
+  {
+    type: "chartScatter",
+    label: "Scatter Plot",
+    category: "chart",
+    defaultConfig: { x: "", y: "" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Plot two numeric columns against each other and store it on the run.",
+  },
+  {
+    type: "chartPie",
+    label: "Pie Chart",
+    category: "chart",
+    defaultConfig: { category: "", value: "", aggregate: "count", limit: null },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Share of a total per category (top slices + Other), stored on the run.",
+  },
+  {
+    type: "chartHistogram",
+    label: "Histogram",
+    category: "chart",
+    defaultConfig: { column: "", bins: 20 },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Distribution of a numeric column in equal-width bins, stored on the run.",
+  },
+  {
+    type: "chartBoxPlot",
+    label: "Box Plot",
+    category: "chart",
+    defaultConfig: { column: "", group_by: "" },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Five-number summary of a numeric column, optionally per group, stored on the run.",
+  },
+  {
+    type: "chartHeatmap",
+    label: "Correlation Heatmap",
+    category: "chart",
+    defaultConfig: { columns: [] },
+    inputHandles: ["in"],
+    hasOutput: true,
+    isFlowTerminal: true,
+    description: "Pairwise correlations between numeric columns, stored on the run.",
+  },
   // ----- Outputs -----
   {
     type: "fileOutput",
@@ -920,6 +1004,7 @@ export const CATEGORY_LABELS: Record<NodeCategory, string> = {
   reshape: "Reshape",
   analytics: "Analytics",
   quality: "Data Quality",
+  chart: "Charts",
   ml: "Machine Learning",
   output: "Outputs",
   plugins: "Plugins",
@@ -932,6 +1017,7 @@ export const CATEGORY_ORDER: NodeCategory[] = [
   "reshape",
   "analytics",
   "quality",
+  "chart",
   "ml",
   "output",
   "plugins",

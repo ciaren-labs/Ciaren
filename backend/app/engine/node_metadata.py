@@ -26,6 +26,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "reshape": "Reshape",
     "analytics": "Analytics",
     "quality": "Data Quality",
+    "chart": "Charts",
     "ml": "Machine Learning",
     "output": "Outputs",
 }
@@ -38,6 +39,7 @@ CATEGORY_ORDER: list[str] = [
     "reshape",
     "analytics",
     "quality",
+    "chart",
     "ml",
     "output",
 ]
@@ -394,6 +396,65 @@ BUILTIN_NODE_META: tuple[NodeMeta, ...] = (
         "quality",
         "Fail or warn when a column has values outside an allowed set.",
         {"column": "", "allowed": [], "allow_null": True, "mode": "error"},
+    ),
+    # ----- Charts -----
+    # Pass-through nodes: the frame flows on unchanged; the run stores a
+    # render-ready chart artifact computed over the full data.
+    NodeMeta(
+        "chartBar",
+        "Bar Chart",
+        "chart",
+        "Aggregate a value per category and store a bar chart on the run (optionally stacked).",
+        {"x": "", "y": "", "aggregate": "sum", "group_by": "", "orientation": "vertical", "limit": None},
+    ),
+    NodeMeta(
+        "chartLine",
+        "Line Chart",
+        "chart",
+        "Plot one or more measures over an ordered axis (dates or numbers) and store it on the run.",
+        {"x": "", "y_columns": [], "aggregate": "mean"},
+    ),
+    NodeMeta(
+        "chartArea",
+        "Area Chart",
+        "chart",
+        "A line chart with a filled area, stored on the run.",
+        {"x": "", "y_columns": [], "aggregate": "mean"},
+    ),
+    NodeMeta(
+        "chartScatter",
+        "Scatter Plot",
+        "chart",
+        "Plot two numeric columns against each other and store it on the run.",
+        {"x": "", "y": ""},
+    ),
+    NodeMeta(
+        "chartPie",
+        "Pie Chart",
+        "chart",
+        "Share of a total per category (top slices + Other), stored on the run.",
+        {"category": "", "value": "", "aggregate": "count", "limit": None},
+    ),
+    NodeMeta(
+        "chartHistogram",
+        "Histogram",
+        "chart",
+        "Distribution of a numeric column in equal-width bins, stored on the run.",
+        {"column": "", "bins": 20},
+    ),
+    NodeMeta(
+        "chartBoxPlot",
+        "Box Plot",
+        "chart",
+        "Five-number summary of a numeric column, optionally per group, stored on the run.",
+        {"column": "", "group_by": ""},
+    ),
+    NodeMeta(
+        "chartHeatmap",
+        "Correlation Heatmap",
+        "chart",
+        "Pairwise correlations between numeric columns, stored on the run.",
+        {"columns": []},
     ),
     # ----- Machine Learning -----
     NodeMeta(

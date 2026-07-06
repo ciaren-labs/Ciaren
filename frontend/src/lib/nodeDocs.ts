@@ -406,6 +406,76 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     ],
   },
 
+  chartBar: {
+    summary:
+      "Aggregates a value per category over the full run data and stores a bar chart on the run. The frame passes through unchanged, so you can keep transforming after it.",
+    fields: [
+      { name: "Category (x)", desc: "One bar per distinct value of this column (top 25 by default)." },
+      { name: "Aggregate / Value", desc: "How rows combine into a bar — Count needs no value column." },
+      { name: "Stack by", desc: "Optional second column that splits each bar into stacked segments." },
+      { name: "Orientation", desc: "Horizontal bars fit long category names better." },
+    ],
+    example: "sum(amount) by region, stacked by product.",
+    tips: ["Open the finished run and select this node to see and export the chart."],
+  },
+  chartLine: {
+    summary:
+      "Plots one or more measures over an ordered axis (dates or numbers), aggregated per x value over the full run data, and stores the chart on the run.",
+    fields: [
+      { name: "X axis", desc: "The order column — dates and numbers sort chronologically/numerically." },
+      { name: "Values (y)", desc: "Up to 8 columns, one line each." },
+      { name: "Aggregate", desc: "Rows sharing an x value combine with this function (e.g. sum per day)." },
+    ],
+    example: "sum(amount) per date.",
+  },
+  chartArea: {
+    summary: "Same as the Line Chart with a filled area under each line — good for volumes over time.",
+    fields: [
+      { name: "X axis", desc: "The order column — dates and numbers sort chronologically/numerically." },
+      { name: "Values (y)", desc: "Up to 8 columns, one area each." },
+      { name: "Aggregate", desc: "Rows sharing an x value combine with this function." },
+    ],
+  },
+  chartScatter: {
+    summary:
+      "Plots two numeric columns against each other (up to 2 000 evenly-sampled points) and stores the chart on the run — good for spotting relationships.",
+    fields: [
+      { name: "X column", desc: "Numeric column on the horizontal axis." },
+      { name: "Y column", desc: "Numeric column on the vertical axis." },
+    ],
+  },
+  chartPie: {
+    summary:
+      "Shows each category's share of the total as a donut. Small categories beyond the top slices fold into an accurate “Other”.",
+    fields: [
+      { name: "Category", desc: "One slice per distinct value." },
+      { name: "Aggregate / Value", desc: "Count rows, or aggregate a numeric column." },
+      { name: "Top slices", desc: "How many slices to show before folding into Other (default 6)." },
+    ],
+  },
+  chartHistogram: {
+    summary: "Shows the distribution of a numeric column in equal-width bins computed over the full run data.",
+    fields: [
+      { name: "Column", desc: "The numeric column whose distribution is shown." },
+      { name: "Bins", desc: "Number of equal-width buckets (1–100)." },
+    ],
+  },
+  chartBoxPlot: {
+    summary:
+      "Five-number summary (median, quartiles, whiskers) of a numeric column, optionally one box per group. Outliers beyond the Tukey fences are counted, not drawn.",
+    fields: [
+      { name: "Value column", desc: "The numeric column each box summarizes." },
+      { name: "Group by", desc: "Optional. One box per group; the 12 largest groups are shown." },
+    ],
+  },
+  chartHeatmap: {
+    summary: "Pairwise correlations between numeric columns (−1 to 1), stored on the run as a heatmap.",
+    fields: [
+      { name: "Columns", desc: "Which numeric columns to correlate. Empty = all numeric columns (up to 12)." },
+    ],
+    tips: ["Correlation needs at least two numeric columns with varying values."],
+  },
+
   fileOutput: {
     summary:
       "Write the result to a file. Pick the format (CSV, Excel, Parquet, JSON, or text) and a name; the output is saved as a reusable dataset you can download or feed into another flow.",

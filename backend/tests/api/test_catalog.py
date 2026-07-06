@@ -72,7 +72,7 @@ async def test_catalog_categories_ordered(client):
     assert resp.status_code == 200
     cats = resp.json()
     ids = [c["id"] for c in cats]
-    assert ids == ["input", "clean", "columns", "reshape", "analytics", "quality", "ml", "output"]
+    assert ids == ["input", "clean", "columns", "reshape", "analytics", "quality", "chart", "ml", "output"]
     assert {"id": "input", "label": "Inputs"} in cats
 
 

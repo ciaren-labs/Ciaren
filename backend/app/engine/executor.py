@@ -62,6 +62,8 @@ class NodeResult:
     assertion_passed: bool | None = None
     assertion_violation_count: int | None = None
     assertion_violating_sample: list[dict[str, Any]] | None = None
+    # Chart node artifact — None for non-chart nodes.
+    chart: dict[str, Any] | None = None
 
     def apply_metadata(self, meta: NodeMetadata | None) -> None:
         if meta is None:
@@ -74,6 +76,7 @@ class NodeResult:
         self.assertion_passed = meta.assertion_passed
         self.assertion_violation_count = meta.assertion_violation_count
         self.assertion_violating_sample = meta.assertion_violating_sample
+        self.chart = meta.chart
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -94,6 +97,7 @@ class NodeResult:
             "assertion_passed": self.assertion_passed,
             "assertion_violation_count": self.assertion_violation_count,
             "assertion_violating_sample": self.assertion_violating_sample,
+            "chart": self.chart,
         }
 
 

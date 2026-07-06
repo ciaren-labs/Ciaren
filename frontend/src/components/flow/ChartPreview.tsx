@@ -25,7 +25,19 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
-import { ResponsiveContainer } from "recharts";
+import {
+  axisProps,
+  ChartFrame,
+  compact,
+  fmtCategory,
+  fmtTick,
+  fmtValue,
+  full,
+  gridProps,
+  legendProps,
+  Placeholder,
+  tooltipProps,
+} from "./chartChrome";
 import {
   barData,
   boxplotStats,
@@ -50,27 +62,6 @@ interface ChartPreviewProps {
   config: Record<string, unknown>;
   /** Sample rows from the node directly upstream of this viz node. */
   rows: Row[] | null;
-}
-
-const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
-const full = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
-
-function fmtTick(v: unknown): string {
-  const n = toNumber(v);
-  return n === null ? String(v ?? "") : compact.format(n);
-}
-
-function fmtValue(v: unknown): string {
-  const n = toNumber(v);
-  return n === null ? String(v ?? "") : full.format(n);
-}
-
-/** Trim ISO datetime axis labels: "2023-01-08T00:00:00.000" → "2023-01-08". */
-function fmtCategory(v: unknown): string {
-  const s = String(v ?? "");
-  const iso = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec(s);
-  if (!iso) return s;
-  return iso[2] === "00:00" ? iso[1] : `${iso[1]} ${iso[2]}`;
 }
 
 export function ChartPreview({ type, config, rows }: ChartPreviewProps) {
@@ -106,48 +97,9 @@ export function ChartPreview({ type, config, rows }: ChartPreviewProps) {
   }
 }
 
-// -- Shared chrome ---------------------------------------------------------
-
-/** Recessive axis: muted tick text, hairline axis rule, no tick marks. */
-function axisProps(t: ChartTheme) {
-  return {
-    tick: { fontSize: 10, fill: t.axis },
-    axisLine: { stroke: t.grid },
-    tickLine: false as const,
-  };
-}
-
-function gridProps(t: ChartTheme) {
-  // Solid hairlines, horizontal only — the grid must stay recessive.
-  return { vertical: false, stroke: t.grid };
-}
-
-function tooltipProps(t: ChartTheme) {
-  return {
-    cursor: { fill: t.cursor },
-    contentStyle: {
-      backgroundColor: t.tooltipBg,
-      border: `1px solid ${t.tooltipBorder}`,
-      borderRadius: 8,
-      fontSize: 11,
-      padding: "6px 10px",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
-    },
-    labelStyle: { color: t.ink, fontWeight: 600, marginBottom: 2 },
-    itemStyle: { color: t.ink, padding: 0 },
-  };
-}
-
-function legendProps(t: ChartTheme) {
-  return {
-    iconType: "circle" as const,
-    iconSize: 8,
-    // Legend text wears ink, not the series colour — the swatch carries identity.
-    formatter: (value: string) => <span style={{ color: t.axis, fontSize: 11 }}>{value}</span>,
-  };
-}
-
 // -- Views -------------------------------------------------------------------
+// (Shared chrome — axis/grid/tooltip/legend styling, formatters, ChartFrame,
+// Placeholder — lives in ./chartChrome and is shared with the run-view charts.)
 
 function HistogramView({ rows, config }: { rows: Row[]; config: Record<string, unknown> }) {
   const t = useChartTheme();
@@ -612,20 +564,3 @@ function HeatmapView({ rows, config }: { rows: Row[]; config: Record<string, unk
   );
 }
 
-function ChartFrame({ children }: { children: React.ReactElement }) {
-  return (
-    <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function Placeholder({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-border bg-muted/40 p-4 text-center text-xs text-muted-foreground">
-      {children}
-    </div>
-  );
-}

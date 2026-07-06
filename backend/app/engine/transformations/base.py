@@ -63,7 +63,8 @@ class NodeMetadata:
     """Non-frame outcomes a node surfaces onto its ``NodeResult``.
 
     ML nodes populate the ml_* fields. Assertion nodes populate the
-    assertion_* fields. All fields are ``None`` for plain ETL nodes.
+    assertion_* fields. Chart nodes populate ``chart``. All fields are
+    ``None`` for plain ETL nodes.
     """
 
     # ML node fields
@@ -77,6 +78,10 @@ class NodeMetadata:
     assertion_passed: bool | None = None
     assertion_violation_count: int | None = None
     assertion_violating_sample: list[dict[str, Any]] | None = None
+
+    # Chart node field: a render-ready, size-capped chart artifact (JSON) the
+    # run view draws directly — see app.engine.transformations.charts.
+    chart: dict[str, Any] | None = None
 
 
 class BaseTransformation(ABC):

@@ -186,6 +186,16 @@ export const dtypes = [
   "datetime",
 ] as const;
 
+// Aggregates the chart nodes accept (mirrors backend VALID_AGGREGATES).
+export const chartAggregates = ["sum", "mean", "count", "min", "max", "median"] as const;
+
+// Line and area charts share one config shape.
+const chartLineSchema = z.object({
+  x: z.string().min(1, "Pick the x (order) column"),
+  y_columns: stringArray.min(1, "Pick at least one value column").max(8, "At most 8 series"),
+  aggregate: z.enum(chartAggregates).optional(),
+});
+
 const inputConfig = z.object({
   dataset_id: z.string().min(1, "Select a dataset"),
   // Pinned version number; null/absent means "use latest".
@@ -702,6 +712,65 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   // ----- Advanced -----
   pythonTransform: z.object({
     script: z.string().min(1, "Script is required"),
+  }),
+
+  // ----- Charts -----
+  chartBar: z
+    .object({
+      x: z.string().min(1, "Pick a category (x) column"),
+      y: z.string().optional(),
+      aggregate: z.enum(chartAggregates).optional(),
+      group_by: z.string().optional(),
+      orientation: z.enum(["vertical", "horizontal"]).optional(),
+      limit: z.coerce.number().int().min(1).max(50).nullable().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if ((cfg.aggregate ?? "sum") !== "count" && !cfg.y) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["y"],
+          message: "Pick a value column (or use the Count aggregate)",
+        });
+      }
+    }),
+  chartLine: chartLineSchema,
+  chartArea: chartLineSchema,
+  chartScatter: z
+    .object({
+      x: z.string().min(1, "Pick the x column"),
+      y: z.string().min(1, "Pick the y column"),
+    })
+    .superRefine((cfg, ctx) => {
+      if (cfg.x && cfg.x === cfg.y) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["y"], message: "x and y must be different columns" });
+      }
+    }),
+  chartPie: z
+    .object({
+      category: z.string().min(1, "Pick a category column"),
+      value: z.string().optional(),
+      aggregate: z.enum(chartAggregates).optional(),
+      limit: z.coerce.number().int().min(2).max(12).nullable().optional(),
+    })
+    .superRefine((cfg, ctx) => {
+      if ((cfg.aggregate ?? "count") !== "count" && !cfg.value) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["value"],
+          message: "Pick a value column (or use the Count aggregate)",
+        });
+      }
+    }),
+  chartHistogram: z.object({
+    column: z.string().min(1, "Pick a numeric column"),
+    bins: z.coerce.number().int().min(1, "At least 1 bin").max(100, "At most 100 bins").optional(),
+  }),
+  chartBoxPlot: z.object({
+    column: z.string().min(1, "Pick a numeric column"),
+    group_by: z.string().optional(),
+  }),
+  chartHeatmap: z.object({
+    columns: stringArray.max(12, "At most 12 columns").optional(),
   }),
 
   // ----- Data Quality -----

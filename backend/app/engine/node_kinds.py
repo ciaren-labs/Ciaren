@@ -124,8 +124,24 @@ ML_OUTPUT_NODES: frozenset[str] = frozenset(TRAIN_NODE_TYPES)
 # the frame can also be wired onward to an output. Cross-validation is one.
 ML_REPORT_NODES: frozenset[str] = frozenset({"mlCrossValidate"})
 
+# Chart nodes: pass-throughs that persist a chart artifact onto the run, so a
+# flow ending in one is complete (the chart IS the result). They can also be
+# wired onward like an assertion node.
+CHART_NODE_TYPES: frozenset[str] = frozenset(
+    {
+        "chartBar",
+        "chartLine",
+        "chartArea",
+        "chartScatter",
+        "chartPie",
+        "chartHistogram",
+        "chartBoxPlot",
+        "chartHeatmap",
+    }
+)
+
 # Every node that makes a flow "complete" on its own (no output node required).
-FLOW_TERMINAL_NODES: frozenset[str] = ML_OUTPUT_NODES | ML_REPORT_NODES
+FLOW_TERMINAL_NODES: frozenset[str] = ML_OUTPUT_NODES | ML_REPORT_NODES | CHART_NODE_TYPES
 
 # Nodes that emit more than one named output frame. The executor stores a frame
 # per (node, handle); downstream edges select which one via ``sourceHandle``. The

@@ -127,6 +127,59 @@ export interface NodeResult {
   assertion_passed?: boolean | null;
   assertion_violation_count?: number | null;
   assertion_violating_sample?: Record<string, unknown>[] | null;
+  // Chart node artifact — null for non-chart nodes.
+  chart?: ChartArtifact | null;
+}
+
+// ---- Chart-node artifacts (stored on the run by the backend chart nodes) ----
+
+export interface ChartCategoryDatum {
+  label: string;
+  value: number | null;
+}
+
+export interface BoxGroupStats {
+  label: string;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  max: number;
+  outliers: number;
+  count: number;
+}
+
+/** Render-ready chart data computed by a chart node over the full run data.
+ *  Shapes mirror backend/app/engine/transformations/charts.py. */
+export interface ChartArtifact {
+  kind: "bar" | "line" | "area" | "scatter" | "pie" | "histogram" | "boxplot" | "heatmap";
+  rows_seen?: number;
+  // bar / pie / histogram
+  data?: ChartCategoryDatum[];
+  x?: string;
+  y?: string | null;
+  aggregate?: string;
+  orientation?: "vertical" | "horizontal";
+  category?: string;
+  value?: string | null;
+  column?: string;
+  bins?: number;
+  total_categories?: number;
+  // stacked bar / line / area
+  rows?: Array<Record<string, string | number | null>>;
+  series?: string[];
+  group_by?: string | null;
+  total_series?: number;
+  total_points?: number;
+  // scatter
+  points?: Array<[number | null, number | null]>;
+  // boxplot
+  groups?: BoxGroupStats[];
+  total_groups?: number;
+  // heatmap
+  columns?: string[];
+  matrix?: Array<Array<number | null>>;
+  total_columns?: number;
 }
 
 /** Per-node ML results returned by GET /runs/{id}/ml/metrics. */

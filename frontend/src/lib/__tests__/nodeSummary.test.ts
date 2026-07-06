@@ -82,6 +82,27 @@ describe("getNodeSummary", () => {
     expect(getNodeSummary("mlTrainClassifier", { model_type: "random_forest_classifier" })).toBeTruthy();
   });
 
+  it("summarizes chart nodes", () => {
+    expect(getNodeSummary("chartBar", { x: "region", y: "amount", aggregate: "sum" })).toBe(
+      "sum(amount) by region",
+    );
+    expect(getNodeSummary("chartBar", { x: "region", aggregate: "count", group_by: "product" })).toBe(
+      "count by region / product",
+    );
+    expect(getNodeSummary("chartBar", {})).toBeNull();
+    expect(getNodeSummary("chartLine", { x: "date", y_columns: ["amount"] })).toBe("amount by date");
+    expect(getNodeSummary("chartArea", { x: "date", y_columns: ["a", "b", "c"] })).toBe(
+      "3 series by date",
+    );
+    expect(getNodeSummary("chartScatter", { x: "qty", y: "amount" })).toBe("amount vs qty");
+    expect(getNodeSummary("chartPie", { category: "region" })).toBe("count by region");
+    expect(getNodeSummary("chartHistogram", { column: "amount", bins: 30 })).toBe("amount · 30 bins");
+    expect(getNodeSummary("chartBoxPlot", { column: "amount", group_by: "region" })).toBe(
+      "amount by region",
+    );
+    expect(getNodeSummary("chartHeatmap", { columns: [] })).toBe("all numeric columns");
+  });
+
   it("summarizes outputs with format and name", () => {
     expect(getNodeSummary("fileOutput", { format: "parquet", dataset_name: "result" })).toBe(
       "PARQUET → result",

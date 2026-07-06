@@ -350,6 +350,53 @@ export function getNodeSummary(
       return splits != null ? `${strategy} × ${splits}` : strategy;
     }
 
+    // ----- Charts -----
+    case "chartBar": {
+      const x = str(c.x);
+      if (!x) return null;
+      const aggregate = str(c.aggregate) || "sum";
+      const y = str(c.y);
+      const measure = aggregate === "count" || !y ? "count" : `${aggregate}(${y})`;
+      const stack = str(c.group_by);
+      return clip(stack ? `${measure} by ${x} / ${stack}` : `${measure} by ${x}`);
+    }
+    case "chartLine":
+    case "chartArea": {
+      const x = str(c.x);
+      const ys = strArr(c.y_columns);
+      if (!x || ys.length === 0) return null;
+      return clip(`${listOf(ys, "serie")} by ${x}`);
+    }
+    case "chartScatter": {
+      const x = str(c.x);
+      const y = str(c.y);
+      return x && y ? clip(`${y} vs ${x}`) : null;
+    }
+    case "chartPie": {
+      const category = str(c.category);
+      if (!category) return null;
+      const aggregate = str(c.aggregate) || "count";
+      const value = str(c.value);
+      const measure = aggregate === "count" || !value ? "count" : `${aggregate}(${value})`;
+      return clip(`${measure} by ${category}`);
+    }
+    case "chartHistogram": {
+      const column = str(c.column);
+      if (!column) return null;
+      const bins = num(c.bins) ?? 20;
+      return clip(`${column} · ${bins} bins`);
+    }
+    case "chartBoxPlot": {
+      const column = str(c.column);
+      if (!column) return null;
+      const group = str(c.group_by);
+      return clip(group ? `${column} by ${group}` : column);
+    }
+    case "chartHeatmap": {
+      const columns = strArr(c.columns);
+      return columns.length ? clip(listOf(columns)) : "all numeric columns";
+    }
+
     // ----- Outputs -----
     case "fileOutput": {
       const format = str(c.format).toUpperCase() || "CSV";

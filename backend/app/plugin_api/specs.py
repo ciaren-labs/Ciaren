@@ -123,6 +123,7 @@ BUILTIN_NODE_CATEGORIES = {
     "reshape",
     "analytics",
     "quality",
+    "chart",
     "ml",
     "output",
     "plugins",

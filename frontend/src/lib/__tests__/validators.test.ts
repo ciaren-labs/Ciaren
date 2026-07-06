@@ -99,6 +99,14 @@ const COVERED = new Set<string>([
   "assertValueRange",
   "assertExpression",
   "assertRowCount",
+  "chartBar",
+  "chartLine",
+  "chartArea",
+  "chartScatter",
+  "chartPie",
+  "chartHistogram",
+  "chartBoxPlot",
+  "chartHeatmap",
 ]);
 
 describe("nodeConfigSchemas coverage guard", () => {
@@ -338,6 +346,77 @@ describe("assertRowCount", () => {
   it("rejects neither bound (superRefine)", () => rejects("assertRowCount", {}, "min_rows"));
   it("rejects min_rows > max_rows", () => rejects("assertRowCount", { min_rows: 10, max_rows: 5 }, "min_rows"));
   it("rejects a negative min_rows", () => rejects("assertRowCount", { min_rows: -1 }, "min_rows"));
+});
+
+// Chart nodes -------------------------------------------------------------
+describe("chartBar", () => {
+  it("accepts x + y with an aggregate", () =>
+    accepts("chartBar", { x: "region", y: "amount", aggregate: "sum" }));
+  it("accepts count without a y column", () => accepts("chartBar", { x: "region", aggregate: "count" }));
+  it("accepts stacking, orientation, and a limit", () =>
+    accepts("chartBar", {
+      x: "region",
+      y: "amount",
+      aggregate: "mean",
+      group_by: "product",
+      orientation: "horizontal",
+      limit: 10,
+    }));
+  it("rejects a missing x", () => rejects("chartBar", { y: "amount" }, "x"));
+  it("rejects a missing y for a non-count aggregate (superRefine)", () =>
+    rejects("chartBar", { x: "region", aggregate: "sum" }, "y"));
+  it("rejects a bad aggregate", () =>
+    rejects("chartBar", { x: "region", y: "amount", aggregate: "mode" }, "aggregate"));
+  it("rejects a limit beyond 50", () =>
+    rejects("chartBar", { x: "region", aggregate: "count", limit: 51 }, "limit"));
+});
+
+for (const type of ["chartLine", "chartArea"]) {
+  describe(type, () => {
+    it("accepts x + y_columns", () => accepts(type, { x: "date", y_columns: ["amount"] }));
+    it("accepts several series with an aggregate", () =>
+      accepts(type, { x: "date", y_columns: ["amount", "qty"], aggregate: "sum" }));
+    it("rejects an empty y_columns", () => rejects(type, { x: "date", y_columns: [] }, "y_columns"));
+    it("rejects more than 8 series", () =>
+      rejects(type, { x: "date", y_columns: ["a", "b", "c", "d", "e", "f", "g", "h", "i"] }, "y_columns"));
+    it("rejects a missing x", () => rejects(type, { y_columns: ["amount"] }, "x"));
+  });
+}
+
+describe("chartScatter", () => {
+  it("accepts two distinct columns", () => accepts("chartScatter", { x: "qty", y: "amount" }));
+  it("rejects a missing y", () => rejects("chartScatter", { x: "qty" }, "y"));
+  it("rejects x === y (superRefine)", () => rejects("chartScatter", { x: "qty", y: "qty" }, "y"));
+});
+
+describe("chartPie", () => {
+  it("accepts a bare category (count)", () => accepts("chartPie", { category: "region" }));
+  it("accepts a value aggregate with a limit", () =>
+    accepts("chartPie", { category: "region", value: "amount", aggregate: "sum", limit: 8 }));
+  it("rejects a missing category", () => rejects("chartPie", {}, "category"));
+  it("rejects a missing value for a non-count aggregate (superRefine)", () =>
+    rejects("chartPie", { category: "region", aggregate: "sum" }, "value"));
+  it("rejects a limit below 2", () => rejects("chartPie", { category: "region", limit: 1 }, "limit"));
+});
+
+describe("chartHistogram", () => {
+  it("accepts a column with bins", () => accepts("chartHistogram", { column: "amount", bins: 30 }));
+  it("accepts a column without bins (default)", () => accepts("chartHistogram", { column: "amount" }));
+  it("rejects a missing column", () => rejects("chartHistogram", {}, "column"));
+  it("rejects bins beyond 100", () => rejects("chartHistogram", { column: "amount", bins: 101 }, "bins"));
+});
+
+describe("chartBoxPlot", () => {
+  it("accepts a bare value column", () => accepts("chartBoxPlot", { column: "amount" }));
+  it("accepts an optional group", () => accepts("chartBoxPlot", { column: "amount", group_by: "region" }));
+  it("rejects a missing column", () => rejects("chartBoxPlot", {}, "column"));
+});
+
+describe("chartHeatmap", () => {
+  it("accepts an empty config (all numeric columns)", () => accepts("chartHeatmap", {}));
+  it("accepts an explicit column list", () => accepts("chartHeatmap", { columns: ["a", "b"] }));
+  it("rejects more than 12 columns", () =>
+    rejects("chartHeatmap", { columns: Array.from({ length: 13 }, (_, i) => `c${i}`) }, "columns"));
 });
 
 describe("removeOutliers", () => {

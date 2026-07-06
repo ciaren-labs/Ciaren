@@ -68,6 +68,14 @@ class NodeResultRead(BaseModel):
     model_uri: str | None = None
     task_type: MLTask | None = None
     cv_scores: list[float] | None = None
+    # Assertion-node outcome — None for non-assertion nodes. These must be
+    # declared here: pydantic drops undeclared keys when re-serializing
+    # node_results_json, which silently hid them from the run view.
+    assertion_passed: bool | None = None
+    assertion_violation_count: int | None = None
+    assertion_violating_sample: list[dict[str, Any]] | None = None
+    # Chart-node artifact (render-ready JSON) — None for non-chart nodes.
+    chart: dict[str, Any] | None = None
 
 
 class FlowRunSummary(BaseModel):
