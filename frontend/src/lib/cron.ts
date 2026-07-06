@@ -5,7 +5,7 @@
 //
 // Field order is the POSIX standard: minute hour day-of-month month day-of-week.
 
-export type CronFrequency = "hourly" | "daily" | "weekly" | "monthly" | "custom";
+export type CronFrequency = "minutes" | "hourly" | "daily" | "weekly" | "monthly" | "custom";
 
 export interface CronModel {
   frequency: CronFrequency;
@@ -17,6 +17,8 @@ export interface CronModel {
   weekday: number;
   /** 1-31 */
   monthday: number;
+  /** 1-59, used when frequency is "minutes" (fires every N minutes, on the hour). */
+  intervalMinutes: number;
   /** Raw expression, used when frequency is "custom". */
   raw: string;
 }
@@ -32,6 +34,7 @@ export const WEEKDAY_NAMES = [
 ] as const;
 
 export const FREQUENCY_LABELS: Record<CronFrequency, string> = {
+  minutes: "Minutes",
   hourly: "Hourly",
   daily: "Daily",
   weekly: "Weekly",
@@ -45,13 +48,16 @@ export const DEFAULT_CRON_MODEL: CronModel = {
   hour: 9,
   weekday: 1,
   monthday: 1,
+  intervalMinutes: 15,
   raw: "0 9 * * *",
 };
 
 /** Build a cron expression from the friendly model. */
 export function buildCron(model: CronModel): string {
-  const { frequency, minute, hour, weekday, monthday, raw } = model;
+  const { frequency, minute, hour, weekday, monthday, intervalMinutes, raw } = model;
   switch (frequency) {
+    case "minutes":
+      return `*/${intervalMinutes} * * * *`;
     case "hourly":
       return `${minute} * * * *`;
     case "daily":
@@ -74,7 +80,7 @@ function isInt(token: string, min: number, max: number): boolean {
 /**
  * Best-effort parse of an expression back into the friendly model so the
  * builder can pre-fill its controls when editing. Anything that doesn't match
- * one of the four presets falls back to "custom".
+ * one of the presets falls back to "custom".
  */
 export function parseCron(expr: string): CronModel {
   const base = { ...DEFAULT_CRON_MODEL, raw: expr.trim() };
@@ -84,6 +90,12 @@ export function parseCron(expr: string): CronModel {
   const [min, hr, dom, mon, dow] = parts;
   if (mon !== "*") return { ...base, frequency: "custom" };
 
+  // Minutes: "*/<n> * * * *"
+  const minuteStep = min.match(/^\*\/(\d+)$/);
+  if (minuteStep && hr === "*" && dom === "*" && dow === "*") {
+    const n = Number(minuteStep[1]);
+    if (n >= 1 && n <= 59) return { ...base, frequency: "minutes", intervalMinutes: n };
+  }
   // Hourly: "<min> * * * *"
   if (isInt(min, 0, 59) && hr === "*" && dom === "*" && dow === "*") {
     return { ...base, frequency: "hourly", minute: Number(min) };
@@ -172,6 +184,8 @@ function ordinal(n: number): string {
 export function describeCron(expr: string): string {
   const model = parseCron(expr);
   switch (model.frequency) {
+    case "minutes":
+      return `Every ${model.intervalMinutes} minutes`;
     case "hourly":
       return model.minute === 0
         ? "Every hour, on the hour"

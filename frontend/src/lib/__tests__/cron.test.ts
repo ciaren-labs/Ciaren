@@ -13,10 +13,16 @@ const base: CronModel = {
   hour: 9,
   weekday: 1,
   monthday: 1,
+  intervalMinutes: 15,
   raw: "",
 };
 
 describe("buildCron", () => {
+  it("builds minutes", () => {
+    expect(buildCron({ ...base, frequency: "minutes", intervalMinutes: 10 })).toBe(
+      "*/10 * * * *",
+    );
+  });
   it("builds hourly", () => {
     expect(buildCron({ ...base, frequency: "hourly", minute: 15 })).toBe("15 * * * *");
   });
@@ -40,6 +46,8 @@ describe("buildCron", () => {
 
 describe("parseCron round-trips presets", () => {
   it.each([
+    ["*/5 * * * *", "minutes"],
+    ["*/30 * * * *", "minutes"],
     ["15 * * * *", "hourly"],
     ["30 14 * * *", "daily"],
     ["0 8 * * 5", "weekly"],
@@ -50,8 +58,8 @@ describe("parseCron round-trips presets", () => {
     expect(buildCron(model)).toBe(expr);
   });
 
-  it("falls back to custom for step syntax", () => {
-    expect(parseCron("*/5 * * * *").frequency).toBe("custom");
+  it("falls back to custom for a step outside 1-59", () => {
+    expect(parseCron("*/60 * * * *").frequency).toBe("custom");
   });
   it("falls back to custom for malformed input", () => {
     expect(parseCron("not a cron").frequency).toBe("custom");
@@ -71,13 +79,14 @@ describe("isValidCron", () => {
 
 describe("describeCron", () => {
   it("describes presets", () => {
+    expect(describeCron("*/10 * * * *")).toBe("Every 10 minutes");
     expect(describeCron("0 * * * *")).toBe("Every hour, on the hour");
     expect(describeCron("30 14 * * *")).toBe("Every day at 14:30");
     expect(describeCron("0 8 * * 1")).toBe("Every Monday at 08:00");
     expect(describeCron("0 6 15 * *")).toBe("On the 15th of each month at 06:00");
   });
   it("labels valid custom expressions", () => {
-    expect(describeCron("*/5 * * * *")).toBe("Cron: */5 * * * *");
+    expect(describeCron("1-10 * * * *")).toBe("Cron: 1-10 * * * *");
   });
   it("flags invalid expressions", () => {
     expect(describeCron("99 99 * * *")).toBe("Invalid cron expression");

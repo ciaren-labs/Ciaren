@@ -12,7 +12,7 @@ import {
 } from "@/lib/cron";
 import { cn } from "@/lib/utils";
 
-const FREQUENCIES: CronFrequency[] = ["hourly", "daily", "weekly", "monthly", "custom"];
+const FREQUENCIES: CronFrequency[] = ["minutes", "hourly", "daily", "weekly", "monthly", "custom"];
 
 const SELECT_CLASS =
   "h-9 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -67,6 +67,20 @@ export function CronBuilder({
       </div>
 
       {/* Frequency-specific controls */}
+      {model.frequency === "minutes" && (
+        <div className="flex flex-col gap-1.5">
+          <Label>Every N minutes</Label>
+          <Input
+            type="number"
+            min={1}
+            max={59}
+            value={model.intervalMinutes}
+            onChange={(e) => set({ intervalMinutes: clamp(e.target.value, 1, 59) })}
+            className="w-28"
+          />
+        </div>
+      )}
+
       {model.frequency === "hourly" && (
         <div className="flex flex-col gap-1.5">
           <Label>Minute past the hour</Label>
