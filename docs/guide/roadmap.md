@@ -21,7 +21,8 @@ production jobs.
 
 The core platform works end to end:
 
-- **Visual builder** with 58 transformation nodes plus file, SQL, and cloud-storage I/O
+- **Visual builder** with 66 transformation nodes (including 8 chart nodes)
+  plus file, SQL, and cloud-storage I/O
 - **Multi-engine execution** — polars (default) and pandas, selectable per run
 - **Python code export** — readable pandas, polars, or lazy-polars scripts
 - **Data quality** contract nodes (assert not-null/unique/range/expression/row-count)
