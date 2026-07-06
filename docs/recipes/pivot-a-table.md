@@ -38,9 +38,14 @@ reshape.
   }'
   :after='{
     "columns":["region","Jan","Feb"],
-    "rows":[["North",100,120],["South",80,0]]
+    "rows":[["North",100,120],["South",80,null]]
   }'
 />
+
+South has no Feb row in the source data, so its `Feb` cell comes out **null**
+(`pivot_table` doesn't fill missing index/column combinations by default) —
+add a [Fill Nulls](/transformations/fill-nulls) node after Pivot if you want
+those cells to read `0` instead.
 
 ## Tips
 
