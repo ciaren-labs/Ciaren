@@ -2,7 +2,7 @@ name: Backend Tests
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
     # `paths` is NOT evaluated for tag pushes (GitHub applies it to branch
     # pushes only), so the release tags below always trigger the full matrix
     # regardless of which files the tagged commit touched.
@@ -13,7 +13,7 @@ on:
       - backend/**
       - .github/workflows/backend-tests.yml
   pull_request:
-    branches: [main, development]
+    branches: [main]
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml

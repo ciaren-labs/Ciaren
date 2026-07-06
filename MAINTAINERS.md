@@ -10,7 +10,7 @@ made as the contributor base grows.
 ## Maintainer Responsibilities
 
 - Triage new issues and route questions to Discussions when appropriate.
-- Keep `main` stable and use `development` as the integration branch.
+- Keep `main` stable and releasable at all times via CI — it's the only integration branch.
 - Review pull requests for correctness, tests, security, maintainability, and
   fit with the local-first product scope.
 - Keep public documentation aligned with implemented behavior.
@@ -18,7 +18,7 @@ made as the contributor base grows.
 
 ## Review Policy
 
-- Pull requests should target `development`.
+- Pull requests should target `main`.
 - Maintainers may close duplicate, stale, unsupported, or out-of-scope issues.
 - Large features, breaking changes, plugin API changes, and security-sensitive
   changes should have an accepted issue or discussion before implementation.
@@ -33,20 +33,22 @@ where and what GitHub branch protection should enforce.
 
 | Branch | Direct pushes | Required for merge | Force-push / delete |
 |---|---|---|---|
-| `main` | Nobody — PR only, from `development` or `hotfix/*` | Passing CI (all workflows), 1 approving review from a CODEOWNER, branch up to date with `main` | Blocked |
-| `development` | Nobody — PR only, from `feature/*`/`fix/*`/`docs/*`/`chore/*` | Passing lightweight CI; review recommended once there is more than one active maintainer | Blocked |
-| `release/x.y.z` | Maintainers, via PR from `development` | Passing CI | Blocked while open; deleted after merging to `main` |
-| `hotfix/*` | Maintainers | Passing CI before merging to `main` | Allowed — short-lived, deleted after merge |
+| `main` | Nobody — PR only, from `feature/*`/`fix/*`/`docs/*`/`chore/*` | Passing CI (all workflows), 1 approving review from a CODEOWNER, branch up to date with `main` | Blocked |
+| `release/x.y` | Maintainers, via PR (cherry-picks from `main`) | Passing CI | Blocked while a version is still supported |
 | `feature/*`, `fix/*`, `docs/*`, `chore/*` | Anyone, on their own branch/fork | N/A | Allowed — contributor's own branch |
 
-**Release branch flow:** cut `release/x.y.z` from `development` when stabilizing
-a release. Only bugfixes land on it — no new features. When it's ready, merge
-it into `main` (which ships the release) and back into `development` (so the
-fixes aren't lost for the next cycle), then delete the branch.
+**Release flow:** every merge to `main` goes through the full CI suite, so
+`main` is releasable at any point — tag directly from `main` when cutting a
+release (see [Versioning and Tags](#versioning-and-tags)). There's no
+intermediate integration branch to promote through.
 
-**Hotfix flow:** cut `hotfix/*` from `main` for an urgent fix to
-already-released code that can't wait for the normal `development` soak. Merge
-it into `main` directly, then back-merge into `development`.
+**Patching an older release:** if `main` has moved on but an already-shipped
+minor version still needs a fix, cut `release/x.y` from that version's tag,
+cherry-pick the fix (and its tests) from `main`, then tag a patch release from
+the branch. This is the same pattern Airflow (`vX-Y-stable`) and MLflow
+(`branch-2.x`) use to keep old versions maintainable without blocking `main`.
+Ciaren doesn't have supported parallel versions yet, so you likely won't need
+this until there's a real backport request.
 
 ## Release Policy
 
@@ -65,8 +67,8 @@ Ciaren is currently alpha software. Releases should include:
   and `client/pyproject.toml` (`ciaren-client`). Bump both together before
   tagging — the `Package` workflow verifies each independently against the
   tag and fails the corresponding build job if either is out of sync.
-- Cutting a release: merge `development → main`, bump both `pyproject.toml`
-  versions, update `CHANGELOG.md`, then push a bare `X.Y.Z` tag (e.g. `0.1.0`,
+- Cutting a release: on `main`, bump both `pyproject.toml` versions, update
+  `CHANGELOG.md`, then push a bare `X.Y.Z` tag (e.g. `0.1.0`,
   or a pre-release like `0.1.0-alpha.1`) on `main` — **no `v` prefix**; the
   `Package` workflow's tag trigger only matches the unprefixed pattern. The
   tag builds both wheels/sdists and publishes both to PyPI via trusted

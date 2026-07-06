@@ -43,39 +43,36 @@ plugin authors.
 
 ## 🌿 Branching Strategy
 
-Ciaren keeps `main` stable and CI costs low with a small set of long-lived
-branches, plus two maintainer-only branch types used around releases:
+Ciaren uses **trunk-based development**, the same model as scikit-learn,
+Apache Airflow, and MLflow: one long-lived branch, kept releasable at all
+times by CI.
 
 ```
-main            ← stable, released code only
-  └── development    ← integration branch; all features land here first
-        └── feature/your-feature   ← your work
+main            ← stable, continuously integrated; always releasable
+  └── feature/your-feature   ← your work
 
-release/x.y.z   ← cut from development to stabilize a release (maintainers)
-hotfix/*        ← cut from main for urgent post-release fixes (maintainers)
+release/x.y     ← cut from a released tag to backport fixes once main has
+                  moved past that version (maintainers, only when needed)
 ```
 
 | Branch | Purpose | Who pushes | Lives on GitHub as |
 |---|---|---|---|
-| `main` | Stable releases; what users install | Merged via PR only, from `development` or `hotfix/*` | Protected |
-| `development` | Integration of completed features | Merged via PR only, from `feature/*`/`fix/*` | Protected |
-| `release/x.y.z` | Stabilize a cut before it ships — bugfixes only, no new features | Maintainers, via PR | Protected, short-lived |
-| `hotfix/*` | Urgent fix to already-released code, skips the normal `development` soak | Maintainers | Unprotected, short-lived |
+| `main` | What users install; every merge runs the full CI suite | Merged via PR only, from `feature/*`/`fix/*`/etc. | Protected |
+| `release/x.y` | Backport bugfixes to an already-shipped minor version after `main` has moved on | Maintainers, via PR | Protected, long-lived per supported version |
 | `feature/*`, `fix/*`, `docs/*`, `chore/*` | Your daily work | You (freely, usually from your fork) | Unprotected |
 
 **The flow for most contributions:**
-1. Branch off `development` (not `main`)
-2. Open a PR targeting `development` — a lightweight CI check runs (single OS, no cloud infra)
-3. Once `development` accumulates a set of stable changes, a maintainer either
-   opens a `development → main` PR directly, or cuts a `release/x.y.z` branch
-   first to stabilize (bugfixes only) before it merges to `main`. Either path
-   runs the full CI suite (cross-platform matrix, Docker, connector
-   integration tests) before merging to `main`.
+1. Branch off `main`
+2. Open a PR targeting `main` — the full CI suite runs (cross-platform matrix, Docker, connector integration tests)
+3. Once it's green and reviewed, it merges straight into `main`. `main` is
+   tagged directly for releases — there's no separate integration branch to
+   promote through first.
 
-**Why not branch from `main`?** It keeps your feature branch current with other in-progress work and avoids surprises when your PR merges into `development`.
-
-You won't normally create a `release/*` or `hotfix/*` branch yourself — they're
-described here so the diagram matches what you'll see in the branch list.
+There is no `development` branch and no bugfix-only staging period before a
+merge lands on `main` — CI on `main` is the gate. `release/x.y` branches only
+get created later, and only if an older shipped version needs a patch after
+`main` has already moved forward (the same pattern Airflow's `vX-Y-stable` and
+MLflow's `branch-2.x` follow). You won't normally create one yourself.
 Maintainer responsibilities and branch protection rules are documented in
 [MAINTAINERS.md](MAINTAINERS.md#branch-protection).
 
@@ -136,11 +133,11 @@ npm run build
 
 ### 3. Create a Branch
 
-Always branch from `development`, not `main`:
+Branch from `main`:
 
 ```bash
-git checkout development
-git pull origin development
+git checkout main
+git pull origin main
 git checkout -b feature/your-feature-name
 ```
 
@@ -400,7 +397,7 @@ A CI check verifies every commit in the PR is signed off.
 ### Create the PR
 
 1. Push your branch to your fork
-2. Open a PR targeting **`development`** (not `main`)
+2. Open a PR targeting **`main`**
 3. Fill out the PR template (auto-generated)
 4. Reference any related issues
 

@@ -12,7 +12,7 @@
 ## Preflight
 
 - [ ] I searched existing issues and PRs to avoid duplicate work.
-- [ ] This PR targets `development`, not `main`.
+- [ ] This PR targets `main`.
 - [ ] This PR is focused on one bug, feature, documentation update, or maintenance task.
 - [ ] Large or breaking changes were discussed in an issue or discussion before implementation.
 - [ ] New niche connectors/integrations are implemented as plugins or were explicitly accepted by maintainers for core.

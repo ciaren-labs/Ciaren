@@ -18,7 +18,7 @@ body:
           required: true
         - label: I confirmed this is not a question, setup help request, or security report.
           required: true
-        - label: I can reproduce this on the latest `development` branch or can explain why I cannot.
+        - label: I can reproduce this on the latest `main` branch or can explain why I cannot.
           required: true
   - type: dropdown
     id: area

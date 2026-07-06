@@ -6,9 +6,9 @@ name: CodeQL
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
   pull_request:
-    branches: [main, development]
+    branches: [main]
   schedule:
     # Weekly full scan so newly disclosed query packs catch existing code.
     - cron: "27 4 * * 1"

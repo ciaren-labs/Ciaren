@@ -8,7 +8,7 @@ name: Security Audit
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
     paths:
       - backend/pyproject.toml
       - backend/uv.lock
@@ -18,7 +18,7 @@ on:
       - docs/package-lock.json
       - .github/workflows/security-audit.yml
   pull_request:
-    branches: [main, development]
+    branches: [main]
     paths:
       - backend/pyproject.toml
       - backend/uv.lock

@@ -10,7 +10,7 @@ on:
     paths:
       - docs/**
   pull_request:
-    branches: [main, development]
+    branches: [main]
     paths:
       - docs/**
   workflow_dispatch:

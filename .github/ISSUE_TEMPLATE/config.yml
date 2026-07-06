@@ -10,5 +10,5 @@ contact_links:
     url: https://github.com/ciaren-labs/Ciaren/security/advisories/new
     about: Please report suspected vulnerabilities privately. Do not open a public issue for security problems.
   - name: Documentation site
-    url: https://github.com/ciaren-labs/Ciaren/tree/development/docs
+    url: https://github.com/ciaren-labs/Ciaren/tree/main/docs
     about: Browse the docs before opening a documentation issue or question.
