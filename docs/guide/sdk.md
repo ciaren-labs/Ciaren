@@ -85,14 +85,14 @@ names and are awaited.
 | Area | Common methods |
 |---|---|
 | Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `delete_project` |
-| Datasets | `upload_dataset`, `list_datasets`, `get_dataset`, `update_dataset`, `delete_dataset`, `restore_dataset`, `list_dataset_versions`, `download_dataset_version`, `get_dataset_schema`, `get_dataset_sample`, `get_dataset_profile` |
-| Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `duplicate_flow`, `migrate_flow_document`, `preview_flow`, `export_flow_python` |
+| Datasets | `upload_dataset`, `list_datasets`, `get_dataset`, `update_dataset`, `delete_dataset`, `restore_dataset`, `purge_expired_datasets`, `list_dataset_versions`, `download_dataset_version`, `get_dataset_schema`, `get_dataset_sample`, `get_dataset_profile`, `list_dataset_flows` |
+| Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `duplicate_flow`, `migrate_flow_document`, `preview_flow`, `export_flow_python`, `list_flow_schedules`, `list_flow_ml_experiments` |
 | Runs | `create_run`, `list_runs`, `get_run`, `cancel_run`, `retry_run`, `download_run_output`, `stream_logs` |
 | Schedules | `create_schedule`, `list_schedules`, `get_schedule`, `update_schedule`, `delete_schedule`, `run_schedule_now`, `list_schedule_runs` |
-| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `list_connection_tables`, `list_connection_objects`, `keyring_availability`, `store_keyring_secret`, `get_keyring_secret_status`, `delete_keyring_secret` |
+| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `test_connection_config`, `list_connection_providers`, `list_connection_tables`, `list_connection_objects`, `keyring_availability`, `store_keyring_secret`, `get_keyring_secret_status`, `delete_keyring_secret` |
 | Catalog and transforms | `list_catalog_nodes`, `list_catalog_connectors`, `list_catalog_exporters`, `list_catalog_categories`, `list_transformations`, `preview_transformation` |
 | Settings | `list_settings`, `update_setting`, `reset_setting` |
-| ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments` |
+| ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments`, `list_flow_ml_experiments`, `list_ml_experiment_runs` |
 | Plugins and marketplace | `list_plugins`, `plugin_diagnostics`, `install_plugin`, `get_plugin_license`, `activate_plugin_license`, `remove_plugin_license`, `enable_plugin`, `disable_plugin`, `grant_plugin_permissions`, `revoke_plugin_permissions`, `uninstall_plugin`, `list_marketplace`, `install_marketplace_plugin` |
 | Webhook | `webhook_status`, `trigger` |
 
@@ -182,6 +182,11 @@ client.run_schedule_now(schedule["id"])
 #### Connections
 
 ```python
+providers = client.list_connection_providers()  # what the provider picker shows
+
+# Test a config before saving it (no connection is created)
+result = client.test_connection_config(provider="postgres", host="...", database="...")
+
 connection = client.create_connection(
     name="Warehouse",
     provider="postgres",
