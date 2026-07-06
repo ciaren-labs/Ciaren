@@ -8,7 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { ColumnProfileList } from "@/components/data/ColumnProfileList";
-import { categoricalColumns, numericColumns, type Aggregate } from "@/lib/chartData";
+import {
+  buildColumnMeta,
+  chartDefaults,
+  clamp,
+  type Aggregate,
+  type ChartDefaults,
+  type ColumnMeta,
+} from "@/lib/chartData";
 import { DataTable } from "./DataTable";
 import { ChartPreview } from "./ChartPreview";
 
@@ -22,23 +29,53 @@ type View = "table" | "profile" | "chart";
 // More rows make the client-side charts meaningful, but it is still a sample.
 const CHART_SAMPLE_LIMIT = 500;
 
-const CHART_TYPES: { value: string; label: string }[] = [
-  { value: "histogramChart", label: "Histogram" },
-  { value: "valueCounts", label: "Value counts" },
-  { value: "barChart", label: "Bar" },
-  { value: "stackedBarChart", label: "Stacked bar" },
-  { value: "pieChart", label: "Pie" },
-  { value: "lineChart", label: "Line / time series" },
-  { value: "areaChart", label: "Area" },
-  { value: "scatterChart", label: "Scatter" },
-  { value: "correlationHeatmap", label: "Correlation heatmap" },
+const CHART_TYPE_GROUPS: { label: string; types: { value: string; label: string }[] }[] = [
+  {
+    label: "Distribution",
+    types: [
+      { value: "histogramChart", label: "Histogram" },
+      { value: "boxPlot", label: "Box plot" },
+      { value: "valueCounts", label: "Value counts" },
+    ],
+  },
+  {
+    label: "Comparison",
+    types: [
+      { value: "barChart", label: "Bar" },
+      { value: "horizontalBarChart", label: "Horizontal bar" },
+      { value: "stackedBarChart", label: "Stacked bar" },
+      { value: "pieChart", label: "Pie" },
+    ],
+  },
+  {
+    label: "Trend",
+    types: [
+      { value: "lineChart", label: "Line / time series" },
+      { value: "areaChart", label: "Area" },
+    ],
+  },
+  {
+    label: "Relationship",
+    types: [
+      { value: "scatterChart", label: "Scatter" },
+      { value: "correlationHeatmap", label: "Correlation heatmap" },
+    ],
+  },
 ];
 
 // Which controls each chart type needs.
 const SINGLE_COLUMN = new Set(["histogramChart", "valueCounts"]);
-const XY = new Set(["barChart", "stackedBarChart", "pieChart", "lineChart", "areaChart", "scatterChart"]);
-const CATEGORY_XY = new Set(["barChart", "stackedBarChart", "pieChart"]);
-const WITH_AGGREGATE = new Set(["barChart", "stackedBarChart", "pieChart"]);
+const XY = new Set([
+  "barChart",
+  "horizontalBarChart",
+  "stackedBarChart",
+  "pieChart",
+  "lineChart",
+  "areaChart",
+  "scatterChart",
+]);
+const CATEGORY_XY = new Set(["barChart", "horizontalBarChart", "stackedBarChart", "pieChart"]);
+const WITH_AGGREGATE = new Set(["barChart", "horizontalBarChart", "stackedBarChart", "pieChart"]);
 const WITH_GROUP = new Set(["stackedBarChart"]);
 
 const AGGREGATES: Aggregate[] = ["sum", "mean", "count", "min", "max"];
@@ -185,7 +222,14 @@ export function PreviewPanel({ flowId, onClose }: PreviewPanelProps) {
             {view === "profile" && preview.data.profile ? (
               <ColumnProfileList profile={preview.data.profile} />
             ) : view === "chart" ? (
-              <ChartView columns={preview.data.columns} rows={preview.data.rows} />
+              // Keyed by the schema: previewing a node with different columns
+              // remounts the chart controls so stale column picks (from the
+              // previous node) can't silently chart the wrong columns.
+              <ChartView
+                key={preview.data.columns.join("\u0000")}
+                columns={preview.data.columns}
+                rows={preview.data.rows}
+              />
             ) : (
               <DataTable columns={preview.data.columns} rows={preview.data.rows} />
             )}
@@ -215,77 +259,33 @@ function ChartView({
   columns: string[];
   rows: Record<string, unknown>[];
 }) {
-  const numCols = useMemo(() => numericColumns(rows, columns), [rows, columns]);
-  const catCols = useMemo(() => categoricalColumns(rows, columns), [rows, columns]);
-  const numColSet = useMemo(() => new Set(numCols), [numCols]);
+  const meta = useMemo(() => buildColumnMeta(rows, columns), [rows, columns]);
 
-  // Initialize to smart defaults for the starting chart type (histogram → numeric col).
   const [type, setType] = useState("histogramChart");
-  const [column, setColumn] = useState(() => numericColumns(rows, columns)[0] ?? columns[0] ?? "");
   const [bins, setBins] = useState(20);
-  const [x, setX] = useState(() => {
-    const cats = categoricalColumns(rows, columns);
-    return cats[0] ?? columns[0] ?? "";
-  });
-  const [y, setY] = useState(() => {
-    const nums = numericColumns(rows, columns);
-    const xInit = categoricalColumns(rows, columns)[0] ?? columns[0] ?? "";
-    return nums.find((c) => c !== xInit) ?? nums[0] ?? columns.find((c) => c !== xInit) ?? columns[1] ?? "";
-  });
-  const [group, setGroup] = useState(() => {
-    const cats = categoricalColumns(rows, columns);
-    const xInit = cats[0] ?? columns[0] ?? "";
-    return cats.find((c) => c !== xInit) ?? cats[0] ?? columns.find((c) => c !== xInit) ?? columns[2] ?? "";
-  });
   const [aggregate, setAggregate] = useState<Aggregate>("sum");
+  // Column picks per role — initialized (and re-picked on type change) via
+  // chartDefaults, which chooses columns that fit the chart's roles instead of
+  // "first alphabetical". ChartView is remounted (keyed) when the previewed
+  // schema changes, so these never go stale across nodes.
+  const [sel, setSel] = useState<ChartDefaults>(() => chartDefaults("histogramChart", meta));
 
-  // When the chart type changes, pre-select columns that match what the chart needs.
   const handleTypeChange = (newType: string) => {
     setType(newType);
-    switch (newType) {
-      case "histogramChart":
-        setColumn(numCols[0] ?? columns[0] ?? "");
-        break;
-      case "valueCounts":
-        setColumn(catCols[0] ?? columns[0] ?? "");
-        break;
-      case "scatterChart": {
-        const sx = numCols[0] ?? columns[0] ?? "";
-        setX(sx);
-        setY(numCols.find((c) => c !== sx) ?? columns.find((c) => c !== sx) ?? columns[1] ?? "");
-        break;
-      }
-      case "lineChart":
-      case "areaChart": {
-        const lx = columns[0] ?? "";
-        setX(lx);
-        setY(numCols.find((c) => c !== lx) ?? numCols[0] ?? columns.find((c) => c !== lx) ?? columns[1] ?? "");
-        break;
-      }
-      case "barChart":
-      case "pieChart": {
-        const bx = catCols[0] ?? columns[0] ?? "";
-        setX(bx);
-        setY(numCols.find((c) => c !== bx) ?? numCols[0] ?? columns.find((c) => c !== bx) ?? columns[1] ?? "");
-        break;
-      }
-      case "stackedBarChart": {
-        const sbx = catCols[0] ?? columns[0] ?? "";
-        setX(sbx);
-        setY(numCols.find((c) => c !== sbx) ?? numCols[0] ?? columns.find((c) => c !== sbx) ?? columns[1] ?? "");
-        setGroup(catCols.find((c) => c !== sbx) ?? catCols[0] ?? columns.find((c) => c !== sbx) ?? columns[2] ?? "");
-        break;
-      }
-    }
+    const defaults = chartDefaults(newType, meta);
+    setSel((prev) => ({ ...prev, ...defaults }));
+    if (defaults.aggregate) setAggregate(defaults.aggregate);
   };
 
-  // Validated picks — fall back by index so the chart always has something to show.
-  const pick = (value: string, fallbackIndex = 0) =>
-    value && columns.includes(value) ? value : columns[fallbackIndex] ?? "";
-  const col = pick(column);
-  const xCol = pick(x);
-  const yCol = pick(y, 1);
-  const groupCol = pick(group, 2);
+  const setRole = (role: keyof ChartDefaults) => (value: string) =>
+    setSel((prev) => ({ ...prev, [role]: value }));
+
+  // Guard against a pick that no longer exists; the placeholder then asks for one.
+  const valid = (c?: string) => (c && columns.includes(c) ? c : "");
+  const col = valid(sel.column);
+  const xCol = valid(sel.x);
+  const yCol = valid(sel.y);
+  const groupCol = valid(sel.group);
 
   const config: Record<string, unknown> = (() => {
     switch (type) {
@@ -293,6 +293,8 @@ function ChartView({
         return { column: col, bins };
       case "valueCounts":
         return { column: col };
+      case "boxPlot":
+        return { y: yCol, group: groupCol };
       case "correlationHeatmap":
         return { columns: [] };
       case "lineChart":
@@ -301,6 +303,7 @@ function ChartView({
       case "scatterChart":
         return { x: xCol, y: yCol };
       case "barChart":
+      case "horizontalBarChart":
       case "pieChart":
         return { x: xCol, y: yCol, aggregate };
       case "stackedBarChart":
@@ -310,22 +313,33 @@ function ChartView({
     }
   })();
 
+  const dateFirst = type === "lineChart" || type === "areaChart";
+
   return (
     <div className="flex flex-col gap-2 px-3 py-2">
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Chart">
-          <Select value={type} onChange={(e) => handleTypeChange(e.target.value)}>
-            {CHART_TYPES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+          <Select value={type} onChange={(e) => handleTypeChange(e.target.value)} className="h-8">
+            {CHART_TYPE_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.types.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </Field>
 
         {SINGLE_COLUMN.has(type) && (
           <Field label="Column">
-            <ColumnSelect value={col} columns={columns} numericColSet={numColSet} onChange={setColumn} />
+            <ColumnSelect
+              value={col}
+              meta={meta}
+              order={type === "histogramChart" ? "numeric" : "categorical"}
+              onChange={setRole("column")}
+            />
           </Field>
         )}
 
@@ -334,27 +348,50 @@ function ChartView({
             <Input
               type="number"
               min={1}
+              max={100}
               value={bins}
-              onChange={(e) => setBins(Math.max(1, Number(e.target.value) || 1))}
+              onChange={(e) => setBins(clamp(Number(e.target.value) || 1, 1, 100))}
               className="h-8 w-20"
             />
           </Field>
         )}
 
+        {type === "boxPlot" && (
+          <>
+            <Field label="Value">
+              <ColumnSelect value={yCol} meta={meta} order="numeric" onChange={setRole("y")} />
+            </Field>
+            <Field label="Group by">
+              <ColumnSelect
+                value={groupCol}
+                meta={meta}
+                order="categorical"
+                allowNone
+                onChange={setRole("group")}
+              />
+            </Field>
+          </>
+        )}
+
         {XY.has(type) && (
           <>
             <Field label={CATEGORY_XY.has(type) ? "Category (x)" : "X axis"}>
-              <ColumnSelect value={xCol} columns={columns} numericColSet={numColSet} onChange={setX} />
+              <ColumnSelect
+                value={xCol}
+                meta={meta}
+                order={CATEGORY_XY.has(type) ? "categorical" : dateFirst ? "datetime" : "numeric"}
+                onChange={setRole("x")}
+              />
             </Field>
             <Field label={CATEGORY_XY.has(type) ? "Value (y)" : "Y axis"}>
-              <ColumnSelect value={yCol} columns={columns} numericColSet={numColSet} onChange={setY} />
+              <ColumnSelect value={yCol} meta={meta} order="numeric" onChange={setRole("y")} />
             </Field>
           </>
         )}
 
         {WITH_GROUP.has(type) && (
           <Field label="Group by">
-            <ColumnSelect value={groupCol} columns={columns} numericColSet={numColSet} onChange={setGroup} />
+            <ColumnSelect value={groupCol} meta={meta} order="categorical" onChange={setRole("group")} />
           </Field>
         )}
 
@@ -363,6 +400,7 @@ function ChartView({
             <Select
               value={aggregate}
               onChange={(e) => setAggregate(e.target.value as Aggregate)}
+              className="h-8"
             >
               {AGGREGATES.map((a) => (
                 <option key={a} value={a}>
@@ -375,7 +413,7 @@ function ChartView({
 
         {type === "correlationHeatmap" && (
           <p className="self-center text-xs text-muted-foreground">
-            Uses all numeric columns in the sample.
+            Uses the numeric columns in the sample.
           </p>
         )}
       </div>
@@ -401,27 +439,45 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/**
+ * Column picker grouped by data kind, with the group that fits the current
+ * role listed first (numeric for measures, text for categories, dates for
+ * time axes) so the suitable columns are the easy picks.
+ */
 function ColumnSelect({
   value,
-  columns,
-  numericColSet,
+  meta,
+  order,
+  allowNone = false,
   onChange,
 }: {
   value: string;
-  columns: string[];
-  numericColSet?: Set<string>;
+  meta: ColumnMeta;
+  order: "numeric" | "categorical" | "datetime";
+  allowNone?: boolean;
   onChange: (value: string) => void;
 }) {
+  const groups: { label: string; cols: string[] }[] = [
+    { label: "Numeric", cols: meta.numeric },
+    { label: "Text", cols: meta.categorical },
+    { label: "Date", cols: meta.datetime },
+  ];
+  const firstIndex = order === "numeric" ? 0 : order === "categorical" ? 1 : 2;
+  const ordered = [groups[firstIndex], ...groups.filter((_, i) => i !== firstIndex)];
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-8">
-      {columns.map((c) => {
-        const prefix = numericColSet ? (numericColSet.has(c) ? "# " : "T ") : "";
-        return (
-          <option key={c} value={c}>
-            {prefix}{c}
-          </option>
-        );
-      })}
+      {allowNone && <option value="">(none)</option>}
+      {ordered
+        .filter((g) => g.cols.length > 0)
+        .map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.cols.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </optgroup>
+        ))}
     </Select>
   );
 }
