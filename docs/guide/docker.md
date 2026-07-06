@@ -98,7 +98,13 @@ no extra. `EXTRAS` only adds:
 | `mysql` | pymysql — MySQL SQL-node connector support |
 | `mongo` | pymongo — MongoDB support |
 | `mssql` | pyodbc — MSSQL support *(also installs the `unixodbc` driver manager and Microsoft's `msodbcsql18` driver)* |
-| `all-connectors` | postgres + mysql + mongo + s3 + gcs + azure + mssql + duckdb + snowflake |
+| `duckdb` | duckdb — DuckDB support |
+| `snowflake` | snowflake-sqlalchemy — Snowflake support |
+| `s3` | boto3 — AWS S3 storage connections |
+| `gcs` | google-cloud-storage — Google Cloud Storage connections |
+| `azure` | azure-storage-blob — Azure Blob Storage connections |
+| `signing` | cryptography — verify plugin package signatures instead of skipping them |
+| `all-connectors` | postgres + mysql + mongo + mssql + duckdb + snowflake + s3 + gcs + azure |
 
 ```bash
 # XGBoost + LightGBM model choices
