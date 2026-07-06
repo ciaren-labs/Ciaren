@@ -124,9 +124,9 @@ Override it when you need the context:
 
 `NodeSpec.category` controls where the node lands in the editor palette. Use a
 built-in category (`input`, `clean`, `columns`, `reshape`, `analytics`,
-`quality`, `ml`, `output`, or `plugins`) to slot it into that section. Unknown
-values are normalized to `plugins`, so the node still renders and runs normally
-without the frontend needing a new palette section.
+`quality`, `chart`, `ml`, `output`, or `plugins`) to slot it into that section.
+Unknown values are normalized to `plugins`, so the node still renders and runs
+normally without the frontend needing a new palette section.
 
 ### React to events
 
