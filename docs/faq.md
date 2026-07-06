@@ -71,11 +71,17 @@ Ciaren is designed for local use. Cloud deployment is not officially supported.
 
 ### How do I uninstall Ciaren?
 
+If you installed from PyPI:
+
 ```bash
-rm -rf Ciaren
+pip uninstall ciaren
 ```
 
-That's it! Ciaren stores data in a local database and doesn't require system-level installation.
+Then remove the data directory (`.data` by default, or wherever
+`CIAREN_DATA_DIR` points) if you also want to delete your uploaded files, run
+outputs, and the SQLite database. If you instead cloned the repository, just
+delete that folder. Either way, Ciaren doesn't touch anything outside its own
+data directory, so there's no system-level uninstall step.
 
 ## Using Ciaren
 
@@ -86,7 +92,8 @@ No! Ciaren is designed for non-programmers. The visual editor guides you through
 ### Can I load data from a database?
 
 Yes — via the **SQL input** node and a reusable [Connection](/guide/connections).
-PostgreSQL, MySQL, SQLite, SQL Server, and MongoDB are supported. S3, Azure Blob, and GCS are
+PostgreSQL, MySQL, SQLite, DuckDB, SQL Server, Snowflake, and MongoDB are
+supported. S3, Azure Blob, and GCS are
 also available as storage input/output nodes. Plain file formats (CSV, TSV,
 Excel, Parquet, JSON/JSONL, text) are supported via file input nodes.
 For other systems, use or build a connector plugin rather than expecting every
@@ -142,11 +149,12 @@ driver).
 
 ### What transformations are available?
 
-58 transformation nodes plus file, SQL, and storage input/output, including:
+66 transformation nodes plus file, SQL, and storage input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample
 - Reshape, analytics & quality: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, rolling/window operations, date differences, and assertion nodes
+- Charts: bar, line, area, scatter, pie, histogram, box plot, correlation heatmap — computed over full run data and stored on the run
 
 [See full list →](/transformations/overview)
 
