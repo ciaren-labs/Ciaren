@@ -96,9 +96,16 @@ The `polars (lazy)` variant reads with `scan_*` and builds a single
 polars apply projection and predicate pushdown (read fewer columns, filter at the
 scan) and optimize joins — a real speedup on large files for no change in results.
 
-A few nodes have no lazy equivalent (`pivot`, `sample`); the lazy export
-materializes around just those steps (`.collect()` … `.lazy()`) and keeps the
-rest of the plan lazy.
+Some nodes have no lazy equivalent — [Pivot](/transformations/pivot),
+[Sample rows](/transformations/sample-rows),
+[Remove outliers](/transformations/remove-outliers),
+[Bin column](/transformations/bin-column),
+[Filter by expression](/transformations/filter-expression),
+[Python transform](/transformations/python-transform), and the six
+**Data Quality** assert nodes (Assert not null, Assert unique, Assert value
+range, Assert expression, Assert values in set, Assert row count). The lazy
+export materializes around just those steps (`.collect()` … `.lazy()`) and
+keeps the rest of the plan lazy.
 
 | Export dialect | When to choose |
 | --- | --- |
