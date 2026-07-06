@@ -164,6 +164,11 @@ input land in a script, expression, or SQL query field — put it in a plain
 filter/path/value field instead.
 :::
 
+The sidebar warns inline whenever a node like this references a parameter, so
+the risk is visible right where you'd add the reference:
+
+![Python Transform node sidebar showing a warning that the "greeting" parameter referenced in the script runs as code, not a bound value](/screenshots/parameters-security-warning.png)
+
 ## Next steps
 
 - [Scheduling](./scheduling.md) — apply per-schedule parameter values
