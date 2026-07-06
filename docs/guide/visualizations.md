@@ -50,6 +50,24 @@ look for exploration, then run the flow to compute final results.
 The sample is the same one the **Data** preview shows, just drawn as a chart, so
 what you see lines up with the table view.
 
+## Want the chart over ALL the data? Use a chart node
+
+Preview charts are for exploring. When a chart should be part of the *result*,
+add a **[chart node](../transformations/charts.md)** from the **Charts**
+palette category instead: it computes the chart over the **full data** when the
+flow runs, stores it on the run, and lets you **export it as a PNG** from the
+run page.
+
+![Run detail — a Bar Chart node selected, showing the stored chart computed over the full run data with an Export PNG button](/screenshots/run-chart-detail.png)
+
+| | Preview charts (this page) | [Chart nodes](../transformations/charts.md) |
+| --- | --- | --- |
+| **Data** | Capped preview sample | Every row of the run |
+| **When** | Live, while you edit | At run time |
+| **Lives** | In the editor only | Stored on each run |
+| **Export** | — | PNG with title + legend |
+| **In the graph** | No | Yes — a pass-through node |
+
 ## Tips
 
 - **No chart? Run a preview first.** Charts read the node's preview sample, so
@@ -61,6 +79,7 @@ what you see lines up with the table view.
 
 ## See Also
 
+- [Chart nodes](../transformations/charts.md) — full-data charts stored on runs
 - [Interface Tour](./interface.md)
 - [Engines (polars / pandas)](./engines.md)
 - [All Transformations](../transformations/overview.md)

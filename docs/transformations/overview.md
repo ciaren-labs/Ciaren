@@ -6,9 +6,9 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-Ciaren ships with file/storage/SQL input/output nodes plus **40+ registered
-transformation nodes** for cleaning, reshaping, combining, validating, analytics,
-and scripting data. Each node maps to one clear dataframe operation and
+Ciaren ships with file/storage/SQL input/output nodes plus **50+ registered
+transformation nodes** for cleaning, reshaping, combining, validating, charting,
+analytics, and scripting data. Each node maps to one clear dataframe operation and
 contributes to the exported Python — both the **pandas** and the **polars**
 version.
 
@@ -27,7 +27,7 @@ Each node's `type` (shown on its page) is the value stored in the flow graph at
 
 The node palette (left panel in the editor) groups all nodes into color-coded categories. Click a category to expand it, then drag a node onto the canvas or click to place it.
 
-![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Data Quality, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
+![Flow editor showing the node palette with Inputs, Cleaning, Columns, Reshape, Analytics, Data Quality, Charts, Machine Learning, and Outputs categories](/screenshots/editor-full.png)
 
 <NodeCategoryGrid />
 
@@ -40,8 +40,9 @@ a single input handle (`in`) and output handle (`out`). Two are special:
 - **[Union / Concat](./union-concat.md)** accepts any number of inputs.
 
 A minimal complete pipeline always starts with at least one **Input** node and
-ends with at least one **Output** node. Everything in between is optional cleaning
-and transformation.
+ends with at least one **Output** node — or a terminal that persists a result on
+its own, like an ML train node or a [chart node](./charts.md). Everything in
+between is optional cleaning and transformation.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"Input node","detail":"File · SQL · Storage"},
@@ -92,6 +93,7 @@ and transformation.
 | Assert values are within a range | [Assert value range](./assert-value-range.md) |
 | Assert a boolean expression | [Assert expression](./assert-expression.md) |
 | Assert row count in bounds | [Assert row count](./assert-row-count.md) |
+| Save a chart of the results on every run | [Chart nodes](./charts.md) |
 | Run arbitrary Python on a frame | [Python transform](./python-transform.md) |
 
 ## Generated code: pandas and polars

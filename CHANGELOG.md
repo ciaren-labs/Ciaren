@@ -10,6 +10,19 @@ release, breaking changes may still happen between alpha versions.
 
 ### Added
 
+- **Chart nodes** — a new **Charts** palette category with eight nodes (bar —
+  stackable and horizontal —, line, area, scatter, pie, histogram, box plot,
+  correlation heatmap). Each is a pass-through that computes its chart over the
+  **full run data** at run time and stores a compact artifact on the run, so
+  opening a run renders the chart instantly and reflects every row that run
+  processed (the editor's preview charts remain sample-based). Charts render in
+  the run inspector with an **Export PNG** button (title + legend drawn onto
+  the image) and support an optional per-node chart title. A flow ending in a
+  chart node is complete without a file output. Artifacts are size-capped
+  (top-N categories with an exactly re-aggregated "Other" bucket, point/series
+  caps, label truncation) and were hardened by an independent audit against
+  data-driven edge cases (categories literally named "Other", series named
+  "label"/"x", ±inf values, high-cardinality axes).
 - **Exports now read like hand-written code** — every node emitter was
   reworked to produce what a person would type: keyword `assign(col=…)`
   instead of `**{…}` dicts, `fillna({'age': df['age'].median()})` instead

@@ -109,6 +109,15 @@ const categories: Category[] = [
     ],
   },
   {
+    name: 'Charts',
+    color: '#e11d48',
+    bg: 'rgba(225,29,72,0.09)',
+    icon: '📈',
+    nodes: [
+      { label: 'Chart Nodes (Bar / Line / Pie / …)', link: '/transformations/charts' },
+    ],
+  },
+  {
     name: 'Machine Learning',
     color: '#4338ca',
     bg: 'rgba(67,56,202,0.09)',

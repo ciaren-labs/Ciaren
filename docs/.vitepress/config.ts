@@ -406,6 +406,13 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Charts',
+          collapsed: true,
+          items: [
+            { text: 'Chart nodes', link: '/transformations/charts' },
+          ],
+        },
+        {
           text: 'Advanced',
           collapsed: true,
           items: [

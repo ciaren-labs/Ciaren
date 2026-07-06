@@ -94,6 +94,10 @@ it reports:
 - a small **sample** of the data, and
 - **`duration_ms`** — wall-clock time for the node, so you can find the slow step.
 
+Selecting a [chart node](/transformations/charts) additionally shows the chart
+it computed over the full run data, with an **Export PNG** button — the chart is
+stored with the run, so it renders instantly on every visit.
+
 If a node fails, its error is captured and downstream nodes are marked `skipped`.
 Output files are only written when **every** node succeeds.
 
