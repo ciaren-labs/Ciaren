@@ -133,6 +133,29 @@ async def test_filter_datasets_by_project(client: AsyncClient) -> None:
     assert names == ["in_project.csv"]
 
 
+async def test_same_filename_in_two_projects_creates_separate_datasets(client: AsyncClient) -> None:
+    # Regression: the create-vs-new-version lookup used to match by name alone
+    # (no project filter), so uploading "customers.csv" to project B would find
+    # project A's dataset of the same name and silently append a new version to
+    # it there, instead of creating an isolated dataset in project B.
+    pid_a = (await client.post("/api/projects", json={"name": "A"})).json()["id"]
+    pid_b = (await client.post("/api/projects", json={"name": "B"})).json()["id"]
+
+    in_a = await _csv_upload(client, "customers.csv", project_id=pid_a)
+    in_b = await _csv_upload(client, "customers.csv", project_id=pid_b)
+
+    assert in_a["id"] != in_b["id"]
+    assert in_a["project_id"] == pid_a
+    assert in_b["project_id"] == pid_b
+    assert in_a["latest_version"] == 1
+    assert in_b["latest_version"] == 1  # not version 2 of project A's dataset
+
+    a_datasets = (await client.get(f"/api/datasets?project_id={pid_a}")).json()
+    b_datasets = (await client.get(f"/api/datasets?project_id={pid_b}")).json()
+    assert [d["id"] for d in a_datasets] == [in_a["id"]]
+    assert [d["id"] for d in b_datasets] == [in_b["id"]]
+
+
 # ---------------------------------------------------------------------------
 # Dataset → flows lineage
 # ---------------------------------------------------------------------------

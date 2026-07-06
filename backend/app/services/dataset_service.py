@@ -71,10 +71,12 @@ class DatasetService:
     ) -> DatasetRead:
         """Store an upload as a new version.
 
-        A new name creates a dataset at version 1; an existing name appends the
-        next version (immutably), so flows pinned to an earlier version are
-        unaffected. The file type must match the dataset's existing type.
-        ``project_id`` only applies when creating a new dataset.
+        A new name (within ``project_id``) creates a dataset at version 1; an
+        existing name in that same project appends the next version
+        (immutably), so flows pinned to an earlier version are unaffected. A
+        name that collides with a dataset in a *different* project never
+        matches — each project keeps its own isolated namespace. The file
+        type must match the dataset's existing type.
 
         ``parse_options`` (delimiter/encoding/decimal for CSV/TSV, sheet for
         Excel) override auto-detection; whatever ends up used is recorded on
@@ -118,9 +120,9 @@ class DatasetService:
         df, schema, sample, profile, used_options = await asyncio.to_thread(_ingest)
         normalized = not is_default_dialect(used_options, source_type)
 
-        dataset = await self._get_by_name(name)
+        resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
+        dataset = await self._get_by_name(name, resolved_project_id)
         if dataset is None:
-            resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
             dataset = Dataset(
                 name=name,
                 source_type=source_type,
@@ -361,9 +363,9 @@ class DatasetService:
 
         df, schema, sample, profile = await asyncio.to_thread(_describe_output)
 
-        dataset = await self._get_by_name(name)
+        resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
+        dataset = await self._get_by_name(name, resolved_project_id)
         if dataset is None:
-            resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
             dataset = Dataset(
                 name=name,
                 source_type=source_type,
@@ -427,8 +429,13 @@ class DatasetService:
             raise NotFoundError("Dataset", dataset_id)
         return self._to_read(dataset)
 
-    async def _get_by_name(self, name: str) -> Dataset | None:
-        result = await self.db.execute(select(Dataset).where(func.lower(Dataset.name) == name.lower()))
+    async def _get_by_name(self, name: str, project_id: str) -> Dataset | None:
+        result = await self.db.execute(
+            select(Dataset).where(
+                func.lower(Dataset.name) == name.lower(),
+                Dataset.project_id == project_id,
+            )
+        )
         return result.scalar_one_or_none()
 
     async def _next_version_number(self, dataset_id: str) -> int:

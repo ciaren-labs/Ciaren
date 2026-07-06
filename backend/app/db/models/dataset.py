@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -18,9 +18,12 @@ class Dataset(Base):
     version rather than overwriting, so flows that pin a version stay stable."""
 
     __tablename__ = "datasets"
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_datasets_project_id_name"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    # Unique within a project (see __table_args__), not globally — two projects
+    # may each have their own dataset named e.g. "customers.csv".
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # csv | excel | parquet
     # input | output
     dataset_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, default="input")
