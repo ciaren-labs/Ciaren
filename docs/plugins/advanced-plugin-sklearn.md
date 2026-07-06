@@ -260,7 +260,7 @@ class MlpClassifierPlugin(Plugin):
 ```
 
 The full `_MlpModelProvider` is a ~30-line class — walk through it in
-[ML Model Plugins](/plugins/ml-model-plugins#path-1--contribute-a-model-type).
+[ML Model Plugins](/plugins/ml-model-plugins#path-1-contribute-a-model-type).
 
 ## 4. Export runnable code
 

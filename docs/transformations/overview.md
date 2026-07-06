@@ -99,7 +99,7 @@ between is optional cleaning and transformation.
 ## Generated code: pandas and polars
 
 Every node implements both `to_python_code` (pandas) and `to_polars_code`
-(polars), so [exporting a flow](/guide/engines#code-export) gives you a runnable
+(polars), so [exporting a flow](/guide/engines#code-export-pandas-polars-and-lazy-polars) gives you a runnable
 script in either dialect. The per-node pages show the **pandas** export; the
 polars export is equivalent and produced from the same config. The two engines
 are kept at parity by a test suite that runs each node on both.

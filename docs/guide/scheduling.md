@@ -126,6 +126,6 @@ Scheduled runs are recorded like any other run, tagged with their
 
 ## See also
 
-- [REST API: Schedules](/api/rest-api#schedules)
+- [REST API: Schedules](/api/schedules)
 - [Projects & Runs](/guide/projects-and-runs) — where scheduled runs show up
 - [CLI Reference](/guide/cli) — `--no-scheduler` and scheduler env vars

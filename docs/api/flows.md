@@ -23,7 +23,7 @@ Flow-compatible graph (`nodes` and `edges`).
 | `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code; `?free_intermediates=true` also releases intermediate frames in generated code |
 
 The export response carries `code` (pandas), `polars`, `polars_lazy`, and a
-portable `flow_document`. See [Engines → Code export](/guide/engines#code-export).
+portable `flow_document`. See [Engines → Code export](/guide/engines#code-export-pandas-polars-and-lazy-polars).
 
 Previews run against the saved flow graph, not unsaved canvas edits. The preview
 path uses the same graph validation and ML feature gate as a full run, so invalid
