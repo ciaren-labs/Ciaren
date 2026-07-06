@@ -22,7 +22,7 @@ the API without it using `ciaren serve --no-scheduler` (or
 
 Click **Schedule** in the flow editor toolbar (or go to the **Schedules** page) to open the schedule builder:
 
-![New schedule dialog — frequency picker (Hourly/Daily/Weekly/Monthly/Custom cron), time of day, timezone, engine, and Enabled toggle](/screenshots/schedule-create.png)
+![New schedule dialog — frequency picker (Minutes/Hourly/Daily/Weekly/Monthly/Custom cron), time of day, timezone, engine, and Enabled toggle](/screenshots/schedule-create.png)
 
 ![Schedules page — list of saved schedules with cron expressions, next run times, recent run history, and status](/screenshots/schedules.png)
 
@@ -30,9 +30,9 @@ The **Recent runs** column shows each schedule's last five runs as status icons
 (oldest to newest), so you can spot a flaky or failing schedule at a glance.
 Click an icon to open that run in the [run detail view](/guide/projects-and-runs#runs).
 
-The frequency picker updates its human-readable summary and cron expression live as you switch between presets and Custom (cron):
+The frequency picker updates its human-readable summary and cron expression live as you switch between presets and Custom (cron). **Minutes** fires every N minutes (1-59) for sub-hourly cadences; **Hourly** fires once an hour at a chosen minute past:
 
-![Switching the schedule frequency across Daily, Weekly, Monthly, and Custom (cron) — the human-readable summary and cron expression update live](/screenshots/schedule-frequency-picker.gif)
+![Switching the schedule frequency across Minutes, Daily, Weekly, Monthly, and Custom (cron) — the human-readable summary and cron expression update live](/screenshots/schedule-frequency-picker.gif)
 
 In the UI, open a flow (or the **Schedules** page) and add a schedule with a cron
 expression and timezone. Over the API:
