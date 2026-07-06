@@ -86,11 +86,12 @@ names and are awaited.
 |---|---|
 | Projects | `list_projects`, `create_project`, `get_project`, `update_project`, `delete_project` |
 | Datasets | `upload_dataset`, `list_datasets`, `get_dataset`, `update_dataset`, `delete_dataset`, `restore_dataset`, `list_dataset_versions`, `download_dataset_version`, `get_dataset_schema`, `get_dataset_sample`, `get_dataset_profile` |
-| Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `preview_flow`, `export_flow_python` |
-| Runs | `create_run`, `list_runs`, `get_run`, `retry_run`, `download_run_output`, `stream_logs` |
+| Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `duplicate_flow`, `migrate_flow_document`, `preview_flow`, `export_flow_python` |
+| Runs | `create_run`, `list_runs`, `get_run`, `cancel_run`, `retry_run`, `download_run_output`, `stream_logs` |
 | Schedules | `create_schedule`, `list_schedules`, `get_schedule`, `update_schedule`, `delete_schedule`, `run_schedule_now`, `list_schedule_runs` |
-| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `list_connection_tables`, `list_connection_objects` |
+| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `list_connection_tables`, `list_connection_objects`, `keyring_availability`, `store_keyring_secret`, `get_keyring_secret_status`, `delete_keyring_secret` |
 | Catalog and transforms | `list_catalog_nodes`, `list_catalog_connectors`, `list_catalog_exporters`, `list_catalog_categories`, `list_transformations`, `preview_transformation` |
+| Settings | `list_settings`, `update_setting`, `reset_setting` |
 | ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments` |
 | Plugins and marketplace | `list_plugins`, `plugin_diagnostics`, `install_plugin`, `get_plugin_license`, `activate_plugin_license`, `remove_plugin_license`, `enable_plugin`, `disable_plugin`, `grant_plugin_permissions`, `revoke_plugin_permissions`, `uninstall_plugin`, `list_marketplace`, `install_marketplace_plugin` |
 | Webhook | `webhook_status`, `trigger` |
@@ -118,6 +119,13 @@ flows = client.list_flows()
 
 flow = client.get_flow("flow-id")
 export = client.export_flow_python("flow-id")
+
+# Copy a flow (graph, parameters, engine); schedules and run history stay
+# with the original
+copy = client.duplicate_flow("flow-id", name="Sales Pipeline (copy)")
+
+# Validate/migrate a raw .flow document without persisting it
+result = client.migrate_flow_document(document_json)
 ```
 
 #### Runs
@@ -157,6 +165,13 @@ new run with a new id.
 new_run = client.retry_run("run-id")
 ```
 
+`cancel_run` requests cancellation of a running run — cooperatively at the
+next node boundary, or by abandoning the worker in process mode.
+
+```python
+client.cancel_run("run-id")
+```
+
 #### Schedules
 
 ```python
@@ -174,6 +189,37 @@ connection = client.create_connection(
     config={"host": "...", "database": "..."},
 )
 tables = client.list_connection_tables(connection["id"])
+
+# Delete refuses with a 409 while flows reference the connection unless
+# force=True (those flows then fail at run time until repointed)
+client.delete_connection(connection["id"], force=True)
+```
+
+Store a database password in the OS keychain instead of an env var, then
+reference it from the connection's `password_env` field:
+
+```python
+secret = client.store_keyring_secret("warehouse-password", "s3cr3t")
+print(secret["reference"])  # "keyring:warehouse-password"
+
+connection = client.create_connection(
+    name="Warehouse",
+    provider="postgres",
+    kind="database",
+    config={"host": "...", "database": "...", "password_env": secret["reference"]},
+)
+```
+
+#### Settings
+
+`list_settings`, `update_setting`, and `reset_setting` back the Settings
+page's allowlisted runtime configuration (unknown keys and secrets are not
+readable or writable through this API — see [Settings API](/api/settings)).
+
+```python
+settings = client.list_settings()
+client.update_setting("MAX_UPLOAD_SIZE_MB", 250)
+client.reset_setting("MAX_UPLOAD_SIZE_MB")  # falls back to env/default
 ```
 
 #### ML
