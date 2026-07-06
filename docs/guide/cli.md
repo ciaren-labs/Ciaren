@@ -182,7 +182,7 @@ ciaren transformations list --output json
 ```
 
 ```text
-58 transformation node types:
+66 transformation node types:
   assertExpression   inputs=1
   assertNotNull      inputs=1
   assertRowCount     inputs=1
