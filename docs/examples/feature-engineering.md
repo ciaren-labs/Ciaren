@@ -57,15 +57,17 @@ Preview after each node to watch the feature space change, then **Run**.
 
 ## Scaling, visualized
 
+After Fill Nulls (row 3's missing income becomes the median, 88000):
+
 <DataTransform
   transform="Scale Features (standard)"
   :before='{
     "columns":["age","income"],
-    "rows":[[25,42000],[41,88000],[52,120000],[29,51000]]
+    "rows":[[25,42000],[41,88000],[33,88000],[52,120000],[29,51000],[46,99000]]
   }'
   :after='{
     "columns":["age","income"],
-    "rows":[[-1.07,-1.14],[0.36,0.23],[1.43,1.18],[-0.72,-0.27]]
+    "rows":[[-1.33,-1.46],[0.35,0.25],[-0.49,0.25],[1.51,1.43],[-0.91,-1.12],[0.88,0.66]]
   }'
   :highlight='["age","income"]'
 />
