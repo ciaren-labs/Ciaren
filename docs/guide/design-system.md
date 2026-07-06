@@ -63,8 +63,9 @@ same token names, so components need no changes to support it.
 
 Nodes stay distinguishable on the canvas while harmonising with the brand. Each
 category has a badge / card / ring / text / dot theme in
-`frontend/src/lib/nodeVisuals.ts`. There are 8 categories, 64 nodes total (58
-transformation nodes plus 6 file/SQL/storage input-output nodes):
+`frontend/src/lib/nodeVisuals.ts`. There are 9 categories, 72 nodes total (66
+transformation nodes, including the 8 chart nodes, plus 6 file/SQL/storage
+input-output nodes):
 
 | Category | Hue | Example nodes |
 | --- | --- | --- |
@@ -74,6 +75,7 @@ transformation nodes plus 6 file/SQL/storage input-output nodes):
 | **Reshape** | violet | group by, join, pivot/unpivot, concat rows |
 | **Analytics** | fuchsia | calculated column, window function, bin column, parse dates |
 | **Data Quality** | orange | assert not-null/unique/range/expression/row-count |
+| **Charts** | rose | bar, line, area, scatter, pie, histogram, box plot, correlation heatmap |
 | **Machine Learning** | purple | train/predict/evaluate, feature engineering, cross-validate |
 | **Outputs** | amber | File Output, SQL Output, Storage Output |
 
