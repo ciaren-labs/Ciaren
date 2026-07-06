@@ -40,7 +40,21 @@ customer_id,tenure,monthly_charges,support_calls,churn
 6,60,38.0,0,0
 7,3,72.4,2,1
 8,41,49.9,1,0
+9,4,85.0,3,1
+10,55,40.5,0,0
+11,7,91.2,4,1
+12,38,47.8,1,0
+13,6,77.5,2,1
+14,50,44.0,0,0
+15,2,95.0,5,1
+16,45,39.9,0,0
 ```
+
+::: tip Why 16 rows
+Training needs at least 10 rows once the test split is set aside — a smaller
+sample fails with `need at least 10 rows to train`. 16 rows leaves a
+comfortable margin above that floor with `test_size: 0.25`.
+:::
 
 The target column is `churn` (1 = the customer left). The remaining columns are
 features.
@@ -68,15 +82,19 @@ page to see the run logged in MLflow with its metrics and lineage.
 
 ## What Evaluate produces
 
+With `test_size: 0.25` on 16 rows, the held-out test set is 4 rows. This
+toy dataset separates cleanly on tenure/charges/support calls alone, so the
+model gets all four right:
+
 <DataTransform
   transform="Evaluate (task=classification)"
   :before='{
     "columns":["customer_id","churn","prediction"],
-    "rows":[[2,0,0],[3,1,1],[6,0,0],[7,1,0]]
+    "rows":[[8,0,0],[3,1,1],[14,0,0],[13,1,1]]
   }'
   :after='{
     "columns":["metric","value"],
-    "rows":[["accuracy",0.75],["precision",1.0],["recall",0.5],["f1",0.6667]]
+    "rows":[["accuracy",1.0],["precision",1.0],["recall",1.0],["f1",1.0]]
   }'
 />
 
