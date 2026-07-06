@@ -72,6 +72,23 @@ def test_blocked_dunder_attributes(script):
         check_script(script)
 
 
+@pytest.mark.parametrize(
+    "script",
+    [
+        # The classic str.format escape: dunder traversal hidden in the format
+        # string, invisible to the ast.Attribute scan.
+        "'{0.__class__.__init__.__globals__}'.format(df)\nreturn df",
+        "'{x.__class__}'.format_map({'x': df})\nreturn df",
+        "s = '{0.__class__}'\ns.format(df)\nreturn df",
+        # Reaching str.format via the type also lands on the blocked attr name.
+        "str.format('{0.__class__}', df)\nreturn df",
+    ],
+)
+def test_blocked_format_string_traversal(script):
+    with pytest.raises(ScriptSecurityError, match="not allowed"):
+        check_script(script)
+
+
 def test_syntax_error_is_reported():
     with pytest.raises(ScriptSecurityError, match="syntax error"):
         check_script("return df[[")

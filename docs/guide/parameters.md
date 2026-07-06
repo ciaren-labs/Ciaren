@@ -141,6 +141,29 @@ references render as a `str.format` call (`'data/{}.csv'.format(run_date)`).
 - **Don't parameterize the dataset/connection picker** — those are environment
   bindings selected in the UI, not text fields.
 
+::: danger Security: parameters are text substitution, not a sandboxed value
+`{{ name }}` is a plain string replacement — it has no idea what the field it's
+writing into means. Most fields (filter values, file paths, column names) are
+inert once substituted. A few fields are **not**: they interpret their text as
+code or a query.
+
+- A **pythonTransform** `script` that embeds a parameter — an override can close
+  a quoted string early and add further Python statements (the script already
+  runs unsandboxed; see [Security Policy](https://github.com/ciaren-labs/Ciaren/blob/main/SECURITY.md)).
+- A **filterExpression**, **assertExpression**, or derived-column `expression` —
+  parameters feed straight into `pandas.eval()` / `df.query()`.
+- A **sqlInput** `query` (in "query" mode) — parameters are spliced into the
+  literal SQL text, not bound as query parameters, so an override can change
+  the query's logic (widen a `WHERE`, add a clause), not just its value.
+
+Only reference a parameter inside one of these fields if every caller who can
+supply a run-time value (via the run API, a schedule, or your own app) is as
+trusted as the flow's author. If you're exposing "run this flow with
+end-user-supplied values" from your own application, don't let that untrusted
+input land in a script, expression, or SQL query field — put it in a plain
+filter/path/value field instead.
+:::
+
 ## Next steps
 
 - [Scheduling](./scheduling.md) — apply per-schedule parameter values

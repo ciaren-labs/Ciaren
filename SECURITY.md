@@ -53,6 +53,17 @@ Ciaren is in active development. Known limitations include:
   layer (`CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn|enforce`) can log or block
   ungranted network/file-write/subprocess/shell actions, but is not containment.
   See [Plugin Security](docs/security/plugin-security.md)
+- **Flow parameters are text substitution, not bound values** — `{{ name }}` is
+  a plain string replacement performed before a node's config is used. Most
+  fields are inert once substituted, but a parameter referenced inside a
+  `pythonTransform` script, a `filterExpression`/`assertExpression`/derived-column
+  expression, or a `sqlInput` query (in "query" mode) is substituted into code/query text that
+  is then executed/evaluated — an override supplied at run time can inject
+  statements or change query logic, not just a value. This is consistent with
+  "pythonTransform runs unsandboxed" and "SQL `read_query` is arbitrary SQL by
+  design" above: only let a caller supply run-time parameter overrides for a
+  flow if they're as trusted as the flow's author. See the security note in
+  [docs/guide/parameters.md](docs/guide/parameters.md#tips-gotchas)
 - **Pandas dataframe limits** — no compression, large datasets may be slow or fail
 
 ### Needs Additional Controls For

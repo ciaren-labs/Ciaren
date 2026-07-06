@@ -6,8 +6,10 @@ the public security policy. When ``PYTHON_TRANSFORM_STRICT`` is enabled, this mo
 adds two defense-in-depth layers applied *before/around* execution:
 
 1. :func:`check_script` — an AST scan that refuses obviously dangerous constructs
-   (dangerous imports, code-exec builtins, and the dunder-traversal attribute
-   names used to break out of a restricted namespace).
+   (dangerous imports, code-exec builtins, the dunder-traversal attribute names
+   used to break out of a restricted namespace, and the ``str.format`` family
+   whose format-string mini-language can reach those same dunders as a runtime
+   string the attribute scan can't see).
 2. :func:`safe_builtins` — a restricted ``__builtins__`` mapping to run the script
    with, so the usual ``open``/``__import__``/``eval`` are simply absent.
 
@@ -85,6 +87,20 @@ _BLOCKED_NAMES = frozenset(
         "memoryview",
         "exit",
         "quit",
+    }
+)
+
+#: Method names whose *format string* is a mini-language that can traverse
+#: attributes at runtime (``"{0.__class__.__init__.__globals__}".format(obj)``),
+#: reaching dunders that never appear as an ``ast.Attribute`` for the scan below
+#: to catch — the classic ``str.format`` restricted-exec escape. Covers the ``str``
+#: methods and ``string.Formatter``. F-strings need no entry: their ``{obj.__x__}``
+#: interpolations parse *as* ``ast.Attribute`` and are caught by ``_BLOCKED_ATTRS``.
+_BLOCKED_METHODS = frozenset(
+    {
+        "format",
+        "format_map",
+        "vformat",
     }
 )
 
@@ -205,6 +221,12 @@ def check_script(script: str) -> None:
             if node.attr in _BLOCKED_ATTRS:
                 raise ScriptSecurityError(
                     f"pythonTransform (strict): access to attribute {node.attr!r} is not allowed."
+                )
+            if node.attr in _BLOCKED_METHODS:
+                raise ScriptSecurityError(
+                    f"pythonTransform (strict): {node.attr!r} is not allowed — its format string can "
+                    "traverse attributes to escape the restricted namespace. Use an f-string or "
+                    "concatenation instead."
                 )
 
 

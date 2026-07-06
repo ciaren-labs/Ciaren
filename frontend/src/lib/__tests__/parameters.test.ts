@@ -5,6 +5,7 @@ import {
   defaultText,
   isRequired,
   referencedParameters,
+  riskyParameterRefs,
   specToRow,
   validateRows,
   type ParamRow,
@@ -158,5 +159,41 @@ describe("referencedParameters", () => {
 
   it("returns empty for configs without references", () => {
     expect(referencedParameters({ a: "x", b: 1 }).size).toBe(0);
+  });
+});
+
+describe("riskyParameterRefs", () => {
+  it("flags a parameter referenced in a pythonTransform script", () => {
+    const refs = riskyParameterRefs("pythonTransform", { script: "return df.head({{ n }})" });
+    expect([...refs]).toEqual(["n"]);
+  });
+
+  it("flags a parameter referenced in an assertExpression/calculatedColumn expression", () => {
+    expect([...riskyParameterRefs("assertExpression", { expression: "x > {{ threshold }}" })]).toEqual([
+      "threshold",
+    ]);
+    expect([...riskyParameterRefs("calculatedColumn", { expression: "a * {{ factor }}" })]).toEqual([
+      "factor",
+    ]);
+  });
+
+  it("flags a parameter referenced in a filterExpression expression", () => {
+    expect([...riskyParameterRefs("filterExpression", { expression: "age > {{ threshold }}" })]).toEqual([
+      "threshold",
+    ]);
+  });
+
+  it("flags a parameter referenced in a sqlInput query", () => {
+    const refs = riskyParameterRefs("sqlInput", { query: "SELECT * FROM t WHERE city = '{{ city }}'" });
+    expect([...refs]).toEqual(["city"]);
+  });
+
+  it("ignores references in ordinary (non-code) fields and unknown node types", () => {
+    expect(riskyParameterRefs("csvOutput", { dataset_name: "{{ out }}" }).size).toBe(0);
+    expect(riskyParameterRefs("filterRows", { value: "{{ threshold }}" }).size).toBe(0);
+  });
+
+  it("ignores fields on a risky node type other than the risky one", () => {
+    expect(riskyParameterRefs("pythonTransform", { label: "{{ n }}" }).size).toBe(0);
   });
 });

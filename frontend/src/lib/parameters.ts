@@ -180,3 +180,30 @@ export function referencedParameters(value: unknown): Set<string> {
   walk(value);
   return found;
 }
+
+/** Config field(s), per node type, whose text is executed as code or a raw
+ *  query rather than treated as an inert value — see the security note in
+ *  docs/guide/parameters.md. A parameter substituted into one of these is
+ *  spliced into code/query text, so a run-time override can change program
+ *  or query logic, not just a value. */
+const RISKY_FIELDS: Record<string, string[]> = {
+  pythonTransform: ["script"],
+  assertExpression: ["expression"],
+  calculatedColumn: ["expression"],
+  // filterExpression's `expression` is fed to pandas `df.eval()`/`df.query()`
+  // (engine.filter_expr), the same eval semantics as assert/derived columns.
+  filterExpression: ["expression"],
+  sqlInput: ["query"],
+};
+
+/** Parameter names referenced inside a field that this node type executes as
+ *  code/query text (see {@link RISKY_FIELDS}). */
+export function riskyParameterRefs(nodeType: string, config: Record<string, unknown>): Set<string> {
+  const fields = RISKY_FIELDS[nodeType];
+  if (!fields) return new Set();
+  const found = new Set<string>();
+  for (const field of fields) {
+    for (const name of referencedParameters(config[field])) found.add(name);
+  }
+  return found;
+}

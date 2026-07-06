@@ -5,7 +5,7 @@ import { useDatasets } from "@/features/datasets/hooks";
 import { getNodeTypeDef } from "@/lib/nodeCatalog";
 import { getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cleanStaleColumnRefs, computeNodeColumns, getDownstreamNodeIds, isInputType } from "@/lib/flowGraph";
-import { referencedParameters } from "@/lib/parameters";
+import { referencedParameters, riskyParameterRefs } from "@/lib/parameters";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,10 @@ export function NodeSidebar() {
   // any reference in this node's config that doesn't match a declared parameter.
   const paramNames = new Set(parameters.map((p) => p.name));
   const unknownRefs = [...referencedParameters(node.data.config)].filter((r) => !paramNames.has(r));
+  // Parameters referenced inside a field this node type executes as code/query
+  // text (pythonTransform script, eval expression, raw SQL) rather than an
+  // inert value — a run-time override here can change logic, not just a value.
+  const riskyRefs = riskyParameterRefs(node.type ?? "", node.data.config);
 
   const handleConfigChange = (newConfig: Record<string, unknown>) => {
     // When a file-input node's dataset changes, scan downstream nodes for
@@ -178,6 +182,19 @@ export function NodeSidebar() {
                 ))}
               </div>
             </div>
+          )}
+
+          {riskyRefs.size > 0 && (
+            <p className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-[11px] text-destructive">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                This field runs as code/query text —{" "}
+                <span className="font-medium">{[...riskyRefs].join(", ")}</span>{" "}
+                {riskyRefs.size > 1 ? "are substituted" : "is substituted"} literally, not passed as a
+                bound value. Only accept run-time overrides here from callers as trusted as this flow's
+                author.
+              </span>
+            </p>
           )}
 
           {unknownRefs.length > 0 && (

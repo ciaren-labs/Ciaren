@@ -74,6 +74,45 @@ describe("NodeSidebar parameter affordance", () => {
     expect(screen.queryByText(/unknown parameter/i)).not.toBeInTheDocument();
   });
 
+  it("flags a parameter referenced inside a pythonTransform script as risky", () => {
+    useFlowEditorStore.setState({
+      selectedNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "pythonTransform",
+          position: { x: 0, y: 0 },
+          data: { label: "Script", config: { script: "df['x'] = '{{ greeting }}'\nreturn df" } },
+        },
+      ],
+      edges: [],
+      parameters: [{ name: "greeting", type: "string", default: "hi" }],
+    });
+
+    renderSidebar();
+    expect(screen.getByText(/runs as code\/query text/i)).toBeInTheDocument();
+    expect(screen.getByText("greeting")).toBeInTheDocument();
+  });
+
+  it("does not flag a parameter used in an ordinary (non-code) field", () => {
+    useFlowEditorStore.setState({
+      selectedNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "csvOutput",
+          position: { x: 0, y: 0 },
+          data: { label: "Out", config: { dataset_name: "{{ out }}" } },
+        },
+      ],
+      edges: [],
+      parameters: [{ name: "out", type: "string", default: "result.csv" }],
+    });
+
+    renderSidebar();
+    expect(screen.queryByText(/runs as code\/query text/i)).not.toBeInTheDocument();
+  });
+
   it("loads datasets scoped to the active flow project", async () => {
     useFlowEditorStore.setState({
       selectedNodeId: "n1",
