@@ -24,11 +24,16 @@ it re-draws from the data already loaded, so there's no waiting.
 
 ## Chart types
 
+The picker groups chart types the same way this reference does:
+
 | Type | What it shows | Inputs |
 | ------ | --------------- | -------- |
 | **Histogram** | Distribution of a numeric column | column, bin count |
+| **Box plot** | Median, quartiles, and outliers of a numeric column | value, optional group-by column |
 | **Value counts** | Frequency of each distinct value | column |
 | **Bar** | A value aggregated by category | category (x), value (y), aggregate |
+| **Horizontal bar** | Same as Bar, with the axes flipped (long category labels) | category (x), value (y), aggregate |
+| **Stacked bar** | A value aggregated by category, split into sub-groups per bar | category (x), value (y), aggregate, group |
 | **Pie** | A category's share of a total | category (x), value (y), aggregate |
 | **Line / time series** | A value over an ordered axis | x axis, y value |
 | **Area** | A value over an ordered axis, filled | x axis, y value |
