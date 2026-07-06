@@ -262,7 +262,7 @@ contributes. They carry no executable behavior.
 | --- | --- | --- | --- |
 | `id` | `str` | — | Node type, unique in the catalog (e.g. `"greeting.add"`). |
 | `label` | `str` | — | Display name. |
-| `category` | `str` | — | UI grouping (`"input"`, `"clean"`, `"columns"`, `"reshape"`, `"ml"`, …). |
+| `category` | `str` | `"plugins"` | UI grouping (`"input"`, `"clean"`, `"columns"`, `"reshape"`, `"chart"`, `"ml"`, …); unrecognized values normalize to `"plugins"`. |
 | `description` | `str` | `""` | Shown in the palette/inspector. |
 | `provider` | `str` | `"ciaren.core"` | Namespaced provider id. |
 | `version` | `str` | `"1.0.0"` | Node version. |
