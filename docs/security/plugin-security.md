@@ -171,9 +171,15 @@ than silently rewritten, so one plugin can't clobber another's install directory
 
 Some operations execute code or touch credentials. Ciaren already enforces:
 
-- **Pickle model files are refused** — loading a pickle runs arbitrary code; only
-  `.joblib` artifacts load directly, and only from inside the artifact root
-  (other formats, including `.json`, must be referenced via an MLflow model URI).
+- **Pickle model files are refused** — loading a pickle runs arbitrary code.
+  `.joblib` and `.json` artifacts may load directly, but only from inside the
+  artifact root (anything else must be referenced via an MLflow `runs:/` /
+  `models:/` URI instead). `.joblib` isn't actually format-safe — it serializes
+  with pickle under the hood — so that path's only real protection is the
+  artifact-root confinement, not the file extension; `.json` (XGBoost's native
+  format) is the one that's genuinely code-free. See
+  [Local-first trust model](/security/local-first-trust-model) and
+  `app/ml/security.py`.
 - **Connection secrets are referenced, not stored** — passwords live in environment
   variables (`password_env`); they never enter the flow graph, `.flow` files, or
   exported code.

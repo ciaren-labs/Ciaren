@@ -37,13 +37,18 @@ are intentionally available. They run with the privileges of the local process.
   environment-variable name (`password_env`), never stored in the flow graph,
   `.flow` documents, or generated code — exported scripts read the secret from
   `os.environ` at run time.
-- **Model loading refuses code execution.** Pickle (`.pkl`/`.pickle`) model files
-  are refused because loading a pickle runs arbitrary code; only `.joblib` and
-  native `.json` model artifacts inside the artifact root load. See
-  `app/ml/security.py`.
 - **Model URIs can't escape the artifact root.** A local `model_uri` must resolve
   inside the configured artifact directory (no `..` traversal, no absolute paths
   elsewhere); otherwise an MLflow `runs:/` / `models:/` URI is required.
+- **Pickle is refused outright; `.joblib` is allowed but is *not* format-safe —
+  it's confined, not sandboxed.** Bare `.pkl`/`.pickle` model files are rejected
+  because loading one executes arbitrary code. `.joblib` is allowed (sklearn
+  pipelines need it) but serializes with pickle under the hood, so a crafted
+  `.joblib` can execute code exactly like a raw pickle — the only thing making
+  that path safe is the artifact-root confinement above, which guarantees a
+  `.joblib` can only load from a location the server itself controls, never an
+  arbitrary user-supplied path. `.json` (XGBoost's native format) is the one
+  format that's genuinely code-free. See `app/ml/security.py`.
 - **Plugin code is gated before import.** A drop-in plugin that declares
   permissions is not imported until you approve it, and the app upload flow adds a
   risk confirmation (an off-by-default acknowledgement toggle) before installing.
