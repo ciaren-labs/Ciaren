@@ -259,7 +259,6 @@ it processed even though the source is live.
 ## Limitations
 
 - MongoDB inputs use **collection selection** only (no custom SQL).
-- `rank` and similar are per the [transformations reference](/transformations/overview).
 
 ## Next steps
 
