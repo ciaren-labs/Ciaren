@@ -7,6 +7,7 @@ import {
   MiniMap,
   Panel,
   addEdge,
+  getNodesBounds,
   useReactFlow,
   type Connection,
   type Edge,
@@ -50,7 +51,7 @@ export function FlowCanvas() {
   const relayoutNodes = useFlowEditorStore((s) => s.relayoutNodes);
   const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, fitBounds } = useReactFlow();
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -141,21 +142,47 @@ export function FlowCanvas() {
     [nodes, screenToFlowPosition, addNode],
   );
 
+  // `useNodesInitialized()` would be the principled way to know nodes have
+  // real measured dimensions, but it never flips true against this app's
+  // controlled-`nodes` setup (its underlying store flag just doesn't get set
+  // here) — so instead this defers to a macrotask (`setTimeout`, not
+  // `requestAnimationFrame`: rAF callbacks can be starved in some embedding
+  // contexts, e.g. a backgrounded/non-composited tab) to let the browser
+  // measure the just-mounted nodes via ResizeObserver, then re-reads the
+  // store directly (`getState()`, not the closed-over `nodes`/`edges` from
+  // render time) so the layout is computed from dimensions that reflect that
+  // measurement, not whatever was true when this effect first queued.
+  //
+  // Fitting the view here is deliberately done with `fitBounds` against
+  // bounds computed straight from the relaid-out nodes via the *standalone*
+  // `getNodesBounds` utility (imported from "@xyflow/react"), not `fitView()`
+  // and not the `getNodesBounds` returned by `useReactFlow()`. Both of those
+  // read through React Flow's own internal node lookup, which still holds
+  // the pre-relayout positions at this point — on flows with more than one
+  // branch, that gap was enough for the "fit" to lock onto the *previous*
+  // (e.g. the originally-saved, much wider) layout, zooming out to frame a
+  // graph that no longer exists and leaving the real, freshly-laid-out one
+  // off-center or clipped. The standalone utility takes plain node objects at
+  // face value instead of resolving them through that lookup, so it sees the
+  // new positions immediately; dimensions are still valid, carried over from
+  // the measurement above.
   const didInitialLayout = useRef(false);
   useEffect(() => {
     if (nodes.length === 0 || didInitialLayout.current) return;
     didInitialLayout.current = true;
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        const laid = applyLayout(DEFAULT_LAYOUT, nodes, edges);
-        setNodes(laid);
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() =>
-            fitView({ padding: 0.12, duration: 350, maxZoom: 1.5 })
-          )
-        );
-      })
-    );
+    setTimeout(() => {
+      const current = useFlowEditorStore.getState();
+      const laid = applyLayout(DEFAULT_LAYOUT, current.nodes, current.edges);
+      setNodes(laid);
+      const bounds = getNodesBounds(laid);
+      fitBounds(bounds, { padding: 0.12, duration: 0 });
+      // Re-fit against the same bounds a moment later: the container's own
+      // size (which `fitBounds` reads to compute the viewport) can still be
+      // settling from its own layout/resize just after mount, so the first
+      // call can end up off-center even though the bounds themselves are
+      // already correct. A second pass, once that's settled, self-corrects.
+      setTimeout(() => fitBounds(bounds, { padding: 0.12, duration: 200 }), 150);
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
@@ -284,8 +311,13 @@ export function FlowCanvas() {
         onPaneClick={() => selectNode(null)}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        fitView
-        fitViewOptions={{ padding: 0.12, maxZoom: 1.5 }}
+        // No declarative `fitView`/`fitViewOptions` here on purpose: this
+        // graph is always relaid-out and explicitly fit on load by the
+        // `nodesInitialized` effect above, which computes correct bounds
+        // straight from the post-relayout node positions. React Flow's own
+        // one-shot declarative fitView resolves against whatever the node
+        // lookup holds at that (earlier, pre-relayout) moment and raced with
+        // that effect, so the view ended up fit to the wrong (stale) layout.
         proOptions={{ hideAttribution: true }}
       >
         <Background

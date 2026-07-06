@@ -168,6 +168,13 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       if (meaningful.length === 0) {
         return { nodes: applyNodeChanges(changes, state.nodes) };
       }
+      // Dimension changes are emitted by React Flow's ResizeObserver purely from
+      // measuring newly-rendered nodes (e.g. right after a flow loads) — they
+      // carry no user intent and must not mark the flow dirty or touch history.
+      const isMeasurementOnly = meaningful.every((c) => c.type === "dimensions");
+      if (isMeasurementOnly) {
+        return { nodes: applyNodeChanges(changes, state.nodes) };
+      }
       // Drags and dimension changes move nodes without changing what the
       // graph *is* — they don't invalidate structure-keyed memos.
       const isLayoutOnly = meaningful.every((c) => c.type === "position" || c.type === "dimensions");

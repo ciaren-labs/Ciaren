@@ -128,7 +128,13 @@ export function FlowEditorPage() {
     setInvalidNodeIds([...validation.errorsByNode.keys()]);
   }, [validation, setInvalidNodeIds]);
 
-  // Load the persisted graph into the editor store once fetched.
+  // Load the persisted graph into the editor store once fetched. FlowCanvas
+  // must not mount until this has run — otherwise React Flow's `fitView`
+  // resolves against the still-empty store from the first render and never
+  // re-fits once the real graph arrives a tick later (nodes render clipped in
+  // the top-left corner). `graphReadyForFlowId` lets the render below hold off
+  // mounting <FlowCanvas> for that one extra frame.
+  const [graphReadyForFlowId, setGraphReadyForFlowId] = useState<string | null>(null);
   useEffect(() => {
     if (flow?.graph_json) {
       const { nodes, edges } = graphToStore(flow.graph_json);
@@ -141,6 +147,7 @@ export function FlowEditorPage() {
       setParameters([]);
     }
     setFlowProjectId(flow?.project_id ?? null);
+    setGraphReadyForFlowId(flow?.id ?? null);
     return () => reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow?.id]);
@@ -426,7 +433,13 @@ export function FlowEditorPage() {
           <NodePalette onAdd={handleAddNode} unlocked={inputReady} />
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
-              <FlowCanvas key={flow.id} />
+              {graphReadyForFlowId === flow.id ? (
+                <FlowCanvas key={flow.id} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…
+                </div>
+              )}
             </div>
             {previewOpen && (
               <>

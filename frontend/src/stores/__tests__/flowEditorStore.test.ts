@@ -161,4 +161,34 @@ describe("flowEditorStore dirty state", () => {
 
     expect(useFlowEditorStore.getState().dirty).toBe(true);
   });
+
+  it("stays clean when React Flow's ResizeObserver reports node dimensions after load", () => {
+    // React Flow fires onNodesChange with type "dimensions" for every node the
+    // first time it's measured after mounting — this happens on every flow
+    // load, with zero user interaction, and must not flip `dirty`.
+    const { setGraph, onNodesChange } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], []);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+
+    const dimensionChanges: NodeChange<FlowNodeType>[] = [
+      { id: "a", type: "dimensions", dimensions: { width: 220, height: 64 } },
+      { id: "b", type: "dimensions", dimensions: { width: 220, height: 64 } },
+    ];
+    onNodesChange(dimensionChanges);
+
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+  });
+
+  it("marks dirty for a real user drag (position change via onNodesChange)", () => {
+    const { setGraph, onNodesChange } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], []);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+
+    const dragChanges: NodeChange<FlowNodeType>[] = [
+      { id: "a", type: "position", position: { x: 42, y: 42 }, dragging: true },
+    ];
+    onNodesChange(dragChanges);
+
+    expect(useFlowEditorStore.getState().dirty).toBe(true);
+  });
 });
