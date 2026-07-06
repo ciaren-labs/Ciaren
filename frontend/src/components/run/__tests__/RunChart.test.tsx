@@ -35,6 +35,22 @@ describe("RunChartView (custom SVG renderers)", () => {
     expect(screen.getByText("South")).toBeTruthy();
   });
 
+  it("skips box groups whose stats were nulled by the backend (NaN/inf)", () => {
+    const art = boxArtifact();
+    art.groups!.push({
+      label: "broken",
+      min: null as unknown as number,
+      q1: 1,
+      median: 2,
+      q3: 3,
+      max: 4,
+      outliers: 0,
+      count: 5,
+    });
+    const { container } = render(<RunChartView art={art} />);
+    expect(container.querySelectorAll("rect")).toHaveLength(2); // broken group dropped
+  });
+
   it("renders a heatmap cell per column pair with correlation values", () => {
     const art: ChartArtifact = {
       kind: "heatmap",
@@ -72,6 +88,23 @@ describe("exportLegendEntries", () => {
     expect(entries.map((e) => e.label)).toEqual(["A", "Other"]);
     expect(entries[0].color).toBe(t.series[0]);
     expect(entries[1].color).toBe(t.neutral);
+  });
+
+  it("skips null-valued pie slices so legend colours match the drawn chart", () => {
+    // The Donut renderer filters null values before assigning colour slots; a
+    // null slice ahead of the rest must not shift the exported legend.
+    const art: ChartArtifact = {
+      kind: "pie",
+      data: [
+        { label: "empty", value: null },
+        { label: "A", value: 3 },
+        { label: "B", value: 2 },
+      ],
+    };
+    const entries = exportLegendEntries(art, t);
+    expect(entries.map((e) => e.label)).toEqual(["A", "B"]);
+    expect(entries[0].color).toBe(t.series[0]);
+    expect(entries[1].color).toBe(t.series[1]);
   });
 
   it("lists stacked-bar series but skips single-series charts", () => {

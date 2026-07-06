@@ -189,12 +189,27 @@ export const dtypes = [
 // Aggregates the chart nodes accept (mirrors backend VALID_AGGREGATES).
 export const chartAggregates = ["sum", "mean", "count", "min", "max", "median"] as const;
 
+// Optional per-node chart title, used as the exported image's heading
+// (defaults to the node label). Mirrors the backend's MAX_TITLE_LEN.
+const chartTitle = z.string().max(200, "At most 200 characters").optional();
+
 // Line and area charts share one config shape.
-const chartLineSchema = z.object({
-  x: z.string().min(1, "Pick the x (order) column"),
-  y_columns: stringArray.min(1, "Pick at least one value column").max(8, "At most 8 series"),
-  aggregate: z.enum(chartAggregates).optional(),
-});
+const chartLineSchema = z
+  .object({
+    title: chartTitle,
+    x: z.string().min(1, "Pick the x (order) column"),
+    y_columns: stringArray.min(1, "Pick at least one value column").max(8, "At most 8 series"),
+    aggregate: z.enum(chartAggregates).optional(),
+  })
+  .superRefine((cfg, ctx) => {
+    if (new Set(cfg.y_columns).size !== cfg.y_columns.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["y_columns"],
+        message: "Each series column can be picked only once",
+      });
+    }
+  });
 
 const inputConfig = z.object({
   dataset_id: z.string().min(1, "Select a dataset"),
@@ -717,6 +732,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   // ----- Charts -----
   chartBar: z
     .object({
+      title: chartTitle,
       x: z.string().min(1, "Pick a category (x) column"),
       y: z.string().optional(),
       aggregate: z.enum(chartAggregates).optional(),
@@ -737,6 +753,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
   chartArea: chartLineSchema,
   chartScatter: z
     .object({
+      title: chartTitle,
       x: z.string().min(1, "Pick the x column"),
       y: z.string().min(1, "Pick the y column"),
     })
@@ -747,6 +764,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     }),
   chartPie: z
     .object({
+      title: chartTitle,
       category: z.string().min(1, "Pick a category column"),
       value: z.string().optional(),
       aggregate: z.enum(chartAggregates).optional(),
@@ -762,14 +780,17 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
       }
     }),
   chartHistogram: z.object({
+    title: chartTitle,
     column: z.string().min(1, "Pick a numeric column"),
     bins: z.coerce.number().int().min(1, "At least 1 bin").max(100, "At most 100 bins").optional(),
   }),
   chartBoxPlot: z.object({
+    title: chartTitle,
     column: z.string().min(1, "Pick a numeric column"),
     group_by: z.string().optional(),
   }),
   chartHeatmap: z.object({
+    title: chartTitle,
     columns: stringArray.max(12, "At most 12 columns").optional(),
   }),
 

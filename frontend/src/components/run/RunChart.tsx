@@ -55,7 +55,11 @@ function seriesColor(name: string, i: number, t: ChartTheme): string {
 /** Legend entries drawn onto the exported PNG (charts with one series need none). */
 export function exportLegendEntries(art: ChartArtifact, t: ChartTheme): { label: string; color: string }[] {
   if (art.kind === "pie") {
-    return (art.data ?? []).map((d, i) => ({ label: d.label, color: seriesColor(d.label, i, t) }));
+    // Must match Donut's null filter: an invisible slice would shift every
+    // colour slot and make the exported legend disagree with the chart.
+    return (art.data ?? [])
+      .filter((d) => d.value !== null)
+      .map((d, i) => ({ label: d.label, color: seriesColor(d.label, i, t) }));
   }
   const series = art.series ?? [];
   if ((art.kind === "bar" && art.group_by) || art.kind === "line" || art.kind === "area") {
@@ -125,7 +129,12 @@ function truncationNote(art: ChartArtifact): string | null {
   if (art.total_columns != null && (art.columns?.length ?? 0) < art.total_columns) {
     notes.push(`first ${art.columns?.length} of ${art.total_columns} numeric columns`);
   }
-  return notes.length ? `Showing ${notes.join("; ")}.` : null;
+  const showing = notes.length ? `Showing ${notes.join("; ")}.` : null;
+  if (art.dropped_columns?.length) {
+    const dropped = `${art.dropped_columns.join(", ")} ${art.dropped_columns.length === 1 ? "was" : "were"} skipped (not numeric, or constant).`;
+    return showing ? `${showing} ${dropped}` : dropped;
+  }
+  return showing;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,14 +200,16 @@ async function exportChartPng(
     const y = pad + titleBlock + height + 12;
     ctx.font = `11px ${EXPORT_FONT}`;
     for (const entry of legend) {
+      // Measure BEFORE drawing so a long entry is skipped, not half-clipped.
+      const entryWidth = 12 + ctx.measureText(entry.label).width + 14;
+      if (x + entryWidth > outW - pad) break;
       ctx.fillStyle = entry.color;
       ctx.beginPath();
       ctx.arc(x + 4, y - 3, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = t.axis;
       ctx.fillText(entry.label, x + 12, y);
-      x += 12 + ctx.measureText(entry.label).width + 14;
-      if (x > outW - pad - 40) break; // never overflow the canvas
+      x += entryWidth;
     }
   }
 
@@ -222,20 +233,22 @@ export function RunChartCard({ result }: { result: NodeResult }) {
   const subtitle = useMemo(() => (art ? artifactSubtitle(art) : ""), [art]);
   if (!art) return null;
   const note = truncationNote(art);
+  // The user-set title (chart config) wins; the node label is the fallback.
+  const title = art.title || result.label;
 
   return (
     <div className="border-b border-border px-4 py-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Chart — full run data
+          <div className="truncate text-xs font-semibold">{title}</div>
+          <div className="truncate text-[11px] text-muted-foreground">
+            {subtitle} · full run data
           </div>
-          <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
         </div>
         <button
           onClick={() => {
             if (hostRef.current) {
-              void exportChartPng(hostRef.current, result.label, subtitle, exportLegendEntries(art, t), t);
+              void exportChartPng(hostRef.current, title, subtitle, exportLegendEntries(art, t), t);
             }
           }}
           title="Download this chart as a PNG image"
@@ -499,7 +512,11 @@ const BOX_H = 240;
 
 function BoxPlotSvg({ art }: { art: ChartArtifact }) {
   const t = useChartTheme();
-  const groups = art.groups ?? [];
+  // Drop groups with any non-finite stat (the backend nulls NaN/inf): a null
+  // would coerce to 0 in the scale math and draw the box in the wrong place.
+  const groups = (art.groups ?? []).filter((g) =>
+    [g.min, g.q1, g.median, g.q3, g.max].every((v) => typeof v === "number" && Number.isFinite(v)),
+  );
   if (groups.length === 0) return <Placeholder>No numeric values were recorded.</Placeholder>;
 
   const lo = Math.min(...groups.map((g) => g.min));

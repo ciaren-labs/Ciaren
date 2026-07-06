@@ -74,6 +74,33 @@ const CHART_AGGREGATE_OPTIONS = [
   { value: "median", label: "Median" },
 ] as const;
 
+/** Optional per-node chart title, shared by every chart node's form. It heads
+ *  the run view's chart card and the exported PNG (default: the node label). */
+function ChartTitleField({
+  value,
+  error,
+  onChange,
+}: {
+  value: unknown;
+  error?: string;
+  onChange: (title: string) => void;
+}) {
+  return (
+    <Field
+      label="Chart title (optional)"
+      error={error}
+      help="Shown above the chart on the run page and as the exported image's heading. Empty = the node's label."
+    >
+      <Input
+        value={typeof value === "string" ? value : ""}
+        maxLength={200}
+        placeholder="defaults to the node label"
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </Field>
+  );
+}
+
 export function NodeConfigForm({
   type,
   config,
@@ -1888,6 +1915,7 @@ export function NodeConfigForm({
       const isCount = (c.aggregate ?? "sum") === "count";
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field label="Category (x)" error={errors.x} help="One bar per value of this column.">
             <ColumnSelect value={c.x ?? ""} columns={columns} onChange={(v) => set({ x: v })} />
           </Field>
@@ -1945,6 +1973,7 @@ export function NodeConfigForm({
     case "chartArea":
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field
             label="X axis"
             error={errors.x}
@@ -1978,6 +2007,7 @@ export function NodeConfigForm({
     case "chartScatter":
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field label="X column" error={errors.x} help="Numeric column on the horizontal axis.">
             <ColumnSelect value={c.x ?? ""} columns={columns} onChange={(v) => set({ x: v })} />
           </Field>
@@ -1991,6 +2021,7 @@ export function NodeConfigForm({
       const isCount = (c.aggregate ?? "count") === "count";
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field label="Category" error={errors.category} help="One slice per value of this column.">
             <ColumnSelect value={c.category ?? ""} columns={columns} onChange={(v) => set({ category: v })} />
           </Field>
@@ -2025,6 +2056,7 @@ export function NodeConfigForm({
     case "chartHistogram":
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field label="Column" error={errors.column} help="The numeric column whose distribution is shown.">
             <ColumnSelect value={c.column ?? ""} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
@@ -2043,6 +2075,7 @@ export function NodeConfigForm({
     case "chartBoxPlot":
       return (
         <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
           <Field label="Value column" error={errors.column} help="The numeric column summarized by each box.">
             <ColumnSelect value={c.column ?? ""} columns={columns} onChange={(v) => set({ column: v })} />
           </Field>
@@ -2062,14 +2095,17 @@ export function NodeConfigForm({
 
     case "chartHeatmap":
       return (
-        <Field
-          label="Columns (optional)"
-          error={errors.columns}
-          hint="Empty = all numeric columns (up to 12)"
-          help="Pairwise correlations between these numeric columns."
-        >
-          <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
-        </Field>
+        <>
+          <ChartTitleField value={c.title} error={errors.title} onChange={(v) => set({ title: v })} />
+          <Field
+            label="Columns (optional)"
+            error={errors.columns}
+            hint="Empty = all numeric columns (up to 12)"
+            help="Pairwise correlations between these numeric columns."
+          >
+            <ColumnMultiSelect value={c.columns} columns={columns} onChange={(v) => set({ columns: v })} />
+          </Field>
+        </>
       );
 
     case "assertNotNull":

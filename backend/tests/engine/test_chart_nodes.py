@@ -312,10 +312,26 @@ class TestChartHeatmap:
         _, art = run_chart(engine, "chartHeatmap", orders, {"columns": ["amount", "qty"]})
         assert art["columns"] == ["amount", "qty"]
 
-    def test_needs_two_numeric(self, engine):
+    def test_too_few_numeric_yields_empty_artifact_not_a_failed_run(self, engine):
+        # A side-car visualization must not kill the pipeline over data shape:
+        # <2 usable numeric columns produces an empty artifact the UI explains.
         pdf = pd.DataFrame({"a": ["x", "y"], "b": [1.0, 2.0]})
-        with pytest.raises(ValueError, match="at least two"):
-            run_chart(engine, "chartHeatmap", pdf, {})
+        _, art = run_chart(engine, "chartHeatmap", pdf, {})
+        assert art["columns"] == []
+        assert art["matrix"] == []
+
+    def test_empty_frame_yields_empty_artifact(self, engine):
+        pdf = pd.DataFrame({"a": pd.Series(dtype=float), "b": pd.Series(dtype=float)})
+        _, art = run_chart(engine, "chartHeatmap", pdf, {})
+        assert art["matrix"] == []
+
+    def test_dropped_chosen_columns_are_reported(self, engine, orders):
+        # A constant explicitly-chosen column silently vanished before; now the
+        # artifact names it so the run view can say so.
+        pdf = orders.assign(constant=1.0)
+        _, art = run_chart(engine, "chartHeatmap", pdf, {"columns": ["amount", "qty", "constant"]})
+        assert art["columns"] == ["amount", "qty"]
+        assert art["dropped_columns"] == ["constant"]
 
     def test_validate_config(self):
         t = get_transformation("chartHeatmap")
@@ -323,6 +339,132 @@ class TestChartHeatmap:
             t.validate_config({"columns": "amount"})
         with pytest.raises(ValueError, match="at most"):
             t.validate_config({"columns": [f"c{i}" for i in range(13)]})
+
+
+# ---------------------------------------------------------------------------
+# Data-driven collisions, folding, truncation (audit findings)
+# ---------------------------------------------------------------------------
+
+
+class TestArtifactRobustness:
+    def test_genuine_other_category_does_not_merge_or_double_count(self, engine):
+        # 10 rows of a REAL category "Other" (top by sum) + 10 tiny categories.
+        pdf = pd.DataFrame(
+            {
+                "cat": ["Other"] * 10 + [f"c{i}" for i in range(10)],
+                "val": [5.0] * 10 + [1.0] * 10,
+            }
+        )
+        _, art = run_chart(engine, "chartBar", pdf, {"x": "cat", "y": "val", "aggregate": "sum", "limit": 3})
+        labels = [d["label"] for d in art["data"]]
+        assert labels.count("Other") == 1  # the genuine category
+        assert labels[-1] == "Other (rest)"  # the fold bucket, renamed
+        by_label = {d["label"]: d["value"] for d in art["data"]}
+        assert by_label["Other"] == 50.0
+        total = sum(d["value"] for d in art["data"])
+        assert total == pytest.approx(60.0)  # nothing double-counted
+
+    def test_stacked_series_value_named_label_cannot_shadow_the_category_key(self, engine):
+        pdf = pd.DataFrame(
+            {
+                "cat": ["A", "A", "B"],
+                "grp": ["label", "z", "label"],
+                "val": [1.0, 2.0, 3.0],
+            }
+        )
+        _, art = run_chart(engine, "chartBar", pdf, {"x": "cat", "y": "val", "aggregate": "sum", "group_by": "grp"})
+        assert set(art["series"]) == {"label​", "z"}
+        for row in art["rows"]:
+            assert row["label"] in ("A", "B")  # category names survive
+        a_row = next(r for r in art["rows"] if r["label"] == "A")
+        assert a_row["label​"] == 1.0
+
+    def test_stacked_category_tail_folds_into_other(self, engine):
+        pdf = pd.DataFrame(
+            {
+                "cat": [f"c{i}" for i in range(10)],
+                "grp": ["g1", "g2"] * 5,
+                "val": [1.0] * 10,
+            }
+        )
+        _, art = run_chart(
+            engine, "chartBar", pdf, {"x": "cat", "y": "val", "aggregate": "sum", "group_by": "grp", "limit": 4}
+        )
+        labels = [r["label"] for r in art["rows"]]
+        assert labels[-1] == "Other"
+        total = sum(v for row in art["rows"] for k, v in row.items() if k != "label" and v is not None)
+        assert total == pytest.approx(10.0)  # folded rows still counted
+
+    def test_line_y_column_named_x_cannot_shadow_the_axis_key(self, engine):
+        pdf = pd.DataFrame({"t": [1, 2], "x": [10.0, 20.0]})
+        _, art = run_chart(engine, "chartLine", pdf, {"x": "t", "y_columns": ["x"], "aggregate": "sum"})
+        assert art["series"] == ["x​"]
+        assert [p["x"] for p in art["rows"]] == ["1", "2"]  # axis labels survive
+        assert art["rows"][0]["x​"] == 10.0
+
+    def test_duplicate_y_columns_deduped(self, engine, orders):
+        _, art = run_chart(
+            engine, "chartLine", orders, {"x": "date", "y_columns": ["amount", "amount"], "aggregate": "sum"}
+        )
+        assert art["series"] == ["amount"]
+
+    def test_labels_are_length_capped(self, engine):
+        long = "x" * 5000
+        pdf = pd.DataFrame({"cat": [long, "b"], "val": [1.0, 2.0]})
+        _, art = run_chart(engine, "chartBar", pdf, {"x": "cat", "y": "val", "aggregate": "sum"})
+        assert all(len(d["label"]) <= 120 for d in art["data"])
+
+    def test_nat_and_na_share_the_blank_bucket(self, engine):
+        pdf = pd.DataFrame(
+            {
+                "when": pd.to_datetime(["2024-01-01", None]),
+                "val": [1.0, 2.0],
+            }
+        )
+        _, art = run_chart(engine, "chartBar", pdf, {"x": "when", "aggregate": "count"})
+        labels = {d["label"] for d in art["data"]}
+        assert "(blank)" in labels
+        assert "NaT" not in labels
+
+    def test_boxplot_inf_treated_as_missing(self, engine):
+        pdf = pd.DataFrame({"v": [1.0, 2.0, 3.0, float("inf")]})
+        _, art = run_chart(engine, "chartBoxPlot", pdf, {"column": "v"})
+        g = art["groups"][0]
+        assert g["count"] == 3  # inf excluded
+        assert all(g[k] is not None for k in ("min", "q1", "median", "q3", "max"))
+
+    def test_custom_title_stored_and_capped(self, engine, orders):
+        _, art = run_chart(
+            engine, "chartBar", orders, {"x": "region", "aggregate": "count", "title": "  Revenue by region  "}
+        )
+        assert art["title"] == "Revenue by region"
+        _, art = run_chart(engine, "chartBar", orders, {"x": "region", "aggregate": "count", "title": "t" * 500})
+        assert len(art["title"]) == 200
+        _, art = run_chart(engine, "chartBar", orders, {"x": "region", "aggregate": "count"})
+        assert "title" not in art
+
+    def test_title_must_be_a_string(self):
+        with pytest.raises(ValueError, match="title"):
+            get_transformation("chartBar").validate_config({"x": "region", "aggregate": "count", "title": 3})
+
+    def test_bool_rejected_where_int_expected(self):
+        with pytest.raises(ValueError, match="limit"):
+            get_transformation("chartBar").validate_config({"x": "r", "aggregate": "count", "limit": True})
+        with pytest.raises(ValueError, match="bins"):
+            get_transformation("chartHistogram").validate_config({"column": "v", "bins": True})
+
+    def test_preview_mode_skips_artifact_computation(self, engine, orders):
+        # Preview only needs the pass-through frame; the artifact would be
+        # discarded, so computing it there is pure waste (mirrors ML nodes).
+        from app.engine.preview_context import preview_mode
+
+        t = get_transformation("chartBar")
+        with preview_mode():
+            frames, meta = t.execute_with_metadata(
+                engine, {"in": _native(engine, orders)}, {"x": "region", "aggregate": "count"}
+            )
+        assert meta is None
+        assert engine.to_pandas(frames["out"]).shape == orders.shape
 
 
 # ---------------------------------------------------------------------------

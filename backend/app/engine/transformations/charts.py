@@ -10,7 +10,15 @@ the run processed rather than a preview sample.
 All computation converts to pandas internally (like the assertion nodes) so the
 logic stays engine-agnostic without widening EngineBackend. Artifacts must stay
 small enough to live inside ``node_results_json``: every shape below caps its
-category/point/series counts, and values are JSON-sanitized (NaN/inf -> None).
+category/point/series counts AND label lengths, and values are JSON-sanitized
+(NaN/inf -> None).
+
+Two data-driven collisions are defended against throughout:
+- The fold bucket is computed under a sentinel label so a *genuine* category
+  named "Other" can never merge with (or double-count against) folded rows.
+- Row dicts reserve the keys ``"label"`` (stacked bars) and ``"x"`` (line/area);
+  a series whose name collides gets a zero-width space appended, which is
+  invisible in legends but keeps the payload unambiguous.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.preview_context import in_preview
 from app.engine.transformations.base import BaseTransformation, EmitsNodeMetadata, NodeMetadata
 
 # Size caps. These bound the artifact JSON (stored in the run row) and keep the
@@ -39,10 +48,24 @@ MAX_HISTOGRAM_BINS = 100
 DEFAULT_HISTOGRAM_BINS = 20
 MAX_BOX_GROUPS = 12
 MAX_HEATMAP_COLUMNS = 12
+#: Longest label/name stored in an artifact. Labels come from data, so without a
+#: cap a long-text column would bloat node_results_json (loaded on every run GET).
+MAX_LABEL_LEN = 120
+#: Longest user-provided chart title stored in an artifact.
+MAX_TITLE_LEN = 200
+#: Rows sampled to decide which columns are numeric enough for the heatmap.
+HEATMAP_DETECT_SAMPLE = 10_000
 
 VALID_AGGREGATES = ("sum", "mean", "count", "min", "max", "median")
 BLANK_LABEL = "(blank)"
 OTHER_LABEL = "Other"
+#: Fold-bucket label when a *real* category named "Other" is also on the chart.
+OTHER_FALLBACK_LABEL = "Other (rest)"
+#: Internal sentinel for the fold bucket — never emitted, so it cannot collide
+#: with a genuine category value (``_label`` strips cell text, so a leading NUL
+#: can never survive into a real label). No trailing NUL: numpy's fixed-width
+#: unicode arrays silently strip those, which would corrupt the sentinel.
+_OTHER_SENTINEL = "\x00__ciaren_other__"
 
 
 def _finite(value: Any) -> float | None:
@@ -58,14 +81,39 @@ def _finite(value: Any) -> float | None:
     return round(f, 6)
 
 
+def _short(text: str) -> str:
+    return text if len(text) <= MAX_LABEL_LEN else f"{text[: MAX_LABEL_LEN - 1]}…"
+
+
+def _is_na_scalar(value: Any) -> bool:
+    """pd.isna for a single cell, tolerating list-like cells (never NA)."""
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple, set, dict, np.ndarray)):
+        return False
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _label(value: Any) -> str:
-    """Category label for a raw cell value; blank-ish values share one bucket."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
+    """Category label for a raw cell value; blank-ish values (None, NaN, NaT,
+    pd.NA, whitespace) share one bucket, and labels are length-capped."""
+    if _is_na_scalar(value):
         return BLANK_LABEL
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
-    text = str(value).strip()
-    return text if text else BLANK_LABEL
+    # NULs are dropped so no real label can ever equal the fold sentinel (and
+    # NUL inside JSON text breaks Postgres storage anyway).
+    text = str(value).replace("\x00", "").strip()
+    return _short(text) if text else BLANK_LABEL
+
+
+def _safe_key(name: str, reserved: frozenset[str]) -> str:
+    """A dict key for a data-derived series name that cannot shadow a reserved
+    artifact key. The zero-width space is invisible in the rendered legend."""
+    return name + "\u200b" if name in reserved else name
 
 
 def _numeric(pdf: pd.DataFrame, column: str) -> pd.Series:
@@ -78,21 +126,39 @@ def _require_columns(node_type: str, pdf: pd.DataFrame, columns: list[str]) -> N
         raise ValueError(f"{node_type}: column(s) not found: {missing}")
 
 
+def _check_int(node_type: str, name: str, value: Any, lo: int, hi: int) -> None:
+    """Reject a non-int (bools included — bool is an int subclass) or out-of-range
+    integer option."""
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
+        raise ValueError(f"{node_type} {name!r} must be an integer between {lo} and {hi}")
+
+
 def _category_values(
     pdf: pd.DataFrame,
     category: str,
     value: str | None,
     aggregate: str,
+    labels: pd.Series | None = None,
 ) -> pd.Series:
     """Per-category aggregated values. ``count`` counts rows (no value column
-    needed); other aggregates coerce the value column to numeric."""
-    labels = pdf[category].map(_label)
+    needed); other aggregates coerce the value column to numeric. ``labels``
+    lets callers pass pre-computed (possibly folded) labels."""
+    if labels is None:
+        labels = pdf[category].map(_label)
     if aggregate == "count" or not value:
         return labels.groupby(labels, sort=False).size()
     numbers = _numeric(pdf, value)
     grouped = numbers.groupby(labels, sort=False)
     aggregated: pd.Series = getattr(grouped, aggregate)()
     return aggregated
+
+
+def _fold_display_label(top: list[str]) -> str:
+    """What the fold bucket is called on the chart: "Other", unless a genuine
+    category with that exact name is also shown."""
+    return OTHER_FALLBACK_LABEL if OTHER_LABEL in top else OTHER_LABEL
 
 
 def _fold_other(
@@ -102,27 +168,27 @@ def _fold_other(
     aggregate: str,
     limit: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Top-``limit`` categories plus a correct ``Other`` bucket.
+    """Top-``limit`` categories plus a correct fold bucket.
 
-    "Other" is recomputed from the raw rows (relabel + re-aggregate), not summed
-    from the folded categories, so non-additive aggregates (mean, median) stay
-    correct.
+    The fold bucket is recomputed from the raw rows (relabel + re-aggregate)
+    under an uncollidable sentinel, so non-additive aggregates (mean, median)
+    stay correct and a genuine "Other" category is neither merged nor emitted
+    twice.
     """
-    totals = _category_values(pdf, category, value, aggregate).sort_values(ascending=False)
+    labels = pdf[category].map(_label)
+    totals = _category_values(pdf, category, value, aggregate, labels=labels).sort_values(ascending=False)
     total_categories = len(totals)
     if total_categories <= limit:
         return (
             [{"label": str(k), "value": _finite(v)} for k, v in totals.items()],
             total_categories,
         )
-    top = list(totals.index[:limit])
-    labels = pdf[category].map(_label)
-    folded_labels = labels.where(labels.isin(top), OTHER_LABEL)
-    refolded = pdf.assign(**{"__chart_cat__": folded_labels})
-    values = _category_values(refolded, "__chart_cat__", value, aggregate)
-    data = [{"label": str(k), "value": _finite(values[k])} for k in top if k in values]
-    if OTHER_LABEL in values.index:
-        data.append({"label": OTHER_LABEL, "value": _finite(values[OTHER_LABEL])})
+    top = [str(k) for k in totals.index[:limit]]
+    folded_labels = labels.where(labels.isin(top), _OTHER_SENTINEL)
+    values = _category_values(pdf, category, value, aggregate, labels=folded_labels)
+    data = [{"label": k, "value": _finite(values[k])} for k in top if k in values.index]
+    if _OTHER_SENTINEL in values.index:
+        data.append({"label": _fold_display_label(top), "value": _finite(values[_OTHER_SENTINEL])})
     return data, total_categories
 
 
@@ -153,13 +219,17 @@ def _x_sort_key(pdf: pd.DataFrame, x: str) -> pd.Series:
 class _BaseChart(BaseTransformation, EmitsNodeMetadata):
     """Shared skeleton: pass the frame through, attach the artifact as metadata.
 
+    In preview the artifact is skipped entirely — preview only needs the frames,
+    and computing (then discarding) aggregations over the full data on every
+    downstream preview would be pure waste (mirrors the ML nodes' short-circuit).
+
     Codegen: a chart renders in the Ciaren run view only, so both generators emit
     a plain pass-through — the exported script's data logic is unaffected.
     """
 
     emits_metadata: bool = True
 
-    #: Human label used in artifacts/comments; subclasses set it.
+    #: Artifact ``kind`` discriminator; subclasses set it.
     chart_kind: str
 
     def execute(
@@ -178,8 +248,13 @@ class _BaseChart(BaseTransformation, EmitsNodeMetadata):
         config: dict[str, Any],
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         df = inputs["in"]
+        if in_preview():
+            return {"out": df}, None
         artifact = self._compute(engine.to_pandas(df), config)
         artifact["kind"] = self.chart_kind
+        title = str(config.get("title") or "").strip()
+        if title:
+            artifact["title"] = title[:MAX_TITLE_LEN]
         return {"out": df}, NodeMetadata(chart=artifact)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
@@ -193,6 +268,11 @@ class _BaseChart(BaseTransformation, EmitsNodeMetadata):
         return self.to_python_code(input_vars, output_vars, config)
 
     # -- shared config checks -------------------------------------------------
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        title = config.get("title")
+        if title is not None and not isinstance(title, str):
+            raise ValueError(f"{self.type} 'title' must be a string")
 
     def _check_aggregate(self, config: dict[str, Any], default: str) -> None:
         aggregate = config.get("aggregate") or default
@@ -212,6 +292,7 @@ class ChartBarTransformation(_BaseChart):
     chart_kind = "bar"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("x"):
             raise ValueError("chartBar requires an 'x' (category) column")
         self._check_aggregate(config, "sum")
@@ -221,9 +302,7 @@ class ChartBarTransformation(_BaseChart):
         orientation = config.get("orientation") or "vertical"
         if orientation not in ("vertical", "horizontal"):
             raise ValueError("chartBar 'orientation' must be 'vertical' or 'horizontal'")
-        limit = config.get("limit")
-        if limit is not None and (not isinstance(limit, int) or not 1 <= limit <= MAX_BAR_CATEGORIES):
-            raise ValueError(f"chartBar 'limit' must be an integer between 1 and {MAX_BAR_CATEGORIES}")
+        _check_int("chartBar", "limit", config.get("limit"), 1, MAX_BAR_CATEGORIES)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         x = config["x"]
@@ -236,8 +315,8 @@ class ChartBarTransformation(_BaseChart):
         _require_columns(self.type, pdf, [x, y or "", group_by or ""])
 
         artifact: dict[str, Any] = {
-            "x": x,
-            "y": y,
+            "x": _short(x),
+            "y": _short(y) if y else None,
             "aggregate": aggregate,
             "orientation": config.get("orientation") or "vertical",
             "rows_seen": int(len(pdf)),
@@ -248,25 +327,39 @@ class ChartBarTransformation(_BaseChart):
             artifact.update({"data": data, "total_categories": total})
             return artifact
 
-        # Stacked: top categories by total, top series by total; the tail of the
-        # *series* is folded into "Other" from raw rows so any aggregate is exact.
-        cat_totals = _category_values(pdf, x, y, aggregate).sort_values(ascending=False)
+        # Stacked: top categories by total (tail folded into "Other" like the
+        # plain-bar path) and top series by total (tail folded likewise). Both
+        # folds re-aggregate raw rows under sentinels, so any aggregate is exact
+        # and genuine "Other" values can't merge or double-count.
+        cat_labels = pdf[x].map(_label)
+        cat_totals = _category_values(pdf, x, y, aggregate, labels=cat_labels).sort_values(ascending=False)
         total_categories = len(cat_totals)
-        cats = [str(k) for k in cat_totals.index[:limit]]
+        top_cats = [str(k) for k in cat_totals.index[:limit]]
+        if total_categories > limit:
+            cat_labels = cat_labels.where(cat_labels.isin(top_cats), _OTHER_SENTINEL)
+            cat_display = {_OTHER_SENTINEL: _fold_display_label(top_cats)}
+            cats = [*top_cats, _OTHER_SENTINEL]
+        else:
+            cat_display = {}
+            cats = top_cats
 
         series_labels = pdf[group_by].map(_label)
-        series_totals = _category_values(pdf, group_by, y, aggregate).sort_values(ascending=False)
+        series_totals = _category_values(pdf, group_by, y, aggregate, labels=series_labels).sort_values(ascending=False)
         total_series = len(series_totals)
-        top_series = [str(k) for k in series_totals.index[: MAX_STACK_SERIES - 1]]
         if total_series > MAX_STACK_SERIES:
-            series_labels = series_labels.where(series_labels.isin(top_series), OTHER_LABEL)
-            series = [*top_series, OTHER_LABEL]
+            top_series = [str(k) for k in series_totals.index[: MAX_STACK_SERIES - 1]]
+            series_labels = series_labels.where(series_labels.isin(top_series), _OTHER_SENTINEL)
+            series_display = {_OTHER_SENTINEL: _fold_display_label(top_series)}
+            series_ids = [*top_series, _OTHER_SENTINEL]
         else:
-            series = [str(k) for k in series_totals.index]
+            series_display = {}
+            series_ids = [str(k) for k in series_totals.index]
 
-        cat_labels = pdf[x].map(_label)
+        # "label" is the reserved category key on each row; a series *named*
+        # "label" is stored under an invisible-suffix key instead.
+        key_for = {s: _safe_key(series_display.get(s, s), frozenset({"label"})) for s in series_ids}
+
         work = pdf.assign(**{"__chart_cat__": cat_labels, "__chart_series__": series_labels})
-        work = work[work["__chart_cat__"].isin(cats)]
         if aggregate == "count" or not y:
             table = work.groupby(["__chart_cat__", "__chart_series__"], sort=False).size()
         else:
@@ -274,16 +367,16 @@ class ChartBarTransformation(_BaseChart):
 
         rows: list[dict[str, Any]] = []
         for cat in cats:
-            row: dict[str, Any] = {"label": cat}
-            for s in series:
+            row: dict[str, Any] = {"label": cat_display.get(cat, cat)}
+            for s in series_ids:
                 if (cat, s) in table.index:
-                    row[s] = _finite(table[(cat, s)])
+                    row[key_for[s]] = _finite(table[(cat, s)])
             rows.append(row)
         artifact.update(
             {
                 "rows": rows,
-                "series": series,
-                "group_by": group_by,
+                "series": [key_for[s] for s in series_ids],
+                "group_by": _short(group_by),
                 "total_categories": total_categories,
                 "total_series": total_series,
             }
@@ -303,18 +396,20 @@ class ChartLineTransformation(_BaseChart):
     chart_kind = "line"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("x"):
             raise ValueError(f"{self.type} requires an 'x' column")
         y_columns = config.get("y_columns")
         if not isinstance(y_columns, list) or not [c for c in y_columns if c]:
             raise ValueError(f"{self.type} requires at least one column in 'y_columns'")
-        if len(y_columns) > MAX_LINE_SERIES:
+        if len(dict.fromkeys(y_columns)) > MAX_LINE_SERIES:
             raise ValueError(f"{self.type} supports at most {MAX_LINE_SERIES} series")
         self._check_aggregate(config, "mean")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         x = config["x"]
-        y_columns = [c for c in config.get("y_columns", []) if c]
+        # De-duplicated, order-preserving: duplicate y picks would double-draw.
+        y_columns = [c for c in dict.fromkeys(config.get("y_columns", [])) if c]
         aggregate = config.get("aggregate") or "mean"
         _require_columns(self.type, pdf, [x, *y_columns])
 
@@ -322,27 +417,34 @@ class ChartLineTransformation(_BaseChart):
         ordered = pdf.assign(**{"__chart_sort__": sort_key}).sort_values("__chart_sort__", kind="stable")
         labels = ordered[x].map(_label)
 
-        # Aggregate each y per x label, preserving x order of first appearance.
-        seen: dict[str, dict[str, Any]] = {}
-        for label in labels:
-            if label not in seen:
-                seen[label] = {"x": label}
+        # Cap the distinct x values BEFORE aggregating: a high-cardinality x
+        # (ids, raw timestamps) would otherwise build millions of row dicts just
+        # to throw most of them away.
+        unique_labels = [str(v) for v in labels.drop_duplicates()]
+        total_points = len(unique_labels)
+        kept_labels = _stride_sample(unique_labels, MAX_LINE_POINTS)
+        if total_points > MAX_LINE_POINTS:
+            keep = labels.isin(set(kept_labels))
+            ordered = ordered[keep]
+            labels = labels[keep]
+
+        # "x" is the reserved axis key on each row; a y column *named* "x" is
+        # stored under an invisible-suffix key instead.
+        key_for = {y: _safe_key(_short(y), frozenset({"x"})) for y in y_columns}
+        rows: dict[str, dict[str, Any]] = {label: {"x": label} for label in kept_labels}
         for y in y_columns:
             if aggregate == "count":
                 agg = ordered.groupby(labels, sort=False).size()
             else:
                 agg = getattr(_numeric(ordered, y).groupby(labels, sort=False), aggregate)()
             for label, value in agg.items():
-                seen[str(label)][y] = _finite(value)
+                rows[str(label)][key_for[y]] = _finite(value)
 
-        points = list(seen.values())
-        total_points = len(points)
-        points = _stride_sample(points, MAX_LINE_POINTS)
         return {
-            "x": x,
-            "series": y_columns,
+            "x": _short(x),
+            "series": [key_for[y] for y in y_columns],
             "aggregate": aggregate,
-            "rows": points,
+            "rows": list(rows.values()),
             "total_points": total_points,
             "rows_seen": int(len(pdf)),
         }
@@ -365,6 +467,7 @@ class ChartScatterTransformation(_BaseChart):
     chart_kind = "scatter"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("x") or not config.get("y"):
             raise ValueError("chartScatter requires numeric 'x' and 'y' columns")
         if config.get("x") == config.get("y"):
@@ -379,8 +482,8 @@ class ChartScatterTransformation(_BaseChart):
         pairs = [[_finite(a), _finite(b)] for a, b in zip(xs[mask], ys[mask], strict=True)]
         total_points = len(pairs)
         return {
-            "x": x,
-            "y": y,
+            "x": _short(x),
+            "y": _short(y),
             "points": _stride_sample(pairs, MAX_SCATTER_POINTS),
             "total_points": total_points,
             "rows_seen": int(len(pdf)),
@@ -397,15 +500,14 @@ class ChartPieTransformation(_BaseChart):
     chart_kind = "pie"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("category"):
             raise ValueError("chartPie requires a 'category' column")
         self._check_aggregate(config, "count")
         aggregate = config.get("aggregate") or "count"
         if aggregate != "count" and not config.get("value"):
             raise ValueError("chartPie requires a 'value' column unless aggregate is 'count'")
-        limit = config.get("limit")
-        if limit is not None and (not isinstance(limit, int) or not 2 <= limit <= MAX_PIE_SLICES):
-            raise ValueError(f"chartPie 'limit' must be an integer between 2 and {MAX_PIE_SLICES}")
+        _check_int("chartPie", "limit", config.get("limit"), 2, MAX_PIE_SLICES)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         category = config["category"]
@@ -415,8 +517,8 @@ class ChartPieTransformation(_BaseChart):
         _require_columns(self.type, pdf, [category, value or ""])
         data, total = _fold_other(pdf, category, value, aggregate, limit)
         return {
-            "category": category,
-            "value": value,
+            "category": _short(category),
+            "value": _short(value) if value else None,
             "aggregate": aggregate,
             "data": data,
             "total_categories": total,
@@ -434,19 +536,18 @@ class ChartHistogramTransformation(_BaseChart):
     chart_kind = "histogram"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("column"):
             raise ValueError("chartHistogram requires a 'column'")
-        bins = config.get("bins")
-        if bins is not None and (not isinstance(bins, int) or not 1 <= bins <= MAX_HISTOGRAM_BINS):
-            raise ValueError(f"chartHistogram 'bins' must be an integer between 1 and {MAX_HISTOGRAM_BINS}")
+        _check_int("chartHistogram", "bins", config.get("bins"), 1, MAX_HISTOGRAM_BINS)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         column = config["column"]
         bins = config.get("bins") or DEFAULT_HISTOGRAM_BINS
         _require_columns(self.type, pdf, [column])
         values = _numeric(pdf, column).dropna()
-        values = values[~values.isin([float("inf"), float("-inf")])]
-        artifact: dict[str, Any] = {"column": column, "bins": bins, "rows_seen": int(len(pdf))}
+        values = values[np.isfinite(values)]
+        artifact: dict[str, Any] = {"column": _short(column), "bins": bins, "rows_seen": int(len(pdf))}
         if values.empty:
             artifact["data"] = []
             return artifact
@@ -485,6 +586,7 @@ class ChartBoxPlotTransformation(_BaseChart):
     chart_kind = "boxplot"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         if not config.get("column"):
             raise ValueError("chartBoxPlot requires a 'column' (numeric values)")
 
@@ -496,10 +598,14 @@ class ChartBoxPlotTransformation(_BaseChart):
         if group_by:
             groups = pdf[group_by].map(_label)
         else:
-            groups = pd.Series([column] * len(pdf), index=pdf.index)
+            groups = pd.Series([_short(column)] * len(pdf), index=pdf.index)
+        # ±inf would make every quantile/whisker non-finite (-> None) and break
+        # the renderer's scale; treat it like missing data, as the histogram does.
         values = _numeric(pdf, column)
+        values = values.where(np.isfinite(values))
 
         sizes = values.groupby(groups, sort=False).count().sort_values(ascending=False)
+        sizes = sizes[sizes > 0]
         total_groups = len(sizes)
         stats: list[dict[str, Any]] = []
         for name in sizes.index[:MAX_BOX_GROUPS]:
@@ -527,8 +633,8 @@ class ChartBoxPlotTransformation(_BaseChart):
                 }
             )
         return {
-            "column": column,
-            "group_by": group_by,
+            "column": _short(column),
+            "group_by": _short(group_by) if group_by else None,
             "groups": stats,
             "total_groups": total_groups,
             "rows_seen": int(len(pdf)),
@@ -545,6 +651,7 @@ class ChartHeatmapTransformation(_BaseChart):
     chart_kind = "heatmap"
 
     def validate_config(self, config: dict[str, Any]) -> None:
+        super().validate_config(config)
         columns = config.get("columns")
         if columns is not None and not isinstance(columns, list):
             raise ValueError("chartHeatmap 'columns' must be a list of column names")
@@ -552,26 +659,38 @@ class ChartHeatmapTransformation(_BaseChart):
             raise ValueError(f"chartHeatmap supports at most {MAX_HEATMAP_COLUMNS} columns")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
-        chosen = [c for c in (config.get("columns") or []) if c]
+        chosen = [c for c in dict.fromkeys(config.get("columns") or []) if c]
         if chosen:
             _require_columns(self.type, pdf, chosen)
-            numeric = pdf[chosen].apply(pd.to_numeric, errors="coerce")
+            candidates = pdf[chosen]
         else:
             # Auto-selection considers real numbers and numeric-looking text, but
             # never datetimes — correlating nanosecond timestamps is meaningless.
             candidates = pdf.select_dtypes(exclude=["datetime", "datetimetz", "timedelta"])
-            numeric = candidates.apply(pd.to_numeric, errors="coerce")
-        # Keep columns that are usable as numbers, in frame order.
-        usable = [c for c in numeric.columns if numeric[c].notna().mean() >= 0.5 and numeric[c].nunique() > 1]
+
+        # Decide usability on a bounded sample so a wide text frame doesn't pay a
+        # full-column string-parse per column; only the kept columns are coerced
+        # in full below.
+        sample = candidates.head(HEATMAP_DETECT_SAMPLE).apply(pd.to_numeric, errors="coerce")
+        usable = [c for c in sample.columns if sample[c].notna().mean() >= 0.5 and sample[c].nunique() > 1]
+        dropped = [str(c) for c in chosen if c not in usable]
         total_columns = len(usable)
         usable = usable[:MAX_HEATMAP_COLUMNS]
-        if len(usable) < 2:
-            raise ValueError("chartHeatmap needs at least two numeric columns to correlate")
-        corr = numeric[usable].corr()
-        matrix = [[_finite(corr.iloc[i, j]) for j in range(len(usable))] for i in range(len(usable))]
-        return {
-            "columns": [str(c) for c in usable],
-            "matrix": matrix,
+
+        artifact: dict[str, Any] = {
+            "columns": [_short(str(c)) for c in usable],
+            "matrix": [],
             "total_columns": total_columns,
+            "dropped_columns": [_short(c) for c in dropped],
             "rows_seen": int(len(pdf)),
         }
+        # Too few usable columns is a data-shape outcome, not a config mistake:
+        # emit an empty artifact (the run view explains it) instead of failing a
+        # whole run over a side-car visualization.
+        if len(usable) < 2:
+            artifact["columns"] = []
+            return artifact
+        numeric = pdf[usable].apply(pd.to_numeric, errors="coerce")
+        corr = numeric.corr()
+        artifact["matrix"] = [[_finite(corr.iloc[i, j]) for j in range(len(usable))] for i in range(len(usable))]
+        return artifact

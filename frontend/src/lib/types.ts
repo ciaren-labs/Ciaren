@@ -154,6 +154,8 @@ export interface BoxGroupStats {
 export interface ChartArtifact {
   kind: "bar" | "line" | "area" | "scatter" | "pie" | "histogram" | "boxplot" | "heatmap";
   rows_seen?: number;
+  /** Optional user-set chart title (falls back to the node label). */
+  title?: string;
   // bar / pie / histogram
   data?: ChartCategoryDatum[];
   x?: string;
@@ -180,6 +182,8 @@ export interface ChartArtifact {
   columns?: string[];
   matrix?: Array<Array<number | null>>;
   total_columns?: number;
+  /** Explicitly chosen heatmap columns that weren't numeric/varying enough. */
+  dropped_columns?: string[];
 }
 
 /** Per-node ML results returned by GET /runs/{id}/ml/metrics. */
