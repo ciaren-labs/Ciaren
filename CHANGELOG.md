@@ -8,6 +8,10 @@ release, breaking changes may still happen between alpha versions.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] - 2026-07-07
+
+Initial public alpha release.
+
 ### Added
 
 - **Chart nodes** — a new **Charts** palette category with eight pass-through
@@ -179,7 +183,3 @@ release, breaking changes may still happen between alpha versions.
 - Ciaren is alpha software; APIs, data models, and generated code may change
   before a stable release.
 - The project is not a distributed or streaming data engine.
-
-## [0.1.0-alpha] - Pending
-
-Initial public alpha release candidate.
