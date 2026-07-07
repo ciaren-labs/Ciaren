@@ -42,7 +42,7 @@ import os
 from sqlalchemy import create_engine
 
 _engine_1 = create_engine(f"postgresql+psycopg://reader:{os.environ['PG_PASSWORD']}@host:5432/shop")
-df_1 = pd.read_sql_table("orders", _engine_1)
+df_orders = pd.read_sql_table('orders', _engine_1)
 ```
 
 Each run also snapshots the input to parquet for reproducibility. MongoDB sources

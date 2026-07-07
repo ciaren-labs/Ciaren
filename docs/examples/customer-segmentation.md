@@ -83,24 +83,29 @@ Upload both on the **Datasets** page (📥 download
 ```python
 import pandas as pd
 
-df_1 = pd.read_csv('orders.csv')
-df_2 = pd.read_csv('customers.csv')
-df_1 = (
-    df_1.groupby('customer_id')
+df_orders = pd.read_csv('orders.csv')
+df_customers = pd.read_csv('customers.csv')
+
+df_orders = (
+    df_orders.groupby('customer_id')
     .agg({'amount': 'sum', 'order_id': 'count'})
     .reset_index()
     .rename(columns={'amount': 'total_spent', 'order_id': 'num_orders'})
 )
-df_3 = df_1.merge(df_2, on='customer_id', how='left')
-df_3 = (
-    df_3.assign(tier=pd.qcut(df_3['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string'))
+
+df_1 = df_orders.merge(df_customers, on='customer_id', how='left')
+
+df_1 = (
+    df_1.assign(tier=pd.qcut(df_1['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string'))
     .sort_values('total_spent', ascending=False)
 )
-df_3.to_csv('segments.csv', index=False)
+
+df_1.to_csv('segments.csv', index=False)
 ```
 
-Straight-line steps reuse one variable; the join's two inputs keep their own
-(`df_1`, `df_2`) because both must still exist when `pd.merge` runs.
+Each input frame is named after its dataset; straight-line steps reuse one
+variable, while the join's two inputs keep their own (`df_orders`,
+`df_customers`) because both must still exist when `pd.merge` runs.
 
 ## Result
 

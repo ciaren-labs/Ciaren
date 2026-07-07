@@ -56,36 +56,52 @@ your downstream code prefers.
 ```python [pandas]
 import pandas as pd
 
-df_1 = pd.read_csv('sales.csv')
-df_1 = (
-    df_1.dropna(subset='amount')
+df_sales = pd.read_csv('sales.csv')
+
+df_sales = (
+    df_sales.dropna(subset='amount')
     .groupby('region')
     .agg({'amount': 'sum'})
     .reset_index()
 )
-df_1.to_csv('summary.csv', index=False)
+
+df_sales.to_csv('summary.csv', index=False)
 ```
 
 ```python [polars (eager)]
 import polars as pl
 
-df_1 = pl.read_csv('sales.csv')
-df_1 = df_1.drop_nulls(subset='amount').group_by('region').agg(pl.col('amount').sum())
-df_1.write_csv('summary.csv')
+df_sales = pl.read_csv('sales.csv')
+
+df_sales = (
+    df_sales.drop_nulls(subset='amount')
+    .group_by('region')
+    .agg(pl.col('amount').sum())
+)
+
+df_sales.write_csv('summary.csv')
 ```
 
 ```python [polars (lazy)]
 import polars as pl
 
-df_1 = pl.scan_csv('sales.csv')          # LazyFrame — reads only what's needed
-df_1 = df_1.drop_nulls(subset='amount').group_by('region').agg(pl.col('amount').sum())
-df_1.collect().write_csv('summary.csv')  # single optimised query runs here
+df_sales = pl.scan_csv('sales.csv')  # LazyFrame — reads only what's needed
+
+df_sales = (
+    df_sales.drop_nulls(subset='amount')
+    .group_by('region')
+    .agg(pl.col('amount').sum())
+)
+
+df_sales.collect().write_csv('summary.csv')  # single optimised query runs here
 ```
 
 :::
 
-Steps on a straight chain fuse into one fluent method chain on a single
-variable, the way a person would write it.
+Each input frame is named after its dataset file (`sales.csv` → `df_sales`) or
+SQL table, so the script talks about your data, not `df_1`. Steps on a straight
+chain fuse into one fluent method chain on a single variable, the way a person
+would write it, and blank lines separate the reads, each chain, and the writes.
 A step whose result feeds **several** later nodes (a fan-out, or a join input)
 keeps its own `df_N` variable, since it must stay alive for every consumer.
 

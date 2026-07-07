@@ -41,13 +41,12 @@ within that bucket.
 
 ## Generated Python code
 
-```python
-import boto3, io, pandas as pd, os
+The exported script is portable, so it never embeds cloud credentials. Instead
+it reads the object by its file name and tells you to download it first:
 
-s3 = boto3.client("s3", aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-                  aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"])
-obj = s3.get_object(Bucket="my-bucket", Key="data/sales.csv")
-df_1 = pd.read_csv(io.BytesIO(obj["Body"].read()))
+```python
+# storageInput: download 'data/sales.csv' from your storage connection first
+df_sales = pd.read_csv('sales.csv')
 ```
 
 ## Tips & common mistakes

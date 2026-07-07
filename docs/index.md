@@ -171,9 +171,15 @@ to code like this:
 ```python
 import polars as pl
 
-df_1 = pl.read_csv('sales.csv')
-df_1 = df_1.drop_nulls(subset='amount').group_by('region').agg(pl.col('amount').sum())
-df_1.write_csv('summary.csv')
+df_sales = pl.read_csv('sales.csv')
+
+df_sales = (
+    df_sales.drop_nulls(subset='amount')
+    .group_by('region')
+    .agg(pl.col('amount').sum())
+)
+
+df_sales.write_csv('summary.csv')
 ```
 
 For larger files, export the lazy polars variant (`scan_*` → `collect()`) to use

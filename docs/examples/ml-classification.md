@@ -112,12 +112,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-df_2, df_3 = train_test_split(df_1, test_size=0.25, random_state=42, stratify=df_1['churn'])
+df_customers = pd.read_csv('customers.csv')
+df_1, df_2 = train_test_split(df_customers, test_size=0.25, random_state=42, stratify=df_customers['churn'])
+df_1 = df_1.reset_index(drop=True)
 df_2 = df_2.reset_index(drop=True)
-df_3 = df_3.reset_index(drop=True)
 
-_features = [c for c in df_2.columns if c != 'churn']
-_X = df_2[_features]
+_features = [c for c in df_1.columns if c != 'churn']
+_X = df_1[_features]
 _numeric = [c for c in _features if pd.api.types.is_numeric_dtype(_X[c])]
 _categorical = [c for c in _features if c not in _numeric]
 _transformers = []
@@ -126,16 +127,17 @@ if _numeric:
 if _categorical:
     _transformers.append(('cat', Pipeline([('impute', SimpleImputer(strategy='most_frequent')), ('encode', OneHotEncoder(handle_unknown='ignore'))]), _categorical))
 _preprocessor = ColumnTransformer(_transformers, remainder='drop')
-_y = df_2['churn']
-df_4 = Pipeline([('preprocessor', _preprocessor), ('model', RandomForestClassifier(random_state=42))])
-df_4.fit(_X, _y)
+_y = df_1['churn']
+df_3 = Pipeline([('preprocessor', _preprocessor), ('model', RandomForestClassifier(random_state=42))])
+df_3.fit(_X, _y)
 ```
 
-Variables follow Ciaren's generated naming (`df_1`, `df_2`, … for each node's
-output; `_`-prefixed locals for intermediates) rather than hand-picked names —
-export the flow yourself to see it verbatim. The Predict and Evaluate nodes
-continue the script — scoring `df_3` and computing the metric table — so the
-whole flow runs anywhere scikit-learn is installed, with no Ciaren dependency.
+Variables follow Ciaren's generated naming (the input frame is named after your
+dataset, node outputs get `df_1`, `df_2`, …, and `_`-prefixed locals hold
+intermediates) rather than hand-picked names — export the flow yourself to see
+it verbatim. The Predict and Evaluate nodes continue the script — scoring
+`df_2` (the test split) and computing the metric table — so the whole flow runs
+anywhere scikit-learn is installed, with no Ciaren dependency.
 
 ## Variations
 
