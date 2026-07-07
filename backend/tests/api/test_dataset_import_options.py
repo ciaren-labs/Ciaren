@@ -169,7 +169,7 @@ async def test_tsv_with_encoding_and_decimal_exports_valid_polars(client: AsyncC
             # Keep the exec focused on the read: drop the output write line.
             snippet = "\n".join(ln for ln in snippet.splitlines() if ".write_csv(" not in ln)
             exec(snippet, ns)  # noqa: S102 - executing generated code on the original file
-            frame = ns["df_1"]
+            frame = ns["df_euro"]  # named after the euro.tsv dataset
             frame = frame.collect() if hasattr(frame, "collect") else frame
             assert frame["precio"].to_list() == [1.5, 2.75]
 

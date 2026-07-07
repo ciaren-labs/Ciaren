@@ -82,23 +82,24 @@ def _linear_graph() -> dict:
 
 def test_pandas_linear_chain_uses_single_variable() -> None:
     code = CodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"})
-    assert "df_1 = pd.read_csv('in.csv')" in code
+    # The input variable takes its name from the dataset file (in.csv -> df_in).
+    assert "df_in = pd.read_csv('in.csv')" in code
     # The whole chain fuses into one fluent statement — short enough that it
     # stays on a single line: the filter's callable `.loc[lambda _d: …]` form
     # reads the running frame, so it continues the chain instead of breaking it
     # (see test_codegen_fluent for the rules).
-    assert "df_1 = df_1.dropna().loc[lambda _d: _d['age'] > 21].sort_values('age')" in code
-    assert "df_1.to_csv('out.csv', index=False)" in code
-    assert "df_2" not in code
+    assert "df_in = df_in.dropna().loc[lambda _d: _d['age'] > 21].sort_values('age')" in code
+    assert "df_in.to_csv('out.csv', index=False)" in code
+    assert "df_1" not in code
 
 
 def test_polars_linear_chain_uses_single_variable() -> None:
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_linear_graph(), {"ds1": "in.csv"}, lazy=lazy)
-        assert "df_2" not in code
-        # The whole chain fuses into one fluent statement on df_1 (short
+        assert "df_1" not in code
+        # The whole chain fuses into one fluent statement on df_in (short
         # enough for a single line).
-        assert "df_1 = df_1.drop_nulls().filter(pl.col('age') > 21).sort('age', nulls_last=True)" in code
+        assert "df_in = df_in.drop_nulls().filter(pl.col('age') > 21).sort('age', nulls_last=True)" in code
 
 
 def _fanout_graph() -> dict:
@@ -124,11 +125,11 @@ def _fanout_graph() -> dict:
 
 def test_pandas_fanout_keeps_live_branches_distinct() -> None:
     code = CodeGenerator().generate(_fanout_graph(), {"ds1": "in.csv"})
-    # First branch must not overwrite df_1 (the second branch still reads it);
+    # First branch must not overwrite df_in (the second branch still reads it);
     # the second branch may. Concat is multi-input, so it gets a fresh var.
-    assert "df_2 = df_1.loc[lambda _d: _d['age'] > 25]" in code
-    assert "df_1 = df_1.loc[lambda _d: _d['age'] <= 25]" in code
-    assert "df_3 = pd.concat([df_2, df_1], ignore_index=True)" in code
+    assert "df_1 = df_in.loc[lambda _d: _d['age'] > 25]" in code
+    assert "df_in = df_in.loc[lambda _d: _d['age'] <= 25]" in code
+    assert "df_2 = pd.concat([df_1, df_in], ignore_index=True)" in code
 
 
 # --- runtime: scripts still compute the right thing --------------------------
@@ -196,8 +197,8 @@ def test_reused_variable_is_never_deleted_at_reuse_point(tmp_path: Path) -> None
 def test_fanout_free_intermediates_still_correct(tmp_path: Path) -> None:
     paths = _write_people(tmp_path)
     code = CodeGenerator().generate(_fanout_graph(), paths, free_intermediates=True)
-    # df_2 (first branch) and df_1 (reused by second branch) die at the concat.
-    assert "del df_2" in code
+    # df_1 (first branch) and df_in (reused by second branch) die at the concat.
+    assert "del df_1" in code
     out = _run(code, tmp_path)
     assert len(out) == 3
 

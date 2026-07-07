@@ -137,8 +137,8 @@ async def test_export_free_intermediates_adds_del(client: AsyncClient) -> None:
     assert r.status_code == 200, r.text
     body = r.json()
     # del appears in the materializing scripts but never in the lazy one.
-    assert "del df_1" in body["code"]
-    assert "del df_1" in body["polars"]
+    assert "del df_people" in body["code"]
+    assert "del df_people" in body["polars"]
     assert "del " not in body["polars_lazy"]
     compile(body["code"], "<exported-del>", "exec")
 
@@ -147,10 +147,11 @@ async def test_export_linear_chain_reuses_variable(client: AsyncClient) -> None:
     ds = await _upload(client)
     flow = await _create_flow(client, _full_graph(ds["id"]))
     body = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()
-    # in -> dropNulls -> out is a straight line: one df_1, reassigned in place.
-    assert "df_1 = df_1.dropna()" in body["code"]
-    assert "df_1 = df_1.drop_nulls()" in body["polars"]
-    assert "df_2" not in body["code"] and "df_2" not in body["polars"]
+    # in -> dropNulls -> out is a straight line: one variable named after the
+    # uploaded dataset (people.csv), reassigned in place.
+    assert "df_people = df_people.dropna()" in body["code"]
+    assert "df_people = df_people.drop_nulls()" in body["polars"]
+    assert "df_1" not in body["code"] and "df_1" not in body["polars"]
 
 
 async def test_export_python_missing_flow(client: AsyncClient) -> None:

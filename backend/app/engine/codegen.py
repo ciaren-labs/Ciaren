@@ -2,10 +2,15 @@
 """Generate readable **pandas** code for a flow graph.
 
 The counterpart to :class:`app.engine.polars_codegen.PolarsCodeGenerator`: it walks
-the graph in topological order, assigns each node output a ``df_N`` variable,
-handles input-read / output-write / SQL nodes inline, and delegates every
+the graph in topological order, assigns each node output a variable, handles
+input-read / output-write / SQL / storage nodes inline, and delegates every
 transformation node to its own ``to_python_code`` method — so a node's pandas
 mapping lives next to its ``execute`` and ``to_polars_code``.
+
+Input frames are named after their dataset file or SQL table
+(``df_sales = pd.read_csv('sales.csv')`` — see
+:func:`app.engine.codegen_common.frame_var_name`); everything else falls back
+to the numbered ``df_N`` sequence.
 
 Multi-output nodes (e.g. ``trainTestSplit``, ``mlTrain``) get one variable per
 declared handle; downstream edges pick the right one via ``sourceHandle``. Nodes
@@ -18,7 +23,9 @@ On linear chains a node writes its result back into its input's variable
 A final pass (:func:`app.engine.codegen_common.fuse_method_chains`) then merges
 each such run of statements into one fluent chained expression, so a
 straight-line flow exports the way a person would write it:
-``df_1 = df_1.dropna().head(5)``, or parenthesized one-call-per-line when long.
+``df_1 = df_1.dropna().head(5)``, or parenthesized one-call-per-line when long —
+and :func:`app.engine.codegen_common.insert_paragraph_breaks` separates those
+chains with blank lines so the script reads in paragraphs.
 
 The optional ``free_intermediates`` mode emits a ``del`` once each dataframe's last
 consumer has run, lowering peak memory on long pipelines (see
@@ -33,11 +40,14 @@ from app.engine.codegen_common import (
     assert_params_do_not_shadow_imports,
     collect_input_vars,
     edge_source_var,
+    frame_var_name,
     fuse_method_chains,
     incoming_by_target,
+    insert_paragraph_breaks,
     last_consumer_index,
     ordered_imports,
     pandas_dialect_kwargs,
+    parameter_names,
     placeholder_input_path,
     reusable_output_var,
     sql_engine_var,
@@ -49,6 +59,7 @@ from app.engine.node_kinds import (
     FILE_OUTPUT_TYPE,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
+    STORAGE_INPUT_TYPE,
     input_source_type,
     output_handles,
     output_source_type,
@@ -73,10 +84,12 @@ _READ_FUNCS_BY_FORMAT = {
     "json": "pd.read_json",
     "jsonl": "pd.read_json",
 }
+# Legacy single-format outputs. (method, kwargs, default filename) — the
+# default must match the node's format, not blanket "output.csv".
 _WRITE_FUNCS = {
-    "csvOutput": ("to_csv", "index=False"),
-    "excelOutput": ("to_excel", "index=False"),
-    "parquetOutput": ("to_parquet", "index=False"),
+    "csvOutput": ("to_csv", "index=False", "output.csv"),
+    "excelOutput": ("to_excel", "index=False", "output.xlsx"),
+    "parquetOutput": ("to_parquet", "index=False", "output.parquet"),
 }
 # fileOutput writes by its configured format. (method, kwargs, extension)
 _FILE_OUTPUT_WRITE = {
@@ -141,11 +154,19 @@ class CodeGenerator:
         engine_vars: dict[str, str] = {}  # connection_id -> engine var
         extra_imports: list[str] = []
         seen_imports = set(base_header)
+        # Names already claimed: flow parameters must not be clobbered by a
+        # semantic input variable (a parameter named df_sales is legal).
+        taken_names = parameter_names(parameter_lines)
 
         def next_var() -> str:
             nonlocal var_counter
             var_counter += 1
             return f"df_{var_counter}"
+
+        def input_var(name_hint: str | None) -> str:
+            """A semantic name for an input frame (sales.csv -> df_sales) when
+            the hint yields one, else the next numbered df_N."""
+            return frame_var_name(name_hint, taken_names) or next_var()
 
         def add_imports(imports: list[str]) -> None:
             for imp in imports:
@@ -162,13 +183,18 @@ class CodeGenerator:
             config: dict[str, Any] = node.get("data", {}).get("config", {})
 
             if node_type == SQL_INPUT_TYPE:
-                var = next_var()
-                node_outputs[node_id] = {"out": var}
                 eng = engine_for(config.get("connection_id", ""))
                 if config.get("mode") == "query":
+                    var = next_var()
                     body.append(f"{var} = pd.read_sql_query({config.get('query', '')!r}, {eng})")
                 else:
-                    body.append(f"{var} = pd.read_sql_table({config.get('table', '')!r}, {eng})")
+                    table = config.get("table")
+                    # Name after the table, minus any schema prefix (public.orders
+                    # -> df_orders); a parameterized table (CodeRef) falls back.
+                    hint = table.rsplit(".", 1)[-1] if isinstance(table, str) else None
+                    var = input_var(hint)
+                    body.append(f"{var} = pd.read_sql_table({table or ''!r}, {eng})")
+                node_outputs[node_id] = {"out": var}
 
             elif node_type == SQL_OUTPUT_TYPE:
                 src_var = edge_source_var(node_outputs, incoming[node_id][0])
@@ -179,15 +205,31 @@ class CodeGenerator:
                 )
 
             elif node_type in _INPUT_TYPES:
-                var = next_var()
+                if node_type == STORAGE_INPUT_TYPE:
+                    # Cloud storage isn't reproduced in the portable script: read
+                    # the object by its file name, tell the user to fetch it first.
+                    source_type = config.get("format") or "csv"
+                    remote = config.get("path") or ""
+                    if isinstance(remote, str):
+                        name_hint = remote.split("/")[-1].split("\\")[-1] or None
+                        path = name_hint or placeholder_input_path(source_type)
+                    else:  # parameterized path (CodeRef): !r renders the variable
+                        name_hint, path = None, remote
+                    func = _READ_FUNCS_BY_FORMAT.get(source_type)
+                    body.append(f"# {node_type}: download {remote or path!r} from your storage connection first")
+                else:
+                    source_type = input_source_type(node_type, config)
+                    # Semantic names only for resolved datasets — a placeholder's
+                    # "input.csv" stem says nothing about the data.
+                    name_hint = dataset_paths.get(config.get("dataset_id", ""))
+                    path = name_hint or placeholder_input_path(source_type)
+                    func = (
+                        _READ_FUNCS_BY_FORMAT.get(source_type)
+                        if node_type == FILE_INPUT_TYPE
+                        else _READ_FUNCS.get(node_type)
+                    )
+                var = input_var(name_hint)
                 node_outputs[node_id] = {"out": var}
-                source_type = input_source_type(node_type, config)
-                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
-                func = (
-                    _READ_FUNCS_BY_FORMAT.get(source_type)
-                    if node_type == FILE_INPUT_TYPE
-                    else _READ_FUNCS.get(node_type)
-                )
                 # repr() the path so Windows backslashes, spaces, or quotes in a
                 # dataset name / output path can't produce invalid Python.
                 if func is not None:
@@ -215,8 +257,8 @@ class CodeGenerator:
 
             elif node_type in _WRITE_FUNCS:
                 src_var = edge_source_var(node_outputs, incoming[node_id][0])
-                method, extra = _WRITE_FUNCS[node_type]
-                out_path = config.get("path", "output.csv")
+                method, extra, default_path = _WRITE_FUNCS[node_type]
+                out_path = config.get("path") or default_path
                 body.append(f"{src_var}.{method}({out_path!r}, {extra})")
 
             elif node_type in _OUTPUT_TYPES:
@@ -246,4 +288,5 @@ class CodeGenerator:
         header = base_header + ordered_imports(extra_imports)
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
-        return "\n".join([*header, "", *prelude, *fuse_method_chains(body)]) + "\n"
+        script_body = insert_paragraph_breaks(fuse_method_chains(body))
+        return "\n".join([*header, "", *prelude, *script_body]) + "\n"

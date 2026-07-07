@@ -38,7 +38,8 @@ def strip_self_assign(code: str) -> str:
 
 # Only generated dataframe variables participate in chain fusion; everything
 # else (module aliases like pd/pl, _eager_N temps, _engine_N) is left alone.
-_DF_VAR = re.compile(r"df_\d+$")
+# Covers both the numbered fallback (df_1) and semantic names (df_sales).
+_DF_VAR = re.compile(r"df_\w+$")
 
 # A fused chain longer than this is rendered in parenthesized fluent style,
 # one method call per line; at or below it, as a plain single-line statement.
@@ -222,6 +223,73 @@ def fuse_method_chains(lines: list[str]) -> list[str]:
     return out
 
 
+_FRAME_STEM = re.compile(r"[^0-9a-zA-Z]+")
+
+
+def frame_var_name(filename: Any, taken: set[str]) -> str | None:
+    """A readable ``df_<stem>`` variable for an input read, or None to fall back
+    to the numbered ``df_N`` sequence.
+
+    ``filename`` is the dataset's file name (or a SQL table name): its stem is
+    lowercased and squeezed to identifier characters, so ``Sales 2024.csv``
+    reads back as ``df_sales_2024``. Rejected stems fall back to ``df_N``:
+    empty, overlong (nobody wants a 40-character variable), and all-digit ones
+    (``df_2024`` would collide with the numbered namespace). Non-string hints
+    (a parameterized config holds a ``CodeRef``) fall back too. ``taken`` holds
+    every name already claimed — earlier inputs, flow parameters — and the
+    chosen name is added to it; duplicates get a ``_2``/``_3`` suffix.
+    """
+    if not filename or not isinstance(filename, str):
+        return None
+    stem = re.split(r"[\\/]", filename)[-1]
+    if "." in stem:
+        stem = stem.rsplit(".", 1)[0]
+    stem = _FRAME_STEM.sub("_", stem.lower()).strip("_")
+    # A dataset already named df_something must not read back as df_df_something.
+    stem = stem.removeprefix("df_")
+    if not stem or stem.isdigit() or len(stem) > 30:
+        return None
+    var = f"df_{stem}"
+    if var in taken:
+        n = 2
+        while f"{var}_{n}" in taken:
+            n += 1
+        var = f"{var}_{n}"
+    taken.add(var)
+    return var
+
+
+# A parenthesized fluent chain opens with `target = (` and closes with a bare
+# `)` — both produced only by _render_chain, never by node emitters.
+_CHAIN_OPEN = re.compile(r"\w+ = \($")
+
+
+def insert_paragraph_breaks(lines: list[str]) -> list[str]:
+    """Blank line before and after each parenthesized fluent chain.
+
+    Without this the script is a solid wall of statements; with it, it reads in
+    paragraphs the way a person lays out a pipeline — the input reads, one block
+    per multi-step chain, then the writes.
+    """
+    out: list[str] = []
+    for line in lines:
+        if _CHAIN_OPEN.match(line) and out and out[-1] != "":
+            out.append("")
+        out.append(line)
+        if line == ")":
+            out.append("")
+    while out and out[-1] == "":
+        out.pop()
+    return out
+
+
+def parameter_names(parameter_lines: list[str] | None) -> set[str]:
+    """The variable names a flow-parameter prelude assigns (comments skipped)."""
+    if not parameter_lines:
+        return set()
+    return {ln.split(" = ", 1)[0] for ln in parameter_lines if " = " in ln and not ln.startswith("#")}
+
+
 def assert_params_do_not_shadow_imports(header: list[str], parameter_lines: list[str]) -> None:
     """Fail export clearly when a flow parameter would rebind a script import.
 
@@ -240,8 +308,7 @@ def assert_params_do_not_shadow_imports(header: list[str], parameter_lines: list
             imported.update(a.asname or a.name.split(".")[0] for a in node.names)
         elif isinstance(node, ast.ImportFrom):
             imported.update(a.asname or a.name for a in node.names)
-    params = {ln.split(" = ", 1)[0] for ln in parameter_lines if " = " in ln and not ln.startswith("#")}
-    clash = sorted(imported & params)
+    clash = sorted(imported & parameter_names(parameter_lines))
     if clash:
         raise GraphValidationError(
             f"Flow parameter name(s) {', '.join(clash)} collide with import(s) the exported "

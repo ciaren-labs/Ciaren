@@ -363,7 +363,7 @@ def test_polars_generator_emits_fluent_chain(tmp_path: Path) -> None:
     paths = _write_sales(tmp_path)
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_sales_graph(), paths, lazy=lazy)
-        assert "df_1 = (" in code
+        assert "df_in = (" in code
         assert "\n    .group_by('region')\n" in code
         assert "\n    .agg(pl.col('amount').sum())\n" in code
         assert "\n    .rename({'amount': 'total_sales'})\n" in code
@@ -375,9 +375,9 @@ def test_polars_generator_emits_fluent_chain(tmp_path: Path) -> None:
 def test_pandas_generator_emits_fluent_chain(tmp_path: Path) -> None:
     paths = _write_sales(tmp_path)
     code = CodeGenerator().generate(_sales_graph(), paths)
-    assert "df_1 = (" in code
+    assert "df_in = (" in code
     # The filter's callable form chains like any other step.
-    assert "\n    df_1.loc[lambda _d: _d['amount'] > 0]\n" in code
+    assert "\n    df_in.loc[lambda _d: _d['amount'] > 0]\n" in code
     assert "\n    .groupby('region')\n" in code
     out = _run(code, tmp_path)
     assert list(out["region"]) == ["north", "south", "east"]

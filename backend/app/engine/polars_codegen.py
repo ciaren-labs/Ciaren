@@ -2,14 +2,18 @@
 """Generate readable **polars** code for a flow graph.
 
 Thin driver mirroring :class:`app.engine.codegen.CodeGenerator` (pandas): it
-handles input-read / output-write nodes inline and delegates every
-transformation node to its own ``to_polars_code`` method, so each node's polars
-mapping lives next to its ``execute`` and ``to_python_code``. On linear chains
-a node writes its result back into its input's variable (``df_1 =
-df_1.drop_nulls()``) instead of minting a new ``df_N`` — see
-:func:`app.engine.codegen_common.reusable_output_var` — and a final pass fuses
+handles input-read / output-write / SQL / storage nodes inline and delegates
+every transformation node to its own ``to_polars_code`` method, so each node's
+polars mapping lives next to its ``execute`` and ``to_python_code``. Input
+frames are named after their dataset file or SQL table (``df_sales =
+pl.read_csv('sales.csv')``, see
+:func:`app.engine.codegen_common.frame_var_name`). On linear chains a node
+writes its result back into its input's variable (``df_1 = df_1.drop_nulls()``)
+instead of minting a new ``df_N`` — see
+:func:`app.engine.codegen_common.reusable_output_var` — and final passes fuse
 each run of such statements into one fluent chained expression
-(:func:`app.engine.codegen_common.fuse_method_chains`).
+(:func:`app.engine.codegen_common.fuse_method_chains`) separated by blank lines
+(:func:`app.engine.codegen_common.insert_paragraph_breaks`).
 
 Two opt-in modes:
 
@@ -32,10 +36,13 @@ from app.engine.codegen_common import (
     collect_input_vars,
     dialect_needs_decode,
     edge_source_var,
+    frame_var_name,
     fuse_method_chains,
     incoming_by_target,
+    insert_paragraph_breaks,
     last_consumer_index,
     ordered_imports,
+    parameter_names,
     placeholder_input_path,
     polars_dialect_kwargs,
     reusable_output_var,
@@ -48,6 +55,8 @@ from app.engine.node_kinds import (
     FILE_OUTPUT_TYPE,
     SQL_INPUT_TYPE,
     SQL_OUTPUT_TYPE,
+    STORAGE_INPUT_TYPE,
+    STORAGE_OUTPUT_TYPE,
     edge_carries_model,
     input_source_type,
     model_output_handles,
@@ -88,10 +97,12 @@ _INPUT_SCAN_BY_FORMAT = {
 # Extra keyword args appended to a read call, per input type. Excel reads via
 # openpyxl to match the engine and Ciaren's shipped deps (no fastexcel needed).
 _INPUT_READ_KWARGS = {"excelInput": ', engine="openpyxl"'}
+# Legacy single-format outputs. (method, default filename) — the default must
+# match the node's format, not blanket "output.csv".
 _OUTPUT_WRITE = {
-    "csvOutput": "write_csv",
-    "excelOutput": "write_excel",
-    "parquetOutput": "write_parquet",
+    "csvOutput": ("write_csv", "output.csv"),
+    "excelOutput": ("write_excel", "output.xlsx"),
+    "parquetOutput": ("write_parquet", "output.parquet"),
 }
 # fileOutput writes by its configured format. (method, kwargs, extension)
 _FILE_OUTPUT_WRITE_PL = {
@@ -156,11 +167,50 @@ class PolarsCodeGenerator:
         # mlTrain) expose several handles; downstream edges pick one via sourceHandle.
         node_outputs: dict[str, dict[str, str]] = {}
         engine_vars: dict[str, str] = {}
+        # Names already claimed: flow parameters must not be clobbered by a
+        # semantic input variable (a parameter named df_sales is legal).
+        taken_names = parameter_names(parameter_lines)
+
+        # For the lazy collect-once rule: each node's consumer edges with their
+        # position and whether that consumer is a write sink. Edges are kept (not
+        # just positions) so a multi-output node's handles are judged per variable.
+        sink_types = {SQL_OUTPUT_TYPE, FILE_OUTPUT_TYPE, STORAGE_OUTPUT_TYPE, *_OUTPUT_WRITE}
+        position = {nid: i for i, nid in enumerate(order)}
+        consumer_edges: dict[str, list[tuple[int, dict[str, Any], bool]]] = {}
+        for edge in graph.get("edges", []):
+            if edge["source"] in position and edge["target"] in position:
+                is_sink = nodes_by_id[edge["target"]]["type"] in sink_types
+                consumer_edges.setdefault(edge["source"], []).append((position[edge["target"]], edge, is_sink))
+        collected_sinks: set[str] = set()
 
         def next_var() -> str:
             nonlocal var_counter
             var_counter += 1
             return f"df_{var_counter}"
+
+        def input_var(name_hint: str | None) -> str:
+            """A semantic name for an input frame (sales.csv -> df_sales) when
+            the hint yields one, else the next numbered df_N."""
+            return frame_var_name(name_hint, taken_names) or next_var()
+
+        def sink_frame(edge: dict[str, Any], idx: int) -> str:
+            """The frame expression a write sink consumes. Eager variables pass
+            through; a lazy plan must be collected — and when everything still
+            waiting on *this variable* is also a sink, it is collected once into
+            its own variable instead of recomputing the whole plan per sink."""
+            src = edge_source_var(node_outputs, edge)
+            if not lazy or src in collected_sinks:
+                return src
+            remaining = [
+                is_sink
+                for pos, e, is_sink in consumer_edges.get(edge["source"], [])
+                if pos >= idx and edge_source_var(node_outputs, e) == src
+            ]
+            if len(remaining) > 1 and all(remaining):
+                lines.append(f"{src} = {src}.collect()")
+                collected_sinks.add(src)
+                return src
+            return f"{src}.collect()"
 
         def next_eager() -> str:
             nonlocal eager_counter
@@ -280,21 +330,27 @@ class PolarsCodeGenerator:
             config: dict[str, Any] = node.get("data", {}).get("config", {})
 
             if node_type == SQL_INPUT_TYPE:
-                var = next_var()
-                node_outputs[node_id] = {"out": var}
                 eng = engine_for(config.get("connection_id", ""))
-                query = (
-                    config.get("query", "")
-                    if config.get("mode") == "query"
-                    else f"SELECT * FROM {config.get('table', '')}"
-                )
+                if config.get("mode") == "query":
+                    var = next_var()
+                    query = config.get("query", "")
+                else:
+                    table = config.get("table")
+                    # Name after the table, minus any schema prefix (public.orders
+                    # -> df_orders); a parameterized table (CodeRef) falls back.
+                    hint = table.rsplit(".", 1)[-1] if isinstance(table, str) else None
+                    var = input_var(hint)
+                    # Plain concat, not an f-string: a parameterized table is a
+                    # CodeRef whose __radd__ keeps the reference symbolic, so the
+                    # emitted call reads `'SELECT * FROM ' + tbl`.
+                    query = "SELECT * FROM " + (table or "")
+                node_outputs[node_id] = {"out": var}
                 read = f"pl.read_database({query!r}, {eng}.connect())"
                 lines.append(f"{var} = {read}.lazy()" if lazy else f"{var} = {read}")
             elif node_type == SQL_OUTPUT_TYPE:
-                src_var = source_var(incoming[node_id][0])
+                frame = sink_frame(incoming[node_id][0], idx)
                 eng = engine_for(config.get("connection_id", ""))
                 if_exists = config.get("if_exists", "replace")
-                frame = f"{src_var}.collect()" if lazy else src_var
                 lines.append(
                     f"{frame}.write_database({config.get('table', '')!r}, "
                     f"connection={eng}, if_table_exists={if_exists!r})"
@@ -302,17 +358,47 @@ class PolarsCodeGenerator:
             elif node_type == "textInput" or (
                 node_type == FILE_INPUT_TYPE and input_source_type(node_type, config) == "text"
             ):
-                var = next_var()
+                name_hint = dataset_paths.get(config.get("dataset_id", ""))
+                path = name_hint or placeholder_input_path("text")
+                var = input_var(name_hint)
                 node_outputs[node_id] = {"out": var}
-                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path("text"))
                 suffix = ".lazy()" if lazy else ""
                 lines.append(f"with open({path!r}) as _f:")
                 lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
-            elif node_type in _INPUT_READ:
-                var = next_var()
+            elif node_type == STORAGE_INPUT_TYPE:
+                # Cloud storage isn't reproduced in the portable script: read the
+                # object by its file name, tell the user to fetch it first.
+                source_type = config.get("format") or "csv"
+                remote = config.get("path") or ""
+                if isinstance(remote, str):
+                    name_hint = remote.split("/")[-1].split("\\")[-1] or None
+                    path = name_hint or placeholder_input_path(source_type)
+                else:  # parameterized path (CodeRef): !r renders the variable
+                    name_hint, path = None, remote
+                var = input_var(name_hint)
                 node_outputs[node_id] = {"out": var}
+                lines.append(f"# {node_type}: download {remote or path!r} from your storage connection first")
+                suffix = ".lazy()" if lazy else ""
+                if source_type == "text":
+                    lines.append(f"with open({path!r}) as _f:")
+                    lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
+                elif lazy and source_type in _INPUT_SCAN_BY_FORMAT:
+                    sep = ', separator="\\t"' if source_type == "tsv" else ""
+                    lines.append(f"{var} = {_INPUT_SCAN_BY_FORMAT[source_type]}({path!r}{sep})")
+                else:
+                    read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
+                    extra = ', separator="\\t"' if source_type == "tsv" else ""
+                    if source_type == "excel":
+                        extra = ', engine="openpyxl"'
+                    lines.append(f"{var} = {read}({path!r}{extra}){suffix}")
+            elif node_type in _INPUT_READ:
                 source_type = input_source_type(node_type, config)
-                path = dataset_paths.get(config.get("dataset_id", ""), placeholder_input_path(source_type))
+                # Semantic names only for resolved datasets — a placeholder's
+                # "input.csv" stem says nothing about the data.
+                name_hint = dataset_paths.get(config.get("dataset_id", ""))
+                path = name_hint or placeholder_input_path(source_type)
+                var = input_var(name_hint)
+                node_outputs[node_id] = {"out": var}
                 dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
                 dialect_kwargs = polars_dialect_kwargs(source_type, dialect)
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
@@ -337,7 +423,10 @@ class PolarsCodeGenerator:
                 elif node_type == FILE_INPUT_TYPE:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
                     scan = _INPUT_SCAN_BY_FORMAT.get(source_type)
-                    extra = (', separator="\\t"' if source_type == "tsv" else "") + dialect_kwargs
+                    # Excel reads via openpyxl to match the engine and Ciaren's
+                    # shipped deps, same as the legacy excelInput node.
+                    extra = ', engine="openpyxl"' if source_type == "excel" else ""
+                    extra += (', separator="\\t"' if source_type == "tsv" else "") + dialect_kwargs
                     if lazy and scan is not None:
                         lines.append(f"{var} = {scan}({path!r}{extra})")
                     else:
@@ -350,17 +439,20 @@ class PolarsCodeGenerator:
                     suffix = ".lazy()" if lazy else ""
                     lines.append(f"{var} = {_INPUT_READ[node_type]}({path!r}{extra}){suffix}")
             elif node_type == FILE_OUTPUT_TYPE:
-                src_var = source_var(incoming[node_id][0])
+                frame = sink_frame(incoming[node_id][0], idx)
                 method, kwargs, suffix = _FILE_OUTPUT_WRITE_PL[output_source_type(node_type, config)]
-                frame = f"{src_var}.collect()" if lazy else src_var
                 out_path = config.get("path") or f"{config.get('dataset_name') or 'output'}{suffix}"
                 args = f"{out_path!r}" + (f", {kwargs}" if kwargs else "")
                 lines.append(f"{frame}.{method}({args})")
             elif node_type in _OUTPUT_WRITE:
+                frame = sink_frame(incoming[node_id][0], idx)
+                method, default_path = _OUTPUT_WRITE[node_type]
+                out_path = config.get("path") or default_path
+                lines.append(f"{frame}.{method}({out_path!r})")
+            elif node_type == STORAGE_OUTPUT_TYPE:
+                # Cloud storage isn't reproduced in the portable script.
                 src_var = source_var(incoming[node_id][0])
-                out_path = config.get("path", "output.csv")
-                frame = f"{src_var}.collect()" if lazy else src_var
-                lines.append(f"{frame}.{_OUTPUT_WRITE[node_type]}({out_path!r})")
+                lines.append(f"# {node_type}: write {src_var} to your configured storage target")
             else:
                 emit_transformation(idx, node_id, node_type, config)
 
@@ -370,4 +462,5 @@ class PolarsCodeGenerator:
         header = [*base_header, *ordered_imports(extra_imports)]
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
-        return "\n".join([*header, "", *prelude, *fuse_method_chains(lines)]) + "\n"
+        script_body = insert_paragraph_breaks(fuse_method_chains(lines))
+        return "\n".join([*header, "", *prelude, *script_body]) + "\n"
