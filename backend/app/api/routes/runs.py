@@ -113,12 +113,19 @@ async def _sse_log_stream(
     poll_interval: float = 0.5,
     max_wait_seconds: float = 3600.0,
 ) -> AsyncGenerator[str, None]:
-    """Async generator for SSE log events.
+    """Async generator for the run-logs SSE stream.
 
-    Polls the DB until the run reaches a terminal state, then yields each
-    stored log entry as an SSE ``data`` event, and closes with an
-    ``event: done`` frame. Uses scalar column selects to bypass the
-    SQLAlchemy session identity map so each poll is a genuine DB round-trip.
+    Contract — **wait-and-fetch, not incremental live streaming**. A run's logs are
+    persisted once, atomically, when it finishes (see ``ExecutionService.run``), so
+    there is nothing partial to stream mid-run. This generator polls the run's status
+    and, while it is still running, emits only SSE keepalive comments (to hold the
+    connection open through proxies/load balancers on long runs). When the run
+    reaches a terminal state it emits the full log batch as ``data`` events followed
+    by an ``event: done`` frame; if the wait exceeds ``max_wait_seconds`` it emits an
+    ``event: error`` and closes.
+
+    Uses scalar column selects to bypass the SQLAlchemy session identity map so each
+    poll is a genuine DB round-trip.
     """
     TERMINAL = {RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED}
     deadline = asyncio.get_event_loop().time() + max_wait_seconds
@@ -141,16 +148,23 @@ async def _sse_log_stream(
             yield f"event: error\ndata: {json.dumps({'detail': 'Timed out waiting for run completion'})}\n\n"
             return
 
+        # Still running: nothing incremental exists to send. Emit an SSE keepalive
+        # comment (a line beginning with ':', ignored by clients) so the connection
+        # isn't dropped as idle while we wait for the run to finish.
+        yield ": keepalive\n\n"
         await asyncio.sleep(poll_interval)
 
 
 @router.get("/runs/{run_id}/logs/stream")
 async def stream_run_logs(run_id: str, service: ExecutionServiceDep) -> StreamingResponse:
-    """Stream run log entries as server-sent events (SSE).
+    """Wait for a run to finish, then deliver its logs as server-sent events (SSE).
 
-    Polls the database until the run reaches a terminal state, then emits
-    each stored log entry as an SSE ``data`` event and closes with an
-    ``event: done`` frame containing ``{"status": "...", "run_id": "..."}``.
+    This is **wait-and-fetch, not live streaming**: a run's logs are written once at
+    completion, so while the run is still executing the stream sends only keepalive
+    comments. Once the run reaches a terminal state it emits each stored log entry as
+    an SSE ``data`` event and closes with an ``event: done`` frame containing
+    ``{"status": "...", "run_id": "..."}``. A wait longer than the generator's
+    ``max_wait_seconds`` ends with an ``event: error`` frame.
 
     Raises 404 immediately if the run does not exist (before any SSE data
     is sent), so callers get a proper HTTP error rather than a silent stream.

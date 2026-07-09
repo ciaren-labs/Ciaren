@@ -51,16 +51,33 @@ accepts `sort_by` (`created_at`, `started_at`, `status`), `sort_order` (`asc` or
 ## Log streaming (SSE)
 
 `GET /api/runs/{run_id}/logs/stream` returns a `text/event-stream` response.
-It polls the database until the run reaches a terminal state, then emits each
-stored log entry as an SSE `data:` event and closes with an `event: done` frame:
+
+This is **wait-and-fetch, not live streaming**. A run's logs are written once,
+atomically, when it finishes, so there is nothing partial to stream mid-run. While
+the run is still executing the endpoint emits only SSE **keepalive comments**
+(`: keepalive` lines, ignored by clients) to hold the connection open on long runs.
+Once the run reaches a terminal state it emits each stored log entry as a `data:`
+event and closes with an `event: done` frame:
 
 ```
+: keepalive
+
+: keepalive
+
 data: {"level":"info","message":"Flow executed in 420 ms, wrote 1 output(s)","duration_ms":420}
 
 data: {"level":"info","message":"Resolved dataset versions","versions":{...}}
 
 event: done
 data: {"status":"success","run_id":"run-abc123"}
+```
+
+If the wait exceeds the server's maximum (default 1 hour), the stream ends with an
+`event: error` frame instead:
+
+```
+event: error
+data: {"detail":"Timed out waiting for run completion"}
 ```
 
 Returns **404** immediately (before any SSE data) when the run doesn't exist.

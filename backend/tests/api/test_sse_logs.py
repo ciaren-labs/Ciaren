@@ -167,3 +167,90 @@ async def test_stream_logs_response_headers(client: AsyncClient) -> None:
     r = await client.get(f"/api/runs/{run['id']}/logs/stream")
     assert r.headers.get("cache-control") == "no-cache"
     assert r.headers.get("x-accel-buffering") == "no"
+
+
+# ---------------------------------------------------------------------------
+# Wait-and-fetch contract: while the run is still running the stream only sends
+# keepalives; the log batch is delivered once, at completion. Driven at the
+# generator level because a real run finishes before the stream is opened.
+# ---------------------------------------------------------------------------
+
+
+class _Row:
+    def __init__(self, status: str, logs_json) -> None:
+        self.status = status
+        self.logs_json = logs_json
+
+
+class _FakeResult:
+    def __init__(self, row) -> None:
+        self._row = row
+
+    def one_or_none(self):
+        return self._row
+
+
+class _FakeDB:
+    """Returns a scripted sequence of rows across successive execute() calls,
+    holding the last one thereafter."""
+
+    def __init__(self, rows: list) -> None:
+        self._rows = rows
+        self.calls = 0
+
+    async def execute(self, _stmt):
+        row = self._rows[min(self.calls, len(self._rows) - 1)]
+        self.calls += 1
+        return _FakeResult(row)
+
+
+class _FakeService:
+    def __init__(self, db) -> None:
+        self.db = db
+
+
+async def test_stream_waits_with_keepalives_then_delivers_batch() -> None:
+    from app.api.routes.runs import _sse_log_stream
+
+    logs = [{"level": "info", "message": "all done"}]
+    # running twice (→ two keepalives), then success with the log batch.
+    rows = [_Row("running", None), _Row("running", None), _Row("success", logs)]
+    service = _FakeService(_FakeDB(rows))
+
+    frames = [f async for f in _sse_log_stream(service, "run-1", poll_interval=0.0)]  # type: ignore[arg-type]
+    text = "".join(frames)
+
+    # While running: only keepalive comments, never a data/log frame.
+    assert text.count(": keepalive\n\n") == 2
+    events = _parse_sse(text)
+    data_events = [e for e in events if "event" not in e]
+    assert len(data_events) == 1
+    assert data_events[0]["data"] == logs[0]
+    assert events[-1]["event"] == "done"
+    assert events[-1]["data"]["status"] == "success"
+
+
+async def test_stream_run_deleted_midwait_closes_cleanly() -> None:
+    from app.api.routes.runs import _sse_log_stream
+
+    # running, then the row disappears (run purged) → stream ends with no done frame.
+    rows = [_Row("running", None), None]
+    service = _FakeService(_FakeDB(rows))
+
+    frames = [f async for f in _sse_log_stream(service, "run-2", poll_interval=0.0)]  # type: ignore[arg-type]
+    text = "".join(frames)
+    assert ": keepalive\n\n" in text
+    assert "event: done" not in text
+
+
+async def test_stream_times_out_with_error_frame() -> None:
+    from app.api.routes.runs import _sse_log_stream
+
+    service = _FakeService(_FakeDB([_Row("running", None)]))  # never terminal
+    frames = [
+        f
+        async for f in _sse_log_stream(service, "run-3", poll_interval=0.0, max_wait_seconds=0.0)  # type: ignore[arg-type]
+    ]
+    events = _parse_sse("".join(frames))
+    assert events[-1]["event"] == "error"
+    assert "Timed out" in events[-1]["data"]["detail"]
