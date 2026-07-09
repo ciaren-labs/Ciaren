@@ -537,7 +537,7 @@ function DatasetCard({
           </CardContent>
         </button>
         {onAction && (
-          <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               onClick={() => onAction(d, d.is_disabled ? "enable" : "disable")}
               className={cn(

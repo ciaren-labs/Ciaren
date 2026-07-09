@@ -251,7 +251,7 @@ function ProjectCard({
           <span className="text-[11px] text-muted-foreground/80">Created {fmt(project.created_at)}</span>
         </div>
       </button>
-      <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex items-center justify-end gap-1 border-t border-border px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         <button
           onClick={onEdit}
           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
