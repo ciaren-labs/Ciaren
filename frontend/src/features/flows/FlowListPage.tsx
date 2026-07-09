@@ -59,6 +59,33 @@ export function FlowListPage() {
   const updateFlow = useUpdateFlow();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  // A single useDuplicateFlow() instance is shared across every row, so its
+  // own isPending/variables only ever reflect the most recently *invoked*
+  // call — duplicating flow B while flow A's request is still in flight would
+  // otherwise make A's row look finished (and let a same-flow re-click race
+  // past the double-submit guard below). Tracking in-flight ids locally keeps
+  // each row's pending state independent of the others.
+  const [duplicatingIds, setDuplicatingIds] = useState<Set<string>>(new Set());
+  const handleDuplicate = (flow: Flow) => {
+    if (duplicatingIds.has(flow.id)) return;
+    setDuplicatingIds((prev) => new Set(prev).add(flow.id));
+    // mutateAsync's returned promise is tied to this specific call's own
+    // execution, unlike the shared observer's isPending/variables — so it
+    // still settles correctly here even if another row starts duplicating
+    // (and the observer moves on) before this one finishes. The error itself
+    // is already surfaced by the global mutation-cache toast; swallow it here
+    // so it doesn't also become an unhandled rejection.
+    duplicateFlow
+      .mutateAsync(flow.id)
+      .catch(() => {})
+      .finally(() => {
+        setDuplicatingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(flow.id);
+          return next;
+        });
+      });
+  };
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
   const [newFlowProjectId, setNewFlowProjectId] = useState("");
@@ -429,19 +456,14 @@ export function FlowListPage() {
                     <FlowCard
                       key={flow.id}
                       flow={flow}
+                      isDuplicating={duplicatingIds.has(flow.id)}
                       onOpen={() => navigate(`/flows/${flow.id}`)}
                       onEdit={() => setEditingFlow(flow)}
                       onRun={() => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
                       onSchedule={() => setSchedulingFlow(flow)}
                       onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                       onDelete={() => setPendingAction({ kind: "delete", flow })}
-                      onDuplicate={() => {
-                        // A double-click would silently create two copies —
-                        // but only guard THIS flow's in-flight request, so
-                        // duplicating a different flow meanwhile still works.
-                        if (duplicateFlow.isPending && duplicateFlow.variables === flow.id) return;
-                        duplicateFlow.mutate(flow.id);
-                      }}
+                      onDuplicate={() => handleDuplicate(flow)}
                     />
                   ))}
                 </div>
@@ -450,16 +472,14 @@ export function FlowListPage() {
                   flows={group}
                   sort={sort}
                   onSort={toggleSort}
+                  isDuplicating={(flow) => duplicatingIds.has(flow.id)}
                   onOpen={(id) => navigate(`/flows/${id}`)}
                   onEdit={(flow) => setEditingFlow(flow)}
                   onRun={(flow) => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
                   onSchedule={(flow) => setSchedulingFlow(flow)}
                   onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                   onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
-                  onDuplicate={(flow) => {
-                    if (duplicateFlow.isPending && duplicateFlow.variables === flow.id) return;
-                    duplicateFlow.mutate(flow.id);
-                  }}
+                  onDuplicate={handleDuplicate}
                 />
               )}
             </CollapsibleSection>
@@ -650,6 +670,7 @@ export function FlowListPage() {
 
 function FlowCard({
   flow,
+  isDuplicating,
   onOpen,
   onEdit,
   onRun,
@@ -659,6 +680,7 @@ function FlowCard({
   onDuplicate,
 }: {
   flow: Flow;
+  isDuplicating: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onRun: () => void;
@@ -730,10 +752,11 @@ function FlowCard({
         </button>
         <button
           onClick={onDuplicate}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          disabled={isDuplicating}
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
           title="Duplicate flow (graph, parameters and engine — not schedules or history)"
         >
-          <CopyIcon className="h-4 w-4" />
+          {isDuplicating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />}
         </button>
         <button
           onClick={onDelete}
@@ -751,6 +774,7 @@ function FlowTable({
   flows,
   sort,
   onSort,
+  isDuplicating,
   onOpen,
   onEdit,
   onRun,
@@ -762,6 +786,7 @@ function FlowTable({
   flows: Flow[];
   sort: SortState<FlowSortKey>;
   onSort: (key: FlowSortKey) => void;
+  isDuplicating: (flow: Flow) => boolean;
   onOpen: (id: string) => void;
   onEdit: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
@@ -852,10 +877,15 @@ function FlowTable({
                     </button>
                     <button
                       onClick={() => onDuplicate(flow)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      disabled={isDuplicating(flow)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                       title="Duplicate"
                     >
-                      <CopyIcon className="h-3.5 w-3.5" />
+                      {isDuplicating(flow) ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CopyIcon className="h-3.5 w-3.5" />
+                      )}
                     </button>
                     <button
                       onClick={() => onDelete(flow)}
