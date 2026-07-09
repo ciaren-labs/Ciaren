@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import { useRef } from "react";
+import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** A consistent container for a row of filters across pages. */
@@ -53,15 +54,32 @@ export function SearchInput({
   placeholder?: string;
   className?: string;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className={cn("relative", className)}>
       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
+      {value && (
+        <button
+          type="button"
+          onClick={() => {
+            onChange("");
+            // The button unmounts on click; without this, focus would fall
+            // back to <body>, breaking keyboard-tab continuity.
+            inputRef.current?.focus();
+          }}
+          aria-label="Clear search"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
