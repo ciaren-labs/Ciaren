@@ -17,6 +17,7 @@ function makeSchedule(id: string, name: string, flowId: string) {
     catch_up: false,
     max_retries: 0,
     retry_delay_seconds: 60,
+    run_timeout_seconds: null,
     next_run_at: "2026-07-10T00:00:00+00:00",
     last_fired_at: null,
     last_run_id: null,

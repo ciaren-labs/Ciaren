@@ -171,6 +171,8 @@ export function ScheduleDetailPage() {
             {schedule.consecutive_failures !== 1 ? "s" : ""}
             {schedule.max_retries > 0 && ` · up to ${schedule.max_retries} retries`}
             {schedule.catch_up && " · catch-up on"}
+            {schedule.run_timeout_seconds != null &&
+              ` · timeout ${schedule.run_timeout_seconds === 0 ? "none" : `${schedule.run_timeout_seconds}s`}`}
           </div>
         </InfoCard>
       </div>

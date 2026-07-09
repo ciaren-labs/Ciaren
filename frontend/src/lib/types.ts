@@ -352,6 +352,9 @@ export interface Schedule {
   catch_up: boolean;
   max_retries: number;
   retry_delay_seconds: number;
+  /** Per-run timeout for runs this schedule fires (seconds). 0 = no limit;
+   *  null = fall back to the server's RUN_TIMEOUT_SECONDS. */
+  run_timeout_seconds: number | null;
   // Runtime / observability state.
   next_run_at: string | null;
   last_fired_at: string | null;
@@ -380,6 +383,8 @@ export interface ScheduleCreate {
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;
+  /** Per-run timeout in seconds (0 = no limit); omit/null for the server default. */
+  run_timeout_seconds?: number | null;
   parameters?: ParameterValues | null;
 }
 
@@ -393,6 +398,8 @@ export interface ScheduleUpdate {
   catch_up?: boolean;
   max_retries?: number;
   retry_delay_seconds?: number;
+  /** Per-run timeout in seconds (0 = no limit); omit/null for the server default. */
+  run_timeout_seconds?: number | null;
   parameters?: ParameterValues | null;
 }
 

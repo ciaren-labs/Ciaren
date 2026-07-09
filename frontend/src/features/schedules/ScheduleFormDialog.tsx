@@ -70,6 +70,9 @@ export function ScheduleFormDialog({
   const [catchUp, setCatchUp] = useState(false);
   const [maxRetries, setMaxRetries] = useState(0);
   const [retryDelay, setRetryDelay] = useState(60);
+  // Per-run timeout: "" = server default (RUN_TIMEOUT_SECONDS), "0" = no limit,
+  // "N" = N seconds. Kept as a string so "empty" stays distinct from 0.
+  const [runTimeout, setRunTimeout] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   // Override values for the selected flow's parameters (raw text per name).
   const [paramTexts, setParamTexts] = useState<Record<string, string>>({});
@@ -95,7 +98,13 @@ export function ScheduleFormDialog({
     setCatchUp(schedule?.catch_up ?? false);
     setMaxRetries(schedule?.max_retries ?? 0);
     setRetryDelay(schedule?.retry_delay_seconds ?? 60);
-    setShowAdvanced(!!schedule && (schedule.catch_up || schedule.max_retries > 0));
+    setRunTimeout(
+      schedule?.run_timeout_seconds != null ? String(schedule.run_timeout_seconds) : "",
+    );
+    setShowAdvanced(
+      !!schedule &&
+        (schedule.catch_up || schedule.max_retries > 0 || schedule.run_timeout_seconds != null),
+    );
   }, [open, schedule, lockedFlowId]);
 
   // Seed parameter overrides from the schedule's saved values (edit) or the
@@ -134,6 +143,8 @@ export function ScheduleFormDialog({
       catch_up: catchUp,
       max_retries: maxRetries,
       retry_delay_seconds: retryDelay,
+      // Empty → omit (server default); "0" → no limit; "N" → N seconds.
+      run_timeout_seconds: runTimeout === "" ? undefined : Number(runTimeout),
       // Send overrides only when the flow has parameters; an empty set clears
       // them (null) so fired runs fall back to the declared defaults.
       parameters:
@@ -348,10 +359,29 @@ export function ScheduleFormDialog({
                       className="w-32"
                     />
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Run timeout (s)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={runTimeout}
+                      placeholder="Server default"
+                      aria-label="run-timeout-seconds"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setRunTimeout(v === "" ? "" : String(Math.max(0, Math.floor(Number(v) || 0))));
+                      }}
+                      className="w-36"
+                    />
+                  </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   On failure, retry with exponential backoff seeded by the delay (capped at 1h)
                   before falling back to the next slot.
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Run timeout caps how long each fired run may execute. Leave blank to use the
+                  server default; set 0 for no limit.
                 </p>
               </div>
             )}
