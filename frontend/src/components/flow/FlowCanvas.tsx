@@ -20,7 +20,10 @@ import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { edgeTypes } from "./edgeTypes";
 import { EmptyCanvasHint } from "./EmptyCanvasHint";
+import { NodeContextMenu } from "./NodeContextMenu";
+import { undoableToast } from "./undoableToast";
 import { NODE_DND_MIME } from "./NodePalette";
+import { clampNodeContextMenuPosition } from "@/lib/nodeContextMenuPosition";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
 import { getNodeTypeDef, getOutputHandles, isModelOutputHandle } from "@/lib/nodeCatalog";
@@ -53,7 +56,38 @@ export function FlowCanvas() {
   const relayoutNodes = useFlowEditorStore((s) => s.relayoutNodes);
   const addNode = useFlowEditorStore((s) => s.addNode);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
+  const duplicateNode = useFlowEditorStore((s) => s.duplicateNode);
+  const removeNode = useFlowEditorStore((s) => s.removeNode);
   const { screenToFlowPosition, fitView, fitBounds } = useReactFlow();
+
+  // Right-click context menu on a node: same edit/duplicate/delete actions as
+  // the hover toolbar, for users who reach for a context menu instead. Menu
+  // state lives here (not in FlowNode) since only one can be open at a time
+  // and it's positioned at the click's screen coordinates, not the node's.
+  const [nodeContextMenu, setNodeContextMenu] = useState<{
+    nodeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    const { x, y } = clampNodeContextMenuPosition(
+      event.clientX,
+      event.clientY,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    setNodeContextMenu({ nodeId: node.id, x, y });
+  }, []);
+  const closeNodeContextMenu = useCallback(() => setNodeContextMenu(null), []);
+  useEffect(() => {
+    if (!nodeContextMenu) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeNodeContextMenu();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [nodeContextMenu, closeNodeContextMenu]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -311,8 +345,17 @@ export function FlowCanvas() {
         onClickConnectStart={onConnectStart}
         onClickConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
-        onNodeClick={(_, node) => selectNode(node.id)}
-        onPaneClick={() => selectNode(null)}
+        onNodeClick={(_, node) => {
+          selectNode(node.id);
+          closeNodeContextMenu();
+        }}
+        onNodeContextMenu={onNodeContextMenu}
+        onNodeDragStart={closeNodeContextMenu}
+        onPaneClick={() => {
+          selectNode(null);
+          closeNodeContextMenu();
+        }}
+        onMoveStart={closeNodeContextMenu}
         onDrop={onDrop}
         onDragOver={onDragOver}
         // No declarative `fitView`/`fitViewOptions` here on purpose: this
@@ -379,6 +422,31 @@ export function FlowCanvas() {
           </div>
         </Panel>
       </ReactFlow>
+      {nodeContextMenu && (
+        <NodeContextMenu
+          x={nodeContextMenu.x}
+          y={nodeContextMenu.y}
+          onEdit={() => {
+            selectNode(nodeContextMenu.nodeId);
+            closeNodeContextMenu();
+          }}
+          onDuplicate={() => {
+            const { nodeId } = nodeContextMenu;
+            const existed = useFlowEditorStore.getState().nodes.some((n) => n.id === nodeId);
+            duplicateNode(nodeId);
+            if (existed) undoableToast("Node duplicated");
+            closeNodeContextMenu();
+          }}
+          onDelete={() => {
+            const { nodeId } = nodeContextMenu;
+            const existed = useFlowEditorStore.getState().nodes.some((n) => n.id === nodeId);
+            removeNode(nodeId);
+            if (existed) undoableToast("Node deleted");
+            closeNodeContextMenu();
+          }}
+          onClose={closeNodeContextMenu}
+        />
+      )}
     </div>
   );
 }

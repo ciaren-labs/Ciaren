@@ -240,14 +240,17 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     })),
 
   removeNode: (id) =>
-    set((state) => ({
-      ...checkpoint(state, `remove:${Date.now()}`),
-      nodes: state.nodes.filter((n) => n.id !== id),
-      structureVersion: state.structureVersion + 1,
-      edges: state.edges.filter((e) => e.source !== id && e.target !== id),
-      selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
-      dirty: true,
-    })),
+    set((state) => {
+      if (!state.nodes.some((n) => n.id === id)) return state;
+      return {
+        ...checkpoint(state, `remove:${Date.now()}`),
+        nodes: state.nodes.filter((n) => n.id !== id),
+        structureVersion: state.structureVersion + 1,
+        edges: state.edges.filter((e) => e.source !== id && e.target !== id),
+        selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
+        dirty: true,
+      };
+    }),
 
   duplicateNode: (id) =>
     set((state) => {

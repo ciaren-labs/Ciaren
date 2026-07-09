@@ -52,6 +52,20 @@ describe("flowEditorStore undo/redo", () => {
     expect(useFlowEditorStore.getState().edges).toHaveLength(1);
   });
 
+  it("removeNode is a no-op for an id that doesn't exist (no phantom undo entry, no dirty flip)", () => {
+    // Reachable via a stale right-click context menu left open on a node that
+    // gets deleted through some other path (its own hover-toolbar button,
+    // Ctrl+Z) before the menu's Delete is clicked.
+    const { setGraph, removeNode } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    removeNode("missing");
+
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+  });
+
   it("coalesces rapid config edits to the same node into one undo step", () => {
     const { setGraph, updateNodeConfig, undo } = useFlowEditorStore.getState();
     setGraph([node("a", { value: "" })], []);
