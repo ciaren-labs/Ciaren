@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Copy, Pencil, Trash2 } from "lucide-react";
 import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
 import {
   handleCompatibility,
@@ -100,6 +100,9 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
   const outputHandles = def ? getOutputHandles(def) : ["out"];
   const Icon = getNodeIcon(type);
   const hasError = useFlowEditorStore((s) => s.invalidNodeIds.includes(id));
+  const selectNode = useFlowEditorStore((s) => s.selectNode);
+  const duplicateNode = useFlowEditorStore((s) => s.duplicateNode);
+  const removeNode = useFlowEditorStore((s) => s.removeNode);
 
   // Live connection feedback: while a wire is dragged from some handle, style
   // this node's handles by whether they could legally complete the connection.
@@ -133,6 +136,51 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
         dimmed && "opacity-40",
       )}
     >
+      <div
+        className={cn(
+          "nodrag nopan absolute -top-3 right-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 opacity-0 shadow-sm transition-opacity duration-150",
+          "group-hover:opacity-100 focus-within:opacity-100",
+          selected && "opacity-100",
+        )}
+      >
+        <button
+          type="button"
+          title="Edit node"
+          aria-label="Edit node"
+          onClick={(e) => {
+            e.stopPropagation();
+            selectNode(id);
+          }}
+          className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-muted hover:text-brand-600"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          title="Duplicate node"
+          aria-label="Duplicate node"
+          onClick={(e) => {
+            e.stopPropagation();
+            duplicateNode(id);
+          }}
+          className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-muted hover:text-brand-600"
+        >
+          <Copy className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          title="Delete node"
+          aria-label="Delete node"
+          onClick={(e) => {
+            e.stopPropagation();
+            removeNode(id);
+          }}
+          className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+
       {inputHandles.map((handleId, idx) => {
         const top = topPct(idx, inputHandles.length);
         const status = handleCompatibility(pending, pendingDef, id, def, handleId, "target");

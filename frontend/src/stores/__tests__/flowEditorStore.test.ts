@@ -131,6 +131,63 @@ describe("flowEditorStore undo/redo", () => {
   });
 });
 
+describe("flowEditorStore duplicateNode", () => {
+  it("clones the node with a new id, offset position, and selects the copy", () => {
+    const { setGraph, duplicateNode } = useFlowEditorStore.getState();
+    setGraph([{ ...node("a", { value: "hello" }), position: { x: 10, y: 20 } }], []);
+
+    duplicateNode("a");
+
+    const { nodes, selectedNodeId, sidebarOpen } = useFlowEditorStore.getState();
+    expect(nodes).toHaveLength(2);
+    const clone = nodes.find((n) => n.id !== "a")!;
+    expect(clone.id).not.toBe("a");
+    expect(clone.data.config).toEqual({ value: "hello" });
+    expect(clone.position).toEqual({ x: 42, y: 52 });
+    expect(clone.selected).toBe(true);
+    expect(nodes.find((n) => n.id === "a")!.selected).toBe(false);
+    expect(selectedNodeId).toBe(clone.id);
+    expect(sidebarOpen).toBe(true);
+    expect(useFlowEditorStore.getState().dirty).toBe(true);
+  });
+
+  it("does not clone edges connected to the original node", () => {
+    const { setGraph, duplicateNode } = useFlowEditorStore.getState();
+    setGraph(
+      [node("a"), node("b")],
+      [{ id: "e1", source: "a", target: "b" }],
+    );
+
+    duplicateNode("a");
+
+    expect(useFlowEditorStore.getState().edges).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(3);
+  });
+
+  it("is undoable", () => {
+    const { setGraph, duplicateNode, undo } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    duplicateNode("a");
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(2);
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes[0].id).toBe("a");
+  });
+
+  it("is a no-op for an id that doesn't exist", () => {
+    const { setGraph, duplicateNode } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    duplicateNode("missing");
+
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+  });
+});
+
 describe("flowEditorStore dirty state", () => {
   it("stays clean after loading a flow and running the untracked initial auto-layout", () => {
     // Mirrors FlowCanvas's one-time initial-layout effect: setGraph loads the

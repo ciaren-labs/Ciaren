@@ -28,9 +28,14 @@
   <a href="backend/app/plugin_api/"><img alt="Plugin API: Apache-2.0" src="https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg"></a>
   <img alt="Python 3.12+" src="https://img.shields.io/badge/Python-3.12%2B-blue">
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
+  <a href="https://github.com/ciaren-labs/Ciaren/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ciaren-labs/Ciaren?style=social"></a>
 </p>
 
 ![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
+
+<p align="center">
+  If this looks like something you'd use, a ⭐ on GitHub genuinely helps an alpha project like this get discovered.
+</p>
 
 ## What Is Ciaren?
 
@@ -261,9 +266,6 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas can go to
 [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
 reproducible bugs or focused feature requests can go to
 [GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues).
-
-If Ciaren is the kind of local-first Python data tool you want to see grow, a
-GitHub star helps the launch and makes the project easier for others to find.
 
 ## Security
 

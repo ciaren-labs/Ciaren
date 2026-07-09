@@ -10,6 +10,7 @@ import type {
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import type { GraphNodeData, ParameterSpec } from "@/lib/types";
 import type { PendingConnection } from "@/lib/connectionRules";
+import { cloneSelection } from "@/lib/flowGraph";
 
 export type FlowNodeType = Node<GraphNodeData>;
 export type FlowEdgeType = Edge;
@@ -68,6 +69,8 @@ interface FlowEditorState {
   /** Paste a cloned selection (nodes + their internal edges) as one undo step. */
   pasteSelection: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   removeNode: (id: string) => void;
+  /** Clone a single node in place (used by the on-canvas duplicate button). */
+  duplicateNode: (id: string) => void;
   setEdges: (edges: FlowEdgeType[]) => void;
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
   patchMultipleNodeConfigs: (patches: Record<string, Record<string, unknown>>) => void;
@@ -233,6 +236,25 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
       dirty: true,
     })),
+
+  duplicateNode: (id) =>
+    set((state) => {
+      const original = state.nodes.find((n) => n.id === id);
+      if (!original) return state;
+      const cloned = cloneSelection([original], []);
+      const clonedNode = cloned.nodes[0];
+      return {
+        ...checkpoint(state, `duplicate:${Date.now()}`),
+        nodes: [
+          ...state.nodes.map((n) => (n.id === id ? { ...n, selected: false } : n)),
+          clonedNode,
+        ],
+        structureVersion: state.structureVersion + 1,
+        selectedNodeId: clonedNode.id,
+        sidebarOpen: true,
+        dirty: true,
+      };
+    }),
 
   setEdges: (edges) =>
     set((state) => ({
