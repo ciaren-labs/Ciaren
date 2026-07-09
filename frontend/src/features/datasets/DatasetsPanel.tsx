@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -117,8 +117,14 @@ export function DatasetsPanel({ projectId }: DatasetsPanelProps) {
 
   const submit = (file: File | undefined) => {
     if (!file) return;
+    // Name collisions only trigger a new *version* within the same project
+    // (backend: DatasetService.upload scopes the name lookup by project_id) —
+    // an unset target resolves to the Default project, same as the backend.
+    const resolvedTargetProjectId = targetProject ?? projects?.find((p) => p.is_default)?.id;
     const existing = (datasets ?? []).find(
-      (d) => d.name.toLowerCase() === file.name.toLowerCase(),
+      (d) =>
+        d.name.toLowerCase() === file.name.toLowerCase() &&
+        d.project_id === resolvedTargetProjectId,
     );
     if (existing) {
       setPendingFile(file);
@@ -652,6 +658,16 @@ function UploadDropzone({
   onDrop: (e: React.DragEvent) => void;
   setDragging: (v: boolean) => void;
 }) {
+  // The success/error indicator below would otherwise linger indefinitely
+  // (react-query keeps the last mutation status until the next call) — clear
+  // it after a few seconds, same as the connection Test button's feedback.
+  useEffect(() => {
+    if (!upload.isSuccess && !upload.isError) return;
+    const t = setTimeout(() => upload.reset(), 5000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upload.isSuccess, upload.isError]);
+
   return (
     <button
       type="button"
