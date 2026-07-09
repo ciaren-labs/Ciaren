@@ -76,10 +76,27 @@ export function RunsPage() {
   const navigate = useNavigate();
   const fmt = useFormatDateTime();
   const retry = useRetryRun();
+  // retry.isPending reflects only the single, most-recently-invoked call on
+  // this shared mutation instance — using it directly as every row's
+  // "retrying" prop would spin/disable every failed run's Retry button
+  // whenever ANY of them is retrying. Track in-flight ids locally instead.
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
 
   const handleRetry = (run: FlowRunSummary) => {
+    if (retryingIds.has(run.id)) return;
     if (!confirm("Re-run this flow with the same config? This creates a new run (a new run id) — the current one is kept.")) return;
-    retry.mutate(run.id, { onSuccess: (created) => navigate(`/runs/${created.id}`) });
+    setRetryingIds((prev) => new Set(prev).add(run.id));
+    retry
+      .mutateAsync(run.id)
+      .then((created) => navigate(`/runs/${created.id}`))
+      .catch(() => {})
+      .finally(() => {
+        setRetryingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(run.id);
+          return next;
+        });
+      });
   };
   const { data: flows } = useFlows();
   const { data: datasets } = useDatasets();
@@ -286,7 +303,7 @@ export function RunsPage() {
                               onClick={() => navigate(`/runs/${run.id}`)}
                               onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
                               onRetry={() => handleRetry(run)}
-                              retrying={retry.isPending}
+                              retrying={retryingIds.has(run.id)}
                             />
                           ))}
                         </tbody>
@@ -318,7 +335,7 @@ export function RunsPage() {
                           onClick={() => navigate(`/runs/${run.id}`)}
                           onOpenFlow={() => navigate(`/flows/${run.flow_id}`)}
                           onRetry={() => handleRetry(run)}
-                          retrying={retry.isPending}
+                          retrying={retryingIds.has(run.id)}
                         />
                       ))}
                     </div>
