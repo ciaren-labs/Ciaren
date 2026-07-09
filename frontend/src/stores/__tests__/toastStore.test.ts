@@ -26,6 +26,13 @@ describe("toastStore", () => {
     expect(t.action).toEqual({ label: "View run", to: "/runs/abc" });
   });
 
+  it("carries a callback action through (e.g. Undo) distinct from a link action", () => {
+    const onClick = () => {};
+    toast.success("Node deleted", { action: { label: "Undo", onClick } });
+    const [t] = useToastStore.getState().toasts;
+    expect(t.action).toEqual({ label: "Undo", onClick });
+  });
+
   it("dismisses by id", () => {
     const id = toast.info("Hello");
     toast.info("World");

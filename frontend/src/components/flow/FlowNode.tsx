@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowNodeType } from "@/stores/flowEditorStore";
+import { undoableToast } from "./undoableToast";
 
 /** A "model" handle carries a model reference, not data — drawn purple. */
 function isModelHandle(handle: string): boolean {
@@ -161,7 +162,9 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
           aria-label="Duplicate node"
           onClick={(e) => {
             e.stopPropagation();
+            const existed = useFlowEditorStore.getState().nodes.some((n) => n.id === id);
             duplicateNode(id);
+            if (existed) undoableToast("Node duplicated");
           }}
           className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-muted hover:text-brand-600"
         >
@@ -173,7 +176,9 @@ export function FlowNode({ id, type, data, selected }: NodeProps<FlowNodeType>) 
           aria-label="Delete node"
           onClick={(e) => {
             e.stopPropagation();
+            const existed = useFlowEditorStore.getState().nodes.some((n) => n.id === id);
             removeNode(id);
+            if (existed) undoableToast("Node deleted");
           }}
           className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-destructive/10 hover:text-destructive"
         >

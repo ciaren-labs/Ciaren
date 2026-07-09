@@ -2,14 +2,21 @@ import { create } from "zustand";
 
 export type ToastVariant = "success" | "error" | "info" | "warning";
 
+export type ToastAction =
+  | { label: string; to: string; onClick?: never }
+  | { label: string; onClick: () => void; to?: never };
+
 export interface Toast {
   id: number;
   variant: ToastVariant;
   title: string;
   /** Optional second line with more detail (e.g. the server's error message). */
   description?: string;
-  /** Optional inline action rendered as a link (e.g. "View run" → /runs/:id). */
-  action?: { label: string; to: string };
+  /**
+   * Optional inline action: either a navigation link (e.g. "View run" →
+   * /runs/:id) or a callback (e.g. "Undo"). Exactly one of `to`/`onClick`.
+   */
+  action?: ToastAction;
   /** ms before auto-dismiss; errors linger longer than confirmations. */
   duration: number;
 }

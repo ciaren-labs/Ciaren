@@ -31,7 +31,7 @@ function ToastItem({ toast }: { toast: Toast }) {
         {toast.description && (
           <p className="mt-0.5 break-words text-xs text-muted-foreground">{toast.description}</p>
         )}
-        {toast.action && (
+        {toast.action && "to" in toast.action && toast.action.to !== undefined ? (
           <Link
             to={toast.action.to}
             onClick={() => dismiss(toast.id)}
@@ -39,6 +39,21 @@ function ToastItem({ toast }: { toast: Toast }) {
           >
             {toast.action.label} →
           </Link>
+        ) : (
+          toast.action &&
+          "onClick" in toast.action &&
+          toast.action.onClick !== undefined && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.action?.onClick?.();
+                dismiss(toast.id);
+              }}
+              className="mt-1.5 inline-block text-xs font-medium text-primary hover:underline"
+            >
+              {toast.action.label}
+            </button>
+          )
         )}
       </div>
       <button

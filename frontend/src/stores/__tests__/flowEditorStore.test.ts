@@ -119,6 +119,20 @@ describe("flowEditorStore undo/redo", () => {
     expect(useFlowEditorStore.getState().future).toHaveLength(0);
   });
 
+  it("bumps sessionId only on reset, not on ordinary edits", () => {
+    const { addNode, removeNode, setGraph, undo, reset } = useFlowEditorStore.getState();
+    const initial = useFlowEditorStore.getState().sessionId;
+
+    addNode(node("a"));
+    removeNode("a");
+    setGraph([node("b")], []);
+    undo();
+    expect(useFlowEditorStore.getState().sessionId).toBe(initial);
+
+    reset();
+    expect(useFlowEditorStore.getState().sessionId).toBe(initial + 1);
+  });
+
   it("a new undo-able edit clears the redo stack", () => {
     const { addNode, undo } = useFlowEditorStore.getState();
     addNode(node("a"));

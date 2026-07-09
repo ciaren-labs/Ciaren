@@ -3,6 +3,7 @@ import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import { undoableToast } from "./undoableToast";
 
 /**
  * Smoothstep edge (the app's only edge shape, set via FlowCanvas's
@@ -88,7 +89,9 @@ export function FlowEdge({
               aria-label="Delete edge"
               onClick={(e) => {
                 e.stopPropagation();
+                const existed = useFlowEditorStore.getState().edges.some((ed) => ed.id === id);
                 removeEdge(id);
+                if (existed) undoableToast("Connection deleted");
               }}
               className="flex h-4 w-4 items-center justify-center rounded-full border border-border bg-card text-slate-500 shadow-sm hover:bg-destructive/10 hover:text-destructive"
             >

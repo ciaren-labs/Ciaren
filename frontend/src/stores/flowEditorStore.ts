@@ -37,6 +37,15 @@ interface FlowEditorState {
    * instead of `nodes`, so dragging stays O(1) per frame on large graphs.
    */
   structureVersion: number;
+  /**
+   * Bumped only by `reset()` — i.e. once per flow loaded/switched away from
+   * (see FlowEditorPage's flow-id effect cleanup). A toast's "Undo" callback
+   * captures this at creation time and checks it's unchanged before calling
+   * `undo()`, so a lingering toast from a flow the user has since navigated
+   * away from can't reach back and undo an edit in the *new* flow — `undo()`
+   * itself has no notion of which flow a history entry belongs to.
+   */
+  sessionId: number;
   selectedNodeId: string | null;
   sidebarOpen: boolean;
   previewOpen: boolean;
@@ -129,6 +138,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   nodes: [],
   edges: [],
   structureVersion: 0,
+  sessionId: 0,
   selectedNodeId: null,
   sidebarOpen: false,
   previewOpen: false,
@@ -371,6 +381,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       nodes: [],
       edges: [],
       structureVersion: state.structureVersion + 1,
+      sessionId: state.sessionId + 1,
       selectedNodeId: null,
       sidebarOpen: false,
       previewOpen: false,

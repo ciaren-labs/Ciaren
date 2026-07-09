@@ -7,6 +7,7 @@ import { Position } from "@xyflow/react";
 import type { EdgeProps } from "@xyflow/react";
 import { FlowEdge } from "../FlowEdge";
 import { useFlowEditorStore, type FlowNodeType } from "@/stores/flowEditorStore";
+import { useToastStore } from "@/stores/toastStore";
 
 // EdgeLabelRenderer portals into a DOM node that only exists once a full
 // <ReactFlow> instance has mounted (it queries the flow's own store for a
@@ -63,6 +64,42 @@ describe("FlowEdge hover-delete button", () => {
     await user.click(screen.getByRole("button", { name: "Delete edge" }));
 
     expect(useFlowEditorStore.getState().edges).toHaveLength(0);
+  });
+
+  it("shows an undoable toast when deleted", async () => {
+    const user = userEvent.setup();
+    useFlowEditorStore.getState().reset();
+    useFlowEditorStore.getState().setGraph(
+      [node("a"), node("b")],
+      [{ id: "e1", source: "a", target: "b" }],
+    );
+    useToastStore.setState({ toasts: [] });
+    renderEdge();
+
+    await user.click(screen.getByRole("button", { name: "Delete edge" }));
+
+    const [t] = useToastStore.getState().toasts;
+    expect(t).toMatchObject({ variant: "success", title: "Connection deleted" });
+    expect(t.action?.label).toBe("Undo");
+
+    t.action?.onClick?.();
+    expect(useFlowEditorStore.getState().edges).toHaveLength(1);
+  });
+
+  it("shows no toast if the edge was already removed by the time Delete is clicked", async () => {
+    const user = userEvent.setup();
+    useFlowEditorStore.getState().reset();
+    useFlowEditorStore.getState().setGraph(
+      [node("a"), node("b")],
+      [{ id: "e1", source: "a", target: "b" }],
+    );
+    useToastStore.setState({ toasts: [] });
+    renderEdge();
+    useFlowEditorStore.getState().removeEdge("e1");
+
+    await user.click(screen.getByRole("button", { name: "Delete edge" }));
+
+    expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 
   it("renders no delete affordance when the edge is not deletable", () => {
