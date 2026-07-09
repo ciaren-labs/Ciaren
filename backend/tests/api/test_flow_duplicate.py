@@ -31,7 +31,7 @@ async def test_duplicate_copies_definition(client: AsyncClient) -> None:
     assert r.status_code == 201, r.text
     copy = r.json()
     assert copy["id"] != original["id"]
-    assert copy["name"] == "original (copy)"
+    assert copy["name"] == "original (1)"
     assert copy["description"] == "desc"
     assert copy["project_id"] == original["project_id"]
     assert copy["graph_json"] == original["graph_json"]  # engine + parameters ride along
@@ -81,7 +81,41 @@ async def test_duplicate_blank_name_falls_back_to_default(client: AsyncClient) -
     original = await _create(client, "blanked")
     r = await client.post(f"/api/flows/{original['id']}/duplicate", params={"name": "   "})
     assert r.status_code == 201, r.text
-    assert r.json()["name"] == "blanked (copy)"
+    assert r.json()["name"] == "blanked (1)"
+
+
+async def test_duplicate_increments_number_on_repeat(client: AsyncClient) -> None:
+    """Duplicating the same flow twice yields distinct, file-manager-style
+    names — the whole point of auto-numbering (no colliding "(copy)" twins)."""
+    original = await _create(client, "report")
+    first = (await client.post(f"/api/flows/{original['id']}/duplicate")).json()
+    second = (await client.post(f"/api/flows/{original['id']}/duplicate")).json()
+    assert first["name"] == "report (1)"
+    assert second["name"] == "report (2)"
+
+
+async def test_duplicate_of_a_copy_continues_the_sequence(client: AsyncClient) -> None:
+    """Duplicating "report (1)" continues to "report (2)" rather than nesting
+    into "report (1) (1)"."""
+    original = await _create(client, "seq")
+    copy1 = (await client.post(f"/api/flows/{original['id']}/duplicate")).json()
+    assert copy1["name"] == "seq (1)"
+    copy2 = (await client.post(f"/api/flows/{copy1['id']}/duplicate")).json()
+    assert copy2["name"] == "seq (2)"
+
+
+async def test_duplicate_numbering_is_scoped_to_the_project(client: AsyncClient) -> None:
+    """The next free number only considers flows in the copy's own project, so a
+    same-named flow in another project doesn't push the number up."""
+    proj = (await client.post("/api/projects", json={"name": "Other"})).json()
+    # A flow named "scoped (1)" living in another project must be ignored.
+    await client.post(
+        "/api/flows",
+        json={"name": "scoped (1)", "graph_json": _GRAPH, "project_id": proj["id"]},
+    )
+    original = await _create(client, "scoped")  # default project
+    copy = (await client.post(f"/api/flows/{original['id']}/duplicate")).json()
+    assert copy["name"] == "scoped (1)"  # not bumped to (2) by the other project
 
 
 async def test_duplicate_over_long_name_is_rejected(client: AsyncClient) -> None:
@@ -98,15 +132,15 @@ async def test_duplicate_over_long_name_is_rejected(client: AsyncClient) -> None
     assert r.json()["name"] == "y" * 255
 
 
-async def test_duplicate_max_length_name_keeps_copy_suffix(client: AsyncClient) -> None:
+async def test_duplicate_max_length_name_keeps_numeric_suffix(client: AsyncClient) -> None:
     """The default name must never be byte-identical to the original's — a
-    255-char original truncates so " (copy)" still fits."""
+    255-char original truncates so " (N)" still fits."""
     original = await _create(client, "z" * 255)
     r = await client.post(f"/api/flows/{original['id']}/duplicate")
     assert r.status_code == 201, r.text
     name = r.json()["name"]
     assert name != original["name"]
-    assert name.endswith(" (copy)")
+    assert name.endswith(" (1)")
     assert len(name) <= 255
 
 

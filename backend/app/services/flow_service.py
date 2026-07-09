@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import copy
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -37,6 +38,10 @@ from app.services.project_service import ProjectService
 # a saved connection). They are stripped on import so the flow is portable; the
 # importer re-selects them. (model_uri is a logical MLflow reference, kept as-is.)
 _ENV_BOUND_CONFIG_KEYS = ("dataset_id", "dataset_version", "connection_id")
+
+# A trailing " (N)" marker on a flow name, so duplicating a copy continues the
+# sequence ("Sales (1)" -> "Sales (2)") instead of nesting ("Sales (1) (1)").
+_COPY_SUFFIX_RE = re.compile(r"^(.*) \((\d+)\)$")
 
 logger = logging.getLogger(__name__)
 
@@ -147,16 +152,14 @@ class FlowService:
         schedules, no run history — those belong to the original)."""
         original = await self._get_or_raise(flow_id)
         # An explicit name follows the same rules FlowCreate enforces: trimmed,
-        # ≤255 (rejected, not silently truncated), and a blank one falls back
-        # to the default. The default truncates the base first so the " (copy)"
-        # marker always survives — otherwise a max-length name would duplicate
-        # to an identical name.
-        suffix = " (copy)"
-        default_name = f"{original.name[: 255 - len(suffix)]}{suffix}"
+        # ≤255 (rejected, not silently truncated), and a blank one falls back to
+        # the auto-numbered default. The default picks the next free " (N)"
+        # within the same project (file-manager style), so repeated duplicates
+        # never collide and per-project names stay distinct.
         trimmed = (name or "").strip()
         if len(trimmed) > 255:
             raise ValidationError("name must be at most 255 characters.")
-        copy_name = trimmed or default_name
+        copy_name = trimmed or await self._next_copy_name(original.name, original.project_id)
         # Same parameter gate as create/update/import — but duplicate must not
         # fail on a legacy row that predates the gate, so copy verbatim and
         # log instead of raising; the copy fails loudly if it is ever run.
@@ -181,6 +184,25 @@ class FlowService:
         await self.db.commit()
         await self.db.refresh(flow)
         return FlowRead.model_validate(flow)
+
+    async def _next_copy_name(self, source_name: str, project_id: str | None) -> str:
+        """Pick the next free ``base (N)`` name within ``project_id``.
+
+        A trailing " (N)" on the source is stripped first so duplicating a copy
+        continues the sequence ("Sales (1)" → "Sales (2)") rather than nesting.
+        ``base`` is truncated so the suffix always fits in 255 chars, keeping the
+        copy's name distinct from a max-length original."""
+        match = _COPY_SUFFIX_RE.match(source_name)
+        base = match.group(1) if match else source_name
+        result = await self.db.execute(select(Flow.name).where(Flow.project_id == project_id))
+        taken = {row[0] for row in result.all()}
+        n = 1
+        while True:
+            suffix = f" ({n})"
+            candidate = f"{base[: 255 - len(suffix)]}{suffix}"
+            if candidate not in taken:
+                return candidate
+            n += 1
 
     async def import_flow(self, data: FlowImport) -> FlowRead:
         """Create a flow from an exported document, stripping environment-specific

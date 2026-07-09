@@ -9,6 +9,7 @@ import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
 import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
+import { flowNameConflicts, resolveImportTargetProjectId } from "@/lib/flowImport";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
@@ -154,9 +155,12 @@ export function FlowListPage() {
       setImportNameError("Name is required.");
       return;
     }
-    const conflict = (flows ?? []).some((f) => f.name.toLowerCase() === name.toLowerCase());
-    if (conflict) {
-      setImportNameError(`A flow named "${name}" already exists. Choose a different name.`);
+    // Scope the name-collision check to the destination project — the backend
+    // has no global flow-name uniqueness, so a clash in a *different* project
+    // must not block a valid import.
+    const targetProjectId = resolveImportTargetProjectId(projectFilter, projects);
+    if (flowNameConflicts(flows ?? [], name, targetProjectId)) {
+      setImportNameError(`A flow named "${name}" already exists in this project. Choose a different name.`);
       return;
     }
     const payload = {
