@@ -145,6 +145,12 @@ export function SchedulesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
+  // Tracked locally rather than via runNow.isPending/variables: that single
+  // mutation instance is shared across every row, so its own pending state
+  // only ever reflects the most recently invoked call — running schedule B
+  // while A is still in flight would otherwise make A's row look finished
+  // and let a same-schedule rapid re-click fire the underlying flow twice.
+  const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
 
   const flowName = useMemo(
     () => new Map((flows ?? []).map((f) => [f.id, f.name])),
@@ -205,12 +211,28 @@ export function SchedulesPage() {
   const toggle = (s: Schedule) =>
     updateSchedule.mutate({ id: s.id, body: { is_enabled: !s.is_enabled } });
 
+  const handleRunNow = (s: Schedule) => {
+    if (runningIds.has(s.id)) return;
+    setRunningIds((prev) => new Set(prev).add(s.id));
+    runNow
+      .mutateAsync(s.id)
+      .then((run) => navigate(`/runs/${run.id}`))
+      .catch(() => {})
+      .finally(() => {
+        setRunningIds((prev) => {
+          const next = new Set(prev);
+          next.delete(s.id);
+          return next;
+        });
+      });
+  };
+
   const actions = {
     open: (s: Schedule) => navigate(`/schedules/${s.id}`),
     edit: openEdit,
     toggle,
-    runNow: (s: Schedule) =>
-      runNow.mutate(s.id, { onSuccess: (run) => navigate(`/runs/${run.id}`) }),
+    runNow: handleRunNow,
+    isRunning: (s: Schedule) => runningIds.has(s.id),
     remove: (s: Schedule) => setPendingDelete(s),
   };
 
@@ -412,18 +434,21 @@ interface Actions {
   edit: (s: Schedule) => void;
   toggle: (s: Schedule) => void;
   runNow: (s: Schedule) => void;
+  isRunning: (s: Schedule) => boolean;
   remove: (s: Schedule) => void;
 }
 
 function RowActions({ schedule, actions }: { schedule: Schedule; actions: Actions }) {
+  const running = actions.isRunning(schedule);
   return (
     <div className="flex items-center justify-end gap-1">
       <button
         onClick={() => actions.runNow(schedule)}
-        className="rounded-md p-1.5 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700"
+        disabled={running}
+        className="rounded-md p-1.5 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-40"
         title="Run now"
       >
-        <Play className="h-3.5 w-3.5" />
+        {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
       </button>
       <button
         onClick={() => actions.toggle(schedule)}
