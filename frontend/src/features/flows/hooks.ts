@@ -138,11 +138,13 @@ export function useRunFlow() {
       flowId,
       engine = "pandas",
       inputDatasetId,
+      parameters,
     }: {
       flowId: string;
       engine?: string;
       inputDatasetId?: string;
-    }) => flowsApi.createRun(flowId, { engine, inputDatasetId }),
+      parameters?: Record<string, unknown> | null;
+    }) => flowsApi.createRun(flowId, { engine, inputDatasetId, parameters }),
     // The quick-run dialog shows failures inline, next to the Run button.
     meta: { suppressErrorToast: true },
     onSuccess: () => {

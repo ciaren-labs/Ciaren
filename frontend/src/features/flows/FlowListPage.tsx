@@ -14,7 +14,7 @@ import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
-import { friendlyErrorMessage } from "@/lib/errors";
+import { QuickRunDialog } from "./QuickRunDialog";
 import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ViewToggle } from "@/components/filters/ViewToggle";
-import { ENGINES, type Engine, type Flow } from "@/lib/types";
+import { type Flow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type PendingAction =
@@ -95,7 +95,6 @@ export function FlowListPage() {
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [runFlow, setRunFlow] = useState<Flow | null>(null);
-  const [runEngine, setRunEngine] = useState<Engine>("pandas");
   const runMutation = useRunFlow();
   const [schedulingFlow, setSchedulingFlow] = useState<Flow | null>(null);
   const createSchedule = useCreateSchedule();
@@ -463,7 +462,7 @@ export function FlowListPage() {
                       isDuplicating={duplicatingIds.has(flow.id)}
                       onOpen={() => navigate(`/flows/${flow.id}`)}
                       onEdit={() => setEditingFlow(flow)}
-                      onRun={() => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
+                      onRun={() => { runMutation.reset(); setRunFlow(flow); }}
                       onSchedule={() => setSchedulingFlow(flow)}
                       onToggle={() => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                       onDelete={() => setPendingAction({ kind: "delete", flow })}
@@ -479,7 +478,7 @@ export function FlowListPage() {
                   isDuplicating={(flow) => duplicatingIds.has(flow.id)}
                   onOpen={(id) => navigate(`/flows/${id}`)}
                   onEdit={(flow) => setEditingFlow(flow)}
-                  onRun={(flow) => { setRunFlow(flow); setRunEngine(flow.graph_json?.engine ?? "pandas"); }}
+                  onRun={(flow) => { runMutation.reset(); setRunFlow(flow); }}
                   onSchedule={(flow) => setSchedulingFlow(flow)}
                   onToggle={(flow) => setPendingAction({ kind: flow.is_disabled ? "enable" : "disable", flow })}
                   onDelete={(flow) => setPendingAction({ kind: "delete", flow })}
@@ -517,66 +516,24 @@ export function FlowListPage() {
         )
       )}
 
-      {/* Quick-run dialog */}
-      <Dialog open={runFlow !== null} onOpenChange={(o) => !o && setRunFlow(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Play className="h-4 w-4 text-brand-600" />
-              Run "{runFlow?.name}"
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Engine</Label>
-              <div className="flex items-center gap-2 overflow-hidden rounded-md border border-input text-sm">
-                {ENGINES.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => setRunEngine(e)}
-                    className={cn(
-                      "flex-1 py-2 transition-colors",
-                      runEngine === e
-                        ? "bg-brand-600 font-medium text-white"
-                        : "bg-background text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {runMutation.isError && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {friendlyErrorMessage(runMutation.error, "The run couldn't be started.")}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setRunFlow(null)}>Cancel</Button>
-              <Button
-                onClick={() => {
-                  if (!runFlow) return;
-                  runMutation.mutate(
-                    { flowId: runFlow.id, engine: runEngine },
-                    {
-                      onSuccess: (run) => {
-                        setRunFlow(null);
-                        navigate(`/runs/${run.id}`);
-                      },
-                    },
-                  );
-                }}
-                disabled={runMutation.isPending}
-              >
-                {runMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Run
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <QuickRunDialog
+        flow={runFlow}
+        onOpenChange={(o) => !o && setRunFlow(null)}
+        isPending={runMutation.isPending}
+        error={runMutation.error}
+        onRun={({ engine, parameters }) => {
+          if (!runFlow) return;
+          runMutation.mutate(
+            { flowId: runFlow.id, engine, parameters },
+            {
+              onSuccess: (run) => {
+                setRunFlow(null);
+                navigate(`/runs/${run.id}`);
+              },
+            },
+          );
+        }}
+      />
 
       <ScheduleFormDialog
         open={schedulingFlow !== null}
