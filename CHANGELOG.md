@@ -8,6 +8,40 @@ release, breaking changes may still happen between alpha versions.
 
 ## [Unreleased]
 
+### Added
+
+- **Snowflake, Azure Blob, and REST API connection forms cover previously
+  inaccessible options** — Snowflake now has its own form (account
+  identifier, warehouse, role, schema — no unusable port field, which the
+  driver never used); Azure Blob gained an endpoint URL field for Azurite and
+  sovereign clouds; the REST API connector's start-page option for
+  0-indexed pagination APIs is now configurable from the connection form.
+- Search inputs (Flows, Datasets) now have a clear button.
+
+### Fixed
+
+- **List-page actions no longer leak pending state across rows** —
+  duplicating a flow, running a schedule, retrying a run, and clearing a
+  model alias now show a loading/disabled state on only the row you
+  clicked. Most visibly, retrying one failed run previously disabled every
+  other failed run's Retry button on the page at once.
+- **REST API pagination's start-page option ignored an explicit `0`** —
+  0-indexed pagination APIs were always requested from page 1 regardless of
+  the configured start page.
+- **Dataset re-upload warning matched names across all projects** —
+  uploading a file whose name happened to match a dataset in a *different*
+  project incorrectly warned that it would create a new version of that
+  unrelated dataset. The check is now scoped to the upload's target
+  project, matching the backend's own per-project name uniqueness rule.
+- **Plugin approve/revoke gave no confirmation** — both actions now show a
+  specific success or error toast instead of a generic fallback message (or
+  silence on success).
+- Project and dataset card actions (edit/toggle/delete) are now revealed on
+  keyboard focus, not only mouse hover.
+- A rapid double-Enter in a project page's inline "New flow" input could
+  create a duplicate flow; the input is now guarded the same way its
+  button already was.
+
 ## [0.1.0-alpha.1] - 2026-07-07
 
 Initial public alpha release.

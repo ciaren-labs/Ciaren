@@ -185,11 +185,16 @@ them like defaults rather than connections you created.
 
    ![Configure connection form — name, host, port, database, username, and a "Password secret" field with a full-width "Store a value in the OS keychain" button beneath it](/screenshots/connection-form-postgres.png)
 
-   SQLite asks only for a file path; the others ask for host, port, database,
+   SQLite asks only for a file path; most others ask for host, port, database,
    username, and the **password secret** — a reference (env var name,
    `keyring:NAME`, or `file:/path`), or use **Save a secret to the system
    keychain** to store the value in the OS keychain in place. The actual secret
    is never stored by Ciaren.
+
+   **Snowflake** is the exception: there's no port field (Snowflake's driver
+   never uses one), and **Account identifier** replaces host. Warehouse, role,
+   and schema are optional and shown as their own fields rather than buried in
+   generic connection options.
 1. Save, then click **Test** to verify connectivity.
 
 ## Web APIs
@@ -205,7 +210,7 @@ offer:
 | **Endpoints** | Relative paths declared on the connection; each appears as a *table* in SQL Input. |
 | **Custom headers / default query params** | Applied to every request (tenant headers, API versions, fixed filters). |
 | **Response format & records path** | Auto/JSON/CSV, plus a dot path (e.g. `data.items`) for APIs that wrap their rows. |
-| **Pagination** | Page-number pagination: page/page-size param names, page size, and a max-pages cap — the connector loops pages automatically. |
+| **Pagination** | Page-number pagination: page/page-size param names, page size, a start page (`0` for APIs that count pages from zero instead of one), and a max-pages cap — the connector loops pages automatically. |
 | **Timeout & TLS verification** | Per-connection request timeout and a TLS-verify toggle for internal endpoints. |
 
 ![Configure connection form for the REST API connector — base URL, authentication method, secret env var, endpoints, and advanced options for headers, parsing, and pagination](/screenshots/connection-form-rest-api.png)
