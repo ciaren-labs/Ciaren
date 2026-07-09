@@ -18,18 +18,17 @@ brief):
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
 
-from sqlalchemy import CursorResult, select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.core.notifications import notify_in_background
-from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.scheduler.cron import compute_next_run
 from app.schemas.run import FlowRunCreate
 from app.services.execution_service import ExecutionService
+from app.services.run_recovery import recover_orphaned_runs
 
 logger = logging.getLogger("ciaren.scheduler")
 
@@ -203,27 +202,12 @@ class SchedulerRunner:
     async def _recover_orphaned_runs(self) -> None:
         """Mark runs still ``running`` at startup as failed.
 
-        The app is single-process, so any run left in ``running`` was interrupted
-        by a crash/restart — it can never complete. Clearing them keeps the run
-        history honest and frees the (in-memory) overlap state implicitly.
+        Delegates to :func:`app.services.run_recovery.recover_orphaned_runs`, the
+        single implementation now also invoked unconditionally at app startup (so
+        recovery still happens when the scheduler is disabled). Kept here as a thin
+        wrapper for the scheduler's own start-up path and its unit test.
         """
-        now = datetime.now(UTC).replace(tzinfo=None)
-        async with self._session_factory() as db:
-            result = cast(
-                CursorResult[Any],
-                await db.execute(
-                    update(FlowRun)
-                    .where(FlowRun.status == "running")
-                    .values(
-                        status="failed",
-                        error_message="Run interrupted by a server restart.",
-                        finished_at=now,
-                    )
-                ),
-            )
-            if result.rowcount:
-                logger.warning("Recovered %s orphaned run(s) after restart", result.rowcount)
-            await db.commit()
+        await recover_orphaned_runs(self._session_factory)
 
     async def _reconcile_on_startup(self) -> None:
         """Set ``next_run_at`` for new schedules and apply the catch-up policy for

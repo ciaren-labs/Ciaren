@@ -170,6 +170,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Running seeded demo flows once (SEED_RUN_FLOWS enabled)…")
             await _run_seeded_flows_safe(seeded_project_id)
 
+    # Recover runs left in ``running`` by a crash/restart. Done here — not only in
+    # the scheduler — so it happens even when SCHEDULER_ENABLED is false; otherwise
+    # interrupted runs would stay stuck in ``running`` indefinitely. Best-effort:
+    # a recovery failure must not block startup.
+    try:
+        from app.services.run_recovery import recover_orphaned_runs
+
+        await recover_orphaned_runs(AsyncSessionLocal)
+    except Exception:  # noqa: BLE001 - startup must proceed even if recovery fails
+        logger.warning("Orphaned-run recovery failed; continuing.", exc_info=True)
+
     runner = None
     if settings.SCHEDULER_ENABLED:
         from app.scheduler import SchedulerRunner
