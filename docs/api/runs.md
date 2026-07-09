@@ -48,6 +48,15 @@ Date filters are named for the column they use: `started_after` and
 accepts `sort_by` (`created_at`, `started_at`, `status`), `sort_order` (`asc` or
 `desc`), `limit` (1-10000, default 100), and `offset` (default 0).
 
+## Restart recovery
+
+Ciaren runs as a single process, so a run still in `running` when the server
+restarts (a crash, a deploy, `Ctrl-C` mid-run) was interrupted and can never
+finish. On startup — **regardless of whether the scheduler is enabled** — every
+such run is reconciled to `failed` with the error message
+`Run interrupted by a server restart.`, so run history stays honest and the run
+drops out of "active" listings. Re-run it with **Retry** once the server is back.
+
 ## Log streaming (SSE)
 
 `GET /api/runs/{run_id}/logs/stream` returns a `text/event-stream` response.

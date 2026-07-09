@@ -35,6 +35,12 @@ file (`file:/path`) — and never stored** (see
 backs the table picker in the SQL node config form, and `GET .../objects` backs
 the equivalent picker for storage connections (S3, Azure Blob, GCS, local folder).
 
+Testing a saved connection records the outcome on the connection itself:
+`last_tested_at`, `last_test_status` (`ok` \| `failed` \| `error`), and
+`last_test_error` (failure detail, secrets redacted). Editing a connectivity
+field (host, port, database, credentials, options) clears the stored result, so a
+green status can never be mistaken for a config that has since changed.
+
 The `password_env` field takes a secret reference: a bare env var name,
 `env:NAME`, `keyring:NAME`, or `file:/path`. Save-time validation refuses a
 reference naming one of Ciaren's own configuration variables (or, when

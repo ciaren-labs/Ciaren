@@ -16,7 +16,7 @@ new immutable version, so flows pinned to an earlier version stay reproducible.
 | `GET` | `/api/datasets` | List datasets (optionally `?project_id=` and `?include_deleted=true`) |
 | `GET` | `/api/datasets/{dataset_id}` | Get one dataset |
 | `PATCH` | `/api/datasets/{dataset_id}` | Update a dataset's `is_disabled` state; disabling cascades to flows that use it |
-| `DELETE` | `/api/datasets/{dataset_id}` | Soft-delete a dataset; `?purge=true` deletes files immediately |
+| `DELETE` | `/api/datasets/{dataset_id}` | Soft-delete a dataset (disables flows that use it); `?purge=true` deletes files immediately |
 | `POST` | `/api/datasets/{dataset_id}/restore` | Restore a soft-deleted dataset |
 | `POST` | `/api/datasets/purge-expired` | Permanently delete soft-deleted datasets past the retention window |
 | `GET` | `/api/datasets/{dataset_id}/versions` | List all versions, newest first (`limit` 1-1000, default 100, and `offset`) |
@@ -36,6 +36,13 @@ non-default worksheet; omitted values fall back to auto-detection.
 Soft deletes retain files for `CIAREN_DATASET_RETENTION_DAYS` days by default.
 Immediate purge refuses if a Production model was trained from the dataset unless
 `?force=true` is supplied.
+
+Deleting or disabling a dataset **disables every flow that reads from it**, so a
+stale dataset can't be run by mistake. Those flows are tagged as disabled *by the
+dataset*, which means re-enabling the parent project alone won't revive them —
+restore the dataset (`POST .../restore`) and re-enable the flows explicitly. A run
+whose input resolves to a deleted or disabled dataset is refused with a validation
+error rather than reading stale data.
 
 ## See also
 
