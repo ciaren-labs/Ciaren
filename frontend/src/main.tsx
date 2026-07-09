@@ -7,7 +7,15 @@ import App from "./App";
 import { queryClient } from "./lib/queryClient";
 import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  // The bundle loaded but its mount point is gone — a broken index.html or a
+  // stale cached shell. Fail loudly with a readable message instead of a bare
+  // "Cannot read properties of null" from a non-null assertion.
+  throw new Error('Ciaren could not start: no #root element was found in the page.');
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
