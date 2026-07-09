@@ -19,6 +19,7 @@ import "@xyflow/react/dist/style.css";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { edgeTypes } from "./edgeTypes";
+import { EmptyCanvasHint } from "./EmptyCanvasHint";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
@@ -294,7 +295,8 @@ export function FlowCanvas() {
   );
 
   return (
-    <div className="canvas-surface h-full w-full">
+    <div className="canvas-surface relative h-full w-full">
+      {nodes.length === 0 && <EmptyCanvasHint />}
       <ReactFlow
         nodes={nodes}
         edges={styledEdges}
