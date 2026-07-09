@@ -65,6 +65,7 @@ async def test_idempotent_second_call_recovers_nothing(engine: AsyncEngine) -> N
 async def test_lifespan_recovers_even_when_scheduler_disabled(engine: AsyncEngine, monkeypatch) -> None:
     """The lifespan invokes recovery unconditionally, before (and regardless of)
     the scheduler — the regression this decoupling fixes."""
+    import app.bootstrap.lifespan as ls
     import app.main as main
 
     factory = _factory(engine)
@@ -72,24 +73,25 @@ async def test_lifespan_recovers_even_when_scheduler_disabled(engine: AsyncEngin
 
     # Neutralize the heavy, DB/global-engine-bound startup steps so the test
     # exercises only the recovery wiring. Point recovery at the test engine.
+    # These live in app.bootstrap.lifespan now, so patch there.
     async def _noop(*args, **kwargs):  # noqa: ANN002, ANN003
         return None
 
-    monkeypatch.setattr(main, "init_db", _noop)
-    monkeypatch.setattr(main, "_seed_local_storage_safe", _noop)
-    monkeypatch.setattr(main, "_seed_mlflow_connection_safe", _noop)
-    monkeypatch.setattr(main, "_seed_demo_safe", _noop)
-    monkeypatch.setattr(main, "AsyncSessionLocal", factory)
+    monkeypatch.setattr(ls, "init_db", _noop)
+    monkeypatch.setattr(ls, "seed_local_storage_safe", _noop)
+    monkeypatch.setattr(ls, "seed_mlflow_connection_safe", _noop)
+    monkeypatch.setattr(ls, "seed_demo_safe", _noop)
+    monkeypatch.setattr(ls, "AsyncSessionLocal", factory)
     monkeypatch.setattr("app.core.runtime_settings.load_and_apply_overrides", _noop)
     monkeypatch.setattr("app.plugins.ensure_plugins_loaded", lambda *a, **k: None)
 
-    settings = main.get_settings()
+    settings = ls.get_settings()
     monkeypatch.setattr(settings, "SCHEDULER_ENABLED", False, raising=False)
     monkeypatch.setattr(settings, "SEED_DEMO", False, raising=False)
     monkeypatch.setattr(settings, "ML_ENABLED", False, raising=False)
-    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(ls, "get_settings", lambda: settings)
 
-    async with main.lifespan(main.app):
+    async with ls.lifespan(main.app):
         pass
 
     async with factory() as db:
