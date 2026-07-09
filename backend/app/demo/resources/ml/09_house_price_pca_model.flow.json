@@ -1,0 +1,66 @@
+{
+  "name": "House Prices — PCA Model",
+  "description": "Fit a PCA dimensionality-reduction model on scaled house features and log explained variance to MLflow.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_houses",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "house_prices.csv"
+    },
+    {
+      "id": "scale",
+      "type": "scaleFeatures",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "area",
+          "bedrooms",
+          "age",
+          "distance_to_city",
+          "price"
+        ],
+        "method": "standard"
+      }
+    },
+    {
+      "id": "train_pca",
+      "type": "mlTrainDimReduction",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "model_type": "pca_fit",
+        "feature_columns": [
+          "area",
+          "bedrooms",
+          "age",
+          "distance_to_city",
+          "price"
+        ],
+        "hyperparameters": {
+          "n_components": 2
+        },
+        "seed": 23
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_houses",
+      "target": "scale"
+    },
+    {
+      "source": "scale",
+      "target": "train_pca"
+    }
+  ]
+}

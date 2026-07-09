@@ -1,0 +1,61 @@
+{
+  "name": "Iris — Quick Classifier",
+  "description": "Split the iris data, train a random-forest classifier on the training set, and log it to MLflow. The smallest end-to-end modeling flow.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_iris",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "iris.csv"
+    },
+    {
+      "id": "split",
+      "type": "trainTestSplit",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "test_size": 0.25,
+        "stratify_column": "species",
+        "seed": 42
+      }
+    },
+    {
+      "id": "train",
+      "type": "mlTrainClassifier",
+      "position": {
+        "x": 500,
+        "y": 0
+      },
+      "config": {
+        "model_type": "random_forest_classifier",
+        "target_column": "species",
+        "feature_columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "hyperparameters": {},
+        "seed": 42
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_iris",
+      "target": "split"
+    },
+    {
+      "source": "split",
+      "target": "train",
+      "sourceHandle": "train",
+      "targetHandle": "in"
+    }
+  ]
+}

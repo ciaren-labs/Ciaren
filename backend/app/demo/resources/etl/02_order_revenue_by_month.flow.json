@@ -1,0 +1,127 @@
+{
+  "name": "Order Revenue by Month",
+  "description": "Parse order dates, extract year/month, keep completed orders, then total revenue per month sorted chronologically.",
+  "nodes": [
+    {
+      "id": "in_orders",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "orders.csv"
+    },
+    {
+      "id": "parse_date",
+      "type": "parseDates",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "order_date"
+        ],
+        "errors": "coerce"
+      }
+    },
+    {
+      "id": "date_parts",
+      "type": "extractDateParts",
+      "position": {
+        "x": 500,
+        "y": 0
+      },
+      "config": {
+        "column": "order_date",
+        "parts": [
+          "year",
+          "month"
+        ]
+      }
+    },
+    {
+      "id": "completed_only",
+      "type": "filterRows",
+      "position": {
+        "x": 750,
+        "y": 0
+      },
+      "config": {
+        "column": "status",
+        "operator": "==",
+        "value": "completed"
+      }
+    },
+    {
+      "id": "by_month",
+      "type": "groupByAggregate",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "config": {
+        "group_by": [
+          "order_date_year",
+          "order_date_month"
+        ],
+        "aggregations": {
+          "amount": "sum"
+        }
+      }
+    },
+    {
+      "id": "sort_month",
+      "type": "sortRows",
+      "position": {
+        "x": 1250,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "order_date_year",
+          "order_date_month"
+        ],
+        "ascending": true
+      }
+    },
+    {
+      "id": "out_revenue",
+      "type": "fileOutput",
+      "position": {
+        "x": 1500,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "order_revenue_by_month"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_orders",
+      "target": "parse_date"
+    },
+    {
+      "source": "parse_date",
+      "target": "date_parts"
+    },
+    {
+      "source": "date_parts",
+      "target": "completed_only"
+    },
+    {
+      "source": "completed_only",
+      "target": "by_month"
+    },
+    {
+      "source": "by_month",
+      "target": "sort_month"
+    },
+    {
+      "source": "sort_month",
+      "target": "out_revenue"
+    }
+  ]
+}

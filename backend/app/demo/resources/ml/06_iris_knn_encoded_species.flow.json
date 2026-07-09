@@ -1,0 +1,136 @@
+{
+  "name": "Iris — KNN with Encoded Species",
+  "description": "Encode the target labels, split the dataset, train a KNN classifier, and evaluate predictions.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_iris",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "iris.csv"
+    },
+    {
+      "id": "encode_species",
+      "type": "encodeCategories",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "species"
+        ],
+        "method": "ordinal"
+      }
+    },
+    {
+      "id": "split",
+      "type": "trainTestSplit",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "test_size": 0.25,
+        "stratify_column": "species",
+        "seed": 13
+      }
+    },
+    {
+      "id": "train",
+      "type": "mlTrainClassifier",
+      "position": {
+        "x": 720,
+        "y": -80
+      },
+      "config": {
+        "model_type": "knn_classifier",
+        "target_column": "species",
+        "feature_columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "hyperparameters": {
+          "n_neighbors": 5
+        },
+        "seed": 13
+      }
+    },
+    {
+      "id": "predict",
+      "type": "mlPredict",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "output_column": "prediction"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "mlEvaluate",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "task_type": "classification",
+        "target_column": "species",
+        "prediction_column": "prediction"
+      }
+    },
+    {
+      "id": "out_eval",
+      "type": "fileOutput",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "iris_knn_encoded_metrics"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_iris",
+      "target": "encode_species"
+    },
+    {
+      "source": "encode_species",
+      "target": "split"
+    },
+    {
+      "source": "split",
+      "target": "train",
+      "sourceHandle": "train",
+      "targetHandle": "in"
+    },
+    {
+      "source": "split",
+      "target": "predict",
+      "sourceHandle": "test",
+      "targetHandle": "in"
+    },
+    {
+      "source": "train",
+      "target": "predict",
+      "targetHandle": "model"
+    },
+    {
+      "source": "predict",
+      "target": "evaluate"
+    },
+    {
+      "source": "evaluate",
+      "target": "out_eval"
+    }
+  ]
+}

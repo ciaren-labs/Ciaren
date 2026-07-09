@@ -1,0 +1,209 @@
+{
+  "name": "Survey Quality Contracts",
+  "description": "Validate survey data with not-null, uniqueness, range, domain, expression, and row-count checks, then reshape question scores into a tidy summary.",
+  "nodes": [
+    {
+      "id": "in_survey",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "survey_responses.csv"
+    },
+    {
+      "id": "required_ids",
+      "type": "assertNotNull",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "response_id",
+          "account_id"
+        ],
+        "mode": "error"
+      }
+    },
+    {
+      "id": "unique_response",
+      "type": "assertUnique",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "response_id"
+        ],
+        "mode": "error"
+      }
+    },
+    {
+      "id": "score_range",
+      "type": "assertValueRange",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "config": {
+        "column": "satisfaction",
+        "min": 1,
+        "max": 5
+      }
+    },
+    {
+      "id": "plan_domain",
+      "type": "assertValuesInSet",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "column": "plan",
+        "allowed": [
+          "free",
+          "team",
+          "enterprise"
+        ],
+        "allow_null": false
+      }
+    },
+    {
+      "id": "valid_average",
+      "type": "assertExpression",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "expression": "satisfaction >= 1 and satisfaction <= 5"
+      }
+    },
+    {
+      "id": "row_bounds",
+      "type": "assertRowCount",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "min_rows": 20,
+        "max_rows": 100
+      }
+    },
+    {
+      "id": "satisfaction_band",
+      "type": "binColumn",
+      "position": {
+        "x": 1680,
+        "y": 0
+      },
+      "config": {
+        "column": "satisfaction",
+        "new_column": "satisfaction_band",
+        "method": "equalwidth",
+        "bins": 3,
+        "labels": [
+          "low",
+          "medium",
+          "high"
+        ]
+      }
+    },
+    {
+      "id": "wide_to_long",
+      "type": "unpivot",
+      "position": {
+        "x": 1920,
+        "y": 0
+      },
+      "config": {
+        "id_vars": [
+          "response_id",
+          "account_id",
+          "plan"
+        ],
+        "value_vars": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "var_name": "question",
+        "value_name": "score"
+      }
+    },
+    {
+      "id": "question_scores",
+      "type": "groupByAggregate",
+      "position": {
+        "x": 2160,
+        "y": 0
+      },
+      "config": {
+        "group_by": [
+          "plan",
+          "question"
+        ],
+        "aggregations": {
+          "score": "mean"
+        }
+      }
+    },
+    {
+      "id": "out_survey",
+      "type": "fileOutput",
+      "position": {
+        "x": 2400,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "survey_question_scores"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_survey",
+      "target": "required_ids"
+    },
+    {
+      "source": "required_ids",
+      "target": "unique_response"
+    },
+    {
+      "source": "unique_response",
+      "target": "score_range"
+    },
+    {
+      "source": "score_range",
+      "target": "plan_domain"
+    },
+    {
+      "source": "plan_domain",
+      "target": "valid_average"
+    },
+    {
+      "source": "valid_average",
+      "target": "row_bounds"
+    },
+    {
+      "source": "row_bounds",
+      "target": "satisfaction_band"
+    },
+    {
+      "source": "satisfaction_band",
+      "target": "wide_to_long"
+    },
+    {
+      "source": "wide_to_long",
+      "target": "question_scores"
+    },
+    {
+      "source": "question_scores",
+      "target": "out_survey"
+    }
+  ]
+}

@@ -26,7 +26,7 @@ from app.db.models.dataset_version import DatasetVersion
 from app.db.models.flow import Flow
 from app.db.models.project import Project
 from app.demo.datasets import build_demo_frames
-from app.demo.flows import build_demo_flows
+from app.demo.loader import build_demo_flows
 from app.services.dataset_service import (
     _df_to_records,
     _extract_schema,

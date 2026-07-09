@@ -1,0 +1,85 @@
+{
+  "name": "Clean Customers",
+  "description": "Fill missing ages, normalize country casing, and parse the signup date from text into a real date.",
+  "nodes": [
+    {
+      "id": "in_customers",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "customers.csv"
+    },
+    {
+      "id": "fill_age",
+      "type": "fillNulls",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "age"
+        ],
+        "strategy": "median"
+      }
+    },
+    {
+      "id": "norm_country",
+      "type": "stringTransform",
+      "position": {
+        "x": 500,
+        "y": 0
+      },
+      "config": {
+        "column": "country",
+        "operation": "upper"
+      }
+    },
+    {
+      "id": "parse_signup",
+      "type": "parseDates",
+      "position": {
+        "x": 750,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "signup_date"
+        ],
+        "errors": "coerce"
+      }
+    },
+    {
+      "id": "out_customers",
+      "type": "fileOutput",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "customers_clean"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_customers",
+      "target": "fill_age"
+    },
+    {
+      "source": "fill_age",
+      "target": "norm_country"
+    },
+    {
+      "source": "norm_country",
+      "target": "parse_signup"
+    },
+    {
+      "source": "parse_signup",
+      "target": "out_customers"
+    }
+  ]
+}

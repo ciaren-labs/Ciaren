@@ -1,0 +1,231 @@
+{
+  "name": "Lead Intake Cleanup",
+  "description": "Turn messy inbound leads into a clean contact list: coalesce emails, split and recombine names, cast age text, map countries to regions, and publish only the final columns.",
+  "nodes": [
+    {
+      "id": "in_leads",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "leads.csv"
+    },
+    {
+      "id": "contact_email",
+      "type": "coalesceColumns",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "email",
+          "backup_email"
+        ],
+        "new_column": "contact_email",
+        "keep_original": true
+      }
+    },
+    {
+      "id": "has_contact",
+      "type": "dropNulls",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "subset": [
+          "contact_email"
+        ],
+        "how": "any"
+      }
+    },
+    {
+      "id": "split_name",
+      "type": "splitColumn",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "config": {
+        "column": "full_name",
+        "mode": "delimiter",
+        "delimiter": " ",
+        "into": [
+          "first_name",
+          "last_name"
+        ]
+      }
+    },
+    {
+      "id": "display_name",
+      "type": "combineColumns",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "last_name",
+          "first_name"
+        ],
+        "new_column": "display_name",
+        "separator": ", "
+      }
+    },
+    {
+      "id": "cast_age",
+      "type": "castDtypes",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "casts": {
+          "age_text": "integer"
+        },
+        "errors": "coerce"
+      }
+    },
+    {
+      "id": "source_case",
+      "type": "replaceValues",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "column": "source",
+        "to_replace": "WEB",
+        "value": "web"
+      }
+    },
+    {
+      "id": "country_region",
+      "type": "mapValues",
+      "position": {
+        "x": 1680,
+        "y": 0
+      },
+      "config": {
+        "column": "country",
+        "new_column": "region",
+        "mapping": {
+          "US": "North America",
+          "CA": "North America",
+          "MX": "North America",
+          "UK": "Europe"
+        },
+        "default": "Other",
+        "use_default": true
+      }
+    },
+    {
+      "id": "drop_raw",
+      "type": "dropColumns",
+      "position": {
+        "x": 1920,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "email",
+          "backup_email",
+          "utm_campaign"
+        ]
+      }
+    },
+    {
+      "id": "select_final",
+      "type": "selectColumns",
+      "position": {
+        "x": 2160,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "lead_id",
+          "display_name",
+          "contact_email",
+          "country",
+          "region",
+          "source",
+          "age_text",
+          "score"
+        ]
+      }
+    },
+    {
+      "id": "rename_age",
+      "type": "renameColumns",
+      "position": {
+        "x": 2400,
+        "y": 0
+      },
+      "config": {
+        "mapping": {
+          "age_text": "age"
+        }
+      }
+    },
+    {
+      "id": "out_leads",
+      "type": "fileOutput",
+      "position": {
+        "x": 2640,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "lead_intake_clean"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_leads",
+      "target": "contact_email"
+    },
+    {
+      "source": "contact_email",
+      "target": "has_contact"
+    },
+    {
+      "source": "has_contact",
+      "target": "split_name"
+    },
+    {
+      "source": "split_name",
+      "target": "display_name"
+    },
+    {
+      "source": "display_name",
+      "target": "cast_age"
+    },
+    {
+      "source": "cast_age",
+      "target": "source_case"
+    },
+    {
+      "source": "source_case",
+      "target": "country_region"
+    },
+    {
+      "source": "country_region",
+      "target": "drop_raw"
+    },
+    {
+      "source": "drop_raw",
+      "target": "select_final"
+    },
+    {
+      "source": "select_final",
+      "target": "rename_age"
+    },
+    {
+      "source": "rename_age",
+      "target": "out_leads"
+    }
+  ]
+}

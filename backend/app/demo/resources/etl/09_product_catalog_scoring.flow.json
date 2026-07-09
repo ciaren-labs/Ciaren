@@ -1,0 +1,118 @@
+{
+  "name": "Product Catalog Scoring",
+  "description": "Prepare a product catalog with an expression filter, quantile price bands, rounded numeric fields, and a small Python Transform for a margin estimate.",
+  "nodes": [
+    {
+      "id": "in_products",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "products.csv"
+    },
+    {
+      "id": "fill_price",
+      "type": "fillNulls",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "price"
+        ],
+        "strategy": "mean"
+      }
+    },
+    {
+      "id": "good_catalog",
+      "type": "filterExpression",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "expression": "price >= 10 and rating >= 2"
+      }
+    },
+    {
+      "id": "price_band",
+      "type": "binColumn",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "config": {
+        "column": "price",
+        "new_column": "price_band",
+        "method": "quantile",
+        "bins": 3
+      }
+    },
+    {
+      "id": "round_catalog",
+      "type": "roundNumbers",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "price",
+          "rating"
+        ],
+        "decimals": 1
+      }
+    },
+    {
+      "id": "python_margin",
+      "type": "pythonTransform",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "script": "if hasattr(df, 'with_columns'):\n    return df.with_columns((pl.col('price') * 0.35).alias('margin_estimate'))\ndf = df.copy()\ndf['margin_estimate'] = df['price'] * 0.35\nreturn df"
+      }
+    },
+    {
+      "id": "out_catalog",
+      "type": "fileOutput",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "product_catalog_scored"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_products",
+      "target": "fill_price"
+    },
+    {
+      "source": "fill_price",
+      "target": "good_catalog"
+    },
+    {
+      "source": "good_catalog",
+      "target": "price_band"
+    },
+    {
+      "source": "price_band",
+      "target": "round_catalog"
+    },
+    {
+      "source": "round_catalog",
+      "target": "python_margin"
+    },
+    {
+      "source": "python_margin",
+      "target": "out_catalog"
+    }
+  ]
+}

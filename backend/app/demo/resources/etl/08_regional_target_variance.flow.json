@@ -1,0 +1,182 @@
+{
+  "name": "Regional Target Variance",
+  "description": "Convert quarterly targets and actuals from wide to long, stack both sources, pivot them back side by side, then calculate variance and attainment.",
+  "nodes": [
+    {
+      "id": "in_targets",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "regional_targets.csv"
+    },
+    {
+      "id": "targets_long",
+      "type": "unpivot",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "id_vars": [
+          "region",
+          "metric"
+        ],
+        "value_vars": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "var_name": "quarter",
+        "value_name": "amount"
+      }
+    },
+    {
+      "id": "in_actuals",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 260
+      },
+      "dataset": "regional_actuals.csv"
+    },
+    {
+      "id": "actuals_long",
+      "type": "unpivot",
+      "position": {
+        "x": 240,
+        "y": 260
+      },
+      "config": {
+        "id_vars": [
+          "region",
+          "metric"
+        ],
+        "value_vars": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "var_name": "quarter",
+        "value_name": "amount"
+      }
+    },
+    {
+      "id": "stack_metrics",
+      "type": "concatRows",
+      "position": {
+        "x": 520,
+        "y": 130
+      },
+      "config": {}
+    },
+    {
+      "id": "metrics_wide",
+      "type": "pivot",
+      "position": {
+        "x": 760,
+        "y": 130
+      },
+      "config": {
+        "index": [
+          "region",
+          "quarter"
+        ],
+        "columns": "metric",
+        "values": "amount",
+        "aggfunc": "sum"
+      }
+    },
+    {
+      "id": "variance",
+      "type": "calculatedColumn",
+      "position": {
+        "x": 1000,
+        "y": 130
+      },
+      "config": {
+        "column_name": "variance",
+        "expression": "actual - target"
+      }
+    },
+    {
+      "id": "attainment",
+      "type": "calculatedColumn",
+      "position": {
+        "x": 1240,
+        "y": 130
+      },
+      "config": {
+        "column_name": "attainment",
+        "expression": "actual / target"
+      }
+    },
+    {
+      "id": "round_attainment",
+      "type": "roundNumbers",
+      "position": {
+        "x": 1480,
+        "y": 130
+      },
+      "config": {
+        "columns": [
+          "attainment"
+        ],
+        "decimals": 3
+      }
+    },
+    {
+      "id": "out_variance",
+      "type": "fileOutput",
+      "position": {
+        "x": 1720,
+        "y": 130
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "regional_target_variance"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_targets",
+      "target": "targets_long"
+    },
+    {
+      "source": "in_actuals",
+      "target": "actuals_long"
+    },
+    {
+      "source": "targets_long",
+      "target": "stack_metrics"
+    },
+    {
+      "source": "actuals_long",
+      "target": "stack_metrics"
+    },
+    {
+      "source": "stack_metrics",
+      "target": "metrics_wide"
+    },
+    {
+      "source": "metrics_wide",
+      "target": "variance"
+    },
+    {
+      "source": "variance",
+      "target": "attainment"
+    },
+    {
+      "source": "attainment",
+      "target": "round_attainment"
+    },
+    {
+      "source": "round_attainment",
+      "target": "out_variance"
+    }
+  ]
+}

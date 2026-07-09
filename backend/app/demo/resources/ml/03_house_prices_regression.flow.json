@@ -1,0 +1,115 @@
+{
+  "name": "House Prices — Regression",
+  "description": "Predict house prices with a random-forest regressor: split, train, predict on the held-out set, and evaluate with regression metrics (R², RMSE, MAE).",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_houses",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "house_prices.csv"
+    },
+    {
+      "id": "split",
+      "type": "trainTestSplit",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "test_size": 0.25,
+        "seed": 42
+      }
+    },
+    {
+      "id": "train",
+      "type": "mlTrainRegressor",
+      "position": {
+        "x": 500,
+        "y": -60
+      },
+      "config": {
+        "model_type": "random_forest_regressor",
+        "target_column": "price",
+        "feature_columns": [
+          "area",
+          "bedrooms",
+          "age",
+          "distance_to_city"
+        ],
+        "hyperparameters": {},
+        "seed": 42
+      }
+    },
+    {
+      "id": "predict",
+      "type": "mlPredict",
+      "position": {
+        "x": 750,
+        "y": 0
+      },
+      "config": {
+        "output_column": "prediction"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "mlEvaluate",
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "config": {
+        "task_type": "regression",
+        "target_column": "price",
+        "prediction_column": "prediction"
+      }
+    },
+    {
+      "id": "out_metrics",
+      "type": "fileOutput",
+      "position": {
+        "x": 1250,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "house_price_metrics"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_houses",
+      "target": "split"
+    },
+    {
+      "source": "split",
+      "target": "train",
+      "sourceHandle": "train",
+      "targetHandle": "in"
+    },
+    {
+      "source": "split",
+      "target": "predict",
+      "sourceHandle": "test",
+      "targetHandle": "in"
+    },
+    {
+      "source": "train",
+      "target": "predict",
+      "targetHandle": "model"
+    },
+    {
+      "source": "predict",
+      "target": "evaluate"
+    },
+    {
+      "source": "evaluate",
+      "target": "out_metrics"
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "name": "Iris — Train, Validate & Evaluate",
+  "description": "Scale features, stratify a train/test split, cross-validate a classifier, evaluate it on the held-out set, and rank feature importance.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_iris",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 100
+      },
+      "dataset": "iris.csv"
+    },
+    {
+      "id": "scale",
+      "type": "scaleFeatures",
+      "position": {
+        "x": 240,
+        "y": 100
+      },
+      "config": {
+        "columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "method": "standard"
+      }
+    },
+    {
+      "id": "split",
+      "type": "trainTestSplit",
+      "position": {
+        "x": 480,
+        "y": 100
+      },
+      "config": {
+        "test_size": 0.25,
+        "stratify_column": "species",
+        "seed": 42
+      }
+    },
+    {
+      "id": "train",
+      "type": "mlTrainClassifier",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "config": {
+        "model_type": "random_forest_classifier",
+        "target_column": "species",
+        "feature_columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "hyperparameters": {},
+        "seed": 42
+      }
+    },
+    {
+      "id": "predict",
+      "type": "mlPredict",
+      "position": {
+        "x": 960,
+        "y": 100
+      },
+      "config": {
+        "output_column": "prediction"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "mlEvaluate",
+      "position": {
+        "x": 1200,
+        "y": 100
+      },
+      "config": {
+        "task_type": "classification",
+        "target_column": "species",
+        "prediction_column": "prediction"
+      }
+    },
+    {
+      "id": "out_metrics",
+      "type": "fileOutput",
+      "position": {
+        "x": 1440,
+        "y": 100
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "iris_metrics"
+      }
+    },
+    {
+      "id": "importance",
+      "type": "featureImportance",
+      "position": {
+        "x": 960,
+        "y": 260
+      },
+      "config": {
+        "top_n": 4
+      }
+    },
+    {
+      "id": "out_importance",
+      "type": "fileOutput",
+      "position": {
+        "x": 1200,
+        "y": 260
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "iris_feature_importance"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_iris",
+      "target": "scale"
+    },
+    {
+      "source": "scale",
+      "target": "split"
+    },
+    {
+      "source": "split",
+      "target": "train",
+      "sourceHandle": "train",
+      "targetHandle": "in"
+    },
+    {
+      "source": "split",
+      "target": "predict",
+      "sourceHandle": "test",
+      "targetHandle": "in"
+    },
+    {
+      "source": "train",
+      "target": "predict",
+      "targetHandle": "model"
+    },
+    {
+      "source": "predict",
+      "target": "evaluate"
+    },
+    {
+      "source": "evaluate",
+      "target": "out_metrics"
+    },
+    {
+      "source": "train",
+      "target": "importance",
+      "targetHandle": "model"
+    },
+    {
+      "source": "importance",
+      "target": "out_importance"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "name": "House Prices — Customer Segments",
+  "description": "Scale house features and train a K-Means clustering model to discover price/size segments.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_houses",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "house_prices.csv"
+    },
+    {
+      "id": "scale",
+      "type": "scaleFeatures",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "area",
+          "bedrooms",
+          "age",
+          "distance_to_city",
+          "price"
+        ],
+        "method": "minmax"
+      }
+    },
+    {
+      "id": "cluster",
+      "type": "mlTrainClustering",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "model_type": "kmeans",
+        "feature_columns": [
+          "area",
+          "bedrooms",
+          "age",
+          "distance_to_city",
+          "price"
+        ],
+        "hyperparameters": {
+          "n_clusters": 4
+        },
+        "seed": 19
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_houses",
+      "target": "scale"
+    },
+    {
+      "source": "scale",
+      "target": "cluster"
+    }
+  ]
+}

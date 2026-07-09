@@ -1,0 +1,223 @@
+{
+  "name": "Web Event Engagement",
+  "description": "Parse event timestamps, calculate days since signup, add per-user session numbers, rolling revenue, row-over-row revenue deltas, explode tags, and sample rows for review.",
+  "nodes": [
+    {
+      "id": "in_events",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "web_events.csv"
+    },
+    {
+      "id": "parse_dates",
+      "type": "parseDates",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "signup_date",
+          "event_time"
+        ],
+        "errors": "coerce"
+      }
+    },
+    {
+      "id": "days_since_signup",
+      "type": "dateDifference",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "start_column": "signup_date",
+        "end_column": "event_time",
+        "unit": "days",
+        "new_column": "days_active"
+      }
+    },
+    {
+      "id": "session_number",
+      "type": "windowFunction",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "config": {
+        "function": "row_number",
+        "partition_by": [
+          "user_id"
+        ],
+        "order_by": [
+          "event_time"
+        ],
+        "new_column": "session_number"
+      }
+    },
+    {
+      "id": "rolling_revenue",
+      "type": "rollingAggregate",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "target": "revenue",
+        "function": "mean",
+        "window": 3,
+        "min_periods": 1,
+        "partition_by": [
+          "user_id"
+        ],
+        "order_by": [
+          "event_time"
+        ],
+        "new_column": "rolling_revenue_3"
+      }
+    },
+    {
+      "id": "revenue_delta",
+      "type": "rowDifference",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "target": "revenue",
+        "method": "diff",
+        "periods": 1,
+        "partition_by": [
+          "user_id"
+        ],
+        "order_by": [
+          "event_time"
+        ],
+        "new_column": "revenue_delta"
+      }
+    },
+    {
+      "id": "engaged_paid",
+      "type": "filterExpression",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "expression": "duration_sec >= 60 and revenue >= 0"
+      }
+    },
+    {
+      "id": "explode_tags",
+      "type": "explodeRows",
+      "position": {
+        "x": 1680,
+        "y": 0
+      },
+      "config": {
+        "column": "tags",
+        "delimiter": ","
+      }
+    },
+    {
+      "id": "round_metrics",
+      "type": "roundNumbers",
+      "position": {
+        "x": 1920,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "revenue",
+          "rolling_revenue_3"
+        ],
+        "decimals": 2
+      }
+    },
+    {
+      "id": "sample_review",
+      "type": "sampleRows",
+      "position": {
+        "x": 2160,
+        "y": 0
+      },
+      "config": {
+        "frac": 0.5,
+        "seed": 7
+      }
+    },
+    {
+      "id": "top_review",
+      "type": "limitRows",
+      "position": {
+        "x": 2400,
+        "y": 0
+      },
+      "config": {
+        "n": 40,
+        "offset": 0
+      }
+    },
+    {
+      "id": "out_events",
+      "type": "fileOutput",
+      "position": {
+        "x": 2640,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "web_event_engagement"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_events",
+      "target": "parse_dates"
+    },
+    {
+      "source": "parse_dates",
+      "target": "days_since_signup"
+    },
+    {
+      "source": "days_since_signup",
+      "target": "session_number"
+    },
+    {
+      "source": "session_number",
+      "target": "rolling_revenue"
+    },
+    {
+      "source": "rolling_revenue",
+      "target": "revenue_delta"
+    },
+    {
+      "source": "revenue_delta",
+      "target": "engaged_paid"
+    },
+    {
+      "source": "engaged_paid",
+      "target": "explode_tags"
+    },
+    {
+      "source": "explode_tags",
+      "target": "round_metrics"
+    },
+    {
+      "source": "round_metrics",
+      "target": "sample_review"
+    },
+    {
+      "source": "sample_review",
+      "target": "top_review"
+    },
+    {
+      "source": "top_review",
+      "target": "out_events"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "name": "Full Sales Mart",
+  "description": "Join order items to products and orders, total revenue per category, and label each category with a revenue tier.",
+  "nodes": [
+    {
+      "id": "in_items",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "order_items.csv"
+    },
+    {
+      "id": "line_total",
+      "type": "calculatedColumn",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "column_name": "line_total",
+        "expression": "quantity * unit_price"
+      }
+    },
+    {
+      "id": "in_products",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 250
+      },
+      "dataset": "products.csv"
+    },
+    {
+      "id": "fill_price",
+      "type": "fillNulls",
+      "position": {
+        "x": 250,
+        "y": 250
+      },
+      "config": {
+        "columns": [
+          "price"
+        ],
+        "strategy": "mean"
+      }
+    },
+    {
+      "id": "join_products",
+      "type": "join",
+      "position": {
+        "x": 550,
+        "y": 125
+      },
+      "config": {
+        "on": "product_id",
+        "how": "left"
+      }
+    },
+    {
+      "id": "in_orders",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 500
+      },
+      "dataset": "orders.csv"
+    },
+    {
+      "id": "dedupe_orders",
+      "type": "removeDuplicates",
+      "position": {
+        "x": 250,
+        "y": 500
+      },
+      "config": {
+        "keep": "first"
+      }
+    },
+    {
+      "id": "join_orders",
+      "type": "join",
+      "position": {
+        "x": 850,
+        "y": 300
+      },
+      "config": {
+        "on": "order_id",
+        "how": "left"
+      }
+    },
+    {
+      "id": "by_category",
+      "type": "groupByAggregate",
+      "position": {
+        "x": 1100,
+        "y": 300
+      },
+      "config": {
+        "group_by": [
+          "category"
+        ],
+        "aggregations": {
+          "line_total": "sum",
+          "order_id": "count"
+        }
+      }
+    },
+    {
+      "id": "tier",
+      "type": "conditionalColumn",
+      "position": {
+        "x": 1350,
+        "y": 300
+      },
+      "config": {
+        "new_column": "revenue_tier",
+        "rules": [
+          {
+            "column": "line_total",
+            "operator": ">=",
+            "value": 5000,
+            "result": "high"
+          },
+          {
+            "column": "line_total",
+            "operator": ">=",
+            "value": 1000,
+            "result": "medium"
+          }
+        ],
+        "default": "low"
+      }
+    },
+    {
+      "id": "out_mart",
+      "type": "fileOutput",
+      "position": {
+        "x": 1600,
+        "y": 300
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "sales_mart"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_items",
+      "target": "line_total"
+    },
+    {
+      "source": "in_products",
+      "target": "fill_price"
+    },
+    {
+      "source": "line_total",
+      "target": "join_products",
+      "targetHandle": "left"
+    },
+    {
+      "source": "fill_price",
+      "target": "join_products",
+      "targetHandle": "right"
+    },
+    {
+      "source": "in_orders",
+      "target": "dedupe_orders"
+    },
+    {
+      "source": "join_products",
+      "target": "join_orders",
+      "targetHandle": "left"
+    },
+    {
+      "source": "dedupe_orders",
+      "target": "join_orders",
+      "targetHandle": "right"
+    },
+    {
+      "source": "join_orders",
+      "target": "by_category"
+    },
+    {
+      "source": "by_category",
+      "target": "tier"
+    },
+    {
+      "source": "tier",
+      "target": "out_mart"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "name": "Iris — Logistic CV Report",
+  "description": "Select the modeling columns, configure a logistic-regression classifier, then cross-validate that model model with fold-safe preprocessing and export fold-level scores.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_iris",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "iris.csv"
+    },
+    {
+      "id": "model_columns",
+      "type": "selectColumns",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width",
+          "species"
+        ]
+      }
+    },
+    {
+      "id": "model",
+      "type": "mlClassifierModel",
+      "position": {
+        "x": 500,
+        "y": -80
+      },
+      "config": {
+        "model_type": "logistic_regression",
+        "target_column": "species",
+        "feature_columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "hyperparameters": {
+          "max_iter": 1000
+        },
+        "preprocessing": {
+          "numeric_columns": [
+            "sepal_length",
+            "sepal_width",
+            "petal_length",
+            "petal_width"
+          ],
+          "categorical_columns": [],
+          "numeric_strategy": "standard_scaler"
+        },
+        "seed": 11
+      }
+    },
+    {
+      "id": "cross_validate",
+      "type": "mlCrossValidate",
+      "position": {
+        "x": 500,
+        "y": 120
+      },
+      "config": {
+        "cv_strategy": "stratified_kfold",
+        "n_splits": 5,
+        "shuffle": true,
+        "scoring": [
+          "accuracy",
+          "f1_weighted"
+        ],
+        "seed": 11
+      }
+    },
+    {
+      "id": "out_cv",
+      "type": "fileOutput",
+      "position": {
+        "x": 760,
+        "y": 120
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "iris_logistic_cv_scores"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_iris",
+      "target": "model_columns"
+    },
+    {
+      "source": "model_columns",
+      "target": "model"
+    },
+    {
+      "source": "model_columns",
+      "target": "cross_validate"
+    },
+    {
+      "source": "model",
+      "target": "cross_validate",
+      "sourceHandle": "model",
+      "targetHandle": "model"
+    },
+    {
+      "source": "cross_validate",
+      "target": "out_cv"
+    }
+  ]
+}

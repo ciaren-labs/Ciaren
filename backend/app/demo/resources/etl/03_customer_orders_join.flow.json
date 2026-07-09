@@ -1,0 +1,153 @@
+{
+  "name": "Customer Orders Join",
+  "description": "Clean customers and orders independently, join them on the customer id, then compute a discounted net amount.",
+  "nodes": [
+    {
+      "id": "in_customers",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "customers.csv"
+    },
+    {
+      "id": "fill_age",
+      "type": "fillNulls",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "age"
+        ],
+        "strategy": "median"
+      }
+    },
+    {
+      "id": "norm_country",
+      "type": "stringTransform",
+      "position": {
+        "x": 500,
+        "y": 0
+      },
+      "config": {
+        "column": "country",
+        "operation": "upper"
+      }
+    },
+    {
+      "id": "in_orders",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 250
+      },
+      "dataset": "orders.csv"
+    },
+    {
+      "id": "dedupe_orders",
+      "type": "removeDuplicates",
+      "position": {
+        "x": 250,
+        "y": 250
+      },
+      "config": {
+        "keep": "first"
+      }
+    },
+    {
+      "id": "no_outliers",
+      "type": "removeOutliers",
+      "position": {
+        "x": 500,
+        "y": 250
+      },
+      "config": {
+        "columns": [
+          "amount"
+        ],
+        "method": "iqr",
+        "action": "drop"
+      }
+    },
+    {
+      "id": "join",
+      "type": "join",
+      "position": {
+        "x": 800,
+        "y": 125
+      },
+      "config": {
+        "left_on": [
+          "id"
+        ],
+        "right_on": [
+          "customer_id"
+        ],
+        "how": "inner"
+      }
+    },
+    {
+      "id": "net_amount",
+      "type": "calculatedColumn",
+      "position": {
+        "x": 1050,
+        "y": 125
+      },
+      "config": {
+        "column_name": "net_amount",
+        "expression": "amount * 0.9"
+      }
+    },
+    {
+      "id": "out_joined",
+      "type": "fileOutput",
+      "position": {
+        "x": 1300,
+        "y": 125
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "customer_orders"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_customers",
+      "target": "fill_age"
+    },
+    {
+      "source": "fill_age",
+      "target": "norm_country"
+    },
+    {
+      "source": "in_orders",
+      "target": "dedupe_orders"
+    },
+    {
+      "source": "dedupe_orders",
+      "target": "no_outliers"
+    },
+    {
+      "source": "norm_country",
+      "target": "join",
+      "targetHandle": "left"
+    },
+    {
+      "source": "no_outliers",
+      "target": "join",
+      "targetHandle": "right"
+    },
+    {
+      "source": "join",
+      "target": "net_amount"
+    },
+    {
+      "source": "net_amount",
+      "target": "out_joined"
+    }
+  ]
+}

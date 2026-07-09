@@ -1,0 +1,128 @@
+{
+  "name": "House Prices — Feature Selection",
+  "description": "Use SelectKBest to keep the strongest numeric predictors, then train and evaluate a ridge regressor.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_houses",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "house_prices.csv"
+    },
+    {
+      "id": "select_features",
+      "type": "selectFeatures",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "config": {
+        "method": "kbest",
+        "target_column": "price",
+        "k": 3
+      }
+    },
+    {
+      "id": "split",
+      "type": "trainTestSplit",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "config": {
+        "test_size": 0.25,
+        "seed": 17
+      }
+    },
+    {
+      "id": "train",
+      "type": "mlTrainRegressor",
+      "position": {
+        "x": 720,
+        "y": -80
+      },
+      "config": {
+        "model_type": "ridge",
+        "target_column": "price",
+        "hyperparameters": {
+          "alpha": 1.0
+        },
+        "seed": 17
+      }
+    },
+    {
+      "id": "predict",
+      "type": "mlPredict",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "config": {
+        "output_column": "prediction"
+      }
+    },
+    {
+      "id": "evaluate",
+      "type": "mlEvaluate",
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "config": {
+        "task_type": "regression",
+        "target_column": "price",
+        "prediction_column": "prediction"
+      }
+    },
+    {
+      "id": "out_metrics",
+      "type": "fileOutput",
+      "position": {
+        "x": 1440,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "house_price_ridge_metrics"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_houses",
+      "target": "select_features"
+    },
+    {
+      "source": "select_features",
+      "target": "split"
+    },
+    {
+      "source": "split",
+      "target": "train",
+      "sourceHandle": "train",
+      "targetHandle": "in"
+    },
+    {
+      "source": "split",
+      "target": "predict",
+      "sourceHandle": "test",
+      "targetHandle": "in"
+    },
+    {
+      "source": "train",
+      "target": "predict",
+      "targetHandle": "model"
+    },
+    {
+      "source": "predict",
+      "target": "evaluate"
+    },
+    {
+      "source": "evaluate",
+      "target": "out_metrics"
+    }
+  ]
+}

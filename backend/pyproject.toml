@@ -130,6 +130,7 @@ packages = ["app"]
 artifacts = [
     "app/web/**",
     "app/bundled_plugins/**",
+    "app/demo/resources/**",
     "app/migrations/script.py.mako",
     "app/plugin_api/LICENSE",
     "app/plugin_api/README.md",

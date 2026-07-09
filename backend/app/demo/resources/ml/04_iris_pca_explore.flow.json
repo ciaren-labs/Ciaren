@@ -1,0 +1,77 @@
+{
+  "name": "Iris — PCA Explore",
+  "description": "Standardize the four measurements and compress them to two principal components with PCA — ready to chart or cluster.",
+  "engine": "pandas",
+  "nodes": [
+    {
+      "id": "in_iris",
+      "type": "fileInput",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "dataset": "iris.csv"
+    },
+    {
+      "id": "scale",
+      "type": "scaleFeatures",
+      "position": {
+        "x": 250,
+        "y": 0
+      },
+      "config": {
+        "columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ],
+        "method": "standard"
+      }
+    },
+    {
+      "id": "pca",
+      "type": "reduceDimensions",
+      "position": {
+        "x": 500,
+        "y": 0
+      },
+      "config": {
+        "method": "pca",
+        "n_components": 2,
+        "columns": [
+          "sepal_length",
+          "sepal_width",
+          "petal_length",
+          "petal_width"
+        ]
+      }
+    },
+    {
+      "id": "out_pca",
+      "type": "fileOutput",
+      "position": {
+        "x": 750,
+        "y": 0
+      },
+      "config": {
+        "format": "csv",
+        "dataset_name": "iris_pca_components"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "in_iris",
+      "target": "scale"
+    },
+    {
+      "source": "scale",
+      "target": "pca"
+    },
+    {
+      "source": "pca",
+      "target": "out_pca"
+    }
+  ]
+}
