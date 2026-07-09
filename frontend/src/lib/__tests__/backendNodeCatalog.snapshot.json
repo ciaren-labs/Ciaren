@@ -1,0 +1,2152 @@
+[
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "expression": "",
+      "mode": "error"
+    },
+    "description": "Fail or warn when a boolean expression is false for any row.",
+    "id": "assertExpression",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Expression",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "mode": "error"
+    },
+    "description": "Fail or warn when any specified column contains null values.",
+    "id": "assertNotNull",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Not Null",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "max_rows": null,
+      "min_rows": null,
+      "mode": "error"
+    },
+    "description": "Fail or warn when the row count falls outside declared bounds.",
+    "id": "assertRowCount",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Row Count",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "mode": "error"
+    },
+    "description": "Fail or warn when duplicate rows exist across the specified columns.",
+    "id": "assertUnique",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Unique",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "inclusive": true,
+      "max": null,
+      "min": null,
+      "mode": "error"
+    },
+    "description": "Fail or warn when column values fall outside a numeric range.",
+    "id": "assertValueRange",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Value Range",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "quality",
+    "config_schema": {},
+    "default_config": {
+      "allow_null": true,
+      "allowed": [],
+      "column": "",
+      "mode": "error"
+    },
+    "description": "Fail or warn when a column has values outside an allowed set.",
+    "id": "assertValuesInSet",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Assert Values In Set",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "bins": 4,
+      "column": "",
+      "method": "equalwidth",
+      "new_column": ""
+    },
+    "description": "Bucket a numeric column into bins (equal-width or quantile).",
+    "id": "binColumn",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Bin Column",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "column_name": "",
+      "expression": ""
+    },
+    "description": "Create a new column from an expression.",
+    "id": "calculatedColumn",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Calculated Column",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "casts": {},
+      "errors": "raise",
+      "format": ""
+    },
+    "description": "Cast columns to a new data type.",
+    "id": "castDtypes",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Change Types",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "aggregate": "mean",
+      "title": "",
+      "x": "",
+      "y_columns": []
+    },
+    "description": "A line chart with a filled area, stored on the run.",
+    "id": "chartArea",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Area Chart",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "aggregate": "sum",
+      "group_by": "",
+      "limit": null,
+      "orientation": "vertical",
+      "title": "",
+      "x": "",
+      "y": ""
+    },
+    "description": "Aggregate a value per category and store a bar chart on the run (optionally stacked).",
+    "id": "chartBar",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Bar Chart",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "group_by": "",
+      "title": ""
+    },
+    "description": "Five-number summary of a numeric column, optionally per group, stored on the run.",
+    "id": "chartBoxPlot",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Box Plot",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "title": ""
+    },
+    "description": "Pairwise correlations between numeric columns, stored on the run.",
+    "id": "chartHeatmap",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Correlation Heatmap",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "bins": 20,
+      "column": "",
+      "title": ""
+    },
+    "description": "Distribution of a numeric column in equal-width bins, stored on the run.",
+    "id": "chartHistogram",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Histogram",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "aggregate": "mean",
+      "title": "",
+      "x": "",
+      "y_columns": []
+    },
+    "description": "Plot one or more measures over an ordered axis (dates or numbers) and store it on the run.",
+    "id": "chartLine",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Line Chart",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "aggregate": "count",
+      "category": "",
+      "limit": null,
+      "title": "",
+      "value": ""
+    },
+    "description": "Share of a total per category (top slices + Other), stored on the run.",
+    "id": "chartPie",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Pie Chart",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "chart",
+    "config_schema": {},
+    "default_config": {
+      "title": "",
+      "x": "",
+      "y": ""
+    },
+    "description": "Plot two numeric columns against each other and store it on the run.",
+    "id": "chartScatter",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": true,
+    "is_model_sink": false,
+    "label": "Scatter Plot",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "keep_original": true,
+      "new_column": ""
+    },
+    "description": "Take the first non-null value across several columns into a new column.",
+    "id": "coalesceColumns",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Coalesce Columns",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "keep_original": true,
+      "new_column": "",
+      "separator": " "
+    },
+    "description": "Join several columns into one text column with a separator.",
+    "id": "combineColumns",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Combine Columns",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {},
+    "description": "Stack multiple dataframes vertically.",
+    "id": "concatRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": true,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Concat Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "default": "",
+      "new_column": "",
+      "rules": []
+    },
+    "description": "Build a column from if/elif/else rules (CASE-WHEN).",
+    "id": "conditionalColumn",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Conditional Column",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null
+    },
+    "description": "Load rows from an uploaded CSV dataset.",
+    "id": "csvInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "CSV Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "path": ""
+    },
+    "description": "Write the result to a CSV file.",
+    "id": "csvOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "CSV Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "end_column": "",
+      "new_column": "",
+      "start_column": "",
+      "unit": "days"
+    },
+    "description": "Difference between two date columns (end \u2212 start) in days, hours, etc.",
+    "id": "dateDifference",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Date Difference",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "columns": []
+    },
+    "description": "Remove columns from the dataframe.",
+    "id": "dropColumns",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Drop Columns",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "how": "any",
+      "subset": []
+    },
+    "description": "Drop rows containing null values.",
+    "id": "dropNulls",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Drop Nulls",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null
+    },
+    "description": "Load rows from an uploaded Excel dataset.",
+    "id": "excelInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Excel Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "path": ""
+    },
+    "description": "Write the result to an Excel file.",
+    "id": "excelOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Excel Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "delimiter": ","
+    },
+    "description": "Expand a delimited or list column into one row per value.",
+    "id": "explodeRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Split to Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "parts": []
+    },
+    "description": "Add year/month/day/weekday/hour columns from a date column.",
+    "id": "extractDateParts",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Extract Date Parts",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null,
+      "format": "csv"
+    },
+    "description": "Load rows from an uploaded dataset \u2014 choose the file type in the node.",
+    "id": "fileInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "File Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "dataset_name": "",
+      "format": "csv"
+    },
+    "description": "Write the result to a file \u2014 pick the format (CSV, Excel, Parquet, JSON, text) and a name.",
+    "id": "fileOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "File Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "strategy": "constant",
+      "value": ""
+    },
+    "description": "Replace null values with a fixed value.",
+    "id": "fillNulls",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Fill Nulls",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "expression": ""
+    },
+    "description": "Keep rows where a boolean expression is true (e.g. amount > 100 and status == 'paid').",
+    "id": "filterExpression",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Filter by Expression",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "operator": "==",
+      "value": ""
+    },
+    "description": "Keep rows matching a condition.",
+    "id": "filterRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Filter Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {
+      "aggregations": {},
+      "group_by": []
+    },
+    "description": "Group rows and aggregate columns.",
+    "id": "groupByAggregate",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Group By Aggregate",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {
+      "how": "inner",
+      "on": ""
+    },
+    "description": "Join two dataframes (left + right inputs).",
+    "id": "join",
+    "inputs": [
+      {
+        "id": "left",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      },
+      {
+        "id": "right",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Join / Merge",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null
+    },
+    "description": "Load records from an uploaded JSON dataset.",
+    "id": "jsonInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "JSON Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "n": 100,
+      "offset": 0
+    },
+    "description": "Keep only the first N rows.",
+    "id": "limitRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Limit Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "default": "",
+      "mapping": {},
+      "new_column": "",
+      "use_default": false
+    },
+    "description": "Map column values via a lookup (CASE-WHEN), with an optional default.",
+    "id": "mapValues",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Map Values",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null
+    },
+    "description": "Load rows from an uploaded Parquet dataset.",
+    "id": "parquetInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Parquet Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "path": ""
+    },
+    "description": "Write the result to a Parquet file.",
+    "id": "parquetOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Parquet Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "errors": "coerce",
+      "format": ""
+    },
+    "description": "Parse text columns into datetimes (optional format, coerce errors).",
+    "id": "parseDates",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Parse Dates",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {
+      "aggfunc": "sum",
+      "columns": "",
+      "index": [],
+      "values": ""
+    },
+    "description": "Reshape long rows into a wide aggregated table.",
+    "id": "pivot",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Pivot Table",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "script": "# Write the body of: def transform(df):\n#   ...\nreturn df"
+    },
+    "description": "Run arbitrary Python code on the DataFrame \u2014 an escape hatch for custom logic.",
+    "id": "pythonTransform",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Python Transform",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "keep": "first",
+      "subset": []
+    },
+    "description": "Drop duplicate rows.",
+    "id": "removeDuplicates",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Remove Duplicates",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "action": "drop",
+      "columns": [],
+      "factor": 1.5,
+      "lower": 1,
+      "method": "iqr",
+      "threshold": 3,
+      "upper": 99
+    },
+    "description": "Drop or clip statistical outliers (IQR / z-score / percentile).",
+    "id": "removeOutliers",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Remove Outliers",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "mapping": {}
+    },
+    "description": "Rename columns using an old -> new mapping.",
+    "id": "renameColumns",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Rename Columns",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "regex": false,
+      "to_replace": "",
+      "value": ""
+    },
+    "description": "Replace values in a column.",
+    "id": "replaceValues",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Replace Values",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "descending": false,
+      "function": "mean",
+      "min_periods": null,
+      "new_column": "",
+      "order_by": [],
+      "partition_by": [],
+      "target": "",
+      "window": 3
+    },
+    "description": "Moving mean/sum/min/max/std/median over a window of N rows.",
+    "id": "rollingAggregate",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Rolling Aggregate",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "columns": [],
+      "decimals": 0
+    },
+    "description": "Round numeric columns to a number of decimals.",
+    "id": "roundNumbers",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Round Numbers",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "descending": false,
+      "method": "diff",
+      "new_column": "",
+      "order_by": [],
+      "partition_by": [],
+      "periods": 1,
+      "target": ""
+    },
+    "description": "Difference or percent change between consecutive rows.",
+    "id": "rowDifference",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Row Difference",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "n": 100,
+      "seed": 42
+    },
+    "description": "Take a reproducible random sample of rows (seed required).",
+    "id": "sampleRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Sample Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "columns": []
+    },
+    "description": "Keep only the selected columns.",
+    "id": "selectColumns",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Select Columns",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "clean",
+    "config_schema": {},
+    "default_config": {
+      "ascending": true,
+      "columns": [],
+      "na_position": "last"
+    },
+    "description": "Sort rows by one or more columns.",
+    "id": "sortRows",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Sort Rows",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "delimiter": ",",
+      "into": [],
+      "keep_original": true,
+      "mode": "delimiter",
+      "pattern": ""
+    },
+    "description": "Split a text column into several columns by a delimiter or regex groups.",
+    "id": "splitColumn",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Split Column",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "connection_id": "",
+      "mode": "table",
+      "query": "",
+      "schema": null,
+      "table": ""
+    },
+    "description": "Read rows live from a database table or query.",
+    "id": "sqlInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "SQL Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "connection_id": "",
+      "if_exists": "replace",
+      "schema": null,
+      "table": ""
+    },
+    "description": "Write the result to a database table.",
+    "id": "sqlOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "SQL Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "connection_id": "",
+      "format": "csv",
+      "path": ""
+    },
+    "description": "Read a file (CSV, Excel, Parquet) from S3, Azure Blob, GCS, or a local folder.",
+    "id": "storageInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Storage Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "output",
+    "config_schema": {},
+    "default_config": {
+      "connection_id": "",
+      "format": "parquet",
+      "if_exists": "overwrite",
+      "path": ""
+    },
+    "description": "Write the result as a file (CSV, Excel, Parquet) to S3, Azure Blob, GCS, or a local folder.",
+    "id": "storageOutput",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Storage Output",
+    "outputs": [],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "columns",
+    "config_schema": {},
+    "default_config": {
+      "column": "",
+      "operation": "lower"
+    },
+    "description": "Apply a string operation to a column.",
+    "id": "stringTransform",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "String Transform",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "input",
+    "config_schema": {},
+    "default_config": {
+      "dataset_id": "",
+      "dataset_version": null
+    },
+    "description": "Load lines from an uploaded text file (one row per line).",
+    "id": "textInput",
+    "inputs": [],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Text Input",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "reshape",
+    "config_schema": {},
+    "default_config": {
+      "id_vars": [],
+      "value_name": "value",
+      "value_vars": [],
+      "var_name": "variable"
+    },
+    "description": "Reshape wide columns into long key/value rows.",
+    "id": "unpivot",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Unpivot / Melt",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  },
+  {
+    "capabilities": [],
+    "category": "analytics",
+    "config_schema": {},
+    "default_config": {
+      "descending": false,
+      "function": "row_number",
+      "new_column": "",
+      "offset": 1,
+      "order_by": [],
+      "partition_by": [],
+      "target": ""
+    },
+    "description": "Rank, running total, or lag/lead over a partition and order.",
+    "id": "windowFunction",
+    "inputs": [
+      {
+        "id": "in",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "is_flow_terminal": false,
+    "is_model_sink": false,
+    "label": "Window Function",
+    "outputs": [
+      {
+        "id": "out",
+        "multi": false,
+        "required": true,
+        "type": "dataframe"
+      }
+    ],
+    "permissions": [],
+    "provider": "ciaren.core",
+    "requires_ml": false,
+    "version": "1.0.0"
+  }
+]

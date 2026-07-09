@@ -79,3 +79,26 @@ snapshot; an accidental one (typo, collision, dropped route) fails the test.
   tests.
 - **Schema change**: an Alembic migration is the single source of truth
   (`app/migrations/`); `init_db`'s additive-column pass is a dev convenience only.
+
+## Adding a node (checklist)
+
+The backend is the authoritative catalog; the frontend only keeps a static fallback
+for offline/first-paint. Do all of this so the two never diverge:
+
+1. **Transformation** — implement `BaseTransformation` in `app/engine/transformations/`:
+   `validate_config`, `execute` (pandas), plus the polars path and `to_python_code` /
+   `to_polars_code` (codegen), keeping lazy-safety in mind. Register it.
+2. **Metadata** — add the node's label, category, description, and default config in
+   `app/engine/node_metadata.py`; declare its handle topology (input/optional/model
+   handles, output handles) via `node_kinds` so the catalog reports it.
+3. **Parity tests** — validate + execute (pandas and polars) + codegen (pandas,
+   polars, lazy). Behavior must match across engines.
+4. **Catalog contract** — regenerate the catalog snapshot and reconcile the frontend
+   fallback:
+   - `CIAREN_UPDATE_NODE_CATALOG_SNAPSHOT=1 pytest tests/test_node_catalog_contract.py`
+   - update `frontend/src/lib/nodeCatalog.ts` until
+     `frontend/src/lib/__tests__/nodeCatalog.contract.test.ts` passes.
+5. **Docs** — document the node where user-facing node docs live.
+
+The catalog contract test fails if the backend metadata changes without the snapshot
+(and thus the frontend fallback) being reconciled — that's the drift guard.
