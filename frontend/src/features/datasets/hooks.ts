@@ -84,6 +84,11 @@ export function useDeleteDataset() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.datasets });
       qc.invalidateQueries({ queryKey: queryKeys.projects });
+      // Deleting a dataset cascades to disable the flows that read from it
+      // (backend DELETE /datasets/{id} → disable_flows_for_dataset), same as
+      // the PATCH-disable path — so refresh flows or the list keeps showing
+      // them enabled until the next refetch.
+      qc.invalidateQueries({ queryKey: queryKeys.flows });
       toast.success("Dataset deleted");
     },
   });

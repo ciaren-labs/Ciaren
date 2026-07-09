@@ -752,12 +752,12 @@ function DatasetActionDialog({
           {isDelete && (
             <>
               <p>
-                This will permanently delete <strong className="text-foreground">{dataset.name}</strong> and all its versions from the database. The underlying files will remain on disk.
+                <strong className="text-foreground">{dataset.name}</strong> will be removed from your workspace. This is a soft-delete: its versions and files are retained and it can be restored later — nothing is erased from disk now.
               </p>
               {affectedFlows.length > 0 && (
                 <p className="rounded-md bg-amber-50 p-2.5 text-amber-800 text-xs">
-                  {affectedFlows.length} flow{affectedFlows.length > 1 ? "s" : ""} reference this dataset as an input and will fail to run after deletion:{" "}
-                  <strong>{affectedFlows.map((f) => f.name).join(", ")}</strong>.
+                  {affectedFlows.length} flow{affectedFlows.length > 1 ? "s" : ""} that use this dataset as an input will also be disabled:{" "}
+                  <strong>{affectedFlows.map((f) => f.name).join(", ")}</strong>. Re-enable them separately after restoring the dataset.
                 </p>
               )}
             </>
