@@ -18,6 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
+import { edgeTypes } from "./edgeTypes";
 import { NODE_DND_MIME } from "./NodePalette";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
@@ -298,6 +299,7 @@ export function FlowCanvas() {
         nodes={nodes}
         edges={styledEdges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}

@@ -188,6 +188,48 @@ describe("flowEditorStore duplicateNode", () => {
   });
 });
 
+describe("flowEditorStore removeEdge", () => {
+  it("removes only the targeted edge, leaving nodes and other edges intact", () => {
+    const { setGraph, removeEdge } = useFlowEditorStore.getState();
+    setGraph(
+      [node("a"), node("b"), node("c")],
+      [
+        { id: "e1", source: "a", target: "b" },
+        { id: "e2", source: "b", target: "c" },
+      ],
+    );
+
+    removeEdge("e1");
+
+    const { edges, nodes, dirty } = useFlowEditorStore.getState();
+    expect(edges).toEqual([{ id: "e2", source: "b", target: "c" }]);
+    expect(nodes).toHaveLength(3);
+    expect(dirty).toBe(true);
+  });
+
+  it("is undoable", () => {
+    const { setGraph, removeEdge, undo } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], [{ id: "e1", source: "a", target: "b" }]);
+
+    removeEdge("e1");
+    expect(useFlowEditorStore.getState().edges).toHaveLength(0);
+
+    undo();
+    expect(useFlowEditorStore.getState().edges).toHaveLength(1);
+  });
+
+  it("is a no-op for an id that doesn't exist", () => {
+    const { setGraph, removeEdge } = useFlowEditorStore.getState();
+    setGraph([node("a"), node("b")], [{ id: "e1", source: "a", target: "b" }]);
+
+    removeEdge("missing");
+
+    expect(useFlowEditorStore.getState().edges).toHaveLength(1);
+    expect(useFlowEditorStore.getState().dirty).toBe(false);
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+  });
+});
+
 describe("flowEditorStore dirty state", () => {
   it("stays clean after loading a flow and running the untracked initial auto-layout", () => {
     // Mirrors FlowCanvas's one-time initial-layout effect: setGraph loads the

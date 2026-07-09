@@ -71,6 +71,8 @@ interface FlowEditorState {
   removeNode: (id: string) => void;
   /** Clone a single node in place (used by the on-canvas duplicate button). */
   duplicateNode: (id: string) => void;
+  /** Remove a single edge (used by the on-canvas edge delete button). */
+  removeEdge: (id: string) => void;
   setEdges: (edges: FlowEdgeType[]) => void;
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
   patchMultipleNodeConfigs: (patches: Record<string, Record<string, unknown>>) => void;
@@ -263,6 +265,17 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       structureVersion: state.structureVersion + 1,
       dirty: true,
     })),
+
+  removeEdge: (id) =>
+    set((state) => {
+      if (!state.edges.some((e) => e.id === id)) return state;
+      return {
+        ...checkpoint(state, `removeEdge:${Date.now()}`),
+        edges: state.edges.filter((e) => e.id !== id),
+        structureVersion: state.structureVersion + 1,
+        dirty: true,
+      };
+    }),
 
   updateNodeConfig: (id, config) =>
     set((state) => ({
