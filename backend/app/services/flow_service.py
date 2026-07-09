@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.db.models.flow import Flow
+from app.db.models.flow import DISABLED_BY_DATASET, DISABLED_MANUAL, Flow
 from app.db.models.run import FlowRun
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
@@ -171,7 +171,11 @@ class FlowService:
             graph_json=copy.deepcopy(original.graph_json),
             # An auto-disabled flow (e.g. its input dataset was deleted) must
             # not yield an enabled, schedulable copy with the same broken graph.
+            # Carry the reason too so the copy behaves consistently under a later
+            # project re-enable (a project-disabled copy is restored with it; a
+            # dataset/manually-disabled copy stays off until fixed).
             is_disabled=original.is_disabled,
+            disabled_reason=original.disabled_reason,
         )
         self.db.add(flow)
         await self.db.commit()
@@ -277,8 +281,17 @@ class FlowService:
         # enforcement off, a bogus id would otherwise silently orphan the flow.
         if updates.get("project_id") is not None:
             updates["project_id"] = await ProjectService(self.db).resolve_id(updates["project_id"])
+        # Capture before the setattr loop: a direct is_disabled *change* is the
+        # user's own decision, so tag it MANUAL (or clear the reason on enable) so a
+        # later project re-enable doesn't revive a flow the user turned off. Guard on
+        # an actual change — a client that echoes is_disabled unchanged on an
+        # unrelated save (e.g. a rename) must not flip a project-cascaded flow's
+        # reason to MANUAL and thereby strand it disabled.
+        disabled_changed = "is_disabled" in updates and updates["is_disabled"] != flow.is_disabled
         for field, value in updates.items():
             setattr(flow, field, value)
+        if disabled_changed:
+            flow.disabled_reason = DISABLED_MANUAL if updates["is_disabled"] else None
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
         # and SQLite's second-level resolution means tests may see the same value.
         flow.updated_at = datetime.now(UTC).replace(tzinfo=None)
@@ -303,12 +316,17 @@ class FlowService:
         await self.db.commit()
 
     async def disable_flows_for_dataset(self, dataset_id: str) -> None:
-        """Disable all flows whose graph references the given dataset as an input."""
+        """Disable all flows whose graph references the given dataset as an input.
+
+        Tags them ``DISABLED_BY_DATASET`` (overriding a prior ``DISABLED_BY_PROJECT``
+        tag) so re-enabling the *project* does not revive a flow whose dataset is
+        still out of use."""
         result = await self.db.execute(select(Flow))
         changed = False
         for flow in result.scalars().all():
             if _references_dataset(flow.graph_json or {}, dataset_id):
                 flow.is_disabled = True
+                flow.disabled_reason = DISABLED_BY_DATASET
                 changed = True
         if changed:
             await self.db.commit()

@@ -28,6 +28,12 @@ class Dataset(Base):
     # input | output
     dataset_kind: Mapped[str | None] = mapped_column(String(20), nullable=True, default="input")
     is_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Why the dataset is disabled: "project" (disabled by a project cascade) or
+    # "manual" (the user disabled it directly). None while enabled. Mirrors
+    # Flow.disabled_reason so re-enabling a project restores only the datasets the
+    # project cascade itself disabled, not ones the user turned off. (Soft-delete is
+    # tracked separately by deleted_at, which also blocks project-re-enable revival.)
+    disabled_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # Set when the dataset is soft-deleted; its version files are retained until the
     # retention window passes and it is purged. None = live.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

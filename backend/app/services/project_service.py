@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.db.models.dataset import Dataset
-from app.db.models.flow import Flow
+from app.db.models.flow import DISABLED_BY_PROJECT, Flow
 from app.db.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 
@@ -80,15 +80,12 @@ class ProjectService:
         for field, value in updates.items():
             setattr(project, field, value)
         project.updated_at = datetime.now(UTC).replace(tzinfo=None)
-        # Cascade is_disabled to all datasets and flows in this project.
+        # Cascade is_disabled to the datasets and flows in this project, tagging a
+        # reason so re-enabling restores only what the project cascade disabled.
         if "is_disabled" in updates:
             disabled = updates["is_disabled"]
-            dataset_stmt = update(Dataset).where(Dataset.project_id == project_id).values(is_disabled=disabled)
-            if not disabled:
-                # Re-enabling the project must not revive soft-deleted datasets.
-                dataset_stmt = dataset_stmt.where(Dataset.deleted_at.is_(None))
-            await self.db.execute(dataset_stmt)
-            await self.db.execute(update(Flow).where(Flow.project_id == project_id).values(is_disabled=disabled))
+            await self._cascade_dataset_disable(project_id, disabled)
+            await self._cascade_flow_disable(project_id, disabled)
         await self.db.commit()
         await self.db.refresh(project)
         return await self.get(project.id)
@@ -110,6 +107,53 @@ class ProjectService:
             await self._get_or_raise(project_id)
             return project_id
         return (await self.ensure_default()).id
+
+    async def _cascade_dataset_disable(self, project_id: str, disabled: bool) -> None:
+        """Propagate the project's state to its datasets, reason-tagged like flows.
+
+        Disabling tags only currently-enabled datasets ``DISABLED_BY_PROJECT``;
+        re-enabling restores only those (and never a soft-deleted one — ``deleted_at``
+        is an independent, stronger state). A dataset the user disabled directly, or
+        one that is soft-deleted, is left untouched."""
+        if disabled:
+            stmt = (
+                update(Dataset)
+                .where(Dataset.project_id == project_id, Dataset.is_disabled.is_(False))
+                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT)
+            )
+        else:
+            stmt = (
+                update(Dataset)
+                .where(
+                    Dataset.project_id == project_id,
+                    Dataset.disabled_reason == DISABLED_BY_PROJECT,
+                    Dataset.deleted_at.is_(None),
+                )
+                .values(is_disabled=False, disabled_reason=None)
+            )
+        await self.db.execute(stmt)
+
+    async def _cascade_flow_disable(self, project_id: str, disabled: bool) -> None:
+        """Propagate a project's enabled/disabled state to its flows without
+        clobbering flows disabled for their own reasons.
+
+        Disabling tags only the *currently-enabled* flows as ``DISABLED_BY_PROJECT``
+        (a flow already disabled by the user or a broken dependency keeps its own
+        reason). Re-enabling restores *only* those project-cascaded flows — a
+        manually- or dependency-disabled flow stays disabled, as it should."""
+        if disabled:
+            stmt = (
+                update(Flow)
+                .where(Flow.project_id == project_id, Flow.is_disabled.is_(False))
+                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT)
+            )
+        else:
+            stmt = (
+                update(Flow)
+                .where(Flow.project_id == project_id, Flow.disabled_reason == DISABLED_BY_PROJECT)
+                .values(is_disabled=False, disabled_reason=None)
+            )
+        await self.db.execute(stmt)
 
     # ------------------------------------------------------------------
     # Internals

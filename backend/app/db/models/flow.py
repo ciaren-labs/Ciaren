@@ -13,6 +13,14 @@ if TYPE_CHECKING:
     from app.db.models.schedule import Schedule
 
 
+# Why a flow is disabled, so re-enabling a *project* only restores the flows the
+# project cascade itself disabled — not ones disabled by the user or by a broken
+# dependency (dataset/connection). ``None`` while enabled.
+DISABLED_BY_PROJECT = "project"
+DISABLED_BY_DATASET = "dataset"
+DISABLED_MANUAL = "manual"
+
+
 class Flow(Base):
     __tablename__ = "flows"
 
@@ -27,6 +35,9 @@ class Flow(Base):
     )
     graph_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     is_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # One of DISABLED_BY_* above while disabled, else None. Drives whether a
+    # project re-enable restores this flow (only DISABLED_BY_PROJECT flows).
+    disabled_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

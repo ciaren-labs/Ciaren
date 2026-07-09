@@ -27,6 +27,7 @@ from app.core.exceptions import (
 )
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
+from app.db.models.flow import DISABLED_MANUAL
 from app.engine.backends import get_engine
 from app.engine.ingest import (
     ParseOptionsError,
@@ -143,6 +144,7 @@ class DatasetService:
             dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
             # Re-uploading to a soft-deleted dataset revives it.
             dataset.is_disabled = False
+            dataset.disabled_reason = None
             dataset.deleted_at = None
 
         version = DatasetVersion(
@@ -216,8 +218,15 @@ class DatasetService:
     async def update(self, dataset_id: str, data: DatasetUpdate) -> DatasetRead:
         dataset = await self._get_or_raise(dataset_id)
         updates = data.model_dump(exclude_unset=True)
+        # A direct is_disabled *change* is the user's own decision — tag it MANUAL
+        # (or clear on enable) so a later project re-enable doesn't revive a dataset
+        # the user turned off. Guard on an actual change so an unrelated PATCH that
+        # echoes is_disabled doesn't overwrite a project-cascade reason.
+        disabled_changed = "is_disabled" in updates and updates["is_disabled"] != dataset.is_disabled
         for field, value in updates.items():
             setattr(dataset, field, value)
+        if disabled_changed:
+            dataset.disabled_reason = DISABLED_MANUAL if updates["is_disabled"] else None
         # Re-enabling a soft-deleted dataset is a restore — leaving deleted_at set
         # would make it purgeable while appearing live.
         if updates.get("is_disabled") is False:
@@ -253,6 +262,7 @@ class DatasetService:
         """Undo a soft-delete, bringing the dataset back to live."""
         dataset = await self._get_or_raise(dataset_id)
         dataset.is_disabled = False
+        dataset.disabled_reason = None
         dataset.deleted_at = None
         dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
@@ -388,6 +398,7 @@ class DatasetService:
             # Otherwise the new version would be born already-deleted and later
             # purged, and the resolver would refuse to reuse it as an input.
             dataset.is_disabled = False
+            dataset.disabled_reason = None
             dataset.deleted_at = None
 
         version = DatasetVersion(
