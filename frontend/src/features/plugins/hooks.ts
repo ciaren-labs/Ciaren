@@ -130,7 +130,11 @@ export function useGrantPlugin() {
   return useMutation({
     mutationFn: ({ id, permissions = [] }: { id: string; permissions?: string[] }) =>
       pluginsApi.grant(id, permissions),
-    onSuccess: invalidate,
+    meta: { errorMessage: "Couldn't approve the plugin" },
+    onSuccess: (plugin) => {
+      invalidate();
+      toast.success(`Plugin "${plugin.name}" approved`);
+    },
   });
 }
 
@@ -139,6 +143,10 @@ export function useRevokePlugin() {
   return useMutation({
     mutationFn: ({ id, permissions }: { id: string; permissions: string[] }) =>
       pluginsApi.revoke(id, permissions),
-    onSuccess: invalidate,
+    meta: { errorMessage: "Couldn't revoke the plugin's permissions" },
+    onSuccess: (plugin) => {
+      invalidate();
+      toast.success(`Plugin "${plugin.name}" permissions revoked`);
+    },
   });
 }

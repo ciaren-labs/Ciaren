@@ -5,10 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
 const diagnostics = vi.fn();
-const grant = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
+const grant = vi.fn((_id: string, _perms: string[]) => Promise.resolve({ name: "Hello Plugin" }));
 const disable = vi.fn((_id: string) => Promise.resolve({}));
 const enable = vi.fn((_id: string) => Promise.resolve({}));
-const revoke = vi.fn((_id: string, _perms: string[]) => Promise.resolve({}));
+const revoke = vi.fn((_id: string, _perms: string[]) => Promise.resolve({ name: "Hello Plugin" }));
 const uninstall = vi.fn((_id: string) => Promise.resolve({ plugin_id: _id, removed: true }));
 const installPlugin = vi.fn((_file: File) => Promise.resolve({ plugin: { name: "X" }, outcome: "unsigned" }));
 const marketplaceList = vi.fn().mockResolvedValue({ configured: false, plugins: [], revoked_installed: [] });
@@ -42,6 +42,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useToastStore } from "@/stores/toastStore";
 import { PluginsPage } from "../PluginsPage";
 
 function renderPage() {
@@ -108,6 +109,7 @@ describe("PluginsPage", () => {
     // react-query `undefined` and taint the output with warnings.
     vi.clearAllMocks();
     marketplaceList.mockResolvedValue({ configured: false, plugins: [], revoked_installed: [] });
+    useToastStore.setState({ toasts: [] });
   });
 
   it("shows an empty state when nothing is installed", async () => {
@@ -134,6 +136,11 @@ describe("PluginsPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Approve/i }));
     await waitFor(() => expect(grant).toHaveBeenCalledWith("community.hello", []));
+    // A security-relevant action (running the plugin's code) gets explicit
+    // positive confirmation, not just a silent status-badge change.
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.some((t) => t.title.includes("approved"))).toBe(true),
+    );
   });
 
   it("opens a detail dialog with permissions, nodes, and manifest details", async () => {
@@ -192,6 +199,9 @@ describe("PluginsPage", () => {
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: /Revoke/i }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith("community.hello", ["network"]));
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.some((t) => t.title.includes("revoked"))).toBe(true),
+    );
   });
 
   it("does not offer Revoke for a plugin with no granted permissions", async () => {
