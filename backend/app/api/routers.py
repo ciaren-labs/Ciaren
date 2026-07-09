@@ -5,7 +5,7 @@ Registration order matters: the frontend SPA catch-all (mounted later, in
 :func:`app.bootstrap.frontend.mount_frontend`) only takes paths the routers here
 didn't claim, so all ``/api/*`` and health routes must be included first.
 
-Prefix conventions (see internal/backend-architecture.md):
+Prefix conventions (see app/README.md):
 - Top-level collections mount at ``/api/<resource>`` (projects, flows, datasets, …).
 - Routers that own nested/sibling paths (runs → ``/api/flows/{id}/runs`` +
   ``/api/runs``; ml, schedules, webhooks) mount at the bare ``/api`` prefix and

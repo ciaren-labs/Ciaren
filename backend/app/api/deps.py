@@ -5,6 +5,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.services.app_setting_service import AppSettingService
 from app.services.codegen_service import CodegenService
 from app.services.connection_service import ConnectionService
 from app.services.dataset_service import DatasetService
@@ -55,6 +56,10 @@ def _ml_service(db: _DbSession) -> MLService:
     return MLService(db)
 
 
+def _app_setting_service(db: _DbSession) -> AppSettingService:
+    return AppSettingService(db)
+
+
 DatasetServiceDep = Annotated[DatasetService, Depends(_dataset_service)]
 FlowServiceDep = Annotated[FlowService, Depends(_flow_service)]
 ExecutionServiceDep = Annotated[ExecutionService, Depends(_execution_service)]
@@ -64,3 +69,4 @@ ProjectServiceDep = Annotated[ProjectService, Depends(_project_service)]
 ScheduleServiceDep = Annotated[ScheduleService, Depends(_schedule_service)]
 ConnectionServiceDep = Annotated[ConnectionService, Depends(_connection_service)]
 MLServiceDep = Annotated[MLService, Depends(_ml_service)]
+AppSettingServiceDep = Annotated[AppSettingService, Depends(_app_setting_service)]
