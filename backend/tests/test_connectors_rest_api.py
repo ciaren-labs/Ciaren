@@ -69,6 +69,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(json.dumps([{"ok": 1}]).encode())
         elif url.path == "/echo-headers":
             self._send(json.dumps([{"tenant": self.headers.get("X-Tenant", "")}]).encode())
+        elif url.path == "/echo-page":
+            self._send(json.dumps([{"page": qs.get("page", [""])[0]}]).encode())
         else:
             self._send(b"{}", status=404)
 
@@ -184,6 +186,20 @@ def test_pagination_respects_max_pages_and_limit(api):
 
     spec = _spec(api, page_param="page", page_size_param="per_page", page_size=10, max_pages=10)
     assert len(connector.read_table(spec, "orders", None, 12)) == 12
+
+
+def test_start_page_zero_is_respected_for_zero_indexed_apis(api):
+    # `start_page=0` must request page "0" first, not silently fall back to 1 —
+    # that fallback is only meant to kick in when the option is absent.
+    spec = _spec(api, page_param="page", page_size_param="per_page", page_size=10, max_pages=1, start_page=0)
+    df = connector.read_table(spec, "echo-page", None, None)
+    assert df["page"].iloc[0] == "0"
+
+
+def test_start_page_defaults_to_one_when_absent(api):
+    spec = _spec(api, page_param="page", page_size_param="per_page", page_size=10, max_pages=1)
+    df = connector.read_table(spec, "echo-page", None, None)
+    assert df["page"].iloc[0] == "1"
 
 
 def test_pagination_size_cap_is_cumulative(api, monkeypatch):

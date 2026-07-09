@@ -11,7 +11,7 @@ import { useKeyringAvailability, useStoreKeyringSecret, useTestConnectionConfig 
 
 // vi.mock factories are hoisted above imports, so the fixtures they close over
 // must be hoisted too.
-const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER } = vi.hoisted(() => {
+const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER, SNOWFLAKE_PROVIDER, AZURE_PROVIDER } = vi.hoisted(() => {
   const core: ProviderInfo = {
     name: "postgresql",
     label: "PostgreSQL",
@@ -26,6 +26,26 @@ const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER } = vi.hoisted(() => {
     needs_bucket: false,
     needs_region: false,
     needs_endpoint: false,
+  };
+  const snowflake: ProviderInfo = {
+    ...core,
+    name: "snowflake",
+    label: "Snowflake",
+    driver_module: "snowflake-connector-python",
+    extra: "snowflake",
+    default_port: null,
+  };
+  const azure: ProviderInfo = {
+    ...core,
+    name: "azure_blob",
+    label: "Azure Blob Storage",
+    kind: "storage",
+    driver_module: "azure-storage-blob",
+    extra: "azure",
+    default_port: null,
+    needs_host: false,
+    needs_bucket: true,
+    needs_endpoint: true,
   };
   const plugin: ProviderInfo = {
     ...core,
@@ -59,7 +79,13 @@ const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER } = vi.hoisted(() => {
     needs_auth: true,
     supports_query: true,
   };
-  return { CORE_PROVIDER: core, PLUGIN_PROVIDER: plugin, CORE_API_PROVIDER: coreApi };
+  return {
+    CORE_PROVIDER: core,
+    PLUGIN_PROVIDER: plugin,
+    CORE_API_PROVIDER: coreApi,
+    SNOWFLAKE_PROVIDER: snowflake,
+    AZURE_PROVIDER: azure,
+  };
 });
 
 vi.mock("../hooks", () => {
@@ -81,7 +107,7 @@ vi.mock("../hooks", () => {
       refetch: vi.fn(),
     }),
     useConnectionProviders: () => ({
-      data: [CORE_PROVIDER, CORE_API_PROVIDER, PLUGIN_PROVIDER],
+      data: [CORE_PROVIDER, CORE_API_PROVIDER, PLUGIN_PROVIDER, SNOWFLAKE_PROVIDER, AZURE_PROVIDER],
       refetch: vi.fn(),
       isFetching: false,
     }),
@@ -245,6 +271,57 @@ describe("core REST API connector", () => {
     expect(screen.getByText("Custom headers")).toBeInTheDocument();
     expect(screen.getByText("Records path")).toBeInTheDocument();
     expect(screen.getByText("Page param")).toBeInTheDocument();
+    expect(screen.getByText("Start page")).toBeInTheDocument();
     expect(screen.getByText("Verify TLS certificates")).toBeInTheDocument();
+  });
+});
+
+describe("Snowflake connector", () => {
+  it("collects account/warehouse/role/schema instead of the generic host+port form", () => {
+    openDialog();
+    fireEvent.click(screen.getByText("Snowflake"));
+
+    // Snowflake-specific fields.
+    expect(screen.getByText("Account identifier")).toBeInTheDocument();
+    expect(screen.getByText("Warehouse")).toBeInTheDocument();
+    expect(screen.getByText("Role")).toBeInTheDocument();
+    expect(screen.getByText("Schema")).toBeInTheDocument();
+    expect(screen.getByText("Username")).toBeInTheDocument();
+    expect(screen.getByText("Password secret")).toBeInTheDocument();
+    // No Port field — the backend's snowflake URL branch never sends one.
+    expect(screen.queryByText("Port")).not.toBeInTheDocument();
+  });
+
+  it("stores warehouse/role/schema in options, and account in host", () => {
+    openDialog();
+    fireEvent.click(screen.getByText("Snowflake"));
+
+    fireEvent.change(screen.getByPlaceholderText("xy12345.us-east-1"), {
+      target: { value: "ab12345.us-east-1" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("COMPUTE_WH"), { target: { value: "MY_WH" } });
+    fireEvent.change(screen.getByPlaceholderText("SYSADMIN"), { target: { value: "ANALYST" } });
+    fireEvent.change(screen.getByPlaceholderText("PUBLIC"), { target: { value: "RAW" } });
+
+    expect(screen.getByPlaceholderText("xy12345.us-east-1")).toHaveValue("ab12345.us-east-1");
+    expect(screen.getByPlaceholderText("COMPUTE_WH")).toHaveValue("MY_WH");
+    expect(screen.getByPlaceholderText("SYSADMIN")).toHaveValue("ANALYST");
+    expect(screen.getByPlaceholderText("PUBLIC")).toHaveValue("RAW");
+  });
+});
+
+describe("Azure Blob Storage connector", () => {
+  it("exposes an endpoint URL field for Azurite / sovereign clouds", () => {
+    openDialog();
+    fireEvent.click(screen.getByText("Azure Blob Storage"));
+
+    expect(screen.getByText("Container")).toBeInTheDocument();
+    expect(screen.getByText("Storage account name")).toBeInTheDocument();
+    expect(screen.getByText("Account key")).toBeInTheDocument();
+    const endpointInput = screen.getByPlaceholderText("http://localhost:10000/devstoreaccount1");
+    expect(endpointInput).toBeInTheDocument();
+
+    fireEvent.change(endpointInput, { target: { value: "http://localhost:10000/devstoreaccount1" } });
+    expect(endpointInput).toHaveValue("http://localhost:10000/devstoreaccount1");
   });
 });

@@ -237,7 +237,11 @@ class RestApiConnector:
 
         try:
             page_size = int(options.get("page_size") or 100)
-            start_page = int(options.get("start_page") or 1)
+            # `or 1` would also catch an explicit 0, which is the whole point of
+            # this option for 0-indexed pagination APIs — only fall back to the
+            # default when the option is genuinely absent.
+            start_page_opt = options.get("start_page")
+            start_page = int(start_page_opt) if start_page_opt is not None else 1
             max_pages = int(options.get("max_pages") or 100)
         except (TypeError, ValueError):
             raise ConnectorError("page_size, start_page, and max_pages must be integers.") from None

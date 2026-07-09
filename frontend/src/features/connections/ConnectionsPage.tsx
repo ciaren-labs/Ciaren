@@ -226,16 +226,17 @@ const FALLBACK_PROVIDERS: ProviderInfo[] = [
   mkProvider("snowflake", "Snowflake", "sql", "snowflake-connector-python", "snowflake", null, true, true, true),
   mkProvider("mongodb", "MongoDB", "mongo", "pymongo", "mongo", 27017, true, true, false),
   mkProvider("local", "Local Folder", "storage", null, null, null, false, false, false, true, false, false),
-  mkProvider("s3", "AWS S3", "storage", "boto3", "s3", null, false, false, false, true, true, true),
-  mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, false),
+  mkProvider("s3", "AWS S3", "storage", "boto3", "s3", null, false, true, false, true, true, true),
+  mkProvider("azure_blob", "Azure Blob Storage", "storage", "azure-storage-blob", "azure", null, false, true, false, true, false, true),
   mkProvider("gcs", "Google Cloud Storage", "storage", "google-cloud-storage", "gcs", null, false, false, false, true, false, false),
+  mkProvider("rest_api", "REST API", "api", null, null, null, true, true, true),
   mkProvider("mlflow", "MLflow Tracking", "mlflow", "mlflow", "ml", null, false, false, false),
 ];
 
 function mkProvider(
   name: string,
   label: string,
-  kind: "sql" | "mongo" | "storage" | "mlflow",
+  kind: "sql" | "mongo" | "storage" | "mlflow" | "api",
   driver_module: string | null,
   extra: string | null,
   default_port: number | null,
@@ -677,6 +678,7 @@ function ConnectionDialog({
   const isMlflow = provider?.kind === "mlflow";
   const isApi = provider?.kind === "api" && !provider?.plugin;
   const isSqlite = form.provider === "sqlite" || form.provider === "duckdb";
+  const isSnowflake = form.provider === "snowflake" && !provider?.plugin;
 
   const selectableProviders = providers;
   const dbProviders = selectableProviders.filter((p) => !p.plugin && (p.kind === "sql" || p.kind === "mongo"));
@@ -889,6 +891,8 @@ function ConnectionDialog({
                     placeholder="/data/warehouse.db"
                   />
                 </Field>
+              ) : isSnowflake ? (
+                <SnowflakeFields form={form} set={set} setOption={setOption} />
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-3">
@@ -1132,7 +1136,7 @@ function ApiFields({
               />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Page param" hint="Enables page-number pagination">
               <Input
                 value={String(opts.page_param ?? "")}
@@ -1145,6 +1149,17 @@ function ApiFields({
                 value={String(opts.page_size_param ?? "")}
                 onChange={(e) => setOptionValue("page_size_param", e.target.value)}
                 placeholder="per_page"
+              />
+            </Field>
+            <Field label="Start page" hint="First page number (0 for 0-indexed APIs)">
+              <Input
+                type="number"
+                min={0}
+                value={opts.start_page == null ? "" : Number(opts.start_page)}
+                onChange={(e) =>
+                  setOptionValue("start_page", e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="1"
               />
             </Field>
           </div>
@@ -1193,6 +1208,72 @@ function ApiFields({
           </label>
         </>
       )}
+    </>
+  );
+}
+
+// ─── Snowflake connector fields ───────────────────────────────────────────────
+
+/** Snowflake's connector treats `host` as the account identifier and has no
+ *  use for `port` (there's no field for it at all — the backend URL builder
+ *  never includes one, see sql.py's snowflake branch); warehouse/schema/role
+ *  ride along as query options instead of the generic host/port form. */
+function SnowflakeFields({
+  form,
+  set,
+  setOption,
+}: {
+  form: ConnectionCreate;
+  set: (patch: Partial<ConnectionCreate>) => void;
+  setOption: (key: string, value: string) => void;
+}) {
+  const opts = (form.options ?? {}) as Record<string, string>;
+  return (
+    <>
+      <Field label="Account identifier" hint="e.g. xy12345.us-east-1">
+        <Input
+          value={form.host ?? ""}
+          onChange={(e) => set({ host: e.target.value })}
+          placeholder="xy12345.us-east-1"
+        />
+      </Field>
+      <Field label="Database">
+        <Input value={form.database ?? ""} onChange={(e) => set({ database: e.target.value })} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Warehouse" hint="Optional">
+          <Input
+            value={opts.warehouse ?? ""}
+            onChange={(e) => setOption("warehouse", e.target.value)}
+            placeholder="COMPUTE_WH"
+          />
+        </Field>
+        <Field label="Role" hint="Optional">
+          <Input
+            value={opts.role ?? ""}
+            onChange={(e) => setOption("role", e.target.value)}
+            placeholder="SYSADMIN"
+          />
+        </Field>
+      </div>
+      <Field label="Schema" hint="Optional">
+        <Input
+          value={opts.schema ?? ""}
+          onChange={(e) => setOption("schema", e.target.value)}
+          placeholder="PUBLIC"
+        />
+      </Field>
+      <Field label="Username">
+        <Input value={form.username ?? ""} onChange={(e) => set({ username: e.target.value })} />
+      </Field>
+      <SecretRefField
+        label="Password secret"
+        hint="Env var name, keyring:NAME (OS keychain), or file:/path"
+        placeholder="SNOWFLAKE_PASSWORD"
+        value={form.password_env ?? ""}
+        onChange={(v) => set({ password_env: v })}
+        suggestedName={form.name}
+      />
     </>
   );
 }
@@ -1380,6 +1461,16 @@ function StorageFields({
           onChange={(v) => set({ password_env: v })}
           suggestedName={`${form.name || "azure"}-account-key`}
         />
+        <Field
+          label="Endpoint URL"
+          hint="For Azurite, sovereign/government clouds, etc. (optional — defaults to the public Azure endpoint for this account)"
+        >
+          <Input
+            value={form.host ?? ""}
+            onChange={(e) => set({ host: e.target.value })}
+            placeholder="http://localhost:10000/devstoreaccount1"
+          />
+        </Field>
       </>
     );
   }
