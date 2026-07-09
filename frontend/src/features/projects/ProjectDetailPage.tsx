@@ -150,6 +150,7 @@ function ProjectFlows({ projectId }: { projectId: string }) {
   const [name, setName] = useState("");
 
   const create = () => {
+    if (createFlow.isPending) return;
     const trimmed = name.trim() || "Untitled flow";
     createFlow.mutate(
       { name: trimmed, project_id: projectId, graph_json: { nodes: [], edges: [] } },
