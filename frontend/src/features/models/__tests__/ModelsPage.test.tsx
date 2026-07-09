@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
+
+const clearAliasResolvers = new Map<string, () => void>();
 
 vi.mock("@/lib/api", () => ({
   transformationsApi: { list: vi.fn(() => Promise.resolve(["mlTrainClassifier", "dropNulls"])) },
@@ -27,7 +29,7 @@ vi.mock("@/lib/api", () => ({
               version: "2",
               run_id: "r2",
               status: "READY",
-              aliases: ["production"],
+              aliases: ["production", "champion"],
               created: "2026-06-23T10:00:00+00:00",
               metrics: { train_accuracy: 0.97 },
               lineage: { flow_id: "f1", run_id: "run9", dataset_ids: ["d1"] },
@@ -35,6 +37,13 @@ vi.mock("@/lib/api", () => ({
           ],
         },
       ]),
+    ),
+    setAlias: vi.fn(() => Promise.resolve({ model: "iris-model", alias: "x", version: "2" })),
+    clearAlias: vi.fn(
+      (model: string, alias: string) =>
+        new Promise<{ model: string; alias: string }>((resolve) => {
+          clearAliasResolvers.set(alias, () => resolve({ model, alias }));
+        }),
     ),
     allExperiments: vi.fn(() =>
       Promise.resolve([
@@ -112,5 +121,55 @@ describe("ModelsPage", () => {
     // Best accuracy (0.97) is highlighted somewhere (summary + leaderboard cell).
     const best = screen.getAllByText("0.9700");
     expect(best.some((el) => el.className.includes("text-emerald-600"))).toBe(true);
+  });
+});
+
+describe("ModelsPage alias clearing", () => {
+  afterEach(() => {
+    clearAliasResolvers.clear();
+    vi.clearAllMocks();
+  });
+
+  it("disables only the cleared alias's own button when a version has multiple aliases", async () => {
+    const { mlApi } = await import("@/lib/api");
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findAllByText("iris-model");
+    const prodClear = screen.getByTitle("Clear @production");
+    const championClear = screen.getByTitle("Clear @champion");
+
+    await user.click(prodClear);
+
+    expect(prodClear).toBeDisabled();
+    // The bug this guards against: clearAlias.isPending applied to every
+    // alias chip on the row would also disable @champion's button.
+    expect(championClear).not.toBeDisabled();
+    expect(mlApi.clearAlias).toHaveBeenCalledTimes(1);
+    expect(mlApi.clearAlias).toHaveBeenCalledWith("iris-model", "production");
+
+    clearAliasResolvers.get("production")?.();
+    await waitFor(() => expect(prodClear).not.toBeDisabled());
+  });
+
+  it("keeps two aliases' clearing state independent when cleared concurrently", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findAllByText("iris-model");
+    const prodClear = screen.getByTitle("Clear @production");
+    const championClear = screen.getByTitle("Clear @champion");
+
+    await user.click(prodClear);
+    await user.click(championClear);
+    expect(prodClear).toBeDisabled();
+    expect(championClear).toBeDisabled();
+
+    clearAliasResolvers.get("champion")?.();
+    await waitFor(() => expect(championClear).not.toBeDisabled());
+    expect(prodClear).toBeDisabled();
+
+    clearAliasResolvers.get("production")?.();
+    await waitFor(() => expect(prodClear).not.toBeDisabled());
   });
 });

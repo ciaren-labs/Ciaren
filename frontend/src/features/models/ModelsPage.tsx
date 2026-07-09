@@ -423,8 +423,14 @@ function AliasEditor({ model, version }: { model: string; version: MlModelVersio
   const clearAlias = useClearModelAlias();
   const [adding, setAdding] = useState(false);
   const [value, setValue] = useState("");
+  // A single version can carry more than one alias (e.g. @production and
+  // @champion both pointing at v3) — clearAlias.isPending alone would disable
+  // every alias chip's clear button on this row while only one is clearing,
+  // so track which specific alias names are in flight.
+  const [clearingAliases, setClearingAliases] = useState<Set<string>>(new Set());
 
   const submit = () => {
+    if (setAlias.isPending) return;
     const alias = value.trim();
     if (!alias) return;
     setAlias.mutate(
@@ -433,15 +439,31 @@ function AliasEditor({ model, version }: { model: string; version: MlModelVersio
     );
   };
 
+  const clear = (alias: string) => {
+    if (clearingAliases.has(alias)) return;
+    setClearingAliases((prev) => new Set(prev).add(alias));
+    clearAlias
+      .mutateAsync({ model, alias })
+      .catch(() => {})
+      .finally(() => {
+        setClearingAliases((prev) => {
+          const next = new Set(prev);
+          next.delete(alias);
+          return next;
+        });
+      });
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-1">
       {version.aliases.map((a) => (
         <span key={a} className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[11px] font-medium text-purple-700">
           @{a}
           <button
-            onClick={() => clearAlias.mutate({ model, alias: a })}
+            onClick={() => clear(a)}
+            disabled={clearingAliases.has(a)}
             title={`Clear @${a}`}
-            className="rounded-full hover:text-purple-900"
+            className="rounded-full hover:text-purple-900 disabled:pointer-events-none disabled:opacity-50"
           >
             <X className="h-3 w-3" />
           </button>

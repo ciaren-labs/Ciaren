@@ -39,6 +39,7 @@ export function useSetModelAlias() {
   return useMutation({
     mutationFn: ({ model, alias, version }: { model: string; alias: string; version: string }) =>
       mlApi.setAlias(model, alias, version),
+    meta: { errorMessage: "Couldn't set the alias" },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ml", "models"] }),
   });
 }
@@ -48,6 +49,7 @@ export function useClearModelAlias() {
   return useMutation({
     mutationFn: ({ model, alias }: { model: string; alias: string }) =>
       mlApi.clearAlias(model, alias),
+    meta: { errorMessage: "Couldn't clear the alias" },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ml", "models"] }),
   });
 }
