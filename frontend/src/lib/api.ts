@@ -64,33 +64,66 @@ const BASE_URL = "/api";
 
 // ---- API token (optional; matches backend CIAREN_API_TOKEN) --------------
 // When the backend is started with CIAREN_API_TOKEN set, every /api request
-// must carry a bearer token. The token is stored in localStorage; it can be
-// seeded once via a `?api_token=…` query param (handy for a bookmarked URL),
-// which is then stripped from the address bar.
+// must carry a bearer token. It is held in memory and mirrored to
+// sessionStorage so a reload keeps you signed in — but deliberately NOT in
+// localStorage: the token must not outlive the browser session or be inherited
+// by the next user of a shared machine, and a session-scoped copy shrinks the
+// window an XSS payload has to exfiltrate it. The token stays a request *header*
+// (not a cookie) on purpose — that header is the backend's CSRF defense (a
+// cross-site request can't attach it without a preflight; see app/core/csrf.py).
+// It can be seeded once via a `?api_token=…` query param (handy for a bookmarked
+// URL), which is then stripped from the address bar.
 const API_TOKEN_STORAGE_KEY = "ciaren_api_token";
+
+let memoryToken: string | null = null;
+
+/** sessionStorage, or null when unavailable (SSR, sandboxed/blocked contexts). */
+function sessionStore(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.sessionStorage : null;
+  } catch {
+    return null;
+  }
+}
 
 function captureTokenFromUrl(): void {
   if (typeof window === "undefined") return;
+  // One-time migration: earlier builds persisted the token in localStorage.
+  // Move it to the session-scoped store and purge the durable copy so it no
+  // longer lingers on disk / across browser restarts.
+  try {
+    const legacy = window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
+    if (legacy) {
+      window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+      if (!sessionStore()?.getItem(API_TOKEN_STORAGE_KEY)) setApiToken(legacy);
+    }
+  } catch {
+    // ignore storage access errors
+  }
   const url = new URL(window.location.href);
   const token = url.searchParams.get("api_token");
   if (token) {
-    window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
+    setApiToken(token);
     url.searchParams.delete("api_token");
     window.history.replaceState({}, "", url.toString());
   }
 }
-captureTokenFromUrl();
 
 export function getApiToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(API_TOKEN_STORAGE_KEY);
+  if (memoryToken !== null) return memoryToken;
+  memoryToken = sessionStore()?.getItem(API_TOKEN_STORAGE_KEY) ?? null;
+  return memoryToken;
 }
 
 export function setApiToken(token: string | null): void {
-  if (typeof window === "undefined") return;
-  if (token) window.localStorage.setItem(API_TOKEN_STORAGE_KEY, token);
-  else window.localStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  memoryToken = token;
+  const store = sessionStore();
+  if (!store) return;
+  if (token) store.setItem(API_TOKEN_STORAGE_KEY, token);
+  else store.removeItem(API_TOKEN_STORAGE_KEY);
 }
+
+captureTokenFromUrl();
 
 /** Authorization header for the current token, or empty when none is stored.
  * Safe to spread into a FormData request (it sets no Content-Type). */

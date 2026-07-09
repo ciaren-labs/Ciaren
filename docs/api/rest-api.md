@@ -59,6 +59,13 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
   send `Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`. Static UI,
   `/health`, `/ready`, OpenAPI docs, and the webhook trigger's own secret are exempt.
   Browser clients may use either header; CORS preflight allows `X-Ciaren-Token`.
+  The bundled web UI keeps the token **in memory and `sessionStorage` only** (never
+  `localStorage`): it is cleared when the browser session ends and is not inherited
+  by the next user of a shared machine. You can seed it once from a bookmarked
+  `…/?api_token=<token>` URL, which the UI strips from the address bar. Sending the
+  token as a *header* (rather than a cookie) is deliberate — it is what defeats
+  cross-site (CSRF) requests, since a browser can't attach a custom header
+  cross-site without a preflight the token gate would reject.
 - **Browser origin guard:** without an API token, state-changing (`POST`/`PUT`/
   `PATCH`/`DELETE`) `/api/*` requests that carry a browser `Origin` header are
   refused (`403`) unless the origin is in `CIAREN_CORS_ORIGINS` or its hostname
