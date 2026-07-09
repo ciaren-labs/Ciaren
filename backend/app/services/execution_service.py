@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import asyncio
+import logging
 from collections.abc import Awaitable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +39,8 @@ from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
 from app.services.sql_resolver import materialize_sql_inputs, push_sql_outputs
 from app.services.storage_resolver import materialize_storage_inputs, push_storage_outputs
+
+logger = logging.getLogger("ciaren.execution")
 
 _OUTPUT_TYPE_MAP = {"csvOutput": "csv", "excelOutput": "excel", "parquetOutput": "parquet"}
 # StrEnum members compare equal to their str value, so this works for `x in ...`
@@ -237,6 +240,7 @@ class ExecutionService:
                 if result.output_paths:
                     dataset_service = DatasetService(self.db)
                     graph_nodes = (graph or {}).get("nodes", [])
+                    registration_warnings: list[dict[str, Any]] = []
                     for node_id, out_path in result.output_paths.items():
                         node = next((n for n in graph_nodes if n["id"] == node_id), None)
                         if node:
@@ -249,15 +253,53 @@ class ExecutionService:
                                 else:
                                     src_type = _OUTPUT_TYPE_MAP.get(node_type, "csv")
                                 try:
-                                    await dataset_service.register_output(
-                                        name=dataset_name,
-                                        source_type=src_type,
-                                        file_path=out_path,
-                                        project_id=flow.project_id,
-                                        run_id=run.id,
+                                    # Savepoint so a DB-level failure (e.g. an
+                                    # IntegrityError while flushing the new dataset
+                                    # version) rolls back ONLY this registration and
+                                    # leaves the shared session usable — otherwise the
+                                    # finalizing commit below would hit a broken
+                                    # transaction and the run's success would be lost.
+                                    async with self.db.begin_nested():
+                                        await dataset_service.register_output(
+                                            name=dataset_name,
+                                            source_type=src_type,
+                                            file_path=out_path,
+                                            project_id=flow.project_id,
+                                            run_id=run.id,
+                                        )
+                                except Exception as exc:  # noqa: BLE001 - never fail a run on this
+                                    # The run succeeded and the file exists; only the
+                                    # convenience "reusable dataset" record failed. Don't
+                                    # silently drop it — a missing output dataset with no
+                                    # explanation is baffling. Log the full detail
+                                    # server-side, and surface a short warning on the run.
+                                    logger.warning(
+                                        "Output dataset registration failed (run=%s node=%s dataset=%r): %s",
+                                        run.id,
+                                        node_id,
+                                        dataset_name,
+                                        exc,
+                                        exc_info=True,
                                     )
-                                except Exception:  # noqa: BLE001
-                                    pass  # Don't fail the run on dataset registration errors
+                                    # Cap the echoed detail: an exception can embed an
+                                    # absolute server path or megabytes of parse data —
+                                    # keep the run-visible message bounded (full detail
+                                    # stays in the server log above).
+                                    detail = str(exc)[:300]
+                                    registration_warnings.append(
+                                        {
+                                            "level": "warning",
+                                            "message": (
+                                                f"Output '{dataset_name}' was written but could not be "
+                                                f"registered as a reusable dataset: {detail}"
+                                            ),
+                                            "node_id": node_id,
+                                        }
+                                    )
+                    if registration_warnings:
+                        # Reassign (not in-place append): a JSON column isn't mutation-tracked,
+                        # so an in-place .append wouldn't be persisted on commit.
+                        run.logs_json = (run.logs_json or []) + registration_warnings
             else:
                 run.status = "failed"
                 run.error_message = result.error

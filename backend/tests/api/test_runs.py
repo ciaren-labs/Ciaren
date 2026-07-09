@@ -90,6 +90,88 @@ async def test_run_records_node_results_and_dataset(client: AsyncClient) -> None
     assert results["in1"]["sample"]  # preview rows recorded
 
 
+def _named_output_graph(dataset_id: str) -> dict:
+    return {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": dataset_id}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {"dataset_name": "reusable_out"}}},
+        ],
+        "edges": [{"id": "e1", "source": "in1", "target": "out1"}],
+    }
+
+
+async def test_output_registration_success_records_no_warning(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _named_output_graph(ds["id"]))
+
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    assert run["status"] == "success", run.get("error_message")
+    # The named output was registered as a reusable dataset...
+    names = [d["name"] for d in (await client.get("/api/datasets")).json()]
+    assert "reusable_out" in names
+    # ...and there is no warning log entry.
+    assert all(entry.get("level") != "warning" for entry in (run["logs_json"] or []))
+
+
+async def test_output_registration_failure_is_observable_but_run_succeeds(client: AsyncClient, monkeypatch) -> None:
+    """A failure registering the reusable output dataset must not fail the run, but
+    must be surfaced: logged, and recorded as a warning on the run (not silently
+    swallowed)."""
+    from app.services.dataset_service import DatasetService
+
+    async def _boom(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        raise RuntimeError("registry exploded")
+
+    monkeypatch.setattr(DatasetService, "register_output", _boom)
+
+    ds = await _upload(client)
+    flow = await _create_flow(client, _named_output_graph(ds["id"]))
+
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+    # The run itself still succeeds — the output file was written.
+    assert run["status"] == "success", run.get("error_message")
+    assert run["output_location"] is not None
+    # A warning entry naming the dataset is recorded on the run.
+    warnings = [e for e in (run["logs_json"] or []) if e.get("level") == "warning"]
+    assert warnings, run["logs_json"]
+    assert "reusable_out" in warnings[0]["message"]
+    assert warnings[0]["node_id"] == "out1"
+    # And it never got registered as a dataset.
+    names = [d["name"] for d in (await client.get("/api/datasets")).json()]
+    assert "reusable_out" not in names
+
+
+async def test_output_registration_db_failure_still_finalizes_run(client: AsyncClient, monkeypatch) -> None:
+    """A registration failure that dirties the shared DB session (e.g. an
+    IntegrityError at flush) must be contained by a savepoint so the run's own
+    finalizing commit still succeeds — the run must not 500 or lose its status."""
+    from app.db.models.connection import Connection
+    from app.services.dataset_service import DatasetService
+
+    async def _flush_conflict(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        # Two connections with the same (unique) name → IntegrityError on flush,
+        # which would deactivate the session's transaction without a savepoint.
+        self.db.add(Connection(name="dupe-conn", provider="local"))
+        await self.db.flush()
+        self.db.add(Connection(name="dupe-conn", provider="local"))
+        await self.db.flush()
+
+    monkeypatch.setattr(DatasetService, "register_output", _flush_conflict)
+
+    ds = await _upload(client)
+    flow = await _create_flow(client, _named_output_graph(ds["id"]))
+
+    r = await client.post(f"/api/flows/{flow['id']}/runs", json={})
+    assert r.status_code == 201, r.text
+    run = r.json()
+    assert run["status"] == "success", run.get("error_message")
+    warnings = [e for e in (run["logs_json"] or []) if e.get("level") == "warning"]
+    assert warnings, run["logs_json"]
+    # The savepoint rolled back the conflicting insert — no stray connection leaked.
+    conns = (await client.get("/api/connections")).json()
+    assert "dupe-conn" not in [c["name"] for c in conns]
+
+
 async def test_run_flow_records_failure(client: AsyncClient) -> None:
     ds = await _upload(client)
     # Reference a column that doesn't exist -> execution error captured on the run.
