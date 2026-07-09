@@ -114,6 +114,88 @@ async def _make_failing_schedule(factory: async_sessionmaker[AsyncSession], **kw
         return schedule.id
 
 
+async def test_stop_cancels_in_flight_fire_after_grace(engine: AsyncEngine) -> None:
+    """A fire that outlives the grace period is cancelled so shutdown isn't blocked."""
+    import asyncio
+
+    runner = SchedulerRunner(_factory(engine), get_settings())
+    started = asyncio.Event()
+
+    async def _hang() -> None:
+        started.set()
+        await asyncio.sleep(3600)
+
+    task: asyncio.Task = asyncio.create_task(_hang())
+    runner._fire_tasks.add(task)
+    task.add_done_callback(runner._fire_tasks.discard)
+    await started.wait()
+
+    loop = asyncio.get_event_loop()
+    t0 = loop.time()
+    await runner._drain_fire_tasks(grace=0.05)
+    elapsed = loop.time() - t0
+
+    assert task.cancelled()
+    assert elapsed < 2.0  # returned promptly, did not wait on the 3600s sleep
+
+
+async def test_stop_waits_for_quick_fire_without_cancelling(engine: AsyncEngine) -> None:
+    """A fire that finishes within the grace period runs to completion, uncancelled."""
+    import asyncio
+
+    runner = SchedulerRunner(_factory(engine), get_settings())
+    ran = asyncio.Event()
+
+    async def _quick() -> None:
+        await asyncio.sleep(0.01)
+        ran.set()
+
+    task: asyncio.Task = asyncio.create_task(_quick())
+    runner._fire_tasks.add(task)
+    task.add_done_callback(runner._fire_tasks.discard)
+
+    await runner._drain_fire_tasks(grace=5.0)
+
+    assert task.done()
+    assert not task.cancelled()
+    assert ran.is_set()
+
+
+async def test_drain_fire_tasks_noop_when_none(engine: AsyncEngine) -> None:
+    runner = SchedulerRunner(_factory(engine), get_settings())
+    # asyncio.wait([]) would raise; the guard must make this a clean no-op.
+    await runner._drain_fire_tasks(grace=0.01)
+
+
+async def test_drain_signals_cooperative_cancel_run_finishes_clean(engine: AsyncEngine) -> None:
+    """Drain asks in-flight runs to stop; a run that honors the signal finishes
+    cleanly within the grace window and is NOT hard-cancelled."""
+    import asyncio
+
+    from app.engine.cancellation import register_run, unregister_run
+
+    runner = SchedulerRunner(_factory(engine), get_settings())
+    cancel_event = register_run("run-coop")
+    try:
+
+        async def _cooperative_run() -> None:
+            # Poll the cancel signal between "nodes", like the real executor does.
+            while not cancel_event.is_set():
+                await asyncio.sleep(0.01)
+            # Signalled → stop and finalize cleanly (a normal return, not a cancel).
+
+        task: asyncio.Task = asyncio.create_task(_cooperative_run())
+        runner._fire_tasks.add(task)
+        task.add_done_callback(runner._fire_tasks.discard)
+
+        await runner._drain_fire_tasks(grace=5.0)
+
+        assert task.done()
+        assert not task.cancelled()  # stopped cooperatively, never hard-cancelled
+    finally:
+        unregister_run("run-coop")
+
+
 def test_backoff_is_exponential_and_capped() -> None:
     assert SchedulerRunner._backoff_seconds(60, 1) == 60
     assert SchedulerRunner._backoff_seconds(60, 2) == 120

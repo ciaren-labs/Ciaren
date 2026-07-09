@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import Settings
 from app.core.notifications import notify_in_background
 from app.db.models.schedule import Schedule
+from app.engine.cancellation import request_cancel_all
 from app.scheduler.cron import compute_next_run
 from app.schemas.run import FlowRunCreate
 from app.services.execution_service import ExecutionService
@@ -35,6 +36,12 @@ logger = logging.getLogger("ciaren.scheduler")
 # Upper bound on exponential backoff so a long-failing schedule still retries
 # roughly hourly rather than drifting to absurd delays.
 _MAX_BACKOFF_SECONDS = 3600
+
+# On shutdown, after asking in-flight runs to stop cooperatively, wait this long
+# for them to finish before hard-cancelling, so a long run can't block a clean stop
+# (health checks, rolling deploys) indefinitely. A hard-cancelled run is abandoned;
+# startup orphan-recovery marks any run left ``running`` as failed on the next boot.
+_SHUTDOWN_GRACE_SECONDS = 10.0
 
 
 class SchedulerRunner:
@@ -68,9 +75,45 @@ class SchedulerRunner:
         if self._task is not None:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
-        if self._fire_tasks:
-            await asyncio.gather(*self._fire_tasks, return_exceptions=True)
+        await self._drain_fire_tasks()
         logger.info("Scheduler stopped")
+
+    async def _drain_fire_tasks(self, grace: float | None = None) -> None:
+        """Stop in-flight scheduled runs within a bounded window so shutdown never
+        hangs the event loop on a long run.
+
+        Policy — request-cooperative-cancel, wait, then hard-cancel:
+
+        1. Ask every in-flight run to stop cooperatively. In thread mode (the
+           default) the executor checks the cancel signal between nodes and
+           finalizes the run as ``cancelled`` — a clean, persisted final state.
+        2. Wait up to ``grace`` seconds for the fire tasks to finish on their own.
+        3. Hard-cancel any that remain and move on.
+
+        Caveats: a single long *node* (thread mode) or a process-mode worker can't
+        observe the cooperative signal, so it may be abandoned at step 3 — the
+        process may still block at interpreter exit until that compute unwinds, and
+        the lifespan's process-pool shutdown handles process-mode teardown. Any run
+        left ``running`` by a hard-cancel is swept to ``failed`` by the next
+        startup's orphan-recovery, so run history stays honest regardless."""
+        if not self._fire_tasks:
+            return
+        timeout = _SHUTDOWN_GRACE_SECONDS if grace is None else grace
+        signalled = request_cancel_all()
+        if signalled:
+            logger.info("Scheduler shutdown: asked %s in-flight run(s) to stop", signalled)
+        # Snapshot: the live set mutates as done-callbacks fire during the wait.
+        pending = list(self._fire_tasks)
+        _, still_running = await asyncio.wait(pending, timeout=timeout)
+        if still_running:
+            logger.warning(
+                "Scheduler shutdown: cancelling %s in-flight run(s) that exceeded the %ss grace period",
+                len(still_running),
+                timeout,
+            )
+            for task in still_running:
+                task.cancel()
+            await asyncio.gather(*still_running, return_exceptions=True)
 
     # -- Internals ------------------------------------------------------
 

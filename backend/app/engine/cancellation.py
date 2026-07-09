@@ -52,6 +52,19 @@ def request_cancel(run_id: str) -> bool:
     return True
 
 
+def request_cancel_all() -> int:
+    """Signal every currently-executing run to stop. Returns how many were signalled.
+
+    Used at shutdown to ask in-flight runs to stop cooperatively (thread mode stops
+    at the next node boundary and finalizes as ``cancelled``) before the scheduler
+    resorts to abandoning them."""
+    with _lock:
+        events = list(_active.values())
+    for event in events:
+        event.set()
+    return len(events)
+
+
 def is_run_active(run_id: str) -> bool:
     """Whether ``run_id`` is executing in this process — without touching its
     cancel event. Lets the cancel endpoint refuse (guards, stale rows) before
