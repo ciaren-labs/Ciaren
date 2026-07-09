@@ -501,6 +501,42 @@ async def test_patch_dataset_disable_cascades_to_flows(client: AsyncClient) -> N
     assert refreshed["is_disabled"] is True
 
 
+async def _flow_using(client: AsyncClient, dataset_id: str, name: str = "f") -> dict:
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": dataset_id}}},
+            {"id": "out1", "type": "csvOutput", "data": {"config": {}}},
+        ],
+        "edges": [{"id": "e1", "source": "in1", "target": "out1"}],
+    }
+    return (await client.post("/api/flows", json={"name": name, "graph_json": graph})).json()
+
+
+async def test_delete_dataset_cascades_to_flows(client: AsyncClient) -> None:
+    """Soft-deleting a dataset disables dependent flows, just like PATCH-disable."""
+    up = await _upload(client, _csv(), "orders.csv")
+    flow = await _flow_using(client, up["id"])
+    assert (await client.get(f"/api/flows/{flow['id']}")).json()["is_disabled"] is False
+
+    r = await client.delete(f"/api/datasets/{up['id']}")
+    assert r.status_code == 204
+
+    refreshed = (await client.get(f"/api/flows/{flow['id']}")).json()
+    assert refreshed["is_disabled"] is True
+
+
+async def test_purge_dataset_cascades_to_flows(client: AsyncClient) -> None:
+    """Hard-delete (purge) also disables dependent flows — they can never run again."""
+    up = await _upload(client, _csv(), "purge-me.csv")
+    flow = await _flow_using(client, up["id"], name="pf")
+
+    r = await client.delete(f"/api/datasets/{up['id']}", params={"purge": True})
+    assert r.status_code == 204
+
+    refreshed = (await client.get(f"/api/flows/{flow['id']}")).json()
+    assert refreshed["is_disabled"] is True
+
+
 async def test_delete_dataset(client: AsyncClient) -> None:
     up = await _upload(client, _csv(), "tmp.csv")
     # Default delete is a soft-delete: the dataset is hidden from the list but

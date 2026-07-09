@@ -23,11 +23,19 @@ from app.engine.node_kinds import FILE_INPUT_TYPE
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
 
 
-async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None) -> DatasetVersion:
+async def resolve_version(
+    db: AsyncSession, dataset_id: str, version: int | None, *, allow_unavailable: bool = False
+) -> DatasetVersion:
     """Return the requested DatasetVersion, or the latest when ``version`` is None.
 
     The parent dataset is eager-loaded so callers can read ``source_type``
     without a lazy (and, under async, failing) relationship access.
+
+    A disabled or soft-deleted dataset is refused (``ValidationError`` → 400):
+    "disabled"/"deleted" must mean "do not use in new executions or previews".
+    ``allow_unavailable=True`` bypasses that guard for paths that legitimately
+    read a superseded dataset (e.g. inspecting history) — it is *not* meant for
+    running a flow against it.
     """
     stmt = (
         select(DatasetVersion)
@@ -43,7 +51,30 @@ async def resolve_version(db: AsyncSession, dataset_id: str, version: int | None
     if found is None:
         label = f"{dataset_id}:{version if version is not None else 'latest'}"
         raise NotFoundError("Dataset version", label)
+    if not allow_unavailable:
+        _guard_dataset_available(found)
     return found
+
+
+def _guard_dataset_available(ver: DatasetVersion) -> None:
+    """Reject resolving a version whose parent dataset is soft-deleted or disabled.
+
+    Soft-delete keeps files on disk, so without this guard a run could still read
+    a dataset the user believes is out of use. Deleted is checked first because it
+    is the stronger, more actionable state to report."""
+    dataset = ver.dataset
+    if dataset is None:
+        return
+    name = dataset.name or ver.dataset_id
+    if dataset.deleted_at is not None:
+        raise ValidationError(
+            f"Dataset '{name}' was deleted on {dataset.deleted_at:%Y-%m-%d} and cannot be used "
+            "as a flow input. Restore it to run this flow."
+        )
+    if dataset.is_disabled:
+        raise ValidationError(
+            f"Dataset '{name}' is disabled and cannot be used as a flow input. Re-enable it to run this flow."
+        )
 
 
 def _input_refs(graph: dict[str, Any]) -> set[tuple[str, int | None]]:

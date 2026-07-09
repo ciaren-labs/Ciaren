@@ -61,11 +61,22 @@ async def patch_dataset(
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, service: DatasetServiceDep, purge: bool = False, force: bool = False) -> None:
+async def delete_dataset(
+    dataset_id: str,
+    service: DatasetServiceDep,
+    flow_service: FlowServiceDep,
+    purge: bool = False,
+    force: bool = False,
+) -> None:
     """Soft-delete a dataset (retained for restore); ``?purge=true`` deletes it and
     its files immediately. Refuses with 409 if a Production model was trained on it,
-    unless ``?force=true``."""
+    unless ``?force=true``.
+
+    Deleting a dataset disables the flows that use it as input — same cascade as
+    disabling it via PATCH — so "out of use" means the same thing on both paths and
+    a dependent flow can't silently keep running against a removed dataset."""
     await service.delete(dataset_id, purge=purge, force=force)
+    await flow_service.disable_flows_for_dataset(dataset_id)
 
 
 @router.post("/{dataset_id}/restore", response_model=DatasetRead)

@@ -383,6 +383,12 @@ class DatasetService:
                 )
             version_number = await self._next_version_number(dataset.id)
             dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            # A run writing to this output name again revives a soft-deleted /
+            # disabled output dataset — same revive-on-write semantics as upload().
+            # Otherwise the new version would be born already-deleted and later
+            # purged, and the resolver would refuse to reuse it as an input.
+            dataset.is_disabled = False
+            dataset.deleted_at = None
 
         version = DatasetVersion(
             dataset_id=dataset.id,
