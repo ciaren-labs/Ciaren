@@ -31,5 +31,11 @@ class Connection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
-    # When the connection was last tested (any test, pass or fail). Null = never.
+    # When the connection was last tested (any attempt, pass or fail). Null = never.
     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Outcome of that last test: "ok" | "failed" | "error", or Null if never tested.
+    # last_tested_at records the *attempt*; these record its *result* so the UI and
+    # any audit don't mistake "tested" for "tested successfully".
+    last_test_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Failure detail for the last test (capped), or Null on success / never tested.
+    last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)

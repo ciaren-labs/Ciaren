@@ -134,6 +134,10 @@ class ConnectionRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_tested_at: datetime | None = None
+    # Result of the last test ("ok" | "failed" | "error"), with failure detail — so
+    # a stale last_tested_at isn't mistaken for a passing connection.
+    last_test_status: str | None = None
+    last_test_error: str | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 

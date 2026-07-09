@@ -30,6 +30,7 @@ from app.core.secrets import (
     keyring_availability,
     keyring_secret_exists,
     resolve_secret,
+    scrub,
     set_keyring_secret,
 )
 from app.db.models.connection import Connection
@@ -155,9 +156,19 @@ class ConnectionService:
         await self.db.refresh(conn)
         return ConnectionRead.model_validate(conn)
 
+    # Fields that change what a test actually checks — editing any of them makes a
+    # prior test result stale, so it's cleared (name/description don't).
+    _CONNECTIVITY_FIELDS = frozenset({"provider", "host", "port", "database", "username", "password_env", "options"})
+
     async def update(self, connection_id: str, data: ConnectionUpdate) -> ConnectionRead:
         conn = await self._get_or_raise(connection_id)
         updates = data.model_dump(exclude_unset=True)
+        # Editing connectivity fields invalidates the last test — clear the recorded
+        # result so a stale "ok" never vouches for a config that was never tested.
+        if self._CONNECTIVITY_FIELDS & updates.keys():
+            conn.last_tested_at = None
+            conn.last_test_status = None
+            conn.last_test_error = None
         if "options" in updates:
             conn.options_json = updates.pop("options")
         for field_name, value in updates.items():
@@ -258,10 +269,27 @@ class ConnectionService:
 
     async def test(self, connection_id: str) -> ConnectionTestResult:
         conn = await self._get_or_raise(connection_id)
-        # Record the attempt time regardless of outcome, so the UI can show when a
-        # connection was last checked.
+        # last_tested_at is the *attempt* time; last_test_status/_error record the
+        # *result*, so a stale timestamp is never mistaken for a passing connection.
         conn.last_tested_at = datetime.now(UTC).replace(tzinfo=None)
+        try:
+            result = await self._run_connection_test(conn)
+        except Exception:  # noqa: BLE001 - record the failed attempt, then re-raise
+            # An unexpected failure (not a normal connector/validation error, which
+            # _run_connection_test already turns into an ok=False result) still gets
+            # recorded so the attempt isn't left looking untested.
+            conn.last_test_status = "error"
+            conn.last_test_error = "Unexpected error while testing the connection."
+            await self.db.commit()
+            raise
+        conn.last_test_status = "ok" if result.ok else "failed"
+        conn.last_test_error = None if result.ok else (result.message or "")[:2000]
         await self.db.commit()
+        return result
+
+    async def _run_connection_test(self, conn: Connection) -> ConnectionTestResult:
+        """Run the connectivity check for a saved connection, returning a result
+        (never raising for a normal connector/validation failure)."""
         plugin = plugin_connector(conn.provider)
         if plugin is not None:
             plugin_spec, plugin_runtime = plugin
@@ -275,7 +303,12 @@ class ConnectionService:
                 password_env=conn.password_env,
                 options=conn.options_json,
             )
-        provider = get_provider(conn.provider)
+        try:
+            provider = get_provider(conn.provider)
+        except ValidationError as exc:
+            # An unknown provider (e.g. a plugin was uninstalled) is a recordable
+            # "failed" result with a clear message, not a generic 500/"error".
+            return ConnectionTestResult(ok=False, message=str(exc))
         if not driver_available(provider):
             return ConnectionTestResult(
                 ok=False,
@@ -403,25 +436,31 @@ class ConnectionService:
         if not spec.available:
             hint = f" (pip install {spec.extra})" if spec.extra else ""
             return ConnectionTestResult(ok=False, message=f"The {spec.label} driver isn't installed{hint}.")
+        # The resolved plaintext secret is in config["password"]; a plugin's error
+        # (or even its own result.message) could echo it. Scrub it out before the
+        # message is returned — and now also persisted to last_test_error and shown
+        # in the connection list — exactly as the core connectors do.
+        secret = config.get("password")
         try:
             result = await asyncio.to_thread(runtime.test, config)
         except NotImplementedError:
             return ConnectionTestResult(ok=True, message=f"{spec.label} does not support connection tests.")
         except Exception as exc:  # noqa: BLE001 — a plugin failure must surface, not 500
-            return ConnectionTestResult(ok=False, message=str(exc))
+            return ConnectionTestResult(ok=False, message=scrub(str(exc), secret))
         message = result.message or ("Connection successful." if result.ok else "Connection failed.")
-        return ConnectionTestResult(ok=result.ok, message=message)
+        return ConnectionTestResult(ok=result.ok, message=scrub(message, secret))
 
     async def _list_plugin_tables(
         self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection
     ) -> list[TableInfo]:
         guard_plugin_connection(conn.host, conn.options_json)
+        config = connection_config(conn)
         try:
-            rows = await asyncio.to_thread(runtime.list_tables, connection_config(conn))
+            rows = await asyncio.to_thread(runtime.list_tables, config)
         except NotImplementedError:
             raise ValidationError(f"'{spec.label}' does not support listing tables.") from None
         except Exception as exc:  # noqa: BLE001
-            raise ValidationError(str(exc)) from None
+            raise ValidationError(scrub(str(exc), config.get("password"))) from None
         tables: list[TableInfo] = []
         for row in rows:
             name = str(row.get("name", ""))
@@ -434,12 +473,13 @@ class ConnectionService:
         self, spec: PluginConnectorSpec, runtime: ConnectorRuntime, conn: Connection, prefix: str
     ) -> list[str]:
         guard_plugin_connection(conn.host, conn.options_json)
+        config = connection_config(conn)
         try:
-            objects = await asyncio.to_thread(runtime.list_objects, connection_config(conn), prefix)
+            objects = await asyncio.to_thread(runtime.list_objects, config, prefix)
         except NotImplementedError:
             raise ValidationError(f"'{spec.label}' does not support listing objects.") from None
         except Exception as exc:  # noqa: BLE001
-            raise ValidationError(str(exc)) from None
+            raise ValidationError(scrub(str(exc), config.get("password"))) from None
         return [str(o) for o in objects]
 
     # -- Internals ------------------------------------------------------

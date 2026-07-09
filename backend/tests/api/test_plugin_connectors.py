@@ -224,9 +224,39 @@ async def test_storage_plugin_lists_objects(client: AsyncClient, mem_connector):
 async def test_plugin_connector_gone_after_registry_reset(client: AsyncClient, mem_connector):
     created = await _create_mem_connection(client)
     reset_registry()
-    # The provider no longer exists, so testing the saved connection fails cleanly.
+    # The provider no longer exists (plugin uninstalled): testing the saved
+    # connection fails cleanly as ok=False — consistent with the driver-not-installed
+    # path — rather than a 500/generic error, and the result is recorded.
     t = await client.post(f"/api/connections/{created['id']}/test")
-    assert t.status_code == 400
+    assert t.status_code == 200
+    assert t.json()["ok"] is False
+    fetched = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert fetched["last_test_status"] == "failed"
+
+
+async def test_plugin_test_error_scrubs_secret(client: AsyncClient, mem_connector, monkeypatch):
+    """A plugin test error that echoes the resolved secret must be scrubbed before it
+    is returned AND before it is persisted to last_test_error (shown in the list)."""
+    sql_runtime, _ = mem_connector
+    secret = "hunter2-super-secret"
+    monkeypatch.setenv("MEM_SECRET", secret)
+
+    def _leak(config: dict) -> None:
+        raise RuntimeError(f"auth failed using password={config['password']}")
+
+    monkeypatch.setattr(sql_runtime, "test", _leak)
+    created = await _create_mem_connection(client, name="leaky", password_env="MEM_SECRET")
+
+    r = await client.post(f"/api/connections/{created['id']}/test")
+    body = r.json()
+    assert body["ok"] is False
+    assert secret not in body["message"]
+    assert "***" in body["message"]
+
+    fetched = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert fetched["last_test_status"] == "failed"
+    assert secret not in (fetched["last_test_error"] or "")
+    assert "***" in fetched["last_test_error"]
 
 
 # -- node resolvers ------------------------------------------------------------------

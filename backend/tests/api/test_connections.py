@@ -93,6 +93,87 @@ async def test_test_endpoint_reports_missing_driver(client: AsyncClient):
     assert "driver" in body["message"].lower()
 
 
+async def test_test_records_success_status(client: AsyncClient, tmp_path):
+    db = str(tmp_path / "ok.db")
+    _seed_sqlite(db)
+    created = await _create(client, name="ok-conn", database=db)
+    # Before any test, no result is recorded.
+    before = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert before["last_tested_at"] is None
+    assert before["last_test_status"] is None
+    assert before["last_test_error"] is None
+
+    r = await client.post(f"/api/connections/{created['id']}/test")
+    assert r.json()["ok"] is True
+
+    after = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert after["last_tested_at"] is not None  # attempt recorded
+    assert after["last_test_status"] == "ok"
+    assert after["last_test_error"] is None  # cleared on success
+
+
+async def test_test_records_failure_status_and_error(client: AsyncClient):
+    # Missing driver → a recorded "failed" result with the message as the error.
+    created = await _create(client, name="fail-conn", provider="mysql", host="localhost", database="d")
+    r = await client.post(f"/api/connections/{created['id']}/test")
+    assert r.json()["ok"] is False
+
+    after = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert after["last_tested_at"] is not None
+    assert after["last_test_status"] == "failed"
+    assert "driver" in (after["last_test_error"] or "").lower()
+
+
+async def test_test_failure_then_success_clears_error(client: AsyncClient, tmp_path):
+    """A later passing test must not leave the previous failure's error lingering."""
+    db = str(tmp_path / "recover.db")
+    # A path inside a directory that doesn't exist: SQLite can't create the file.
+    bad = str(tmp_path / "missing-dir" / "x.db")
+    created = await _create(client, name="recover-conn", database=bad)
+    await client.post(f"/api/connections/{created['id']}/test")
+    failed = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert failed["last_test_status"] == "failed"
+
+    # Point it at a real DB and re-test.
+    _seed_sqlite(db)
+    patched = await client.patch(f"/api/connections/{created['id']}", json={"database": db})
+    assert patched.status_code == 200, patched.text
+    await client.post(f"/api/connections/{created['id']}/test")
+
+    ok = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert ok["last_test_status"] == "ok"
+    assert ok["last_test_error"] is None
+
+
+async def test_editing_connectivity_field_clears_stale_test_result(client: AsyncClient, tmp_path):
+    """Editing host/database/etc. clears the recorded test result, so a stale 'ok'
+    never vouches for a config that was never tested."""
+    db = str(tmp_path / "edit.db")
+    _seed_sqlite(db)
+    created = await _create(client, name="edit-conn", database=db)
+    await client.post(f"/api/connections/{created['id']}/test")
+    assert (await client.get(f"/api/connections/{created['id']}")).json()["last_test_status"] == "ok"
+
+    # Repointing the database is connectivity-relevant → the stale result is cleared.
+    await client.patch(f"/api/connections/{created['id']}", json={"database": str(tmp_path / "other.db")})
+    after = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert after["last_test_status"] is None
+    assert after["last_tested_at"] is None
+    assert after["last_test_error"] is None
+
+
+async def test_renaming_connection_keeps_test_result(client: AsyncClient, tmp_path):
+    """A non-connectivity edit (rename) does not clear the recorded test result."""
+    db = str(tmp_path / "keep.db")
+    _seed_sqlite(db)
+    created = await _create(client, name="keep-conn", database=db)
+    await client.post(f"/api/connections/{created['id']}/test")
+
+    await client.patch(f"/api/connections/{created['id']}", json={"name": "renamed-conn"})
+    after = (await client.get(f"/api/connections/{created['id']}")).json()
+    assert after["last_test_status"] == "ok"  # unchanged by a pure rename
+
+
 async def test_list_tables_for_sqlite(client: AsyncClient, tmp_path):
     db = str(tmp_path / "tables.db")
     _seed_sqlite(db)
