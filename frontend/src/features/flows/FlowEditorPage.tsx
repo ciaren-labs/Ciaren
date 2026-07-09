@@ -30,6 +30,7 @@ import { createFlowNode } from "@/lib/createNode";
 import { hasReadyInput } from "@/lib/flowGraph";
 import { validateFlow } from "@/lib/flowValidation";
 import { FlowCanvas } from "@/components/flow/FlowCanvas";
+import { KeyboardShortcutsHelp } from "@/components/flow/KeyboardShortcutsHelp";
 import { NodePalette } from "@/components/flow/NodePalette";
 import { NodeSidebar } from "@/components/flow/NodeSidebar";
 import { PreviewPanel } from "@/components/flow/PreviewPanel";
@@ -341,6 +342,7 @@ export function FlowEditorPage() {
                     <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
                   </Tooltip>
                 </div>
+                <KeyboardShortcutsHelp />
                 <GatedButton
                   disabled={!validation.canPreview}
                   reason={previewReason}
