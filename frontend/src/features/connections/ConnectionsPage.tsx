@@ -472,10 +472,25 @@ function ConnectionCard({
         <p className="truncate text-xs text-muted-foreground">{target}</p>
         <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
           <span>Added {fmtDate(connection.created_at)}</span>
-          <span>
-            {connection.last_tested_at
-              ? `Tested ${fmtDate(connection.last_tested_at)}`
-              : "Never tested"}
+          <span className="flex items-center gap-1">
+            {connection.last_tested_at ? (
+              <>
+                {connection.last_test_status && (
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      connection.last_test_status === "ok" ? "bg-emerald-500" : "bg-destructive"
+                    }`}
+                    title={connection.last_test_error ?? undefined}
+                  />
+                )}
+                <span>Tested {fmtDate(connection.last_tested_at)}</span>
+                {connection.last_test_status && connection.last_test_status !== "ok" && (
+                  <span className="text-destructive">· {connection.last_test_status}</span>
+                )}
+              </>
+            ) : (
+              "Never tested"
+            )}
           </span>
         </div>
       </div>

@@ -505,6 +505,11 @@ export interface Connection {
   updated_at: string;
   /** When the connection was last tested (any test, pass or fail). */
   last_tested_at: string | null;
+  /** Outcome of the last test, or null if never tested. Editing a connectivity
+   *  field (host/port/database/credentials/options) clears it server-side. */
+  last_test_status: "ok" | "failed" | "error" | null;
+  /** Failure detail from the last test (secrets redacted), or null. */
+  last_test_error: string | null;
 }
 
 export interface ConnectionCreate {

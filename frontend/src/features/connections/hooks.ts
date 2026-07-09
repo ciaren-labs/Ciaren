@@ -95,10 +95,12 @@ export function useTestConnectionConfig() {
   });
 }
 
-export function useConnectionObjects(id: string | null, enabled = true) {
+export function useConnectionObjects(id: string | null, prefix?: string, enabled = true) {
   return useQuery({
-    queryKey: id ? queryKeys.connectionObjects(id) : ["connections", "none", "objects"],
-    queryFn: () => connectionsApi.objects(id as string),
+    // The key includes the prefix so browsing into a different folder can't read
+    // a sibling prefix's cached listing — the API already scopes objects by prefix.
+    queryKey: id ? queryKeys.connectionObjects(id, prefix) : ["connections", "none", "objects"],
+    queryFn: () => connectionsApi.objects(id as string, prefix),
     enabled: !!id && enabled,
   });
 }
