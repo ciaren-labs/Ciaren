@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
+
+logger = logging.getLogger("ciaren.db")
 
 
 class Base(DeclarativeBase):
@@ -55,7 +58,9 @@ async def init_db() -> None:
     so there is no hand-written, dialect-specific SQL.
 
     This is the zero-setup MVP path; a production deployment should manage schema
-    changes through Alembic migrations instead.
+    changes through Alembic migrations instead. Additive DDL is best-effort and never
+    blocks startup, but a failure is now *logged* (not silently swallowed) so schema
+    drift is visible rather than hidden — see the loop below.
     """
     # Import models inside the function so they register on Base.metadata
     # without creating an import cycle (models import Base from this module).
@@ -80,8 +85,12 @@ async def init_db() -> None:
         try:
             async with engine.begin() as conn:
                 await conn.exec_driver_sql(stmt)
-        except Exception:
-            pass  # Best-effort additive migration; never block startup
+        except Exception:  # noqa: BLE001 - never block startup on additive DDL
+            # Best-effort, but not silent: a swallowed failure here is exactly how
+            # schema drift stays hidden until a query mysteriously fails later. Log
+            # it (with the statement) so an operator can see a column didn't apply
+            # and reach for a real Alembic migration.
+            logger.warning("Additive schema migration failed for statement: %s", stmt, exc_info=True)
 
 
 def _pending_column_ddl(connection: Connection) -> list[str]:

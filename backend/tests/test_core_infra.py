@@ -66,6 +66,21 @@ async def test_init_db_is_idempotent() -> None:
     await db_mod.init_db()
 
 
+async def test_init_db_logs_additive_ddl_failure_but_does_not_raise(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # A failing additive migration must NOT block startup, but must be logged (not
+    # silently swallowed) so schema drift is visible.
+    monkeypatch.setattr(
+        db_mod,
+        "_pending_column_ddl",
+        lambda conn: ["ALTER TABLE no_such_table ADD COLUMN x INTEGER"],
+    )
+    with caplog.at_level(logging.WARNING, logger="ciaren.db"):
+        await db_mod.init_db()  # must not raise
+    assert any("Additive schema migration failed" in r.message for r in caplog.records)
+
+
 def test_default_literal_renders_each_scalar_type() -> None:
     assert db_mod._default_literal(Column("a", Integer, default=5)) == "5"
     assert db_mod._default_literal(Column("b", Float, default=1.5)) == "1.5"
