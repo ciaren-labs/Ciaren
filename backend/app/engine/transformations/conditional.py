@@ -89,7 +89,7 @@ class ConditionalColumnTransformation(BaseTransformation):
         if op in _COMPARISON:
             return f"{col} {_COMPARISON[op]} {val!r}"
         if op == "contains":
-            return f"{col}.astype(str).str.contains({str(val)!r}, na=False)"
+            return f"{col}.astype(str).str.contains({str(val)!r}, na=False, regex=False)"
         if op == "startswith":
             return f"{col}.astype(str).str.startswith({str(val)!r}, na=False)"
         if op == "endswith":

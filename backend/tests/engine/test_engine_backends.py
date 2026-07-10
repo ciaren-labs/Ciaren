@@ -151,6 +151,25 @@ def test_filter_string_operators(engine_name: str, operator: str, expected: int)
 
 
 @pytest.mark.parametrize("engine_name", ENGINES)
+def test_filter_contains_is_literal_not_regex(engine_name: str) -> None:
+    # Regression: pandas' .str.contains() is regex by default while polars was
+    # already pinned to literal=True, so "a.b" matched "axb" on pandas but not
+    # polars, and unbalanced-regex values like "a(b" crashed pandas outright.
+    engine = get_engine(engine_name)
+    frame = _make(engine_name, {"s": ["axb", "a.b", "ab"]})
+    out = _pdf(engine, engine.filter_rows(frame, "s", "contains", "a.b"))
+    assert out["s"].tolist() == ["a.b"]
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
+def test_filter_contains_does_not_raise_on_regex_metacharacters(engine_name: str) -> None:
+    engine = get_engine(engine_name)
+    frame = _make(engine_name, {"s": ["a(b", "ab", "a(b)c"]})
+    out = _pdf(engine, engine.filter_rows(frame, "s", "contains", "a(b"))
+    assert sorted(out["s"].tolist()) == ["a(b", "a(b)c"]
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
 def test_filter_null_operators(engine_name: str) -> None:
     engine = get_engine(engine_name)
     frame = _make(engine_name, {"m": [1, None, 3, None]})

@@ -691,6 +691,32 @@ def test_filter_string_operators(engine, op, value, expected):
     assert sorted(out["s"].tolist()) == sorted(expected)
 
 
+def test_filter_contains_treats_value_as_literal_on_both_engines(engine):
+    # Regression: pandas' contains was regex by default (polars was already
+    # literal=True), so "a.b" matched "axb" on pandas only, and a value with
+    # unbalanced regex syntax like "a(b" raised re.error on pandas.
+    pdf = pd.DataFrame({"s": ["axb", "a.b", "a(b", "a(b)c"]})
+    out = run(engine, "filterRows", pdf, {"column": "s", "operator": "contains", "value": "a.b"})
+    assert out["s"].tolist() == ["a.b"]
+    out = run(engine, "filterRows", pdf, {"column": "s", "operator": "contains", "value": "a(b"})
+    assert sorted(out["s"].tolist()) == ["a(b", "a(b)c"]
+
+
+def test_conditional_column_contains_treats_value_as_literal_on_both_engines(engine):
+    pdf = pd.DataFrame({"s": ["axb", "a.b"]})
+    out = run(
+        engine,
+        "conditionalColumn",
+        pdf,
+        {
+            "new_column": "flag",
+            "default": "no",
+            "rules": [{"column": "s", "operator": "contains", "value": "a.b", "result": "yes"}],
+        },
+    )
+    assert out["flag"].tolist() == ["no", "yes"]
+
+
 def test_concat_rows_both_engines(engine):
     pdf = pd.DataFrame({"a": [1, 2]})
     out = run(engine, "concatRows", pdf, {}, inputs={"in": pdf, "in_1": pdf})

@@ -98,7 +98,7 @@ class PandasEngine:
             case "<=" | "lte":
                 mask = col <= value
             case "contains":
-                mask = col.astype(str).str.contains(str(value), na=False)
+                mask = col.astype(str).str.contains(str(value), na=False, regex=False)
             case "startswith":
                 mask = col.astype(str).str.startswith(str(value), na=False)
             case "endswith":
@@ -631,7 +631,7 @@ def _pandas_condition_mask(df: pd.DataFrame, column: str, operator: str, value: 
         case "<=" | "lte":
             mask = col <= value
         case "contains":
-            mask = col.astype(str).str.contains(str(value), na=False)
+            mask = col.astype(str).str.contains(str(value), na=False, regex=False)
         case "startswith":
             mask = col.astype(str).str.startswith(str(value), na=False)
         case "endswith":

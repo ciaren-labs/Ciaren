@@ -62,7 +62,10 @@ class FilterRowsTransformation(BaseTransformation):
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({self._values(config)!r})]"
         if op in {"contains", "startswith", "endswith"}:
             # str() like the engine: a numeric search value must not emit .str.contains(5).
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].astype(str).str.{op}({str(val)!r})]"
+            # regex=False mirrors PandasEngine.filter_rows: pandas' contains is
+            # regex by default, which would misread values like "a.b".
+            extra = ", regex=False" if op == "contains" else ""
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].astype(str).str.{op}({str(val)!r}{extra})]"
         raise ValueError(f"Unknown filter operator: {op!r}")
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
