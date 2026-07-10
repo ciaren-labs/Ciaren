@@ -53,7 +53,10 @@ export default tseslint.config(
     // a per-node-type config schema, not a local fix — swapping `any` for
     // `unknown` here alone cascades into ~80 unrelated type errors at every
     // field read. Tracked as follow-up work rather than done ad hoc.
-    files: ['src/components/flow/NodeConfigForm.tsx'],
+    // NodeConfigForm.tsx is the router; components/flow/config/* are its
+    // per-family form modules (split out of the same original file) and
+    // inherit the identical typing debt via NodeConfigRenderProps.c.
+    files: ['src/components/flow/NodeConfigForm.tsx', 'src/components/flow/config/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },
