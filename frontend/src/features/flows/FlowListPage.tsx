@@ -1,54 +1,33 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { AlertCircle, CalendarClock, Copy as CopyIcon, FileText, Loader2, Pencil, Play, Plus, Power, RefreshCw, Trash2, Upload, Workflow } from "lucide-react";
+import { AlertCircle, Loader2, Plus, RefreshCw, Upload, Workflow } from "lucide-react";
 import { useCreateFlow, useDeleteFlow, useFlows, useImportFlow, useMigrateFlowDocument, useRunFlow, useToggleFlow, useUpdateFlow, useDuplicateFlow } from "./hooks";
 import { MigrateFlowDialog } from "./MigrateFlowDialog";
-import { FLOW_TEMPLATES, buildTemplateGraph } from "@/lib/flowTemplates";
 import { useProjects } from "@/features/projects/hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
-import { flowFormSchema, type FlowFormValues } from "@/lib/validators";
 import { flowNameConflicts, resolveImportTargetProjectId } from "@/lib/flowImport";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState";
 import { QuickRunDialog } from "./QuickRunDialog";
-import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
+import { sortRows, useSort } from "@/components/ui/SortableHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { FilterBar, FilterField, SearchInput } from "@/components/filters/FilterBar";
 import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
-import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ViewToggle } from "@/components/filters/ViewToggle";
 import type { Flow } from "@/features/flows/types";
-import { cn } from "@/lib/utils";
+import { CreateFlowDialog } from "./components/CreateFlowDialog";
+import { ImportFlowDialog } from "./components/ImportFlowDialog";
+import { FlowCard } from "./components/FlowCard";
+import { FlowTable, FLOW_SORT, type FlowSortKey } from "./components/FlowTable";
 
 type PendingAction =
   | { kind: "disable"; flow: Flow }
   | { kind: "enable"; flow: Flow }
   | { kind: "delete"; flow: Flow };
-
-
-type FlowSortKey = "name" | "nodes" | "status" | "created" | "last_run";
-const FLOW_SORT: Record<FlowSortKey, (f: Flow) => string | number | null> = {
-  name: (f) => f.name.toLowerCase(),
-  nodes: (f) => f.graph_json?.nodes?.length ?? 0,
-  status: (f) => (f.is_disabled ? "disabled" : "active"),
-  created: (f) => f.created_at,
-  last_run: (f) => f.last_run_at ?? null,
-};
 
 export function FlowListPage() {
   const { data: flows, isPending, isError, error, refetch } = useFlows();
@@ -89,8 +68,6 @@ export function FlowListPage() {
   };
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
-  const [newFlowProjectId, setNewFlowProjectId] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [layout, setLayout] = useLayoutPreference("flows", "cards");
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -221,35 +198,6 @@ export function FlowListPage() {
     );
   }, [filtered, sort]);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<FlowFormValues>({ defaultValues: { name: "", description: "" } });
-
-  const onCreate = handleSubmit((values) => {
-    const parsed = flowFormSchema.safeParse(values);
-    if (!parsed.success) return;
-    const template = FLOW_TEMPLATES.find((t) => t.id === selectedTemplateId);
-    createFlow.mutate(
-      {
-        name: values.name,
-        description: values.description,
-        project_id: newFlowProjectId || undefined,
-        graph_json: template ? buildTemplateGraph(template) : { nodes: [], edges: [] },
-      },
-      {
-        onSuccess: (flow) => {
-          reset();
-          setSelectedTemplateId(null);
-          setOpen(false);
-          navigate(`/flows/${flow.id}`);
-        },
-      },
-    );
-  });
-
   const handleConfirm = () => {
     if (!pendingAction) return;
     const { kind, flow } = pendingAction;
@@ -323,97 +271,35 @@ export function FlowListPage() {
           >
             <RefreshCw className="h-4 w-4" /> Migrate a file…
           </Button>
-          <Dialog
+          <CreateFlowDialog
             open={open}
-            onOpenChange={(o) => {
-              setOpen(o);
-              if (o) setNewFlowProjectId(projectFilter);
-              else setSelectedTemplateId(null);
-            }}
-          >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4" /> New flow
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create flow</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={onCreate} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <Label>Start from</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTemplateId(null)}
-                    className={cn(
-                      "flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors",
-                      selectedTemplateId === null
-                        ? "border-primary bg-accent"
-                        : "border-input hover:bg-muted",
-                    )}
-                  >
-                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>
-                      <span className="block text-xs font-medium">Blank flow</span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        Start with an empty canvas.
-                      </span>
-                    </span>
-                  </button>
-                  {FLOW_TEMPLATES.map((tpl) => {
-                    const Icon = tpl.icon;
-                    const active = selectedTemplateId === tpl.id;
-                    return (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        onClick={() => setSelectedTemplateId(tpl.id)}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors",
-                          active ? "border-primary bg-accent" : "border-input hover:bg-muted",
-                        )}
-                      >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span>
-                          <span className="block text-xs font-medium">{tpl.name}</span>
-                          <span className="block text-[11px] text-muted-foreground">
-                            {tpl.description}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Name</Label>
-                <Input {...register("name")} placeholder="My ETL flow" />
-                {errors.name && (
-                  <p className="text-[11px] text-destructive">{errors.name.message}</p>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Description</Label>
-                <Textarea {...register("description")} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Project</Label>
-                <SearchableSelect
-                  value={newFlowProjectId}
-                  onChange={setNewFlowProjectId}
-                  allLabel="Default project"
-                  placeholder="Search projects…"
-                  options={(projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
-                />
-              </div>
-              <Button type="submit" disabled={createFlow.isPending}>
-                {createFlow.isPending ? "Creating…" : "Create"}
+            onOpenChange={setOpen}
+            projects={projects ?? []}
+            defaultProjectId={projectFilter}
+            isPending={createFlow.isPending}
+            trigger={
+              <Button>
+                <Plus className="h-4 w-4" /> New flow
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            }
+            onCreate={(values, onSuccess) =>
+              createFlow.mutate(
+                {
+                  name: values.name,
+                  description: values.description,
+                  project_id: values.projectId || undefined,
+                  graph_json: values.graph,
+                },
+                {
+                  onSuccess: (flow) => {
+                    onSuccess();
+                    setOpen(false);
+                    navigate(`/flows/${flow.id}`);
+                  },
+                },
+              )
+            }
+          />
         </div>
       </div>
 
@@ -581,287 +467,19 @@ export function FlowListPage() {
         onConfirm={handleConfirm}
       />
 
-      {/* Import name confirmation dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={(o) => !o && closeImportDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Import flow</DialogTitle>
-          </DialogHeader>
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(e) => { e.preventDefault(); handleImportConfirm(); }}
-          >
-            <div className="flex flex-col gap-1">
-              <Label>Name</Label>
-              <Input
-                value={importName}
-                onChange={(e) => { setImportName(e.target.value); setImportNameError(null); }}
-                placeholder="Flow name"
-                autoFocus
-              />
-              {importNameError && (
-                <p className="text-[11px] text-destructive">{importNameError}</p>
-              )}
-            </div>
-            {importWarning && !importError && (
-              <p className="text-[11px] text-amber-600">{importWarning}</p>
-            )}
-            {importError && (
-              <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {importError}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={closeImportDialog}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={importFlow.isPending}>
-                {importFlow.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Import
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ImportFlowDialog
+        open={importDialogOpen}
+        onOpenChange={(o) => !o && closeImportDialog()}
+        name={importName}
+        onNameChange={(v) => { setImportName(v); setImportNameError(null); }}
+        nameError={importNameError}
+        warning={importWarning}
+        error={importError}
+        isPending={importFlow.isPending}
+        onSubmit={handleImportConfirm}
+      />
 
       <MigrateFlowDialog open={migrateDialogOpen} onOpenChange={setMigrateDialogOpen} />
-    </div>
-  );
-}
-
-function FlowCard({
-  flow,
-  isDuplicating,
-  onOpen,
-  onEdit,
-  onRun,
-  onSchedule,
-  onToggle,
-  onDelete,
-  onDuplicate,
-}: {
-  flow: Flow;
-  isDuplicating: boolean;
-  onOpen: () => void;
-  onEdit: () => void;
-  onRun: () => void;
-  onSchedule: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
-}) {
-  const fmt = useFormatDateTime();
-  return (
-    <div className={cn("group animate-fade-in-up flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", flow.is_disabled ? "border-amber-300 opacity-70" : "border-border")}>
-      <button onClick={onOpen} className="flex-1 text-left">
-        <div className="flex items-center gap-2">
-          <Workflow className="h-4 w-4 text-brand-600" />
-          <span className="truncate font-semibold">{flow.name}</span>
-          {flow.is_disabled && (
-            <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-              disabled
-            </span>
-          )}
-        </div>
-        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-          {flow.description || "No description"}
-        </p>
-        <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{flow.graph_json?.nodes?.length ?? 0} nodes</span>
-        </div>
-        <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-muted-foreground/80">
-          <span>Created {fmt(flow.created_at)}</span>
-          <span>{flow.last_run_at ? `Last run ${fmt(flow.last_run_at)}` : "Never run"}</span>
-        </div>
-      </button>
-      <div className="mt-3 flex items-center justify-end gap-2 border-t border-border pt-2.5">
-        <Button size="sm" variant="outline" onClick={onOpen}>
-          Open
-        </Button>
-        <button
-          onClick={onRun}
-          disabled={flow.is_disabled}
-          className="rounded-md p-2 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-40"
-          title="Run flow"
-        >
-          <Play className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onSchedule}
-          disabled={flow.is_disabled}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-          title="Schedule flow"
-        >
-          <CalendarClock className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onEdit}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Edit name & description"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onToggle}
-          className={cn(
-            "rounded-md p-2 transition-colors hover:bg-muted",
-            flow.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
-          )}
-          title={flow.is_disabled ? "Enable flow" : "Disable flow"}
-        >
-          <Power className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onDuplicate}
-          disabled={isDuplicating}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-          title="Duplicate flow (graph, parameters and engine — not schedules or history)"
-        >
-          {isDuplicating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyIcon className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={onDelete}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-          title="Delete flow"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function FlowTable({
-  flows,
-  sort,
-  onSort,
-  isDuplicating,
-  onOpen,
-  onEdit,
-  onRun,
-  onSchedule,
-  onToggle,
-  onDelete,
-  onDuplicate,
-}: {
-  flows: Flow[];
-  sort: SortState<FlowSortKey>;
-  onSort: (key: FlowSortKey) => void;
-  isDuplicating: (flow: Flow) => boolean;
-  onOpen: (id: string) => void;
-  onEdit: (flow: Flow) => void;
-  onRun: (flow: Flow) => void;
-  onSchedule: (flow: Flow) => void;
-  onToggle: (flow: Flow) => void;
-  onDelete: (flow: Flow) => void;
-  onDuplicate: (flow: Flow) => void;
-}) {
-  const fmt = useFormatDateTime();
-  if (flows.length === 0) return null;
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <SortableTh label="Name" sortKey="name" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
-            <SortableTh label="Nodes" sortKey="nodes" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
-            <SortableTh label="Status" sortKey="status" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
-            <SortableTh label="Created" sortKey="created" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
-            <SortableTh label="Last run" sortKey="last_run" sort={sort} onSort={onSort} className="px-4 py-2.5 text-left" />
-            <th className="px-4 py-2.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {flows.map((flow) => {
-            return (
-              <tr
-                key={flow.id}
-                className={cn("border-t border-border hover:bg-accent/40 transition-colors", flow.is_disabled && "bg-amber-50/30 opacity-70")}
-              >
-                <td className="px-4 py-2.5">
-                  <button onClick={() => onOpen(flow.id)} className="font-medium hover:underline">
-                    {flow.name}
-                  </button>
-                </td>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {flow.graph_json?.nodes?.length ?? 0}
-                </td>
-                <td className="px-4 py-2.5">
-                  {flow.is_disabled ? (
-                    <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                      disabled
-                    </span>
-                  ) : (
-                    <span className="rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">
-                      active
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">{fmt(flow.created_at)}</td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
-                  {flow.last_run_at ? fmt(flow.last_run_at) : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => onRun(flow)}
-                      disabled={flow.is_disabled}
-                      className="rounded-md p-1.5 text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-40"
-                      title="Run flow"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onSchedule(flow)}
-                      disabled={flow.is_disabled}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                      title="Schedule flow"
-                    >
-                      <CalendarClock className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onEdit(flow)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      title="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onToggle(flow)}
-                      className={cn(
-                        "rounded-md p-1.5 transition-colors hover:bg-muted",
-                        flow.is_disabled ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600",
-                      )}
-                      title={flow.is_disabled ? "Enable" : "Disable"}
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => onDuplicate(flow)}
-                      disabled={isDuplicating(flow)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                      title="Duplicate"
-                    >
-                      {isDuplicating(flow) ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CopyIcon className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => onDelete(flow)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </div>
   );
 }
