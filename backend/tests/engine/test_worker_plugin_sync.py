@@ -30,7 +30,7 @@ def test_generation_bumps_on_reload_and_reset() -> None:
 def _record_reloads(monkeypatch) -> list[str]:
     calls: list[str] = []
     monkeypatch.setattr("app.plugins.reset_registry", lambda: calls.append("reset"))
-    monkeypatch.setattr("app.plugins.ensure_plugins_loaded", lambda: calls.append("load"))
+    monkeypatch.setattr("app.plugins.get_registry", lambda: calls.append("load"))
     return calls
 
 
@@ -54,10 +54,14 @@ def test_sync_reloads_only_when_generation_moved(monkeypatch) -> None:
 
 
 def test_failed_sync_is_retried_on_the_next_task(monkeypatch) -> None:
+    """A rebuild failure (get_registry raising — ensure_plugins_loaded would
+    swallow it) must not be recorded as a successful sync."""
+
     def _boom() -> None:
         raise RuntimeError("plugin dir unreadable")
 
-    monkeypatch.setattr("app.plugins.reset_registry", _boom)
+    monkeypatch.setattr("app.plugins.reset_registry", lambda: None)
+    monkeypatch.setattr("app.plugins.get_registry", _boom)
     monkeypatch.setattr(process_pool, "_worker_plugin_generation", 5)
 
     _sync_worker_plugins(6)  # must not raise (best-effort) ...

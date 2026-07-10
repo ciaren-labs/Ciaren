@@ -8,11 +8,15 @@ process pool from pytest on Windows is flaky); what's under test is the
 recycle-decision logic, not the pool.
 """
 
+import asyncio
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from app.db.models.run import FlowRun
 from app.engine.cancellation import register_run, unregister_run
 from app.engine.executor import RunResult
 from app.engine.process_pool import (
@@ -20,6 +24,8 @@ from app.engine.process_pool import (
     pool_recycle_pending,
     recycle_pool_if_pending,
 )
+from app.schemas.run import FlowRunCreate
+from app.services.execution_service import ExecutionService
 
 
 def _graph(input_id: str = "in1") -> dict:
@@ -130,6 +136,93 @@ async def test_process_run_carries_plugin_generation(client: AsyncClient, monkey
         assert r.json()["status"] == "success"
         assert seen == [plugin_state_generation()]
     finally:
+        pool.shutdown(wait=False)
+
+
+async def _setup_single_slot_pool(client: AsyncClient, monkeypatch, recycles: list[str]) -> tuple:
+    """Process mode with a 1-worker fake pool, so a second run genuinely queues,
+    and a release event controlling how long the 'slow' compute occupies it."""
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("CIAREN_EXECUTION_MODE", "process")
+    get_settings.cache_clear()
+
+    release = threading.Event()
+
+    def _blocking_run(graph, *args, **kwargs) -> RunResult:
+        if any(str(n["id"]).startswith("slow") for n in graph["nodes"]):
+            release.wait(10)
+        return RunResult(output_paths={}, node_results=[], error=None)
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr("app.services.execution_service.get_process_pool", lambda: pool)
+    monkeypatch.setattr("app.services.execution_service.run_graph_in_process", _blocking_run)
+
+    async def _no_datasets(db, graph):
+        return {}, []
+
+    monkeypatch.setattr("app.services.execution_service.build_dataset_paths", _no_datasets)
+    monkeypatch.setattr("app.services.execution_service.recycle_process_pool", lambda: recycles.append("immediate"))
+    monkeypatch.setattr("app.engine.process_pool.recycle_process_pool", lambda: recycles.append("deferred"))
+    return pool, release
+
+
+async def test_queued_run_cancel_frees_slot_without_recycle(client: AsyncClient, db_session, monkeypatch) -> None:
+    """A run still queued behind a busy worker is cancellable directly (its
+    pool future never started) — no pool recycle, no harm to the running run.
+    This was the audit's starvation finding: before, cancelling was refused
+    while another run was active."""
+    recycles: list[str] = []
+    pool, release = await _setup_single_slot_pool(client, monkeypatch, recycles)
+    try:
+        flow_a = await _create_flow(client, _graph("slow-a"))
+        flow_b = await _create_flow(client, _graph("fast-b"))
+        task_a = asyncio.create_task(ExecutionService(db_session).run(flow_a, FlowRunCreate()))
+        await asyncio.sleep(0.3)  # A occupies the pool's only worker
+        task_b = asyncio.create_task(ExecutionService(db_session).run(flow_b, FlowRunCreate()))
+        await asyncio.sleep(0.3)  # B is flushed and queued behind A
+
+        run_b_id = (await db_session.execute(select(FlowRun.id).where(FlowRun.flow_id == flow_b))).scalar_one()
+        resp = await ExecutionService(db_session).cancel(run_b_id)
+        assert resp["status"] == "cancelling"
+
+        result_b = await task_b  # finalizes normally — the task itself was never cancelled
+        assert result_b.status == "cancelled"
+        assert recycles == []  # the shared pool was never touched
+
+        release.set()
+        result_a = await task_a
+        assert result_a.status == "success"  # the running run was unharmed
+        assert recycles == []
+        assert pool_recycle_pending() is False
+    finally:
+        release.set()
+        pool.shutdown(wait=False)
+
+
+async def test_timeout_of_queued_run_needs_no_recycle(client: AsyncClient, db_session, monkeypatch) -> None:
+    """A queued run hitting its time limit cancels its never-started future:
+    no worker is hung, so neither an immediate nor a deferred recycle fires."""
+    recycles: list[str] = []
+    pool, release = await _setup_single_slot_pool(client, monkeypatch, recycles)
+    try:
+        flow_a = await _create_flow(client, _graph("slow-a"))
+        flow_b = await _create_flow(client, _graph("fast-b"))
+        task_a = asyncio.create_task(ExecutionService(db_session).run(flow_a, FlowRunCreate()))
+        await asyncio.sleep(0.3)
+        task_b = asyncio.create_task(ExecutionService(db_session).run(flow_b, FlowRunCreate(timeout_seconds=1)))
+
+        result_b = await task_b
+        assert result_b.status == "failed"
+        assert "time limit" in (result_b.error_message or "")
+        assert recycles == []  # queued task cancelled — nothing to recycle
+        assert pool_recycle_pending() is False
+
+        release.set()
+        result_a = await task_a
+        assert result_a.status == "success"
+    finally:
+        release.set()
         pool.shutdown(wait=False)
 
 

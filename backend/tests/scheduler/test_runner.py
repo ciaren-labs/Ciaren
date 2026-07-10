@@ -278,6 +278,16 @@ async def test_execute_hard_cancel_is_not_a_schedule_failure(engine: AsyncEngine
     factory = _factory(engine)
     sid = await _make_schedule(factory, cron="* * * * *", is_enabled=True, consecutive_failures=4)
 
+    # The run row ExecutionService.run finalized before the cancellation
+    # escaped — the schedule must recover its link to it.
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        run = FlowRun(flow_id=schedule.flow_id, schedule_id=sid, status="cancelled", trigger="schedule")
+        db.add(run)
+        await db.commit()
+        finalized_run_id = run.id
+
     async def _cancelled(self, *args, **kwargs):
         raise asyncio.CancelledError
 
@@ -294,6 +304,7 @@ async def test_execute_hard_cancel_is_not_a_schedule_failure(engine: AsyncEngine
         schedule = await db.get(Schedule, sid)
         assert schedule is not None
         assert schedule.last_status == "cancelled"
+        assert schedule.last_run_id == finalized_run_id  # link recovered
         assert schedule.consecutive_failures == 4  # unchanged — not a failure
         assert schedule.is_enabled is True  # never auto-disabled by shutdown
         assert schedule.disabled_reason is None

@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.core.notifications import notify_in_background
+from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.engine.cancellation import request_cancel_all
 from app.scheduler.cron import compute_next_run
@@ -182,6 +183,18 @@ class SchedulerRunner:
             # counted toward retries/auto-disable, and let the cancellation
             # propagate (the finally still persists the schedule bookkeeping).
             status = "cancelled"
+            # The run id never made it back (run() raised) — recover it so the
+            # schedule keeps its link to the finalized run. Best-effort.
+            try:
+                result = await db.execute(
+                    select(FlowRun.id)
+                    .where(FlowRun.schedule_id == schedule.id)
+                    .order_by(FlowRun.created_at.desc())
+                    .limit(1)
+                )
+                run_id = result.scalar_one_or_none()
+            except Exception:  # noqa: BLE001 — bookkeeping must not mask the cancellation
+                run_id = None
             raise
         except Exception:  # noqa: BLE001 - record on the schedule, then re-raise nothing
             logger.exception("Run failed for schedule %s (flow %s)", schedule.id, schedule.flow_id)

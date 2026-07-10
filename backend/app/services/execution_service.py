@@ -18,8 +18,10 @@ from app.db.models.run import FlowRun
 from app.engine.backends import available_engines
 from app.engine.cancellation import (
     active_run_count,
+    get_run_future,
     is_run_active,
     register_run,
+    register_run_future,
     request_cancel,
     unregister_run,
 )
@@ -127,6 +129,10 @@ class ExecutionService:
         # failure during input materialization (before the compute is even
         # submitted) must not turn into a NameError inside the handler.
         compute_finished = False
+        # The concurrent.futures future backing a process-mode compute; the
+        # timeout/cancel paths use it to tell a queued task (safely cancellable,
+        # no pool recycle needed) from one already hogging a worker.
+        cf_future: Any = None
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, graph)
@@ -173,12 +179,14 @@ class ExecutionService:
                 # True multi-core parallelism: the GIL is not shared across
                 # processes. Only the picklable compute crosses the boundary.
                 # ContextVars don't cross processes, so pass the context explicitly.
-                loop = asyncio.get_running_loop()
                 from app.core.runtime_settings import get_active_overrides
                 from app.plugins import plugin_state_generation
 
-                compute = loop.run_in_executor(
-                    get_process_pool(),
+                # Submitted directly (not via run_in_executor) so the underlying
+                # future is ours to track: the cancel endpoint can then cancel a
+                # QUEUED run without recycling the pool, and the timeout path
+                # can skip the recycle when the task never started.
+                cf_future = get_process_pool().submit(
                     run_graph_in_process,
                     graph,
                     dataset_paths,
@@ -192,6 +200,8 @@ class ExecutionService:
                     # revocation, disable) and re-sync before executing.
                     plugin_state_generation(),
                 )
+                register_run_future(run.id, cf_future)
+                compute = asyncio.wrap_future(cf_future)
             else:
                 compute = asyncio.to_thread(
                     FlowExecutor(events=events).run_with_results,
@@ -318,12 +328,17 @@ class ExecutionService:
             # later runs; in thread mode the thread keeps running but the run is
             # abandoned and the event loop is freed.
             if execution_mode == "process":
+                if cf_future is not None and (cf_future.cancelled() or cf_future.cancel()):
+                    # The task never started (it was still queued behind other
+                    # runs): cancelling it freed its slot — no worker is hung,
+                    # so the pool needs no recycling at all.
+                    pass
                 # Recycling shuts the shared pool down with cancel_futures=True,
                 # which would abort every OTHER in-flight process run too. Only
                 # recycle immediately when this run is the last one active;
                 # otherwise defer it to the last run's finalizer (the hung
                 # worker keeps its slot until then, but innocent runs survive).
-                if active_run_count() <= 1:
+                elif active_run_count() <= 1:
                     recycle_process_pool()
                 else:
                     defer_pool_recycle()
@@ -338,25 +353,43 @@ class ExecutionService:
                 run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
                 run.logs_json = [{"level": "error", "message": run.error_message}]
         except asyncio.CancelledError:
-            # The surrounding task was hard-cancelled: the scheduler's shutdown
-            # grace expired, or the server is stopping mid-request. `except
-            # Exception` doesn't catch this (CancelledError is a BaseException),
-            # so without this branch the finally below would commit the row
-            # still status="running" — stuck there until the next boot's orphan
-            # recovery, or forever if the scheduler is stopped and restarted
-            # without a process restart. Finalize honestly, then re-raise so
-            # cancellation still propagates (the finally commits first).
+            # Two distinct sources land here. (1) The surrounding task was
+            # hard-cancelled: the scheduler's shutdown grace expired, or the
+            # server is stopping mid-request. (2) A *queued* process-mode task
+            # was cancelled by the cancel endpoint (its pool future never
+            # started, so awaiting it raises CancelledError without the task
+            # itself being cancelled). `except Exception` doesn't catch either
+            # (CancelledError is a BaseException), so without this branch the
+            # finally below would commit the row still status="running" — stuck
+            # there until the next boot's orphan recovery, or forever if the
+            # scheduler is stopped and restarted without a process restart.
+            # "Queued-future cancel" only when the surrounding task itself has
+            # no cancellation pending (cancelling() == 0) — a shutdown hard-
+            # cancel of a still-queued run cancels BOTH, and must keep
+            # propagating as a task cancellation.
+            task = asyncio.current_task()
+            future_cancelled = (
+                cf_future is not None
+                and cf_future.cancelled()
+                and not compute_finished
+                and (task is None or task.cancelling() == 0)
+            )
             if cancel_event.is_set() and not compute_finished:
                 # Shutdown asked in-flight runs to stop (request_cancel_all) or
-                # the user cancelled just before: a deliberate stop.
+                # the user cancelled: a deliberate stop.
                 run.status = "cancelled"
-                run.error_message = "Run stopped by server shutdown."
+                run.error_message = "Cancelled by user." if future_cancelled else "Run stopped by server shutdown."
                 run.logs_json = [{"level": "info", "message": run.error_message}]
             else:
                 run.status = "failed"
                 run.error_message = "Run was interrupted before it finished."
                 run.logs_json = [{"level": "error", "message": run.error_message}]
-            raise
+            if not future_cancelled:
+                # A real task cancellation must keep propagating (the finally
+                # commits first). The queued-future case is swallowed instead:
+                # this task was never cancelled, so the caller (API route or
+                # scheduler) gets the finalized cancelled run back normally.
+                raise
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             if cancel_event.is_set() and not compute_finished:
                 # Process-mode cancel recycles the pool under the worker; the
@@ -410,9 +443,12 @@ class ExecutionService:
     async def cancel(self, run_id: str) -> dict[str, str]:
         """Request cancellation of a running run.
 
-        Thread mode stops cooperatively at the next node boundary; process mode
-        abandons the worker (the pool is recycled) like the timeout path does.
-        The run's own task finalizes the row with status "cancelled"."""
+        Thread mode stops cooperatively at the next node boundary. Process mode:
+        a still-queued task is cancelled directly (its pool future never
+        started, so no other run is touched); a task already executing in a
+        worker abandons the worker like the timeout path does — recycling the
+        pool, which is only safe when no other run shares it. The run's own
+        task finalizes the row with status "cancelled"."""
         result = await self.db.execute(select(FlowRun).where(FlowRun.id == run_id))
         run = result.scalar_one_or_none()
         if run is None:
@@ -428,15 +464,25 @@ class ExecutionService:
             # (e.g. the finalizer lost a race with this request); the scheduler's
             # startup recovery handles crash leftovers. Report honestly.
             raise ValidationError("This run is not executing anymore; refresh to see its final status.")
-        if self.settings.EXECUTION_MODE == "process" and active_run_count() > 1:
-            # The worker process can't see the event; the only lever is
-            # recycling the shared pool (like the timeout path). That would
-            # abort every OTHER in-flight process run too — refuse instead of
-            # silently failing innocent runs.
-            raise ValidationError(
-                "Cannot cancel: other runs share the process pool and would be aborted "
-                "with it. Wait for them to finish, or switch to thread execution mode."
-            )
+        if self.settings.EXECUTION_MODE == "process":
+            future = get_run_future(run_id)
+            if future is not None and future.cancel():
+                # The task was still queued (e.g. behind a hung worker): the
+                # future cancel frees it without touching the pool, so this is
+                # safe under concurrent runs too. The event records the
+                # deliberate stop for the run's finalizer.
+                request_cancel(run_id)
+                return {"run_id": run_id, "status": "cancelling"}
+            if active_run_count() > 1:
+                # The task is already executing in a worker, which can't see
+                # the event; the only lever is recycling the shared pool (like
+                # the timeout path). That would abort every OTHER in-flight
+                # process run too — refuse instead of silently failing
+                # innocent runs.
+                raise ValidationError(
+                    "Cannot cancel: other runs share the process pool and would be aborted "
+                    "with it. Wait for them to finish, or switch to thread execution mode."
+                )
         if not request_cancel(run_id):
             # The finalizer won the race between the check above and here.
             raise ValidationError("This run is not executing anymore; refresh to see its final status.")

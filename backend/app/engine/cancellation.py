@@ -23,9 +23,15 @@ Semantics by execution mode:
 from __future__ import annotations
 
 import threading
+from concurrent.futures import Future
+from typing import Any
 
 _lock = threading.Lock()
 _active: dict[str, threading.Event] = {}
+# Process-mode only: the pool future backing each run's compute, so the cancel
+# endpoint can cancel a *queued* run (its future never started) without
+# recycling the shared pool — the only safe cancel under concurrent runs.
+_futures: dict[str, Future[Any]] = {}
 
 
 def register_run(run_id: str) -> threading.Event:
@@ -39,6 +45,18 @@ def register_run(run_id: str) -> threading.Event:
 def unregister_run(run_id: str) -> None:
     with _lock:
         _active.pop(run_id, None)
+        _futures.pop(run_id, None)
+
+
+def register_run_future(run_id: str, future: Future[Any]) -> None:
+    """Track the process-pool future computing a run (process mode only)."""
+    with _lock:
+        _futures[run_id] = future
+
+
+def get_run_future(run_id: str) -> Future[Any] | None:
+    with _lock:
+        return _futures.get(run_id)
 
 
 def request_cancel(run_id: str) -> bool:

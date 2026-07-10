@@ -134,13 +134,18 @@ def _sync_worker_plugins(plugin_generation: int | None) -> None:
     global _worker_plugin_generation
     if plugin_generation is None or plugin_generation == _worker_plugin_generation:
         return
-    from app.plugins import ensure_plugins_loaded, reset_registry
+    # get_registry (not ensure_plugins_loaded, which swallows all exceptions
+    # internally) so a real rebuild failure reaches the except below — otherwise
+    # the failure would be recorded as a successful sync and never retried.
+    from app.plugins import get_registry, reset_registry
 
     try:
         reset_registry()
-        ensure_plugins_loaded()
+        get_registry()
         # Recorded only on success, so a failed sync is retried on the next task
-        # rather than silently leaving revoked grants in force.
+        # rather than silently leaving revoked grants in force. (A failure after
+        # reset_registry leaves this worker without plugin nodes until a retry
+        # succeeds — failing closed, never with stale grants.)
         _worker_plugin_generation = plugin_generation
     except Exception:  # noqa: BLE001 — plugin trouble must not fail the run
         logger.warning("Plugin re-sync in worker failed; continuing with the previous plugin state.", exc_info=True)
