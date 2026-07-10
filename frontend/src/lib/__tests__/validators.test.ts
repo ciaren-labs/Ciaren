@@ -501,6 +501,15 @@ describe("pivot", () => {
     rejects("pivot", { index: ["id"], columns: "m", values: "", aggfunc: "sum" }, "values"));
   it("rejects a bad aggfunc", () =>
     rejects("pivot", { index: ["id"], columns: "m", values: "v", aggfunc: "concat" }, "aggfunc"));
+  it("rejects aggfuncs valid for groupByAggregate but unsupported by polars' pivot", () => {
+    // "std"/"var"/"nunique" are valid groupByAggregate aggFunctions entries and
+    // pandas' pivot_table would accept them too, but polars' pivot doesn't
+    // implement them — the backend rejects these for pivot specifically
+    // (PivotTransformation._SHARED_AGGFUNCS), so the form schema must match.
+    for (const aggfunc of ["std", "var", "nunique"]) {
+      rejects("pivot", { index: ["id"], columns: "m", values: "v", aggfunc }, "aggfunc");
+    }
+  });
 });
 
 describe("splitColumn", () => {

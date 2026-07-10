@@ -6,6 +6,7 @@ import { Dataset } from "@/lib/types";
 import { EXPRESSION_TEMPLATES } from "@/lib/nodeDocs";
 import {
   aggFunctions,
+  pivotAggFunctions,
   binMethods,
   dateParts,
   dtypes,
@@ -959,7 +960,7 @@ export function NodeConfigForm({
           </Field>
           <Field label="Aggregation" error={errors.aggfunc} help="How to combine values that fall in the same cell.">
             <Select value={c.aggfunc ?? "sum"} onChange={(e) => set({ aggfunc: e.target.value })}>
-              {aggFunctions.map((a) => (
+              {pivotAggFunctions.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>

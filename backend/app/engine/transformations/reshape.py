@@ -260,10 +260,21 @@ class PivotTransformation(BaseTransformation):
     type = "pivot"
     polars_lazy_safe = False  # LazyFrame has no .pivot()
 
+    # pandas' pivot_table(aggfunc=...) accepts any reducer name pandas knows
+    # (e.g. "std", "var", "nunique"), but polars' DataFrame.pivot(aggregate_function=...)
+    # only implements this fixed set. A flow always exports both a pandas and a
+    # polars script (and can be re-run on either engine), so aggfunc is restricted
+    # here to what both support — otherwise a config that validates and runs fine
+    # on pandas can fail outright the moment the same flow runs on polars.
+    _SHARED_AGGFUNCS = {"sum", "mean", "min", "max", "median", "first", "last", "count"}
+
     def validate_config(self, config: dict[str, Any]) -> None:
         for key in ("index", "columns", "values"):
             if not config.get(key):
                 raise ValueError(f"pivot requires '{key}'")
+        aggfunc = config.get("aggfunc", "sum")
+        if aggfunc not in self._SHARED_AGGFUNCS:
+            raise ValueError(f"pivot 'aggfunc' must be one of {sorted(self._SHARED_AGGFUNCS)}, got {aggfunc!r}")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

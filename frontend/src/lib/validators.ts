@@ -73,6 +73,12 @@ export const aggFunctions = [
   "last",
 ] as const;
 
+// pandas' pivot_table(aggfunc=...) accepts any reducer above, but polars'
+// pivot(aggregate_function=...) only implements this subset — the backend
+// rejects anything outside it (see PivotTransformation._SHARED_AGGFUNCS), so
+// the pivot form must not offer a choice that would always fail validation.
+export const pivotAggFunctions = ["sum", "mean", "count", "min", "max", "median", "first", "last"] as const;
+
 export const joinHows = ["inner", "left", "right", "outer"] as const;
 
 export const FILTER_OPERATOR_LABELS: Record<string, string> = {
@@ -483,7 +489,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     index: stringArray.min(1, "Add at least one index column"),
     columns: z.string().min(1, "Column is required"),
     values: z.string().min(1, "Values column is required"),
-    aggfunc: z.enum(aggFunctions),
+    aggfunc: z.enum(pivotAggFunctions),
   }),
   splitColumn: z
     .object({

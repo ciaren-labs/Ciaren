@@ -644,6 +644,20 @@ def test_pivot_str_index_and_count(engine):
     assert "m" in out.columns and "n" in out.columns
 
 
+def test_pivot_median_aggfunc_runs_on_both_engines(engine):
+    pdf = pd.DataFrame({"r": ["x", "x", "y"], "c": ["m", "m", "m"], "v": [1, 3, 5]})
+    out = run(engine, "pivot", pdf, {"index": "r", "columns": "c", "values": "v", "aggfunc": "median"})
+    assert out.loc[out["r"] == "x", "m"].iloc[0] == 2
+
+
+def test_pivot_rejects_aggfunc_unsupported_by_polars(engine):
+    # "std" is a valid pandas pivot_table aggfunc but polars' pivot doesn't
+    # implement it — must be rejected at validate_config time on both engines,
+    # not just fail when the flow happens to run on polars.
+    with pytest.raises(ValueError):
+        get_transformation("pivot").validate_config({"index": ["r"], "columns": "c", "values": "v", "aggfunc": "std"})
+
+
 def test_unpivot_value_vars_subset(engine):
     pdf = pd.DataFrame({"id": [1], "a": [10], "b": [20], "c": [30]})
     out = run(engine, "unpivot", pdf, {"id_vars": ["id"], "value_vars": ["a", "b"]})
@@ -1004,6 +1018,9 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("sortRows", {"columns": ["a"], "na_position": "center"}),  # bad na_position
         ("fillNulls", {"strategy": "constant"}),  # constant needs value
         ("pivot", {"index": ["r"], "columns": "c"}),  # missing values
+        # pandas' pivot_table accepts "std", but polars' pivot doesn't support it —
+        # rejected up front so a flow can't validate on pandas and crash on polars.
+        ("pivot", {"index": ["r"], "columns": "c", "values": "v", "aggfunc": "std"}),
         ("sampleRows", {"n": -1, "seed": 1}),  # negative n
         ("sampleRows", {"n": 3}),  # missing required seed
         ("binColumn", {"column": "x", "bins": 3}),  # missing new_column
