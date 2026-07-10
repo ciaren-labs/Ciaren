@@ -28,7 +28,9 @@ from app.engine.graph import GraphValidationError, validate_graph, validate_node
 from app.engine.node_kinds import FILE_OUTPUT_TYPE, output_source_type
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.process_pool import (
+    defer_pool_recycle,
     get_process_pool,
+    recycle_pool_if_pending,
     recycle_process_pool,
     run_graph_in_process,
 )
@@ -309,7 +311,15 @@ class ExecutionService:
             # later runs; in thread mode the thread keeps running but the run is
             # abandoned and the event loop is freed.
             if execution_mode == "process":
-                recycle_process_pool()
+                # Recycling shuts the shared pool down with cancel_futures=True,
+                # which would abort every OTHER in-flight process run too. Only
+                # recycle immediately when this run is the last one active;
+                # otherwise defer it to the last run's finalizer (the hung
+                # worker keeps its slot until then, but innocent runs survive).
+                if active_run_count() <= 1:
+                    recycle_process_pool()
+                else:
+                    defer_pool_recycle()
             if cancel_event.is_set():
                 # The user cancelled and the deadline fired in the same window:
                 # honor the deliberate stop (and don't page the operator).
@@ -336,6 +346,11 @@ class ExecutionService:
                 run.logs_json = [{"level": "error", "message": str(exc)}]
         finally:
             unregister_run(run.id)
+            # Honor a recycle another run's timeout deferred (see above): once
+            # this was the last active run, the pool can be swapped safely.
+            # Unconditional (not gated on execution_mode) so a runtime switch
+            # to thread mode can't strand a pending recycle; no-op when clear.
+            recycle_pool_if_pending()
             run.finished_at = datetime.now(UTC).replace(tzinfo=None)
             events = self._event_bus()
             if events is not None:
