@@ -198,6 +198,16 @@ class PandasEngine:
         if dtype in ("integer", "float") and errors == "coerce":
             numeric = pd.to_numeric(df[column], errors="coerce")
             return df.assign(**{column: numeric.astype(cast(Any, _DTYPE_MAP[dtype]))})
+        if dtype == "boolean" and errors == "coerce":
+            # pandas' BooleanArray has no native "coerce" mode (unlike to_numeric),
+            # so unparsable values must be nulled out by hand instead of astype()
+            # raising. Mirrors polars' cast(pl.Boolean, strict=False): any numeric
+            # value coerces via nonzero-truthiness, anything non-numeric becomes null.
+            numeric = pd.to_numeric(df[column], errors="coerce")
+            is_null = numeric.isna().to_numpy()
+            values = pd.array(np.where(is_null, False, numeric != 0), dtype="boolean")
+            values[is_null] = pd.NA
+            return df.assign(**{column: values})
         return df.assign(**{column: df[column].astype(cast(Any, _DTYPE_MAP[dtype]))})
 
     def sort_rows(

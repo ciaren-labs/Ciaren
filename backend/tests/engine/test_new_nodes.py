@@ -42,6 +42,27 @@ def test_cast_coerce_numeric(engine):
     assert pd.isna(out["x"].tolist()[2])
 
 
+def test_cast_coerce_boolean_nulls_unparseable_values(engine):
+    # Regression: pandas' astype("boolean") ignored errors="coerce" entirely
+    # and raised TypeError on any non-0/1 value instead of nulling it out.
+    pdf = pd.DataFrame({"x": [0, 1, 2, None]})
+    out = run(engine, "castDtypes", pdf, {"casts": {"x": "boolean"}, "errors": "coerce"})
+    values = out["x"].tolist()
+    assert values[0] is False
+    assert values[1] is True
+    assert values[2] is True  # nonzero coerces truthy, mirrors polars strict=False
+    assert pd.isna(values[3])
+
+
+def test_cast_boolean_without_coerce_still_raises_on_pandas():
+    # errors="coerce" must not become the accidental default for boolean casts —
+    # only pandas raises here (a non-bool-like value under its nullable Boolean
+    # dtype); polars' plain cast already treats any nonzero number as truthy.
+    pdf = pd.DataFrame({"x": [0, 1, 2]})
+    with pytest.raises(Exception):
+        run(get_engine("pandas"), "castDtypes", pdf, {"casts": {"x": "boolean"}})
+
+
 def test_cast_datetime_with_format(engine):
     pdf = pd.DataFrame({"d": ["01-2021", "02-2021"]})
     out = run(engine, "castDtypes", pdf, {"casts": {"d": "datetime"}, "format": "%m-%Y"})

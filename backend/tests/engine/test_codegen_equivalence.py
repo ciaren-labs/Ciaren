@@ -170,6 +170,9 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "cast_dt": {"in": _dates_str},
     "cast_dt_datetime": {"in": _datetimes},
     "cast_int_coerce": {"in": _ints_dirty},
+    # numeric (not string) input: polars can't cast Utf8->Boolean at all, even
+    # with strict=False, so this exercises the coerce path both engines support.
+    "cast_bool_coerce": {"in": _num},
     "cast_plain": {"in": _num},
     "dropnull_any": {"in": _num},
     "dropnull_any_subset": {"in": _num},

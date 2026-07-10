@@ -223,6 +223,15 @@ class CastDtypesTransformation(BaseTransformation):
             elif dtype in ("integer", "float") and errors == "coerce":
                 pd_dtype = self._CODE_DTYPE[dtype]
                 items[column] = f"lambda _d: pd.to_numeric(_d[{column!r}], errors='coerce').astype({pd_dtype!r})"
+            elif dtype == "boolean" and errors == "coerce":
+                # astype("boolean") raises on any non-bool-like value regardless
+                # of `errors`, so coerce must be built by hand: mirrors polars'
+                # cast(pl.Boolean, strict=False) — nonzero numeric is true,
+                # non-numeric values become null instead of raising.
+                items[column] = (
+                    f"lambda _d: ((_n := pd.to_numeric(_d[{column!r}], errors='coerce')) != 0)"
+                    ".astype('boolean').mask(_n.isna())"
+                )
             else:
                 pd_dtype = self._CODE_DTYPE[dtype]
                 items[column] = f"lambda _d: _d[{column!r}].astype({pd_dtype!r})"

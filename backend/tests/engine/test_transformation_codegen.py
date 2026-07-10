@@ -56,6 +56,7 @@ CODEGEN_CASES = [
     ("cast_dt", "castDtypes", {"casts": {"a": "datetime"}, "format": "%Y-%m-%d", "errors": "coerce"}),
     ("cast_dt_datetime", "castDtypes", {"casts": {"d": "datetime"}}),
     ("cast_int_coerce", "castDtypes", {"casts": {"a": "integer"}, "errors": "coerce"}),
+    ("cast_bool_coerce", "castDtypes", {"casts": {"a": "boolean"}, "errors": "coerce"}),
     ("cast_plain", "castDtypes", {"casts": {"a": "string"}}),
     # dropNulls: any/all, with/without subset
     ("dropnull_any", "dropNulls", {}),
