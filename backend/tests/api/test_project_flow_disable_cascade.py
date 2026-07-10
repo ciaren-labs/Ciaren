@@ -106,6 +106,66 @@ async def test_reenable_restores_flow_user_left_project_disabled(client: AsyncCl
         assert await _is_disabled(client, flow["id"]) is False
 
 
+async def _default_project_id(client: AsyncClient) -> str:
+    projects = (await client.get("/api/projects")).json()
+    return next(p["id"] for p in projects if p["is_default"])
+
+
+async def test_moving_project_disabled_flow_is_not_revived_by_the_new_projects_cascade(
+    client: AsyncClient,
+) -> None:
+    """Regression: disabled_reason="project" alone doesn't say *which* project
+    disabled a flow. Moving a project-disabled flow to another project and then
+    disabling/re-enabling *that* project must not revive it — only the project
+    that actually disabled it may restore it."""
+    proj_a = await _project(client, "MoveA")
+    proj_b = await _project(client, "MoveB")
+    flow = await _flow(client, proj_a["id"], "f")
+
+    await _set_project_disabled(client, proj_a["id"], True)
+    assert await _is_disabled(client, flow["id"]) is True
+
+    r = await client.put(f"/api/flows/{flow['id']}", json={"project_id": proj_b["id"]})
+    assert r.status_code == 200, r.text
+
+    # Proj B never disabled this flow — its own disable/enable cycle must leave
+    # the flow untouched, not accidentally revive it.
+    await _set_project_disabled(client, proj_b["id"], True)
+    await _set_project_disabled(client, proj_b["id"], False)
+    assert await _is_disabled(client, flow["id"]) is True  # still disabled by A's cascade
+
+    # Nor can A revive it anymore — the flow no longer belongs to A, so A's
+    # cascade (scoped to its *current* members) can no longer reach it either.
+    # It's stuck safely disabled, restorable only by a direct manual re-enable.
+    await _set_project_disabled(client, proj_a["id"], False)
+    assert await _is_disabled(client, flow["id"]) is True
+
+    r = await client.put(f"/api/flows/{flow['id']}", json={"is_disabled": False})
+    assert r.status_code == 200, r.text
+    assert await _is_disabled(client, flow["id"]) is False
+
+
+async def test_deleting_project_reassigns_flow_but_default_reenable_does_not_revive_it(
+    client: AsyncClient,
+) -> None:
+    """Regression: ProjectService.delete() reassigns a deleted project's flows to
+    Default without touching disabled_reason. A later, unrelated disable/enable of
+    Default must not revive a flow the deleted project disabled."""
+    proj = await _project(client, "DeleteMe")
+    flow = await _flow(client, proj["id"], "f")
+    await _set_project_disabled(client, proj["id"], True)
+    assert await _is_disabled(client, flow["id"]) is True
+
+    r = await client.delete(f"/api/projects/{proj['id']}")
+    assert r.status_code == 204, r.text
+    default_id = await _default_project_id(client)
+    assert (await client.get(f"/api/flows/{flow['id']}")).json()["project_id"] == default_id
+
+    await _set_project_disabled(client, default_id, True)
+    await _set_project_disabled(client, default_id, False)
+    assert await _is_disabled(client, flow["id"]) is True  # not revived
+
+
 async def test_echoing_unchanged_is_disabled_does_not_strand_flow(client: AsyncClient) -> None:
     """A save that echoes is_disabled unchanged (e.g. a rename) must NOT re-tag a
     project-cascaded flow as manual — otherwise a later project re-enable can't
@@ -172,3 +232,29 @@ async def test_reenable_keeps_soft_deleted_dataset_deleted(client: AsyncClient) 
     fetched = (await client.get(f"/api/datasets/{ds['id']}")).json()
     assert fetched["deleted_at"] is not None  # still deleted
     assert fetched["is_disabled"] is True  # not revived by the project re-enable
+
+
+async def test_deleting_project_reassigns_dataset_but_default_reenable_does_not_revive_it(
+    client: AsyncClient,
+) -> None:
+    """Datasets have no project-move endpoint, but ProjectService.delete() still
+    reassigns a deleted project's datasets to Default via a raw UPDATE that never
+    touches disabled_reason — the same regression as the flow-side delete test,
+    on the other reassignment code path."""
+    proj = await _project(client, "DDeleteMe")
+    ds = await _dataset(client, proj["id"], "d.csv")
+    await _set_project_disabled(client, proj["id"], True)
+    assert await _ds_disabled(client, ds["id"]) is True
+
+    r = await client.delete(f"/api/projects/{proj['id']}")
+    assert r.status_code == 204, r.text
+    default_id = await _default_project_id(client)
+    assert (await client.get(f"/api/datasets/{ds['id']}")).json()["project_id"] == default_id
+
+    await _set_project_disabled(client, default_id, True)
+    await _set_project_disabled(client, default_id, False)
+    assert await _ds_disabled(client, ds["id"]) is True  # not revived
+
+    r = await client.patch(f"/api/datasets/{ds['id']}", json={"is_disabled": False})
+    assert r.status_code == 200, r.text
+    assert await _ds_disabled(client, ds["id"]) is False

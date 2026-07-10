@@ -111,15 +111,20 @@ class ProjectService:
     async def _cascade_dataset_disable(self, project_id: str, disabled: bool) -> None:
         """Propagate the project's state to its datasets, reason-tagged like flows.
 
-        Disabling tags only currently-enabled datasets ``DISABLED_BY_PROJECT``;
-        re-enabling restores only those (and never a soft-deleted one — ``deleted_at``
-        is an independent, stronger state). A dataset the user disabled directly, or
-        one that is soft-deleted, is left untouched."""
+        Disabling tags only currently-enabled datasets ``DISABLED_BY_PROJECT`` and
+        records *this* project as the origin (``disabled_by_project_id``); re-enabling
+        restores only rows both reason- and origin-tagged to this project (never a
+        soft-deleted one — ``deleted_at`` is an independent, stronger state). A row
+        that was disabled by this project and then moved to another project (or whose
+        origin project was deleted and it was reassigned to Default) keeps its stale
+        origin id forever, so it is never wrongly revived by an unrelated project's
+        cascade — it stays disabled until re-enabled directly. A dataset the user
+        disabled directly, or one that is soft-deleted, is left untouched."""
         if disabled:
             stmt = (
                 update(Dataset)
                 .where(Dataset.project_id == project_id, Dataset.is_disabled.is_(False))
-                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT)
+                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT, disabled_by_project_id=project_id)
             )
         else:
             stmt = (
@@ -127,9 +132,10 @@ class ProjectService:
                 .where(
                     Dataset.project_id == project_id,
                     Dataset.disabled_reason == DISABLED_BY_PROJECT,
+                    Dataset.disabled_by_project_id == project_id,
                     Dataset.deleted_at.is_(None),
                 )
-                .values(is_disabled=False, disabled_reason=None)
+                .values(is_disabled=False, disabled_reason=None, disabled_by_project_id=None)
             )
         await self.db.execute(stmt)
 
@@ -138,20 +144,27 @@ class ProjectService:
         clobbering flows disabled for their own reasons.
 
         Disabling tags only the *currently-enabled* flows as ``DISABLED_BY_PROJECT``
-        (a flow already disabled by the user or a broken dependency keeps its own
-        reason). Re-enabling restores *only* those project-cascaded flows — a
-        manually- or dependency-disabled flow stays disabled, as it should."""
+        and records *this* project as the origin (``disabled_by_project_id``) — a flow
+        already disabled by the user or a broken dependency keeps its own reason.
+        Re-enabling restores *only* flows both reason- and origin-tagged to this
+        project — a manually- or dependency-disabled flow stays disabled, as it
+        should, and so does one this project disabled but that has since moved to
+        (or was reassigned to, via project delete) a different project."""
         if disabled:
             stmt = (
                 update(Flow)
                 .where(Flow.project_id == project_id, Flow.is_disabled.is_(False))
-                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT)
+                .values(is_disabled=True, disabled_reason=DISABLED_BY_PROJECT, disabled_by_project_id=project_id)
             )
         else:
             stmt = (
                 update(Flow)
-                .where(Flow.project_id == project_id, Flow.disabled_reason == DISABLED_BY_PROJECT)
-                .values(is_disabled=False, disabled_reason=None)
+                .where(
+                    Flow.project_id == project_id,
+                    Flow.disabled_reason == DISABLED_BY_PROJECT,
+                    Flow.disabled_by_project_id == project_id,
+                )
+                .values(is_disabled=False, disabled_reason=None, disabled_by_project_id=None)
             )
         await self.db.execute(stmt)
 

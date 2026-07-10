@@ -180,6 +180,7 @@ class FlowService:
             # dataset/manually-disabled copy stays off until fixed).
             is_disabled=original.is_disabled,
             disabled_reason=original.disabled_reason,
+            disabled_by_project_id=original.disabled_by_project_id,
         )
         self.db.add(flow)
         await self.db.commit()
@@ -315,6 +316,7 @@ class FlowService:
             setattr(flow, field, value)
         if disabled_changed:
             flow.disabled_reason = DISABLED_MANUAL if updates["is_disabled"] else None
+            flow.disabled_by_project_id = None
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
         # and SQLite's second-level resolution means tests may see the same value.
         flow.updated_at = datetime.now(UTC).replace(tzinfo=None)
@@ -350,6 +352,7 @@ class FlowService:
             if _references_dataset(flow.graph_json or {}, dataset_id):
                 flow.is_disabled = True
                 flow.disabled_reason = DISABLED_BY_DATASET
+                flow.disabled_by_project_id = None
                 changed = True
         if changed:
             await self.db.commit()

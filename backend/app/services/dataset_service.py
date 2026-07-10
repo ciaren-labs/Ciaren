@@ -153,6 +153,7 @@ class DatasetService:
             # Re-uploading to a soft-deleted dataset revives it.
             dataset.is_disabled = False
             dataset.disabled_reason = None
+            dataset.disabled_by_project_id = None
             dataset.deleted_at = None
 
         version = DatasetVersion(
@@ -235,6 +236,7 @@ class DatasetService:
             setattr(dataset, field, value)
         if disabled_changed:
             dataset.disabled_reason = DISABLED_MANUAL if updates["is_disabled"] else None
+            dataset.disabled_by_project_id = None
         # Re-enabling a soft-deleted dataset is a restore — leaving deleted_at set
         # would make it purgeable while appearing live.
         if updates.get("is_disabled") is False:
@@ -308,6 +310,7 @@ class DatasetService:
         dataset = await self._get_or_raise(dataset_id)
         dataset.is_disabled = False
         dataset.disabled_reason = None
+        dataset.disabled_by_project_id = None
         dataset.deleted_at = None
         dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
@@ -452,6 +455,7 @@ class DatasetService:
             # purged, and the resolver would refuse to reuse it as an input.
             dataset.is_disabled = False
             dataset.disabled_reason = None
+            dataset.disabled_by_project_id = None
             dataset.deleted_at = None
 
         version = DatasetVersion(

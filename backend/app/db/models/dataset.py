@@ -34,6 +34,11 @@ class Dataset(Base):
     # project cascade itself disabled, not ones the user turned off. (Soft-delete is
     # tracked separately by deleted_at, which also blocks project-re-enable revival.)
     disabled_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Which project's cascade set disabled_reason="project" — set only alongside
+    # that reason, cleared whenever the reason changes to anything else. No FK,
+    # same as Flow.disabled_by_project_id: re-enabling a project must only restore
+    # what *that* project's own cascade disabled.
+    disabled_by_project_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     # Set when the dataset is soft-deleted; its version files are retained until the
     # retention window passes and it is purged. None = live.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
