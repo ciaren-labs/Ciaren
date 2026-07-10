@@ -90,6 +90,30 @@ async def test_run_records_node_results_and_dataset(client: AsyncClient) -> None
     assert results["in1"]["sample"]  # preview rows recorded
 
 
+async def test_run_input_datasets_snapshot_the_dataset_name(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+
+    assert run["input_datasets"] == [{"dataset_id": ds["id"], "version_number": 1, "dataset_name": ds["name"]}]
+
+
+async def test_run_input_dataset_name_survives_a_hard_delete(client: AsyncClient) -> None:
+    """Regression: input_dataset_id has no FK (SQLite FK enforcement is off,
+    and purge removes the row entirely), so resolving a purged dataset's name
+    for a historical run's lineage display used to come up empty. The name is
+    now snapshotted onto the run at run time."""
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    run = (await client.post(f"/api/flows/{flow['id']}/runs", json={})).json()
+
+    deleted = await client.delete(f"/api/datasets/{ds['id']}", params={"purge": True})
+    assert deleted.status_code == 204, deleted.text
+
+    fetched = (await client.get(f"/api/runs/{run['id']}")).json()
+    assert fetched["input_datasets"][0]["dataset_name"] == ds["name"]
+
+
 def _named_output_graph(dataset_id: str) -> dict:
     return {
         "nodes": [

@@ -36,12 +36,14 @@ const PAGE_SIZE = 25;
 /** Dataset cell label: a single name, or "first +N" for multi-input runs. */
 function datasetLabel(run: FlowRunSummary, datasetName: Map<string, string>): string {
   const inputs = run.input_datasets?.length
-    ? run.input_datasets.map((d) => d.dataset_id)
+    ? run.input_datasets.map((d) => ({ id: d.dataset_id, name: d.dataset_name }))
     : run.input_dataset_id
-      ? [run.input_dataset_id]
+      ? [{ id: run.input_dataset_id, name: null }]
       : [];
   if (inputs.length === 0) return "—";
-  const first = datasetName.get(inputs[0]) ?? "—";
+  // Prefer the live name (picks up renames); fall back to the name snapshotted
+  // at run time, which survives the dataset later being hard-deleted.
+  const first = datasetName.get(inputs[0].id) ?? inputs[0].name ?? "—";
   return inputs.length > 1 ? `${first} +${inputs.length - 1}` : first;
 }
 

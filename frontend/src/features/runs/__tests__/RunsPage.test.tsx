@@ -4,6 +4,24 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 
+function makeDataset(id: string, name: string) {
+  return {
+    id,
+    name,
+    source_type: "csv" as const,
+    dataset_kind: "input" as const,
+    project_id: "p1",
+    is_disabled: false,
+    latest_version: 1,
+    version_count: 1,
+    column_schema: [],
+    data_sample: null,
+    column_profile: null,
+    created_at: "2026-06-01T00:00:00+00:00",
+    updated_at: "2026-06-01T00:00:00+00:00",
+  };
+}
+
 function makeRun(id: string, flowId: string, flowName: string) {
   return {
     id,
@@ -158,5 +176,45 @@ describe("RunsPage retry action", () => {
 
     expect(retryBtnA).not.toBeDisabled();
     expect(runsApi.retry).not.toHaveBeenCalled();
+  });
+});
+
+describe("RunsPage dataset label", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("falls back to the name snapshotted on the run when the dataset is no longer in the live list", async () => {
+    // Regression: a purged dataset drops out of datasetsApi.list(), so the old
+    // id-only lookup rendered "—" for every run that used it, even though the
+    // run itself recorded the dataset's name at run time.
+    const { runsApi, datasetsApi } = await import("@/lib/api");
+    vi.mocked(runsApi.list).mockResolvedValueOnce([
+      {
+        ...RUN_A,
+        input_datasets: [{ dataset_id: "purged-ds", version_number: 3, dataset_name: "Purged Dataset" }],
+      },
+    ]);
+    vi.mocked(datasetsApi.list).mockResolvedValueOnce([]); // dataset no longer exists
+
+    renderPage();
+
+    expect(await screen.findByText("Purged Dataset")).toBeInTheDocument();
+  });
+
+  it("prefers the live dataset name over the run's snapshot (picks up renames)", async () => {
+    const { runsApi, datasetsApi } = await import("@/lib/api");
+    vi.mocked(runsApi.list).mockResolvedValueOnce([
+      {
+        ...RUN_A,
+        input_datasets: [{ dataset_id: "ds1", version_number: 1, dataset_name: "Old Name" }],
+      },
+    ]);
+    vi.mocked(datasetsApi.list).mockResolvedValueOnce([makeDataset("ds1", "New Name")]);
+
+    renderPage();
+
+    expect(await screen.findByText("New Name")).toBeInTheDocument();
+    expect(screen.queryByText("Old Name")).not.toBeInTheDocument();
   });
 });

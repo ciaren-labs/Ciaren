@@ -275,6 +275,9 @@ export interface MlExperimentRun {
 export interface InputDatasetRef {
   dataset_id: string;
   version_number: number | null;
+  // Snapshotted at run time; null for runs recorded before this field existed
+  // or when the dataset had no name to resolve. Falls back to a live lookup.
+  dataset_name: string | null;
 }
 
 export interface FlowRun {

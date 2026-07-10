@@ -119,5 +119,15 @@ async def build_dataset_paths(db: AsyncSession, graph: dict[str, Any]) -> tuple[
                 f"available — its file was purged. Re-upload the dataset to re-run this flow."
             )
         paths[dataset_ref_key(dataset_id, version)] = location
-        resolved.append({"dataset_id": dataset_id, "version_number": ver.version_number})
+        # Snapshot the name at resolution time: input_dataset_id/dataset_id has no
+        # FK (SQLite FK enforcement is off, and a purged dataset's row is gone
+        # entirely), so a later hard-delete must not turn this run's lineage
+        # display into a bare, unresolvable id.
+        resolved.append(
+            {
+                "dataset_id": dataset_id,
+                "version_number": ver.version_number,
+                "dataset_name": ver.dataset.name if ver.dataset else None,
+            }
+        )
     return paths, resolved

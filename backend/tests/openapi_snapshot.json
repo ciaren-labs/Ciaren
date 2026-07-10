@@ -2167,6 +2167,7 @@
     "InputDatasetRef": {
       "properties": {
         "dataset_id": "string",
+        "dataset_name": "anyOf(null|string)",
         "version_number": "anyOf(integer|null)"
       },
       "required": [

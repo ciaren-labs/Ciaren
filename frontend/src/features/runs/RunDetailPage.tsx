@@ -55,7 +55,7 @@ export function RunDetailPage() {
   const inputs: InputDatasetRef[] = useMemo(() => {
     if (run?.input_datasets?.length) return run.input_datasets;
     if (run?.input_dataset_id) {
-      return [{ dataset_id: run.input_dataset_id, version_number: null }];
+      return [{ dataset_id: run.input_dataset_id, version_number: null, dataset_name: null }];
     }
     return [];
   }, [run]);
@@ -190,7 +190,7 @@ function RunSummary({
                 key={`${d.dataset_id}:${d.version_number}`}
                 className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-slate-600 shadow-sm"
               >
-                {datasetName.get(d.dataset_id) ?? "Unknown dataset"}
+                {datasetName.get(d.dataset_id) ?? d.dataset_name ?? "Unknown dataset"}
                 {d.version_number != null && (
                   <span className="text-muted-foreground">v{d.version_number}</span>
                 )}

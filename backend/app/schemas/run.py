@@ -48,6 +48,11 @@ class InputDatasetRef(BaseModel):
 
     dataset_id: str
     version_number: int | None = None
+    # Snapshotted at run time so the run's lineage display still shows a name
+    # after the dataset is hard-deleted (dataset_id has no FK — SQLite FK
+    # enforcement is off, and purge removes the row entirely). None for runs
+    # recorded before this field existed.
+    dataset_name: str | None = None
 
 
 class NodeResultRead(BaseModel):
