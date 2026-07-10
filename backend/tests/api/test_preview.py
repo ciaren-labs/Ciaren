@@ -25,10 +25,10 @@ def _csv(rows: list[dict] = ROWS) -> bytes:
     return buf.getvalue()
 
 
-async def _upload(client: AsyncClient, content: bytes | None = None) -> dict:
+async def _upload(client: AsyncClient, content: bytes | None = None, filename: str = "test.csv") -> dict:
     r = await client.post(
         "/api/datasets/upload",
-        files={"file": ("test.csv", content or _csv(), "text/csv")},
+        files={"file": (filename, content or _csv(), "text/csv")},
     )
     assert r.status_code == 201, r.text
     return r.json()
@@ -180,6 +180,51 @@ async def test_preview_flow_unknown_node(client: AsyncClient) -> None:
 async def test_preview_flow_missing_flow(client: AsyncClient) -> None:
     r = await client.post("/api/flows/nope/preview", json={})
     assert r.status_code == 404
+
+
+async def test_preview_blocked_when_flow_disabled(client: AsyncClient) -> None:
+    # Mirrors ExecutionService.run()'s "disabled flow can't run" guard — preview
+    # executes real transformation logic too, so it must refuse the same way.
+    ds = await _upload(client)
+    flow = await _create_flow(client, ds["id"])
+    r = await client.put(f"/api/flows/{flow['id']}", json={"is_disabled": True})
+    assert r.status_code == 200, r.text
+
+    r = await client.post(f"/api/flows/{flow['id']}/preview", json={})
+    assert r.status_code == 400, r.text
+    assert "disabled" in r.json()["detail"].lower()
+
+
+async def test_preview_blocked_for_branch_fed_only_by_still_enabled_dataset(client: AsyncClient) -> None:
+    """Regression: a flow disabled via one input dataset's cascade must block
+    preview of *every* node — including one fed only by a different, still-
+    enabled dataset. Previously only ExecutionService.run() enforced this, so a
+    disabled flow's data could still be read and transformed through preview."""
+    # Distinct filenames: _upload() with the same name would create a second
+    # *version* of the same dataset instead of a genuinely separate one.
+    ds_a = await _upload(client, filename="a.csv")
+    ds_b = await _upload(client, filename="b.csv")
+    graph = {
+        "nodes": [
+            {"id": "in_a", "type": "csvInput", "data": {"config": {"dataset_id": ds_a["id"]}}},
+            {"id": "in_b", "type": "csvInput", "data": {"config": {"dataset_id": ds_b["id"]}}},
+            {"id": "drop_b", "type": "dropNulls", "data": {"config": {}}},
+        ],
+        "edges": [{"id": "e1", "source": "in_b", "target": "drop_b"}],
+    }
+    r = await client.post("/api/flows", json={"name": "multi-input", "graph_json": graph})
+    assert r.status_code == 201, r.text
+    flow_id = r.json()["id"]
+
+    # Disabling dataset A cascades to disable the whole flow, even though the
+    # "drop_b" branch is fed only by dataset B, which stays enabled.
+    r = await client.patch(f"/api/datasets/{ds_a['id']}", json={"is_disabled": True})
+    assert r.status_code == 200, r.text
+    assert (await client.get(f"/api/flows/{flow_id}")).json()["is_disabled"] is True
+
+    r = await client.post(f"/api/flows/{flow_id}/preview", json={"node_id": "drop_b"})
+    assert r.status_code == 400, r.text
+    assert "disabled" in r.json()["detail"].lower()
 
 
 async def test_preview_only_computes_the_upstream_slice(client: AsyncClient) -> None:

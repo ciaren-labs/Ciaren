@@ -66,6 +66,12 @@ class PreviewService:
 
     async def preview_flow(self, flow_id: str, req: FlowPreviewRequest) -> PreviewResponse:
         flow = await self._get_flow(flow_id)
+        # Mirrors ExecutionService.run(): a disabled flow (e.g. its dataset was
+        # deleted/disabled and cascaded the disable) must not execute any part of
+        # its graph, even a branch fed by a different, still-enabled input —
+        # preview was the one execution path that didn't check this.
+        if flow.is_disabled:
+            raise ValidationError("This flow is disabled and cannot be previewed.")
         # Resolve flow parameters so the preview reflects the values a run would use.
         try:
             graph, _ = apply_parameters(flow.graph_json, req.parameters or {})
