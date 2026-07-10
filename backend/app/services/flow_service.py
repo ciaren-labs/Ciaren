@@ -18,6 +18,7 @@ from app.engine.parameters import ParameterError, validate_parameter_specs
 from app.engine.registry import list_transformation_types
 from app.flow_schema import (
     CURRENT_SCHEMA_VERSION,
+    FlowGraph,
     FlowSchemaError,
     MigrationError,
     document_version,
@@ -88,10 +89,10 @@ def migrate_flow_document(data: dict[str, Any], target: str = CURRENT_SCHEMA_VER
 
 
 def _references_dataset(graph: dict[str, Any], dataset_id: str) -> bool:
-    for node in graph.get("nodes", []):
-        if node.get("type") not in _INPUT_TYPES:
+    for node in FlowGraph.model_validate(graph).typed_nodes():
+        if node.type not in _INPUT_TYPES:
             continue
-        if node.get("data", {}).get("config", {}).get("dataset_id") == dataset_id:
+        if node.config.get("dataset_id") == dataset_id:
             return True
     return False
 

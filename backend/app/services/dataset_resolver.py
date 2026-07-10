@@ -21,6 +21,7 @@ from app.engine.executor import dataset_ref_key
 # File inputs only — SQL inputs carry no dataset_id and are resolved separately.
 from app.engine.node_kinds import FILE_INPUT_TYPE
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
+from app.flow_schema import FlowGraph
 
 
 async def resolve_version(
@@ -79,20 +80,18 @@ def _guard_dataset_available(ver: DatasetVersion) -> None:
 
 def _input_refs(graph: dict[str, Any]) -> set[tuple[str, int | None]]:
     refs: set[tuple[str, int | None]] = set()
-    for node in graph.get("nodes", []):
-        node_type = node.get("type")
-        if node_type not in _LEGACY_FILE_INPUT_TYPES and node_type != FILE_INPUT_TYPE:
+    for node in FlowGraph.model_validate(graph).typed_nodes():
+        if node.type not in _LEGACY_FILE_INPUT_TYPES and node.type != FILE_INPUT_TYPE:
             continue
-        config = node.get("data", {}).get("config", {})
-        dataset_id = config.get("dataset_id")
+        dataset_id = node.config.get("dataset_id")
         if not dataset_id:
             # E.g. a freshly imported flow whose bindings were stripped — surface a
             # clear message instead of a bare KeyError('dataset_id').
             raise ValidationError(
-                f"Input node {node.get('id', '?')!r} has no dataset selected. "
+                f"Input node {node.id or '?'!r} has no dataset selected. "
                 "Open the flow and choose a dataset for every input node."
             )
-        refs.add((dataset_id, config.get("dataset_version")))
+        refs.add((dataset_id, node.config.get("dataset_version")))
     return refs
 
 
