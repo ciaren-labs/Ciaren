@@ -4,8 +4,11 @@
 Modeled on how commercial ETL tools connect to web APIs: a **base URL** plus a
 set of connection-level options that cover the common API shapes without code:
 
-- **Authentication** — none, API key header, bearer token, or HTTP basic. The
-  secret always comes from the connection's password env var (never stored).
+- **Authentication** — none, API key header, bearer token, HTTP basic, or an
+  API key in a query parameter (``auth_style: query_param`` + ``api_key_param``,
+  for APIs like Google's that authenticate via ``?key=...``). The secret always
+  comes from the connection's secret reference (never stored); the query-param
+  style injects it at request time and scrubs it from every error message.
 - **Custom headers** and **default query params** applied to every request.
 - **Endpoints** declared on the connection appear as *tables* for SQL Input.
 - **Response parsing** — auto/json/csv, with a ``records_path`` dot-path for
@@ -43,10 +46,11 @@ from app.connectors.base import ConnectionSpec, ConnectorError, TableRef
 from app.connectors.ssrf import guard_endpoint
 from app.core.secrets import scrub
 
-AUTH_STYLES = ("none", "api_key", "bearer", "basic")
+AUTH_STYLES = ("none", "api_key", "bearer", "basic", "query_param")
 RESPONSE_FORMATS = ("auto", "json", "csv")
 
 DEFAULT_API_KEY_HEADER = "X-API-Key"
+DEFAULT_API_KEY_PARAM = "api_key"
 DEFAULT_TIMEOUT_SECONDS = 30
 MAX_TIMEOUT_SECONDS = 300
 #: Response-size cap (before parsing) — a runaway endpoint must not exhaust
@@ -103,17 +107,27 @@ def _string_mapping(spec: ConnectionSpec, key: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in raw.items() if str(k).strip()}
 
 
-def _auth_headers(spec: ConnectionSpec) -> dict[str, str]:
+def _auth_style(spec: ConnectionSpec) -> str:
     style = str(_options(spec).get("auth_style") or "none")
     if style not in AUTH_STYLES:
         raise ConnectorError(f"auth_style must be one of {AUTH_STYLES} (got {style!r}).")
-    if style == "none":
-        return {}
+    return style
+
+
+def _require_secret(spec: ConnectionSpec, style: str) -> str:
     secret = spec.password
     if not secret:
         raise ConnectorError(
             f"{style} authentication needs the connection's secret env var to be set (password env var)."
         )
+    return secret
+
+
+def _auth_headers(spec: ConnectionSpec) -> dict[str, str]:
+    style = _auth_style(spec)
+    if style in ("none", "query_param"):
+        return {}
+    secret = _require_secret(spec, style)
     if style == "bearer":
         return {"Authorization": f"Bearer {secret}"}
     if style == "api_key":
@@ -125,9 +139,26 @@ def _auth_headers(spec: ConnectionSpec) -> dict[str, str]:
     return {"Authorization": f"Basic {token}"}
 
 
+def _auth_query_params(spec: ConnectionSpec) -> dict[str, str]:
+    """Query-parameter authentication (``?api_key=...``), for APIs that only
+    accept a key in the URL. The secret still comes from the connection's
+    secret reference — never from the stored ``query_params`` option, which
+    would persist it in plain text and echo it in API responses — and is
+    injected per request, so error messages can scrub it reliably."""
+    style = _auth_style(spec)
+    if style != "query_param":
+        return {}
+    secret = _require_secret(spec, style)
+    param = str(_options(spec).get("api_key_param") or DEFAULT_API_KEY_PARAM).strip()
+    if not param or any(c in param for c in "&=#?/ \r\n"):
+        raise ConnectorError(f"api_key_param is not a valid query parameter name: {param!r}.")
+    return {param: secret}
+
+
 def _build_url(spec: ConnectionSpec, path: str, extra_params: dict[str, str]) -> str:
     """Join the base URL, a relative path (which may carry its own query string),
-    the connection's default query params, and per-request params."""
+    the connection's default query params, per-request params, and — always
+    winning over every other source — the auth query param (if configured)."""
     base = _base_url(spec)
     path = path.strip()
     if path.startswith(("http://", "https://")):
@@ -140,6 +171,11 @@ def _build_url(spec: ConnectionSpec, path: str, extra_params: dict[str, str]) ->
     for key, value in {**_string_mapping(spec, "query_params"), **extra_params}.items():
         if key not in seen:
             merged.append((key, value))
+    # The auth secret replaces any same-named param from the path or options: a
+    # stale plaintext duplicate must never win over the resolved secret.
+    for key, value in _auth_query_params(spec).items():
+        merged = [(k, v) for k, v in merged if k != key]
+        merged.append((key, value))
     query = urllib.parse.urlencode(merged)
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment))
 
@@ -178,7 +214,7 @@ class RestApiConnector:
     # -- HTTP ------------------------------------------------------------------
 
     def _request(self, spec: ConnectionSpec, path: str, extra_params: dict[str, str]) -> tuple[bytes, str]:
-        url = _build_url(spec, path, extra_params)
+        url = _build_url(spec, path, extra_params)  # injects the auth query param, if configured
         guard_endpoint(url)
         headers = {
             "Accept": "application/json, text/csv;q=0.9, */*;q=0.1",
@@ -206,7 +242,11 @@ class RestApiConnector:
         except urllib.error.URLError as exc:
             raise ConnectorError(scrub(f"Could not reach {url}: {exc.reason}.", spec.password)) from None
         except TimeoutError:
-            raise ConnectorError(f"Request to {url} timed out after {_timeout(spec):g}s.") from None
+            # Scrubbed like the other error paths: with query_param auth the
+            # URL itself carries the secret.
+            raise ConnectorError(
+                scrub(f"Request to {url} timed out after {_timeout(spec):g}s.", spec.password)
+            ) from None
 
     def _to_frame(self, spec: ConnectionSpec, body: bytes, content_type: str) -> pd.DataFrame:
         fmt = str(_options(spec).get("response_format") or "auto")

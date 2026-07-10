@@ -67,6 +67,16 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(b"{}", status=401)
             else:
                 self._send(json.dumps([{"ok": 1}]).encode())
+        elif url.path == "/private/query-key":
+            if qs.get("api_key") != ["sesame"]:
+                self._send(b"{}", status=401)
+            else:
+                self._send(json.dumps([{"ok": 1}]).encode())
+        elif url.path == "/private/gkey":
+            if qs.get("key") != ["sesame"]:
+                self._send(b"{}", status=401)
+            else:
+                self._send(json.dumps([{"ok": 1}]).encode())
         elif url.path == "/echo-headers":
             self._send(json.dumps([{"tenant": self.headers.get("X-Tenant", "")}]).encode())
         elif url.path == "/echo-page":
@@ -169,6 +179,45 @@ def test_errors_never_leak_the_secret(api):
     with pytest.raises(ConnectorError) as err:
         connector.read_table(spec, "private/bearer", None, None)
     assert "super-secret-token" not in str(err.value)
+
+
+def test_query_param_auth(api):
+    spec = _spec(api, password="sesame", auth_style="query_param")  # default param: api_key
+    assert connector.read_table(spec, "private/query-key", None, None)["ok"].iloc[0] == 1
+
+
+def test_query_param_auth_with_custom_param_name(api):
+    spec = _spec(api, password="sesame", auth_style="query_param", api_key_param="key")
+    assert connector.read_table(spec, "private/gkey", None, None)["ok"].iloc[0] == 1
+
+
+def test_query_param_auth_requires_secret(api):
+    with pytest.raises(ConnectorError, match="secret env var"):
+        connector.read_table(_spec(api, auth_style="query_param"), "private/query-key", None, None)
+
+
+def test_query_param_auth_rejects_bad_param_name(api):
+    spec = _spec(api, password="sesame", auth_style="query_param", api_key_param="a&b=c")
+    with pytest.raises(ConnectorError, match="api_key_param"):
+        connector.read_table(spec, "private/query-key", None, None)
+
+
+def test_query_param_auth_overrides_plaintext_duplicates(api):
+    """The resolved secret must win over a stale plaintext duplicate in the
+    endpoint path or in the stored query_params option."""
+    spec = _spec(api, password="sesame", auth_style="query_param", query_params={"api_key": "stale-stored"})
+    df = connector.read_query(spec, "private/query-key?api_key=stale-in-path")
+    assert df["ok"].iloc[0] == 1  # the real secret was sent, not either duplicate
+
+
+def test_query_param_secret_never_leaks_in_error_urls(api):
+    """The URL embedded in HTTP error messages carries the auth query param —
+    it must be scrubbed like every other error path."""
+    spec = _spec(api, password="wrong-but-still-secret", auth_style="query_param")
+    with pytest.raises(ConnectorError) as err:
+        connector.read_table(spec, "private/query-key", None, None)
+    assert "401" in str(err.value)
+    assert "wrong-but-still-secret" not in str(err.value)
 
 
 # -- pagination -----------------------------------------------------------------------
@@ -281,6 +330,40 @@ async def test_api_connection_crud_test_and_tables(client, api):
 
     tables = await client.get(f"/api/connections/{created['id']}/tables")
     assert {x["name"] for x in tables.json()} == {"users", "orders"}
+
+
+async def test_api_connection_rejects_credential_query_params(client, api):
+    """A credential-looking key in the stored query_params must be refused at
+    save time — it would persist the secret in plain text and echo it back in
+    every API response."""
+    for key in ("api_key", "token", "ACCESS_TOKEN", "key", "client_secret"):
+        r = await client.post(
+            "/api/connections",
+            json={
+                "name": f"leaky-{key}",
+                "provider": "rest_api",
+                "host": api,
+                "options": {"query_params": {key: "plaintext-secret"}},
+            },
+        )
+        assert r.status_code == 400, f"{key}: {r.text}"
+        assert "plain text" in r.json()["detail"]
+
+
+async def test_api_connection_rejects_credential_query_params_on_update(client, api):
+    created = await _create_connection(client, api)
+    r = await client.patch(
+        f"/api/connections/{created['id']}",
+        json={"options": {"query_params": {"api_key": "plaintext-secret"}}},
+    )
+    assert r.status_code == 400, r.text
+
+
+async def test_api_connection_allows_benign_query_params(client, api):
+    created = await _create_connection(
+        client, api, name="benign-params", options={"endpoints": ["users"], "query_params": {"active": "true"}}
+    )
+    assert created["options"]["query_params"] == {"active": "true"}
 
 
 async def test_api_connection_requires_a_base_url(client):

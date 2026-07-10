@@ -57,31 +57,67 @@ from app.schemas.connection import (
     TableInfo,
 )
 
-# Header names whose value is (or carries) a credential. A REST API connection
-# must take its secret from `password_env` (auth_style / api_key_header), never
-# from a static header — that would store the secret in plain text in the
-# database and echo it back in every API response. Best-effort defense in depth,
-# not a guarantee: unconventional header names (and credential-bearing
-# query_params, which some APIs require and the auth styles don't cover yet)
-# still pass — the real control is the env-var-only secret model.
+# Header / query-parameter names whose value is (or carries) a credential. A
+# REST API connection must take its secret from its secret reference
+# (auth_style: api_key / bearer / basic / query_param), never from a static
+# header or a stored query param — those are persisted in plain text in the
+# database, echoed back in every API response, and (for query params) written
+# into request URLs that end up in error messages and server logs. Best-effort
+# defense in depth, not a guarantee: unconventional names still pass — the real
+# control is the never-stored secret-reference model.
 _SECRET_HEADER_NAMES = frozenset({"authorization", "proxy-authorization", "cookie", "x-api-key"})
+_SECRET_QUERY_PARAM_NAMES = frozenset(
+    {
+        "api_key",
+        "api-key",
+        "apikey",
+        "api_token",
+        "apitoken",
+        "access_token",
+        "auth",
+        "auth_token",
+        "authorization",
+        "bearer",
+        "client_secret",
+        "key",
+        "password",
+        "private_token",
+        "secret",
+        "sig",
+        "signature",
+        "token",
+    }
+)
 
 
-def _reject_secret_headers(options: dict[str, Any] | None) -> None:
-    raw = (options or {}).get("headers") or {}
+def _mapping_option(options: dict[str, Any] | None, key: str) -> dict[str, Any]:
+    raw = (options or {}).get(key) or {}
     if isinstance(raw, str):
         try:
             raw = json.loads(raw) if raw.strip() else {}
         except ValueError:
-            return  # malformed JSON gets the connector's own, clearer error
-    if not isinstance(raw, dict):
-        return
-    for header in raw:
+            return {}  # malformed JSON gets the connector's own, clearer error
+    return raw if isinstance(raw, dict) else {}
+
+
+def _reject_secret_headers(options: dict[str, Any] | None) -> None:
+    for header in _mapping_option(options, "headers"):
         if str(header).strip().lower() in _SECRET_HEADER_NAMES:
             raise ValidationError(
                 f"Custom header '{header}' would store a credential in plain text. "
                 "Use the connection's authentication settings instead — the secret "
                 "then comes from an environment variable and is never stored."
+            )
+
+
+def _reject_secret_query_params(options: dict[str, Any] | None) -> None:
+    for param in _mapping_option(options, "query_params"):
+        if str(param).strip().lower() in _SECRET_QUERY_PARAM_NAMES:
+            raise ValidationError(
+                f"Query parameter '{param}' would store a credential in plain text "
+                "(and leak it into request URLs and error messages). Use auth_style "
+                "'query_param' with api_key_param instead — the secret then comes "
+                "from the connection's secret reference and is never stored."
             )
 
 
@@ -525,6 +561,7 @@ class ConnectionService:
             if not host or not host.startswith(("http://", "https://")):
                 raise ValidationError(f"{p.label} needs a base URL starting with http:// or https://.")
             _reject_secret_headers(options)
+            _reject_secret_query_params(options)
             return
         if p.needs_host and not host:
             raise ValidationError(f"{p.label} needs a host.")
