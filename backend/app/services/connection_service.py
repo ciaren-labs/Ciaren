@@ -111,14 +111,30 @@ def _reject_secret_headers(options: dict[str, Any] | None) -> None:
 
 
 def _reject_secret_query_params(options: dict[str, Any] | None) -> None:
+    import urllib.parse
+
+    def _refuse(param: str, where: str) -> None:
+        raise ValidationError(
+            f"Query parameter '{param}' in {where} would store a credential in plain "
+            "text (and leak it into request URLs and error messages). Use auth_style "
+            "'query_param' with api_key_param instead — the secret then comes "
+            "from the connection's secret reference and is never stored."
+        )
+
     for param in _mapping_option(options, "query_params"):
         if str(param).strip().lower() in _SECRET_QUERY_PARAM_NAMES:
-            raise ValidationError(
-                f"Query parameter '{param}' would store a credential in plain text "
-                "(and leak it into request URLs and error messages). Use auth_style "
-                "'query_param' with api_key_param instead — the secret then comes "
-                "from the connection's secret reference and is never stored."
-            )
+            _refuse(str(param), "query_params")
+    # Endpoints may carry their own query strings ("users?api_key=..."), which
+    # are persisted and echoed exactly like query_params — check them too.
+    raw_endpoints = (options or {}).get("endpoints") or []
+    if isinstance(raw_endpoints, str):
+        raw_endpoints = raw_endpoints.split(",")
+    if isinstance(raw_endpoints, list):
+        for endpoint in raw_endpoints:
+            query = urllib.parse.urlsplit(str(endpoint).strip()).query
+            for key, _ in urllib.parse.parse_qsl(query, keep_blank_values=True):
+                if key.strip().lower() in _SECRET_QUERY_PARAM_NAMES:
+                    _refuse(key, f"endpoint '{str(endpoint).strip()[:80]}'")
 
 
 def build_connection_spec(conn: Connection) -> ConnectionSpec:

@@ -212,12 +212,19 @@ def test_query_param_auth_overrides_plaintext_duplicates(api):
 
 def test_query_param_secret_never_leaks_in_error_urls(api):
     """The URL embedded in HTTP error messages carries the auth query param —
-    it must be scrubbed like every other error path."""
-    spec = _spec(api, password="wrong-but-still-secret", auth_style="query_param")
+    it must be scrubbed like every other error path, including the
+    percent-encoded form it takes inside a URL (audit finding: a secret with
+    '+ / = &' characters survived the raw-value scrub)."""
+    from urllib.parse import quote, quote_plus
+
+    secret = "wrong+but/still=secret&x"  # urlencode-hostile on purpose
+    spec = _spec(api, password=secret, auth_style="query_param")
     with pytest.raises(ConnectorError) as err:
         connector.read_table(spec, "private/query-key", None, None)
-    assert "401" in str(err.value)
-    assert "wrong-but-still-secret" not in str(err.value)
+    message = str(err.value)
+    assert "401" in message
+    for variant in (secret, quote(secret, safe=""), quote_plus(secret)):
+        assert variant not in message
 
 
 # -- pagination -----------------------------------------------------------------------
@@ -348,6 +355,31 @@ async def test_api_connection_rejects_credential_query_params(client, api):
         )
         assert r.status_code == 400, f"{key}: {r.text}"
         assert "plain text" in r.json()["detail"]
+
+
+async def test_api_connection_rejects_credential_in_endpoint_query_string(client, api):
+    """An endpoint like "users?api_key=SECRET" persists the credential in plain
+    text exactly like query_params would — refused at save time too (audit
+    finding: only options.query_params was checked)."""
+    for endpoints in (["users?api_key=SECRET"], "users?token=SECRET,orders", ["ok", "orders?sig=abc"]):
+        r = await client.post(
+            "/api/connections",
+            json={
+                "name": "leaky-endpoint",
+                "provider": "rest_api",
+                "host": api,
+                "options": {"endpoints": endpoints},
+            },
+        )
+        assert r.status_code == 400, f"{endpoints}: {r.text}"
+        assert "plain" in r.json()["detail"]
+
+
+async def test_api_connection_allows_benign_endpoint_query_strings(client, api):
+    created = await _create_connection(
+        client, api, name="benign-endpoints", options={"endpoints": ["users/active?active=true"]}
+    )
+    assert created["options"]["endpoints"] == ["users/active?active=true"]
 
 
 async def test_api_connection_rejects_credential_query_params_on_update(client, api):

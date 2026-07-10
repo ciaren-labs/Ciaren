@@ -303,9 +303,20 @@ def delete_keyring_secret(name: str) -> None:
 
 
 def scrub(text: str, *secrets: str | None) -> str:
-    """Redact any secret values that may have leaked into a driver error string."""
+    """Redact any secret values that may have leaked into a driver error string.
+
+    Also redacts the URL-encoded forms of each secret: connector errors embed
+    request URLs (and DSNs) where the secret appears percent-encoded, so a
+    literal replace of the raw value alone would leave a trivially decodable
+    copy behind whenever the secret contains ``+ / = &`` or spaces (typical of
+    base64/HMAC keys).
+    """
+    import urllib.parse
+
     cleaned = text
     for secret in secrets:
-        if secret:
-            cleaned = cleaned.replace(secret, "***")
+        if not secret:
+            continue
+        for variant in {secret, urllib.parse.quote(secret, safe=""), urllib.parse.quote_plus(secret)}:
+            cleaned = cleaned.replace(variant, "***")
     return cleaned

@@ -106,6 +106,18 @@ def test_scrub_redacts_secret():
     assert scrub("plain", None) == "plain"
 
 
+def test_scrub_redacts_url_encoded_secret():
+    """Connector errors embed request URLs/DSNs where the secret is
+    percent-encoded; the raw-value replace alone left a decodable copy."""
+    import urllib.parse
+
+    secret = "abc+def/123=&x y"  # typical base64/HMAC material
+    for encoded in (urllib.parse.quote(secret, safe=""), urllib.parse.quote_plus(secret)):
+        cleaned = scrub(f"HTTP 401 from https://api?key={encoded}.", secret)
+        assert encoded not in cleaned
+        assert secret not in urllib.parse.unquote_plus(cleaned)
+
+
 # -- local storage path-traversal security ---------------------------------
 
 
