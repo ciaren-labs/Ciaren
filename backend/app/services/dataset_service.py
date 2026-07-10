@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -14,6 +15,7 @@ import aiofiles
 import pandas as pd
 from fastapi import UploadFile
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -130,8 +132,9 @@ class DatasetService:
         normalized = not is_default_dialect(used_options, source_type)
 
         resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
-        dataset = await self._get_by_name(name, resolved_project_id)
-        if dataset is None:
+        existing = await self._get_by_name(name, resolved_project_id)
+        is_new_dataset = existing is None
+        if existing is None:
             dataset = Dataset(
                 name=name,
                 source_type=source_type,
@@ -140,15 +143,14 @@ class DatasetService:
             )
             self.db.add(dataset)
             await self.db.flush()  # populate dataset.id
-            version_number = 1
         else:
+            dataset = existing
             if dataset.source_type != source_type:
                 raise ConflictError(
                     f"'{name}' is a {dataset.source_type.upper()} dataset; a new "
                     f"version must be {dataset.source_type.upper()}, not "
                     f"{source_type.upper()}. Use a different name for a new dataset."
                 )
-            version_number = await self._next_version_number(dataset.id)
             dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
             # Re-uploading to a soft-deleted dataset revives it.
             dataset.is_disabled = False
@@ -156,18 +158,28 @@ class DatasetService:
             dataset.disabled_by_project_id = None
             dataset.deleted_at = None
 
-        version = DatasetVersion(
-            dataset_id=dataset.id,
-            version_number=version_number,
-            location="",  # filled in after we know the version id
-            schema_json=schema,
-            sample_json=sample,
-            profile_json=profile,
-            parse_options_json=used_options if normalized else None,
-            row_count=int(len(df)),
-        )
-        self.db.add(version)
-        await self.db.flush()
+        def build_version(version_number: int) -> DatasetVersion:
+            return DatasetVersion(
+                dataset_id=dataset.id,
+                version_number=version_number,
+                location="",  # filled in after we know the version id
+                schema_json=schema,
+                sample_json=sample,
+                profile_json=profile,
+                parse_options_json=used_options if normalized else None,
+                row_count=int(len(df)),
+            )
+
+        if is_new_dataset:
+            # A brand-new dataset's id isn't visible to any other transaction yet,
+            # so there's no concurrent-version race to guard against here.
+            version = build_version(1)
+            self.db.add(version)
+            await self.db.flush()
+        else:
+            # Two concurrent uploads to the same dataset name can race on the
+            # next version number — retry instead of surfacing a raw 500.
+            version = await self._add_version_with_retry(dataset, build_version)
 
         save_path = self.upload_dir / _storage_filename(version.id, filename)
         if normalized:
@@ -430,8 +442,9 @@ class DatasetService:
         df, schema, sample, profile = await asyncio.to_thread(_describe_output)
 
         resolved_project_id = await ProjectService(self.db).resolve_id(project_id)
-        dataset = await self._get_by_name(name, resolved_project_id)
-        if dataset is None:
+        existing = await self._get_by_name(name, resolved_project_id)
+        is_new_dataset = existing is None
+        if existing is None:
             dataset = Dataset(
                 name=name,
                 source_type=source_type,
@@ -440,14 +453,13 @@ class DatasetService:
             )
             self.db.add(dataset)
             await self.db.flush()
-            version_number = 1
         else:
+            dataset = existing
             if dataset.source_type != source_type:
                 raise ConflictError(
                     f"'{name}' is a {dataset.source_type.upper()} dataset; the output "
                     f"produces {source_type.upper()}. Use a different dataset name."
                 )
-            version_number = await self._next_version_number(dataset.id)
             dataset.updated_at = datetime.now(UTC).replace(tzinfo=None)
             # A run writing to this output name again revives a soft-deleted /
             # disabled output dataset — same revive-on-write semantics as upload().
@@ -458,18 +470,30 @@ class DatasetService:
             dataset.disabled_by_project_id = None
             dataset.deleted_at = None
 
-        version = DatasetVersion(
-            dataset_id=dataset.id,
-            version_number=version_number,
-            location=str(file_path),
-            schema_json=schema,
-            sample_json=sample,
-            profile_json=profile,
-            row_count=int(len(df)),
-            source_run_id=run_id,
-        )
-        self.db.add(version)
-        await self.db.flush()
+        def build_version(version_number: int) -> DatasetVersion:
+            return DatasetVersion(
+                dataset_id=dataset.id,
+                version_number=version_number,
+                location=str(file_path),
+                schema_json=schema,
+                sample_json=sample,
+                profile_json=profile,
+                row_count=int(len(df)),
+                source_run_id=run_id,
+            )
+
+        if is_new_dataset:
+            # A brand-new dataset's id isn't visible to any other transaction yet,
+            # so there's no concurrent-version race to guard against here.
+            version = build_version(1)
+            self.db.add(version)
+            await self.db.flush()
+        else:
+            # Two runs finishing around the same time writing to the same output
+            # dataset name can race on the next version number — retry instead of
+            # silently dropping one run's output-dataset registration.
+            await self._add_version_with_retry(dataset, build_version)
+
         return await self._read(dataset.id)
 
     def _to_read(self, dataset: Dataset) -> DatasetRead:
@@ -517,6 +541,32 @@ class DatasetService:
             select(func.max(DatasetVersion.version_number)).where(DatasetVersion.dataset_id == dataset_id)
         )
         return (result.scalar_one_or_none() or 0) + 1
+
+    _MAX_VERSION_RACE_ATTEMPTS = 5
+
+    async def _add_version_with_retry(
+        self, dataset: Dataset, build_version: Callable[[int], DatasetVersion]
+    ) -> DatasetVersion:
+        """Assign the next version number and flush ``build_version(version_number)``,
+        retrying on a concurrent-write race on the (dataset_id, version_number)
+        unique constraint instead of surfacing a raw 500 (two concurrent uploads to
+        the same dataset) or silently dropping the registration (two runs finishing
+        around the same time writing to the same output dataset name). Each attempt
+        flushes inside its own savepoint — before any file I/O — so a retry here is
+        cheap and never touches a file already written to disk."""
+        last_error: IntegrityError | None = None
+        for _ in range(self._MAX_VERSION_RACE_ATTEMPTS):
+            version = build_version(await self._next_version_number(dataset.id))
+            try:
+                async with self.db.begin_nested():
+                    self.db.add(version)
+                    await self.db.flush()
+                return version
+            except IntegrityError as exc:
+                last_error = exc
+        raise ConflictError(
+            "Could not create a new version for this dataset — too many concurrent uploads/writes. Try again."
+        ) from last_error
 
     async def _version(self, dataset_id: str, version: int | None) -> DatasetVersion:
         await self._get_or_raise(dataset_id)
