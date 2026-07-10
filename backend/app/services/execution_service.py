@@ -175,6 +175,7 @@ class ExecutionService:
                 # ContextVars don't cross processes, so pass the context explicitly.
                 loop = asyncio.get_running_loop()
                 from app.core.runtime_settings import get_active_overrides
+                from app.plugins import plugin_state_generation
 
                 compute = loop.run_in_executor(
                     get_process_pool(),
@@ -187,6 +188,9 @@ class ExecutionService:
                     storage_input_paths,
                     ctx_data,
                     get_active_overrides(),
+                    # Lets a reused worker detect a plugin reload (permission
+                    # revocation, disable) and re-sync before executing.
+                    plugin_state_generation(),
                 )
             else:
                 compute = asyncio.to_thread(

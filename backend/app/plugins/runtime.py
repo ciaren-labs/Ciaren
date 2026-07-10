@@ -33,6 +33,12 @@ logger = logging.getLogger("app.plugins.runtime")
 
 _registry: ServiceRegistry | None = None
 _load_result: LoadResult | None = None
+#: Monotonic counter bumped on every registry reset/reload. Process-pool workers
+#: bootstrap plugins once at spawn and would otherwise keep stale permission
+#: grants for their whole life; the parent passes this generation with every
+#: submitted task so a worker can detect a reload (enable/disable/grant/revoke)
+#: and re-read the persisted plugin state before executing.
+_state_generation = 0
 #: Node types this process bridged into the engine registry, so reset can undo it.
 _bridged_types: list[str] = []
 #: Serializes registry build/reset. Runs execute on worker threads while the API
@@ -180,7 +186,7 @@ def reset_registry() -> None:
     """Drop the cached registry + diagnostics and unregister any bridged plugin
     nodes from the engine registry, so the next access rebuilds cleanly. Used by
     tests that change what is installed/registered."""
-    global _registry, _load_result, _bridged_types
+    global _registry, _load_result, _bridged_types, _state_generation
     with _lock:
         if _bridged_types:
             unregister_transformations(*_bridged_types)
@@ -188,6 +194,17 @@ def reset_registry() -> None:
             _bridged_types = []
         _registry = None
         _load_result = None
+        _state_generation += 1
+
+
+def plugin_state_generation() -> int:
+    """The current plugin-state generation (bumped on every reset/reload).
+
+    Compared by process-pool workers against the value they last synced to, so
+    a permission revocation or plugin disable takes effect for the next task a
+    worker executes — not only after the pool is recycled."""
+    with _lock:
+        return _state_generation
 
 
 def reload_plugins() -> LoadResult:

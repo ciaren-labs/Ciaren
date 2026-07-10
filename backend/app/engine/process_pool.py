@@ -9,6 +9,7 @@ arguments must be picklable — both hold here (``run_with_results`` args and th
 returned :class:`RunResult` are picklable).
 """
 
+import logging
 import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -16,6 +17,8 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.engine.executor import FlowExecutor, RunResult
+
+logger = logging.getLogger("ciaren.process_pool")
 
 
 def run_graph_in_process(
@@ -27,6 +30,7 @@ def run_graph_in_process(
     storage_input_paths: dict[str, Path] | None = None,
     run_context_data: dict[str, Any] | None = None,
     settings_overrides: dict[str, Any] | None = None,
+    plugin_generation: int | None = None,
 ) -> RunResult:
     """Run a flow graph and return its :class:`RunResult`.
 
@@ -40,6 +44,10 @@ def run_graph_in_process(
     worker (its ``get_settings()`` is built from env only), so runtime-edited
     values like the ML guardrail limits hold in process mode too. Synced per
     task — with ``reset_missing`` — because workers are reused across runs.
+    ``plugin_generation`` is the parent's plugin-state generation at submit
+    time; when it is ahead of what this worker last synced to, the worker
+    re-reads the persisted plugin state (see :func:`_sync_worker_plugins`) so a
+    permission revocation or plugin disable is honored without a pool recycle.
     """
     from contextlib import nullcontext
 
@@ -47,6 +55,7 @@ def run_graph_in_process(
     from app.engine.run_context import run_context
 
     apply_overrides(settings_overrides or {}, reset_missing=True)
+    _sync_worker_plugins(plugin_generation)
 
     ctx = (
         run_context(
@@ -81,18 +90,60 @@ def get_process_pool() -> ProcessPoolExecutor:
     """
     global _pool
     if _pool is None:
+        from app.plugins import plugin_state_generation
+
         max_workers = max(1, get_settings().SCHEDULER_MAX_CONCURRENT_RUNS)
         # Bootstrap plugins in each worker so plugin-contributed nodes resolve in
         # `process` mode too (the parent's in-memory registry isn't inherited).
-        _pool = ProcessPoolExecutor(max_workers=max_workers, initializer=_init_worker)
+        # The generation initarg records which plugin state that bootstrap read,
+        # so per-task syncs only reload when the parent's state moved on.
+        _pool = ProcessPoolExecutor(
+            max_workers=max_workers,
+            initializer=_init_worker,
+            initargs=(plugin_state_generation(),),
+        )
     return _pool
 
 
-def _init_worker() -> None:
+#: Plugin-state generation this worker process last synced its registry to.
+#: Lives in the worker's copy of this module; ``None`` until the initializer runs.
+_worker_plugin_generation: int | None = None
+
+
+def _init_worker(plugin_generation: int) -> None:
     """Process-pool worker initializer: load + bridge plugins. Best-effort."""
+    global _worker_plugin_generation
     from app.plugins import ensure_plugins_loaded
 
     ensure_plugins_loaded()
+    _worker_plugin_generation = plugin_generation
+
+
+def _sync_worker_plugins(plugin_generation: int | None) -> None:
+    """Re-read the persisted plugin state when the parent reloaded it.
+
+    Workers are reused across runs, so the grants baked into their bridged
+    plugin nodes at spawn time would otherwise outlive a permission revocation
+    or a plugin disable until the whole pool was recycled — a permission
+    bypass. The parent bumps its generation on every reload and passes it per
+    task; a mismatch here rebuilds this worker's registry from the state file
+    (which the API saves before reloading). Best-effort like the initializer:
+    a plugin failure must not break core execution. ``None`` (direct/sync
+    callers, tests) skips the check.
+    """
+    global _worker_plugin_generation
+    if plugin_generation is None or plugin_generation == _worker_plugin_generation:
+        return
+    from app.plugins import ensure_plugins_loaded, reset_registry
+
+    try:
+        reset_registry()
+        ensure_plugins_loaded()
+        # Recorded only on success, so a failed sync is retried on the next task
+        # rather than silently leaving revoked grants in force.
+        _worker_plugin_generation = plugin_generation
+    except Exception:  # noqa: BLE001 — plugin trouble must not fail the run
+        logger.warning("Plugin re-sync in worker failed; continuing with the previous plugin state.", exc_info=True)
 
 
 def shutdown_process_pool() -> None:

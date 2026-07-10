@@ -110,6 +110,29 @@ async def test_timeout_of_only_active_run_recycles_immediately(client: AsyncClie
         pool.shutdown(wait=False)
 
 
+async def test_process_run_carries_plugin_generation(client: AsyncClient, monkeypatch) -> None:
+    """Process-mode submissions must carry the parent's plugin-state generation,
+    the wire that lets a reused worker apply permission revocations."""
+    from app.plugins import plugin_state_generation
+
+    recycles: list[str] = []
+    pool = await _setup_process_mode(client, monkeypatch, recycles)
+    seen: list[object] = []
+
+    def _capture(graph, *args, **kwargs) -> RunResult:
+        seen.append(args[7])  # ... ctx_data, settings_overrides, plugin_generation
+        return RunResult(output_paths={}, node_results=[], error=None)
+
+    monkeypatch.setattr("app.services.execution_service.run_graph_in_process", _capture)
+    try:
+        flow_id = await _create_flow(client, _graph())
+        r = await client.post(f"/api/flows/{flow_id}/runs", json={})
+        assert r.json()["status"] == "success"
+        assert seen == [plugin_state_generation()]
+    finally:
+        pool.shutdown(wait=False)
+
+
 def test_deferred_recycle_waits_for_active_runs() -> None:
     from app.engine import process_pool
 
