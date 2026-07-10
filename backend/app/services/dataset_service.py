@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,7 +28,8 @@ from app.core.exceptions import (
 )
 from app.db.models.dataset import Dataset
 from app.db.models.dataset_version import DatasetVersion
-from app.db.models.flow import DISABLED_MANUAL
+from app.db.models.flow import DISABLED_MANUAL, Flow
+from app.db.models.run import FlowRun
 from app.engine.backends import get_engine
 from app.engine.ingest import (
     ParseOptionsError,
@@ -38,6 +40,12 @@ from app.engine.ingest import (
 from app.engine.profile import profile_frame
 from app.schemas.dataset import DatasetRead, DatasetUpdate, DatasetVersionRead
 from app.services.project_service import ProjectService
+
+logger = logging.getLogger("ciaren.datasets")
+
+# Runs that may still read a dataset's files. "pending" covers the brief window
+# between a FlowRun row being created and dataset paths actually being resolved.
+_LIVE_RUN_STATUSES = ("pending", "running")
 
 _ALLOWED_EXTENSIONS: dict[str, str] = {
     ".csv": "csv",
@@ -241,7 +249,7 @@ class DatasetService:
         hard-deletes the dataset, its versions, and their files immediately.
 
         Refuses (409) if a Production-aliased registered model was trained on this
-        dataset, unless ``force=True``."""
+        dataset, or a run is currently reading it, unless ``force=True``."""
         result = await self.db.execute(
             select(Dataset).options(selectinload(Dataset.versions)).where(Dataset.id == dataset_id)
         )
@@ -250,6 +258,8 @@ class DatasetService:
             raise NotFoundError("Dataset", dataset_id)
         if not force:
             await self._guard_production_dependency(dataset_id)
+            if purge:
+                await self._guard_active_run_dependency(dataset_id)
         if purge:
             self._remove_version_files(dataset)
             await self.db.delete(dataset)
@@ -257,6 +267,41 @@ class DatasetService:
             dataset.is_disabled = True
             dataset.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
+
+    async def _guard_active_run_dependency(self, dataset_id: str) -> None:
+        """Raise ConflictError (409) if a pending/running run is currently reading
+        this dataset. Purging unlinks version files immediately (unlike soft-delete),
+        so a run in the middle of reading one would fail with a raw filesystem error
+        instead of the clean "purged" message a *pre-run* purge produces."""
+        flows = await self._flows_with_active_run_on_dataset(dataset_id)
+        if flows:
+            shown = ", ".join(f"'{name}'" for name in flows[:5])
+            more = f" and {len(flows) - 5} more" if len(flows) > 5 else ""
+            raise ConflictError(
+                f"This dataset is being read by an in-progress run of {len(flows)} flow(s): "
+                f"{shown}{more}. Wait for the run to finish, or purge with force=true "
+                "(the run will fail)."
+            )
+
+    async def _flows_with_active_run_on_dataset(self, dataset_id: str) -> list[str]:
+        """Names of flows with a pending/running run whose resolved inputs include
+        this dataset. Checked in Python (not a JSON-column query) since
+        ``input_datasets_json`` shape isn't portable across SQLite/Postgres, and the
+        number of concurrently active runs is always small."""
+        result = await self.db.execute(
+            select(FlowRun, Flow.name)
+            .join(Flow, Flow.id == FlowRun.flow_id)
+            .where(FlowRun.status.in_(_LIVE_RUN_STATUSES))
+        )
+        names = []
+        for run, flow_name in result.all():
+            dataset_ids = {run.input_dataset_id} if run.input_dataset_id else set()
+            for entry in run.input_datasets_json or []:
+                if isinstance(entry, dict) and entry.get("dataset_id"):
+                    dataset_ids.add(entry["dataset_id"])
+            if dataset_id in dataset_ids:
+                names.append(flow_name)
+        return names
 
     async def restore(self, dataset_id: str) -> DatasetRead:
         """Undo a soft-delete, bringing the dataset back to live."""
@@ -279,12 +324,20 @@ class DatasetService:
             .where(Dataset.deleted_at.is_not(None), Dataset.deleted_at < cutoff)
         )
         expired = list(result.scalars().all())
+        purged = 0
         for dataset in expired:
+            flows = await self._flows_with_active_run_on_dataset(dataset.id)
+            if flows:
+                # Deferred, not skipped: it stays past retention and is retried
+                # on the next sweep once the run(s) using it have finished.
+                logger.warning("Deferring purge of dataset %s: in use by an active run of %s", dataset.id, flows)
+                continue
             self._remove_version_files(dataset)
             await self.db.delete(dataset)
-        if expired:
+            purged += 1
+        if purged:
             await self.db.commit()
-        return len(expired)
+        return purged
 
     async def _guard_production_dependency(self, dataset_id: str) -> None:
         """Raise ConflictError (409) if a Production model was trained on this
