@@ -210,6 +210,21 @@ def test_query_param_auth_overrides_plaintext_duplicates(api):
     assert df["ok"].iloc[0] == 1  # the real secret was sent, not either duplicate
 
 
+def test_query_param_auth_override_is_case_insensitive(api):
+    """A stale duplicate that differs only in case (Api_Key vs api_key) must
+    not survive alongside the resolved secret in the outbound URL — query
+    engines treat the two names as the same credential."""
+    from app.connectors.rest_api import _build_url
+
+    spec = _spec(api, password="sesame", auth_style="query_param")
+    url = _build_url(spec, "private/query-key?Api_Key=stale-in-path", {})
+    query = urlparse(url).query
+    params = parse_qs(query)
+    assert params.get("Api_Key") is None
+    assert params["api_key"] == ["sesame"]
+    assert query.count("stale-in-path") == 0
+
+
 def test_query_param_secret_never_leaks_in_error_urls(api):
     """The URL embedded in HTTP error messages carries the auth query param —
     it must be scrubbed like every other error path, including the

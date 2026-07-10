@@ -172,9 +172,11 @@ def _build_url(spec: ConnectionSpec, path: str, extra_params: dict[str, str]) ->
         if key not in seen:
             merged.append((key, value))
     # The auth secret replaces any same-named param from the path or options: a
-    # stale plaintext duplicate must never win over the resolved secret.
+    # stale plaintext duplicate must never win over the resolved secret. Compared
+    # case-insensitively — query engines treat "Api_Key" and "api_key" as the same
+    # credential, and a case-mismatched duplicate must not survive alongside it.
     for key, value in _auth_query_params(spec).items():
-        merged = [(k, v) for k, v in merged if k != key]
+        merged = [(k, v) for k, v in merged if k.lower() != key.lower()]
         merged.append((key, value))
     query = urllib.parse.urlencode(merged)
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment))
