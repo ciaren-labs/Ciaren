@@ -1,21 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
-import {
-  ArrowLeft,
-  CalendarClock,
-  Code2,
-  Eye,
-  EyeOff,
-  Loader2,
-  Pencil,
-  Play,
-  Power,
-  Redo2,
-  Save,
-  Undo2,
-  Variable,
-} from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
@@ -30,21 +16,16 @@ import { createFlowNode } from "@/lib/createNode";
 import { hasReadyInput } from "@/lib/flowGraph";
 import { validateFlow } from "@/lib/flowValidation";
 import { FlowCanvas } from "@/components/flow/FlowCanvas";
-import { KeyboardShortcutsHelp } from "@/components/flow/KeyboardShortcutsHelp";
 import { NodePalette } from "@/components/flow/NodePalette";
 import { NodeSidebar } from "@/components/flow/NodeSidebar";
 import { PreviewPanel } from "@/components/flow/PreviewPanel";
-import { ValidationSummary } from "@/components/flow/ValidationSummary";
 import { ExportCodeDialog } from "./ExportCodeDialog";
 import { ParametersDialog } from "./ParametersDialog";
 import { RunParametersDialog } from "./RunParametersDialog";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/PageState";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { EditorToolbar } from "./components/EditorToolbar";
+import { DisabledFlowBanner } from "./components/DisabledFlowBanner";
 
 export function FlowEditorPage() {
   const { flowId } = useParams<{ flowId: string }>();
@@ -264,171 +245,45 @@ export function FlowEditorPage() {
   return (
     <ReactFlowProvider>
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-border bg-background/80 px-4 py-2 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/flows")}>
-              <ArrowLeft className="h-4 w-4" /> Flows
-            </Button>
-            <h1 className="text-sm font-semibold">{flow.name}</h1>
-            <button
-              onClick={() => setEditOpen(true)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Rename flow"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            {projectName && (
-              <span className="text-xs text-muted-foreground">
-                / {projectName}
-              </span>
-            )}
-            {isDisabled && (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                disabled
-              </span>
-            )}
-            {!isDisabled && dirty && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                unsaved
-              </span>
-            )}
-            {!isDisabled && <ValidationSummary validation={validation} />}
-          </div>
-          <div className="flex items-center gap-2">
-            {isDisabled ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
-                disabled={toggleFlow.isPending}
-              >
-                <Power className="h-4 w-4" /> Re-enable flow
-              </Button>
-            ) : (
-              <>
-                <div className="flex items-center overflow-hidden rounded-md border border-input">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="rounded-none border-0 border-r border-input"
-                          disabled={!canUndo}
-                          onClick={() => undo()}
-                          aria-label="Undo"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="rounded-none border-0"
-                          disabled={!canRedo}
-                          onClick={() => redo()}
-                          aria-label="Redo"
-                        >
-                          <Redo2 className="h-4 w-4" />
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
-                  </Tooltip>
-                </div>
-                <KeyboardShortcutsHelp />
-                <GatedButton
-                  disabled={!validation.canPreview}
-                  reason={previewReason}
-                  variant="outline"
-                  onClick={() => setPreviewOpen(!previewOpen)}
-                >
-                  {previewOpen ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  {previewOpen ? "Hide preview" : "Preview"}
-                </GatedButton>
-                <div className="flex items-center overflow-hidden rounded-md border border-input">
-                  <select
-                    value={engine}
-                    onChange={(e) => {
-                      setEngine(e.target.value as "pandas" | "polars");
-                      markDirty();
-                    }}
-                    title="Execution engine"
-                    className="h-9 border-r border-input bg-background px-2 text-xs font-medium focus-visible:outline-none"
-                  >
-                    <option value="pandas">pandas</option>
-                    <option value="polars">polars</option>
-                  </select>
-                  <GatedButton
-                    disabled={!validation.canRun || createRun.isPending}
-                    reason={runReason}
-                    onClick={() =>
-                      parameters.length > 0 ? setRunParamsOpen(true) : handleRun()
-                    }
-                    className="rounded-none border-0"
-                  >
-                    {createRun.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                    Run
-                  </GatedButton>
-                </div>
-                <GatedButton
-                  disabled={!validation.canExport}
-                  reason={runReason}
-                  variant="outline"
-                  onClick={() => setExportOpen(true)}
-                >
-                  <Code2 className="h-4 w-4" /> Export
-                </GatedButton>
-                <Button size="sm" variant="outline" onClick={() => setParamsOpen(true)}>
-                  <Variable className="h-4 w-4" /> Parameters
-                  {parameters.length > 0 && (
-                    <span className="ml-1 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-700">
-                      {parameters.length}
-                    </span>
-                  )}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setScheduleOpen(true)}>
-                  <CalendarClock className="h-4 w-4" /> Schedule
-                </Button>
-                <Button size="sm" onClick={handleSave} disabled={updateFlow.isPending}>
-                  {updateFlow.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {updateFlow.isPending ? "Saving…" : "Save"}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+        <EditorToolbar
+          flowName={flow.name}
+          onBack={() => navigate("/flows")}
+          onRename={() => setEditOpen(true)}
+          projectName={projectName}
+          isDisabled={isDisabled}
+          dirty={dirty}
+          validation={validation}
+          onReEnable={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+          toggleFlowPending={toggleFlow.isPending}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={() => undo()}
+          onRedo={() => redo()}
+          previewOpen={previewOpen}
+          onTogglePreview={() => setPreviewOpen(!previewOpen)}
+          previewReason={previewReason}
+          engine={engine}
+          onEngineChange={(e) => {
+            setEngine(e);
+            markDirty();
+          }}
+          canRun={validation.canRun}
+          createRunPending={createRun.isPending}
+          runReason={runReason}
+          onRun={() => (parameters.length > 0 ? setRunParamsOpen(true) : handleRun())}
+          canExport={validation.canExport}
+          onExport={() => setExportOpen(true)}
+          parametersCount={parameters.length}
+          onOpenParameters={() => setParamsOpen(true)}
+          onOpenSchedule={() => setScheduleOpen(true)}
+          onSave={handleSave}
+          savePending={updateFlow.isPending}
+        />
 
         {isDisabled && (
-          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-            <Power className="h-4 w-4 shrink-0" />
-            This flow is disabled — it is read-only and cannot be run. Click
-            <button
-              className="font-semibold underline underline-offset-2 hover:text-amber-900"
-              onClick={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
-            >
-              Re-enable
-            </button>
-            to restore it.
-          </div>
+          <DisabledFlowBanner
+            onReEnable={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+          />
         )}
 
         <div className="flex min-h-0 flex-1">
@@ -518,38 +373,5 @@ export function FlowEditorPage() {
         }
       />
     </ReactFlowProvider>
-  );
-}
-
-/**
- * A header action button that, when disabled by validation, explains why on
- * hover. The tooltip wraps a span so it still fires for the disabled button.
- */
-function GatedButton({
-  disabled,
-  reason,
-  children,
-  ...props
-}: {
-  disabled: boolean;
-  reason?: string;
-  variant?: "outline";
-  className?: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  const button = (
-    <Button size="sm" disabled={disabled} {...props}>
-      {children}
-    </Button>
-  );
-  if (!disabled || !reason) return button;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex cursor-not-allowed">{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
   );
 }
