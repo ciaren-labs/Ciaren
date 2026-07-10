@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { exportLegendEntries, RunChartView } from "../RunChart";
 import { getChartTheme } from "@/lib/chartTheme";
-import type { ChartArtifact } from "@/lib/types";
+import type { ChartArtifact } from "@/features/runs/types";
 
 const t = getChartTheme("light");
 

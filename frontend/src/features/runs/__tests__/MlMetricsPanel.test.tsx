@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MlMetricsPanel } from "../MlMetricsPanel";
-import type { NodeResult } from "@/lib/types";
+import type { NodeResult } from "@/features/runs/types";
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 

@@ -1,4 +1,4 @@
-import type { MlModelCatalogItem } from "@/lib/types";
+import type { MlModelCatalogItem } from "@/features/models/types";
 
 export function modelInstallWarning(item: MlModelCatalogItem | undefined): string | undefined {
   if (!item || item.available !== false) return undefined;

@@ -11,7 +11,7 @@ describe("api token storage", () => {
   });
 
   it("persists to sessionStorage, never localStorage, and clears on null", async () => {
-    const { setApiToken, getApiToken } = await import("../api");
+    const { setApiToken, getApiToken } = await import("../client");
 
     setApiToken("secret-123");
     expect(getApiToken()).toBe("secret-123");
@@ -27,7 +27,7 @@ describe("api token storage", () => {
   it("migrates a legacy localStorage token into sessionStorage on load", async () => {
     window.localStorage.setItem(KEY, "legacy-xyz");
 
-    const { getApiToken } = await import("../api"); // captureTokenFromUrl runs on import
+    const { getApiToken } = await import("../client"); // captureTokenFromUrl runs on import
 
     expect(getApiToken()).toBe("legacy-xyz");
     expect(window.sessionStorage.getItem(KEY)).toBe("legacy-xyz");
@@ -38,7 +38,7 @@ describe("api token storage", () => {
   it("captures a ?api_token= URL param into sessionStorage and strips it from the URL", async () => {
     window.history.replaceState({}, "", "/?api_token=url-tok&x=1");
 
-    const { getApiToken } = await import("../api");
+    const { getApiToken } = await import("../client");
 
     expect(getApiToken()).toBe("url-tok");
     expect(window.sessionStorage.getItem(KEY)).toBe("url-tok");

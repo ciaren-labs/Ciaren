@@ -11,7 +11,7 @@ import {
   type GraphEdgeLike,
   type GraphNodeLike,
 } from "../flowGraph";
-import type { Dataset } from "../types";
+import type { Dataset } from "@/features/datasets/types";
 
 function dataset(id: string, cols: string[], source: Dataset["source_type"] = "csv"): Dataset {
   return {

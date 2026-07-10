@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ParameterValueFields } from "@/components/parameters/ParameterValueFields";
 import { buildRunValues, defaultText } from "@/lib/parameters";
-import type { ParameterSpec, ParameterValues } from "@/lib/types";
+import type { ParameterSpec, ParameterValues } from "@/lib/types/shared";
 
 interface RunParametersDialogProps {
   open: boolean;

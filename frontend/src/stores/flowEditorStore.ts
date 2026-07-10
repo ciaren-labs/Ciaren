@@ -8,7 +8,8 @@ import type {
   OnNodesChange,
 } from "@xyflow/react";
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
-import type { GraphNodeData, ParameterSpec } from "@/lib/types";
+import type { GraphNodeData } from "@/features/flows/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 import type { PendingConnection } from "@/lib/connectionRules";
 import { cloneSelection } from "@/lib/flowGraph";
 

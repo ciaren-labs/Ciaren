@@ -24,7 +24,8 @@ import { SortableTh } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { formatDuration } from "@/lib/format";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
-import type { RunListFilters, RunStatus, FlowRunSummary } from "@/lib/types";
+import type { FlowRunSummary, RunListFilters } from "@/features/runs/types";
+import type { RunStatus } from "@/lib/types/shared";
 import { cn } from "@/lib/utils";
 
 const DATE_CLASS =

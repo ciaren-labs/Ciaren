@@ -43,7 +43,7 @@ import {
 } from "@/components/flow/chartChrome";
 import { clamp } from "@/lib/chartData";
 import { inkForFill, mixHex, useChartTheme, type ChartTheme } from "@/lib/chartTheme";
-import type { BoxGroupStats, ChartArtifact, NodeResult } from "@/lib/types";
+import type { BoxGroupStats, ChartArtifact, NodeResult } from "@/features/runs/types";
 
 const OTHER_LABEL = "Other";
 

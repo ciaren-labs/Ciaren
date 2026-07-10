@@ -1,7 +1,7 @@
 // Compact per-column statistics readout, shared by the flow editor's preview
 // panel and the dataset detail dialog. Renders type-aware summaries from the
 // backend profiler (app/engine/profile.py).
-import type { ColumnProfile } from "@/lib/types";
+import type { ColumnProfile } from "@/lib/types/shared";
 import { cn } from "@/lib/utils";
 
 const DTYPE_STYLES: Record<ColumnProfile["dtype"], string> = {

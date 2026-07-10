@@ -24,7 +24,7 @@ const FLOW_B = makeFlow("f2", "Weekly Report");
 const resolvers = new Map<string, (flow: ReturnType<typeof makeFlow>) => void>();
 const rejecters = new Map<string, (err: Error) => void>();
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/flows/api", () => ({
   flowsApi: {
     list: vi.fn(() => Promise.resolve([FLOW_A, FLOW_B])),
     duplicate: vi.fn(
@@ -35,7 +35,11 @@ vi.mock("@/lib/api", () => ({
         }),
     ),
   },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([{ id: "p1", name: "Default", color: "emerald" }])) },
+}));
+vi.mock("@/features/schedules/api", () => ({
   schedulesApi: { list: vi.fn(() => Promise.resolve([])) },
 }));
 
@@ -62,7 +66,7 @@ describe("FlowListPage duplicate action", () => {
   });
 
   it("disables the duplicated flow's row while the request is in flight, then re-enables it", async () => {
-    const { flowsApi } = await import("@/lib/api");
+    const { flowsApi } = await import("@/features/flows/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -79,7 +83,7 @@ describe("FlowListPage duplicate action", () => {
   });
 
   it("keeps each row's pending state independent when two different flows are duplicated concurrently", async () => {
-    const { flowsApi } = await import("@/lib/api");
+    const { flowsApi } = await import("@/features/flows/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -112,7 +116,7 @@ describe("FlowListPage duplicate action", () => {
   });
 
   it("ignores a second click on the same flow while its own duplicate request is still pending", async () => {
-    const { flowsApi } = await import("@/lib/api");
+    const { flowsApi } = await import("@/features/flows/api");
     const user = userEvent.setup();
     renderPage();
 

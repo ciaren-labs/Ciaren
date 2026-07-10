@@ -19,7 +19,7 @@ import {
   type GraphEdgeLike,
   type GraphNodeLike,
 } from "./flowGraph";
-import type { Dataset } from "./types";
+import type { Dataset } from "@/features/datasets/types";
 
 export type IssueSeverity = "error" | "warning";
 

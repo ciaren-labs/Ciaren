@@ -12,9 +12,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { mlApi } from "@/lib/api";
+import { mlApi } from "@/features/models/api";
 import { formatMetric, metricLabel, splitMetrics } from "@/lib/mlMetrics";
-import type { MlRegisterResult, NodeResult } from "@/lib/types";
+import type { MlRegisterResult } from "@/features/models/types";
+import type { NodeResult } from "@/features/runs/types";
 
 /** Heat shade for a confusion-matrix cell, scaled to the matrix max. */
 function heat(count: number, max: number): string {

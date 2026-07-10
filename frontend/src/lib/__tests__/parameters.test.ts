@@ -10,7 +10,7 @@ import {
   validateRows,
   type ParamRow,
 } from "@/lib/parameters";
-import type { ParameterSpec } from "@/lib/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 
 const row = (over: Partial<ParamRow> = {}): ParamRow => ({
   name: "p",

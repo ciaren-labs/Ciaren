@@ -45,9 +45,9 @@ import { Select } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
-import { ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
 import { SchemaConfigFields } from "@/components/flow/SchemaConfigFields";
-import type { Connection, ConnectionCreate, ProviderInfo } from "@/lib/types";
+import type { Connection, ConnectionCreate, ProviderInfo } from "@/features/connections/types";
 import {
   useConnectionProviders,
   useConnections,

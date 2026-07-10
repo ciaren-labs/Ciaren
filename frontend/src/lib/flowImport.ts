@@ -1,4 +1,5 @@
-import type { Flow, Project } from "./types";
+import type { Flow } from "@/features/flows/types";
+import type { Project } from "@/features/projects/types";
 
 /**
  * The project an imported flow will actually land in: the explicitly selected

@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { SchemaConfigFields, fieldsFromDefaults } from "../SchemaConfigFields";
-import type { ConfigField } from "@/lib/types";
+import type { ConfigField } from "@/lib/types/shared";
 
 const FIELDS: ConfigField[] = [
   { key: "base_url", label: "Base URL", type: "string", required: true, placeholder: "https://…" },

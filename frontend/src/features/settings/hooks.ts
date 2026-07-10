@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { settingsApi } from "@/lib/api";
+import { settingsApi } from "@/features/settings/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { AppSetting } from "@/lib/types";
+import type { AppSetting } from "@/features/settings/types";
 
 export function useAppSettings() {
   return useQuery({

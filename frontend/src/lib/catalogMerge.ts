@@ -5,7 +5,7 @@
 // appended. Pure functions — no I/O — so they are easy to unit test.
 
 import { type NodeCategory, type NodeTypeDef } from "./nodeCatalog";
-import type { CatalogNode, CatalogPort } from "./types";
+import type { CatalogNode, CatalogPort } from "@/features/flows/types";
 
 function toCategory(category: string): NodeCategory {
   // Unknown categories (from a plugin) are kept as-is: the node still resolves

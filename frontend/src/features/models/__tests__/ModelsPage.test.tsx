@@ -6,8 +6,10 @@ import { MemoryRouter } from "react-router-dom";
 
 const clearAliasResolvers = new Map<string, () => void>();
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/transformations/api", () => ({
   transformationsApi: { list: vi.fn(() => Promise.resolve(["mlTrainClassifier", "dropNulls"])) },
+}));
+vi.mock("@/features/flows/api", () => ({
   flowsApi: {
     list: vi.fn(() =>
       Promise.resolve([
@@ -15,7 +17,11 @@ vi.mock("@/lib/api", () => ({
       ]),
     ),
   },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([{ id: "p1", name: "Demo", color: "emerald" }])) },
+}));
+vi.mock("@/features/models/api", () => ({
   mlApi: {
     registeredModels: vi.fn(() =>
       Promise.resolve([
@@ -131,7 +137,7 @@ describe("ModelsPage alias clearing", () => {
   });
 
   it("disables only the cleared alias's own button when a version has multiple aliases", async () => {
-    const { mlApi } = await import("@/lib/api");
+    const { mlApi } = await import("@/features/models/api");
     const user = userEvent.setup();
     renderPage();
 

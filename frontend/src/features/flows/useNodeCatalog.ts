@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { catalogApi } from "@/lib/api";
+import { catalogApi } from "@/features/flows/api";
 import { mergeNodeCatalog } from "@/lib/catalogMerge";
 import { NODE_TYPES, setRuntimeNodeDefs, type NodeTypeDef } from "@/lib/nodeCatalog";
 

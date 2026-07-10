@@ -34,7 +34,7 @@ import { ViewToggle } from "@/components/filters/ViewToggle";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { describeCron } from "@/lib/cron";
-import type { Schedule, ScheduleRunBrief } from "@/lib/types";
+import type { Schedule, ScheduleRunBrief } from "@/features/schedules/types";
 import { cn } from "@/lib/utils";
 
 const ENABLED_OPTIONS = [

@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
 
 /**
  * Translate a thrown error into a message a person can act on.

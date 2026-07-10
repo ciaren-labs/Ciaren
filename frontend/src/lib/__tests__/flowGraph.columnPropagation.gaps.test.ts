@@ -10,7 +10,7 @@
 // outputColumns() to see them pass.
 import { describe, expect, it } from "vitest";
 import { computeNodeColumns, type GraphEdgeLike, type GraphNodeLike } from "../flowGraph";
-import type { Dataset } from "../types";
+import type { Dataset } from "@/features/datasets/types";
 
 function dataset(id: string, cols: string[]): Dataset {
   return {

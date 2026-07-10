@@ -47,7 +47,7 @@ const RUN_B = makeRun("r2", "f2", "Weekly Report");
 const resolvers = new Map<string, (run: { id: string }) => void>();
 const rejecters = new Map<string, (err: Error) => void>();
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/runs/api", () => ({
   runsApi: {
     list: vi.fn(() => Promise.resolve([RUN_A, RUN_B])),
     retry: vi.fn(
@@ -58,8 +58,14 @@ vi.mock("@/lib/api", () => ({
         }),
     ),
   },
+}));
+vi.mock("@/features/flows/api", () => ({
   flowsApi: { list: vi.fn(() => Promise.resolve([])) },
+}));
+vi.mock("@/features/datasets/api", () => ({
   datasetsApi: { list: vi.fn(() => Promise.resolve([])) },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([{ id: "p1", name: "Default", color: "emerald" }])) },
 }));
 
@@ -90,7 +96,7 @@ describe("RunsPage retry action", () => {
   });
 
   it("disables only the retried run's button, not every failed run's button", async () => {
-    const { runsApi } = await import("@/lib/api");
+    const { runsApi } = await import("@/features/runs/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -129,7 +135,7 @@ describe("RunsPage retry action", () => {
   });
 
   it("ignores a second click on the same run while its own retry is still pending", async () => {
-    const { runsApi } = await import("@/lib/api");
+    const { runsApi } = await import("@/features/runs/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -166,7 +172,7 @@ describe("RunsPage retry action", () => {
 
   it("does not start a retry when the confirmation is declined", async () => {
     vi.mocked(window.confirm).mockReturnValue(false);
-    const { runsApi } = await import("@/lib/api");
+    const { runsApi } = await import("@/features/runs/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -188,7 +194,8 @@ describe("RunsPage dataset label", () => {
     // Regression: a purged dataset drops out of datasetsApi.list(), so the old
     // id-only lookup rendered "—" for every run that used it, even though the
     // run itself recorded the dataset's name at run time.
-    const { runsApi, datasetsApi } = await import("@/lib/api");
+    const { runsApi } = await import("@/features/runs/api");
+    const { datasetsApi } = await import("@/features/datasets/api");
     vi.mocked(runsApi.list).mockResolvedValueOnce([
       {
         ...RUN_A,
@@ -203,7 +210,8 @@ describe("RunsPage dataset label", () => {
   });
 
   it("prefers the live dataset name over the run's snapshot (picks up renames)", async () => {
-    const { runsApi, datasetsApi } = await import("@/lib/api");
+    const { runsApi } = await import("@/features/runs/api");
+    const { datasetsApi } = await import("@/features/datasets/api");
     vi.mocked(runsApi.list).mockResolvedValueOnce([
       {
         ...RUN_A,

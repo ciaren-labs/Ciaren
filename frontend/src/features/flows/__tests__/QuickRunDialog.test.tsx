@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuickRunDialog } from "../QuickRunDialog";
-import type { Flow } from "@/lib/types";
+import type { Flow } from "@/features/flows/types";
 
 function makeFlow(overrides: Partial<Flow["graph_json"]> = {}): Flow {
   return {

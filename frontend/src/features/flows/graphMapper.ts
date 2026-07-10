@@ -1,6 +1,6 @@
 // Maps between the persisted React-Flow-compatible GraphJson and the
 // @xyflow runtime node/edge objects used by the editor store.
-import type { GraphEdge, GraphJson, GraphNode } from "@/lib/types";
+import type { GraphEdge, GraphJson, GraphNode } from "@/features/flows/types";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
 
 export function graphToStore(graph: GraphJson): {

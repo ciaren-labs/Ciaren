@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateFlow } from "../flowValidation";
 import type { GraphEdgeLike, GraphNodeLike } from "../flowGraph";
-import type { Dataset } from "../types";
+import type { Dataset } from "@/features/datasets/types";
 
 function dataset(
   id: string,

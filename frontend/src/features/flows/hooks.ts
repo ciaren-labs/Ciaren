@@ -3,15 +3,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { flowsApi } from "@/lib/api";
+import { flowsApi } from "@/features/flows/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type {
-  FlowCreate,
-  FlowImport,
-  FlowPreviewRequest,
-  FlowUpdate,
-} from "@/lib/types";
+import type { FlowCreate, FlowImport, FlowPreviewRequest, FlowUpdate } from "@/features/flows/types";
 
 export function useFlows(projectId?: string) {
   return useQuery({

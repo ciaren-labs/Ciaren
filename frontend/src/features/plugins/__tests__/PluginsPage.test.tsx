@@ -20,8 +20,10 @@ const removeLicense = vi.fn((_id: string) =>
   Promise.resolve({ plugin_id: _id, valid: false, license_type: null, expires_at: null, reason: "no license token found" }),
 );
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api/client", () => ({
   ApiError: class ApiError extends Error {},
+}));
+vi.mock("@/features/plugins/api", () => ({
   pluginsApi: {
     diagnostics: () => diagnostics(),
     grant: (id: string, perms: string[]) => grant(id, perms),

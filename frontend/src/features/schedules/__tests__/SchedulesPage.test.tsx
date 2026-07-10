@@ -37,7 +37,7 @@ const SCHEDULE_B = makeSchedule("s2", "Weekly report run", "f2");
 const resolvers = new Map<string, (run: { id: string }) => void>();
 const rejecters = new Map<string, (err: Error) => void>();
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/schedules/api", () => ({
   schedulesApi: {
     list: vi.fn(() => Promise.resolve([SCHEDULE_A, SCHEDULE_B])),
     runNow: vi.fn(
@@ -48,6 +48,8 @@ vi.mock("@/lib/api", () => ({
         }),
     ),
   },
+}));
+vi.mock("@/features/flows/api", () => ({
   flowsApi: {
     list: vi.fn(() =>
       Promise.resolve([
@@ -56,6 +58,8 @@ vi.mock("@/lib/api", () => ({
       ]),
     ),
   },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([{ id: "p1", name: "Default", color: "emerald" }])) },
 }));
 
@@ -82,7 +86,7 @@ describe("SchedulesPage run-now action", () => {
   });
 
   it("disables the schedule's row while its run-now request is in flight, then re-enables it", async () => {
-    const { schedulesApi } = await import("@/lib/api");
+    const { schedulesApi } = await import("@/features/schedules/api");
     const user = userEvent.setup();
     renderPage();
 
@@ -122,7 +126,7 @@ describe("SchedulesPage run-now action", () => {
   });
 
   it("ignores a second click on the same schedule while its own run-now request is still pending", async () => {
-    const { schedulesApi } = await import("@/lib/api");
+    const { schedulesApi } = await import("@/features/schedules/api");
     const user = userEvent.setup();
     renderPage();
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X } from "lucide-react";
-import { transformationsApi } from "@/lib/api";
+import { transformationsApi } from "@/features/transformations/api";
 import {
   getCategoryLabel,
   HIDDEN_PALETTE_TYPES,

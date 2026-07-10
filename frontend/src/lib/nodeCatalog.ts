@@ -53,7 +53,7 @@ export interface NodeTypeDef {
   hidden?: boolean;
   /** Schema-driven config form fields (plugin nodes). When present, the sidebar
    *  renders these instead of a hand-written per-type form. */
-  configSchema?: import("./types").ConfigField[];
+  configSchema?: import("./types/shared").ConfigField[];
   description: string;
 }
 

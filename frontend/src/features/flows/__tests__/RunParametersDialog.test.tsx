@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RunParametersDialog } from "../RunParametersDialog";
-import type { ParameterSpec } from "@/lib/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 
 const SPECS: ParameterSpec[] = [
   { name: "keep", type: "integer", default: 2, description: "rows kept" },

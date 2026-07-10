@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { mlApi, transformationsApi } from "@/lib/api";
+import { mlApi } from "@/features/models/api";
+import { transformationsApi } from "@/features/transformations/api";
 
 /** ML is "on" when the backend lists at least one ML node type — the same signal
  * the node palette uses (CIAREN_ML_ENABLED, on by default). */

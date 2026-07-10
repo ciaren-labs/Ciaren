@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { queryKeys } from "@/lib/queryClient";
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/connections/api", () => ({
   connectionsApi: {
     objects: vi.fn((id: string, prefix?: string) => Promise.resolve([`${id}:${prefix ?? ""}`])),
   },
@@ -27,7 +27,7 @@ describe("useConnectionObjects prefix", () => {
   });
 
   it("passes the prefix to the API and caches each prefix separately", async () => {
-    const { connectionsApi } = await import("@/lib/api");
+    const { connectionsApi } = await import("@/features/connections/api");
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const wrapper = wrapperFor(client);
 

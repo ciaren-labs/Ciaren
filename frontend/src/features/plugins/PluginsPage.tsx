@@ -32,8 +32,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { getCategoryLabel } from "@/lib/nodeCatalog";
 import { getCategoryTheme } from "@/lib/nodeVisuals";
-import type { MarketplaceEntry, PluginInfo, PluginStatus } from "@/lib/types";
-import { ApiError } from "@/lib/api";
+import type { MarketplaceEntry, PluginInfo, PluginStatus } from "@/features/plugins/types";
+import { ApiError } from "@/lib/api/client";
 import {
   useActivateLicense,
   useDisablePlugin,

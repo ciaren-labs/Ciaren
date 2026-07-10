@@ -19,12 +19,7 @@ import { useFlows } from "@/features/flows/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { cn } from "@/lib/utils";
-import type {
-  MlExperimentRun,
-  MlLineage,
-  MlModelVersion,
-  MlRegisteredModel,
-} from "@/lib/types";
+import type { MlExperimentRun, MlLineage, MlModelVersion, MlRegisteredModel } from "@/features/models/types";
 import {
   useClearModelAlias,
   useExperimentRuns,

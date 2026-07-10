@@ -2,7 +2,7 @@ import { AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isRequired } from "@/lib/parameters";
-import type { ParameterSpec } from "@/lib/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 
 interface ParameterValueFieldsProps {
   specs: ParameterSpec[];

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SettingsPage } from "../SettingsPage";
-import type { AppSetting } from "@/lib/types";
+import type { AppSetting } from "@/features/settings/types";
 
 const SETTINGS: AppSetting[] = [
   {

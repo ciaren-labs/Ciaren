@@ -2,7 +2,7 @@
 // everything (app/engine/parameters.py); this mirrors the rules for fast editor
 // feedback and to coerce default values to their declared type before saving.
 
-import type { ParameterSpec, ParameterType, ParameterValues } from "@/lib/types";
+import type { ParameterSpec, ParameterType, ParameterValues } from "@/lib/types/shared";
 
 // Mirrors app/engine/parameters.py: no leading underscore (generated temps own
 // the `_` namespace), no names the exported script defines itself, and no

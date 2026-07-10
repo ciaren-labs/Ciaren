@@ -6,7 +6,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { ConfigField } from "@/lib/types";
+import type { ConfigField } from "@/lib/types/shared";
 import { ColumnMultiSelect, ColumnSelect, CsvListInput, Field } from "./configFields";
 
 interface SchemaConfigFieldsProps {

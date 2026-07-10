@@ -1,7 +1,7 @@
 import { MutationCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "@/stores/toastStore";
 import { friendlyErrorMessage } from "@/lib/errors";
-import type { RunListFilters } from "./types";
+import type { RunListFilters } from "@/features/runs/types";
 
 // Mutation meta contract, enforced app-wide:
 //  - errorMessage: title for the automatic failure toast (default "Action failed").

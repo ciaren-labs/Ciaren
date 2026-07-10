@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/datasets/api", () => ({
   datasetsApi: {
     remove: vi.fn(() => Promise.resolve()),
     patch: vi.fn((id: string, body: { is_disabled?: boolean }) =>

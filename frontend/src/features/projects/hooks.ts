@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi } from "@/lib/api";
+import { projectsApi } from "@/features/projects/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { ProjectCreate, ProjectUpdate } from "@/lib/types";
+import type { ProjectCreate, ProjectUpdate } from "@/features/projects/types";
 
 export function useProjects() {
   return useQuery({ queryKey: queryKeys.projects, queryFn: projectsApi.list });

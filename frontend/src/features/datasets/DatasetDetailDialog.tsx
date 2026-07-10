@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Download, ExternalLink, History, Loader2, Table2, Workflow } from "lucide-react";
-import { datasetsApi } from "@/lib/api";
+import { datasetsApi } from "@/features/datasets/api";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   useDatasetVersions,
 } from "./hooks";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
-import type { Dataset } from "@/lib/types";
+import type { Dataset } from "@/features/datasets/types";
 
 export function DatasetDetailDialog({
   dataset,

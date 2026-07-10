@@ -15,7 +15,7 @@ import {
   validateRows,
   type ParamRow,
 } from "@/lib/parameters";
-import { PARAMETER_TYPES, type ParameterSpec, type ParameterType } from "@/lib/types";
+import { PARAMETER_TYPES, type ParameterSpec, type ParameterType } from "@/lib/types/shared";
 
 interface ParametersDialogProps {
   open: boolean;

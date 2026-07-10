@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { runsApi } from "@/lib/api";
+import { runsApi } from "@/features/runs/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { RunListFilters } from "@/lib/types";
+import type { RunListFilters } from "@/features/runs/types";
 
 /** Filterable run history for the runs page. */
 export function useRuns(filters: RunListFilters) {

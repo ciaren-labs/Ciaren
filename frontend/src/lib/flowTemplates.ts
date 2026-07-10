@@ -6,7 +6,7 @@
 import { Columns3, Filter, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
 import { getNodeTypeDef } from "./nodeCatalog";
 import { createFlowNode } from "./createNode";
-import type { GraphEdge, GraphJson, GraphNode } from "./types";
+import type { GraphEdge, GraphJson, GraphNode } from "@/features/flows/types";
 
 export interface FlowTemplate {
   id: string;

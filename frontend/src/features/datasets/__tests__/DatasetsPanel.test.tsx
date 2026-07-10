@@ -29,11 +29,13 @@ const EXISTING_IN_ANALYTICS = makeDataset("d1", "sales.csv", "p-analytics");
 
 let uploadSpy: (...args: unknown[]) => unknown;
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/datasets/api", () => ({
   datasetsApi: {
     list: vi.fn(() => Promise.resolve([EXISTING_IN_ANALYTICS])),
     upload: (...args: unknown[]) => uploadSpy(...args),
   },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([DEFAULT_PROJECT, ANALYTICS_PROJECT])) },
 }));
 

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, connectionsApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
+import { connectionsApi } from "@/features/connections/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { ConnectionCreate, ConnectionUpdate, KeyringSecretWrite } from "@/lib/types";
+import type { ConnectionCreate, ConnectionUpdate, KeyringSecretWrite } from "@/features/connections/types";
 
 export function useConnections() {
   return useQuery({

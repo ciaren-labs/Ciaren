@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { AlertCircle, CheckCircle2, MinusCircle } from "lucide-react";
 import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
 import { getNodeIcon } from "@/lib/nodeVisuals";
-import type { NodeResultStatus } from "@/lib/types";
+import type { NodeResultStatus } from "@/features/runs/types";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

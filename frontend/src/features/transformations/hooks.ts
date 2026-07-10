@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { transformationsApi } from "@/lib/api";
+import { transformationsApi } from "@/features/transformations/api";
 import { queryKeys } from "@/lib/queryClient";
-import type { TransformationPreviewRequest } from "@/lib/types";
+import type { TransformationPreviewRequest } from "@/features/transformations/types";
 
 export function useTransformationTypes() {
   return useQuery({

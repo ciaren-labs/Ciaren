@@ -24,7 +24,7 @@ import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { projectColor } from "@/lib/projectColors";
 import { ViewToggle } from "@/components/filters/ViewToggle";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
-import type { Project } from "@/lib/types";
+import type { Project } from "@/features/projects/types";
 import { cn } from "@/lib/utils";
 
 type PendingAction =

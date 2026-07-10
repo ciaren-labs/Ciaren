@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { mlApi } from "@/lib/api";
+import { mlApi } from "@/features/models/api";
 import {
   Dialog,
   DialogClose,
@@ -21,7 +21,8 @@ import {
   type MlModelDef,
   type MlTask,
 } from "@/lib/mlModels";
-import type { ConfigField, MlModelCatalogItem } from "@/lib/types";
+import type { MlModelCatalogItem } from "@/features/models/types";
+import type { ConfigField } from "@/lib/types/shared";
 import { Field, ColumnMultiSelect, ColumnSelect } from "./configFields";
 import { modelInstallWarning, modelOptionLabel } from "./mlModelOptions";
 

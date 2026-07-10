@@ -1,10 +1,10 @@
-import type { UploadParseOptions } from "@/lib/types";
+import type { UploadParseOptions } from "@/features/datasets/types";
 import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { datasetsApi } from "@/lib/api";
+import { datasetsApi } from "@/features/datasets/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
 

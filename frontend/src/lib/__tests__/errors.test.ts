@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
 import { friendlyErrorMessage } from "@/lib/errors";
 
 describe("friendlyErrorMessage", () => {

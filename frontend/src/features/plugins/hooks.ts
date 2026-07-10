@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { marketplaceApi, pluginsApi } from "@/lib/api";
+import { marketplaceApi, pluginsApi } from "@/features/plugins/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
 

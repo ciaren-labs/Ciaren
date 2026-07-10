@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ErrorState, LoadingState } from "@/components/ui/PageState";
 import { cn } from "@/lib/utils";
-import type { AppSetting } from "@/lib/types";
+import type { AppSetting } from "@/features/settings/types";
 import { useAppSettings, useResetAppSetting, useUpdateAppSetting } from "./hooks";
 
 /** Group while preserving the backend's ordering (categories and items). */

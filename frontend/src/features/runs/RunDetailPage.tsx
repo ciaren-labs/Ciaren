@@ -14,7 +14,8 @@ import { formatDuration } from "@/lib/format";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
-import type { InputDatasetRef, NodeResult, ParameterValues } from "@/lib/types";
+import type { InputDatasetRef, NodeResult } from "@/features/runs/types";
+import type { ParameterValues } from "@/lib/types/shared";
 
 const OUTPUT_NODE_TYPES = new Set(["fileOutput", "csvOutput", "excelOutput", "parquetOutput"]);
 

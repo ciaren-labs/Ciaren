@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ParametersDialog } from "../ParametersDialog";
-import type { ParameterSpec } from "@/lib/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 
 function renderDialog(value: ParameterSpec[] = []) {
   const onChange = vi.fn();

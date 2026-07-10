@@ -40,7 +40,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/PageState"
 import { friendlyErrorMessage } from "@/lib/errors";
 import { SortableTh, sortRows, useSort, type SortState } from "@/components/ui/SortableHeader";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
-import type { Dataset, DatasetSourceType } from "@/lib/types";
+import type { Dataset, DatasetSourceType } from "@/features/datasets/types";
 import { cn } from "@/lib/utils";
 
 /**

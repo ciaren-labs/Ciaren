@@ -20,12 +20,14 @@ const DATASET = {
 const DEFAULT_PROJECT = { id: "p-default", name: "Default", is_default: true, color: null };
 const AFFECTED_FLOW = { id: "f1", name: "Nightly ETL" };
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/datasets/api", () => ({
   datasetsApi: {
     list: vi.fn(() => Promise.resolve([DATASET])),
     flows: vi.fn(() => Promise.resolve([AFFECTED_FLOW])),
     remove: vi.fn(() => Promise.resolve()),
   },
+}));
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([DEFAULT_PROJECT])) },
 }));
 

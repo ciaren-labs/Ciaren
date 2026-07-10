@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { ProviderInfo } from "@/lib/types";
+import type { ProviderInfo } from "@/features/connections/types";
 import { ConnectionsPage } from "../ConnectionsPage";
 import { useKeyringAvailability, useStoreKeyringSecret, useTestConnectionConfig } from "../hooks";
 

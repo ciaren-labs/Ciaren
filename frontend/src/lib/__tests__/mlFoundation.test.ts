@@ -13,7 +13,7 @@ import {
   isSupervisedModel,
   modelsByTask,
 } from "../mlModels";
-import type { Dataset } from "../types";
+import type { Dataset } from "@/features/datasets/types";
 
 const node = (id: string, type: string, config: Record<string, unknown> = {}): GraphNodeLike => ({
   id,

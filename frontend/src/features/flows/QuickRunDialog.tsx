@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { ParameterValueFields } from "@/components/parameters/ParameterValueFields";
 import { buildRunValues, defaultText } from "@/lib/parameters";
 import { friendlyErrorMessage } from "@/lib/errors";
-import { ENGINES, type Engine, type Flow, type ParameterValues } from "@/lib/types";
+import type { Flow } from "@/features/flows/types";
+import { ENGINES, type Engine, type ParameterValues } from "@/lib/types/shared";
 import { cn } from "@/lib/utils";
 
 interface QuickRunDialogProps {

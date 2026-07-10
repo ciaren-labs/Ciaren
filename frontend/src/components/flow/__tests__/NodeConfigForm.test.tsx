@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
-import type { Dataset } from "@/lib/types";
+import type { Dataset } from "@/features/datasets/types";
 
 function dataset(id: string, source: Dataset["source_type"], projectId: string | null = null): Dataset {
   return {

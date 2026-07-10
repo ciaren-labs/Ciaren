@@ -32,7 +32,7 @@ import { SearchableSelect } from "@/components/filters/SearchableSelect";
 import { useLayoutPreference } from "@/lib/useLayoutPreference";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { ViewToggle } from "@/components/filters/ViewToggle";
-import { type Flow } from "@/lib/types";
+import type { Flow } from "@/features/flows/types";
 import { cn } from "@/lib/utils";
 
 type PendingAction =

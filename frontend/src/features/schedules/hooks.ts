@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { schedulesApi } from "@/lib/api";
+import { schedulesApi } from "@/features/schedules/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { ScheduleCreate, ScheduleUpdate } from "@/lib/types";
+import type { ScheduleCreate, ScheduleUpdate } from "@/features/schedules/types";
 
 export function useSchedules(flowId?: string) {
   return useQuery({

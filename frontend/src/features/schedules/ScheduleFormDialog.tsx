@@ -19,7 +19,8 @@ import { friendlyErrorMessage } from "@/lib/errors";
 import { buildCron, parseCron, isValidCron, DEFAULT_CRON_MODEL, type CronModel } from "@/lib/cron";
 import { buildRunValues, defaultText } from "@/lib/parameters";
 import { COMMON_TIMEZONES } from "@/stores/timezoneStore";
-import type { ParameterSpec, Schedule, ScheduleCreate } from "@/lib/types";
+import type { Schedule, ScheduleCreate } from "@/features/schedules/types";
+import type { ParameterSpec } from "@/lib/types/shared";
 import { cn } from "@/lib/utils";
 
 const ENGINES = [

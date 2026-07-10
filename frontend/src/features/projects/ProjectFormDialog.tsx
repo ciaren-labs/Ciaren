@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { friendlyErrorMessage } from "@/lib/errors";
 import { PROJECT_COLORS } from "@/lib/projectColors";
-import type { Project, ProjectCreate } from "@/lib/types";
+import type { Project, ProjectCreate } from "@/features/projects/types";
 import { cn } from "@/lib/utils";
 
 interface ProjectFormDialogProps {

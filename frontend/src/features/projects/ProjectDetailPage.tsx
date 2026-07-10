@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { projectColor } from "@/lib/projectColors";
 import { cn } from "@/lib/utils";
-import type { Dataset } from "@/lib/types";
+import type { Dataset } from "@/features/datasets/types";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();

@@ -19,12 +19,16 @@ const PROJECT = {
 
 let createFlowSpy: (...args: unknown[]) => unknown;
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/projects/api", () => ({
   projectsApi: { list: vi.fn(() => Promise.resolve([PROJECT])) },
+}));
+vi.mock("@/features/flows/api", () => ({
   flowsApi: {
     list: vi.fn(() => Promise.resolve([])),
     create: (...args: unknown[]) => createFlowSpy(...args),
   },
+}));
+vi.mock("@/features/datasets/api", () => ({
   datasetsApi: { list: vi.fn(() => Promise.resolve([])) },
 }));
 

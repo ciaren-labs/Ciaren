@@ -8,7 +8,7 @@ import {
   setRuntimeNodeDefs,
   type NodeTypeDef,
 } from "../nodeCatalog";
-import type { CatalogNode } from "../types";
+import type { CatalogNode } from "@/features/flows/types";
 
 function spec(overrides: Partial<CatalogNode> = {}): CatalogNode {
   return {

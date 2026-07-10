@@ -3,7 +3,7 @@
 // can be unit-tested in isolation and reused by the validation layer.
 
 import { getNodeTypeDef, isModelInputHandle } from "./nodeCatalog";
-import type { Dataset, DatasetSourceType } from "./types";
+import type { Dataset, DatasetSourceType } from "@/features/datasets/types";
 
 /** Minimal structural shapes — the zustand store's nodes/edges satisfy these. */
 export interface GraphNodeLike {
