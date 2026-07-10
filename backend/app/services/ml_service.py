@@ -92,7 +92,7 @@ class MLService:
         if model_uri is None:
             raise ValidationError("This run has no trained model to register (no mlTrain node produced a model_uri).")
 
-        from app.ml.tracking import configure_mlflow, resolve_tracking_uri
+        from app.ml.tracking import configure_mlflow, mlflow_tracking_lock, resolve_tracking_uri
 
         uri = await resolve_tracking_uri(self.db)
 
@@ -101,16 +101,20 @@ class MLService:
         # re-applied *inside* the thread (and passed to the client explicitly)
         # because configure_mlflow sets process-global state: configuring on
         # the loop and using it later from a thread would let a concurrently
-        # configured request's URI leak in between.
+        # configured request's URI leak in between. mlflow.register_model(...)
+        # itself is the fluent (implicit-global) API — unlike this method's
+        # sibling reads, which pass an explicit tracking_uri to every client
+        # call — so the lock is still needed here for that one call.
         def _register() -> tuple[Any, str | None]:
-            mlflow = configure_mlflow(tracking_uri=uri)
-            version = mlflow.register_model(model_uri, model_name.strip())
-            alias = None
-            if stage:
-                alias = stage.strip().lower()
-                client = mlflow.tracking.MlflowClient(tracking_uri=mlflow.get_tracking_uri())
-                client.set_registered_model_alias(model_name.strip(), alias, version.version)
-            return version, alias
+            with mlflow_tracking_lock():
+                mlflow = configure_mlflow(tracking_uri=uri)
+                version = mlflow.register_model(model_uri, model_name.strip())
+                alias = None
+                if stage:
+                    alias = stage.strip().lower()
+                    client = mlflow.tracking.MlflowClient(tracking_uri=mlflow.get_tracking_uri())
+                    client.set_registered_model_alias(model_name.strip(), alias, version.version)
+                return version, alias
 
         version, alias = await asyncio.to_thread(_register)
 

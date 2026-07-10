@@ -5,10 +5,31 @@ sides agree on where artifacts live."""
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 # MLflow tracking targets that are not filesystem paths and must pass through as-is.
 _BARE_MLFLOW_SCHEMES = {"databricks", "databricks-uc", "uc"}
+
+# Serializes "configure_mlflow() + the fluent mlflow.* calls that follow it" as
+# one atomic unit. configure_mlflow calls mlflow.set_tracking_uri, which mutates
+# the SDK's process-global state; the default THREAD execution mode runs
+# multiple flows concurrently in the same process, so two trainings racing on
+# this window (e.g. Thread A configures URI A, Thread B configures URI B before
+# A reaches mlflow.start_run()/log_model()) can log one run's params/model
+# against the OTHER thread's tracking store. mlflow.tracking.MlflowClient(...)
+# call sites that pass an explicit tracking_uri (see ml_service.py) don't need
+# this — only code using the implicit-global fluent API (mlflow.start_run(),
+# mlflow.log_params(), mlflow.sklearn.log_model(), ...) does. Held only for the
+# configure-through-log critical section, not the (much slower) model fit.
+_MLFLOW_GLOBAL_STATE_LOCK = threading.Lock()
+
+
+def mlflow_tracking_lock() -> threading.Lock:
+    """The lock guarding process-global MLflow SDK state. Acquire it around
+    configure_mlflow() and every fluent mlflow.* call that follows, for the
+    whole critical section."""
+    return _MLFLOW_GLOBAL_STATE_LOCK
 
 
 def normalize_tracking_uri(uri: str) -> str:
@@ -93,7 +114,14 @@ def test_tracking_uri(uri: str) -> None:
     if not uri or not uri.strip():
         raise ValueError("MLflow tracking URI is required (a folder path or a tracking server URI).")
     try:
-        mlflow = configure_mlflow(tracking_uri=uri.strip())
-        mlflow.search_experiments(max_results=1)
+        # configure_mlflow() mutates process-global MLflow SDK state, and
+        # mlflow.search_experiments() below reads it back implicitly (the
+        # fluent API) — both must be atomic relative to any other thread's
+        # configure-through-log critical section (see mlflow_tracking_lock's
+        # docstring), or this connection test could run against a URI a
+        # concurrent training run just set, and report a false pass/fail.
+        with mlflow_tracking_lock():
+            mlflow = configure_mlflow(tracking_uri=uri.strip())
+            mlflow.search_experiments(max_results=1)
     except Exception as exc:  # noqa: BLE001 - surfaced as a friendly test result
         raise ValueError(f"Could not reach MLflow at {uri!r}: {exc}") from exc

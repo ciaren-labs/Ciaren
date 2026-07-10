@@ -66,29 +66,35 @@ class MlflowModelStore:
         """
         self._enforce_size_limit(model, model_type)
         try:
-            from app.ml.tracking import configure_mlflow
+            from app.ml.tracking import configure_mlflow, mlflow_tracking_lock
 
-            mlflow = configure_mlflow()
-            import mlflow.sklearn  # noqa: F811 - load the submodule onto the configured client
+            # Held for the whole configure-through-log-model block — see
+            # mlflow_tracking_lock's docstring: configure_mlflow and every
+            # mlflow.* call below mutate/read process-global SDK state, and a
+            # plugin train node can race a core mlTrain node (or another
+            # plugin's) on the same window under THREAD execution mode.
+            with mlflow_tracking_lock():
+                mlflow = configure_mlflow()
+                import mlflow.sklearn  # noqa: F811 - load the submodule onto the configured client
 
-            mlflow.set_experiment(experiment or "ciaren")
-            with mlflow.start_run() as run:
-                # Params/metrics/tags are secondary — never fail the save over them.
-                try:
-                    if params:
-                        mlflow.log_params(params)
-                    if metrics:
-                        mlflow.log_metrics(metrics)
-                    mlflow.set_tags({"ciaren_plugin_id": self._plugin_id, **self._run_context_tags()})
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("ModelStore(%s): could not log params/metrics/tags (%s).", self._plugin_id, exc)
-                info = mlflow.sklearn.log_model(
-                    model,
-                    name="model",
-                    serialization_format="cloudpickle",
-                    input_example=input_example,
-                )
-                run_id, model_uri = run.info.run_id, info.model_uri
+                mlflow.set_experiment(experiment or "ciaren")
+                with mlflow.start_run() as run:
+                    # Params/metrics/tags are secondary — never fail the save over them.
+                    try:
+                        if params:
+                            mlflow.log_params(params)
+                        if metrics:
+                            mlflow.log_metrics(metrics)
+                        mlflow.set_tags({"ciaren_plugin_id": self._plugin_id, **self._run_context_tags()})
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("ModelStore(%s): could not log params/metrics/tags (%s).", self._plugin_id, exc)
+                    info = mlflow.sklearn.log_model(
+                        model,
+                        name="model",
+                        serialization_format="cloudpickle",
+                        input_example=input_example,
+                    )
+                    run_id, model_uri = run.info.run_id, info.model_uri
         except Exception as exc:  # noqa: BLE001 — surface one clear error to the node
             raise ModelStoreError(f"could not persist model for plugin {self._plugin_id!r}: {exc}") from exc
 

@@ -268,53 +268,59 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         try:
             import sklearn
 
-            from app.ml.tracking import configure_mlflow
+            from app.ml.tracking import configure_mlflow, mlflow_tracking_lock
 
-            mlflow = configure_mlflow()
-            import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
+            # Held for the whole configure-through-log-model block: configure_mlflow
+            # and every mlflow.* call below read/write the SDK's process-global
+            # state, so two trainings racing on this window (THREAD execution mode
+            # runs multiple flows concurrently in one process) could otherwise log
+            # one run's params/model against the other's tracking store.
+            with mlflow_tracking_lock():
+                mlflow = configure_mlflow()
+                import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
 
-            mlflow.set_experiment(config.get("mlflow_experiment") or "ciaren")
-            params = {
-                "model_type": config["model_type"],
-                "target_column": config.get("target_column"),
-                "feature_columns": json.dumps(features),
-                "seed": seed,
-                "train_rows": n,
-                "sklearn_version": sklearn.__version__,
-                **{f"hp_{k}": v for k, v in (config.get("hyperparameters") or {}).items()},
-            }
-            with mlflow.start_run() as run:
-                # Params/metrics/tags are secondary: a bad value (e.g. an over-long
-                # hyperparameter) must never stop the model itself from being saved.
-                try:
-                    mlflow.log_params(params)
-                    if metrics:
-                        mlflow.log_metrics(metrics)
-                    tags = self._reproducibility_tags()
-                    if tags:
-                        mlflow.set_tags(tags)
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("%s: could not log params/metrics/tags (%s).", self.type, exc)
-                # cloudpickle is MLflow's standard sklearn format; the newer skops
-                # default rejects common numpy types. User-supplied model paths are
-                # still validated separately in mlPredict (see app/ml/security.py).
-                #
-                # Pin pip requirements to the *imported* versions and attach a
-                # signature: MLflow's automatic requirement inference can record a
-                # different version than the one actually loaded, producing a
-                # misleading "dependencies mismatch" warning at load time. Pinning
-                # to importlib.metadata versions (the same source the load-time check
-                # reads) keeps log-time and load-time in agreement.
-                signature = self._infer_signature(pipeline, x)
-                info = mlflow.sklearn.log_model(
-                    pipeline,
-                    name="model",
-                    serialization_format="cloudpickle",
-                    signature=signature,
-                    input_example=x.head(5) if hasattr(x, "head") else None,
-                    pip_requirements=self._pinned_requirements(config),
-                )
-                return run.info.run_id, info.model_uri
+                mlflow.set_experiment(config.get("mlflow_experiment") or "ciaren")
+                params = {
+                    "model_type": config["model_type"],
+                    "target_column": config.get("target_column"),
+                    "feature_columns": json.dumps(features),
+                    "seed": seed,
+                    "train_rows": n,
+                    "sklearn_version": sklearn.__version__,
+                    **{f"hp_{k}": v for k, v in (config.get("hyperparameters") or {}).items()},
+                }
+                with mlflow.start_run() as run:
+                    # Params/metrics/tags are secondary: a bad value (e.g. an over-long
+                    # hyperparameter) must never stop the model itself from being saved.
+                    try:
+                        mlflow.log_params(params)
+                        if metrics:
+                            mlflow.log_metrics(metrics)
+                        tags = self._reproducibility_tags()
+                        if tags:
+                            mlflow.set_tags(tags)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("%s: could not log params/metrics/tags (%s).", self.type, exc)
+                    # cloudpickle is MLflow's standard sklearn format; the newer skops
+                    # default rejects common numpy types. User-supplied model paths are
+                    # still validated separately in mlPredict (see app/ml/security.py).
+                    #
+                    # Pin pip requirements to the *imported* versions and attach a
+                    # signature: MLflow's automatic requirement inference can record a
+                    # different version than the one actually loaded, producing a
+                    # misleading "dependencies mismatch" warning at load time. Pinning
+                    # to importlib.metadata versions (the same source the load-time check
+                    # reads) keeps log-time and load-time in agreement.
+                    signature = self._infer_signature(pipeline, x)
+                    info = mlflow.sklearn.log_model(
+                        pipeline,
+                        name="model",
+                        serialization_format="cloudpickle",
+                        signature=signature,
+                        input_example=x.head(5) if hasattr(x, "head") else None,
+                        pip_requirements=self._pinned_requirements(config),
+                    )
+                    return run.info.run_id, info.model_uri
         except Exception as exc:  # noqa: BLE001 - MLflow problems must not fail a good model
             logger.warning("%s: MLflow logging failed (%s) — model trained but not tracked.", self.type, exc)
             return None, None

@@ -33,12 +33,19 @@ def load_model(uri: str) -> Any:
     safe = validate_model_uri(uri, settings.ml_artifact_path)
 
     if safe.startswith(("runs:/", "models:/")):
-        from app.ml.tracking import configure_mlflow
+        from app.ml.tracking import configure_mlflow, mlflow_tracking_lock
 
-        mlflow = configure_mlflow()
-        import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
+        # configure_mlflow() mutates process-global MLflow SDK state, and
+        # mlflow.sklearn.load_model() below reads it back implicitly (the
+        # fluent API, not an explicit-URI client) — both must be atomic
+        # relative to any other thread's configure-through-log critical
+        # section (see mlflow_tracking_lock's docstring), or this load could
+        # resolve `safe` against a URI a concurrent training run just set.
+        with mlflow_tracking_lock():
+            mlflow = configure_mlflow()
+            import mlflow.sklearn  # type: ignore[no-redef, unused-ignore]  # noqa: F811 - load the submodule onto the configured client
 
-        return mlflow.sklearn.load_model(safe)
+            return mlflow.sklearn.load_model(safe)
 
     validate_model_file_suffix(safe)
     suffix = Path(safe).suffix.lower()

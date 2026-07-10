@@ -23,10 +23,17 @@ def production_models_for_dataset(dataset_id: str, tracking_uri: str | None = No
     """Return ``"name/version"`` for each Production-aliased model trained on
     ``dataset_id``. Empty when none, or when MLflow is unavailable."""
     try:
-        from app.ml.tracking import configure_mlflow
+        from app.ml.tracking import configure_mlflow, mlflow_tracking_lock
 
-        mlflow = configure_mlflow(tracking_uri=tracking_uri)
-        client = mlflow.tracking.MlflowClient()
+        # configure_mlflow() mutates process-global MLflow SDK state, and the
+        # bare MlflowClient() below reads it back implicitly (no explicit
+        # tracking_uri) — locked so a concurrent training run's configure
+        # can't land between these two lines and construct this client
+        # against the wrong store. The client captures its store at
+        # construction, so nothing after this block needs the lock.
+        with mlflow_tracking_lock():
+            mlflow = configure_mlflow(tracking_uri=tracking_uri)
+            client = mlflow.tracking.MlflowClient()
     except Exception as exc:  # noqa: BLE001 - never block a delete on registry issues
         logger.warning("Production-dependency check skipped (MLflow unavailable: %s).", exc)
         return []
