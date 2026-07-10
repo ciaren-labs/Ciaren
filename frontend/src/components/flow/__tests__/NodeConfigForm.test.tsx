@@ -618,7 +618,7 @@ describe("NodeConfigForm", () => {
 
 describe("NodeConfigForm plugin nodes", () => {
   it("renders a schema-driven form for a plugin node with config_schema", async () => {
-    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/lib/nodeCatalog");
+    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/features/flows/editor/nodeCatalog");
     setRuntimeNodeDefs([
       ...NODE_TYPES,
       {
@@ -649,7 +649,7 @@ describe("NodeConfigForm plugin nodes", () => {
   });
 
   it("falls back to fields inferred from default_config without a schema", async () => {
-    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/lib/nodeCatalog");
+    const { setRuntimeNodeDefs, clearRuntimeNodeDefs, NODE_TYPES } = await import("@/features/flows/editor/nodeCatalog");
     setRuntimeNodeDefs([
       ...NODE_TYPES,
       {

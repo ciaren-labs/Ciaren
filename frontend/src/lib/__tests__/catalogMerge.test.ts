@@ -7,7 +7,7 @@ import {
   NODE_TYPES,
   setRuntimeNodeDefs,
   type NodeTypeDef,
-} from "../nodeCatalog";
+} from "@/features/flows/editor/nodeCatalog";
 import type { CatalogNode } from "@/features/flows/types";
 
 function spec(overrides: Partial<CatalogNode> = {}): CatalogNode {

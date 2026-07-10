@@ -1,11 +1,11 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { AlertCircle, Copy, Pencil, Trash2 } from "lucide-react";
-import { getNodeTypeDef, getOutputHandles } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, getOutputHandles } from "@/features/flows/editor/nodeCatalog";
 import {
   handleCompatibility,
   nodeHasNoCompatibleHandle,
   type HandleStatus,
-} from "@/lib/connectionRules";
+} from "@/features/flows/editor/connectionRules";
 import { getNodeIcon } from "@/lib/nodeVisuals";
 import { getNodeSummary } from "@/lib/nodeSummary";
 import { TRAIN_NODE_TASKS } from "@/lib/mlModels";

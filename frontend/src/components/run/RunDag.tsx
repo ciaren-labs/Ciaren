@@ -8,7 +8,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { RunDagNode, type RunDagNodeType } from "./RunDagNode";
-import { getNodeTypeDef, isModelOutputHandle } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, isModelOutputHandle } from "@/features/flows/editor/nodeCatalog";
 import type { GraphJson } from "@/features/flows/types";
 import type { NodeResult } from "@/features/runs/types";
 

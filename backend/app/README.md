@@ -96,8 +96,8 @@ for offline/first-paint. Do all of this so the two never diverge:
 4. **Catalog contract** — regenerate the catalog snapshot and reconcile the frontend
    fallback:
    - `CIAREN_UPDATE_NODE_CATALOG_SNAPSHOT=1 pytest tests/test_node_catalog_contract.py`
-   - update `frontend/src/lib/nodeCatalog.ts` until
-     `frontend/src/lib/__tests__/nodeCatalog.contract.test.ts` passes.
+   - update `frontend/src/features/flows/editor/nodeCatalog.ts` until
+     `frontend/src/features/flows/editor/__tests__/nodeCatalog.contract.test.ts` passes.
 5. **Docs** — document the node where user-facing node docs live.
 
 The catalog contract test fails if the backend metadata changes without the snapshot

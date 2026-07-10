@@ -8,7 +8,7 @@ import {
   isPluginNodeDef,
   paletteCategories,
   type NodeTypeDef,
-} from "@/lib/nodeCatalog";
+} from "@/features/flows/editor/nodeCatalog";
 import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
 import { getCategoryIcon, getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";

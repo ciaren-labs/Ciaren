@@ -5,7 +5,7 @@ import { Dataset } from "@/features/datasets/types";
 import { getConfigSchema } from "@/lib/validators";
 import { Field } from "./configFields";
 import { useConnections, useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
-import { getNodeTypeDef } from "@/lib/nodeCatalog";
+import { getNodeTypeDef } from "@/features/flows/editor/nodeCatalog";
 import { SchemaConfigFields, fieldsFromDefaults } from "./SchemaConfigFields";
 import { renderChartConfig } from "./config/charts";
 import { renderCleaningConfig } from "./config/cleaning";

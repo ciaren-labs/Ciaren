@@ -10,7 +10,7 @@ import {
   isModelInputHandle,
   isModelOutputHandle,
 } from "./nodeCatalog";
-import { getConfigSchema } from "./validators";
+import { getConfigSchema } from "@/lib/validators";
 import {
   FILE_INPUT_FORMAT_TO_SOURCE,
   INPUT_SOURCE_TYPE,

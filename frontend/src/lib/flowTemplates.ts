@@ -4,8 +4,8 @@
 // Distinct from the backend's ML demo/seed flows (app/demo/flows.py), which
 // are pre-loaded example runs rather than creation-time starting points.
 import { Columns3, Filter, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
-import { getNodeTypeDef } from "./nodeCatalog";
-import { createFlowNode } from "./createNode";
+import { getNodeTypeDef } from "@/features/flows/editor/nodeCatalog";
+import { createFlowNode } from "@/features/flows/editor/createNode";
 import type { GraphEdge, GraphJson, GraphNode } from "@/features/flows/types";
 
 export interface FlowTemplate {

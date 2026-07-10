@@ -10,7 +10,7 @@
 // metadata legitimately changed).
 
 import { describe, expect, it } from "vitest";
-import { nodeSpecToDef } from "../catalogMerge";
+import { nodeSpecToDef } from "@/lib/catalogMerge";
 import { NODE_TYPE_MAP, type NodeTypeDef } from "../nodeCatalog";
 import type { CatalogNode } from "@/features/flows/types";
 import backendSpecs from "./backendNodeCatalog.snapshot.json";

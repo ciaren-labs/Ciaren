@@ -67,7 +67,7 @@ import {
   Ungroup,
   type LucideIcon,
 } from "lucide-react";
-import type { NodeCategory } from "./nodeCatalog";
+import type { NodeCategory } from "@/features/flows/editor/nodeCatalog";
 
 export const NODE_ICONS: Record<string, LucideIcon> = {
   fileInput: FileText,

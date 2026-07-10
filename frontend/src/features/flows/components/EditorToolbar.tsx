@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { KeyboardShortcutsHelp } from "@/components/flow/KeyboardShortcutsHelp";
 import { ValidationSummary } from "@/components/flow/ValidationSummary";
-import type { FlowValidation } from "@/lib/flowValidation";
+import type { FlowValidation } from "@/features/flows/editor/flowValidation";
 import { GatedButton } from "./GatedButton";
 
 export function EditorToolbar({

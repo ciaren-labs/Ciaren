@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EditorToolbar } from "../components/EditorToolbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { FlowValidation } from "@/lib/flowValidation";
+import type { FlowValidation } from "@/features/flows/editor/flowValidation";
 
 const READY_VALIDATION: FlowValidation = {
   issues: [],

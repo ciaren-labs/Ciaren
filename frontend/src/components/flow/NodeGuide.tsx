@@ -1,5 +1,5 @@
 import { Lightbulb } from "lucide-react";
-import { getNodeDoc } from "@/lib/nodeDocs";
+import { getNodeDoc } from "@/features/flows/editor/nodeDocs";
 
 /** Renders the "Guide" tab content for a node: what it does, its fields,
  *  an example, and tips. Falls back gracefully when a type has no doc. */

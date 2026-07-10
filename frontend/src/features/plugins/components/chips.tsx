@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { getCategoryLabel } from "@/lib/nodeCatalog";
+import { getCategoryLabel } from "@/features/flows/editor/nodeCatalog";
 import { getCategoryTheme } from "@/lib/nodeVisuals";
 
 /** Shows the node types a plugin contributes and where they land in the palette.

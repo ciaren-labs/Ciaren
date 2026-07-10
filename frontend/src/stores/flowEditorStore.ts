@@ -10,8 +10,8 @@ import type {
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import type { GraphNodeData } from "@/features/flows/types";
 import type { ParameterSpec } from "@/lib/types/shared";
-import type { PendingConnection } from "@/lib/connectionRules";
-import { cloneSelection } from "@/lib/flowGraph";
+import type { PendingConnection } from "@/features/flows/editor/connectionRules";
+import { cloneSelection } from "@/features/flows/editor/flowGraph";
 
 export type FlowNodeType = Node<GraphNodeData>;
 export type FlowEdgeType = Edge;

@@ -1,6 +1,6 @@
 import type { NodeTypes } from "@xyflow/react";
 import { FlowNode } from "./FlowNode";
-import { NODE_TYPES } from "@/lib/nodeCatalog";
+import { NODE_TYPES } from "@/features/flows/editor/nodeCatalog";
 
 // Every node — built-in or plugin-contributed — renders with the shared FlowNode
 // renderer. Plugin node types aren't known at build time (they come from the

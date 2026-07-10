@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { catalogApi } from "@/features/flows/api";
 import { mergeNodeCatalog } from "@/lib/catalogMerge";
-import { NODE_TYPES, setRuntimeNodeDefs, type NodeTypeDef } from "@/lib/nodeCatalog";
+import { NODE_TYPES, setRuntimeNodeDefs, type NodeTypeDef } from "@/features/flows/editor/nodeCatalog";
 
 /**
  * The node catalog the editor renders, sourced from the backend

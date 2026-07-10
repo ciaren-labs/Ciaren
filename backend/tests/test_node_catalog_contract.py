@@ -1,12 +1,12 @@
 """Node-catalog contract: the backend is the single source of truth for node
 metadata (label, category, handles, default config), and the frontend keeps a static
-fallback in ``frontend/src/lib/nodeCatalog.ts`` for offline/first-paint.
+fallback in ``frontend/src/features/flows/editor/nodeCatalog.ts`` for offline/first-paint.
 
 This snapshots the built-in (``ciaren.core``) catalog so:
   * a backend metadata change (relabel, recategorize, handle/default change, add/remove
     node) shows up as a reviewable diff instead of silently diverging from the frontend;
   * the committed JSON is the fixture a frontend contract test compares its static
-    fallback against (see frontend/src/lib/__tests__/nodeCatalog.contract.test.ts).
+    fallback against (see frontend/src/features/flows/editor/__tests__/nodeCatalog.contract.test.ts).
 
 Regenerate after an intentional change:
 
@@ -25,7 +25,14 @@ from app.plugins import ensure_plugins_loaded, get_registry
 # The snapshot lives under the frontend so its contract test can import it directly;
 # this backend test owns generating and guarding it.
 _SNAPSHOT = (
-    Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "__tests__" / "backendNodeCatalog.snapshot.json"
+    Path(__file__).resolve().parents[2]
+    / "frontend"
+    / "src"
+    / "features"
+    / "flows"
+    / "editor"
+    / "__tests__"
+    / "backendNodeCatalog.snapshot.json"
 )
 
 
@@ -58,7 +65,7 @@ def test_core_node_catalog_snapshot_matches() -> None:
     changed = [c["id"] for c, e in zip(current, expected, strict=True) if c != e]
     assert not changed, (
         f"core node metadata changed for {changed}. Regenerate the snapshot "
-        "(CIAREN_UPDATE_NODE_CATALOG_SNAPSHOT=1) and reconcile frontend/src/lib/nodeCatalog.ts."
+        "(CIAREN_UPDATE_NODE_CATALOG_SNAPSHOT=1) and reconcile frontend/src/features/flows/editor/nodeCatalog.ts."
     )
 
 

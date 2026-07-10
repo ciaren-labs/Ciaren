@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
-import type { FlowValidation } from "@/lib/flowValidation";
+import type { FlowValidation } from "@/features/flows/editor/flowValidation";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,

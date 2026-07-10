@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Presentational metadata for the built-in node catalog.
 
-This used to live only in the frontend (``frontend/src/lib/nodeCatalog.ts``).
+This used to live only in the frontend (``frontend/src/features/flows/editor/nodeCatalog.ts``).
 Moving the label / category / default-config / description here makes the backend
 the source of truth so it can serve a complete node catalog
 (``GET /api/catalog/nodes``) — the frontend then renders what the backend (plus

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FLOW_TEMPLATES, buildTemplateGraph } from "../flowTemplates";
-import { getNodeTypeDef } from "../nodeCatalog";
+import { getNodeTypeDef } from "@/features/flows/editor/nodeCatalog";
 
 describe("flowTemplates", () => {
   it.each(FLOW_TEMPLATES)("$id builds a valid, linearly-wired graph", (template) => {

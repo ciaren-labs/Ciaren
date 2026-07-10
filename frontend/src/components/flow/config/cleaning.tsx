@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { EXPRESSION_TEMPLATES } from "@/lib/nodeDocs";
+import { EXPRESSION_TEMPLATES } from "@/features/flows/editor/nodeDocs";
 import {
   dtypes,
   fillStrategies,

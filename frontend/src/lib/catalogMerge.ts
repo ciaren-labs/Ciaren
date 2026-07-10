@@ -4,7 +4,7 @@
 // once loaded. Core nodes keep their static ordering; plugin-only nodes are
 // appended. Pure functions — no I/O — so they are easy to unit test.
 
-import { type NodeCategory, type NodeTypeDef } from "./nodeCatalog";
+import { type NodeCategory, type NodeTypeDef } from "@/features/flows/editor/nodeCatalog";
 import type { CatalogNode, CatalogPort } from "@/features/flows/types";
 
 function toCategory(category: string): NodeCategory {

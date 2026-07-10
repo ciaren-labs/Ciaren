@@ -26,14 +26,14 @@ import { NODE_DND_MIME } from "./NodePalette";
 import { clampNodeContextMenuPosition } from "@/lib/nodeContextMenuPosition";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import type { FlowEdgeType, FlowNodeType } from "@/stores/flowEditorStore";
-import { getNodeTypeDef, getOutputHandles, isModelOutputHandle } from "@/lib/nodeCatalog";
+import { getNodeTypeDef, getOutputHandles, isModelOutputHandle } from "@/features/flows/editor/nodeCatalog";
 import {
   buildEdgeId,
   isCompatibleConnection,
   isDuplicateEdge,
-} from "@/lib/connectionRules";
-import { cloneSelection, hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/lib/flowGraph";
-import { createFlowNode } from "@/lib/createNode";
+} from "@/features/flows/editor/connectionRules";
+import { cloneSelection, hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/features/flows/editor/flowGraph";
+import { createFlowNode } from "@/features/flows/editor/createNode";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
 import { cn } from "@/lib/utils";
 

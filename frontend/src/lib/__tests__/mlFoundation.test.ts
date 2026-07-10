@@ -4,9 +4,9 @@ import {
   NODE_TYPE_MAP,
   getNodeTypeDef,
   getOutputHandles,
-} from "../nodeCatalog";
-import { computeNodeColumns, type GraphEdgeLike, type GraphNodeLike } from "../flowGraph";
-import { validateFlow } from "../flowValidation";
+} from "@/features/flows/editor/nodeCatalog";
+import { computeNodeColumns, type GraphEdgeLike, type GraphNodeLike } from "@/features/flows/editor/flowGraph";
+import { validateFlow } from "@/features/flows/editor/flowValidation";
 import {
   ML_MODELS,
   getModelDef,

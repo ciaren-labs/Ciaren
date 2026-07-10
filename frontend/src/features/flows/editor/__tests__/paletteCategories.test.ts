@@ -5,7 +5,7 @@ import {
   paletteCategories,
   type NodeTypeDef,
 } from "../nodeCatalog";
-import { getCategoryIcon, getCategoryTheme } from "../nodeVisuals";
+import { getCategoryIcon, getCategoryTheme } from "@/lib/nodeVisuals";
 
 function def(type: string, category: string): NodeTypeDef {
   return {
