@@ -160,8 +160,8 @@ either mode. `process` pays off in specific server scenarios, not in general.
 | --- | --- | --- |
 | Parallelism **between** concurrent runs | GIL-serialized for pandas-heavy work | true multi-core across runs |
 | Parallelism **within** one run | full (polars is multi-core internally) | same |
-| Cancelling a run | cooperative and precise | coarse: recycles the whole pool, and is **refused** while other runs share it |
-| `RUN_TIMEOUT_SECONDS` | run is abandoned but its thread finishes — CPU stays busy | worker recycled — CPU actually reclaimed |
+| Cancelling a run | cooperative and precise | instant (no pool recycle) while the run is still queued or materializing its inputs; once it's actually executing in a worker, cancelling is coarse — recycles the whole pool, and is **refused** while other runs share it |
+| `RUN_TIMEOUT_SECONDS` | run is abandoned but its thread finishes — CPU stays busy | worker recycled — CPU reclaimed once this is the _last_ active run; a timeout while others are still running defers the recycle until they finish, so one hung run can't abort its neighbors |
 | A run segfaults or exhausts memory | can take down the whole server | only the worker dies; the API stays up |
 | Plugin **node-level** hooks | fire | don't fire (graph-level hooks only) |
 | Startup cost per worker | none | spawn re-imports the app — noticeably slower first run, especially on Windows |
@@ -193,8 +193,14 @@ Stay on **`thread`** when:
 - `SCHEDULER_MAX_CONCURRENT_RUNS` also sizes the process pool, and the pool is
   created once — that setting needs a restart to fully apply.
 - **`CIAREN_RUN_TIMEOUT_SECONDS`** (`0` = no limit) abandons an over-running
-  run in both modes; only `process` mode gets the CPU back immediately (the
-  worker is recycled). Pair a timeout with `process` on unattended servers.
+  run in both modes; `process` mode gets the CPU back (the pool is recycled)
+  as soon as no other run still shares it — immediately if this was the only
+  one, otherwise once the others finish. Pair a timeout with `process` on
+  unattended servers.
+- A permission revocation or plugin disable/uninstall reaches already-spawned
+  `process` workers on their **next** task, not only after the pool is
+  recycled — each submitted task carries the current plugin-state generation,
+  and a worker behind it re-syncs before executing.
 
 ```bash
 # a shared box running scheduled jobs: isolation + a 5-minute cap per run

@@ -97,6 +97,11 @@ For **drop-in** plugins (those discovered from a plugin directory with a
 - You approve via the API or UI; the registry rebuilds and the plugin loads live.
 - Revoking a required permission sends it back to pending (its code stops loading).
 - Any plugin can be disabled; a disabled plugin is never loaded.
+- In `process` [execution mode](/guide/advanced-setup#execution-tuning),
+  already-spawned workers pick up a revocation on their **next** task, not
+  only once the pool is recycled — each submitted task carries the current
+  permission generation, and a worker behind it re-reads the saved state and
+  rebuilds its registry before running anything.
 
 Entry-point packages (ones you deliberately `pip install`) load without this gate —
 installing the package was the consent step.

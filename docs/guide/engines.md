@@ -173,7 +173,9 @@ plugin-hook trade-offs — is in
 
 `RUN_TIMEOUT_SECONDS` (default `0` = no limit) abandons a run that overruns:
 
-- in **`process`** mode, the worker process is recycled to reclaim the CPU;
+- in **`process`** mode, the worker process is recycled to reclaim the CPU —
+  immediately if no other run shares the pool, otherwise deferred until they
+  finish, so one hung run can't abort its neighbors;
 - in **`thread`** mode, the run is abandoned (the thread itself finishes).
 
 ```bash

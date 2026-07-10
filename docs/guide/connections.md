@@ -98,12 +98,16 @@ code-shaped characters stays an inert string argument rather than breaking out
 of the generated script. Driver options can't override the connection's host/port
 (so the SSRF guard can't be bypassed through `options`), table/schema
 identifiers are validated, and any secret is scrubbed from driver error
-messages. REST API connections refuse the well-known credential headers
-(`Authorization`, `Cookie`, `X-API-Key`, …) as custom headers — the secret must
+messages — including its percent-encoded form, so a key containing `+ / = &`
+or spaces can't be read back out of a URL embedded in an error. REST API
+connections refuse the well-known credential headers (`Authorization`,
+`Cookie`, `X-API-Key`, …) as custom headers, and refuse credential-looking
+query parameter names (`api_key`, `token`, `client_secret`, …) in both the
+default query params and an endpoint's own query string — the secret must
 come from the authentication settings and its env var, so it is never stored.
-This check is best-effort: a credential under an unconventional header name or
-in a default query param would still be stored in plain text, so keep secrets
-in the authentication settings.
+This check is best-effort: a credential under an unconventional header or
+query-param name would still be stored in plain text, so keep secrets in the
+authentication settings.
 
 Two rules govern **which** env vars an `env:` (or bare) reference may name:
 
@@ -206,7 +210,7 @@ offer:
 | Option | What it does |
 | --- | --- |
 | **Base URL** | Every endpoint path is resolved against it. |
-| **Authentication** | None, **API key header** (configurable header name), **Bearer token**, or **HTTP Basic**. The secret always comes from an env var — never stored. |
+| **Authentication** | None, **API key header** (configurable header name), **API key query parameter** (configurable param name, default `api_key`), **Bearer token**, or **HTTP Basic**. The secret always comes from an env var — never stored, and (for the query-parameter style) always overrides any same-named duplicate left in the endpoint path or default query params. |
 | **Endpoints** | Relative paths declared on the connection; each appears as a *table* in SQL Input. |
 | **Custom headers / default query params** | Applied to every request (tenant headers, API versions, fixed filters). |
 | **Response format & records path** | Auto/JSON/CSV, plus a dot path (e.g. `data.items`) for APIs that wrap their rows. |

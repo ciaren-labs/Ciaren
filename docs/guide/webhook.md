@@ -92,6 +92,23 @@ curl -X POST http://localhost:8055/api/flows/FLOW_ID/trigger \
 | `engine` | `"polars"` \| `"pandas"` | Engine override for this run |
 | `parameters` | object | [Flow-parameter](/guide/parameters) overrides (`name → value`) |
 
+## Avoiding duplicate runs on retry
+
+A client that retries a request it isn't sure landed (a timeout, a dropped
+connection) risks starting the same run twice. Pass an `Idempotency-Key`
+header with a value unique to that logical trigger (e.g. the CI job's run id):
+
+```bash
+curl -X POST http://localhost:8055/api/flows/FLOW_ID/trigger \
+  -H "X-Ciaren-Secret: my-strong-secret-here" \
+  -H "Idempotency-Key: ci-run-482910" \
+  -H "Content-Type: application/json"
+```
+
+A second request with the same key (for the same flow) returns the **original**
+run instead of starting a new one — safe to retry as many times as needed. A
+different flow, or a request with no key at all, always starts a fresh run.
+
 ## Error responses
 
 | Status | Reason |
