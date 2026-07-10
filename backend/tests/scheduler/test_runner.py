@@ -270,6 +270,37 @@ async def test_failure_retries_with_backoff_then_falls_back_to_cron(engine: Asyn
         assert schedule.is_enabled is True
 
 
+async def test_execute_hard_cancel_is_not_a_schedule_failure(engine: AsyncEngine, monkeypatch) -> None:
+    """A shutdown hard-cancel mid-fire must not count toward retries or
+    auto-disable, and the schedule must advance to its next cron slot."""
+    import asyncio
+
+    factory = _factory(engine)
+    sid = await _make_schedule(factory, cron="* * * * *", is_enabled=True, consecutive_failures=4)
+
+    async def _cancelled(self, *args, **kwargs):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr("app.services.execution_service.ExecutionService.run", _cancelled)
+    runner = SchedulerRunner(factory, get_settings())
+
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        with pytest.raises(asyncio.CancelledError):  # cancellation still propagates
+            await runner._execute(db, schedule)
+
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        assert schedule.last_status == "cancelled"
+        assert schedule.consecutive_failures == 4  # unchanged — not a failure
+        assert schedule.is_enabled is True  # never auto-disabled by shutdown
+        assert schedule.disabled_reason is None
+        assert schedule.next_run_at is not None
+        assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
+
+
 async def test_tick_skips_in_flight_schedule(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)

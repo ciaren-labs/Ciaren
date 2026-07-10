@@ -175,6 +175,14 @@ class SchedulerRunner:
                 trigger="schedule",
             )
             status, run_id = run.status, run.id
+        except asyncio.CancelledError:
+            # Shutdown hard-cancelled this fire (grace period expired). The run
+            # row was already finalized by ExecutionService.run's own
+            # CancelledError handler; record the fire as cancelled so it is not
+            # counted toward retries/auto-disable, and let the cancellation
+            # propagate (the finally still persists the schedule bookkeeping).
+            status = "cancelled"
+            raise
         except Exception:  # noqa: BLE001 - record on the schedule, then re-raise nothing
             logger.exception("Run failed for schedule %s (flow %s)", schedule.id, schedule.flow_id)
         finally:

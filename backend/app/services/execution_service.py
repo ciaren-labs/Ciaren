@@ -123,6 +123,10 @@ class ExecutionService:
         # can always consult it, and so a cancel arriving during input
         # materialization is honored rather than racing the registration.
         cancel_event = register_run(run.id)
+        # Initialized before the try: the exception handlers consult it, and a
+        # failure during input materialization (before the compute is even
+        # submitted) must not turn into a NameError inside the handler.
+        compute_finished = False
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, graph)
@@ -198,7 +202,6 @@ class ExecutionService:
 
             # to_thread copies this context into the worker thread (thread mode);
             # process mode re-establishes it from ctx_data inside the worker.
-            compute_finished = False
             with run_context(flow_id=flow_id, run_id=run.id, dataset_ids=dataset_ids, tracking_uri=tracking_uri):
                 if timeout > 0:
                     result = await asyncio.wait_for(compute, timeout=timeout)
@@ -330,6 +333,26 @@ class ExecutionService:
                 run.status = "failed"
                 run.error_message = f"Run exceeded the {timeout}s time limit and was abandoned."
                 run.logs_json = [{"level": "error", "message": run.error_message}]
+        except asyncio.CancelledError:
+            # The surrounding task was hard-cancelled: the scheduler's shutdown
+            # grace expired, or the server is stopping mid-request. `except
+            # Exception` doesn't catch this (CancelledError is a BaseException),
+            # so without this branch the finally below would commit the row
+            # still status="running" — stuck there until the next boot's orphan
+            # recovery, or forever if the scheduler is stopped and restarted
+            # without a process restart. Finalize honestly, then re-raise so
+            # cancellation still propagates (the finally commits first).
+            if cancel_event.is_set() and not compute_finished:
+                # Shutdown asked in-flight runs to stop (request_cancel_all) or
+                # the user cancelled just before: a deliberate stop.
+                run.status = "cancelled"
+                run.error_message = "Run stopped by server shutdown."
+                run.logs_json = [{"level": "info", "message": run.error_message}]
+            else:
+                run.status = "failed"
+                run.error_message = "Run was interrupted before it finished."
+                run.logs_json = [{"level": "error", "message": run.error_message}]
+            raise
         except Exception as exc:  # noqa: BLE001 - capture any failure on the run record
             if cancel_event.is_set() and not compute_finished:
                 # Process-mode cancel recycles the pool under the worker; the
