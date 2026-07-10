@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NodeChange } from "@xyflow/react";
 import { useFlowEditorStore, type FlowNodeType } from "../flowEditorStore";
 
@@ -317,5 +317,163 @@ describe("flowEditorStore dirty state", () => {
     onNodesChange(dragChanges);
 
     expect(useFlowEditorStore.getState().dirty).toBe(true);
+  });
+});
+
+describe("flowEditorStore pasteSelection", () => {
+  it("appends the pasted nodes/edges, deselects the originals, and is one undo step", () => {
+    const { setGraph, pasteSelection, undo } = useFlowEditorStore.getState();
+    setGraph(
+      [{ ...node("a"), selected: true }, { ...node("b"), selected: true }],
+      [{ id: "e1", source: "a", target: "b" }],
+    );
+
+    const pastedA = { ...node("a2"), selected: true };
+    const pastedB = { ...node("b2"), selected: true };
+    pasteSelection([pastedA, pastedB], [{ id: "e2", source: "a2", target: "b2" }]);
+
+    const { nodes, edges, past, dirty } = useFlowEditorStore.getState();
+    expect(nodes).toHaveLength(4);
+    expect(edges).toHaveLength(2);
+    // Originals are deselected so the pasted copy becomes the active selection.
+    expect(nodes.find((n) => n.id === "a")!.selected).toBe(false);
+    expect(nodes.find((n) => n.id === "b")!.selected).toBe(false);
+    expect(nodes.find((n) => n.id === "a2")!.selected).toBe(true);
+    expect(dirty).toBe(true);
+    expect(past).toHaveLength(1);
+
+    undo();
+    const after = useFlowEditorStore.getState();
+    expect(after.nodes).toHaveLength(2);
+    expect(after.edges).toHaveLength(1);
+  });
+
+  it("pasting an empty selection is still a no-op-shaped call (no nodes added) but still checkpoints", () => {
+    // Guards against a stale/empty clipboard producing a corrupt undo entry:
+    // the graph must come back unchanged, not lose the original nodes.
+    const { setGraph, pasteSelection } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+
+    pasteSelection([], []);
+
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes[0].id).toBe("a");
+    expect(useFlowEditorStore.getState().past).toHaveLength(1);
+  });
+});
+
+describe("flowEditorStore patchMultipleNodeConfigs", () => {
+  it("patches only the nodes named in the patch map, in a single undo step", () => {
+    const { setGraph, patchMultipleNodeConfigs, undo } = useFlowEditorStore.getState();
+    setGraph(
+      [node("a", { x: 1 }), node("b", { x: 2 }), node("c", { x: 3 })],
+      [],
+    );
+
+    patchMultipleNodeConfigs({ a: { x: 10 }, c: { x: 30 } });
+
+    const { nodes, past } = useFlowEditorStore.getState();
+    expect(nodes.find((n) => n.id === "a")!.data.config).toEqual({ x: 10 });
+    expect(nodes.find((n) => n.id === "b")!.data.config).toEqual({ x: 2 });
+    expect(nodes.find((n) => n.id === "c")!.data.config).toEqual({ x: 30 });
+    expect(past).toHaveLength(1);
+
+    undo();
+    const after = useFlowEditorStore.getState();
+    expect(after.nodes.find((n) => n.id === "a")!.data.config).toEqual({ x: 1 });
+    expect(after.nodes.find((n) => n.id === "c")!.data.config).toEqual({ x: 3 });
+  });
+
+  it("replaces a node's config wholesale rather than merging the patch", () => {
+    const { setGraph, patchMultipleNodeConfigs } = useFlowEditorStore.getState();
+    setGraph([node("a", { x: 1, y: 2, label: "kept?" })], []);
+
+    // A patch that omits `y`/`label` must drop them, not merge over them —
+    // config forms send the full replacement config on every save.
+    patchMultipleNodeConfigs({ a: { x: 99 } });
+
+    expect(useFlowEditorStore.getState().nodes[0].data.config).toEqual({ x: 99 });
+  });
+});
+
+describe("flowEditorStore history-stack cap", () => {
+  // Each checkpoint key embeds Date.now(), so two calls landing in the same
+  // millisecond (routine in a tight synchronous loop) would otherwise
+  // coalesce into one step, same as real edits within the 700ms window.
+  // Fake timers space every addNode out past COALESCE_WINDOW_MS so each one
+  // is guaranteed its own undo entry, matching how a long real editing
+  // session actually accumulates history.
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("caps the undo stack at HISTORY_LIMIT (50), dropping the oldest entries", () => {
+    const { setGraph, addNode } = useFlowEditorStore.getState();
+    setGraph([], []);
+
+    for (let i = 0; i < 60; i++) {
+      addNode(node(`n${i}`));
+      vi.advanceTimersByTime(1000);
+    }
+
+    expect(useFlowEditorStore.getState().past).toHaveLength(50);
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(60);
+  });
+
+  it("caps the redo stack at HISTORY_LIMIT too", () => {
+    const { setGraph, addNode, undo } = useFlowEditorStore.getState();
+    setGraph([], []);
+
+    for (let i = 0; i < 60; i++) {
+      addNode(node(`n${i}`));
+      vi.advanceTimersByTime(1000);
+    }
+    for (let i = 0; i < 60; i++) {
+      undo();
+    }
+
+    // 60 adds cap `past` at 50; 50 undos drain it to empty while filling
+    // `future` to exactly 50, then 10 more undos are no-ops on an empty
+    // `past` — future must stay capped at 50, not keep growing.
+    expect(useFlowEditorStore.getState().future).toHaveLength(50);
+  });
+});
+
+describe("flowEditorStore undo/redo interaction with coalescing", () => {
+  it("does not let an edit after undo coalesce with the pre-undo edit group", () => {
+    // Regression guard: undo() resets historyGroupKey/historyGroupAt. Without
+    // that reset, typing in the same field right after an undo could silently
+    // merge into the (now-discarded) pre-undo group instead of starting a
+    // fresh, independently-undoable step.
+    const { setGraph, updateNodeConfig, undo } = useFlowEditorStore.getState();
+    setGraph([node("a", { value: "" })], []);
+
+    updateNodeConfig("a", { value: "first" });
+    expect(useFlowEditorStore.getState().past).toHaveLength(1);
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes[0].data.config.value).toBe("");
+    expect(useFlowEditorStore.getState().past).toHaveLength(0);
+
+    updateNodeConfig("a", { value: "second" });
+    expect(useFlowEditorStore.getState().past).toHaveLength(1);
+    expect(useFlowEditorStore.getState().nodes[0].data.config.value).toBe("second");
+
+    undo();
+    expect(useFlowEditorStore.getState().nodes[0].data.config.value).toBe("");
+  });
+
+  it("clears selectedNodeId on both undo and redo", () => {
+    const { setGraph, addNode, selectNode, undo, redo } = useFlowEditorStore.getState();
+    setGraph([node("a")], []);
+    addNode(node("b"));
+    selectNode("b");
+    expect(useFlowEditorStore.getState().selectedNodeId).toBe("b");
+
+    undo();
+    expect(useFlowEditorStore.getState().selectedNodeId).toBeNull();
+
+    selectNode("a");
+    redo();
+    expect(useFlowEditorStore.getState().selectedNodeId).toBeNull();
   });
 });
