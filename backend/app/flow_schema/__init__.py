@@ -7,7 +7,9 @@ engine or FastAPI so external tooling can validate flow files.
 from app.flow_schema.document import (
     CURRENT_SCHEMA_VERSION,
     LEGACY_FORMAT,
+    FlowEdge,
     FlowGraph,
+    FlowNode,
     FlowProject,
     FlowRequirements,
     FlowSchemaDocument,
@@ -36,6 +38,8 @@ __all__ = [
     "FlowSchemaDocument",
     "FlowProject",
     "FlowGraph",
+    "FlowNode",
+    "FlowEdge",
     "FlowRequirements",
     "PluginRequirement",
     "validate",

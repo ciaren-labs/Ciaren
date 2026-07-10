@@ -57,27 +57,11 @@ def validate_document(data: dict[str, Any]) -> FlowSchemaDocument:
 def graph_structure_issues(graph: FlowGraph) -> list[str]:
     """Structural problems with the graph (independent of node semantics): missing
     ids/types, duplicate node ids, and edges referencing unknown nodes. Returns a
-    list of human-readable issues (empty when the graph is structurally sound)."""
-    issues: list[str] = []
-    ids: set[str] = set()
-    for i, node in enumerate(graph.nodes):
-        node_id = node.get("id")
-        if not node_id:
-            issues.append(f"node[{i}] is missing an 'id'")
-            continue
-        if node_id in ids:
-            issues.append(f"duplicate node id {node_id!r}")
-        ids.add(node_id)
-        if not node.get("type"):
-            issues.append(f"node {node_id!r} is missing a 'type'")
-    for i, edge in enumerate(graph.edges):
-        for end in ("source", "target"):
-            ref = edge.get(end)
-            if not ref:
-                issues.append(f"edge[{i}] is missing '{end}'")
-            elif ref not in ids:
-                issues.append(f"edge[{i}] {end} {ref!r} references an unknown node")
-    return issues
+    list of human-readable issues (empty when the graph is structurally sound).
+
+    Thin wrapper over the canonical :meth:`FlowGraph.structural_issues` so there is
+    a single structural-validation implementation."""
+    return graph.structural_issues()
 
 
 def validate(data: dict[str, Any]) -> FlowSchemaDocument:
@@ -92,12 +76,7 @@ def validate(data: dict[str, Any]) -> FlowSchemaDocument:
 def missing_node_types(document: FlowSchemaDocument, available_types: set[str]) -> list[str]:
     """Node types used by the graph that the host does not provide — the basis for
     a "this project requires plugin X" message. Order-stable, de-duplicated."""
-    seen: list[str] = []
-    for node in document.graph.nodes:
-        node_type = node.get("type")
-        if node_type and node_type not in available_types and node_type not in seen:
-            seen.append(node_type)
-    return seen
+    return [t for t in document.graph.node_types() if t not in available_types]
 
 
 def from_legacy_document(doc: dict[str, Any]) -> FlowSchemaDocument:
