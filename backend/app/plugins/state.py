@@ -61,6 +61,12 @@ class PluginStateEntry(BaseModel):
     #: trust-on-first-use pin. A reinstall under a different key means a different
     #: publisher now controls this plugin id, so approval must not carry over.
     key_id: str = ""
+    #: The package digest recorded at install ("" for source/dev installs, which
+    #: aren't packaged). The loader recomputes the installed directory's digest at
+    #: startup and refuses to import the plugin if they differ — catching files
+    #: edited on disk after install (e.g. a manifest hand-edited to strip
+    #: ``license_required``). See :func:`app.plugins.package.compute_directory_digest`.
+    digest: str = ""
 
 
 def default_state_path() -> Path:
@@ -142,6 +148,13 @@ class PluginStateStore:
         entry = self._entries.get(plugin_id)
         return entry.signature if entry else ""
 
+    def recorded_digest(self, plugin_id: str) -> str:
+        """The package digest recorded at install, or "" when none was recorded
+        (a source/dev install, or state written before digest pinning). "" means
+        "nothing to verify against" — the loader skips tamper detection then."""
+        entry = self._entries.get(plugin_id)
+        return entry.digest if entry else ""
+
     def missing_permissions(self, plugin_id: str, required: Iterable[Permission]) -> list[Permission]:
         granted = self.granted(plugin_id)
         return [p for p in required if p not in granted]
@@ -175,6 +188,15 @@ class PluginStateStore:
         if entry.signature != outcome or entry.key_id != key_id:
             entry.signature = outcome
             entry.key_id = key_id
+            self._dirty = True
+
+    def set_digest(self, plugin_id: str, digest: str) -> None:
+        """Pin the package digest recorded at install (the baseline the loader
+        re-checks the installed files against). Cleared to "" for source/dev
+        installs, which have no packaged digest to pin."""
+        entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
+        if entry.digest != digest:
+            entry.digest = digest
             self._dirty = True
 
     def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -26,6 +25,7 @@ from app.connectors.storage_base import StorageConnector
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.secrets import (
     delete_keyring_secret,
+    ensure_no_plaintext_credentials,
     ensure_permitted_secret_ref,
     keyring_availability,
     keyring_secret_exists,
@@ -56,85 +56,6 @@ from app.schemas.connection import (
     KeyringSecretWrite,
     TableInfo,
 )
-
-# Header / query-parameter names whose value is (or carries) a credential. A
-# REST API connection must take its secret from its secret reference
-# (auth_style: api_key / bearer / basic / query_param), never from a static
-# header or a stored query param — those are persisted in plain text in the
-# database, echoed back in every API response, and (for query params) written
-# into request URLs that end up in error messages and server logs. Best-effort
-# defense in depth, not a guarantee: unconventional names still pass — the real
-# control is the never-stored secret-reference model.
-_SECRET_HEADER_NAMES = frozenset({"authorization", "proxy-authorization", "cookie", "x-api-key"})
-_SECRET_QUERY_PARAM_NAMES = frozenset(
-    {
-        "api_key",
-        "api-key",
-        "apikey",
-        "api_token",
-        "apitoken",
-        "access_token",
-        "auth",
-        "auth_token",
-        "authorization",
-        "bearer",
-        "client_secret",
-        "key",
-        "password",
-        "private_token",
-        "secret",
-        "sig",
-        "signature",
-        "token",
-    }
-)
-
-
-def _mapping_option(options: dict[str, Any] | None, key: str) -> dict[str, Any]:
-    raw = (options or {}).get(key) or {}
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw) if raw.strip() else {}
-        except ValueError:
-            return {}  # malformed JSON gets the connector's own, clearer error
-    return raw if isinstance(raw, dict) else {}
-
-
-def _reject_secret_headers(options: dict[str, Any] | None) -> None:
-    for header in _mapping_option(options, "headers"):
-        if str(header).strip().lower() in _SECRET_HEADER_NAMES:
-            raise ValidationError(
-                f"Custom header '{header}' would store a credential in plain text. "
-                "Use the connection's authentication settings instead — the secret "
-                "then comes from an environment variable and is never stored."
-            )
-
-
-def _reject_secret_query_params(options: dict[str, Any] | None) -> None:
-    import urllib.parse
-
-    def _refuse(param: str, where: str) -> None:
-        raise ValidationError(
-            f"Query parameter '{param}' in {where} would store a credential in plain "
-            "text (and leak it into request URLs and error messages). Use auth_style "
-            "'query_param' with api_key_param instead — the secret then comes "
-            "from the connection's secret reference and is never stored."
-        )
-
-    for param in _mapping_option(options, "query_params"):
-        if str(param).strip().lower() in _SECRET_QUERY_PARAM_NAMES:
-            _refuse(str(param), "query_params")
-    # Endpoints may carry their own query strings ("users?api_key=..."), which
-    # are persisted and echoed exactly like query_params — check them too.
-    raw_endpoints = (options or {}).get("endpoints") or []
-    if isinstance(raw_endpoints, str):
-        raw_endpoints = raw_endpoints.split(",")
-    if isinstance(raw_endpoints, list):
-        for endpoint in raw_endpoints:
-            query = urllib.parse.urlsplit(str(endpoint).strip()).query
-            for key, _ in urllib.parse.parse_qsl(query, keep_blank_values=True):
-                if key.strip().lower() in _SECRET_QUERY_PARAM_NAMES:
-                    _refuse(key, f"endpoint '{str(endpoint).strip()[:80]}'")
 
 
 def build_connection_spec(conn: Connection) -> ConnectionSpec:
@@ -576,8 +497,7 @@ class ConnectionService:
         if p.kind == "api":
             if not host or not host.startswith(("http://", "https://")):
                 raise ValidationError(f"{p.label} needs a base URL starting with http:// or https://.")
-            _reject_secret_headers(options)
-            _reject_secret_query_params(options)
+            ensure_no_plaintext_credentials(options)
             return
         if p.needs_host and not host:
             raise ValidationError(f"{p.label} needs a host.")

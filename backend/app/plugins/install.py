@@ -148,6 +148,10 @@ def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
         if not same_signer:
             state.set_approved(plugin_id, False)
     state.set_signature(plugin_id, verification.outcome, key_id=verification.key_id)
+    # Pin the installed bytes so the loader can detect post-install tampering. A
+    # source-directory install has no packaged digest (""), which the loader reads
+    # as "nothing to verify" and skips.
+    state.set_digest(plugin_id, verification.digest)
     state.save()
 
 

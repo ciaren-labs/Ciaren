@@ -192,6 +192,53 @@ async def test_unknown_provider_still_rejected(client: AsyncClient, mem_connecto
     assert r.status_code == 400
 
 
+async def test_plugin_connection_rejects_credential_header(client: AsyncClient, mem_connector):
+    """A plugin connector has no privileged path to persist a secret in plain
+    text: a credential-bearing custom header in its options is refused exactly as
+    it is for the core REST connector."""
+    r = await client.post(
+        "/api/connections",
+        json={
+            "name": "leaky",
+            "provider": "memdb",
+            "options": {"base_url": "https://api.example.com", "headers": {"Authorization": "Bearer sk-secret"}},
+        },
+    )
+    assert r.status_code == 400
+    assert "Authorization" in r.json()["detail"]
+
+
+async def test_plugin_connection_rejects_credential_query_param(client: AsyncClient, mem_connector):
+    r = await client.post(
+        "/api/connections",
+        json={
+            "name": "leaky2",
+            "provider": "memdb",
+            "options": {"base_url": "https://api.example.com", "query_params": {"api_key": "sk-secret"}},
+        },
+    )
+    assert r.status_code == 400
+    assert "api_key" in r.json()["detail"]
+
+
+def test_validate_plugin_connection_guards_credentials_in_options():
+    """The guard lives in validate_plugin_connection, so it also fires on the
+    test path (unsaved payloads), not only at save time."""
+    from app.plugins.connectors import validate_plugin_connection
+
+    spec = ConnectorSpec(
+        id="memdb",
+        label="Mem Warehouse",
+        kind="api",
+        provider="community.mem-connector",
+        config_schema=MEM_SCHEMA,
+    )
+    with pytest.raises(ValidationError):
+        validate_plugin_connection(spec, None, {"base_url": "https://x", "headers": {"cookie": "sess=abc"}})
+    # A benign header is fine.
+    validate_plugin_connection(spec, None, {"base_url": "https://x", "headers": {"accept": "application/json"}})
+
+
 # -- test + listing -----------------------------------------------------------------
 
 

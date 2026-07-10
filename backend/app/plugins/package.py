@@ -119,6 +119,40 @@ def compute_package_digest(path: str | os.PathLike[str]) -> str:
         return compute_digest_from_zip(zf)
 
 
+def compute_directory_digest(directory: str | os.PathLike[str]) -> str:
+    """The package digest recomputed over an *extracted* install directory, so an
+    installed plugin can be checked against the digest recorded at install time
+    (tamper detection — e.g. a hand-edited manifest dropping ``license_required``).
+
+    It reproduces :func:`compute_digest_from_zip` exactly — same entries, same
+    ``sorted``-by-name order, same length-delimited framing — with two exclusions
+    that keep it byte-for-byte equal to the original package digest:
+
+    - ``ciaren-signature.json`` (excluded from the package digest by definition), and
+    - ``__pycache__`` bytecode the interpreter writes *next to* the plugin the first
+      time it is imported (never present in the signed package).
+    """
+    root = Path(directory)
+    entries: list[tuple[str, Path]] = []
+    for file in root.rglob("*"):
+        if not file.is_file():
+            continue
+        rel = file.relative_to(root)
+        if "__pycache__" in rel.parts:
+            continue
+        name = rel.as_posix()
+        if name == SIGNATURE_FILENAME:
+            continue
+        entries.append((name, file))
+    h = hashlib.sha256()
+    for name, file in sorted(entries, key=lambda e: e[0]):
+        data = file.read_bytes()
+        h.update(name.encode("utf-8"))
+        h.update(len(data).to_bytes(8, "big"))
+        h.update(data)
+    return h.hexdigest()
+
+
 def _open_zip(path: str | os.PathLike[str]) -> ZipFile:
     try:
         return ZipFile(path)

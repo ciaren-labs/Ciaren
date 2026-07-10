@@ -94,15 +94,24 @@ class LoadResult:
     gated: list[GatedPlugin] = field(default_factory=list)
 
 
+class TamperError(RuntimeError):
+    """Raised when an installed plugin's files no longer match the digest recorded
+    at install — someone edited the tree on disk after it was installed (e.g. to
+    strip ``license_required`` from the manifest). Its code is not imported."""
+
+
 @dataclass
 class PluginCandidate:
     """A potential plugin: where it came from, how to load it, and (if known) its
     validated manifest. ``load`` is deferred so a malformed manifest or an import
-    error is caught uniformly during processing."""
+    error is caught uniformly during processing. ``path`` is the plugin's install
+    directory for filesystem candidates (used for tamper detection); ``None`` for
+    entry-point / injected candidates, which have no directory to re-verify."""
 
     source: str
     load: Callable[[], Plugin]
     manifest: PluginManifest | None = None
+    path: Path | None = None
 
 
 # -- entry point resolution ---------------------------------------------------
@@ -176,7 +185,7 @@ def _local_candidate(plugin_dir: Path, manifest_path: Path) -> PluginCandidate:
             raise ValueError(f"plugin {manifest.id!r} manifest has no entrypoint")
         return load_entrypoint(manifest.entrypoint)
 
-    return PluginCandidate(source=source, load=load, manifest=manifest)
+    return PluginCandidate(source=source, load=load, manifest=manifest, path=plugin_dir)
 
 
 def _local_dir_candidates(dirs: Iterable[str | os.PathLike[str]]) -> list[PluginCandidate]:
@@ -269,6 +278,33 @@ def _license_gate(registry: ServiceRegistry, candidate: PluginCandidate) -> Gate
     )
 
 
+def _ensure_not_tampered(candidate: PluginCandidate, state: PluginStateStore) -> None:
+    """Refuse to import a managed install whose on-disk files no longer match the
+    digest pinned at install time. Only applies when there *is* a pinned digest
+    (packaged install) and a directory to hash — source/dev-dir and entry-point
+    plugins have no baseline and are skipped. A read error is treated as
+    "unverifiable, don't block": tamper detection must not brick startup on IO.
+    """
+    manifest = candidate.manifest
+    if manifest is None or candidate.path is None:
+        return
+    recorded = state.recorded_digest(manifest.id)
+    if not recorded:
+        return
+    from app.plugins.package import compute_directory_digest
+
+    try:
+        actual = compute_directory_digest(candidate.path)
+    except OSError as exc:
+        logger.warning("Could not verify plugin %s files for tampering: %s", manifest.id, exc)
+        return
+    if actual != recorded:
+        raise TamperError(
+            f"plugin {manifest.id!r} files changed on disk since it was installed "
+            "(digest mismatch) — reinstall it from a trusted source to load it again"
+        )
+
+
 def _process(
     registry: ServiceRegistry,
     candidate: PluginCandidate,
@@ -279,6 +315,10 @@ def _process(
 ) -> None:
     try:
         manifest = candidate.manifest
+        # Detect post-install tampering before anything else — a hand-edited
+        # manifest must not even reach the compat/gate checks that read it.
+        if state is not None:
+            _ensure_not_tampered(candidate, state)
         if manifest is not None and not manifest.is_compatible_with(version):
             raise IncompatiblePluginError(
                 f"plugin {manifest.id!r} requires Ciaren {manifest.ciaren!r}, running {version}"

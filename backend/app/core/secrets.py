@@ -302,6 +302,100 @@ def delete_keyring_secret(name: str) -> None:
         raise ValidationError(f"The OS keychain could not be updated: {exc}") from None
 
 
+# -- credential-in-options guard ------------------------------------------------
+#
+# A REST-style connection must take its secret from its secret *reference*
+# (auth_style api_key / bearer / basic / query_param), never from a static custom
+# header or a stored query parameter. Those persist in plain text in the database,
+# echo back in every API response, and (query params) leak into request URLs that
+# land in error messages and logs. Best-effort defense in depth — unconventional
+# names still slip through; the real control is the never-stored secret-reference
+# model. Applied to the core REST connector and, equally, to plugin-contributed
+# connectors whose options can carry the same shapes.
+
+_SECRET_HEADER_NAMES = frozenset({"authorization", "proxy-authorization", "cookie", "x-api-key"})
+_SECRET_QUERY_PARAM_NAMES = frozenset(
+    {
+        "api_key",
+        "api-key",
+        "apikey",
+        "api_token",
+        "apitoken",
+        "access_token",
+        "auth",
+        "auth_token",
+        "authorization",
+        "bearer",
+        "client_secret",
+        "key",
+        "password",
+        "private_token",
+        "secret",
+        "sig",
+        "signature",
+        "token",
+    }
+)
+
+
+def _mapping_option(options: dict[str, object] | None, key: str) -> dict[str, object]:
+    import json
+
+    raw = (options or {}).get(key) or {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw) if raw.strip() else {}
+        except ValueError:
+            return {}  # malformed JSON gets the connector's own, clearer error
+    return raw if isinstance(raw, dict) else {}
+
+
+def _reject_secret_headers(options: dict[str, object] | None) -> None:
+    for header in _mapping_option(options, "headers"):
+        if str(header).strip().lower() in _SECRET_HEADER_NAMES:
+            raise ValidationError(
+                f"Custom header '{header}' would store a credential in plain text. "
+                "Use the connection's authentication settings instead — the secret "
+                "then comes from an environment variable and is never stored."
+            )
+
+
+def _reject_secret_query_params(options: dict[str, object] | None) -> None:
+    import urllib.parse
+
+    def _refuse(param: str, where: str) -> None:
+        raise ValidationError(
+            f"Query parameter '{param}' in {where} would store a credential in plain "
+            "text (and leak it into request URLs and error messages). Use auth_style "
+            "'query_param' with api_key_param instead — the secret then comes "
+            "from the connection's secret reference and is never stored."
+        )
+
+    for param in _mapping_option(options, "query_params"):
+        if str(param).strip().lower() in _SECRET_QUERY_PARAM_NAMES:
+            _refuse(str(param), "query_params")
+    # Endpoints may carry their own query strings ("users?api_key=..."), which are
+    # persisted and echoed exactly like query_params — check them too.
+    raw_endpoints = (options or {}).get("endpoints") or []
+    if isinstance(raw_endpoints, str):
+        raw_endpoints = raw_endpoints.split(",")
+    if isinstance(raw_endpoints, list):
+        for endpoint in raw_endpoints:
+            query = urllib.parse.urlsplit(str(endpoint).strip()).query
+            for key, _ in urllib.parse.parse_qsl(query, keep_blank_values=True):
+                if key.strip().lower() in _SECRET_QUERY_PARAM_NAMES:
+                    _refuse(key, f"endpoint '{str(endpoint).strip()[:80]}'")
+
+
+def ensure_no_plaintext_credentials(options: dict[str, object] | None) -> None:
+    """Refuse connection options that would persist a credential in plain text: a
+    secret-bearing custom header, or a secret-bearing query parameter (in
+    ``query_params`` or embedded in an endpoint's own query string). Shared by the
+    core REST connector and plugin connectors so both enforce the same rule."""
+    _reject_secret_headers(options)
+    _reject_secret_query_params(options)
+
+
 def scrub(text: str, *secrets: str | None) -> str:
     """Redact any secret values that may have leaked into a driver error string.
 
