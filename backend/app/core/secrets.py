@@ -375,10 +375,13 @@ def _reject_secret_query_params(options: dict[str, object] | None) -> None:
         if str(param).strip().lower() in _SECRET_QUERY_PARAM_NAMES:
             _refuse(str(param), "query_params")
     # Endpoints may carry their own query strings ("users?api_key=..."), which are
-    # persisted and echoed exactly like query_params — check them too.
+    # persisted and echoed exactly like query_params — check them too. Endpoints
+    # may arrive as a comma string, a list, or a name->path mapping (dict).
     raw_endpoints = (options or {}).get("endpoints") or []
     if isinstance(raw_endpoints, str):
         raw_endpoints = raw_endpoints.split(",")
+    elif isinstance(raw_endpoints, dict):
+        raw_endpoints = list(raw_endpoints.values())
     if isinstance(raw_endpoints, list):
         for endpoint in raw_endpoints:
             query = urllib.parse.urlsplit(str(endpoint).strip()).query

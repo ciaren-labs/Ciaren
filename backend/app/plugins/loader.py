@@ -95,9 +95,12 @@ class LoadResult:
 
 
 class TamperError(RuntimeError):
-    """Raised when an installed plugin's files no longer match the digest recorded
-    at install — someone edited the tree on disk after it was installed (e.g. to
-    strip ``license_required`` from the manifest). Its code is not imported."""
+    """Raised when an installed plugin's manifest no longer matches the digest
+    recorded at install — someone edited it on disk after installation (e.g. to
+    strip ``license_required`` or widen ``permissions``). Its code is not imported.
+    Best-effort against a casual edit, not tamper-proof: the recorded baseline
+    lives in the same user-writable state file, so this is defense in depth, not a
+    substitute for server-side license enforcement."""
 
 
 @dataclass
@@ -279,28 +282,31 @@ def _license_gate(registry: ServiceRegistry, candidate: PluginCandidate) -> Gate
 
 
 def _ensure_not_tampered(candidate: PluginCandidate, state: PluginStateStore) -> None:
-    """Refuse to import a managed install whose on-disk files no longer match the
-    digest pinned at install time. Only applies when there *is* a pinned digest
-    (packaged install) and a directory to hash — source/dev-dir and entry-point
-    plugins have no baseline and are skipped. A read error is treated as
-    "unverifiable, don't block": tamper detection must not brick startup on IO.
+    """Refuse to import a managed install whose on-disk manifest no longer matches
+    the digest pinned at install time. Only applies when there *is* a pinned digest
+    (packaged install) and a directory — source/dev-dir and entry-point plugins have
+    no baseline and are skipped. Only the manifest is checked (not the whole tree),
+    since the manifest is what the license/permission gates read; a plugin writing
+    data files inside its own directory is therefore never mistaken for tampered. A
+    read error is treated as "unverifiable, don't block": tamper detection must not
+    brick startup on IO.
     """
     manifest = candidate.manifest
     if manifest is None or candidate.path is None:
         return
-    recorded = state.recorded_digest(manifest.id)
+    recorded = state.recorded_manifest_digest(manifest.id)
     if not recorded:
         return
-    from app.plugins.package import compute_directory_digest
+    from app.plugins.package import compute_manifest_digest
 
     try:
-        actual = compute_directory_digest(candidate.path)
+        actual = compute_manifest_digest(candidate.path / MANIFEST_FILENAME)
     except OSError as exc:
-        logger.warning("Could not verify plugin %s files for tampering: %s", manifest.id, exc)
+        logger.warning("Could not verify plugin %s manifest for tampering: %s", manifest.id, exc)
         return
     if actual != recorded:
         raise TamperError(
-            f"plugin {manifest.id!r} files changed on disk since it was installed "
+            f"plugin {manifest.id!r} manifest changed on disk since it was installed "
             "(digest mismatch) — reinstall it from a trusted source to load it again"
         )
 

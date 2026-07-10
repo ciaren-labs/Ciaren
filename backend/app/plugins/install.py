@@ -22,6 +22,7 @@ from app.plugins.package import (
     MANIFEST_FILENAME,
     PackageError,
     VerifyResult,
+    compute_manifest_digest,
     read_manifest,
     verify_package,
 )
@@ -127,7 +128,7 @@ def _ensure_compatible(manifest: PluginManifest) -> None:
         )
 
 
-def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
+def _record_install_state(plugin_id: str, verification: VerifyResult, manifest_digest: str = "") -> None:
     """Persist how the package verified (trust badge) and enforce TOFU signer
     pinning: a plugin id is claimable, so approval the user gave to one publisher's
     code must not silently carry over to a replacement.
@@ -148,10 +149,10 @@ def _record_install_state(plugin_id: str, verification: VerifyResult) -> None:
         if not same_signer:
             state.set_approved(plugin_id, False)
     state.set_signature(plugin_id, verification.outcome, key_id=verification.key_id)
-    # Pin the installed bytes so the loader can detect post-install tampering. A
-    # source-directory install has no packaged digest (""), which the loader reads
-    # as "nothing to verify" and skips.
-    state.set_digest(plugin_id, verification.digest)
+    # Pin the installed manifest so the loader can detect a post-install manifest
+    # edit (the license/permission-gate bypass). A source-directory install passes
+    # "" here, which the loader reads as "nothing to verify" and skips.
+    state.set_manifest_digest(plugin_id, manifest_digest)
     state.save()
 
 
@@ -186,7 +187,7 @@ def install_ciarenplugin(
     if not (target / MANIFEST_FILENAME).is_file():  # defensive: should always be present
         shutil.rmtree(target, ignore_errors=True)
         raise InstallError(f"installed package for {manifest.id!r} is missing {MANIFEST_FILENAME}")
-    _record_install_state(manifest.id, result)
+    _record_install_state(manifest.id, result, compute_manifest_digest(target / MANIFEST_FILENAME))
     return InstallResult(plugin_id=manifest.id, location=target, verification=result)
 
 

@@ -18,7 +18,7 @@ from app.plugins.install import (
     uninstall_plugin,
 )
 from app.plugins.loader import load_plugins
-from app.plugins.package import compute_directory_digest
+from app.plugins.package import compute_manifest_digest
 from app.plugins.state import PluginStateStore
 
 _HAS_CRYPTO = signing.signing_available()
@@ -263,33 +263,20 @@ def test_install_records_signature_state(src, tmp_path):
 # -- post-install tamper detection (re-verify on startup) ----------------------
 
 
-def test_installed_dir_digest_matches_recorded(src, tmp_path):
-    """The digest recorded at install reproduces exactly when recomputed over the
-    extracted directory — the invariant tamper detection relies on (no false
-    positive on a pristine install)."""
+def test_installed_manifest_digest_recorded(src, tmp_path):
+    """A packaged install pins the manifest digest; it reproduces exactly when the
+    installed manifest is re-hashed (no false positive on a pristine install)."""
     pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     res = install_ciarenplugin(pkg, install_dir=tmp_path / "i")
-    recorded = _state().recorded_digest("community.inst")
+    recorded = _state().recorded_manifest_digest("community.inst")
     assert recorded  # a packaged install always pins one
-    assert compute_directory_digest(res.location) == recorded
+    assert compute_manifest_digest(res.location / "ciaren-plugin.json") == recorded
 
 
-def test_directory_digest_ignores_pycache(src, tmp_path):
-    """__pycache__ bytecode the interpreter writes next to a plugin on first
-    import must not be read as tampering."""
-    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
-    res = install_ciarenplugin(pkg, install_dir=tmp_path / "i")
-    before = compute_directory_digest(res.location)
-    cache = res.location / "__pycache__"
-    cache.mkdir()
-    (cache / "inst_plugin.cpython-312.pyc").write_bytes(b"\x00\x01compiled")
-    assert compute_directory_digest(res.location) == before
-
-
-def test_load_refuses_tampered_install(src, tmp_path):
-    """Editing a managed install's files on disk after install (the manifest-edit
-    license bypass) changes its digest, so the loader refuses to import it — its
-    code never runs."""
+def test_load_refuses_tampered_manifest(src, tmp_path):
+    """Editing the installed manifest on disk (the license/permission-gate bypass)
+    changes its digest, so the loader refuses to import the plugin — its code never
+    runs, and the edit never reaches the gates that read the manifest."""
     pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     install_dir = tmp_path / "i"
     res = install_ciarenplugin(pkg, install_dir=install_dir)
@@ -298,7 +285,7 @@ def test_load_refuses_tampered_install(src, tmp_path):
     s.set_approved("community.inst", True)
     s.save()
     # Hand-edit the installed manifest (kept valid so it parses — the point is the
-    # bytes changed since the signed/pinned install).
+    # bytes changed since the pinned install).
     manifest_path = res.location / "ciaren-plugin.json"
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     data["name"] = "Tampered"
@@ -310,12 +297,12 @@ def test_load_refuses_tampered_install(src, tmp_path):
     assert result.gated == []  # tamper is refused outright, not merely gated
     assert len(result.errors) == 1
     assert "community.inst" in result.errors[0].error
-    assert "digest" in result.errors[0].error
+    assert "manifest" in result.errors[0].error
 
 
 def test_load_allows_untampered_managed_install(src, tmp_path):
     """The sibling of the tamper test: an untouched managed install passes the
-    digest check (it then gates on approval like any drop-in, not an error)."""
+    manifest check (it then gates on approval like any drop-in, not an error)."""
     pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     install_dir = tmp_path / "i"
     install_ciarenplugin(pkg, install_dir=install_dir)
@@ -325,16 +312,38 @@ def test_load_allows_untampered_managed_install(src, tmp_path):
     assert [g.plugin_id for g in result.gated] == ["community.inst"]
 
 
-def test_load_skips_tamper_check_for_source_install(src, tmp_path):
-    """A source-directory install pins no digest, so a later edit is not flagged —
-    the check only guards packaged installs, keeping the dev workflow unaffected."""
+def test_load_ignores_runtime_files_written_into_install_dir(src, tmp_path):
+    """Only the manifest is pinned, so a plugin that writes a cache/data file into
+    its own install directory at runtime is NOT mistaken for tampered (an
+    availability regression the whole-tree digest would have caused)."""
+    pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     install_dir = tmp_path / "i"
-    res = install_directory(src, install_dir=install_dir)
-    assert _state().recorded_digest("community.inst") == ""
-    (res.location / "inst_plugin.py").write_text("InstPlugin = object  # edited\n", encoding="utf-8")
+    res = install_ciarenplugin(pkg, install_dir=install_dir)
+    s = _state()
+    s.set_enabled("community.inst", True)
+    s.set_approved("community.inst", True)
+    s.save()
+    # Simulate a runtime write (a downloaded model, a cache DB, a log) and an edit
+    # to the plugin's own code — neither is the manifest, so neither trips tamper.
+    (res.location / "runtime_cache.dat").write_bytes(b"downloaded-at-runtime")
+    (res.location / "inst_plugin.py").write_text("InstPlugin = object  # hot-patched\n", encoding="utf-8")
     reg = ServiceRegistry()
     result = load_plugins(reg, include_entry_points=False, plugin_dirs=[install_dir], state=PluginStateStore())
-    assert all("digest" not in e.error for e in result.errors)
+    assert all("manifest changed" not in e.error for e in result.errors)
+
+
+def test_load_skips_tamper_check_for_source_install(src, tmp_path):
+    """A source-directory install pins no manifest digest, so a later edit is not
+    flagged — the check only guards packaged installs, keeping dev workflow intact."""
+    install_dir = tmp_path / "i"
+    res = install_directory(src, install_dir=install_dir)
+    assert _state().recorded_manifest_digest("community.inst") == ""
+    data = json.loads((res.location / "ciaren-plugin.json").read_text(encoding="utf-8"))
+    data["name"] = "Edited In Dev"
+    (res.location / "ciaren-plugin.json").write_text(json.dumps(data), encoding="utf-8")
+    reg = ServiceRegistry()
+    result = load_plugins(reg, include_entry_points=False, plugin_dirs=[install_dir], state=PluginStateStore())
+    assert all("manifest changed" not in e.error for e in result.errors)
 
 
 # -- install-time compatibility preflight -------------------------------------

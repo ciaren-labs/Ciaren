@@ -103,9 +103,13 @@ class VerifyResult:
 
 
 def compute_digest_from_zip(zf: ZipFile) -> str:
-    """Deterministic SHA-256 over all entries except the signature file."""
+    """Deterministic SHA-256 over all entries except the signature file.
+
+    ``namelist()`` can contain the same name twice (a malformed build with
+    duplicate entries); ``sorted(set(...))`` collapses those so the digest matches
+    what extraction leaves on disk (last-writer-wins → one file per name)."""
     h = hashlib.sha256()
-    names = sorted(n for n in zf.namelist() if n != SIGNATURE_FILENAME and not n.endswith("/"))
+    names = sorted({n for n in zf.namelist() if n != SIGNATURE_FILENAME and not n.endswith("/")})
     for name in names:
         data = zf.read(name)
         h.update(name.encode("utf-8"))
@@ -119,38 +123,18 @@ def compute_package_digest(path: str | os.PathLike[str]) -> str:
         return compute_digest_from_zip(zf)
 
 
-def compute_directory_digest(directory: str | os.PathLike[str]) -> str:
-    """The package digest recomputed over an *extracted* install directory, so an
-    installed plugin can be checked against the digest recorded at install time
-    (tamper detection — e.g. a hand-edited manifest dropping ``license_required``).
+def compute_manifest_digest(manifest_path: str | os.PathLike[str]) -> str:
+    """SHA-256 of the installed manifest's raw bytes.
 
-    It reproduces :func:`compute_digest_from_zip` exactly — same entries, same
-    ``sorted``-by-name order, same length-delimited framing — with two exclusions
-    that keep it byte-for-byte equal to the original package digest:
-
-    - ``ciaren-signature.json`` (excluded from the package digest by definition), and
-    - ``__pycache__`` bytecode the interpreter writes *next to* the plugin the first
-      time it is imported (never present in the signed package).
-    """
-    root = Path(directory)
-    entries: list[tuple[str, Path]] = []
-    for file in root.rglob("*"):
-        if not file.is_file():
-            continue
-        rel = file.relative_to(root)
-        if "__pycache__" in rel.parts:
-            continue
-        name = rel.as_posix()
-        if name == SIGNATURE_FILENAME:
-            continue
-        entries.append((name, file))
-    h = hashlib.sha256()
-    for name, file in sorted(entries, key=lambda e: e[0]):
-        data = file.read_bytes()
-        h.update(name.encode("utf-8"))
-        h.update(len(data).to_bytes(8, "big"))
-        h.update(data)
-    return h.hexdigest()
+    Tamper detection re-checks the *manifest*, not the whole install tree, because
+    the manifest is the only file the loader's gates trust: ``license_required``
+    and the declared ``permissions`` are read from it, so editing it on disk is the
+    concrete bypass we must catch. Hashing only the manifest (vs. the entire
+    directory) means a plugin that legitimately writes cache/data files inside its
+    own directory at runtime is never mistaken for tampered. Code integrity is a
+    separate concern owned by the package signature (and, for paid plugins, the
+    marketplace sandbox) — not by this local, best-effort check."""
+    return hashlib.sha256(Path(manifest_path).read_bytes()).hexdigest()
 
 
 def _open_zip(path: str | os.PathLike[str]) -> ZipFile:

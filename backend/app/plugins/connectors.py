@@ -132,14 +132,18 @@ def validate_plugin_connection(spec: ConnectorSpec, host: str | None, options: d
     """Pre-save validation for a plugin connection: form-flag requirements from
     the spec metadata plus the required fields of its ``config_schema``.
 
-    A third-party connector's options are just as capable of smuggling a
+    An ``api``-kind connector's options are just as capable of smuggling a
     plaintext credential (a ``headers``/``query_params``/``endpoints`` shape) as
     the core REST connector, so they run through the same guard — the plugin has
-    no privileged path to persist a secret the core would refuse."""
+    no privileged path to persist a secret the core would refuse. The guard is
+    scoped to ``api`` kinds (mirroring the core path): a ``sql``/``storage``
+    connector may legitimately use those option keys for non-credential values
+    (e.g. a signed-URL ``signature`` query param), so guarding it would false-reject."""
     if spec.metadata.get("needs_host") and not host:
         raise ValidationError(f"{spec.label} needs a host.")
     opts = options or {}
-    ensure_no_plaintext_credentials(opts)
+    if spec.kind == "api":
+        ensure_no_plaintext_credentials(opts)
     missing = [f.label or f.key for f in _fields(spec) if f.required and _is_missing(opts, f.key)]
     if missing:
         raise ValidationError(f"{spec.label} requires: {', '.join(missing)}.")

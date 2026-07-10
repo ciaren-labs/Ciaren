@@ -239,6 +239,39 @@ def test_validate_plugin_connection_guards_credentials_in_options():
     validate_plugin_connection(spec, None, {"base_url": "https://x", "headers": {"accept": "application/json"}})
 
 
+def test_non_api_plugin_connector_not_credential_guarded():
+    """A sql/storage connector may legitimately carry a ``query_params`` key (e.g.
+    a signed-URL ``signature``); the credential guard is scoped to ``api`` kinds to
+    match the core path, so it must not false-reject those."""
+    from app.plugins.connectors import validate_plugin_connection
+
+    storage = ConnectorSpec(id="memstore", label="Mem Storage", kind="storage", provider="community.mem-connector")
+    # "signature" is a secret-name in the guard's list, but this is a storage kind.
+    validate_plugin_connection(storage, None, {"query_params": {"signature": "abc123"}})
+
+
+async def test_storage_plugin_connection_allows_signed_url_params(client: AsyncClient, mem_connector):
+    r = await client.post(
+        "/api/connections",
+        json={"name": "signed", "provider": "memstore", "options": {"query_params": {"signature": "abc"}}},
+    )
+    assert r.status_code == 201, r.text
+
+
+def test_credential_guard_catches_dict_shaped_endpoints():
+    """endpoints may arrive as a name->path mapping; a secret in a dict-valued
+    endpoint's own query string is caught, not only the list/string forms."""
+    from app.core.secrets import ensure_no_plaintext_credentials
+
+    with pytest.raises(ValidationError):
+        ensure_no_plaintext_credentials({"endpoints": {"users": "users?api_key=sk-secret"}})
+    # The list and string forms stay covered.
+    with pytest.raises(ValidationError):
+        ensure_no_plaintext_credentials({"endpoints": ["users?token=sk"]})
+    # A clean endpoint mapping passes.
+    ensure_no_plaintext_credentials({"endpoints": {"users": "users?page=1"}})
+
+
 # -- test + listing -----------------------------------------------------------------
 
 
