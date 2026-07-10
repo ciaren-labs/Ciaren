@@ -226,6 +226,66 @@ async def test_timeout_of_queued_run_needs_no_recycle(client: AsyncClient, db_se
         pool.shutdown(wait=False)
 
 
+async def _setup_process_mode_slow_materialize(
+    client: AsyncClient, monkeypatch, recycles: list[str], gate: asyncio.Event
+) -> tuple[ThreadPoolExecutor, list[str]]:
+    """Process mode where dataset resolution blocks on ``gate`` — opens a real
+    window between a run being registered (cancellable) and its compute ever
+    reaching the pool, so a cancel arriving in that window can be tested."""
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("CIAREN_EXECUTION_MODE", "process")
+    get_settings.cache_clear()
+
+    pool = ThreadPoolExecutor(max_workers=2)
+    submitted: list[str] = []
+
+    def _record_submission(graph, *args, **kwargs) -> RunResult:
+        submitted.append(graph["nodes"][0]["id"])
+        return RunResult(output_paths={}, node_results=[], error=None)
+
+    monkeypatch.setattr("app.services.execution_service.get_process_pool", lambda: pool)
+    monkeypatch.setattr("app.services.execution_service.run_graph_in_process", _record_submission)
+
+    async def _slow_datasets(db, graph):
+        await gate.wait()
+        return {}, []
+
+    monkeypatch.setattr("app.services.execution_service.build_dataset_paths", _slow_datasets)
+    monkeypatch.setattr("app.services.execution_service.recycle_process_pool", lambda: recycles.append("immediate"))
+    monkeypatch.setattr("app.engine.process_pool.recycle_process_pool", lambda: recycles.append("deferred"))
+    return pool, submitted
+
+
+async def test_cancel_during_materialization_skips_submission(client: AsyncClient, db_session, monkeypatch) -> None:
+    """A cancel arriving while inputs are still materializing (before the
+    compute is ever submitted to the pool) has no future to cancel and no
+    worker to abandon. It must not be refused just because another run shares
+    the pool, must not recycle the pool, and the run must finish 'cancelled'
+    instead of proceeding to execute anyway."""
+    recycles: list[str] = []
+    gate = asyncio.Event()
+    pool, submitted = await _setup_process_mode_slow_materialize(client, monkeypatch, recycles, gate)
+    register_run("other-run")  # a second active run, so active_run_count() > 1
+    try:
+        flow_id = await _create_flow(client, _graph())
+        run_task = asyncio.create_task(ExecutionService(db_session).run(flow_id, FlowRunCreate()))
+        await asyncio.sleep(0.1)  # the row is flushed and materialization is blocked on `gate`
+
+        run_id = (await db_session.execute(select(FlowRun.id).where(FlowRun.flow_id == flow_id))).scalar_one()
+        resp = await ExecutionService(db_session).cancel(run_id)
+        assert resp["status"] == "cancelling"
+
+        gate.set()  # let materialization finish now that the cancel is recorded
+        result = await run_task
+        assert result.status == "cancelled"
+        assert submitted == []  # the graph was never submitted to the pool
+        assert recycles == []  # nothing was ever touched, so nothing needed recycling
+    finally:
+        unregister_run("other-run")
+        pool.shutdown(wait=False)
+
+
 def test_deferred_recycle_waits_for_active_runs() -> None:
     from app.engine import process_pool
 

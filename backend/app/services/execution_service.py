@@ -189,26 +189,36 @@ class ExecutionService:
                 from app.core.runtime_settings import get_active_overrides
                 from app.plugins import plugin_state_generation
 
-                # Submitted directly (not via run_in_executor) so the underlying
-                # future is ours to track: the cancel endpoint can then cancel a
-                # QUEUED run without recycling the pool, and the timeout path
-                # can skip the recycle when the task never started.
-                cf_future = get_process_pool().submit(
-                    run_graph_in_process,
-                    graph,
-                    dataset_paths,
-                    output_dir,
-                    engine,
-                    sql_input_paths,
-                    storage_input_paths,
-                    ctx_data,
-                    get_active_overrides(),
-                    # Lets a reused worker detect a plugin reload (permission
-                    # revocation, disable) and re-sync before executing.
-                    plugin_state_generation(),
-                )
-                register_run_future(run.id, cf_future)
-                compute = asyncio.wrap_future(cf_future)
+                if cancel_event.is_set():
+                    # A cancel arrived while inputs were still materializing —
+                    # before the compute was ever submitted to the pool, so
+                    # cancel() (finding no future registered yet) already
+                    # recorded the request without touching the pool. There is
+                    # nothing to abandon or recycle here either; skip the
+                    # submission entirely rather than run a graph that was
+                    # already cancelled.
+                    compute = asyncio.sleep(0, result=RunResult({}, [], None, cancelled=True))
+                else:
+                    # Submitted directly (not via run_in_executor) so the underlying
+                    # future is ours to track: the cancel endpoint can then cancel a
+                    # QUEUED run without recycling the pool, and the timeout path
+                    # can skip the recycle when the task never started.
+                    cf_future = get_process_pool().submit(
+                        run_graph_in_process,
+                        graph,
+                        dataset_paths,
+                        output_dir,
+                        engine,
+                        sql_input_paths,
+                        storage_input_paths,
+                        ctx_data,
+                        get_active_overrides(),
+                        # Lets a reused worker detect a plugin reload (permission
+                        # revocation, disable) and re-sync before executing.
+                        plugin_state_generation(),
+                    )
+                    register_run_future(run.id, cf_future)
+                    compute = asyncio.wrap_future(cf_future)
             else:
                 compute = asyncio.to_thread(
                     FlowExecutor(events=events).run_with_results,
@@ -461,11 +471,12 @@ class ExecutionService:
         """Request cancellation of a running run.
 
         Thread mode stops cooperatively at the next node boundary. Process mode:
-        a still-queued task is cancelled directly (its pool future never
-        started, so no other run is touched); a task already executing in a
-        worker abandons the worker like the timeout path does — recycling the
-        pool, which is only safe when no other run shares it. The run's own
-        task finalizes the row with status "cancelled"."""
+        a run still materializing its inputs (no pool future yet) or still
+        queued behind another task is cancelled directly — no pool is touched
+        in either case; a task already executing in a worker abandons the
+        worker like the timeout path does — recycling the pool, which is only
+        safe when no other run shares it. The run's own task finalizes the row
+        with status "cancelled"."""
         result = await self.db.execute(select(FlowRun).where(FlowRun.id == run_id))
         run = result.scalar_one_or_none()
         if run is None:
@@ -483,7 +494,16 @@ class ExecutionService:
             raise ValidationError("This run is not executing anymore; refresh to see its final status.")
         if self.settings.EXECUTION_MODE == "process":
             future = get_run_future(run_id)
-            if future is not None and future.cancel():
+            if future is None:
+                # Still materializing inputs (SQL/storage snapshots, dataset
+                # resolution): nothing has been submitted to the pool yet, so
+                # there is nothing to abandon or recycle — always safe, even
+                # with other runs active. The run loop checks this event right
+                # before submitting and skips the submission entirely when
+                # it's already set.
+                request_cancel(run_id)
+                return {"run_id": run_id, "status": "cancelling"}
+            if future.cancel():
                 # The task was still queued (e.g. behind a hung worker): the
                 # future cancel frees it without touching the pool, so this is
                 # safe under concurrent runs too. The event records the
