@@ -14,7 +14,7 @@ from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
 from app.engine.node_kinds import input_source_type as _input_source_type
 from app.engine.node_kinds import output_source_type as _output_source_type
 from app.engine.registry import get_transformation
-from app.engine.transformations.base import EmitsNodeMetadata, NodeMetadata
+from app.engine.transformations.base import BaseTransformation, EmitsNodeMetadata, NodeMetadata
 from app.plugin_api.events import EventBus, Hook
 
 # A node's outputs, keyed by source handle. Single-output nodes use ``{"out": df}``.
@@ -170,6 +170,39 @@ def _primary_frame(node_type: str, node_outputs: NodeOutputs) -> AnyFrame:
     return next(iter(node_outputs.values()))
 
 
+def _snapshot_transformations(graph: dict[str, Any]) -> dict[str, "BaseTransformation"]:
+    """Resolve every transformation the graph needs, once, before execution.
+
+    The engine registry is mutated live when plugins are enabled/disabled or
+    permissions change (``reload_plugins`` unregisters plugin nodes and
+    re-registers them). Resolving lazily at node-execution time let such a
+    reload race an in-flight run and crash it with a ``KeyError`` mid-graph.
+    Holding the references for the whole run makes the run immune to a
+    concurrent reload: it finishes on the implementations it started with, and
+    a genuinely-unknown type still fails up front with a clear error.
+    """
+    snapshot: dict[str, BaseTransformation] = {}
+    for node in graph.get("nodes", []):
+        node_type = node["type"]
+        if (
+            node_type in snapshot
+            or node_type in PRE_MATERIALIZED_INPUT_TYPES
+            or node_type in _LEGACY_FILE_INPUT_TYPES
+            or node_type == FILE_INPUT_TYPE
+            or node_type in _OUTPUT_TYPES
+        ):
+            continue
+        try:
+            snapshot[node_type] = get_transformation(node_type)
+        except KeyError as exc:
+            # Only reachable when a reload lands between graph validation and
+            # this snapshot; surface it like validation would.
+            raise GraphValidationError(
+                f"Unknown node type: {node_type!r} (a plugin may have just been disabled)."
+            ) from exc
+    return snapshot
+
+
 class FlowExecutor:
     def __init__(self, events: EventBus | None = None) -> None:
         """``events`` is an optional plugin :class:`EventBus`. When provided (the
@@ -187,6 +220,7 @@ class FlowExecutor:
         outputs: dict[str, NodeOutputs],
         dataset_paths: dict[str, Path],
         pre_paths: dict[str, Path],
+        transformations: dict[str, BaseTransformation],
     ) -> tuple[NodeOutputs, NodeMetadata | None]:
         """Compute one node's output frames (keyed by handle) and any metadata.
 
@@ -207,7 +241,7 @@ class FlowExecutor:
             return {"out": engine.read(str(dataset_paths[key]), _input_source_type(node_type, config))}, None
         if node_type in _OUTPUT_TYPES:
             return {"out": _resolve_source(outputs, incoming[node_id][0])}, None
-        transformation = get_transformation(node_type)
+        transformation = transformations[node_type]
         inputs = _build_inputs(incoming[node_id], outputs)
         if isinstance(transformation, EmitsNodeMetadata):
             return transformation.execute_with_metadata(engine, inputs, config)
@@ -256,12 +290,15 @@ class FlowExecutor:
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
         pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
+        transformations = _snapshot_transformations(graph)
 
         outputs: dict[str, NodeOutputs] = {}
         for node_id in order:
             node = nodes_by_id[node_id]
             try:
-                node_outputs, _meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
+                node_outputs, _meta = self._node_outputs(
+                    engine, node, incoming, outputs, dataset_paths, pre_paths, transformations
+                )
             except Exception as exc:
                 label = str(node.get("data", {}).get("label") or "")
                 raise NodeExecutionError(node_id, node["type"], label, exc) from exc
@@ -325,6 +362,7 @@ class FlowExecutor:
         nodes_by_id = {n["id"]: n for n in graph["nodes"]}
         incoming = _incoming_by_target(graph, nodes_by_id)
         pre_paths = {**(sql_input_paths or {}), **(storage_input_paths or {})}
+        transformations = _snapshot_transformations(graph)
 
         outputs: dict[str, NodeOutputs] = {}
         node_results: list[NodeResult] = []
@@ -347,7 +385,9 @@ class FlowExecutor:
             if self._events is not None:
                 self._events.emit(Hook.before_node_execute, node_id=node_id, node_type=node["type"], engine=engine_name)
             try:
-                node_outputs, meta = self._node_outputs(engine, node, incoming, outputs, dataset_paths, pre_paths)
+                node_outputs, meta = self._node_outputs(
+                    engine, node, incoming, outputs, dataset_paths, pre_paths, transformations
+                )
                 outputs[node_id] = node_outputs
                 frame = _primary_frame(node["type"], node_outputs)
                 # Use column_names (cheap for both engines) rather than converting
