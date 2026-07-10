@@ -1,0 +1,2693 @@
+{
+  "operations": {
+    "DELETE /api/connections/keyring/{name}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/connections/{connection_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "force",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/datasets/{dataset_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "force",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "in": "query",
+          "name": "purge",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/flows/{flow_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/ml/models/{model_name}/alias/{alias}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "alias",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "path",
+          "name": "model_name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/plugins/{plugin_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#PluginUninstallResult"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/plugins/{plugin_id}/license": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#LicenseStatus"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/projects/{project_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "project_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/schedules/{schedule_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "schedule_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/settings/{key}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#AppSettingRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/catalog/categories": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#CategorySpec>"
+        }
+      }
+    },
+    "GET /api/catalog/connectors": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ConnectorSpec>"
+        }
+      }
+    },
+    "GET /api/catalog/exporters": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ExporterSpec>"
+        }
+      }
+    },
+    "GET /api/catalog/nodes": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "category",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#NodeSpec>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/connections": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ConnectionRead>"
+        }
+      }
+    },
+    "GET /api/connections/keyring": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#KeyringAvailability"
+        }
+      }
+    },
+    "GET /api/connections/keyring/{name}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#KeyringSecretStatus"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/connections/providers": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        }
+      }
+    },
+    "GET /api/connections/{connection_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#ConnectionRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/connections/{connection_id}/objects": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "prefix",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<string>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/connections/{connection_id}/tables": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#TableInfo>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "include_deleted",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "in": "query",
+          "name": "project_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#DatasetRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#DatasetRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/flows": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#FlowRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/profile": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "version",
+          "required": false,
+          "type": "anyOf(integer|null)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/sample": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "version",
+          "required": false,
+          "type": "anyOf(integer|null)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/schema": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "version",
+          "required": false,
+          "type": "anyOf(integer|null)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/versions": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "required": false,
+          "type": "integer"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#DatasetVersionRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/datasets/{dataset_id}/versions/{version_number}/download": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "path",
+          "name": "version_number",
+          "required": true,
+          "type": "integer"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/flows": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "project_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#FlowRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/flows/{flow_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#FlowRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/flows/{flow_id}/ml/experiments": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/flows/{flow_id}/schedules": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ScheduleRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/marketplace": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#MarketplaceCatalog"
+        }
+      }
+    },
+    "GET /api/ml/experiments": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        }
+      }
+    },
+    "GET /api/ml/experiments/{experiment_id}/runs": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "experiment_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/ml/model-catalog": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        }
+      }
+    },
+    "GET /api/ml/models": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<object>"
+        }
+      }
+    },
+    "GET /api/plugins": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#PluginInfo>"
+        }
+      }
+    },
+    "GET /api/plugins/diagnostics": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#PluginDiagnostics"
+        }
+      }
+    },
+    "GET /api/plugins/{plugin_id}/license": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#LicenseStatus"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/projects": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ProjectRead>"
+        }
+      }
+    },
+    "GET /api/projects/{project_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "project_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#ProjectRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/runs": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "dataset_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "flow_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "in": "query",
+          "name": "project_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "schedule_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "sort_by",
+          "required": false,
+          "type": "#RunSortField"
+        },
+        {
+          "in": "query",
+          "name": "sort_order",
+          "required": false,
+          "type": "#SortOrder"
+        },
+        {
+          "in": "query",
+          "name": "started_after",
+          "required": false,
+          "type": "anyOf(null|string(date-time))"
+        },
+        {
+          "in": "query",
+          "name": "started_before",
+          "required": false,
+          "type": "anyOf(null|string(date-time))"
+        },
+        {
+          "in": "query",
+          "name": "status",
+          "required": false,
+          "type": "anyOf(#RunStatus|null)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#FlowRunSummary>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/runs/{run_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#FlowRunRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/runs/{run_id}/logs/stream": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/runs/{run_id}/ml/metrics": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#MLNodeMetrics>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/runs/{run_id}/output": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "node_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/schedules": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "flow_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ScheduleRead>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/schedules/{schedule_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "schedule_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#ScheduleRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/schedules/{schedule_id}/runs": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "schedule_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "required": false,
+          "type": "integer"
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "required": false,
+          "type": "integer"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#FlowRunSummary>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/settings": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#AppSettingRead>"
+        }
+      }
+    },
+    "GET /api/settings/webhook": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#WebhookStatus"
+        }
+      }
+    },
+    "GET /api/transformations": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "category",
+          "required": false,
+          "type": "anyOf(#TransformationCategory|null)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<string>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /health": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object<string>"
+        }
+      }
+    },
+    "GET /ready": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "any"
+        }
+      }
+    },
+    "PATCH /api/connections/{connection_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#ConnectionUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#ConnectionRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "PATCH /api/datasets/{dataset_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#DatasetUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#DatasetRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "PATCH /api/schedules/{schedule_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "schedule_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#ScheduleUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#ScheduleRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/connections": {
+      "parameters": [],
+      "request": {
+        "application/json": "#ConnectionCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#ConnectionRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/connections/keyring": {
+      "parameters": [],
+      "request": {
+        "application/json": "#KeyringSecretWrite"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#KeyringSecretStatus"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/connections/test-config": {
+      "parameters": [],
+      "request": {
+        "application/json": "#ConnectionCreate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#ConnectionTestResult"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/connections/{connection_id}/test": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#ConnectionTestResult"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/datasets/purge-expired": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object<integer>"
+        }
+      }
+    },
+    "POST /api/datasets/upload": {
+      "parameters": [
+        {
+          "in": "query",
+          "name": "decimal",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "delimiter",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "encoding",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "project_id",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "query",
+          "name": "sheet",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": {
+        "multipart/form-data": "#Body_upload_dataset_api_datasets_upload_post"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#DatasetRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/datasets/{dataset_id}/restore": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "dataset_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#DatasetRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows": {
+      "parameters": [],
+      "request": {
+        "application/json": "#FlowCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#FlowRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/import": {
+      "parameters": [],
+      "request": {
+        "application/json": "#FlowImport"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#FlowRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/migrate-document": {
+      "parameters": [],
+      "request": {
+        "application/json": "#FlowMigrateDocumentRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#FlowMigrateDocumentResponse"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/duplicate": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "name",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "201": {
+          "application/json": "#FlowRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/export/python": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "free_intermediates",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#CodeExportResponse"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/preview": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#FlowPreviewRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#PreviewResponse"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/runs": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#FlowRunCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#FlowRunRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/schedules": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#ScheduleCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#ScheduleRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/flows/{flow_id}/trigger": {
+      "parameters": [
+        {
+          "in": "header",
+          "name": "x-ciaren-secret",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "anyOf(#TriggerBody|null)"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#FlowRunRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/marketplace/{plugin_id}/install": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#PluginInstallResult"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/ml/models/{model_name}/alias": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "model_name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#MLAliasRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "object"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/install": {
+      "parameters": [],
+      "request": {
+        "multipart/form-data": "#Body_install_plugin_api_plugins_install_post"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#PluginInstallResult"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/{plugin_id}/disable": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#PluginInfo"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/{plugin_id}/enable": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#PluginInfo"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/{plugin_id}/grant": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#GrantRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#PluginInfo"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/{plugin_id}/license": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#LicenseToken"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#LicenseStatus"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/plugins/{plugin_id}/revoke": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "plugin_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#RevokeRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#PluginInfo"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/projects": {
+      "parameters": [],
+      "request": {
+        "application/json": "#ProjectCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#ProjectRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/runs/{run_id}/cancel": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "202": {
+          "application/json": "object<string>"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/runs/{run_id}/ml/register": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#MLRegisterRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "object"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/runs/{run_id}/retry": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "run_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "201": {
+          "application/json": "#FlowRunRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/schedules/{schedule_id}/run-now": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "schedule_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "201": {
+          "application/json": "#FlowRunRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/transformations/preview": {
+      "parameters": [],
+      "request": {
+        "application/json": "#TransformationPreviewRequest"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#PreviewResponse"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "PUT /api/flows/{flow_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#FlowUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#FlowRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "PUT /api/projects/{project_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "project_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#ProjectUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#ProjectRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "PUT /api/settings/{key}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#AppSettingUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#AppSettingRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    }
+  },
+  "schemas": {
+    "AppSettingRead": {
+      "properties": {
+        "category": "string",
+        "choices": "anyOf(array<string>|null)",
+        "default_value": "anyOf(integer|string)",
+        "description": "string",
+        "env_value": "anyOf(integer|string)",
+        "env_var": "string",
+        "key": "string",
+        "label": "string",
+        "max_value": "anyOf(integer|null)",
+        "min_value": "anyOf(integer|null)",
+        "restart_required": "boolean",
+        "source": "string{default,env,override}",
+        "value": "anyOf(integer|string)",
+        "value_type": "string{integer,select,url}"
+      },
+      "required": [
+        "category",
+        "default_value",
+        "description",
+        "env_value",
+        "env_var",
+        "key",
+        "label",
+        "source",
+        "value",
+        "value_type"
+      ]
+    },
+    "AppSettingUpdate": {
+      "properties": {
+        "value": "anyOf(integer|string)"
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "Body_install_plugin_api_plugins_install_post": {
+      "properties": {
+        "file": "string",
+        "require_trusted": "anyOf(boolean|null)"
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "Body_upload_dataset_api_datasets_upload_post": {
+      "properties": {
+        "file": "string"
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "CategorySpec": {
+      "properties": {
+        "id": "string",
+        "label": "string"
+      },
+      "required": [
+        "id",
+        "label"
+      ]
+    },
+    "CodeExportResponse": {
+      "properties": {
+        "code": "string",
+        "flow_document": "#FlowDocument",
+        "polars": "string",
+        "polars_lazy": "string"
+      },
+      "required": [
+        "code",
+        "flow_document",
+        "polars",
+        "polars_lazy"
+      ]
+    },
+    "ConnectionCreate": {
+      "properties": {
+        "database": "anyOf(null|string)",
+        "host": "anyOf(null|string)",
+        "name": "string",
+        "options": "anyOf(null|object)",
+        "password_env": "anyOf(null|string)",
+        "port": "anyOf(integer|null)",
+        "provider": "string",
+        "username": "anyOf(null|string)"
+      },
+      "required": [
+        "name",
+        "provider"
+      ]
+    },
+    "ConnectionRead": {
+      "properties": {
+        "connection_type": "string",
+        "created_at": "string(date-time)",
+        "database": "anyOf(null|string)",
+        "host": "anyOf(null|string)",
+        "id": "string",
+        "last_test_error": "anyOf(null|string)",
+        "last_test_status": "anyOf(null|string)",
+        "last_tested_at": "anyOf(null|string(date-time))",
+        "name": "string",
+        "options": "anyOf(null|object)",
+        "password_env": "anyOf(null|string)",
+        "port": "anyOf(integer|null)",
+        "provider": "string",
+        "updated_at": "string(date-time)",
+        "username": "anyOf(null|string)"
+      },
+      "required": [
+        "created_at",
+        "id",
+        "name",
+        "provider",
+        "updated_at"
+      ]
+    },
+    "ConnectionTestResult": {
+      "properties": {
+        "message": "string",
+        "ok": "boolean"
+      },
+      "required": [
+        "message",
+        "ok"
+      ]
+    },
+    "ConnectionUpdate": {
+      "properties": {
+        "database": "anyOf(null|string)",
+        "host": "anyOf(null|string)",
+        "name": "anyOf(null|string)",
+        "options": "anyOf(null|object)",
+        "password_env": "anyOf(null|string)",
+        "port": "anyOf(integer|null)",
+        "provider": "anyOf(null|string)",
+        "username": "anyOf(null|string)"
+      },
+      "required": []
+    },
+    "ConnectorSpec": {
+      "properties": {
+        "available": "boolean",
+        "capabilities": "array<string>",
+        "config_schema": "object",
+        "driver_module": "anyOf(null|string)",
+        "extra": "anyOf(null|string)",
+        "id": "string",
+        "kind": "string",
+        "label": "string",
+        "metadata": "object",
+        "permissions": "array<#Permission>",
+        "provider": "string"
+      },
+      "required": [
+        "id",
+        "kind",
+        "label"
+      ]
+    },
+    "DatasetKind": {
+      "type": "string{input,output}"
+    },
+    "DatasetRead": {
+      "properties": {
+        "column_profile": "anyOf(array<object>|null)",
+        "column_schema": "anyOf(array<object>|null)",
+        "created_at": "string(date-time)",
+        "data_sample": "anyOf(array<object>|null)",
+        "dataset_kind": "#DatasetKind",
+        "deleted_at": "anyOf(null|string(date-time))",
+        "id": "string",
+        "is_disabled": "boolean",
+        "latest_version": "integer",
+        "name": "string",
+        "parse_options": "anyOf(null|object)",
+        "project_id": "anyOf(null|string)",
+        "source_type": "string",
+        "updated_at": "string(date-time)",
+        "version_count": "integer"
+      },
+      "required": [
+        "created_at",
+        "id",
+        "latest_version",
+        "name",
+        "source_type",
+        "updated_at",
+        "version_count"
+      ]
+    },
+    "DatasetUpdate": {
+      "properties": {
+        "is_disabled": "anyOf(boolean|null)"
+      },
+      "required": []
+    },
+    "DatasetVersionRead": {
+      "properties": {
+        "column_profile": "anyOf(array<object>|null)",
+        "column_schema": "anyOf(array<object>|null)",
+        "created_at": "string(date-time)",
+        "id": "string",
+        "parse_options": "anyOf(null|object)",
+        "row_count": "integer",
+        "source_run_id": "anyOf(null|string)",
+        "version_number": "integer"
+      },
+      "required": [
+        "created_at",
+        "id",
+        "row_count",
+        "version_number"
+      ]
+    },
+    "Engine": {
+      "type": "string{pandas,polars}"
+    },
+    "ExporterSpec": {
+      "properties": {
+        "capabilities": "array<string>",
+        "file_extension": "string",
+        "format": "string",
+        "id": "string",
+        "label": "string",
+        "provider": "string"
+      },
+      "required": [
+        "format",
+        "id",
+        "label"
+      ]
+    },
+    "FlowCreate": {
+      "properties": {
+        "description": "anyOf(null|string)",
+        "graph_json": "object",
+        "name": "string",
+        "project_id": "anyOf(null|string)"
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "FlowDocument": {
+      "properties": {
+        "description": "anyOf(null|string)",
+        "format": "string",
+        "graph_json": "object",
+        "name": "string"
+      },
+      "required": [
+        "graph_json",
+        "name"
+      ]
+    },
+    "FlowImport": {
+      "properties": {
+        "description": "anyOf(null|string)",
+        "format": "anyOf(null|string)",
+        "graph": "anyOf(null|object)",
+        "graph_json": "anyOf(null|object)",
+        "name": "anyOf(null|string)",
+        "project_id": "anyOf(null|string)",
+        "schemaVersion": "anyOf(null|string)"
+      },
+      "required": []
+    },
+    "FlowMigrateDocumentRequest": {
+      "properties": {
+        "document": "object"
+      },
+      "required": [
+        "document"
+      ]
+    },
+    "FlowMigrateDocumentResponse": {
+      "properties": {
+        "document": "object",
+        "from_version": "string",
+        "migrated": "boolean",
+        "to_version": "string"
+      },
+      "required": [
+        "document",
+        "from_version",
+        "migrated",
+        "to_version"
+      ]
+    },
+    "FlowPreviewRequest": {
+      "properties": {
+        "limit": "integer",
+        "node_id": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)",
+        "profile": "boolean"
+      },
+      "required": []
+    },
+    "FlowRead": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "description": "anyOf(null|string)",
+        "graph_json": "object",
+        "id": "string",
+        "is_disabled": "boolean",
+        "last_run_at": "anyOf(null|string(date-time))",
+        "name": "string",
+        "project_id": "anyOf(null|string)",
+        "updated_at": "string(date-time)"
+      },
+      "required": [
+        "created_at",
+        "description",
+        "graph_json",
+        "id",
+        "name",
+        "project_id",
+        "updated_at"
+      ]
+    },
+    "FlowRunCreate": {
+      "properties": {
+        "engine": "anyOf(null|string)",
+        "input_dataset_id": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)",
+        "timeout_seconds": "anyOf(integer|null)"
+      },
+      "required": []
+    },
+    "FlowRunRead": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "engine": "#Engine",
+        "error_message": "anyOf(null|string)",
+        "finished_at": "anyOf(null|string(date-time))",
+        "flow_id": "string",
+        "graph_snapshot": "anyOf(null|object)",
+        "id": "string",
+        "input_dataset_id": "anyOf(null|string)",
+        "input_datasets": "anyOf(array<#InputDatasetRef>|null)",
+        "logs_json": "anyOf(array<object>|null)",
+        "node_results": "anyOf(array<#NodeResultRead>|null)",
+        "output_location": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)",
+        "schedule_id": "anyOf(null|string)",
+        "started_at": "anyOf(null|string(date-time))",
+        "status": "#RunStatus",
+        "trigger": "#RunTrigger"
+      },
+      "required": [
+        "created_at",
+        "engine",
+        "error_message",
+        "finished_at",
+        "flow_id",
+        "id",
+        "input_dataset_id",
+        "logs_json",
+        "output_location",
+        "started_at",
+        "status"
+      ]
+    },
+    "FlowRunSummary": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "engine": "#Engine",
+        "finished_at": "anyOf(null|string(date-time))",
+        "flow_id": "string",
+        "flow_name": "anyOf(null|string)",
+        "id": "string",
+        "input_dataset_id": "anyOf(null|string)",
+        "input_datasets": "anyOf(array<#InputDatasetRef>|null)",
+        "output_location": "anyOf(null|string)",
+        "project_id": "anyOf(null|string)",
+        "schedule_id": "anyOf(null|string)",
+        "started_at": "anyOf(null|string(date-time))",
+        "status": "#RunStatus",
+        "trigger": "#RunTrigger"
+      },
+      "required": [
+        "created_at",
+        "engine",
+        "finished_at",
+        "flow_id",
+        "flow_name",
+        "id",
+        "input_dataset_id",
+        "output_location",
+        "project_id",
+        "started_at",
+        "status"
+      ]
+    },
+    "FlowUpdate": {
+      "properties": {
+        "description": "anyOf(null|string)",
+        "graph_json": "anyOf(null|object)",
+        "is_disabled": "anyOf(boolean|null)",
+        "name": "anyOf(null|string)",
+        "project_id": "anyOf(null|string)"
+      },
+      "required": []
+    },
+    "GrantRequest": {
+      "properties": {
+        "permissions": "array<#Permission>"
+      },
+      "required": []
+    },
+    "HTTPValidationError": {
+      "properties": {
+        "detail": "array<#ValidationError>"
+      },
+      "required": []
+    },
+    "InputDatasetRef": {
+      "properties": {
+        "dataset_id": "string",
+        "version_number": "anyOf(integer|null)"
+      },
+      "required": [
+        "dataset_id"
+      ]
+    },
+    "KeyringAvailability": {
+      "properties": {
+        "available": "boolean",
+        "backend": "anyOf(null|string)",
+        "detail": "anyOf(null|string)"
+      },
+      "required": [
+        "available"
+      ]
+    },
+    "KeyringSecretStatus": {
+      "properties": {
+        "exists": "boolean",
+        "name": "string",
+        "reference": "string"
+      },
+      "required": [
+        "exists",
+        "name",
+        "reference"
+      ]
+    },
+    "KeyringSecretWrite": {
+      "properties": {
+        "name": "string",
+        "overwrite": "boolean",
+        "value": "string"
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "LicenseStatus": {
+      "properties": {
+        "expires_at": "anyOf(null|string)",
+        "license_type": "anyOf(null|string)",
+        "plugin_id": "string",
+        "reason": "anyOf(null|string)",
+        "valid": "boolean"
+      },
+      "required": [
+        "plugin_id",
+        "valid"
+      ]
+    },
+    "LicenseToken": {
+      "properties": {
+        "expiresAt": "string",
+        "licenseType": "string",
+        "offlineGraceUntil": "string",
+        "pluginId": "string",
+        "signature": "string",
+        "userId": "string"
+      },
+      "required": [
+        "expiresAt",
+        "offlineGraceUntil",
+        "pluginId",
+        "userId"
+      ]
+    },
+    "MLAliasRequest": {
+      "properties": {
+        "alias": "string",
+        "version": "string"
+      },
+      "required": [
+        "alias",
+        "version"
+      ]
+    },
+    "MLNodeMetrics": {
+      "properties": {
+        "cv_scores": "anyOf(array<number>|null)",
+        "label": "anyOf(null|string)",
+        "ml_metrics": "anyOf(null|object<number>)",
+        "mlflow_run_id": "anyOf(null|string)",
+        "model_uri": "anyOf(null|string)",
+        "node_id": "string",
+        "task_type": "anyOf(#MLTask|null)",
+        "type": "string"
+      },
+      "required": [
+        "node_id",
+        "type"
+      ]
+    },
+    "MLRegisterRequest": {
+      "properties": {
+        "model_name": "string",
+        "stage": "anyOf(null|string)"
+      },
+      "required": [
+        "model_name"
+      ]
+    },
+    "MLTask": {
+      "type": "string{classification,clustering,dimensionality_reduction,regression}"
+    },
+    "MarketplaceCatalog": {
+      "properties": {
+        "configured": "boolean",
+        "plugins": "array<#MarketplaceEntryInfo>",
+        "revoked_installed": "array<string>"
+      },
+      "required": [
+        "configured"
+      ]
+    },
+    "MarketplaceEntryInfo": {
+      "properties": {
+        "capabilities": "array<string>",
+        "ciaren_spec": "string",
+        "dependencies": "array<string>",
+        "description": "string",
+        "id": "string",
+        "installable": "boolean",
+        "installed": "boolean",
+        "installed_version": "string",
+        "license": "string",
+        "license_required": "boolean",
+        "name": "string",
+        "node_categories": "object<string>",
+        "nodes": "array<string>",
+        "permissions": "array<#Permission>",
+        "publisher": "string",
+        "revoked": "boolean",
+        "trust": "string",
+        "update_available": "boolean",
+        "version": "string"
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "NodeResultRead": {
+      "properties": {
+        "assertion_passed": "anyOf(boolean|null)",
+        "assertion_violating_sample": "anyOf(array<object>|null)",
+        "assertion_violation_count": "anyOf(integer|null)",
+        "chart": "anyOf(null|object)",
+        "columns": "array<string>",
+        "cv_scores": "anyOf(array<number>|null)",
+        "duration_ms": "anyOf(null|number)",
+        "error": "anyOf(null|string)",
+        "label": "string",
+        "ml_metrics": "anyOf(null|object<number>)",
+        "mlflow_run_id": "anyOf(null|string)",
+        "model_uri": "anyOf(null|string)",
+        "node_id": "string",
+        "rows": "anyOf(integer|null)",
+        "sample": "array<object>",
+        "status": "#NodeStatus",
+        "task_type": "anyOf(#MLTask|null)",
+        "type": "string"
+      },
+      "required": [
+        "label",
+        "node_id",
+        "status",
+        "type"
+      ]
+    },
+    "NodeSpec": {
+      "properties": {
+        "capabilities": "array<string>",
+        "category": "string",
+        "config_schema": "object",
+        "default_config": "object",
+        "description": "string",
+        "id": "string",
+        "inputs": "array<#PortSpec>",
+        "is_flow_terminal": "boolean",
+        "is_model_sink": "boolean",
+        "label": "string",
+        "outputs": "array<#PortSpec>",
+        "permissions": "array<#Permission>",
+        "provider": "string",
+        "requires_ml": "boolean",
+        "version": "string"
+      },
+      "required": [
+        "id",
+        "label"
+      ]
+    },
+    "NodeStatus": {
+      "type": "string{failed,skipped,success}"
+    },
+    "Permission": {
+      "type": "string{cloud_access,credentials,database_access,docker,filesystem_read,filesystem_write,joblib_load,llm_access,local_model_load,network,shell,subprocess,telemetry}"
+    },
+    "PluginDiagnostics": {
+      "properties": {
+        "errors": "array<#PluginErrorInfo>",
+        "gated": "array<#PluginInfo>",
+        "loaded": "array<#PluginInfo>",
+        "permission_enforcement": "string",
+        "plugin_api_version": "string"
+      },
+      "required": [
+        "errors",
+        "gated",
+        "loaded"
+      ]
+    },
+    "PluginErrorInfo": {
+      "properties": {
+        "error": "string",
+        "source": "string"
+      },
+      "required": [
+        "error",
+        "source"
+      ]
+    },
+    "PluginInfo": {
+      "properties": {
+        "api_version": "string",
+        "capabilities": "array<string>",
+        "ciaren_spec": "string",
+        "connectors": "array<string>",
+        "dependencies": "array<string>",
+        "description": "string",
+        "entrypoint": "string",
+        "granted_permissions": "array<#Permission>",
+        "id": "string",
+        "install_path": "string",
+        "license": "string",
+        "missing_permissions": "array<#Permission>",
+        "model_types": "array<string>",
+        "name": "string",
+        "node_categories": "object<string>",
+        "nodes": "array<string>",
+        "official": "boolean",
+        "permissions": "array<#Permission>",
+        "publisher": "string",
+        "signature": "string",
+        "source": "string",
+        "status": "string{disabled,loaded,needs_license,needs_permissions}",
+        "status_detail": "string",
+        "trust": "string",
+        "uninstallable": "boolean",
+        "version": "string"
+      },
+      "required": [
+        "id",
+        "name",
+        "source",
+        "status"
+      ]
+    },
+    "PluginInstallResult": {
+      "properties": {
+        "outcome": "string",
+        "plugin": "#PluginInfo",
+        "reason": "string"
+      },
+      "required": [
+        "outcome",
+        "plugin",
+        "reason"
+      ]
+    },
+    "PluginUninstallResult": {
+      "properties": {
+        "plugin_id": "string",
+        "removed": "boolean"
+      },
+      "required": [
+        "plugin_id",
+        "removed"
+      ]
+    },
+    "PortSpec": {
+      "properties": {
+        "id": "string",
+        "multi": "boolean",
+        "required": "boolean",
+        "type": "string{dataframe,model}"
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "PreviewResponse": {
+      "properties": {
+        "columns": "array<string>",
+        "profile": "anyOf(array<object>|null)",
+        "row_count": "integer",
+        "rows": "array<object>",
+        "truncated": "boolean"
+      },
+      "required": [
+        "columns",
+        "row_count",
+        "rows",
+        "truncated"
+      ]
+    },
+    "ProjectCreate": {
+      "properties": {
+        "color": "string",
+        "description": "anyOf(null|string)",
+        "name": "string"
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ProjectRead": {
+      "properties": {
+        "color": "string",
+        "created_at": "string(date-time)",
+        "dataset_count": "integer",
+        "description": "anyOf(null|string)",
+        "flow_count": "integer",
+        "id": "string",
+        "is_default": "boolean",
+        "is_disabled": "boolean",
+        "name": "string",
+        "updated_at": "string(date-time)"
+      },
+      "required": [
+        "color",
+        "created_at",
+        "dataset_count",
+        "description",
+        "flow_count",
+        "id",
+        "is_default",
+        "name",
+        "updated_at"
+      ]
+    },
+    "ProjectUpdate": {
+      "properties": {
+        "color": "anyOf(null|string)",
+        "description": "anyOf(null|string)",
+        "is_disabled": "anyOf(boolean|null)",
+        "name": "anyOf(null|string)"
+      },
+      "required": []
+    },
+    "RevokeRequest": {
+      "properties": {
+        "permissions": "array<#Permission>"
+      },
+      "required": []
+    },
+    "RunSortField": {
+      "type": "string{created_at,started_at,status}"
+    },
+    "RunStatus": {
+      "type": "string{cancelled,failed,pending,running,success}"
+    },
+    "RunTrigger": {
+      "type": "string{manual,retry,schedule,seed,webhook}"
+    },
+    "ScheduleCreate": {
+      "properties": {
+        "catch_up": "boolean",
+        "cron": "string",
+        "description": "anyOf(null|string)",
+        "engine": "anyOf(null|string)",
+        "is_enabled": "boolean",
+        "max_retries": "integer",
+        "name": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)",
+        "retry_delay_seconds": "integer",
+        "run_timeout_seconds": "anyOf(integer|null)",
+        "timezone": "string"
+      },
+      "required": [
+        "cron"
+      ]
+    },
+    "ScheduleRead": {
+      "properties": {
+        "catch_up": "boolean",
+        "consecutive_failures": "integer",
+        "created_at": "string(date-time)",
+        "cron": "string",
+        "description": "anyOf(null|string)",
+        "disabled_reason": "anyOf(null|string)",
+        "engine": "anyOf(null|string)",
+        "flow_id": "string",
+        "id": "string",
+        "is_enabled": "boolean",
+        "last_fired_at": "anyOf(null|string(date-time))",
+        "last_run_id": "anyOf(null|string)",
+        "last_status": "anyOf(null|string)",
+        "max_retries": "integer",
+        "name": "anyOf(null|string)",
+        "next_run_at": "anyOf(null|string(date-time))",
+        "parameters": "anyOf(null|object)",
+        "recent_runs": "array<#ScheduleRunBrief>",
+        "retry_count": "integer",
+        "retry_delay_seconds": "integer",
+        "run_timeout_seconds": "anyOf(integer|null)",
+        "timezone": "string",
+        "updated_at": "string(date-time)"
+      },
+      "required": [
+        "catch_up",
+        "consecutive_failures",
+        "created_at",
+        "cron",
+        "description",
+        "disabled_reason",
+        "engine",
+        "flow_id",
+        "id",
+        "is_enabled",
+        "last_fired_at",
+        "last_run_id",
+        "last_status",
+        "max_retries",
+        "name",
+        "next_run_at",
+        "retry_count",
+        "retry_delay_seconds",
+        "run_timeout_seconds",
+        "timezone",
+        "updated_at"
+      ]
+    },
+    "ScheduleRunBrief": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "id": "string",
+        "status": "string"
+      },
+      "required": [
+        "created_at",
+        "id",
+        "status"
+      ]
+    },
+    "ScheduleUpdate": {
+      "properties": {
+        "catch_up": "anyOf(boolean|null)",
+        "cron": "anyOf(null|string)",
+        "description": "anyOf(null|string)",
+        "engine": "anyOf(null|string)",
+        "is_enabled": "anyOf(boolean|null)",
+        "max_retries": "anyOf(integer|null)",
+        "name": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)",
+        "retry_delay_seconds": "anyOf(integer|null)",
+        "run_timeout_seconds": "anyOf(integer|null)",
+        "timezone": "anyOf(null|string)"
+      },
+      "required": []
+    },
+    "SortOrder": {
+      "type": "string{asc,desc}"
+    },
+    "TableInfo": {
+      "properties": {
+        "name": "string",
+        "qualified": "string",
+        "schema_name": "anyOf(null|string)"
+      },
+      "required": [
+        "name",
+        "qualified"
+      ]
+    },
+    "TransformationCategory": {
+      "type": "string{etl,ml}"
+    },
+    "TransformationPreviewRequest": {
+      "properties": {
+        "config": "object",
+        "dataset_id": "string",
+        "limit": "integer",
+        "profile": "boolean",
+        "type": "string"
+      },
+      "required": [
+        "dataset_id",
+        "type"
+      ]
+    },
+    "TriggerBody": {
+      "properties": {
+        "engine": "anyOf(null|string)",
+        "parameters": "anyOf(null|object)"
+      },
+      "required": []
+    },
+    "ValidationError": {
+      "properties": {
+        "ctx": "object",
+        "input": "any",
+        "loc": "array<anyOf(integer|string)>",
+        "msg": "string",
+        "type": "string"
+      },
+      "required": [
+        "loc",
+        "msg",
+        "type"
+      ]
+    },
+    "WebhookStatus": {
+      "properties": {
+        "configured": "boolean"
+      },
+      "required": [
+        "configured"
+      ]
+    }
+  }
+}
