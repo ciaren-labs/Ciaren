@@ -64,6 +64,7 @@ class ExecutionService:
         *,
         schedule_id: str | None = None,
         trigger: str = "manual",
+        webhook_idempotency_key: str | None = None,
     ) -> FlowRunRead:
         flow = await self._get_flow(flow_id)
 
@@ -116,8 +117,14 @@ class ExecutionService:
             # *resolved* graph (parameters substituted) — exactly what executed.
             graph_snapshot_json=graph,
             parameters_json=param_values or None,
+            webhook_idempotency_key=webhook_idempotency_key,
         )
         self.db.add(run)
+        # A concurrent duplicate webhook delivery reusing the same idempotency
+        # key can raise IntegrityError here (flows_run's unique (flow_id,
+        # webhook_idempotency_key) constraint) — before any dataset resolution
+        # or actual execution has happened, so the loser does no wasted work.
+        # The webhook route catches it and returns the winner's run instead.
         await self.db.flush()  # assign run.id without committing
 
         timeout = await self._effective_timeout(data, schedule_id)
@@ -439,6 +446,16 @@ class ExecutionService:
         if run is None:
             raise NotFoundError("FlowRun", run_id)
         return FlowRunRead.model_validate(run)
+
+    async def find_by_webhook_idempotency_key(self, flow_id: str, key: str) -> FlowRunRead | None:
+        """The run a prior webhook trigger with this Idempotency-Key produced,
+        if any — lets the webhook route return it instead of starting a
+        duplicate on a client retry."""
+        result = await self.db.execute(
+            select(FlowRun).where(FlowRun.flow_id == flow_id, FlowRun.webhook_idempotency_key == key)
+        )
+        run = result.scalar_one_or_none()
+        return FlowRunRead.model_validate(run) if run is not None else None
 
     async def cancel(self, run_id: str) -> dict[str, str]:
         """Request cancellation of a running run.

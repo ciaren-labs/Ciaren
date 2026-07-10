@@ -16,6 +16,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import ExecutionServiceDep
 from app.core.config import get_settings
@@ -47,6 +48,7 @@ async def trigger_flow(
     service: ExecutionServiceDep,
     body: TriggerBody | None = None,
     x_ciaren_secret: Annotated[str | None, Header()] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> FlowRunRead:
     """Trigger a flow run via webhook secret.
 
@@ -54,6 +56,10 @@ async def trigger_flow(
     supply the same value in the ``X-Ciaren-Secret`` request header.
 
     Blocks until the run completes and returns the resulting ``FlowRunRead``.
+    An optional ``Idempotency-Key`` header, scoped per flow, makes a retry of
+    the same trigger (e.g. after the caller times out waiting for this
+    blocking response) return the original run instead of starting a second
+    one — without it, every request always starts a fresh run.
     """
     settings = get_settings()
     if settings.WEBHOOK_SECRET is None:
@@ -67,8 +73,25 @@ async def trigger_flow(
             detail="Invalid or missing X-Ciaren-Secret header.",
         )
 
+    if idempotency_key:
+        existing = await service.find_by_webhook_idempotency_key(flow_id, idempotency_key)
+        if existing is not None:
+            return existing
+
     run_create = FlowRunCreate(
         engine=body.engine if body else None,
         parameters=body.parameters if body else None,
     )
-    return await service.run(flow_id, run_create, trigger="webhook")
+    try:
+        return await service.run(flow_id, run_create, trigger="webhook", webhook_idempotency_key=idempotency_key)
+    except IntegrityError:
+        # A concurrent duplicate delivery won the race between our pre-check
+        # above and the insert inside run() — the loser's session needs a
+        # rollback before it's usable again; the winner's run is what a
+        # retrying caller actually wants back, not a 500.
+        await service.db.rollback()
+        if idempotency_key:
+            existing = await service.find_by_webhook_idempotency_key(flow_id, idempotency_key)
+            if existing is not None:
+                return existing
+        raise

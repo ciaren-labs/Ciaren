@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -11,6 +11,13 @@ from app.core.database import Base
 
 class FlowRun(Base):
     __tablename__ = "flow_runs"
+    __table_args__ = (
+        # NULL is never considered equal to NULL by a UNIQUE constraint (in both
+        # SQLite and Postgres), so a run triggered without an idempotency key
+        # never collides with anything — only two triggers of the SAME flow
+        # reusing the SAME key do.
+        UniqueConstraint("flow_id", "webhook_idempotency_key", name="uq_flow_run_webhook_idempotency_key"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     flow_id: Mapped[str] = mapped_column(String(36), ForeignKey("flows.id"), nullable=False)
@@ -28,6 +35,11 @@ class FlowRun(Base):
     # How the run was started, and (for scheduled runs) which schedule fired it.
     trigger: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")  # manual | schedule
     schedule_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # Caller-supplied Idempotency-Key on a webhook trigger (see
+    # routes/webhooks.py). NULL for every non-webhook trigger and for webhook
+    # triggers that didn't send the header — see __table_args__ for why NULLs
+    # never collide with each other.
+    webhook_idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     output_location: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

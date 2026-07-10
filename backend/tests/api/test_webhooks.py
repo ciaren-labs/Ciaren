@@ -231,6 +231,122 @@ async def test_trigger_wait_false_still_succeeds(
 # ---------------------------------------------------------------------------
 
 
+async def test_trigger_retry_with_same_idempotency_key_returns_original_run(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A caller that times out waiting for the blocking response and retries
+    with the same Idempotency-Key must get the original run back, not start a
+    second one."""
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
+    get_settings.cache_clear()
+    try:
+        ds = await _upload(client)
+        flow = await _create_flow(client, ds["id"])
+        headers = {"X-Ciaren-Secret": SECRET, "Idempotency-Key": "retry-key-1"}
+
+        first = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        assert first.status_code == 200, first.text
+
+        second = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        assert second.status_code == 200, second.text
+        assert second.json()["id"] == first.json()["id"]
+
+        runs = await client.get("/api/runs", params={"flow_id": flow["id"]})
+        assert len(runs.json()) == 1  # only one run actually executed
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_trigger_without_idempotency_key_always_starts_a_new_run(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
+    get_settings.cache_clear()
+    try:
+        ds = await _upload(client)
+        flow = await _create_flow(client, ds["id"])
+        headers = {"X-Ciaren-Secret": SECRET}
+
+        first = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        second = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        assert first.json()["id"] != second.json()["id"]
+
+        runs = await client.get("/api/runs", params={"flow_id": flow["id"]})
+        assert len(runs.json()) == 2
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_trigger_same_idempotency_key_on_different_flows_does_not_collide(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The unique constraint is scoped to (flow_id, key) — the same key reused
+    across unrelated flows (a plausible client bug, or a shared constant) must
+    not make the second flow's trigger silently return the first flow's run."""
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
+    get_settings.cache_clear()
+    try:
+        ds = await _upload(client)
+        flow_a = await _create_flow(client, ds["id"])
+        flow_b = await _create_flow(client, ds["id"])
+        headers = {"X-Ciaren-Secret": SECRET, "Idempotency-Key": "shared-key"}
+
+        run_a = await client.post(f"/api/flows/{flow_a['id']}/trigger", headers=headers)
+        run_b = await client.post(f"/api/flows/{flow_b['id']}/trigger", headers=headers)
+        assert run_a.status_code == 200, run_a.text
+        assert run_b.status_code == 200, run_b.text
+        assert run_a.json()["id"] != run_b.json()["id"]
+        assert run_a.json()["flow_id"] == flow_a["id"]
+        assert run_b.json()["flow_id"] == flow_b["id"]
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_trigger_concurrent_duplicate_delivery_returns_the_winners_run(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Forces the true race window (not just the ordinary pre-check path):
+    the pre-check is made to miss an already-committed run once — standing in
+    for a concurrent request whose insert lands between our own pre-check and
+    our own insert — so the trigger must hit the unique constraint at
+    db.flush() and recover via the except IntegrityError branch, returning
+    the winner's run instead of a raw 500."""
+    monkeypatch.setenv("CIAREN_WEBHOOK_SECRET", SECRET)
+    get_settings.cache_clear()
+    try:
+        ds = await _upload(client)
+        flow = await _create_flow(client, ds["id"])
+        headers = {"X-Ciaren-Secret": SECRET, "Idempotency-Key": "race-key"}
+
+        winner = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        assert winner.status_code == 200, winner.text
+
+        from app.services.execution_service import ExecutionService
+
+        original = ExecutionService.find_by_webhook_idempotency_key
+        calls = 0
+
+        async def flaky_precheck(self: ExecutionService, flow_id: str, key: str):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return None  # the pre-check races ahead of the winner's commit
+            return await original(self, flow_id, key)
+
+        monkeypatch.setattr(ExecutionService, "find_by_webhook_idempotency_key", flaky_precheck)
+
+        retry = await client.post(f"/api/flows/{flow['id']}/trigger", headers=headers)
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["id"] == winner.json()["id"]
+        assert calls == 2  # pre-check missed it, the IntegrityError recovery found it
+    finally:
+        get_settings.cache_clear()
+
+
 async def test_webhook_status_never_returns_secret(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,

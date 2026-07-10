@@ -1394,6 +1394,12 @@
       "parameters": [
         {
           "in": "header",
+          "name": "Idempotency-Key",
+          "required": false,
+          "type": "anyOf(null|string)"
+        },
+        {
+          "in": "header",
           "name": "x-ciaren-secret",
           "required": false,
           "type": "anyOf(null|string)"
