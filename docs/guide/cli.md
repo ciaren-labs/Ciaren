@@ -106,8 +106,10 @@ and CI. It checks that:
 
 - the data directory is writable,
 - the database URL uses an **async** driver,
-- the database is reachable, and
-- the dataframe engines are importable.
+- the database is reachable,
+- the dataframe engines are importable, and
+- (Windows) the MLflow tracking path is short enough to log models under the
+  260-character path limit — see the `ml_path` line below.
 
 ```bash
 ciaren check
@@ -122,6 +124,16 @@ ciaren check
 
 All checks passed.
 ```
+
+:::tip Windows MLflow path check
+On Windows without long-path support, a deeply nested `mlruns` directory can push
+MLflow's model-artifact paths past the legacy 260-character limit, so training
+runs finish green but the model comes back **untracked**. When the tracking store
+is a local folder, `ciaren check` adds an `ml_path` line — `[ok]` when the path
+has room, or a non-fatal `[warn]` telling you to enable long paths or set a
+shorter `CIAREN_MLFLOW_TRACKING_URI`. See
+[Troubleshooting](/guide/troubleshooting#ml-training-succeeds-but-the-model-isn-t-tracked-windows).
+:::
 
 Both `info` and `check` accept `--output json` for scripting and CI:
 

@@ -432,6 +432,91 @@ def _info(args: argparse.Namespace) -> None:
         print(f"  {key.ljust(width)}  {value}")
 
 
+# Windows rejects paths longer than 260 chars unless long-path support is on.
+# MLflow writes model artifacts several levels deep under its tracking store
+# (``<root>/<experiment_id>/<run_id>/.../models/m-<32 hex>/artifacts/<file>``),
+# which typically adds ~150 chars below the root. If the tracking root itself is
+# already long, a training run's log_model silently fails at run time (WinError
+# 206) and the model comes back untracked. Reserve a generous budget for that
+# nested suffix so ``ciaren check`` can flag a risky root up front.
+_WIN_MAX_PATH = 260
+_MLFLOW_WIN_PATH_RESERVE = 160
+# Tracking URIs MLflow accepts as bare words (no scheme) that are *not* local
+# directories — keep in sync with app.ml.tracking._BARE_MLFLOW_SCHEMES.
+_BARE_MLFLOW_SCHEMES = {"databricks", "databricks-uc", "uc"}
+
+
+def _windows_long_paths_enabled() -> bool:
+    """True when 260-char ``MAX_PATH`` is not a concern.
+
+    Non-Windows platforms have no such limit. On Windows, report whether the
+    ``LongPathsEnabled`` filesystem policy is turned on; treat an unreadable key
+    as "off" (the conservative default).
+    """
+    if sys.platform != "win32":
+        return True
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem") as key:
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            return int(value) == 1
+    except (OSError, ValueError):
+        return False
+
+
+def _local_mlflow_store_dir(tracking_uri: str) -> Path | None:
+    """The local directory MLflow writes artifacts to, or ``None`` if remote.
+
+    A bare path (the ``./mlruns`` default) or a ``file://`` URI is a local file
+    store whose artifact paths count against ``MAX_PATH``. ``http(s)://``,
+    ``sqlite:``, and the bare ``databricks`` schemes keep artifacts elsewhere,
+    so path length is not our concern there.
+    """
+    uri = tracking_uri or "./mlruns"
+    if "://" not in uri:
+        if uri in _BARE_MLFLOW_SCHEMES:
+            return None
+        return Path(uri).resolve()
+    from urllib.parse import unquote, urlparse
+
+    parsed = urlparse(uri)
+    if parsed.scheme != "file":
+        return None
+    path = unquote(parsed.netloc + parsed.path)
+    # file:///C:/x -> /C:/x on Windows; drop the leading slash before the drive.
+    if sys.platform == "win32" and len(path) > 2 and path[0] == "/" and path[2] == ":":
+        path = path[1:]
+    return Path(path).resolve()
+
+
+def _mlflow_path_length_check(tracking_uri: str) -> dict[str, str] | None:
+    """A ``ciaren check`` entry warning when the MLflow store risks MAX_PATH.
+
+    Returns ``None`` when the concern does not apply (non-Windows, long paths
+    enabled, or a non-local tracking store) so the check list stays quiet where
+    there is nothing to flag.
+    """
+    if _windows_long_paths_enabled():
+        return None
+    store = _local_mlflow_store_dir(tracking_uri)
+    if store is None:
+        return None
+    root_len = len(str(store))
+    if root_len + _MLFLOW_WIN_PATH_RESERVE <= _WIN_MAX_PATH:
+        return {"name": "ml_path", "status": "ok", "detail": f"{store} ({root_len} chars)"}
+    return {
+        "name": "ml_path",
+        "status": "warn",
+        "detail": (
+            f"MLflow store path is long ({root_len} chars): {store}. On Windows, "
+            "model logging can fail (WinError 206) and models come back untracked. "
+            "Enable long paths (LongPathsEnabled=1) or set a short "
+            "CIAREN_MLFLOW_TRACKING_URI (e.g. C:\\mlruns)."
+        ),
+    }
+
+
 def _check(args: argparse.Namespace) -> None:
     _load_env_file(args)
     from app.core.config import get_settings
@@ -479,6 +564,11 @@ def _check(args: argparse.Namespace) -> None:
 
         if ml_core_available():
             checks.append({"name": "ml", "status": "ok", "detail": f"enabled, tracking={s.MLFLOW_TRACKING_URI}"})
+            # Warn up front when a long local tracking path would silently break
+            # model logging on Windows (see _mlflow_path_length_check).
+            path_check = _mlflow_path_length_check(s.MLFLOW_TRACKING_URI)
+            if path_check is not None:
+                checks.append(path_check)
         else:
             checks.append(
                 {

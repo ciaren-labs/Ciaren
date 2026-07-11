@@ -128,6 +128,10 @@ the limit when Ciaren runs from a deeply nested folder. Training itself is
 in-memory, so it still succeeds — only the logging step fails, which is why the
 run is green but untracked.
 
+`ciaren check` catches this ahead of time: when the tracking store is a local
+folder and long paths are off, it prints an `ml_path` line — `[warn]` (with the
+fix) if the path is long enough to be at risk, `[ok]` otherwise.
+
 Fix it either way:
 
 - **Enable long paths** (recommended, one-time) — the same
