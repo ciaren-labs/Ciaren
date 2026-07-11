@@ -190,8 +190,8 @@ result = client.test_connection_config(provider="postgres", host="...", database
 connection = client.create_connection(
     name="Warehouse",
     provider="postgres",
-    kind="database",
-    config={"host": "...", "database": "..."},
+    host="...",
+    database="...",
 )
 tables = client.list_connection_tables(connection["id"])
 
@@ -210,8 +210,9 @@ print(secret["reference"])  # "keyring:warehouse-password"
 connection = client.create_connection(
     name="Warehouse",
     provider="postgres",
-    kind="database",
-    config={"host": "...", "database": "...", "password_env": secret["reference"]},
+    host="...",
+    database="...",
+    password_env=secret["reference"],
 )
 ```
 
