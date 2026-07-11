@@ -636,11 +636,25 @@ def _init(args: argparse.Namespace) -> None:
     if not getattr(args, "no_ml", False):
         mlruns = Path(_DEFAULT_MLFLOW_DIR)
         try:
-            mlruns.mkdir(parents=True, exist_ok=True)
-            print(
-                f"Provisioned a local MLflow store at {mlruns.resolve()} "
-                f"(override with CIAREN_MLFLOW_TRACKING_URI to use an existing MLflow)."
-            )
+            if mlruns.is_dir() and any(mlruns.iterdir()):
+                # The user may already keep their own MLflow store here. Never
+                # adopt, rewrite, or claim to have "provisioned" it — leave the
+                # contents untouched and just tell them Ciaren will write next to
+                # them (additively, under the 'ciaren' experiment; it never
+                # deletes experiments or runs). They can redirect Ciaren's runs
+                # elsewhere with CIAREN_MLFLOW_TRACKING_URI.
+                print(
+                    f"Found an existing MLflow store at {mlruns.resolve()} — left it "
+                    f"intact. Ciaren logs additively under the 'ciaren' experiment and "
+                    f"never deletes experiments or runs; set CIAREN_MLFLOW_TRACKING_URI "
+                    f"to keep Ciaren's runs in a separate store."
+                )
+            else:
+                mlruns.mkdir(parents=True, exist_ok=True)
+                print(
+                    f"Provisioned a local MLflow store at {mlruns.resolve()} "
+                    f"(override with CIAREN_MLFLOW_TRACKING_URI to use an existing MLflow)."
+                )
         except OSError as exc:  # pragma: no cover - unusual fs error
             print(f"Could not create {mlruns}: {exc}")
 

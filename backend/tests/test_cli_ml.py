@@ -24,6 +24,24 @@ def test_init_writes_ml_defaults_and_provisions_mlflow(monkeypatch, tmp_path, ca
     assert "MLflow" in out
 
 
+def test_init_leaves_existing_mlflow_store_intact(monkeypatch, tmp_path, capsys):
+    # A pre-existing, non-empty mlruns (the user's own MLflow store) must never
+    # be adopted, rewritten, or reported as freshly "provisioned".
+    monkeypatch.chdir(tmp_path)
+    store = tmp_path / "mlruns"
+    store.mkdir()
+    sentinel = store / "0" / "meta.yaml"
+    sentinel.parent.mkdir()
+    sentinel.write_text("experiment_id: '0'\n", encoding="utf-8")
+    cli.main(["init"])
+    out = capsys.readouterr().out
+    # The user's file is untouched...
+    assert sentinel.read_text(encoding="utf-8") == "experiment_id: '0'\n"
+    # ...and we do not claim to have provisioned their store.
+    assert "Provisioned" not in out
+    assert "left it intact" in out
+
+
 def test_init_no_ml_skips_mlflow(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     cli.main(["init", "--no-ml"])

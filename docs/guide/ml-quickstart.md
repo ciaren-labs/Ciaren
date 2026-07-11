@@ -49,6 +49,25 @@ server (`http://host:5000`), a SQLite store (`sqlite:///mlflow.db`), or another
 folder. Every training run and the **ML Models** page read the tracking URI from
 this connection, so changing it re-points MLflow everywhere — no restart needed.
 
+:::tip Pointing Ciaren at an MLflow you already use
+Ciaren is **additive and non-destructive** toward a tracking store — it logs runs
+under an experiment named `ciaren` and **never deletes experiments or runs**, and
+**Test connection** only reads (it lists one experiment). `ciaren init` likewise
+leaves an existing `mlruns` folder untouched rather than overwriting it. Two
+things still write into whatever store you point at, so on a **shared** MLflow be
+deliberate:
+
+- **Model registration** adds a version under the model **name you choose** — on a
+  shared registry, pick a unique or prefixed name so you don't append a version to
+  someone else's model of the same name.
+- **Aliases** (`@production`, `@staging`) are set/cleared by name too, so an alias
+  op targets whatever model carries that name in the registry.
+
+To keep Ciaren's runs fully separate, give it a dedicated
+`CIAREN_MLFLOW_TRACKING_URI` (its own folder, a `sqlite:///` store, or a distinct
+experiment) rather than sharing your team's tracking server.
+:::
+
 ## ML pipeline at a glance
 
 <FlowPipeline
