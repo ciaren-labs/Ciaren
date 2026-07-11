@@ -174,8 +174,15 @@ Your plugin's code already declares all of this. Generate the manifest from it s
 the two never drift:
 
 ```bash
-ciaren-plugin manifest ./my-greeting-plugin   # writes ciaren-plugin.json from the code
+# The first time (no manifest yet) tell it which class is the Plugin:
+ciaren-plugin manifest ./my-greeting-plugin \
+  --entrypoint ciaren_greeting.plugin:GreetingPlugin
+# writes ciaren-plugin.json from the code
 ```
+
+After the manifest exists, `--entrypoint` is optional — later runs reuse the
+entrypoint already recorded in `ciaren-plugin.json`, so regenerating after a code
+change is just `ciaren-plugin manifest ./my-greeting-plugin`.
 
 The manifest is still shipped in the package and validated **before** any code
 runs — generating it just keeps a single source of truth in Python. It stamps

@@ -108,6 +108,35 @@ Fix it either way:
   the drive root (for example `C:\ciaren\.venv`) instead of a deeply nested
   directory.
 
+## ML training succeeds but the model isn't tracked (Windows)
+
+A training run finishes **green**, its metrics show up, but the node's **model
+URI** and **MLflow run id** are blank — and a downstream **Predict** or **Feature
+Importance** node then fails because there's no model to load. The server log
+shows a warning like:
+
+```
+mlTrainClassifier: MLflow logging failed ([WinError 206] The filename or extension
+is too long: '...\mlruns\...\models\...') — model trained but not tracked.
+```
+
+This is the same Windows 260-character path limit as the install error above, but
+at **run time**: MLflow writes artifacts under your tracking directory
+(`CIAREN_MLFLOW_TRACKING_URI`, default `./mlruns` inside the working directory),
+and its nested `mlruns/<exp>/<run>/models/...` layout can push the full path over
+the limit when Ciaren runs from a deeply nested folder. Training itself is
+in-memory, so it still succeeds — only the logging step fails, which is why the
+run is green but untracked.
+
+Fix it either way:
+
+- **Enable long paths** (recommended, one-time) — the same
+  `LongPathsEnabled` registry setting shown in the install section above.
+- **Point the tracking store somewhere short** — set an absolute, shallow
+  `CIAREN_MLFLOW_TRACKING_URI` (for example `CIAREN_MLFLOW_TRACKING_URI=C:\mlruns`),
+  or run Ciaren from a directory close to the drive root. You can also edit the
+  **Local MLflow** connection's Tracking URI in the **Connections** page.
+
 ## Still stuck?
 
 - [Installation Guide](/guide/installation)
