@@ -74,7 +74,7 @@ Upload both on the **Datasets** page (📥 download
    customers input to the **right** handle. Config: `on: "customer_id"`,
    `how: "left"`.
 6. **Bin Column** — `column: "total_spent"`, `new_column: "tier"`, `bins: 3`,
-   `method: "quantile"`, `labels: ["Bronze", "Silver", "Gold"]`.
+   `method: "equalwidth"`, `labels: ["Bronze", "Silver", "Gold"]`.
 7. **Sort Rows** — `columns: ["total_spent"]`, `ascending: false`.
 8. **File Output** — `format: csv` (name `segments`).
 
@@ -96,7 +96,7 @@ df_orders = (
 df_1 = df_orders.merge(df_customers, on='customer_id', how='left')
 
 df_1 = (
-    df_1.assign(tier=pd.qcut(df_1['total_spent'], q=3, labels=['Bronze', 'Silver', 'Gold'], duplicates='drop').astype('string'))
+    df_1.assign(tier=pd.cut(df_1['total_spent'], bins=3, labels=['Bronze', 'Silver', 'Gold']).astype('string'))
     .sort_values('total_spent', ascending=False)
 )
 

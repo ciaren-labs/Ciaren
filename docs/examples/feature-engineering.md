@@ -53,7 +53,11 @@ applicant_id,age,income,region,score,approved
 6. **Reduce Dimensions** — PCA; keep a number of components or a variance fraction.
    The selected columns are replaced by `pc_1`, `pc_2`, ….
 
-Preview after each node to watch the feature space change, then **Run**.
+Preview after each node to watch the feature space change. This flow ends at a
+feature-prep node, so to **Run** or export it as a whole, add a terminal — a
+**File Output** to save the engineered table, or feed the features into a
+**Train** node (see below). A flow needs at least one output or model-terminal
+node to run; on its own it's ideal for live preview.
 
 ## Scaling, visualized
 
