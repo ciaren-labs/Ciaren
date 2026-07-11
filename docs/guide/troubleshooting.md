@@ -80,7 +80,7 @@ cd backend
 rm -rf .venv
 python -m venv .venv
 source .venv/bin/activate   # or .venv\Scripts\activate on Windows
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ```
 
 If you are working from a source checkout, reinstall the local package instead:

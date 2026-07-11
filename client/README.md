@@ -3,12 +3,12 @@
 `ciaren-client` is the lightweight Python SDK for Ciaren. It talks to the
 Ciaren REST API without installing the full application.
 
-> Status: alpha, `0.1.0-alpha.1`. Breaking changes are expected before `1.0.0`.
+> Status: alpha (pre-1.0), `0.1.0`. Breaking changes are expected before `1.0.0`.
 
 ## Install
 
 ```bash
-python -m pip install --pre ciaren-client
+python -m pip install ciaren-client
 ```
 
 For local development from this repository:

@@ -6,7 +6,7 @@ search: cli ciaren serve init info check command env variables flags
 
 # CLI Reference
 
-Installing Ciaren (`pip install --pre ciaren`, or `pip install -e .` from a
+Installing Ciaren (`pip install ciaren`, or `pip install -e .` from a
 source checkout) exposes a `ciaren` command — the
 setup surface for running and configuring Ciaren. It uses only the standard
 library, so there's nothing extra to install.

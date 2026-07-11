@@ -81,7 +81,7 @@ the UI and still end with code.
 
 For the fastest evaluation:
 
-- **Python 3.12+** for the PyPI alpha package;
+- **Python 3.12+** for the PyPI package;
 - **Docker** if you prefer an isolated container;
 - **a browser** to open the visual editor;
 - **five minutes** to inspect the Demo project or build a small flow.
@@ -135,7 +135,7 @@ Here is the kind of pipeline you will build in the
 Install Ciaren and open the Demo project:
 
 ```bash
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ciaren serve
 ```
 

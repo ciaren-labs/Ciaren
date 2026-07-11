@@ -20,7 +20,7 @@ and migrated across versions.
 ```json
 {
   "schemaVersion": "1.0.0",
-  "ciarenVersion": "0.1.0-alpha.1",
+  "ciarenVersion": "0.1.0",
   "project": {
     "id": "optional-stable-id",
     "name": "My Flow",

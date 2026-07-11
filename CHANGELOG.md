@@ -3,48 +3,14 @@
 All notable changes to Ciaren will be documented in this file.
 
 Ciaren follows the spirit of [Keep a Changelog](https://keepachangelog.com/)
-and uses semantic versioning once public releases begin. Until the first stable
-release, breaking changes may still happen between alpha versions.
+and uses semantic versioning. Until the first stable release (`1.0.0`),
+breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
-### Added
+## [0.1.0] - 2026-07-11
 
-- **Snowflake, Azure Blob, and REST API connection forms cover previously
-  inaccessible options** — Snowflake now has its own form (account
-  identifier, warehouse, role, schema — no unusable port field, which the
-  driver never used); Azure Blob gained an endpoint URL field for Azurite and
-  sovereign clouds; the REST API connector's start-page option for
-  0-indexed pagination APIs is now configurable from the connection form.
-- Search inputs (Flows, Datasets) now have a clear button.
-
-### Fixed
-
-- **List-page actions no longer leak pending state across rows** —
-  duplicating a flow, running a schedule, retrying a run, and clearing a
-  model alias now show a loading/disabled state on only the row you
-  clicked. Most visibly, retrying one failed run previously disabled every
-  other failed run's Retry button on the page at once.
-- **REST API pagination's start-page option ignored an explicit `0`** —
-  0-indexed pagination APIs were always requested from page 1 regardless of
-  the configured start page.
-- **Dataset re-upload warning matched names across all projects** —
-  uploading a file whose name happened to match a dataset in a *different*
-  project incorrectly warned that it would create a new version of that
-  unrelated dataset. The check is now scoped to the upload's target
-  project, matching the backend's own per-project name uniqueness rule.
-- **Plugin approve/revoke gave no confirmation** — both actions now show a
-  specific success or error toast instead of a generic fallback message (or
-  silence on success).
-- Project and dataset card actions (edit/toggle/delete) are now revealed on
-  keyboard focus, not only mouse hover.
-- A rapid double-Enter in a project page's inline "New flow" input could
-  create a duplicate flow; the input is now guarded the same way its
-  button already was.
-
-## [0.1.0-alpha.1] - 2026-07-07
-
-Initial public alpha release.
+Initial public release.
 
 ### Added
 
@@ -122,6 +88,13 @@ Initial public alpha release.
   format + records path, page-number pagination with a page cap, timeout, and
   TLS verification. Endpoints read through SQL Input; API connections are
   read-only, SSRF-guarded, and size-capped.
+- **Snowflake, Azure Blob, and REST API connection forms cover previously
+  inaccessible options** — Snowflake now has its own form (account
+  identifier, warehouse, role, schema — no unusable port field, which the
+  driver never used); Azure Blob gained an endpoint URL field for Azurite and
+  sovereign clouds; the REST API connector's start-page option for
+  0-indexed pagination APIs is now configurable from the connection form.
+- Search inputs (Flows, Datasets) now have a clear button.
 - The MLP Classifier example plugin (0.2.0) demonstrates both ML extension
   paths and ships signed in the bundled Explore catalog.
 - New docs: ML Model Plugins and Connector Plugins guides, plus
@@ -130,9 +103,9 @@ Initial public alpha release.
 - Developer Certificate of Origin (DCO) policy: contributors must sign off
   commits (`git commit -s`), enforced by CI (`.github/workflows/dco.yml`) and
   a Preflight checkbox on the PR template.
-- Versioning and release-tag guidance in `MAINTAINERS.md` (alpha semver,
-  unprefixed `X.Y.Z` tag convention, PyPI trusted publishing on tag push for
-  both `ciaren` and `ciaren-client`).
+- Versioning and release-tag guidance in `MAINTAINERS.md` (semver, unprefixed
+  `X.Y.Z` tag convention, PyPI trusted publishing on tag push for both
+  `ciaren` and `ciaren-client`).
 - `development` integration branch and `release/x.y.z`/`hotfix/*` branch
   types, matching the branching strategy in `CONTRIBUTING.md`/`MAINTAINERS.md`.
 - Public GitHub issue templates, pull request template, CODEOWNERS, support
@@ -199,6 +172,27 @@ Initial public alpha release.
   a bare 500.
 - **Flow import dropped `parameters` and `engine`** — both now survive the
   round-trip, and imported parameter specs are validated at import time.
+- **List-page actions no longer leak pending state across rows** —
+  duplicating a flow, running a schedule, retrying a run, and clearing a
+  model alias now show a loading/disabled state on only the row you
+  clicked. Most visibly, retrying one failed run previously disabled every
+  other failed run's Retry button on the page at once.
+- **REST API pagination's start-page option ignored an explicit `0`** —
+  0-indexed pagination APIs were always requested from page 1 regardless of
+  the configured start page.
+- **Dataset re-upload warning matched names across all projects** —
+  uploading a file whose name happened to match a dataset in a *different*
+  project incorrectly warned that it would create a new version of that
+  unrelated dataset. The check is now scoped to the upload's target
+  project, matching the backend's own per-project name uniqueness rule.
+- **Plugin approve/revoke gave no confirmation** — both actions now show a
+  specific success or error toast instead of a generic fallback message (or
+  silence on success).
+- Project and dataset card actions (edit/toggle/delete) are now revealed on
+  keyboard focus, not only mouse hover.
+- A rapid double-Enter in a project page's inline "New flow" input could
+  create a duplicate flow; the input is now guarded the same way its
+  button already was.
 
 ### Security
 

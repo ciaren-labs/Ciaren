@@ -47,7 +47,7 @@ It is built for people who want the speed of a visual tool without giving up the
 clarity, portability, and reviewability of code.
 
 ```bash
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ciaren serve
 ```
 
@@ -79,11 +79,9 @@ become code.
 
 ### Install From PyPI
 
-During alpha, use `--pre` so pip can install pre-release versions:
-
 ```bash
 python -m pip install --upgrade pip
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ciaren serve
 ```
 
@@ -91,13 +89,11 @@ Open `http://localhost:8055`, then open **Projects -> Demo**. The first start
 seeds sample datasets and working example flows, so you can preview, run, and
 export something real before uploading your own data.
 
-For repeatable evaluation, pin the first alpha release:
+For repeatable evaluation, pin the release version:
 
 ```bash
-python -m pip install "ciaren==0.1.0a1"
+python -m pip install "ciaren==0.1.0"
 ```
-
-PyPI normalizes `0.1.0-alpha.1` to the PEP 440 version `0.1.0a1`.
 
 ### Run With Docker
 
@@ -233,11 +229,11 @@ MLflow tracking, and the bundled web UI.
 Install extras only when you need specific drivers or optional model families:
 
 ```bash
-python -m pip install --pre "ciaren[postgres]"
-python -m pip install --pre "ciaren[s3]"
-python -m pip install --pre "ciaren[ml]"        # XGBoost and LightGBM choices
-python -m pip install --pre "ciaren[keyring]"   # recommended: store connection secrets in the OS keychain
-python -m pip install --pre "ciaren[signing]"   # plugin signing support
+python -m pip install "ciaren[postgres]"
+python -m pip install "ciaren[s3]"
+python -m pip install "ciaren[ml]"        # XGBoost and LightGBM choices
+python -m pip install "ciaren[keyring]"   # recommended: store connection secrets in the OS keychain
+python -m pip install "ciaren[signing]"   # plugin signing support
 ```
 
 On a desktop install, `ciaren[keyring]` is the **recommended** way to hold
@@ -290,11 +286,11 @@ complete license texts and notices.
 
 ## Project Status
 
-- Current stage: **Alpha**
-- First public release: `0.1.0-alpha.1` — this is also the **git tag** to push.
-  Push it **without** a `v` prefix (`git tag 0.1.0-alpha.1`); the tag is what
+- Current stage: **Alpha** (pre-1.0) — the API and data model may change
+  before `1.0.0`. Pin a version for production use.
+- First public release: `0.1.0` — this is also the **git tag** to push.
+  Push it **without** a `v` prefix (`git tag 0.1.0`); the tag is what
   triggers the PyPI publish workflow, and it only matches unprefixed versions.
-- PyPI version for the first alpha: `0.1.0a1` (PyPI normalizes the tag to PEP 440).
 - Breaking changes are expected before `1.0.0`
 
 Made for data practitioners who value local workflows, transparent execution,

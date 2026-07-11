@@ -40,7 +40,7 @@ from ciaren_client._types import (
     WebhookStatus,
 )
 
-__version__ = "0.1.0-alpha.1"
+__version__ = "0.1.0"
 
 __all__ = [
     "AppSetting",

@@ -22,14 +22,13 @@ You can run the backend on its own and drive it through the
 - A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
   are supported via an async driver.
 
-## Recommended: PyPI Alpha Package
+## Recommended: PyPI Package
 
-Use the PyPI package when you want the simplest local install. During alpha, use
-`--pre` so pip is allowed to install pre-release versions.
+Use the PyPI package when you want the simplest local install.
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ciaren serve
 ```
 
@@ -40,15 +39,13 @@ editor, API, and background scheduler from one process. The first start creates
 the SQLite database automatically and seeds a **Demo project** with sample
 datasets and example flows.
 
-:::tip Pin the alpha if you need reproducibility
+:::tip Pin the version if you need reproducibility
 For repeatable tutorials, CI jobs, or controlled internal evaluation, pin the
-exact alpha version:
+exact version:
 
 ```bash
-python -m pip install "ciaren==0.1.0a1"
+python -m pip install "ciaren==0.1.0"
 ```
-
-PyPI normalizes `0.1.0-alpha.1` to the PEP 440 version `0.1.0a1`.
 :::
 
 :::tip Optional extras from PyPI
@@ -57,10 +54,10 @@ pandas, and polars. Install extras only when you need specific drivers or
 optional model families:
 
 ```bash
-python -m pip install --pre "ciaren[postgres]"
-python -m pip install --pre "ciaren[s3]"
-python -m pip install --pre "ciaren[ml]"        # adds XGBoost and LightGBM choices
-python -m pip install --pre "ciaren[keyring]"   # recommended on desktop: OS-keychain connection secrets
+python -m pip install "ciaren[postgres]"
+python -m pip install "ciaren[s3]"
+python -m pip install "ciaren[ml]"        # adds XGBoost and LightGBM choices
+python -m pip install "ciaren[keyring]"   # recommended on desktop: OS-keychain connection secrets
 ```
 
 For a full list, see [Connections](/guide/connections) and

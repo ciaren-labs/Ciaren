@@ -239,7 +239,7 @@ Ciaren is local-first, but you can host it. A typical setup:
 ### Backend
 
 ```bash
-python -m pip install --pre ciaren
+python -m pip install ciaren
 # bind to all interfaces, no reload, info logs
 ciaren serve --host 0.0.0.0 --port 8055 --log-level info
 ```

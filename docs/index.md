@@ -128,12 +128,12 @@ exported to ordinary Python.
 
 ## Install and Open the Demo
 
-For the alpha package on PyPI, the fastest way to evaluate Ciaren is a normal
+For the PyPI package, the fastest way to evaluate Ciaren is a normal
 Python install. The wheel bundles the web UI, so `ciaren serve` can start the
 API, scheduler, and visual editor at one URL.
 
 ```bash
-python -m pip install --pre ciaren
+python -m pip install ciaren
 ciaren serve
 ```
 
