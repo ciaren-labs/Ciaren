@@ -6,7 +6,7 @@ search: security trust model local-first sandbox permissions secrets
 
 # Local-First Trust Model
 
-Ciaren runs on **your** machine and executes **your** pipelines against **your**
+Ciaren runs on **your** machine and executes **your** flows against **your**
 data. That shapes the security model: the primary trust boundary is "code and data
 you chose to run," not a multi-tenant server.
 
@@ -14,7 +14,7 @@ you chose to run," not a multi-tenant server.
 
 - A single, trusted local user operates the app.
 - The user owns the data, the database, and the execution environment.
-- No Ciaren-hosted service is required to run pipelines.
+- No Ciaren-hosted service is required to run flows.
 
 Under those assumptions some power-user features (custom Python nodes, custom SQL)
 are intentionally available. They run with the privileges of the local process.
@@ -56,6 +56,13 @@ are intentionally available. They run with the privileges of the local process.
   contents don't match its signature digest never installs, and one whose declared
   `ciaren`/`api_version` is incompatible with this build is rejected before it can
   replace a working install.
+- **Hand-edited manifests are caught after install, too.** Ciaren pins a SHA-256
+  digest of a packaged plugin's `ciaren-plugin.json` at install time; if the file
+  on disk no longer matches (e.g. someone strips `license_required` or widens
+  `permissions` by hand) the loader refuses to import that plugin's code. This is
+  best-effort defense in depth, not tamper-proof — the pinned baseline lives in
+  the same user-writable state file, so it deters casual edits, not a determined
+  local attacker.
 - **Optional plugin permission enforcement.** `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT=warn|enforce`
   logs or blocks ungranted network/file-write/subprocess/shell actions by plugin
   code at runtime (a bar-raiser, not a sandbox — see the caveat above).

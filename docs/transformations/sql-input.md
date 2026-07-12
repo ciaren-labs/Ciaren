@@ -50,8 +50,11 @@ use collection selection (no custom query).
 
 ## Tips & common mistakes
 
-- **Passwords come from the environment.** Exported code reads the secret from
-  `os.environ` — Ciaren never stores or embeds it.
+- **Passwords are never embedded.** Exported code resolves the secret at
+  runtime from its reference scheme — `os.environ[...]` for a bare name or
+  `env:NAME`, `keyring.get_password(...)` for `keyring:NAME` (recommended on
+  desktop), or a `file:/path` read for a mounted secret file. See
+  [Connections](/guide/connections) for the full scheme list.
 - **Test the connection first.** Use the connection's *Test* action to confirm
   credentials and reachability before wiring it into a flow.
 

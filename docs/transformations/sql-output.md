@@ -39,8 +39,10 @@ df_5.to_sql("cleaned_orders", _engine_1, if_exists="replace", index=False)
 ```
 
 ::: tip Security
-Exported code reads the password from `os.environ` — Ciaren never stores or
-embeds secrets. See [Connections](/guide/connections).
+Exported code never embeds the password — it resolves the connection's secret
+reference at runtime (`os.environ[...]` for `env:`/bare names,
+`keyring.get_password(...)` for `keyring:NAME`, or a `file:/path` read for a
+mounted secret file). See [Connections](/guide/connections).
 :::
 
 ## Tips & common mistakes

@@ -59,8 +59,9 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
 | `engine` | null | Engine for scheduled runs; falls back to the server default |
 | `is_enabled` | `true` | Whether the schedule is active |
 | `catch_up` | `false` | Run slots missed while the server was down |
-| `max_retries` | `0` | Retries for a failed run before giving up to the next slot |
+| `max_retries` | `0` | Retries for a failed run before giving up to the next slot (max 10) |
 | `retry_delay_seconds` | `60` | Base backoff between retries |
+| `run_timeout_seconds` | null | Per-schedule run timeout override; falls back to `RUN_TIMEOUT_SECONDS` (`0` = no limit) |
 | `parameters` | null | [Flow-parameter](./parameters.md) overrides applied to every run this schedule fires |
 
 The UI includes a cron builder so you don't have to hand-write expressions.

@@ -112,7 +112,7 @@ variable, while the join's two inputs keep their own (`df_orders`,
 Each customer now has their total spend, order count, and assigned tier.
 
 <DataTransform
-  transform="Full pipeline"
+  transform="Full flow"
   :before='{
     "columns":["order_id","customer_id","amount"],
     "rows":[

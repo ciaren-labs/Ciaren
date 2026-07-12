@@ -6,7 +6,7 @@ search: example machine learning classification churn train test split random fo
 
 # Customer Churn Classification
 
-Build a complete supervised-learning workflow on the canvas: split the data, train
+Build a complete supervised-learning flow on the canvas: split the data, train
 a classifier, score the held-out test set, and read the metrics — then export a
 runnable scikit-learn script. Every model is logged to MLflow automatically.
 

@@ -82,11 +82,11 @@ df_contacts.to_csv('contacts_clean.csv', index=False)
 
 ## Result
 
-Starting from 5 raw rows with 5 distinct quality issues, the pipeline reduces
+Starting from 5 raw rows with 5 distinct quality issues, the flow reduces
 to 2 clean, trustworthy records.
 
 <DataTransform
-  transform="Full pipeline"
+  transform="Full flow"
   :before='{
     "columns":["name","email","age"],
     "rows":[

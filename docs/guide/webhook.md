@@ -157,3 +157,7 @@ trigger = SimpleHttpOperator(
 - [Python SDK](/guide/sdk) — a typed Python client wrapping this endpoint
 - [Scheduling](/guide/scheduling) — cron-based triggers that don't need a caller
 - [REST API: Runs](/api/runs) — the full runs API
+- [Advanced Setup](/guide/advanced-setup) — the *outbound* failure-notification
+  webhook (`CIAREN_NOTIFY_WEBHOOK_URL`), a separate, env-only setting that
+  POSTs when a run fails or a schedule auto-disables — not configurable
+  through the UI or REST API, to avoid making it an SSRF vector

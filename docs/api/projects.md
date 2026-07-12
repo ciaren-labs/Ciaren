@@ -20,6 +20,9 @@ project is created automatically; every dataset and flow belongs to one.
 Deleting a project never deletes its datasets or flows — they're reassigned to
 the `Default` project. The `Default` project itself can't be deleted (`400`).
 
+Project names must be unique (case-insensitive); creating or renaming a
+project to a name that's already taken returns `409`.
+
 Projects also carry a `color` (used for the workspace badge in the UI) and
 `is_disabled`; reads additionally include `is_default` to flag the built-in
 `Default` project. Toggling a project's `is_disabled` cascades: disabling it

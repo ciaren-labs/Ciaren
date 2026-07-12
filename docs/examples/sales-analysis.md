@@ -97,10 +97,10 @@ Ciaren also generates the **polars** equivalent — pick whichever you prefer.
 
 ## Result
 
-The pipeline transforms the raw messy CSV into a clean revenue summary.
+The flow transforms the raw messy CSV into a clean revenue summary.
 
 <DataTransform
-  transform="Full pipeline"
+  transform="Full flow"
   :before='{
     "columns":["order_id","region","amount","ordered_at","internal_note"],
     "rows":[

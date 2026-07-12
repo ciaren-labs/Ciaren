@@ -34,7 +34,8 @@ df_data.to_parquet('data.parquet', index=False)
 
 ## Tips
 
-- **Pick a specific sheet** in the File Input options if the workbook has several.
+- **Pick a specific sheet** on the **Datasets** page when uploading — the import
+  dialect options include a sheet name/index for workbooks with several sheets.
 - **Going the other way?** Swap the formats — Parquet in, Excel or CSV out.
 - **Large files?** Parquet output plus the polars engine (and lazy export) is much
   faster than CSV. See [Engines](/guide/engines).

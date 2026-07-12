@@ -211,13 +211,14 @@ project before importing it.
 ciaren flow validate project.flow              # schema + graph structure
 ciaren flow validate project.flow --output json
 ciaren flow migrate  project.flow              # print the document migrated to the current schema version
+ciaren flow migrate  project.flow --to 3       # target a specific schema version instead of the latest
 ciaren flow migrate  project.flow --write      # write back (keeps a .bak)
 ```
 
 | Subcommand | Description |
 | --- | --- |
 | `validate` | Validate document shape **and** graph structure. Exits non-zero (and prints `INVALID`) on failure. |
-| `migrate` | Migrate to a newer schema version (default: the latest this build supports). Prints to stdout unless `--write`. |
+| `migrate` | Migrate to a newer schema version (default: the latest this build supports; `--to VERSION` targets a specific one). Prints to stdout unless `--write`. |
 
 :::warning `--write` never mutates silently
 `migrate --write` keeps a `.bak` backup of the original next to the file before
@@ -283,6 +284,7 @@ All settings use the `CIAREN_` prefix and can be set via the environment or a
 | `CIAREN_TRUSTED_HOSTS` | `[]` | Extra hostnames the CSRF origin guard trusts beyond localhost |
 | `CIAREN_MAX_UPLOAD_SIZE_MB` | `100` | Maximum upload size |
 | `CIAREN_ENVIRONMENT` | `development` | Environment label |
+| `CIAREN_DEBUG` | `false` | Extra debug behavior |
 | `CIAREN_API_TOKEN` | — | Optional bearer token required for `/api/*` requests |
 | `CIAREN_WEBHOOK_SECRET` | — | Enables `POST /api/flows/{id}/trigger` webhook auth |
 | `CIAREN_PYTHON_TRANSFORM_STRICT` | `false` | Enable stricter static checks for Python Transform scripts |
@@ -311,6 +313,7 @@ All settings use the `CIAREN_` prefix and can be set via the environment or a
 | `CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS` | unset | Registers a `TokenLicenseProvider` per configured issuer key, for validating plugin license tokens at startup |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 | `CIAREN_PLUGINS_DIR` | — | Extra plugin directories to scan (`os.pathsep`-separated); see [Writing a plugin](/plugins/writing-a-plugin) |
+| `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` / `enforce` — see [Advanced Setup](/guide/advanced-setup#environment-variables) |
 
 :::warning Async driver required
 `CIAREN_DATABASE_URL` must use an async driver: `sqlite+aiosqlite://`,

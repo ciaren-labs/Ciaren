@@ -44,7 +44,7 @@ All non-grouped, non-aggregated columns are dropped from the result.
 | `aggregations` | object | Yes | `{ "col": "func" }` |
 
 **Aggregation functions:** `sum`, `mean`, `count`, `min`, `max`, `median`,
-`nunique`, `std`, `var`, `first`, `last`.
+`nunique`, `std`, `first`, `last`.
 
 ## Generated Python code
 

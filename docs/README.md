@@ -57,7 +57,7 @@ npm run lint
 │   ├── overview.md
 │   ├── filter-rows.md
 │   ├── join.md
-│   └── ...                            # (49 node pages total)
+│   └── ...                            # (50 node pages total)
 ├── examples/
 │   ├── sales-analysis.md
 │   ├── customer-segmentation.md
@@ -287,4 +287,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete contribution standards.
 
 ---
 
-**Last Updated:** 2026-07-03
+**Last Updated:** 2026-07-12

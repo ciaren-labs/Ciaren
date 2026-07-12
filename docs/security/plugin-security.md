@@ -84,8 +84,13 @@ A plugin connector's runtime (test / list / read / write) only exists once the
 plugin is approved — a gated plugin's connectors appear nowhere. The host also
 applies its [SSRF guard](/guide/advanced-setup#environment-variables) to the
 connection's host field before invoking a plugin runtime, and connection
-secrets keep the env-var-only rule: the resolved value is passed into a single
-call and never stored.
+secrets keep the reference-only rule (`env:` / `keyring:` / `file:`, see
+[connection security model](/guide/connections#security-model)): the resolved
+value is passed into a single call and never stored. The same
+plaintext-credential guard the core REST connector uses also applies to plugin
+connectors — a custom header or query parameter shaped like a credential
+(`authorization`, `api_key`, `token`, …) is refused at save time rather than
+persisted in plain text.
 
 ### Approval gating
 
@@ -171,6 +176,19 @@ again after path resolution, **symlink entries are refused**, and per-entry/tota
 uncompressed size and entry-count caps bound a decompression bomb. Plugin ids that
 aren't filesystem-injective (anything outside `[A-Za-z0-9._-]`) are rejected rather
 than silently rewritten, so one plugin can't clobber another's install directory.
+
+### Post-install tamper detection
+
+For a packaged (`.ciarenplugin`) install, Ciaren also pins a SHA-256 digest of the
+installed `ciaren-plugin.json` at install time. Every time the plugin registry
+rebuilds, the loader recomputes that digest and refuses to import the plugin's
+code if the on-disk manifest no longer matches — catching a hand edit that, say,
+strips `license_required` or widens `permissions` after installation. A missing
+baseline (source/dev-dir installs, entry-point plugins) or a read error skips the
+check rather than blocking startup. This is defense in depth, not a sandbox
+boundary: the pinned baseline lives in the same user-writable state file
+(`plugin_state.json`), so it deters casual tampering, not a determined local
+attacker with file access.
 
 ## Dangerous capabilities
 

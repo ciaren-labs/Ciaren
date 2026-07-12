@@ -52,8 +52,10 @@ df_sales = pd.read_csv('sales.csv')
 ## Tips & common mistakes
 
 - **Create the connection first.** Go to **Connections → Add connection** and
-  pick the storage provider. Set `secret_env` to the environment-variable name
-  holding your key — Ciaren never stores the secret itself.
+  pick the storage provider. Set the key's secret reference — a bare name or
+  `env:NAME` for an environment variable, `keyring:NAME` for the OS keychain
+  (recommended on desktop), or `file:/path` for a mounted secret file. Ciaren
+  never stores the secret itself; see [Connections](/guide/connections).
 - **Path is relative to the bucket/container root.** Do not include the
   `s3://bucket-name/` prefix — that comes from the connection.
 - **Preview uses a bounded sample.** Preview and profile read the first N rows

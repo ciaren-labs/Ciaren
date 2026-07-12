@@ -87,7 +87,7 @@ The raw event-level rows are collapsed into monthly summaries. The date column i
 split into `year` and `month` so each period becomes its own group key.
 
 <DataTransform
-  transform="Full pipeline"
+  transform="Full flow"
   :before='{
     "columns":["event_id","occurred_at","value"],
     "rows":[

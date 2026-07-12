@@ -41,7 +41,7 @@ Returns the first `n` rows from the current row order. Combine with
 ## Generated Python code
 
 ```python
-df_2 = df_1.head(100)
+df_2 = df_1.head(3)
 ```
 
 ## Tips & common mistakes

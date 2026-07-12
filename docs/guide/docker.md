@@ -105,6 +105,7 @@ no extra. `EXTRAS` only adds:
 | `azure` | azure-storage-blob — Azure Blob Storage connections |
 | `signing` | cryptography — verify plugin package signatures instead of skipping them |
 | `all-connectors` | postgres + mysql + mongo + mssql + duckdb + snowflake + s3 + gcs + azure |
+| `all` | alias for `all-connectors` (same set of packages) |
 
 ```bash
 # XGBoost + LightGBM model choices

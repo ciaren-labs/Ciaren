@@ -40,7 +40,7 @@ without one is rejected so runs stay reproducible.
 ## Generated Python code
 
 ```python
-df_2 = df_1.sample(frac=0.1, random_state=42)
+df_2 = df_1.sample(frac=0.4, random_state=42)
 ```
 
 ## Tips & common mistakes

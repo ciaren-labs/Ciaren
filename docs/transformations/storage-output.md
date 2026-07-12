@@ -37,15 +37,12 @@ after the rest of the flow succeeds — a write failure marks the run failed.
 
 ## Generated Python code
 
-```python
-import boto3, io, pandas as pd, os
+The exported script is portable, so it never embeds cloud credentials or an
+upload call tied to one provider's SDK. Instead it leaves a marker for the
+write:
 
-buf = io.BytesIO()
-df_4.to_parquet(buf, index=False)
-buf.seek(0)
-s3 = boto3.client("s3", aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-                  aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"])
-s3.put_object(Bucket="reports", Key="summary.parquet", Body=buf.read())
+```python
+# storageOutput: write df_4 to your configured storage target
 ```
 
 ## Tips & common mistakes

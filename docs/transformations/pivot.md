@@ -44,7 +44,7 @@ filling each cell by aggregating the `values` column for that row key.
 | `index` | string \| string[] | Yes | Row key(s) |
 | `columns` | string | Yes | Column whose values become new columns |
 | `values` | string | Yes | Column to aggregate into the cells |
-| `aggfunc` | string | No | Aggregation (default `sum`) |
+| `aggfunc` | string | No | Aggregation (default `sum`): one of `sum`, `mean`, `min`, `max`, `median`, `first`, `last`, `count` — restricted to functions both the pandas and polars exports support |
 
 ## Generated Python code
 
