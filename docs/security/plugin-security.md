@@ -201,8 +201,9 @@ own server, and ship a small plugin that calls it. A node receives its plugin's
 own signed license token via `NodeContext.license_token` and forwards it with each
 request; your server validates the token (signature, expiry, revocation, quota)
 and does the work — the enforcement lives where the user cannot patch it. See the
-[API reference](/plugins/api-reference#nodecontext) and the marketplace plan for
-the full pattern.
+[API reference](/plugins/api-reference#nodecontext) and
+[Packaging & Distribution](/plugins/packaging-and-distribution) for the full
+pattern.
 
 ## Known limitations
 

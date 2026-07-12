@@ -8,7 +8,7 @@ search: plugins extensibility providers nodes connectors engines exporters valid
 
 Ciaren is **plugin-first**. Almost every capability — the nodes on the canvas,
 the databases you connect to, the engine your flow runs on, the code it exports —
-is defined as a **stable provider contract** that a plugin can implement. A plugin
+is defined as a **versioned provider contract** that a plugin can implement. A plugin
 is a small Python package that depends only on the public plugin API
 (`app.plugin_api`), never on Ciaren's internals.
 
@@ -51,8 +51,11 @@ Importance nodes consume — see [ML Model Plugins](/plugins/ml-model-plugins).
 > **storage**, the **polars / pandas** engines, and the ML **model catalog**;
 > plugins can execute nodes, connectors, and model types end-to-end. The
 > remaining contracts (engines beyond the defaults, custom exporters/validators,
-> AI capabilities, and auth methods) are stable extension points designed for
-> plugins — they are how Ciaren grows without bloating the core. Always check
+> AI capabilities, and auth methods) are defined extension points designed for
+> plugins — they are how Ciaren grows without bloating the core. The plugin API
+> is versioned but still **alpha**: contracts may change between releases until
+> 1.0.0 (a plugin declares the `api_version` it targets, and the loader rejects
+> incompatible ones before import). Always check
 > the [API reference](/api/catalog) for what the running instance currently
 > exposes.
 

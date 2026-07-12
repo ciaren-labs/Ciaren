@@ -7,9 +7,9 @@ search: getting started introduction what is ciaren beginner technical overview
 # Getting Started with Ciaren
 
 Ciaren is a visual workflow builder for local data engineering and lightweight
-machine-learning work. You build flows on a canvas, preview real data at each
-step, run them locally, and export readable pandas, polars, or lazy polars
-Python.
+machine-learning work. You build **flows** — Ciaren's word for a saved
+pipeline — on a canvas, preview real data at each step, run them locally, and
+export readable pandas, polars, or lazy polars Python.
 
 If you are new to the project, start here. This page gives you the mental model
 before you install anything.

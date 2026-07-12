@@ -281,16 +281,23 @@ Please report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
 - **Future cloud or hosted services:** not necessarily covered by this open
   source repository license.
 
+In plain language: using Ciaren — locally or self-hosted inside your
+organization — does not obligate you to open-source anything, your flows and
+exported Python are yours, and the Apache-2.0 SDK means plugin authors choose
+their own license. And a standing commitment: **capabilities that ship in the
+open core stay in the open core** — commercial offerings, if they ever exist,
+add on top rather than carving features out.
+
 See [LICENSE](LICENSE), [NOTICE](NOTICE), and [LICENSES/](LICENSES/) for the
-complete license texts and notices.
+complete license texts and notices, and the
+[licensing FAQ](https://ciaren.com/docs/faq) for common questions.
 
 ## Project Status
 
 - Current stage: **Alpha** (pre-1.0) — the API and data model may change
   before `1.0.0`. Pin a version for production use.
-- First public release: `0.1.0` — this is also the **git tag** to push.
-  Push it **without** a `v` prefix (`git tag 0.1.0`); the tag is what
-  triggers the PyPI publish workflow, and it only matches unprefixed versions.
+- First public release: `0.1.0` — see the [CHANGELOG](CHANGELOG.md) for
+  what's included.
 - Breaking changes are expected before `1.0.0`
 
 Made for data practitioners who value local workflows, transparent execution,

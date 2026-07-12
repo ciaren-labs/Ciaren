@@ -7,8 +7,10 @@ search: quick start tutorial first flow editor api
 # Quick Start (5 Minutes)
 
 This walkthrough builds your first pipeline end to end: bring in data, clean it,
-run it, and export Python. We'll use the visual editor; an API-only version is at
-the bottom for developers who want to inspect the REST surface.
+run it, and export Python. In Ciaren, a saved pipeline is called a **flow** —
+you'll see that word everywhere in the editor and the API. We'll use the visual
+editor; an API-only version is at the bottom for developers who want to inspect
+the REST surface.
 
 ## Before You Start
 

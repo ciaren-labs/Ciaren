@@ -1,6 +1,7 @@
 # Support
 
-Ciaren is alpha software maintained by a small open-source team. Please use
+Ciaren is alpha software, currently maintained by a single developer (see
+[MAINTAINERS.md](MAINTAINERS.md)). Please use
 the right channel so questions, bugs, and security reports do not get mixed
 together.
 

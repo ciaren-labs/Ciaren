@@ -106,8 +106,8 @@ Initial public release.
 - Versioning and release-tag guidance in `MAINTAINERS.md` (semver, unprefixed
   `X.Y.Z` tag convention, PyPI trusted publishing on tag push for both
   `ciaren` and `ciaren-client`).
-- `development` integration branch and `release/x.y.z`/`hotfix/*` branch
-  types, matching the branching strategy in `CONTRIBUTING.md`/`MAINTAINERS.md`.
+- Documented branching strategy in `CONTRIBUTING.md`/`MAINTAINERS.md`
+  (feature branches merge to `main`; no long-lived `development` branch).
 - Public GitHub issue templates, pull request template, CODEOWNERS, support
   guidance, maintainer guidance, and community Discussions.
 - Open-core positioning across public documentation: Ciaren Core remains open

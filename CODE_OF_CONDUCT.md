@@ -30,9 +30,23 @@ Examples of unacceptable behavior include:
 
 ---
 
+## Reporting
+
+If you experience or witness unacceptable behavior:
+
+- **Contact the maintainer privately** — see [MAINTAINERS.md](MAINTAINERS.md)
+  for the current maintainer, and reach out through a private channel listed
+  on their GitHub profile. Reports are handled confidentially.
+- For content that violates GitHub's own rules, you can also use GitHub's
+  built-in **"Report abuse"** on the offending comment, issue, or profile.
+
+Please do not report Code of Conduct violations in public issues or
+discussions — that exposes the reporter and escalates the situation.
+
 ### Consequences
 
-Maintainers who do not follow or enforce the Code of Conduct will face consequences determined by project leadership. Possible consequences include:
+Anyone violating the Code of Conduct — including maintainers, who are held to
+the same standard — may face consequences determined by project leadership:
 
 1. **Warning** — a reminder of community standards
 2. **Temporary mute** — temporary ban from discussions/PRs

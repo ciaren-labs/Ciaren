@@ -1,13 +1,14 @@
 ---
 title: Plugin API Reference
-description: The stable plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a Ciaren plugin depends on.
+description: The versioned plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a Ciaren plugin depends on.
 search: plugin api reference provider nodeprovider nodespec noderuntime serviceregistry specs permissions contract
 ---
 
 # Plugin API Reference
 
-This is the reference for `app.plugin_api` — the stable contract a plugin depends
-on (and which will publish separately as `ciaren-plugin-api`). A plugin imports
+This is the reference for `app.plugin_api` — the versioned contract a plugin
+depends on (and which will publish separately as `ciaren-plugin-api`). It is
+still **alpha** and may change between releases until 1.0.0. A plugin imports
 **only** from this package, never from Ciaren's app, engine, or FastAPI
 internals.
 

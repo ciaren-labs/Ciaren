@@ -1,8 +1,20 @@
 [project]
 name = "ciaren"
 version = "0.1.0"
-description = "Open-core visual data and ML workflow builder — local-first, dataframe-based"
+description = "Local-first visual builder for data and ML workflows that exports clean pandas/polars Python"
 dynamic = ["readme"]
+keywords = [
+    "etl",
+    "data-engineering",
+    "data-pipeline",
+    "workflow",
+    "visual-programming",
+    "pandas",
+    "polars",
+    "machine-learning",
+    "code-generation",
+    "local-first",
+]
 requires-python = ">=3.12"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 classifiers = [
@@ -95,7 +107,7 @@ ciaren = "app.cli:main"
 ciaren-plugin = "app.cli_plugin:main"
 
 [project.urls]
-Homepage = "https://www.ciaren.com/"
+Homepage = "https://ciaren.com"
 Repository = "https://github.com/ciaren-labs/Ciaren"
 Documentation = "https://ciaren.com/docs"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"

@@ -57,7 +57,7 @@ test carefully before using it for critical production jobs.
 
 <div class="ciaren-proof-grid">
   <div class="ciaren-proof-card">
-    <strong>70+ nodes</strong>
+    <strong>80 nodes</strong>
     <span>files, SQL, storage, cleaning, reshape, quality checks, charts, ML, and outputs</span>
   </div>
   <div class="ciaren-proof-card">

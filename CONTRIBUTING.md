@@ -1,6 +1,6 @@
 # Contributing to Ciaren
 
-Thank you for your interest in Ciaren! We're excited to have you help us build a simpler ETL tool for everyone.
+Thank you for your interest in Ciaren! We're excited to have you help build a local-first visual builder for data and ML workflows that exports clean Python.
 
 This document explains how to contribute — whether you're fixing bugs, adding features, improving docs, or helping with design.
 
@@ -425,7 +425,8 @@ Add pivot table transformation to enable reshaping data by column values.
 
 ### Review Process
 
-- At least one maintainer will review within 2-3 days
+- A maintainer will review as soon as possible — Ciaren currently has a single
+  maintainer, so please allow up to a week for a first review
 - Address feedback in new commits (don't force-push)
 - Re-request review when you've made changes
 
@@ -471,7 +472,7 @@ Nulls remain unchanged.
 
 ## Environment
 - OS: macOS 14.2
-- Python: 3.11.8
+- Python: 3.12.4
 - Browser: Chrome 121
 ```
 

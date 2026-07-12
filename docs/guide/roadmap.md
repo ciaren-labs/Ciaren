@@ -26,10 +26,10 @@ The core platform works end to end:
 - **Multi-engine execution** — polars (default) and pandas, selectable per run
 - **Python code export** — readable pandas, polars, or lazy-polars scripts
 - **Data quality** contract nodes (assert not-null/unique/range/expression/row-count)
-- **Machine Learning** (optional extension) — split, feature engineering, train,
+- **Machine Learning** (built in) — split, feature engineering, train,
   predict, evaluate, with MLflow tracking and a Models page
 - **Scheduling** — built-in cron scheduler with retries, catch-up, and auto-disable
-- **Plugin platform** — stable provider contracts, local + entry-point discovery,
+- **Plugin platform** — versioned provider contracts, local + entry-point discovery,
   and signed `.ciarenplugin` packaging
 
 ## The direction
@@ -152,8 +152,8 @@ See [How Ciaren Compares](/guide/comparison) for where it fits.
 
 ## Shape the roadmap
 
-This is a community-driven project — the best way to influence direction is to get
-involved:
+Ciaren is built in the open, and the direction is decided in public — the best
+way to influence it is to get involved:
 
 - 💬 [Discussions](https://github.com/ciaren-labs/Ciaren/discussions) — propose features and ideas
 - 🐛 [Issues](https://github.com/ciaren-labs/Ciaren/issues) — report bugs or focused core/SDK gaps

@@ -10,10 +10,11 @@ search: faq help questions answers
 
 ### What is Ciaren?
 
-Ciaren is a **local-first visual builder for data and ML workflows**. It lets
-you build data transformation and machine-learning pipelines by dragging and
-dropping nodes instead of writing code, then run them on **polars** (default) or
-**pandas** and export the equivalent Python.
+Ciaren is a **local-first visual builder for data and ML workflows**. You build
+data transformation and machine-learning pipelines by connecting nodes on a
+canvas, preview real data at every step, run them on **polars** (default) or
+**pandas**, and export the equivalent Python — readable code with no
+proprietary runtime. In Ciaren, a saved pipeline is called a **flow**.
 
 ### Who created Ciaren?
 
@@ -26,9 +27,34 @@ machine-learning engineer and open-source creator —
 
 ### How much does Ciaren cost?
 
-Ciaren Core is **free and open** under AGPL-3.0-only. The public
-Plugin API/SDK at `backend/app/plugin_api/` is Apache-2.0 so plugin authors can
-choose their own plugin licenses.
+Nothing. Ciaren Core is **free and open source** under AGPL-3.0-only — the full
+product, not a trial or a feature-limited tier. There are no paid features
+today. If commercial offerings (official premium plugins, enterprise support)
+ever ship, they will add things on top; **capabilities that exist in the open
+core stay in the open core**.
+
+### What does the AGPL license mean for me?
+
+In plain language:
+
+- **Using Ciaren** — locally or self-hosted inside your company — does not
+  obligate you to open-source anything. AGPL source obligations apply when you
+  *distribute Ciaren*, or *modify it and offer it to others over a network*.
+- **Your flows, your data, and the Python code Ciaren exports are yours.**
+  The exported code is ordinary pandas/polars with no Ciaren dependency, so
+  the license doesn't follow it.
+- **Plugins are not core.** The public Plugin API/SDK at
+  `backend/app/plugin_api/` is Apache-2.0 precisely so plugin authors can pick
+  their own license — open source, internal, or commercial.
+
+This is a summary, not legal advice — see the [licensing section](https://github.com/ciaren-labs/Ciaren#licensing)
+and the license texts for the exact terms.
+
+### Can I build and sell a commercial plugin?
+
+Yes. The Plugin SDK is Apache-2.0 and plugins choose their own license.
+The packaging format supports free community plugins and signed commercial
+plugins alike — see [Packaging & Distribution](/plugins/packaging-and-distribution).
 
 ### Why doesn't Ciaren include every connector in core?
 
@@ -40,7 +66,11 @@ something you need to build one, open an SDK issue or start a design discussion.
 
 ### Is Ciaren production-ready?
 
-Ciaren is in **active development**. It's suitable for learning, exploration, and personal use. Always test flows thoroughly before running on production data.
+Not yet — Ciaren is **alpha software** (0.x). It's well suited for
+exploration, prototyping, and controlled internal workflows, but flow formats,
+APIs, and plugin interfaces may still change before 1.0.0, and there is no
+backward-compatibility guarantee yet. Always test flows thoroughly before
+running them on data you care about, and keep backups.
 
 ### Can I use Ciaren at work?
 
@@ -54,7 +84,8 @@ before using Ciaren with important data.
 ### What are the system requirements?
 
 - Python 3.12+ (backend)
-- Node.js 18+ (frontend / visual editor)
+- Node.js 18+ — only if you run the frontend from source; the PyPI install
+  bundles the visual editor
 - SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
 - ~500MB free disk space
 
@@ -67,7 +98,12 @@ Yes! Ciaren works on Windows, macOS, and Linux.
 
 ### Can I deploy Ciaren to the cloud?
 
-Ciaren is designed for local use. Cloud deployment is not officially supported.
+Ciaren is local-first by design, and single-user: there are no accounts, roles,
+or multi-tenancy. Running it on your own server or VM for yourself or a small
+trusted group works (see [Docker](/guide/docker) and
+[Advanced Setup](/guide/advanced-setup) for API tokens and reverse-proxy
+guidance), but never expose it directly to the internet without an
+authentication layer in front. A managed/hosted Ciaren service does not exist.
 
 ### How do I uninstall Ciaren?
 
@@ -87,7 +123,12 @@ data directory, so there's no system-level uninstall step.
 
 ### Do I need to know Python?
 
-No! Ciaren is designed for non-programmers. The visual editor guides you through each step.
+Not to build and run flows — the visual editor guides you through each step,
+and previews show you the result of every node. But Ciaren is **Python-native
+by design**: it gets most valuable when you (or a teammate) read, review, and
+reuse the exported pandas/polars code. If you know some Python, you'll feel at
+home; if you don't, the exported code is a good way to learn what your
+pipeline actually does.
 
 ### Can I load data from a database?
 
@@ -115,7 +156,8 @@ scheduler.)
 ### Can I run flows via command line?
 
 Ciaren ships a `ciaren` CLI for running the server and managing config
-(`ciaren serve | init | info | check`) — see the [CLI reference](/guide/cli).
+(`ciaren serve | init | info | check`, among others) — see the
+[CLI reference](/guide/cli).
 There isn't a "run this flow id" subcommand; to run a flow headlessly, either
 call the REST API (`POST /api/flows/{id}/runs`) or export it as Python and run
 that script:
@@ -128,7 +170,16 @@ python my_flow.py
 
 ### Is my data secure?
 
-Ciaren runs **entirely locally on your machine**. No data is sent anywhere. There's no SaaS, no cloud uploads, no tracking.
+Ciaren runs **locally on your machine** — there's no SaaS, no cloud uploads,
+and no telemetry. Data only leaves your machine when *you* configure it to:
+a SQL/Mongo connection talks to your database, and S3/Azure/GCS nodes talk to
+your storage, using credentials you control.
+
+Two honest caveats: Ciaren is alpha software, it stores data unencrypted at
+rest, and it assumes a trusted local environment (no authentication by
+default). Read the [security policy](https://github.com/ciaren-labs/Ciaren/blob/main/SECURITY.md)
+and the [local-first trust model](/security/local-first-trust-model) before
+using it with sensitive data.
 
 ### Can I see what Ciaren does with my data?
 
@@ -149,12 +200,14 @@ driver).
 
 ### What transformations are available?
 
-66 transformation nodes plus file, SQL, and storage input/output, including:
+Ciaren ships **80 built-in nodes**: 66 transformation nodes plus file, SQL, and
+storage input/output, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample
 - Reshape, analytics & quality: calculated columns, group by + aggregate, join, union/concat, pivot, unpivot, rolling/window operations, date differences, and assertion nodes
 - Charts: bar, line, area, scatter, pie, histogram, box plot, correlation heatmap — computed over full run data and stored on the run
+- ML: train/test split, preprocessing, model training and evaluation nodes with optional MLflow tracking
 
 [See full list →](/transformations/overview)
 
@@ -171,8 +224,9 @@ A join node combines two datasets at a time. Chain multiple join nodes for more.
 
 ### Can I export as formats other than Python?
 
-Ciaren exports Python — and for each flow it generates **both** the pandas and
-the polars version, so you can use whichever library you prefer.
+Ciaren exports Python — and for each flow it can generate the **pandas**,
+**polars**, or **lazy polars** version, so you can use whichever library and
+execution style you prefer.
 
 ### Does Ciaren support streaming data?
 
@@ -244,7 +298,7 @@ ciaren serve --port 8001
 
 ### Can I contribute code?
 
-Yes! See [Contributing Guide](../CONTRIBUTING.md) for:
+Yes! See the [Contributing Guide](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md) for:
 
 - How to set up development environment
 - Code standards
@@ -253,7 +307,10 @@ Yes! See [Contributing Guide](../CONTRIBUTING.md) for:
 
 ### Is Ciaren community-driven?
 
-Yes! We welcome contributions, feedback, and ideas from the community.
+Ciaren is **built in the open** by a single maintainer today, and the goal is
+for it to grow into a community project. Contributions, feedback, bug reports,
+and plugins are all genuinely welcome — the direction is discussed publicly in
+GitHub Discussions and Issues.
 
 ## More Questions?
 

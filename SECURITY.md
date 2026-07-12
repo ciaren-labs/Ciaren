@@ -125,6 +125,35 @@ npm update
 
 ---
 
+## Reporting a Vulnerability
+
+**Please do not report security vulnerabilities through public GitHub issues.**
+
+Report suspected vulnerabilities privately via
+[GitHub Security Advisories](https://github.com/ciaren-labs/Ciaren/security/advisories/new)
+("Report a vulnerability"). Include what you found, how to reproduce it, and
+the impact you believe it has. Proof-of-concept steps help a lot.
+
+What to expect:
+
+- Acknowledgement as soon as possible — Ciaren is maintained by a single
+  person, so please allow up to **7 days** for a first response.
+- If confirmed, a fix is prioritized ahead of other work and credited to you
+  in the release notes unless you prefer otherwise.
+- Please give us reasonable time to ship a fix before public disclosure.
+
+### Supported Versions
+
+| Version | Supported |
+|---------|-----------|
+| Latest release (0.x) | ✅ Security fixes |
+| Older 0.x releases | ❌ Please upgrade to the latest release |
+
+Until 1.0.0, security fixes land in the latest release only — there are no
+long-term support branches during the alpha phase.
+
+---
+
 ## Reporting Other Issues
 
 For non-security issues:

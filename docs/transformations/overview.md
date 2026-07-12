@@ -6,11 +6,11 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-Ciaren ships with file/storage/SQL input/output nodes plus **50+ registered
+Ciaren ships with file/storage/SQL input/output nodes plus **66 registered
 transformation nodes** for cleaning, reshaping, combining, validating, charting,
 analytics, and scripting data. Each node maps to one clear dataframe operation and
-contributes to the exported Python — both the **pandas** and the **polars**
-version.
+contributes to the exported Python — in the **pandas**, **polars**, or
+**lazy polars** version.
 
 This page is the map. **Each node also has its own reference page** with use
 cases, full configuration, generated code, and tips — follow the links below or
