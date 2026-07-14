@@ -8,7 +8,7 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
-## [0.1.0-alpha.1] - 2026-07-14
+## [0.1.0] - 2026-07-14
 
 First public release of Ciaren — a local-first visual builder for data and ML
 workflows that exports clean, readable pandas/polars Python. This is alpha
@@ -79,6 +79,11 @@ stable `1.0`.
   Apache-2.0 so plugin authors can choose their own license.
 - Docker and Docker Compose support for single-container local/self-hosted
   use.
+
+### Security
+
+- pip-audit and npm audit run on every push to `main` and fail CI on new
+  high/critical advisories in pinned dependencies.
 
 ### Known limitations
 

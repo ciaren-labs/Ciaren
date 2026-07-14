@@ -296,8 +296,8 @@ complete license texts and notices, and the
 
 - Current stage: **Alpha** (pre-1.0) — the API and data model may change
   before `1.0.0`. Pin a version for production use.
-- First public release: `0.1.0-alpha.1` — see the [CHANGELOG](CHANGELOG.md)
-  for what's included.
+- First public release: `0.1.0` — see the [CHANGELOG](CHANGELOG.md) for
+  what's included.
 - Breaking changes are expected before `1.0.0`
 
 Made for data practitioners who value local workflows, transparent execution,
