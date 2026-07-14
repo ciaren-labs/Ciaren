@@ -225,7 +225,10 @@ validates `docs/**` as a PR/push gate:
 
 `ciaren.com/docs` is published elsewhere, pulled from `docs/` here manually
 after cutting a release. There is no GitHub Pages
-deploy and no automatic sync in either direction.
+deploy and no automatic sync in either direction. **What publishes there, which
+custom components are supported, and what fails the sync is documented in
+[PUBLISHING.md](PUBLISHING.md)** — read it before using custom diagram
+components or editing the home page.
 
 Run the same checks locally before pushing:
 
