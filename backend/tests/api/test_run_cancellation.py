@@ -179,8 +179,10 @@ async def test_cancel_running_run_via_api(client: AsyncClient) -> None:
 async def test_process_mode_cancel_refuses_when_siblings_share_the_pool(client: AsyncClient, monkeypatch) -> None:
     """Recycling the shared process pool would abort every other in-flight
     process run — the endpoint must refuse rather than fail innocent runs."""
+    from concurrent.futures import Future
+
     from app.core.config import get_settings
-    from app.engine.cancellation import register_run, unregister_run
+    from app.engine.cancellation import register_run, register_run_future, unregister_run
 
     ds_id = await _upload_csv(client, "poolguard.csv")
     graph = {
@@ -210,8 +212,14 @@ async def test_process_mode_cancel_refuses_when_siblings_share_the_pool(client: 
             break
     assert run_id
 
-    # Simulate process mode with a sibling run sharing the pool.
+    # Simulate process mode with a sibling run sharing the pool. The run itself
+    # is really executing in thread mode, so it needs a fake pool future too —
+    # one already past PENDING (set_running_or_notify_cancel) so .cancel()
+    # returns False, matching a task a worker has already picked up.
     monkeypatch.setattr(get_settings(), "EXECUTION_MODE", "process")
+    fut: Future[None] = Future()
+    fut.set_running_or_notify_cancel()
+    register_run_future(run_id, fut)
     register_run("sibling-run")
     try:
         r = await client.post(f"/api/runs/{run_id}/cancel")
@@ -233,8 +241,10 @@ async def test_refused_cancel_leaves_no_cancel_mark(client: AsyncClient, monkeyp
     otherwise the still-running run later records a genuine timeout/failure as
     "cancelled" (and skips the failure webhook), or in thread mode is actually
     cancelled while the user was told it couldn't be."""
+    from concurrent.futures import Future
+
     from app.core.config import get_settings
-    from app.engine.cancellation import is_cancel_requested, register_run, unregister_run
+    from app.engine.cancellation import is_cancel_requested, register_run, register_run_future, unregister_run
 
     ds_id = await _upload_csv(client, "nopoison.csv")
     graph = {
@@ -265,6 +275,9 @@ async def test_refused_cancel_leaves_no_cancel_mark(client: AsyncClient, monkeyp
     assert run_id
 
     monkeypatch.setattr(get_settings(), "EXECUTION_MODE", "process")
+    fut: Future[None] = Future()
+    fut.set_running_or_notify_cancel()
+    register_run_future(run_id, fut)
     register_run("sibling-run-2")
     try:
         r = await client.post(f"/api/runs/{run_id}/cancel")

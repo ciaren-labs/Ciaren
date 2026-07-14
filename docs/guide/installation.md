@@ -46,6 +46,7 @@ exact version:
 ```bash
 python -m pip install "ciaren==0.1.0"
 ```
+
 :::
 
 :::tip Optional extras from PyPI

@@ -153,7 +153,7 @@ This section is the practical guidance on which mode to use; for the engine
 **Stay on `thread` (the default) unless a symptom below pushes you off it.**
 For the typical setup — one person, one run at a time, the polars engine — it
 is simpler, fully featured, and just as fast: polars compute is multithreaded
-Rust that releases the GIL, so a *single* run already uses every core in
+Rust that releases the GIL, so a _single_ run already uses every core in
 either mode. `process` pays off in specific server scenarios, not in general.
 
 | | `thread` (default) | `process` |
@@ -184,8 +184,8 @@ Stay on **`thread`** when:
 ### Practical notes
 
 - **Neither mode is a security boundary.** A `process` worker has the same
-  privileges and filesystem access as the server; it isolates *crashes*, not
-  *code*. For untrusted Python Transform scripts see
+  privileges and filesystem access as the server; it isolates _crashes_, not
+  _code_. For untrusted Python Transform scripts see
   `CIAREN_PYTHON_TRANSFORM_STRICT` and the
   [security docs](/security/plugin-security).
 - Switching the mode at runtime (Settings page) is safe: it applies from the
