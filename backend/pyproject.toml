@@ -126,6 +126,12 @@ dev = [
     "psycopg[binary]>=3.1",
 ]
 
+[tool.uv]
+# Security floor for a transitive dependency ciaren never imports directly
+# (mlflow -> matplotlib -> pillow). Bumps past PYSEC-2026-2253/2254/2255/
+# 2256/2257, fixed in 12.3.0.
+constraint-dependencies = ["pillow>=12.3.0"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

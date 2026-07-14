@@ -110,8 +110,15 @@ jobs:
 
       - name: Audit dependencies
         working-directory: docs
-        # Fail only on high/critical, same rationale as the frontend job.
-        run: npm audit --audit-level=high
+        # Gated at critical (not high, like frontend) because of a known,
+        # accepted-risk exception: esbuild's dev-server-only advisory
+        # (GHSA-67mh-4wv8-2f99, any origin can read dev-server responses) has
+        # no fix yet — vitepress pins vite <=6.4.2, which pins the vulnerable
+        # esbuild, and the only newer vitepress is an unreleased 2.0.0-alpha.
+        # Doesn't affect the built static site actually served in production,
+        # only `npm run dev`. Revisit (restore --audit-level=high) once
+        # vitepress ships a stable release with a patched esbuild.
+        run: npm audit --audit-level=critical
 
   summary:
     name: Security Audit Summary
