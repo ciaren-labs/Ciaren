@@ -5,7 +5,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "sync-changelog": "node ./scripts/sync-changelog.js",
+    "predev": "npm run sync-changelog",
     "dev": "vitepress dev .",
+    "prebuild": "npm run sync-changelog",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
     "test": "npm run lint && npm run build && npm run test:build && npm run test:links",

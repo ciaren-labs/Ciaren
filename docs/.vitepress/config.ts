@@ -290,6 +290,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Roadmap', link: '/guide/roadmap' },
+            { text: 'Changelog', link: '/guide/changelog' },
             { text: 'How Ciaren Compares', link: '/guide/comparison' },
           ],
         },

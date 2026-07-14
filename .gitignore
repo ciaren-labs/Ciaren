@@ -74,6 +74,10 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Generated from the root CHANGELOG.md by docs/scripts/sync-changelog.js
+# (npm run predev / prebuild) — root file is the source of truth.
+docs/guide/changelog.md
+
 # PyBuilder
 .pybuilder/
 target/
