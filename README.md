@@ -292,6 +292,24 @@ See [LICENSE](LICENSE), [NOTICE](NOTICE), and [LICENSES/](LICENSES/) for the
 complete license texts and notices, and the
 [licensing FAQ](https://ciaren.com/docs/faq) for common questions.
 
+## Citation
+
+If Ciaren is useful in your research, teaching, or writing, please cite it
+using the metadata in [CITATION.cff](CITATION.cff) (GitHub's "Cite this
+repository" button on the repo sidebar generates APA/BibTeX from the same
+file):
+
+```bibtex
+@software{ciaren,
+  author  = {Arenas, Rodrigo},
+  title   = {Ciaren},
+  url     = {https://github.com/ciaren-labs/Ciaren},
+  license = {AGPL-3.0-only},
+  version = {0.1.0},
+  date    = {2026-07-14}
+}
+```
+
 ## Project Status
 
 - Current stage: **Alpha** (pre-1.0) — the API and data model may change
