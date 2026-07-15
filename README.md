@@ -3,12 +3,13 @@
 </p>
 
 <p align="center">
-  <strong>Local-first visual data and ML workflows that export clean Python.</strong>
+  <strong>Export the pandas/Polars code you'd write by hand — no lock-in.</strong>
 </p>
 
 <p align="center">
-  Build on a canvas. Preview every step. Run locally. Export readable pandas,
-  Polars, or lazy Polars code with no proprietary runtime.
+  Prototype data and ML pipelines on a canvas, preview every step, then export
+  readable pandas, Polars, or lazy Polars code with no proprietary runtime.
+  What you keep is real, reviewable Python you can run and version anywhere.
 </p>
 
 <p align="center">
@@ -34,17 +35,18 @@
 ![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
 
 <p align="center">
-  If this looks like something you'd use, a ⭐ on GitHub genuinely helps an alpha project like this get discovered.
+  If this looks like something you'd use, a ⭐ on GitHub genuinely helps a small open-source project like this get discovered.
 </p>
 
 ## What Is Ciaren?
 
-Ciaren is an open-core, plugin-first platform for building data engineering and
-lightweight machine-learning workflows visually, then exporting them as ordinary
-Python.
+Ciaren is an open-core, plugin-first platform that exports the pandas or Polars
+code you'd write by hand for data engineering and lightweight machine-learning
+workflows — no proprietary runtime, no lock-in.
 
-It is built for people who want the speed of a visual tool without giving up the
-clarity, portability, and reviewability of code.
+The canvas is there for speed: build on it, preview every step, then keep the
+same clean, ordinary Python whether you run it inside Ciaren or take it
+somewhere else.
 
 ```bash
 python -m pip install ciaren
@@ -265,10 +267,9 @@ reproducible bugs or focused feature requests can go to
 
 ## Security
 
-Ciaren is alpha software intended for local-first experimentation, prototyping,
-and controlled self-hosted workflows. Review exported Python code, test flows
-before using important data, and add appropriate operational controls before
-using Ciaren in sensitive or critical environments.
+Review exported Python code, test flows before using important data, and add
+appropriate operational controls before using Ciaren in sensitive or critical
+environments.
 
 Please report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
 

@@ -1,13 +1,13 @@
 ---
 layout: home
 title: Ciaren
-description: Open-core, plugin-first platform for building data engineering and machine-learning workflows visually, running them locally, and exporting clean pandas/polars Python.
+description: Open-core, plugin-first platform that exports the pandas/polars code you'd write by hand for data engineering and machine-learning workflows — prototyped visually, run locally, no lock-in.
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
 
 hero:
   name: <span class="ciaren-c">C</span>iaren
-  text: Visual data and ML workflows that stay Python-native.
-  tagline: Build pipelines on a canvas, preview every step on real data, run locally, and export readable pandas, polars, or lazy polars code with no proprietary runtime.
+  text: Export the pandas/polars code you'd write by hand. No lock-in.
+  tagline: Prototype data and ML pipelines on a canvas, preview every step on real data, run locally, and keep readable pandas, polars, or lazy polars code with no proprietary runtime.
   image:
     src: /logo.svg
     alt: Ciaren
