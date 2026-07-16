@@ -412,6 +412,19 @@ async def test_download_output_rejects_malicious_node_id(client: AsyncClient, tm
         assert r.status_code == 400, f"Expected 400 for node_id={evil!r}, got {r.status_code}"
 
 
+async def test_download_output_rejects_malicious_run_id(client: AsyncClient) -> None:
+    """run_id with path-traversal characters must be rejected before it's ever used to
+    build a filesystem path, even though a real run_id would also 404 via the DB lookup.
+
+    Values containing "/" (or ASGI-normalized to one, like "..") never reach this route
+    at all — Starlette 404s them before dispatch, since {run_id} is a single path
+    segment — so only single-segment payloads are meaningful cases here.
+    """
+    for evil in ["run id", "run;id"]:
+        r = await client.get(f"/api/runs/{evil}/output?node_id=out1")
+        assert r.status_code == 400, f"Expected 400 for run_id={evil!r}, got {r.status_code}"
+
+
 async def test_list_runs_filters_by_flow_status_and_dataset(client: AsyncClient) -> None:
     ds = await _upload(client)
     ok_flow = await _create_flow(client, _full_graph(ds["id"]))

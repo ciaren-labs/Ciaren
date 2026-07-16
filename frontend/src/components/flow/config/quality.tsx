@@ -5,6 +5,12 @@ import { FILTER_OPERATOR_LABELS, filterOperators } from "@/lib/validators";
 import { ColumnMultiSelect, ColumnSelect, CsvListInput, Field } from "../configFields";
 import { VALUELESS_OPERATORS, type NodeConfigRenderProps } from "./shared";
 
+function escapePythonSingleQuoted(value: string): string {
+  // Escape backslashes first so an existing "\'" in the input doesn't become
+  // "\\'" (an escaped backslash followed by an unescaped, string-closing quote).
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 function quoteFilterValue(raw: string, operator: string): string {
   const value = raw.trim();
   if (operator === "in") {
@@ -12,11 +18,11 @@ function quoteFilterValue(raw: string, operator: string): string {
       .split(",")
       .map((v) => v.trim())
       .filter(Boolean)
-      .map((v) => (/^-?\d+(\.\d+)?$/.test(v) ? v : `'${v.replace(/'/g, "\\'")}'`));
+      .map((v) => (/^-?\d+(\.\d+)?$/.test(v) ? v : `'${escapePythonSingleQuoted(v)}'`));
     return `[${items.join(", ")}]`;
   }
   if (/^-?\d+(\.\d+)?$/.test(value) || value === "True" || value === "False") return value;
-  return `'${value.replace(/'/g, "\\'")}'`;
+  return `'${escapePythonSingleQuoted(value)}'`;
 }
 
 function buildFilterCondition(column: string, operator: string, value: string, value2: string): string {

@@ -211,8 +211,12 @@ def load_trusted_keys() -> dict[str, str]:
     if raw:
         try:
             keys.update(json.loads(raw))
-        except json.JSONDecodeError as exc:
-            logger.warning("Ignoring malformed %s: %s", TRUSTED_KEYS_ENV, exc)
+        except json.JSONDecodeError:
+            # Log neither the parse error (its message/doc can echo back fragments of
+            # the env var's raw content, which holds trusted-key material) nor the env
+            # var name via a variable (CodeQL's sensitive-data heuristic flags logging
+            # any expression named like TRUSTED_KEYS_ENV, even just the env var name).
+            logger.warning("Ignoring malformed CIAREN_TRUSTED_PLUGIN_KEYS environment variable: invalid JSON.")
     for key_id, public_hex in OFFICIAL_PUBLISHER_KEYS.items():
         if keys.get(key_id) not in (None, public_hex):
             logger.warning(
