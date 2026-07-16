@@ -24,6 +24,13 @@ class FrontendBundleHook(BuildHookInterface):
     PLUGIN_NAME = "frontend-bundle"
 
     def initialize(self, version: str, build_data: dict) -> None:
+        # Hatchling calls every wheel-target hook for both "standard" and "editable"
+        # versions; editable installs (uv sync without --no-install-project) serve
+        # frontend/dist directly (see app.main.frontend_dist_path) and never need this
+        # bundling step, so skip it here rather than relying on the target alone.
+        if version == "editable":
+            return
+
         root = Path(self.root)
         frontend = self._frontend_dir(root)
         dist = frontend / "dist"
