@@ -79,5 +79,8 @@ async def export_flow_python(
         code=code["pandas"],
         polars=code["polars"],
         polars_lazy=code["polars_lazy"],
+        notebook=code["notebook"],
+        notebook_polars=code["notebook_polars"],
+        notebook_polars_lazy=code["notebook_polars_lazy"],
         flow_document=code["flow_document"],
     )
