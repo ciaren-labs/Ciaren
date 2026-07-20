@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.run import FlowRun
@@ -81,6 +82,11 @@ async def test_purge_allowed_once_run_finishes(client: AsyncClient, db_session: 
 
     ok = await client.delete(f"/api/datasets/{ds['id']}", params={"purge": True})
     assert ok.status_code == 204
+
+    # With FK enforcement ON, ondelete="SET NULL" clears the completed run's
+    # input link instead of leaving it dangling (or blocking the purge).
+    remaining = await db_session.execute(select(FlowRun.input_dataset_id).where(FlowRun.flow_id == flow["id"]))
+    assert remaining.scalar_one() is None
 
 
 async def test_soft_delete_not_blocked_by_active_run(client: AsyncClient, db_session: AsyncSession) -> None:

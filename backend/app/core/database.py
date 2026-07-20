@@ -3,7 +3,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy import Column, ColumnDefault, Table, inspect
+from sqlalchemy import Column, ColumnDefault, Table, event, inspect
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.ext.asyncio import (
@@ -23,15 +23,43 @@ class Base(DeclarativeBase):
     pass
 
 
+def enable_sqlite_foreign_keys(async_engine: AsyncEngine) -> None:
+    """Turn on SQLite foreign-key enforcement for every connection of ``async_engine``.
+
+    SQLite ships with ``PRAGMA foreign_keys`` OFF per connection, which silently
+    turns every ``ondelete`` rule in the models into a no-op — deletes can leave
+    dangling references (e.g. a purged dataset still pointed at by
+    ``flow_runs.input_dataset_id``). PostgreSQL/MySQL always enforce foreign
+    keys, so this listener registers only for SQLite, keeping all three backends
+    consistent. The PRAGMA must run on each new DBAPI connection (it is
+    connection-scoped, not database-scoped); this is the SQLAlchemy-documented
+    pattern for async engines (listen on ``engine.sync_engine``).
+
+    Deliberately NOT applied to the Alembic migration engine
+    (``app/migrations/env.py`` builds its own): batch-mode migrations rebuild
+    tables via drop/rename, which requires enforcement off.
+    """
+    if async_engine.sync_engine.dialect.name != "sqlite":
+        return
+
+    @event.listens_for(async_engine.sync_engine, "connect")
+    def _set_sqlite_fk_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 def _make_engine() -> AsyncEngine:
     settings = get_settings()
     connect_args: dict[str, object] = {}
     if settings.DATABASE_URL.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
-    return create_async_engine(
+    made = create_async_engine(
         settings.DATABASE_URL,
         connect_args=connect_args,
     )
+    enable_sqlite_foreign_keys(made)
+    return made
 
 
 engine = _make_engine()
