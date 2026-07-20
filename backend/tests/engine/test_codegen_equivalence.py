@@ -138,6 +138,25 @@ def _csvish() -> pd.DataFrame:
     return pd.DataFrame({"a": ["x,y", "z", None], "b": [1, 2, 3]})
 
 
+def _group_null_vals() -> pd.DataFrame:
+    # Group keys with nulls in the aggregated column, including an all-null group
+    # ('c'): exercises first/last (skip NA) and nunique (exclude NA) so the
+    # exported code must match the null-skipping run-path on both engines.
+    # Group 'a' ENDS in a null (so positional .last() diverges from drop_nulls),
+    # group 'b' STARTS with a null (so positional .first() diverges).
+    return pd.DataFrame({"g": ["a", "a", "a", "b", "b", "c", "c"], "v": [1.0, 3.0, None, None, 2.0, None, None]})
+
+
+def _concat_a() -> pd.DataFrame:
+    return pd.DataFrame({"x": [1, 2], "y": [10.0, 20.0]})
+
+
+def _concat_b() -> pd.DataFrame:
+    # Different column set from _concat_a ('z' instead of 'y'): concatRows must
+    # union the columns and null-fill on both engines (diagonal concat).
+    return pd.DataFrame({"x": [3, 4], "z": [30.0, 40.0]})
+
+
 def _cast_multi() -> pd.DataFrame:
     return pd.DataFrame({"a": ["2024-01-02", None, "not a date"], "b": ["1.5", "x", "3"]})
 
@@ -192,7 +211,12 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "fill_mode": {"in": _num},
     "fill_mode_multimodal": {"in": _multimodal},
     "groupby": {"in": _num},
+    "groupby_var": {"in": _num},
+    "groupby_first": {"in": _group_null_vals},
+    "groupby_last": {"in": _group_null_vals},
+    "groupby_nunique": {"in": _group_null_vals},
     "concat": {"in": _num, "in_1": _num},
+    "concat_mismatch": {"in": _concat_a, "in_1": _concat_b},
     "calc": {"in": _num},
     "dateparts": {"in": _datetimes},
     "dateparts_str": {"in": _dates_str},
@@ -257,7 +281,15 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "round_multi": {"in": _num},
 }
 
-_SORT_BEFORE_COMPARE = {"groupby", "pivot_str_index", "pivot_count"}
+_SORT_BEFORE_COMPARE = {
+    "groupby",
+    "groupby_var",
+    "groupby_first",
+    "groupby_last",
+    "groupby_nunique",
+    "pivot_str_index",
+    "pivot_count",
+}
 
 _CASE_BY_ID = {case_id: (node_type, config) for case_id, node_type, config in CODEGEN_CASES}
 
