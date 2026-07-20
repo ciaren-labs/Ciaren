@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ciaren-validator-plugin"
+version = "0.1.0-alpha.1"
+description = "Example Ciaren plugin contributing a data-quality validation node."
+requires-python = ">=3.12"
+authors = [{ name = "Ciaren contributors" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# Depends only on the Ciaren plugin contract, never on the app internals.
+dependencies = []
+
+# How an installed plugin is discovered by Ciaren's loader.
+[project.entry-points."ciaren.plugins"]
+validator = "ciaren_validator.plugin:ValidatorPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ciaren_validator"]

@@ -120,12 +120,17 @@ publisher workflow.
 
 ## Complete, runnable examples
 
-Two example plugins live in the repository, both shipped as pre-built **signed**
+Three example plugins live in the repository, shipped as pre-built **signed**
 packages in [`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist)
 and bundled into the Explore catalog so a fresh install lists them ready to install:
 
 - **[Hello plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin)** —
   the smallest node that runs end-to-end. Start here → [Build Your First Plugin](/plugins/first-plugin).
+- **[Validator plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/validator-plugin)** —
+  a practical data-quality check: validates a column against a regex or allowed-value
+  set and adds a boolean pass/fail column. Shows `config_schema` with `column`,
+  `select`, `string`, and `string_list` fields — the editor renders the form
+  automatically.
 - **[MLP Classifier plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/mlp-classifier-plugin)** —
   neural-network classification both ways: a **model type** inside the core Train
   Classifier picker, and a standalone **train node** that persists to MLflow and
