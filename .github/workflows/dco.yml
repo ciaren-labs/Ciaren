@@ -19,15 +19,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Verify every commit has a Signed-off-by trailer
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.event.pull_request.head.sha }}"
+          base="$BASE"
+          head="$HEAD"
           missing=0
           for commit in $(git rev-list "$base..$head"); do
             if ! git log -1 --format=%B "$commit" | grep -qi '^Signed-off-by: '; then
