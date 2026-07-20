@@ -126,15 +126,76 @@ def compute_package_digest(path: str | os.PathLike[str]) -> str:
 def compute_manifest_digest(manifest_path: str | os.PathLike[str]) -> str:
     """SHA-256 of the installed manifest's raw bytes.
 
-    Tamper detection re-checks the *manifest*, not the whole install tree, because
-    the manifest is the only file the loader's gates trust: ``license_required``
-    and the declared ``permissions`` are read from it, so editing it on disk is the
-    concrete bypass we must catch. Hashing only the manifest (vs. the entire
-    directory) means a plugin that legitimately writes cache/data files inside its
-    own directory at runtime is never mistaken for tampered. Code integrity is a
-    separate concern owned by the package signature (and, for paid plugins, the
-    marketplace sandbox) — not by this local, best-effort check."""
+    The manifest gets its own dedicated digest (in addition to being covered by
+    :func:`compute_directory_digest`) because it is the file the loader's gates
+    trust — ``license_required`` and the declared ``permissions`` are read from
+    it — so a manifest edit deserves its own precise "manifest changed" error
+    rather than a generic code-tamper message."""
     return hashlib.sha256(Path(manifest_path).read_bytes()).hexdigest()
+
+
+#: File suffixes covered by :func:`compute_directory_digest` — the files whose
+#: modification means *different code runs on import*: ``.py`` source, bare
+#: ``.pyc`` (how ``compile_python`` packages ship their code), and native
+#: extension modules. Deliberately NOT every file in the tree: a plugin that
+#: legitimately writes cache/data files inside its own install directory at
+#: runtime must never be mistaken for tampered.
+CODE_SUFFIXES = (".py", ".pyc", ".pyd", ".so")
+
+
+def compute_directory_digest(plugin_dir: str | os.PathLike[str]) -> str:
+    """Deterministic SHA-256 over an installed plugin's *code* files and manifest.
+
+    The install-time baseline the loader re-checks at startup so a post-install
+    edit to the plugin's code (not just its manifest) is refused before import —
+    the package signature is only verified at install, so without this a ``.py``
+    swapped on disk afterwards would still run with the recorded trust badge.
+
+    Covered: every file with a :data:`CODE_SUFFIXES` suffix plus the manifest,
+    keyed by relative path (so adding or removing a code file also changes the
+    digest), hashed with the same length-delimited scheme as
+    :func:`compute_digest_from_zip`. Excluded: anything under ``__pycache__`` and
+    non-code files (runtime data/caches a plugin writes into its own directory).
+
+    ``__pycache__`` is deliberately NOT digested — Python regenerates those caches
+    on import, so hashing them would flag every plugin as tampered after its first
+    run. That exclusion is only safe because the loader *deletes* every
+    ``__pycache__`` tree before importing a pinned plugin (see
+    :func:`app.plugins.loader._ensure_not_tampered`): otherwise an attacker with
+    plugin-dir write access could plant a ``__pycache__/*.pyc`` whose header matches
+    the (unchanged, digested) source ``.py`` and Python would execute the planted
+    bytecode without changing this digest. Clearing the caches forces a recompile
+    from the digested source and closes that vector.
+
+    Residual gap (disclosed honestly): only *code* files are digested. A plugin
+    that at runtime reads and ``exec``s / imports a **non-code** file it ships
+    (e.g. a ``.json``/``.txt`` it treats as code) is not protected here — that
+    class of tampering is the marketplace sandbox's job, not this local check.
+
+    Best-effort like the manifest check: the recorded baseline lives in the same
+    user-writable state file, so this is defense in depth, not DRM."""
+    base = Path(plugin_dir)
+    h = hashlib.sha256()
+    entries: list[tuple[str, Path]] = []
+    # os.walk(followlinks=False) never descends into a symlinked directory, so a
+    # symlink loop planted in the install dir can neither spin us forever nor walk
+    # us out of the tree.
+    for dirpath, dirnames, filenames in os.walk(base, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d != "__pycache__"]
+        for name in filenames:
+            path = Path(dirpath) / name
+            rel = path.relative_to(base).as_posix()
+            # Case-insensitive suffix match: on a case-insensitive filesystem
+            # (Windows/macOS) "evil.PY" is just as importable as "evil.py" and must
+            # not slip past the digest.
+            if path.suffix.lower() in CODE_SUFFIXES or rel == MANIFEST_FILENAME:
+                entries.append((rel, path))
+    for rel, path in sorted(entries):
+        data = path.read_bytes()
+        h.update(rel.encode("utf-8"))
+        h.update(len(data).to_bytes(8, "big"))
+        h.update(data)
+    return h.hexdigest()
 
 
 def _open_zip(path: str | os.PathLike[str]) -> ZipFile:
@@ -190,6 +251,18 @@ def is_official_key(key_id: str) -> bool:
     return bool(key_id) and key_id in OFFICIAL_PUBLISHER_KEYS
 
 
+def _as_key_mapping(parsed: object) -> dict[str, str] | None:
+    """``parsed`` if it is the shape trusted-keys config must have — a JSON object
+    mapping string key ids to string public keys — else ``None``. Config parses as
+    *valid* JSON of the wrong shape (an array, a string, an object with non-string
+    values) more easily than one would hope; feeding that to ``dict.update`` raises
+    and would turn a config typo into a broken install/catalog, so malformed shapes
+    are ignored (with a log) exactly like malformed JSON."""
+    if isinstance(parsed, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in parsed.items()):
+        return parsed
+    return None
+
+
 def load_trusted_keys() -> dict[str, str]:
     """Trusted publisher public keys, ``key_id -> public_hex``.
 
@@ -202,7 +275,14 @@ def load_trusted_keys() -> dict[str, str]:
     file_path = Path.home() / ".ciaren" / "trusted_keys.json"
     if file_path.is_file():
         try:
-            keys.update(json.loads(file_path.read_text(encoding="utf-8")))
+            parsed = _as_key_mapping(json.loads(file_path.read_text(encoding="utf-8")))
+            if parsed is None:
+                logger.warning(
+                    "Ignoring trusted-keys file %s: not a JSON object mapping key ids to public key strings.",
+                    file_path,
+                )
+            else:
+                keys.update(parsed)
         except (json.JSONDecodeError, OSError) as exc:
             # Don't silently fall back to "no trusted keys" — a config typo would
             # invisibly turn every signed package into an untrusted one.
@@ -210,13 +290,20 @@ def load_trusted_keys() -> dict[str, str]:
     raw = os.environ.get(TRUSTED_KEYS_ENV)
     if raw:
         try:
-            keys.update(json.loads(raw))
+            env_parsed = _as_key_mapping(json.loads(raw))
         except json.JSONDecodeError:
+            env_parsed = None
+        if env_parsed is None:
             # Log neither the parse error (its message/doc can echo back fragments of
             # the env var's raw content, which holds trusted-key material) nor the env
             # var name via a variable (CodeQL's sensitive-data heuristic flags logging
             # any expression named like TRUSTED_KEYS_ENV, even just the env var name).
-            logger.warning("Ignoring malformed CIAREN_TRUSTED_PLUGIN_KEYS environment variable: invalid JSON.")
+            logger.warning(
+                "Ignoring malformed CIAREN_TRUSTED_PLUGIN_KEYS environment variable: "
+                "not a JSON object mapping key ids to public key strings."
+            )
+        else:
+            keys.update(env_parsed)
     for key_id, public_hex in OFFICIAL_PUBLISHER_KEYS.items():
         if keys.get(key_id) not in (None, public_hex):
             logger.warning(

@@ -313,9 +313,10 @@ def test_load_allows_untampered_managed_install(src, tmp_path):
 
 
 def test_load_ignores_runtime_files_written_into_install_dir(src, tmp_path):
-    """Only the manifest is pinned, so a plugin that writes a cache/data file into
-    its own install directory at runtime is NOT mistaken for tampered (an
-    availability regression the whole-tree digest would have caused)."""
+    """The code digest covers code files only, so a plugin that writes a cache/data
+    file into its own install directory at runtime is NOT mistaken for tampered (an
+    availability regression an everything-digest would have caused). A code edit,
+    by contrast, IS refused — see tests/plugins/test_code_tamper.py."""
     pkg = package.pack_directory(src, tmp_path / "p.ciarenplugin")
     install_dir = tmp_path / "i"
     res = install_ciarenplugin(pkg, install_dir=install_dir)
@@ -323,13 +324,12 @@ def test_load_ignores_runtime_files_written_into_install_dir(src, tmp_path):
     s.set_enabled("community.inst", True)
     s.set_approved("community.inst", True)
     s.save()
-    # Simulate a runtime write (a downloaded model, a cache DB, a log) and an edit
-    # to the plugin's own code — neither is the manifest, so neither trips tamper.
+    # Simulate a runtime write (a downloaded model, a cache DB, a log) — not a code
+    # file, so it must not trip either tamper check.
     (res.location / "runtime_cache.dat").write_bytes(b"downloaded-at-runtime")
-    (res.location / "inst_plugin.py").write_text("InstPlugin = object  # hot-patched\n", encoding="utf-8")
     reg = ServiceRegistry()
     result = load_plugins(reg, include_entry_points=False, plugin_dirs=[install_dir], state=PluginStateStore())
-    assert all("manifest changed" not in e.error for e in result.errors)
+    assert all("changed on disk" not in e.error for e in result.errors)
 
 
 def test_load_skips_tamper_check_for_source_install(src, tmp_path):

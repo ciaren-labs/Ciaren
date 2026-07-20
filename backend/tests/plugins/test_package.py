@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import zipfile
 
 import pytest
@@ -222,6 +223,60 @@ def test_pack_compiled_pyc_is_importable(tmp_path):
         sys.path.remove(str(install_root))
         for name in [n for n in sys.modules if n.startswith("byc_plugin")]:
             del sys.modules[name]
+
+
+# -- trusted-keys config shape validation --------------------------------------
+#
+# Both sources parse as *valid* JSON of the wrong shape more easily than one
+# would hope (a list, a string, non-string values); the stated behavior is
+# log-and-ignore, never an exception that breaks verify/install with a 500.
+
+
+def _isolate_home(monkeypatch, tmp_path):
+    """Point Path.home() at tmp so the developer's real ~/.ciaren/trusted_keys.json
+    can't leak into (or be affected by) these tests."""
+    monkeypatch.setattr(package.Path, "home", classmethod(lambda cls: tmp_path))
+
+
+def test_trusted_keys_env_json_array_is_ignored(monkeypatch, tmp_path, caplog):
+    _isolate_home(monkeypatch, tmp_path)
+    monkeypatch.setenv(package.TRUSTED_KEYS_ENV, '["a", "b"]')  # valid JSON, wrong shape
+    with caplog.at_level(logging.WARNING, logger="app.plugins.package"):
+        keys = package.load_trusted_keys()  # must not raise
+    assert "a" not in keys and "b" not in keys
+    assert any("CIAREN_TRUSTED_PLUGIN_KEYS" in r.message for r in caplog.records)
+
+
+def test_trusted_keys_env_non_string_values_are_ignored(monkeypatch, tmp_path, caplog):
+    _isolate_home(monkeypatch, tmp_path)
+    monkeypatch.setenv(package.TRUSTED_KEYS_ENV, '{"kid": 123}')  # object, but not str -> str
+    with caplog.at_level(logging.WARNING, logger="app.plugins.package"):
+        keys = package.load_trusted_keys()
+    assert "kid" not in keys
+    assert any("CIAREN_TRUSTED_PLUGIN_KEYS" in r.message for r in caplog.records)
+
+
+def test_trusted_keys_file_json_array_is_ignored(monkeypatch, tmp_path, caplog):
+    _isolate_home(monkeypatch, tmp_path)
+    monkeypatch.delenv(package.TRUSTED_KEYS_ENV, raising=False)
+    keys_file = tmp_path / ".ciaren" / "trusted_keys.json"
+    keys_file.parent.mkdir(parents=True)
+    keys_file.write_text("[1, 2, 3]", encoding="utf-8")  # valid JSON, wrong shape
+    with caplog.at_level(logging.WARNING, logger="app.plugins.package"):
+        keys = package.load_trusted_keys()  # must not raise
+    assert keys == dict(package.OFFICIAL_PUBLISHER_KEYS)
+    assert any("trusted-keys file" in r.message for r in caplog.records)
+
+
+def test_trusted_keys_well_formed_sources_still_load(monkeypatch, tmp_path):
+    _isolate_home(monkeypatch, tmp_path)
+    keys_file = tmp_path / ".ciaren" / "trusted_keys.json"
+    keys_file.parent.mkdir(parents=True)
+    keys_file.write_text(json.dumps({"file-key": "aa" * 32}), encoding="utf-8")
+    monkeypatch.setenv(package.TRUSTED_KEYS_ENV, json.dumps({"env-key": "bb" * 32}))
+    keys = package.load_trusted_keys()
+    assert keys["file-key"] == "aa" * 32
+    assert keys["env-key"] == "bb" * 32
 
 
 def test_official_pinned_keys_cannot_be_overridden(monkeypatch, tmp_path):
