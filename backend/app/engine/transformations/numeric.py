@@ -27,11 +27,11 @@ class RemoveOutliersTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("removeOutliers requires a non-empty 'columns' list")
+            raise ValueError("removeOutliers requires a non-empty 'columns' list.")
         if config.get("method", "iqr") not in self._METHODS:
-            raise ValueError(f"removeOutliers 'method' must be one of {sorted(self._METHODS)}")
+            raise ValueError(f"removeOutliers 'method' must be one of {sorted(self._METHODS)}.")
         if config.get("action", "drop") not in self._ACTIONS:
-            raise ValueError(f"removeOutliers 'action' must be one of {sorted(self._ACTIONS)}")
+            raise ValueError(f"removeOutliers 'action' must be one of {sorted(self._ACTIONS)}.")
 
     def _params(self, config: dict[str, Any]) -> tuple[float, float, float, float]:
         return (
@@ -133,9 +133,9 @@ class RoundNumbersTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("roundNumbers requires a non-empty 'columns' list")
+            raise ValueError("roundNumbers requires a non-empty 'columns' list.")
         if not isinstance(config.get("decimals", 0), int):
-            raise ValueError("roundNumbers 'decimals' must be an integer")
+            raise ValueError("roundNumbers 'decimals' must be an integer.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -175,14 +175,14 @@ class BinColumnTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("binColumn requires a 'column'")
+            raise ValueError("binColumn requires a 'column'.")
         if not config.get("new_column"):
-            raise ValueError("binColumn requires a 'new_column' name")
+            raise ValueError("binColumn requires a 'new_column'.")
         bins = config.get("bins", 4)
         if not isinstance(bins, int) or bins < 2:
-            raise ValueError("binColumn 'bins' must be an integer >= 2")
+            raise ValueError("binColumn 'bins' must be an integer >= 2.")
         if config.get("method", "equalwidth") not in self._METHODS:
-            raise ValueError(f"binColumn 'method' must be one of {sorted(self._METHODS)}")
+            raise ValueError(f"binColumn 'method' must be one of {sorted(self._METHODS)}.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

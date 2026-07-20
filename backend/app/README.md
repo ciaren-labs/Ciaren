@@ -102,3 +102,21 @@ for offline/first-paint. Do all of this so the two never diverge:
 
 The catalog contract test fails if the backend metadata changes without the snapshot
 (and thus the frontend fallback) being reconciled — that's the drift guard.
+
+## Validation message conventions
+
+Every ``validate_config`` method raises ``ValueError`` with a message the user
+sees directly in the editor. Follow these rules so messages are consistent
+and actionable:
+
+1. **Prefix with the node type** — ``filterRows requires …``, not ``require …``.
+2. **Name the missing/invalid field** — ``requires a 'column'.``, not
+   ``requires required fields.``
+3. **State what was given** on type/enum errors —
+   ``must be one of ['a', 'b'], got 'c'.``
+4. **End with a period.**
+5. **Keep qualifiers that explain *why*** —
+   ``requires an integer 'seed' for reproducibility.`` is better than
+   ``requires an integer 'seed'.``
+6. **Use dynamic ``sorted(…)`` for open sets** so the error and the
+   code stay in sync — ``must be one of {sorted(VALID)}.``
