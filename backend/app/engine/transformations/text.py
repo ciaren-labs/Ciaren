@@ -10,9 +10,9 @@ class ReplaceValuesTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("replaceValues requires a 'column'")
+            raise ValueError("replaceValues requires a 'column'.")
         if "to_replace" not in config or "value" not in config:
-            raise ValueError("replaceValues requires 'to_replace' and 'value'")
+            raise ValueError("replaceValues requires 'to_replace' and 'value'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -61,14 +61,14 @@ class StringTransformTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("stringTransform requires a 'column'")
+            raise ValueError("stringTransform requires a 'column'.")
         op = config.get("operation")
         if op not in self._VALID_OPS:
-            raise ValueError(f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}")
+            raise ValueError(f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}.")
         if op == "replace" and "find" not in config:
-            raise ValueError("stringTransform 'replace' requires a 'find' value")
+            raise ValueError("stringTransform 'replace' requires a 'find' value.")
         if op == "pad" and not isinstance(config.get("width"), int):
-            raise ValueError("stringTransform 'pad' requires an integer 'width'")
+            raise ValueError("stringTransform 'pad' requires an integer 'width'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -128,17 +128,17 @@ class SplitColumnTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("splitColumn requires a 'column'")
+            raise ValueError("splitColumn requires a 'column'.")
         into = config.get("into")
         if not isinstance(into, list) or not into:
-            raise ValueError("splitColumn requires a non-empty 'into' list")
+            raise ValueError("splitColumn requires a non-empty 'into' list.")
         mode = config.get("mode", "delimiter")
         if mode not in self._MODES:
-            raise ValueError(f"splitColumn 'mode' must be one of {sorted(self._MODES)}")
+            raise ValueError(f"splitColumn 'mode' must be one of {sorted(self._MODES)}.")
         if mode == "delimiter" and not config.get("delimiter"):
-            raise ValueError("splitColumn delimiter mode requires a 'delimiter'")
+            raise ValueError("splitColumn delimiter mode requires a 'delimiter'.")
         if mode == "regex" and not config.get("pattern"):
-            raise ValueError("splitColumn regex mode requires a 'pattern'")
+            raise ValueError("splitColumn regex mode requires a 'pattern'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -203,10 +203,10 @@ class MapValuesTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("mapValues requires a 'column'")
+            raise ValueError("mapValues requires a 'column'.")
         mapping = config.get("mapping")
         if not isinstance(mapping, dict) or not mapping:
-            raise ValueError("mapValues requires a non-empty 'mapping' object")
+            raise ValueError("mapValues requires a non-empty 'mapping' object.")
 
     def _use_default(self, config: dict[str, Any]) -> bool:
         return bool(config.get("use_default", "default" in config))

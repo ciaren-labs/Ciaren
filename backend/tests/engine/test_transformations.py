@@ -211,3 +211,25 @@ def test_string_transform_invalid_op(engine, df):
 def test_validate_config_rejects_bad_config(node_type, config):
     with pytest.raises(ValueError):
         get_transformation(node_type).validate_config(config)
+
+
+def _all_validating_nodes():
+    """Return node types whose ``validate_config`` raises ``ValueError`` on ``{}``."""
+    result = []
+    for nt in list_transformation_types():
+        try:
+            get_transformation(nt).validate_config({})
+        except ValueError:
+            result.append(nt)
+    return result
+
+
+@pytest.mark.parametrize("node_type", _all_validating_nodes())
+def test_validation_messages_follow_format(node_type):
+    """Validation messages must start with the node type and end with a period."""
+    node = get_transformation(node_type)
+    with pytest.raises(ValueError) as exc:
+        node.validate_config({})
+    msg = str(exc.value)
+    assert msg.startswith(node.type), f"Message must start with '{node.type}': {msg}"
+    assert msg.endswith("."), f"Message must end with '.': {msg}"
