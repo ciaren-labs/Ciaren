@@ -462,3 +462,38 @@ def test_no_warning_when_token_set(monkeypatch, capsys):
     finally:
         monkeypatch.delenv("CIAREN_API_TOKEN", raising=False)
         _clear_settings_cache()
+
+
+# -- _redact_url --------------------------------------------------------
+
+
+def test_redact_url_masks_credentials() -> None:
+    url = "postgresql+asyncpg://admin:s3cret@db.example.com:5432/mydb"
+    assert cli._redact_url(url) == "postgresql+asyncpg://admin:***@db.example.com:5432/mydb"
+
+
+def test_redact_url_masks_special_characters_in_password() -> None:
+    url = "postgresql+asyncpg://user:p%40ss!w0rd@host/db"
+    assert cli._redact_url(url) == "postgresql+asyncpg://user:***@host/db"
+
+
+def test_redact_url_no_credentials_unchanged() -> None:
+    url = "sqlite+aiosqlite:///./data.db"
+    assert cli._redact_url(url) == url
+
+
+def test_redact_url_no_password_unchanged() -> None:
+    url = "postgresql+asyncpg://user@host/db"
+    assert cli._redact_url(url) == url
+
+
+def test_redact_url_empty_string() -> None:
+    assert cli._redact_url("") == ""
+
+
+def test_redact_url_malformed_input_unchanged() -> None:
+    assert cli._redact_url("not-a-url") == "not-a-url"
+
+
+def test_redact_url_plain_string_unchanged() -> None:
+    assert cli._redact_url("random text with no url pattern") == "random text with no url pattern"
