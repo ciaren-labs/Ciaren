@@ -27,6 +27,7 @@ from app.core.notifications import notify_in_background
 from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.engine.cancellation import request_cancel_all
+from app.scheduler import inflight
 from app.scheduler.cron import compute_next_run
 from app.schemas.run import FlowRunCreate
 from app.services.execution_service import ExecutionService
@@ -159,7 +160,20 @@ class SchedulerRunner:
                 schedule = await db.get(Schedule, schedule_id)
                 if schedule is None or not schedule.is_enabled:
                     return
-                await self._execute(db, schedule)
+                # Cross-path overlap guard: don't start if a manual "Run now" (or
+                # another schedule) is already running this flow. Shared with
+                # ScheduleService.run_now so the two paths never double-run a flow.
+                if not inflight.try_acquire(schedule.flow_id):
+                    logger.info(
+                        "Skipping scheduled fire for schedule %s: flow %s already has a run in flight",
+                        schedule_id,
+                        schedule.flow_id,
+                    )
+                    return
+                try:
+                    await self._execute(db, schedule)
+                finally:
+                    inflight.release(schedule.flow_id)
         except Exception:  # noqa: BLE001 - never let a fire crash the scheduler
             logger.exception("Scheduled fire failed for schedule %s", schedule_id)
         finally:
@@ -199,7 +213,26 @@ class SchedulerRunner:
         except Exception:  # noqa: BLE001 - record on the schedule, then re-raise nothing
             logger.exception("Run failed for schedule %s (flow %s)", schedule.id, schedule.flow_id)
         finally:
-            schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
+            await self._record_outcome(schedule.id, status, run_id)
+
+    async def _record_outcome(self, schedule_id: str, status: str, run_id: str | None) -> None:
+        """Persist the post-run bookkeeping in a fresh, short transaction.
+
+        The ``schedule`` loaded at the start of the fire is stale by the time the
+        run finishes (a run can take up to ``run_timeout`` seconds), and a user may
+        have PATCHed the row meanwhile — re-enabled it, reset ``consecutive_failures``,
+        changed the cron. Writing the stale in-memory object back would silently
+        revert those edits (a lost update). So we RE-FETCH the row here and compute
+        the state transition (including auto-disable-after-N-failures) from the
+        fresh values, honouring any concurrent edit.
+        """
+        fired_at = datetime.now(UTC).replace(tzinfo=None)
+        notify_payload: dict[str, object] | None = None
+        async with self._session_factory() as db:
+            schedule = await db.get(Schedule, schedule_id)
+            if schedule is None:  # deleted mid-run — nothing to record
+                return
+            schedule.last_fired_at = fired_at
             schedule.last_status = status
             schedule.last_run_id = run_id
             if status == "success":
@@ -215,16 +248,15 @@ class SchedulerRunner:
             if status not in ("success", "cancelled") and not schedule.is_enabled and schedule.disabled_reason:
                 # The failed run itself already notified (run_failed); this is
                 # the louder signal that the schedule gave up entirely.
-                notify_in_background(
-                    "schedule_auto_disabled",
-                    {
-                        "schedule_id": schedule.id,
-                        "flow_id": schedule.flow_id,
-                        "reason": schedule.disabled_reason,
-                        "consecutive_failures": schedule.consecutive_failures,
-                        "last_run_id": run_id,
-                    },
-                )
+                notify_payload = {
+                    "schedule_id": schedule.id,
+                    "flow_id": schedule.flow_id,
+                    "reason": schedule.disabled_reason,
+                    "consecutive_failures": schedule.consecutive_failures,
+                    "last_run_id": run_id,
+                }
+        if notify_payload is not None:
+            notify_in_background("schedule_auto_disabled", notify_payload)
 
     def _on_success(self, schedule: Schedule) -> None:
         schedule.consecutive_failures = 0

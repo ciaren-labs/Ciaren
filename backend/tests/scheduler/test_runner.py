@@ -312,6 +312,69 @@ async def test_execute_hard_cancel_is_not_a_schedule_failure(engine: AsyncEngine
         assert schedule.next_run_at > datetime.now(UTC).replace(tzinfo=None)
 
 
+async def test_post_run_write_does_not_clobber_concurrent_user_edit(engine: AsyncEngine, monkeypatch) -> None:
+    """A user PATCH committed mid-run (reset consecutive_failures + re-enable) must
+    survive the run's post-run bookkeeping write, which re-fetches the fresh row
+    instead of writing back the stale in-memory object (lost-update fix)."""
+    factory = _factory(engine)
+    # Start one short of the default threshold (5): the stale-write bug would push
+    # this to 5 and auto-disable; the fix must compute from the user's fresh reset.
+    sid = await _make_failing_schedule(factory, consecutive_failures=4)
+
+    async def _fail_but_user_edits_midrun(self, *args, **kwargs):
+        # Simulate a concurrent user PATCH landing while the run is in flight:
+        # re-enable and reset the failure streak in a separate committed transaction.
+        async with factory() as other:
+            fresh = await other.get(Schedule, sid)
+            assert fresh is not None
+            fresh.consecutive_failures = 0
+            fresh.is_enabled = True
+            await other.commit()
+        raise RuntimeError("run failed after the user's edit committed")
+
+    monkeypatch.setattr("app.services.execution_service.ExecutionService.run", _fail_but_user_edits_midrun)
+
+    await SchedulerRunner(factory, get_settings())._fire(sid)
+
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        # Computed from the user's fresh 0 (→1), NOT the stale 4 (→5): so the
+        # user's reset is respected and the schedule is not wrongly auto-disabled.
+        assert schedule.consecutive_failures == 1
+        assert schedule.is_enabled is True
+        assert schedule.disabled_reason is None
+
+
+async def test_run_now_rejects_when_flow_run_already_in_flight(engine: AsyncEngine) -> None:
+    """run_now must respect the shared overlap guard: while the same flow has a
+    scheduler-owned run in flight, a manual Run now is refused (409) rather than
+    double-running the flow."""
+    from app.core.exceptions import ConflictError
+    from app.scheduler import inflight
+    from app.services.schedule_service import ScheduleService
+
+    factory = _factory(engine)
+    sid = await _make_schedule(factory, cron="0 9 * * *", is_enabled=True)
+
+    async with factory() as db:
+        schedule = await db.get(Schedule, sid)
+        assert schedule is not None
+        flow_id = schedule.flow_id
+
+    # Pretend a scheduled fire of this flow is currently running.
+    assert inflight.try_acquire(flow_id) is True
+    try:
+        async with factory() as db:
+            with pytest.raises(ConflictError):
+                await ScheduleService(db).run_now(sid)
+    finally:
+        inflight.release(flow_id)
+
+    # Once the in-flight run releases the guard, run_now is allowed again.
+    assert inflight.is_active(flow_id) is False
+
+
 async def test_tick_skips_in_flight_schedule(engine: AsyncEngine) -> None:
     factory = _factory(engine)
     past = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)

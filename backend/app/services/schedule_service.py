@@ -5,11 +5,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.db.models.schedule import Schedule
 from app.engine.backends import available_engines
+from app.scheduler import inflight
 from app.scheduler.cron import compute_next_run, is_valid_cron, is_valid_timezone
 from app.schemas.run import FlowRunCreate, FlowRunRead
 from app.schemas.schedule import ScheduleCreate, ScheduleRead, ScheduleRunBrief, ScheduleUpdate
@@ -118,26 +119,35 @@ class ScheduleService:
 
     async def run_now(self, schedule_id: str) -> FlowRunRead:
         schedule = await self._get_or_raise(schedule_id)
-        run = await ExecutionService(self.db).run(
-            schedule.flow_id,
-            FlowRunCreate(engine=schedule.engine, parameters=schedule.parameters_json),
-            schedule_id=schedule.id,
-            trigger="schedule",
-        )
-        # Reflect the manual fire on the schedule, but leave next_run_at untouched
-        # so an ad-hoc run doesn't shift the recurring cadence. A manual run stays
-        # out of the auto-disable/retry machinery: a success clears the failure
-        # streak (a good "it's fixed now" signal), but a failure never counts
-        # toward auto-disabling — only the scheduler's own runs do.
-        schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
-        schedule.last_status = run.status
-        schedule.last_run_id = run.id
-        if run.status == "success":
-            schedule.consecutive_failures = 0
-            schedule.retry_count = 0
-            schedule.disabled_reason = None
-        await self.db.commit()
-        return run
+        # Respect the same overlap guard the background scheduler uses: refuse to
+        # start a manual run while this flow already has a scheduler-owned run in
+        # flight, so "Run now" during an in-flight scheduled run can't double-run
+        # the flow (which would duplicate writes to external SQL/storage sinks).
+        if not inflight.try_acquire(schedule.flow_id):
+            raise ConflictError("This flow already has a run in progress; wait for it to finish before running now.")
+        try:
+            run = await ExecutionService(self.db).run(
+                schedule.flow_id,
+                FlowRunCreate(engine=schedule.engine, parameters=schedule.parameters_json),
+                schedule_id=schedule.id,
+                trigger="schedule",
+            )
+            # Reflect the manual fire on the schedule, but leave next_run_at untouched
+            # so an ad-hoc run doesn't shift the recurring cadence. A manual run stays
+            # out of the auto-disable/retry machinery: a success clears the failure
+            # streak (a good "it's fixed now" signal), but a failure never counts
+            # toward auto-disabling — only the scheduler's own runs do.
+            schedule.last_fired_at = datetime.now(UTC).replace(tzinfo=None)
+            schedule.last_status = run.status
+            schedule.last_run_id = run.id
+            if run.status == "success":
+                schedule.consecutive_failures = 0
+                schedule.retry_count = 0
+                schedule.disabled_reason = None
+            await self.db.commit()
+            return run
+        finally:
+            inflight.release(schedule.flow_id)
 
     # -- Internals ------------------------------------------------------
 
@@ -176,6 +186,15 @@ class ScheduleService:
             raise ValidationError(f"Unknown timezone: '{timezone}'.")
         if engine is not None and engine not in available_engines():
             raise ValidationError(f"Unknown engine '{engine}'. Available: {', '.join(available_engines())}.")
+        # ``is_valid_cron`` accepts syntactically-valid expressions that never
+        # resolve to a real date (e.g. "0 0 30 2 *" — 30 February). Probe an
+        # actual next-run computation so those surface as a clean 400 here rather
+        # than an uncaught 500 from ``compute_next_run`` at the call sites below.
+        now = datetime.now(UTC).replace(tzinfo=None)
+        try:
+            compute_next_run(cron, now, timezone)
+        except ValueError as exc:
+            raise ValidationError(f"Cron expression '{cron}' never resolves to a real date.") from exc
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))

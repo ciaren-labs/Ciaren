@@ -133,6 +133,23 @@ async def test_update_invalid_cron_is_400(client: AsyncClient) -> None:
     assert r.status_code == 400
 
 
+async def test_create_schedule_cron_that_never_fires_is_400(client: AsyncClient) -> None:
+    # "0 0 30 2 *" is syntactically valid but 30 February never exists, so
+    # compute_next_run raises — the client must get a clean 400, not a 500.
+    flow = await _flow(client)
+    r = await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 0 30 2 *"})
+    assert r.status_code == 400, r.text
+    assert "never resolves" in r.json()["detail"]
+
+
+async def test_update_schedule_cron_that_never_fires_is_400(client: AsyncClient) -> None:
+    flow = await _flow(client)
+    created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
+    r = await client.patch(f"/api/schedules/{created['id']}", json={"cron": "0 0 30 2 *"})
+    assert r.status_code == 400, r.text
+    assert "never resolves" in r.json()["detail"]
+
+
 async def test_delete_schedule(client: AsyncClient) -> None:
     flow = await _flow(client)
     created = (await client.post(f"/api/flows/{flow['id']}/schedules", json={"cron": "0 9 * * *"})).json()
