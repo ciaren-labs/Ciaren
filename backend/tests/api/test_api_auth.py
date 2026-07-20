@@ -105,6 +105,27 @@ async def test_cors_preflight_allows_token_header(client, monkeypatch):
     assert "x-ciaren-token" in allowed
 
 
+async def test_webhook_status_get_stays_exempt(client, monkeypatch):
+    """GET /api/settings/webhook (boolean status) stays reachable without the
+    API token — orchestrators holding only the webhook secret rely on it."""
+    _set_token(monkeypatch, "s3cret-token")
+    resp = await client.get("/api/settings/webhook")
+    assert resp.status_code == 200, resp.text
+    assert set(resp.json()) == {"configured"}
+
+
+@pytest.mark.parametrize("method", ["PUT", "DELETE"])
+async def test_webhook_settings_writes_require_token(client, monkeypatch, method):
+    """PUT/DELETE /api/settings/webhook route to the settings router's
+    update/reset handlers (key="webhook"); the GET-only webhook exemption must
+    not let them bypass the token gate. 401 specifically — not the 404 the
+    unknown settings key would otherwise produce — proves auth fires first."""
+    _set_token(monkeypatch, "s3cret-token")
+    resp = await client.request(method, "/api/settings/webhook", json={"value": "x"})
+    assert resp.status_code == 401, resp.text
+    assert resp.headers.get("WWW-Authenticate") == "Bearer"
+
+
 async def test_webhook_trigger_not_blocked_by_api_token(client, monkeypatch):
     """The webhook authenticates with its own X-Ciaren-Secret, so the API token
     must not shadow it. With no webhook secret configured the trigger returns 404
