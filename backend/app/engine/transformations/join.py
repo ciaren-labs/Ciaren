@@ -24,10 +24,10 @@ class JoinTransformation(BaseTransformation):
         has_on = bool(config.get("on"))
         has_split = bool(config.get("left_on")) and bool(config.get("right_on"))
         if not has_on and not has_split:
-            raise ValueError("join requires either 'on', or both 'left_on' and 'right_on'")
+            raise ValueError("join requires an 'on' key, or both 'left_on' and 'right_on'.")
         how = config.get("how", "inner")
         if how not in _VALID_HOW:
-            raise ValueError(f"join 'how' must be one of {_VALID_HOW}")
+            raise ValueError(f"join 'how' must be one of {sorted(_VALID_HOW)}.")
 
     def _suffixes(self, config: dict[str, Any]) -> tuple[str, str]:
         suffixes = config.get("suffixes")

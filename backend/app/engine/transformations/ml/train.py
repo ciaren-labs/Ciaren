@@ -57,7 +57,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         if spec.supervised:
             target = config.get("target_column")
             if not isinstance(target, str) or not target:
-                raise ValueError(f"{nm}: model_type {model_type!r} is supervised and needs a 'target_column'.")
+                raise ValueError(f"{nm} requires a 'target_column' for supervised model_type {model_type!r}.")
             features = config.get("feature_columns")
             if features is not None:
                 if not isinstance(features, list) or not all(isinstance(c, str) for c in features):

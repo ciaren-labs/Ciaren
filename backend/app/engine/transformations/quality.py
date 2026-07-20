@@ -109,7 +109,7 @@ class AssertNotNullTransformation(_BaseAssertion):
     def validate_config(self, config: dict[str, Any]) -> None:
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertNotNull 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertNotNull 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         cols = config.get("columns") or list(pdf.columns)
@@ -166,7 +166,7 @@ class AssertUniqueTransformation(_BaseAssertion):
     def validate_config(self, config: dict[str, Any]) -> None:
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertUnique 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertUnique 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         cols = config.get("columns") or None
@@ -221,12 +221,12 @@ class AssertValueRangeTransformation(_BaseAssertion):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("assertValueRange requires a 'column'")
+            raise ValueError("assertValueRange requires a 'column'.")
         if config.get("min") is None and config.get("max") is None:
-            raise ValueError("assertValueRange requires at least one of 'min' or 'max'")
+            raise ValueError("assertValueRange requires at least one of 'min' or 'max'.")
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertValueRange 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertValueRange 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         col = config["column"]
@@ -305,10 +305,10 @@ class AssertExpressionTransformation(_BaseAssertion):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("expression", "").strip():
-            raise ValueError("assertExpression requires a non-empty 'expression'")
+            raise ValueError("assertExpression requires a non-empty 'expression'.")
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertExpression 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertExpression 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         expr = config["expression"]
@@ -364,13 +364,13 @@ class AssertValuesInSetTransformation(_BaseAssertion):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("assertValuesInSet requires a 'column'")
+            raise ValueError("assertValuesInSet requires a 'column'.")
         allowed = config.get("allowed")
         if not isinstance(allowed, list) or len(allowed) == 0:
-            raise ValueError("assertValuesInSet requires a non-empty 'allowed' list")
+            raise ValueError("assertValuesInSet requires a non-empty 'allowed' list.")
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertValuesInSet 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertValuesInSet 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         col = config["column"]
@@ -433,16 +433,16 @@ class AssertRowCountTransformation(_BaseAssertion):
     def validate_config(self, config: dict[str, Any]) -> None:
         lo, hi = config.get("min_rows"), config.get("max_rows")
         if lo is None and hi is None:
-            raise ValueError("assertRowCount requires at least one of 'min_rows' or 'max_rows'")
+            raise ValueError("assertRowCount requires at least one of 'min_rows' or 'max_rows'.")
         if lo is not None and (not isinstance(lo, int) or lo < 0):
-            raise ValueError("assertRowCount 'min_rows' must be a non-negative integer")
+            raise ValueError("assertRowCount 'min_rows' must be a non-negative integer.")
         if hi is not None and (not isinstance(hi, int) or hi < 0):
-            raise ValueError("assertRowCount 'max_rows' must be a non-negative integer")
+            raise ValueError("assertRowCount 'max_rows' must be a non-negative integer.")
         if lo is not None and hi is not None and lo > hi:
-            raise ValueError("assertRowCount 'min_rows' must be <= 'max_rows'")
+            raise ValueError("assertRowCount 'min_rows' must be <= 'max_rows'.")
         mode = config.get("mode", "error")
         if mode not in _VALID_MODES:
-            raise ValueError(f"assertRowCount 'mode' must be one of {_VALID_MODES}")
+            raise ValueError(f"assertRowCount 'mode' must be one of {sorted(_VALID_MODES)}.")
 
     def _check(self, pdf: pd.DataFrame, config: dict[str, Any]) -> _CheckResult:
         lo, hi = config.get("min_rows"), config.get("max_rows")

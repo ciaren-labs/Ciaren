@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def _require_columns(config: dict[str, Any], node: str) -> list[str]:
     cols = config.get("columns")
     if not isinstance(cols, list) or not cols or not all(isinstance(c, str) for c in cols):
-        raise ValueError(f"{node} requires a non-empty 'columns' list of column names.")
+        raise ValueError(f"{node} requires a non-empty 'columns' list.")
     return cols
 
 

@@ -37,7 +37,7 @@ class PythonTransformTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         script = config.get("script", "")
         if not isinstance(script, str) or not script.strip():
-            raise ValueError("pythonTransform requires a non-empty 'script'")
+            raise ValueError("pythonTransform requires a non-empty 'script'.")
         # Validate syntax by wrapping in a function (mirrors what execute does).
         fn_code = f"def _transform(df):\n{_indent(script)}"
         try:
