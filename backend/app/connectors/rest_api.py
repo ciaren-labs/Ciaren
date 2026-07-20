@@ -24,7 +24,12 @@ connectors, so the connections API (test / list tables) and the SQL Input node
 no generic table-write semantics.
 
 Security: the base URL must be http(s); the host passes the same SSRF guard as
-every other connector (``CONNECTOR_BLOCK_PRIVATE_HOSTS``); errors are scrubbed
+every other connector (``CONNECTOR_BLOCK_PRIVATE_HOSTS``), and every HTTP
+redirect hop is re-guarded before it is followed (non-http(s) redirect targets
+are refused outright, and auth headers are stripped when a redirect crosses to
+a different host); with the guard enabled, ``verify_tls: false`` is also
+refused, so the secret never travels over an unauthenticated TLS channel.
+Errors are scrubbed
 of the secret before they leave this module; responses are size-capped before
 parsing — per request and cumulatively across the pages of a paginated read.
 """
@@ -38,12 +43,14 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from typing import Any
 
 import pandas as pd
 
 from app.connectors.base import ConnectionSpec, ConnectorError, TableRef
 from app.connectors.ssrf import guard_endpoint
+from app.core.config import get_settings
 from app.core.secrets import scrub
 
 AUTH_STYLES = ("none", "api_key", "bearer", "basic", "query_param")
@@ -208,6 +215,55 @@ def _rows_from_json(payload: Any, records_path: str) -> list[dict[str, Any]]:
     return [{"value": payload}]
 
 
+class _GuardedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Redirect handler that re-checks the SSRF guard on **every** hop.
+
+    ``guard_endpoint`` only vets the URL the connector was asked for; the
+    default opener would then silently follow a 30x from that vetted public
+    host to anywhere — including an internal address such as the cloud
+    metadata endpoint. Each redirect target is therefore guarded again before
+    the hop is allowed, and non-http(s) targets (``file:``, ``ftp:``, ...) are
+    refused outright.
+
+    Credentials never cross hosts: urllib's own ``redirect_request`` strips
+    only content headers, so ``Authorization`` (bearer/basic) and any custom
+    API-key header would be forwarded verbatim to a redirect target on a
+    *different* host — a cross-host credential leak. When the hop changes
+    hostname, every sensitive header (the connector's auth headers, plus
+    ``Authorization`` always) is removed from the follow-up request.
+    """
+
+    def __init__(self, sensitive_headers: Iterable[str] = ()) -> None:
+        super().__init__()
+        self._sensitive = {h.lower() for h in sensitive_headers} | {"authorization"}
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        scheme = urllib.parse.urlsplit(target).scheme.lower()
+        if scheme not in ("http", "https"):
+            raise ConnectorError(
+                f"Blocked redirect to a non-http(s) URL (scheme {scheme!r}) while requesting the endpoint."
+            )
+        guard_endpoint(target)  # no-op unless CONNECTOR_BLOCK_PRIVATE_HOSTS is enabled
+        new = super().redirect_request(req, fp, code, msg, headers, target)
+        if new is not None and (urllib.parse.urlsplit(target).hostname != urllib.parse.urlsplit(req.full_url).hostname):
+            # Compared case-insensitively: urllib re-capitalizes header names
+            # when it builds the follow-up request.
+            for name in list(new.headers):
+                if name.lower() in self._sensitive:
+                    del new.headers[name]
+        return new
+
+
+def _build_opener(context: ssl.SSLContext | None, sensitive_headers: Iterable[str]) -> urllib.request.OpenerDirector:
+    """The default opener plus per-hop redirect guarding (including cross-host
+    credential stripping) and the TLS context. ``HTTPSHandler(context=None)``
+    falls back to the same default-verifying context ``urlopen`` would use."""
+    return urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=context), _GuardedRedirectHandler(sensitive_headers)
+    )
+
+
 class RestApiConnector:
     """Read-only :class:`DataConnector` for HTTP JSON/CSV APIs."""
 
@@ -218,20 +274,27 @@ class RestApiConnector:
     def _request(self, spec: ConnectionSpec, path: str, extra_params: dict[str, str]) -> tuple[bytes, str]:
         url = _build_url(spec, path, extra_params)  # injects the auth query param, if configured
         guard_endpoint(url)
+        auth_headers = _auth_headers(spec)
         headers = {
             "Accept": "application/json, text/csv;q=0.9, */*;q=0.1",
             "User-Agent": "ciaren-rest-api-connector",
             **_string_mapping(spec, "headers"),
-            **_auth_headers(spec),
+            **auth_headers,
         }
         request = urllib.request.Request(url, headers=headers)  # noqa: S310 - scheme enforced in _base_url
         context: ssl.SSLContext | None = None
         if _options(spec).get("verify_tls") is False:
+            if get_settings().CONNECTOR_BLOCK_PRIVATE_HOSTS:
+                raise ConnectorError(
+                    "verify_tls: false is not allowed while CONNECTOR_BLOCK_PRIVATE_HOSTS is enabled — "
+                    "disabling TLS certificate verification would send the request (and its secret) over "
+                    "an unauthenticated channel. Fix the endpoint's certificate instead."
+                )
             context = ssl.create_default_context()
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
         try:
-            with urllib.request.urlopen(request, timeout=_timeout(spec), context=context) as response:  # noqa: S310
+            with _build_opener(context, auth_headers).open(request, timeout=_timeout(spec)) as response:  # noqa: S310
                 body = response.read(MAX_RESPONSE_BYTES + 1)
                 if len(body) > MAX_RESPONSE_BYTES:
                     raise ConnectorError(f"The response from {path or '/'} exceeds the {MAX_RESPONSE_BYTES} byte cap.")

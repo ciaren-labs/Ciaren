@@ -33,6 +33,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _redirect(self, location: str, status: int = 302) -> None:
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):  # noqa: N802 - http.server API
         url = urlparse(self.path)
         qs = parse_qs(url.query)
@@ -81,6 +87,32 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(json.dumps([{"tenant": self.headers.get("X-Tenant", "")}]).encode())
         elif url.path == "/echo-page":
             self._send(json.dumps([{"page": qs.get("page", [""])[0]}]).encode())
+        elif url.path == "/redirect-internal":
+            self._redirect("http://169.254.169.254/latest/meta-data/")
+        elif url.path == "/redirect-file":
+            self._redirect("file:///etc/passwd")
+        elif url.path == "/redirect-ftp":
+            self._redirect("ftp://intranet.example/exfil")
+        elif url.path == "/redirect-same-host":
+            self._redirect("/users")
+        elif url.path == "/echo-auth":
+            self._send(
+                json.dumps(
+                    [
+                        {
+                            "authorization": self.headers.get("Authorization", ""),
+                            "api_key": self.headers.get("X-Custom-Key", ""),
+                        }
+                    ]
+                ).encode()
+            )
+        elif url.path == "/redirect-cross-host":
+            # Same server, reached via a *different hostname* (localhost vs
+            # 127.0.0.1) — a cross-host hop from the redirect handler's point
+            # of view, without needing a second HTTPServer.
+            self._redirect(f"http://localhost:{self.server.server_address[1]}/echo-auth")
+        elif url.path == "/redirect-same-host-auth":
+            self._redirect("/echo-auth")
         else:
             self._send(b"{}", status=404)
 
@@ -325,6 +357,104 @@ def test_ssrf_guard_blocks_private_hosts(api, monkeypatch):
             connector.read_table(_spec(api), "users", None, None)
     finally:
         get_settings.cache_clear()
+
+
+@pytest.fixture
+def hardened(api, monkeypatch):
+    """Enable the SSRF guard while pretending the local test server is a public
+    host: ``_resolve`` reports a public IP for 127.0.0.1 (so the *initial*
+    request passes the guard, as it would for a real public API) but keeps real
+    resolution for everything else — the metadata IP stays blocked. This is how
+    a redirect-based SSRF looks in production: vetted public host, malicious
+    Location header."""
+    import ipaddress
+
+    from app.connectors import ssrf
+
+    monkeypatch.setenv("CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS", "true")
+    get_settings.cache_clear()
+    real_resolve = ssrf._resolve
+    monkeypatch.setattr(
+        ssrf,
+        "_resolve",
+        lambda host: [ipaddress.ip_address("93.184.216.34")] if host == "127.0.0.1" else real_resolve(host),
+    )
+    yield
+    get_settings.cache_clear()
+
+
+def test_redirect_to_internal_host_is_blocked_when_guard_enabled(api, hardened):
+    """A vetted public host answering ``302 Location: http://169.254.169.254/...``
+    must not be followed — the guard re-runs on every redirect hop."""
+    with pytest.raises(ConnectorError, match="blocked"):
+        connector.read_table(_spec(api), "redirect-internal", None, None)
+
+
+def test_same_host_redirects_and_plain_requests_still_work_when_guard_enabled(api, hardened):
+    # Normal, non-redirecting request: unaffected by the redirect guard.
+    df = connector.read_table(_spec(api), "users", None, None)
+    assert list(df["name"]) == ["ada", "bo", "cy"]
+    # Legitimate redirect to the same (public) host: followed as before.
+    df = connector.read_table(_spec(api), "redirect-same-host", None, None)
+    assert list(df["name"]) == ["ada", "bo", "cy"]
+
+
+def test_redirect_to_non_http_scheme_is_rejected(api):
+    """Non-http(s) redirect targets are refused even in the default guard-off
+    local-first mode. ``file://`` is stopped by urllib's own redirect machinery
+    (surfaced as a ConnectorError); ``ftp://`` slips past urllib's built-in
+    allowlist, so the guarded handler must refuse it."""
+    with pytest.raises(ConnectorError, match="not allowed"):
+        connector.read_table(_spec(api), "redirect-file", None, None)
+    with pytest.raises(ConnectorError, match="non-http"):
+        connector.read_table(_spec(api), "redirect-ftp", None, None)
+
+
+def test_cross_host_redirect_strips_auth_headers(api):
+    """urllib's stock redirect handler forwards ``Authorization`` and custom
+    API-key headers verbatim to a redirect target on a *different* host — a
+    cross-host credential leak. Once the hop changes hostname, the guarded
+    handler must strip them (bearer and custom-header API-key styles alike)."""
+    df = connector.read_table(_spec(api, password="sesame", auth_style="bearer"), "redirect-cross-host", None, None)
+    assert df["authorization"].iloc[0] == ""
+
+    spec = _spec(api, password="sesame", auth_style="api_key", api_key_header="X-Custom-Key")
+    df = connector.read_table(spec, "redirect-cross-host", None, None)
+    assert df["api_key"].iloc[0] == ""
+
+
+def test_cross_host_redirect_strips_manual_authorization_header(api):
+    """An Authorization header set through the custom ``headers`` option (no
+    auth_style) is just as much a credential — always stripped cross-host."""
+    spec = _spec(api, headers={"Authorization": "Bearer manual"})
+    df = connector.read_table(spec, "redirect-cross-host", None, None)
+    assert df["authorization"].iloc[0] == ""
+
+
+def test_same_host_redirect_keeps_auth_headers(api):
+    """A redirect that stays on the same host must keep the credentials —
+    stripping there would break APIs that 302 within themselves after auth."""
+    df = connector.read_table(_spec(api, password="sesame", auth_style="bearer"), "redirect-same-host-auth", None, None)
+    assert df["authorization"].iloc[0] == "Bearer sesame"
+
+    spec = _spec(api, password="sesame", auth_style="api_key", api_key_header="X-Custom-Key")
+    df = connector.read_table(spec, "redirect-same-host-auth", None, None)
+    assert df["api_key"].iloc[0] == "sesame"
+
+
+def test_redirects_are_still_followed_when_guard_disabled(api):
+    df = connector.read_table(_spec(api), "redirect-same-host", None, None)
+    assert list(df["name"]) == ["ada", "bo", "cy"]
+
+
+def test_verify_tls_false_is_refused_in_hardened_mode(api, hardened):
+    with pytest.raises(ConnectorError, match="verify_tls"):
+        connector.read_table(_spec(api, verify_tls=False), "users", None, None)
+
+
+def test_verify_tls_false_is_allowed_when_guard_disabled(api):
+    df = connector.read_table(_spec(api, verify_tls=False), "users", None, None)
+    assert list(df["name"]) == ["ada", "bo", "cy"]
 
 
 # -- API + SQL Input integration -----------------------------------------------------------
