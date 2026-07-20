@@ -41,23 +41,23 @@ class ConditionalColumnTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("new_column"):
-            raise ValueError("conditionalColumn requires a 'new_column' name")
+            raise ValueError("conditionalColumn requires a 'new_column'.")
         rules = config.get("rules")
         if not isinstance(rules, list) or not rules:
-            raise ValueError("conditionalColumn requires a non-empty 'rules' list")
+            raise ValueError("conditionalColumn requires a non-empty 'rules' list.")
         for rule in rules:
             match = rule.get("match", "all")
             if match not in ("all", "any"):
-                raise ValueError("conditionalColumn rule 'match' must be 'all' or 'any'")
+                raise ValueError("conditionalColumn 'match' must be 'all' or 'any'.")
             conditions = rule_conditions(rule)
             for condition in conditions:
                 if not condition.get("column"):
-                    raise ValueError("each conditionalColumn condition needs a 'column'")
+                    raise ValueError("conditionalColumn requires a 'column' in each condition.")
                 operator = condition.get("operator", "==")
                 if operator not in _OPERATORS:
-                    raise ValueError(f"conditionalColumn condition operator must be in {sorted(_OPERATORS)}")
+                    raise ValueError(f"conditionalColumn 'operator' must be one of {sorted(_OPERATORS)}.")
                 if operator not in _VALUELESS and "value" not in condition:
-                    raise ValueError(f"conditionalColumn condition '{operator}' needs a 'value'")
+                    raise ValueError(f"conditionalColumn '{operator}' operator requires a 'value'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

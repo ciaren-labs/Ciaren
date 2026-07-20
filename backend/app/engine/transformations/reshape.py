@@ -28,9 +28,9 @@ class GroupByAggregateTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("group_by"):
-            raise ValueError("groupByAggregate requires 'group_by' list")
+            raise ValueError("groupByAggregate requires a 'group_by' list.")
         if not config.get("aggregations"):
-            raise ValueError("groupByAggregate requires 'aggregations' dict {col: func}")
+            raise ValueError("groupByAggregate requires an 'aggregations' dict.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -83,9 +83,9 @@ class CreateCalculatedColumnTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column_name"):
-            raise ValueError("calculatedColumn requires 'column_name'")
+            raise ValueError("calculatedColumn requires a 'column_name'.")
         if not config.get("expression"):
-            raise ValueError("calculatedColumn requires 'expression'")
+            raise ValueError("calculatedColumn requires an 'expression'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -120,13 +120,13 @@ class ExtractDatePartsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("extractDateParts requires a 'column'")
+            raise ValueError("extractDateParts requires a 'column'.")
         parts = config.get("parts")
         if not parts:
-            raise ValueError("extractDateParts requires a non-empty 'parts' list")
+            raise ValueError("extractDateParts requires a non-empty 'parts' list.")
         invalid = set(parts) - self._VALID_PARTS
         if invalid:
-            raise ValueError(f"extractDateParts has unknown part(s): {sorted(invalid)}")
+            raise ValueError(f"extractDateParts 'parts' has unknown value(s): {sorted(invalid)}.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -168,9 +168,9 @@ class ParseDatesTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("parseDates requires a non-empty 'columns' list")
+            raise ValueError("parseDates requires a non-empty 'columns' list.")
         if config.get("errors", "coerce") not in self._ERRORS:
-            raise ValueError(f"parseDates 'errors' must be one of {sorted(self._ERRORS)}")
+            raise ValueError(f"parseDates 'errors' must be one of {sorted(self._ERRORS)}.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -218,7 +218,7 @@ class UnpivotTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("id_vars"):
-            raise ValueError("unpivot requires a non-empty 'id_vars' list (columns to keep)")
+            raise ValueError("unpivot requires a non-empty 'id_vars' list.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -271,10 +271,10 @@ class PivotTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         for key in ("index", "columns", "values"):
             if not config.get(key):
-                raise ValueError(f"pivot requires '{key}'")
+                raise ValueError(f"pivot requires a '{key}'.")
         aggfunc = config.get("aggfunc", "sum")
         if aggfunc not in self._SHARED_AGGFUNCS:
-            raise ValueError(f"pivot 'aggfunc' must be one of {sorted(self._SHARED_AGGFUNCS)}, got {aggfunc!r}")
+            raise ValueError(f"pivot 'aggfunc' must be one of {sorted(self._SHARED_AGGFUNCS)}, got {aggfunc!r}.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -323,7 +323,7 @@ class ExplodeRowsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("explodeRows requires a 'column'")
+            raise ValueError("explodeRows requires a 'column'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -360,14 +360,14 @@ class DateDifferenceTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("start_column"):
-            raise ValueError("dateDifference requires a 'start_column'")
+            raise ValueError("dateDifference requires a 'start_column'.")
         if not config.get("end_column"):
-            raise ValueError("dateDifference requires an 'end_column'")
+            raise ValueError("dateDifference requires an 'end_column'.")
         unit = config.get("unit", "days")
         if unit not in self._UNITS:
-            raise ValueError(f"dateDifference 'unit' must be one of {sorted(self._UNITS)}")
+            raise ValueError(f"dateDifference 'unit' must be one of {sorted(self._UNITS)}.")
         if not config.get("new_column"):
-            raise ValueError("dateDifference requires a 'new_column' name")
+            raise ValueError("dateDifference requires a 'new_column'.")
 
     def _args(self, config: dict[str, Any]) -> tuple[str, str, str, str]:
         return (

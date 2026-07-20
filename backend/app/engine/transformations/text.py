@@ -10,9 +10,9 @@ class ReplaceValuesTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("replaceValues requires a 'column'")
+            raise ValueError("replaceValues requires a 'column'.")
         if "to_replace" not in config or "value" not in config:
-            raise ValueError("replaceValues requires 'to_replace' and 'value'")
+            raise ValueError("replaceValues requires 'to_replace' and 'value'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -61,14 +61,14 @@ class StringTransformTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
-            raise ValueError("stringTransform requires a 'column'")
+            raise ValueError("stringTransform requires a 'column'.")
         op = config.get("operation")
         if op not in self._VALID_OPS:
-            raise ValueError(f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}")
+            raise ValueError(f"stringTransform 'operation' must be one of {sorted(self._VALID_OPS)}.")
         if op == "replace" and "find" not in config:
-            raise ValueError("stringTransform 'replace' requires a 'find' value")
+            raise ValueError("stringTransform 'replace' requires a 'find' value.")
         if op == "pad" and not isinstance(config.get("width"), int):
-            raise ValueError("stringTransform 'pad' requires an integer 'width'")
+            raise ValueError("stringTransform 'pad' requires an integer 'width'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

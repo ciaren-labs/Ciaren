@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def _require_columns(config: dict[str, Any], node: str) -> list[str]:
     cols = config.get("columns")
     if not isinstance(cols, list) or not cols or not all(isinstance(c, str) for c in cols):
-        raise ValueError(f"{node} requires a non-empty 'columns' list of column names.")
+        raise ValueError(f"{node} requires a non-empty 'columns' list.")
     return cols
 
 
@@ -278,8 +278,8 @@ class ReduceDimensionsTransformation(MLTransformation):
         valid_frac = isinstance(n, float) and 0.0 < n < 1.0
         if not (valid_int or valid_frac):
             raise ValueError(
-                "reduceDimensions 'n_components' must be a positive integer (component count) "
-                "or a float in (0, 1) (explained-variance fraction)."
+                "reduceDimensions 'n_components' must be a positive integer "
+                "or a float in (0, 1)."
             )
 
     def execute(

@@ -11,7 +11,7 @@ class DropNullsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         how = config.get("how", "any")
         if how not in ("any", "all"):
-            raise ValueError("dropNulls 'how' must be 'any' or 'all'")
+            raise ValueError("dropNulls 'how' must be 'any' or 'all'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -90,9 +90,9 @@ class FillNullsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         strategy = config.get("strategy", "constant")
         if strategy not in self._VALID_STRATEGIES:
-            raise ValueError(f"fillNulls 'strategy' must be one of {sorted(self._VALID_STRATEGIES)}")
+            raise ValueError(f"fillNulls 'strategy' must be one of {sorted(self._VALID_STRATEGIES)}.")
         if strategy == "constant" and "value" not in config:
-            raise ValueError("fillNulls with the 'constant' strategy requires a 'value'")
+            raise ValueError("fillNulls 'constant' strategy requires a 'value'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

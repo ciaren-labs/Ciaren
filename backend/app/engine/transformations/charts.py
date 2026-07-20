@@ -277,7 +277,7 @@ class _BaseChart(BaseTransformation, EmitsNodeMetadata):
     def _check_aggregate(self, config: dict[str, Any], default: str) -> None:
         aggregate = config.get("aggregate") or default
         if aggregate not in VALID_AGGREGATES:
-            raise ValueError(f"{self.type} 'aggregate' must be one of {', '.join(VALID_AGGREGATES)}")
+            raise ValueError(f"{self.type} 'aggregate' must be one of {', '.join(VALID_AGGREGATES)}.")
 
 
 # ---------------------------------------------------------------------------
@@ -294,15 +294,15 @@ class ChartBarTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("x"):
-            raise ValueError("chartBar requires an 'x' (category) column")
+            raise ValueError(f"{self.type} requires an 'x' column.")
         self._check_aggregate(config, "sum")
         aggregate = config.get("aggregate") or "sum"
         if aggregate != "count" and not config.get("y"):
-            raise ValueError("chartBar requires a 'y' (value) column unless aggregate is 'count'")
+            raise ValueError(f"{self.type} requires a 'y' column unless aggregate is 'count'.")
         orientation = config.get("orientation") or "vertical"
         if orientation not in ("vertical", "horizontal"):
-            raise ValueError("chartBar 'orientation' must be 'vertical' or 'horizontal'")
-        _check_int("chartBar", "limit", config.get("limit"), 1, MAX_BAR_CATEGORIES)
+            raise ValueError(f"{self.type} 'orientation' must be 'vertical' or 'horizontal'.")
+        _check_int(self.type, "limit", config.get("limit"), 1, MAX_BAR_CATEGORIES)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         x = config["x"]
@@ -398,12 +398,12 @@ class ChartLineTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("x"):
-            raise ValueError(f"{self.type} requires an 'x' column")
+            raise ValueError(f"{self.type} requires an 'x' column.")
         y_columns = config.get("y_columns")
         if not isinstance(y_columns, list) or not [c for c in y_columns if c]:
-            raise ValueError(f"{self.type} requires at least one column in 'y_columns'")
+            raise ValueError(f"{self.type} requires at least one column in 'y_columns'.")
         if len(dict.fromkeys(y_columns)) > MAX_LINE_SERIES:
-            raise ValueError(f"{self.type} supports at most {MAX_LINE_SERIES} series")
+            raise ValueError(f"{self.type} supports at most {MAX_LINE_SERIES} series.")
         self._check_aggregate(config, "mean")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
@@ -469,9 +469,9 @@ class ChartScatterTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("x") or not config.get("y"):
-            raise ValueError("chartScatter requires numeric 'x' and 'y' columns")
+            raise ValueError(f"{self.type} requires 'x' and 'y' columns.")
         if config.get("x") == config.get("y"):
-            raise ValueError("chartScatter 'x' and 'y' must be different columns")
+            raise ValueError(f"{self.type} 'x' and 'y' must be different columns.")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         x, y = config["x"], config["y"]
@@ -502,12 +502,12 @@ class ChartPieTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("category"):
-            raise ValueError("chartPie requires a 'category' column")
+            raise ValueError(f"{self.type} requires a 'category' column.")
         self._check_aggregate(config, "count")
         aggregate = config.get("aggregate") or "count"
         if aggregate != "count" and not config.get("value"):
-            raise ValueError("chartPie requires a 'value' column unless aggregate is 'count'")
-        _check_int("chartPie", "limit", config.get("limit"), 2, MAX_PIE_SLICES)
+            raise ValueError(f"{self.type} requires a 'value' column unless aggregate is 'count'.")
+        _check_int(self.type, "limit", config.get("limit"), 2, MAX_PIE_SLICES)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         category = config["category"]
@@ -538,8 +538,8 @@ class ChartHistogramTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("column"):
-            raise ValueError("chartHistogram requires a 'column'")
-        _check_int("chartHistogram", "bins", config.get("bins"), 1, MAX_HISTOGRAM_BINS)
+            raise ValueError(f"{self.type} requires a 'column'.")
+        _check_int(self.type, "bins", config.get("bins"), 1, MAX_HISTOGRAM_BINS)
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         column = config["column"]
@@ -588,7 +588,7 @@ class ChartBoxPlotTransformation(_BaseChart):
     def validate_config(self, config: dict[str, Any]) -> None:
         super().validate_config(config)
         if not config.get("column"):
-            raise ValueError("chartBoxPlot requires a 'column' (numeric values)")
+            raise ValueError(f"{self.type} requires a 'column'.")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         column = config["column"]
@@ -654,9 +654,9 @@ class ChartHeatmapTransformation(_BaseChart):
         super().validate_config(config)
         columns = config.get("columns")
         if columns is not None and not isinstance(columns, list):
-            raise ValueError("chartHeatmap 'columns' must be a list of column names")
+            raise ValueError(f"{self.type} 'columns' must be a list of column names.")
         if isinstance(columns, list) and len([c for c in columns if c]) > MAX_HEATMAP_COLUMNS:
-            raise ValueError(f"chartHeatmap supports at most {MAX_HEATMAP_COLUMNS} columns")
+            raise ValueError(f"{self.type} supports at most {MAX_HEATMAP_COLUMNS} columns.")
 
     def _compute(self, pdf: pd.DataFrame, config: dict[str, Any]) -> dict[str, Any]:
         chosen = [c for c in dict.fromkeys(config.get("columns") or []) if c]

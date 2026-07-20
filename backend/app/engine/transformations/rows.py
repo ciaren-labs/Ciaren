@@ -11,15 +11,16 @@ class FilterRowsTransformation(BaseTransformation):
     type = "filterRows"
 
     def validate_config(self, config: dict[str, Any]) -> None:
-        required = {"column", "operator"}
-        if not required.issubset(config):
-            raise ValueError(f"filterRows requires keys: {required}")
+        required = ["column", "operator"]
+        missing = [k for k in required if k not in config]
+        if missing:
+            raise ValueError(f"filterRows requires 'column' and 'operator'.")
         op = config["operator"]
         # value is not required for unary operators (isnull/notnull)
         if op not in {"isnull", "notnull"} and "value" not in config:
-            raise ValueError("filterRows requires a 'value' for this operator")
+            raise ValueError("filterRows requires a 'value' for this operator.")
         if op == "between" and "value2" not in config:
-            raise ValueError("filterRows 'between' requires a 'value2' (upper bound)")
+            raise ValueError("filterRows 'between' operator requires a 'value2'.")
 
     def _values(self, config: dict[str, Any]) -> Any:
         """Normalize the config value(s) into what the engine expects per operator."""
@@ -107,7 +108,7 @@ class FilterExpressionTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not str(config.get("expression", "")).strip():
-            raise ValueError("filterExpression requires a non-empty 'expression'")
+            raise ValueError("filterExpression requires a non-empty 'expression'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -141,9 +142,9 @@ class SortRowsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("sortRows requires a non-empty 'columns' list")
+            raise ValueError("sortRows requires a non-empty 'columns' list.")
         if config.get("na_position", "last") not in ("first", "last"):
-            raise ValueError("sortRows 'na_position' must be 'first' or 'last'")
+            raise ValueError("sortRows 'na_position' must be 'first' or 'last'.")
 
     def _ascending(self, config: dict[str, Any]) -> list[bool]:
         columns = config["columns"]
@@ -203,10 +204,10 @@ class LimitRowsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         n = config.get("n")
         if not isinstance(n, int) or n < 0:
-            raise ValueError("limitRows requires a non-negative integer 'n'")
+            raise ValueError("limitRows requires a non-negative integer 'n'.")
         offset = config.get("offset", 0)
         if not isinstance(offset, int) or offset < 0:
-            raise ValueError("limitRows 'offset' must be a non-negative integer")
+            raise ValueError("limitRows 'offset' must be a non-negative integer.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -237,14 +238,14 @@ class SampleRowsTransformation(BaseTransformation):
         # bool is an int subclass — reject True/False masquerading as a seed.
         if not isinstance(seed, int) or isinstance(seed, bool):
             raise ValueError(
-                "sampleRows requires an integer 'seed' for reproducibility (random samples are not allowed)."
+                "sampleRows requires an integer 'seed' for reproducibility."
             )
         n, frac = config.get("n"), config.get("frac")
         if frac is not None:
             if not isinstance(frac, (int, float)) or not (0 < frac <= 1):
-                raise ValueError("sampleRows 'frac' must be a number in (0, 1]")
+                raise ValueError("sampleRows 'frac' must be a number in (0, 1].")
         elif not isinstance(n, int) or n < 0:
-            raise ValueError("sampleRows requires a non-negative integer 'n' or a 'frac'")
+            raise ValueError("sampleRows requires a non-negative integer 'n' or a 'frac'.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -274,7 +275,7 @@ class RemoveDuplicatesTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         keep = config.get("keep", "first")
         if keep not in ("first", "last", False):
-            raise ValueError("removeDuplicates 'keep' must be 'first', 'last', or false")
+            raise ValueError("removeDuplicates 'keep' must be 'first', 'last', or false.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

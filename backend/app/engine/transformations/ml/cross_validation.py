@@ -131,7 +131,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         if strategy == "group_kfold":
             group = config.get("group_column")
             if not isinstance(group, str) or not group:
-                raise ValueError(f"{nm}: Group K-Fold needs a 'group_column' to keep each group within one fold.")
+                raise ValueError(f"{nm} requires a 'group_column' for group_kfold strategy.")
 
         scoring = config.get("scoring")
         if scoring is not None:

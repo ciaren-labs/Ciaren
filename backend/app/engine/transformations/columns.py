@@ -15,7 +15,7 @@ class DropColumnsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("dropColumns requires a non-empty 'columns' list")
+            raise ValueError("dropColumns requires a non-empty 'columns' list.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -36,7 +36,7 @@ class RenameColumnsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("mapping") or not isinstance(config["mapping"], dict):
-            raise ValueError("renameColumns requires a non-empty 'mapping' dict")
+            raise ValueError("renameColumns requires a non-empty 'mapping' dict.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -57,7 +57,7 @@ class SelectColumnsTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("columns"):
-            raise ValueError("selectColumns requires a non-empty 'columns' list")
+            raise ValueError("selectColumns requires a non-empty 'columns' list.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -82,9 +82,9 @@ class CombineColumnsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         columns = config.get("columns")
         if not isinstance(columns, list) or len(columns) < 2:
-            raise ValueError("combineColumns requires a 'columns' list with at least two columns")
+            raise ValueError("combineColumns requires a 'columns' list with at least two columns.")
         if not config.get("new_column"):
-            raise ValueError("combineColumns requires a 'new_column' name")
+            raise ValueError("combineColumns requires a 'new_column'.")
 
     def _args(self, config: dict[str, Any]) -> tuple[list[str], str, str, bool]:
         return (
@@ -133,9 +133,9 @@ class CoalesceColumnsTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         columns = config.get("columns")
         if not isinstance(columns, list) or len(columns) < 2:
-            raise ValueError("coalesceColumns requires a 'columns' list with at least two columns")
+            raise ValueError("coalesceColumns requires a 'columns' list with at least two columns.")
         if not config.get("new_column"):
-            raise ValueError("coalesceColumns requires a 'new_column' name")
+            raise ValueError("coalesceColumns requires a 'new_column'.")
 
     def _args(self, config: dict[str, Any]) -> tuple[list[str], str, bool]:
         return (config["columns"], config["new_column"], bool(config.get("keep_original", True)))
@@ -190,10 +190,10 @@ class CastDtypesTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         casts = config.get("casts")
         if not casts or not isinstance(casts, dict):
-            raise ValueError("castDtypes requires a non-empty 'casts' dict {col: dtype}")
+            raise ValueError("castDtypes requires a non-empty 'casts' dict.")
         invalid = set(casts.values()) - self._VALID_DTYPES
         if invalid:
-            raise ValueError(f"castDtypes has unknown dtype(s): {sorted(invalid)}")
+            raise ValueError(f"castDtypes has unknown dtype(s): {sorted(invalid)}.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

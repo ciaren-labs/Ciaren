@@ -41,7 +41,7 @@ class MLEvaluateTransformation(MetadataMLTransformation):
                 raise ValueError("mlEvaluate requires a 'prediction_column'.")
         else:  # clustering
             if not config.get("prediction_column"):
-                raise ValueError("mlEvaluate (clustering) requires a 'prediction_column' (the labels).")
+                raise ValueError("mlEvaluate requires a 'prediction_column'.")
 
     def execute_with_metadata(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]

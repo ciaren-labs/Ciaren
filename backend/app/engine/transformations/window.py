@@ -63,17 +63,17 @@ class WindowFunctionTransformation(BaseTransformation):
     def validate_config(self, config: dict[str, Any]) -> None:
         function = config.get("function")
         if function not in _ALL_FUNCS:
-            raise ValueError(f"windowFunction 'function' must be one of {sorted(_ALL_FUNCS)}")
+            raise ValueError(f"windowFunction 'function' must be one of {sorted(_ALL_FUNCS)}.")
         if not config.get("new_column"):
-            raise ValueError("windowFunction requires a 'new_column' name")
+            raise ValueError("windowFunction requires a 'new_column'.")
         if function in _TARGET_FUNCS and not config.get("target"):
-            raise ValueError(f"windowFunction '{function}' requires a 'target' column")
+            raise ValueError(f"windowFunction '{function}' requires a 'target' column.")
         if function in _RANK_FUNCS and not config.get("order_by"):
-            raise ValueError(f"windowFunction '{function}' requires a non-empty 'order_by'")
+            raise ValueError(f"windowFunction '{function}' requires a non-empty 'order_by'.")
         if function in ("lag", "lead"):
             offset = config.get("offset", 1)
             if not isinstance(offset, int) or offset < 1:
-                raise ValueError("windowFunction 'offset' must be an integer >= 1")
+                raise ValueError("windowFunction 'offset' must be an integer >= 1.")
 
     def _args(self, config: dict[str, Any]) -> _WindowArgs:
         return (
@@ -198,18 +198,18 @@ class RollingAggregateTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("target"):
-            raise ValueError("rollingAggregate requires a 'target' column")
+            raise ValueError("rollingAggregate requires a 'target' column.")
         function = config.get("function")
         if function not in ROLLING_FUNCS:
-            raise ValueError(f"rollingAggregate 'function' must be one of {sorted(ROLLING_FUNCS)}")
+            raise ValueError(f"rollingAggregate 'function' must be one of {sorted(ROLLING_FUNCS)}.")
         window = config.get("window")
         if not isinstance(window, int) or isinstance(window, bool) or window < 1:
-            raise ValueError("rollingAggregate 'window' must be an integer >= 1")
+            raise ValueError("rollingAggregate 'window' must be an integer >= 1.")
         mp = config.get("min_periods")
         if mp is not None and (not isinstance(mp, int) or isinstance(mp, bool) or mp < 1):
-            raise ValueError("rollingAggregate 'min_periods' must be a positive integer or null")
+            raise ValueError("rollingAggregate 'min_periods' must be a positive integer or null.")
         if not config.get("new_column"):
-            raise ValueError("rollingAggregate requires a 'new_column' name")
+            raise ValueError("rollingAggregate requires a 'new_column'.")
 
     def _args(self, config: dict[str, Any]) -> tuple[str, str, int, int | None, list[str], list[str], bool, str]:
         return (
@@ -277,15 +277,15 @@ class RowDifferenceTransformation(BaseTransformation):
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("target"):
-            raise ValueError("rowDifference requires a 'target' column")
+            raise ValueError("rowDifference requires a 'target' column.")
         method = config.get("method", "diff")
         if method not in self._METHODS:
-            raise ValueError(f"rowDifference 'method' must be one of {sorted(self._METHODS)}")
+            raise ValueError(f"rowDifference 'method' must be one of {sorted(self._METHODS)}.")
         periods = config.get("periods", 1)
         if not isinstance(periods, int) or isinstance(periods, bool) or periods < 1:
-            raise ValueError("rowDifference 'periods' must be an integer >= 1")
+            raise ValueError("rowDifference 'periods' must be an integer >= 1.")
         if not config.get("new_column"):
-            raise ValueError("rowDifference requires a 'new_column' name")
+            raise ValueError("rowDifference requires a 'new_column'.")
 
     def _args(self, config: dict[str, Any]) -> tuple[str, str, int, list[str], list[str], bool, str]:
         return (
