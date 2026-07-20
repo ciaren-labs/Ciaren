@@ -9,6 +9,8 @@ import { FlowEditDialog } from "./FlowEditDialog";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safeStorage";
+import { useUnsavedChangesGuard } from "@/lib/useUnsavedChangesGuard";
 import { toast } from "@/stores/toastStore";
 import { graphToStore, storeToGraph } from "./graphMapper";
 import { type NodeTypeDef } from "@/features/flows/editor/nodeCatalog";
@@ -41,6 +43,9 @@ export function FlowEditorPage() {
   const addNode = useFlowEditorStore((s) => s.addNode);
   const reset = useFlowEditorStore((s) => s.reset);
   const dirty = useFlowEditorStore((s) => s.dirty);
+  // Warn before losing unsaved edits: browser prompt on tab close/reload, and a
+  // confirm on in-app navigation away from the editor (see the toolbar Back).
+  const confirmNavigation = useUnsavedChangesGuard(dirty);
   const markClean = useFlowEditorStore((s) => s.markClean);
   const markDirty = useFlowEditorStore((s) => s.markDirty);
   const canUndo = useFlowEditorStore((s) => s.past.length > 0);
@@ -60,11 +65,11 @@ export function FlowEditorPage() {
   const [editOpen, setEditOpen] = useState(false);
   // Height of the bottom preview pane, drag-resizable and remembered locally.
   const [previewHeight, setPreviewHeight] = useState(() => {
-    const saved = Number(localStorage.getItem("ciaren_preview_height"));
+    const saved = Number(readLocalStorage("ciaren_preview_height"));
     return saved >= 180 ? saved : 420;
   });
   useEffect(() => {
-    localStorage.setItem("ciaren_preview_height", String(previewHeight));
+    writeLocalStorage("ciaren_preview_height", String(previewHeight));
   }, [previewHeight]);
 
   const startPreviewResize = (e: React.MouseEvent) => {
@@ -247,7 +252,7 @@ export function FlowEditorPage() {
       <div className="flex h-full flex-col">
         <EditorToolbar
           flowName={flow.name}
-          onBack={() => navigate("/flows")}
+          onBack={() => confirmNavigation(() => navigate("/flows"))}
           onRename={() => setEditOpen(true)}
           projectName={projectName}
           isDisabled={isDisabled}

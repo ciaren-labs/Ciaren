@@ -13,9 +13,18 @@ describe("friendlyErrorMessage", () => {
     expect(friendlyErrorMessage(err, "Upload failed.")).toBe("Upload failed.");
   });
 
-  it("explains auth failures", () => {
+  it("explains auth failures by pointing at the real token mechanism", () => {
     const err = new ApiError("Request failed with status 401", 401);
-    expect(friendlyErrorMessage(err)).toMatch(/API token/);
+    const msg = friendlyErrorMessage(err);
+    expect(msg).toMatch(/API token/);
+    // The token is supplied via the ?api_token= URL param, not a header menu.
+    expect(msg).toMatch(/api_token/);
+    expect(msg).not.toMatch(/header menu/i);
+  });
+
+  it("uses the same auth guidance for 403 as for 401", () => {
+    const err = new ApiError("Request failed with status 403", 403);
+    expect(friendlyErrorMessage(err)).not.toMatch(/header menu/i);
   });
 
   it("explains bare 404s as a stale reference", () => {
