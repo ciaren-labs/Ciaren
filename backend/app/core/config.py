@@ -178,6 +178,12 @@ class Settings(BaseSettings):
     ML_MAX_MODEL_SIZE_MB: int = 500
     ML_MAX_TRAINING_ROWS: int = 5_000_000
     ML_MAX_FEATURE_COLUMNS: int = 500
+    # Soft cap on unbounded, compute-scaling hyperparameters (n_estimators,
+    # max_iter, ...). A value like n_estimators=1_000_000 wedges a fit for hours
+    # *before* the post-fit model-size cap can fire — a self-inflicted DoS on
+    # scheduled/unattended flows. Values over this are rejected with a clear
+    # error. Raise it for genuinely large local jobs. See app/ml/security.py.
+    ML_MAX_HYPERPARAMETER_VALUE: int = 100_000
 
     # Source for the "Explore" plugin catalog. Today a local JSON file path (the
     # MarketplaceIndex shape); empty uses Ciaren's bundled community catalog

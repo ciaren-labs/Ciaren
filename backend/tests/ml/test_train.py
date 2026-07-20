@@ -271,6 +271,48 @@ def test_missing_feature_column_rejected(ml_env):
         _train(df, {"model_type": "ridge", "target_column": "target", "seed": 1, "feature_columns": ["x1", "ghost"]})
 
 
+# -- MLflow persistence failure must not report a clean success (F1) ----------
+
+
+def test_log_model_failure_fails_the_node(ml_env, monkeypatch):
+    """If the model can't be persisted (the known long-Windows-path MLflow
+    failure), the node must fail loudly — not report SUCCESS with a model_ref
+    whose model_uri is None, which would silently break every downstream node
+    (and a train-only flow would look like it saved a model when it saved
+    nothing)."""
+    pytest.importorskip("mlflow")
+    import mlflow.sklearn
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated artifact write failure (path too long)")
+
+    monkeypatch.setattr(mlflow.sklearn, "log_model", _boom)
+    with pytest.raises(RuntimeError, match="could not be saved to MLflow"):
+        _train(
+            _classification_df(),
+            {"model_type": "logistic_regression", "target_column": "target", "seed": 1},
+        )
+
+
+def test_param_logging_failure_still_saves_model(ml_env, monkeypatch):
+    """The *secondary* metadata writes (params/metrics/tags) must degrade-and-warn:
+    a bad param value can't stop a usable model from being saved (the preserved
+    genuine-degrade path, distinct from a log_model persistence failure)."""
+    pytest.importorskip("mlflow")
+    import mlflow
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated params logging failure")
+
+    monkeypatch.setattr(mlflow, "log_params", _boom)
+    _, _, meta = _train(
+        _classification_df(),
+        {"model_type": "logistic_regression", "target_column": "target", "seed": 1},
+    )
+    # Model was still persisted despite the params-logging hiccup.
+    assert meta.model_uri and meta.model_uri.startswith(("models:/", "runs:/"))
+
+
 # -- through the executor ----------------------------------------------------
 
 
