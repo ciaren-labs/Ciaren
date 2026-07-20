@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Prototype data and ML pipelines on a canvas, preview every step, then export
+  Build data and ML pipelines on a canvas, preview every step, then export
   readable pandas, Polars, or lazy Polars code with no proprietary runtime.
   What you keep is real, reviewable Python you can run and version anywhere.
 </p>
