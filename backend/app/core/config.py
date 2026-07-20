@@ -150,6 +150,10 @@ class Settings(BaseSettings):
     # X-Ciaren-Secret) are exempt. Set this whenever the API is reachable from a
     # network you don't fully trust — e.g. the Docker image binds 0.0.0.0. See
     # Optional shared-token gate for non-local deployments.
+    # Use a long, high-entropy random value — e.g.
+    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+    # It is the only auth gate when the server is network-exposed and there is
+    # no built-in rate limiting, so a weak or guessable token can be brute-forced.
     API_TOKEN: str | None = None
 
     # -- Webhook trigger -------------------------------------------------------
