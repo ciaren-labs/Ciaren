@@ -1,0 +1,20 @@
+{
+  "id": "community.validator",
+  "name": "Validator Plugin",
+  "version": "0.1.0-alpha.1",
+  "publisher": "community",
+  "description": "Example plugin contributing a data-quality validation node.",
+  "license": "community",
+  "ciaren": ">=0.1",
+  "api_version": "0.1.0-alpha.1",
+  "entrypoint": "ciaren_validator.plugin:ValidatorPlugin",
+  "permissions": [],
+  "capabilities": ["node.validator"],
+  "ui": {
+    "nodes": ["validator.checkColumn"],
+    "nodeCategories": {
+      "validator.checkColumn": "quality"
+    }
+  },
+  "trust": "community"
+}
