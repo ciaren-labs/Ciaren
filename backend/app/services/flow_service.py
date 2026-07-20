@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.db.models.flow import DISABLED_BY_DATASET, DISABLED_MANUAL, Flow
+from app.db.models.flow import DISABLED_BY_DATASET, DISABLED_BY_PROJECT, DISABLED_MANUAL, Flow
+from app.db.models.project import Project
 from app.db.models.run import FlowRun
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import OUTPUT_TYPES as _OUTPUT_TYPES
@@ -43,6 +44,12 @@ _ENV_BOUND_CONFIG_KEYS = ("dataset_id", "dataset_version", "connection_id")
 # A trailing " (N)" marker on a flow name, so duplicating a copy continues the
 # sequence ("Sales (1)" -> "Sales (2)") instead of nesting ("Sales (1) (1)").
 _COPY_SUFFIX_RE = re.compile(r"^(.*) \((\d+)\)$")
+
+# Safety cap for the unpaginated list endpoint. The service accepts explicit
+# limit/offset, but a caller that passes neither (today's route) is still bounded
+# so a workspace with a huge number of flows can't load them all into one
+# response. See list_all — the route wiring for real pagination is a follow-up.
+_DEFAULT_LIST_LIMIT = 500
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +108,25 @@ class FlowService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def list_all(self, project_id: str | None = None) -> list[FlowRead]:
+    async def list_all(
+        self,
+        project_id: str | None = None,
+        limit: int | None = _DEFAULT_LIST_LIMIT,
+        offset: int = 0,
+    ) -> list[FlowRead]:
+        """Newest-updated-first flows, optionally scoped to a project.
+
+        ``limit``/``offset`` page the result; ``limit=None`` returns every match
+        (existing behavior). Callers that pass neither still get a bounded page
+        (``_DEFAULT_LIST_LIMIT``) so an unpaginated route can't load an unbounded
+        number of rows."""
         stmt = select(Flow).order_by(Flow.updated_at.desc())
         if project_id is not None:
             stmt = stmt.where(Flow.project_id == project_id)
+        if offset:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await self.db.execute(stmt)
         flows = list(result.scalars().all())
         return await self._with_last_run(flows)
@@ -303,8 +325,16 @@ class FlowService:
             self._validate_parameters(updates["graph_json"])
         # A move to another project must point at a real one — with SQLite FK
         # enforcement off, a bogus id would otherwise silently orphan the flow.
-        if updates.get("project_id") is not None:
-            updates["project_id"] = await ProjectService(self.db).resolve_id(updates["project_id"])
+        # Resolve on *presence* of the key, not "not None": an explicit
+        # ``project_id: null`` in the body means "move to the default project",
+        # and resolve_id(None) maps it there. Guarding on ``is not None`` skipped
+        # it, wrote NULL into a NOT NULL column, and 500'd on the IntegrityError.
+        moved_to_project_id: str | None = None
+        if "project_id" in updates:
+            resolved = await ProjectService(self.db).resolve_id(updates["project_id"])
+            updates["project_id"] = resolved
+            if resolved != flow.project_id:
+                moved_to_project_id = resolved
         # Capture before the setattr loop: a direct is_disabled *change* is the
         # user's own decision, so tag it MANUAL (or clear the reason on enable) so a
         # later project re-enable doesn't revive a flow the user turned off. Guard on
@@ -317,6 +347,20 @@ class FlowService:
         if disabled_changed:
             flow.disabled_reason = DISABLED_MANUAL if updates["is_disabled"] else None
             flow.disabled_by_project_id = None
+        # Moving a flow into an already-disabled project must inherit that state:
+        # the project-disable cascade only runs at disable time, so without this a
+        # flow dragged into a disabled project would stay enabled and schedulable.
+        # Tag it exactly as ProjectService._cascade_flow_disable does (reason +
+        # origin project) so a later re-enable of that project restores it. Only a
+        # flow that isn't already disabled for its own (manual/dataset) reason is
+        # tagged — that reason must win, or re-enabling the project would wrongly
+        # revive it.
+        if moved_to_project_id is not None and not flow.is_disabled:
+            dest = await self.db.get(Project, moved_to_project_id)
+            if dest is not None and dest.is_disabled:
+                flow.is_disabled = True
+                flow.disabled_reason = DISABLED_BY_PROJECT
+                flow.disabled_by_project_id = moved_to_project_id
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
         # and SQLite's second-level resolution means tests may see the same value.
         flow.updated_at = datetime.now(UTC).replace(tzinfo=None)
