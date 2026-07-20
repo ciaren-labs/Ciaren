@@ -73,6 +73,30 @@ def _safe_target_name(plugin_id: str) -> str:
     return plugin_id
 
 
+def _reject_case_collision(base: Path, name: str) -> None:
+    """Refuse an install whose target directory name differs from an existing
+    sibling's only by case. Plugin ids — and their state/TOFU entries — are
+    case-sensitive, but the install target is a real directory and common
+    filesystems (Windows, macOS) are case-insensitive: there, installing ``foo``
+    would ``rmtree`` ``Foo``'s files (the marketplace path always forces) while
+    both keep distinct state entries. Rejected on every platform so a package set
+    that installs on Linux never breaks elsewhere. Same-cased reinstalls are
+    unaffected."""
+    if not base.is_dir():
+        return
+    try:
+        siblings = [p.name for p in base.iterdir()]
+    except OSError:
+        return
+    for existing in siblings:
+        if existing != name and existing.casefold() == name.casefold():
+            raise InstallError(
+                f"cannot install {name!r}: {existing!r} is already installed and the two ids "
+                f"differ only by letter case, so they would share one install directory on a "
+                f"case-insensitive filesystem; uninstall {existing!r} first"
+            )
+
+
 def _is_unsafe_name(name: str) -> bool:
     """Reject an archive entry name lexically (before touching the filesystem):
     absolute paths, drive-qualified paths, backslashes, or any ``..`` component."""
@@ -185,6 +209,7 @@ def install_ciarenplugin(
 
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
+    _reject_case_collision(base, target.name)  # before exists(): case-blind on Windows/macOS
     if target.exists():
         if not force:
             raise InstallError(f"{manifest.id!r} is already installed at {target}; pass force to overwrite")
@@ -218,6 +243,7 @@ def install_directory(
     _ensure_compatible(manifest)  # before we replace any existing install
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
+    _reject_case_collision(base, target.name)  # before exists(): case-blind on Windows/macOS
     if target.exists():
         if not force:
             raise InstallError(f"{manifest.id!r} is already installed at {target}; pass force to overwrite")

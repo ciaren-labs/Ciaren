@@ -396,3 +396,48 @@ def test_incompatible_update_does_not_replace_working_install(tmp_path):
     assert (res.location / "inst_plugin.py").is_file()
     manifest = json.loads((res.location / "ciaren-plugin.json").read_text(encoding="utf-8"))
     assert manifest["version"] == "1.0.0"
+
+
+# -- case-colliding plugin ids (case-insensitive filesystems) ------------------
+
+
+def test_install_rejects_case_colliding_id(tmp_path):
+    """``community.Cased`` and ``community.cased`` are distinct plugin ids (and
+    state/TOFU entries) but map to one directory on case-insensitive filesystems
+    (Windows, macOS) — installing one must not silently rmtree the other's files.
+    Rejected with or without force (the marketplace path always forces)."""
+    a = _src_with(tmp_path, "cased-a", id="community.Cased")
+    pkg_a = package.pack_directory(a, tmp_path / "a.ciarenplugin")
+    install_dir = tmp_path / "i"
+    res_a = install_ciarenplugin(pkg_a, install_dir=install_dir)
+
+    b = _src_with(tmp_path, "cased-b", id="community.cased")
+    pkg_b = package.pack_directory(b, tmp_path / "b.ciarenplugin")
+    for force in (False, True):
+        with pytest.raises(InstallError, match="letter case"):
+            install_ciarenplugin(pkg_b, install_dir=install_dir, force=force)
+    # The originally installed plugin is untouched.
+    assert (res_a.location / "inst_plugin.py").is_file()
+    manifest = json.loads((res_a.location / "ciaren-plugin.json").read_text(encoding="utf-8"))
+    assert manifest["id"] == "community.Cased"
+
+
+def test_install_directory_rejects_case_colliding_id(tmp_path):
+    """The dev source-directory install path applies the same case guard."""
+    a = _src_with(tmp_path, "cased-a", id="community.Cased")
+    install_dir = tmp_path / "i"
+    install_directory(a, install_dir=install_dir)
+    b = _src_with(tmp_path, "cased-b", id="community.cased")
+    with pytest.raises(InstallError, match="letter case"):
+        install_directory(b, install_dir=install_dir, force=True)
+
+
+def test_same_cased_reinstall_unaffected_by_case_guard(tmp_path):
+    """The guard fires only on a case-mismatched sibling; a normal same-cased
+    force reinstall (the update path) still proceeds."""
+    a = _src_with(tmp_path, "cased-a", id="community.Cased")
+    pkg = package.pack_directory(a, tmp_path / "a.ciarenplugin")
+    install_dir = tmp_path / "i"
+    install_ciarenplugin(pkg, install_dir=install_dir)
+    res = install_ciarenplugin(pkg, install_dir=install_dir, force=True)
+    assert (res.location / "inst_plugin.py").is_file()

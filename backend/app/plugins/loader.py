@@ -463,6 +463,17 @@ def _process(
             logger.info("Plugin %s from %s gated (%s)", gated.plugin_id, candidate.source, gated.reason)
             return
         plugin = candidate.load()
+        # Identity pin: every gate above (enable, permissions, license, tamper)
+        # keyed on the *manifest* id, and registration attributes the plugin's
+        # contributions to its *metadata* id — the two must be the same plugin,
+        # or code approved as one id would register (and scope audit/permission
+        # contexts) under another. Entry-point plugins ship no manifest and are
+        # exempt (they are trusted by virtue of being pip-installed).
+        if manifest is not None and plugin.metadata().id != manifest.id:
+            raise ValueError(
+                f"plugin from {candidate.source} declares metadata id {plugin.metadata().id!r} "
+                f"but its manifest id is {manifest.id!r} — refusing to load"
+            )
         meta = registry.register_plugin(plugin)
         result.loaded.append(LoadedPlugin(source=candidate.source, metadata=meta, manifest=manifest))
         logger.info("Loaded plugin %s from %s", meta.id, candidate.source)

@@ -216,6 +216,71 @@ def test_duplicate_registration_error_type():
         reg.register_node_provider(_node_provider("dup"))
 
 
+# -- provider attribution (provenance) ----------------------------------------
+
+
+def test_plugin_node_provider_is_forced_to_plugin_id():
+    """A plugin cannot attribute its nodes to a foreign provider namespace: the
+    self-declared ``spec.provider`` (which drives audit-log scoping, the node's
+    permission context, and the catalog namespace) is overridden with the
+    registering plugin's own id. The default ``"ciaren.core"`` is corrected too."""
+    reg = ServiceRegistry()
+
+    class _Spoof(Plugin):
+        def metadata(self):
+            return PluginMetadata(id="community.honest", name="Honest")
+
+        def register(self, registry):
+            class _P(NodeProvider):
+                def nodes(self):
+                    return [
+                        NodeSpec(id="spoof.node", label="Spoof", category="columns", provider="premium.foo"),
+                        NodeSpec(id="spoof.defaulted", label="Defaulted", category="columns"),
+                    ]
+
+            registry.register_node_provider(_P())
+
+    reg.register_plugin(_Spoof())
+    assert reg.node_spec("spoof.node").provider == "community.honest"
+    assert reg.node_spec("spoof.defaulted").provider == "community.honest"
+
+
+def test_loaded_plugin_nodes_attributed_to_plugin_id():
+    """Through the real loader path too: the helper's provider self-declares
+    ``"test.plugin"`` but the node lands under the loading plugin's id."""
+    reg = ServiceRegistry()
+    result = load_plugins(reg, include_entry_points=False, extra=[_candidate(_plugin("p1", "n1"))])
+    assert [p.metadata.id for p in result.loaded] == ["p1"]
+    assert reg.node_spec("n1").provider == "p1"
+
+
+def test_metadata_id_mismatching_manifest_is_refused():
+    """The enable/permission/license gates key on the *manifest* id while
+    registration attributes contributions to the *metadata* id — a plugin whose
+    code declares a different id than the manifest the user approved could scope
+    its nodes (audit log, permission context) under a foreign id, so it is
+    refused outright and nothing it registers sticks."""
+    reg = ServiceRegistry()
+    manifest = PluginManifest(id="community.approved", name="Approved")
+    cand = _candidate(_plugin("premium.victim", "sneaky.node"), source="dir:mismatch", manifest=manifest)
+    result = load_plugins(reg, include_entry_points=False, extra=[cand])
+    assert result.loaded == []
+    assert len(result.errors) == 1
+    assert "metadata id" in result.errors[0].error
+    assert reg.node_spec("sneaky.node") is None
+    assert "premium.victim" not in [p.id for p in reg.plugins()]
+
+
+def test_builtin_node_provider_keeps_declared_provider():
+    """Host built-ins register outside ``register_plugin`` and keep their declared
+    provider ids — the attribution override applies to plugins only."""
+    reg = ServiceRegistry()
+    reg.register_node_provider(BuiltinNodeProvider())
+    specs = reg.node_specs()
+    assert specs  # built-ins registered fine
+    assert all(s.provider == "ciaren.core" for s in specs)
+
+
 # -- local directory discovery (the bundled example plugin) -------------------
 
 
