@@ -10,6 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.db.models.dataset_version import DatasetVersion
+from app.db.models.run import FlowRun
 from app.services.dataset_service import DatasetService
 
 
@@ -93,6 +94,30 @@ async def test_purge_expired_sweeps_old_soft_deletes(client: AsyncClient, db_ses
     assert purged == 1
     assert not path.exists()
     assert (await client.get(f"/api/datasets/{ds['id']}")).status_code == 404
+
+
+async def test_purge_expired_with_completed_run_sets_input_null(client: AsyncClient, db_session) -> None:
+    """The retention sweep defers only for ACTIVE runs; a dataset referenced by a
+    COMPLETED run's input_dataset_id must still purge. With SQLite FK enforcement
+    now ON, ondelete=SET NULL clears the run's link instead of raising (which
+    would block the purge) or dangling (the pre-enforcement behavior)."""
+    ds = await _upload(client)
+    graph = {
+        "nodes": [{"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": ds["id"]}}}],
+        "edges": [],
+    }
+    flow = (await client.post("/api/flows", json={"name": "f-purge", "graph_json": graph})).json()
+    db_session.add(FlowRun(flow_id=flow["id"], input_dataset_id=ds["id"], status="success"))
+    await db_session.commit()
+
+    await client.delete(f"/api/datasets/{ds['id']}")  # soft delete
+    future = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=31)
+    assert await DatasetService(db_session).purge_expired(now=future) == 1
+
+    # dataset gone, run row retained with its input link cleared — not dangling
+    assert (await client.get(f"/api/datasets/{ds['id']}")).status_code == 404
+    run_input = await db_session.execute(select(FlowRun.input_dataset_id).where(FlowRun.flow_id == flow["id"]))
+    assert run_input.scalar_one() is None
 
 
 async def test_purge_expired_endpoint(client: AsyncClient) -> None:

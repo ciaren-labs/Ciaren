@@ -1,11 +1,15 @@
 """Coverage for low-level infra: the database helpers and logging setup."""
 
 import logging
+from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy import Boolean, Column, Float, Integer, String, create_engine
+from sqlalchemy import Boolean, Column, Float, Integer, String, create_engine, inspect
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.core import database as db_mod
+from app.core.config import get_settings
 from app.core.logging import setup_logging
 
 # -- logging ------------------------------------------------------------
@@ -79,6 +83,107 @@ async def test_init_db_logs_additive_ddl_failure_but_does_not_raise(
     with caplog.at_level(logging.WARNING, logger="ciaren.db"):
         await db_mod.init_db()  # must not raise
     assert any("Additive schema migration failed" in r.message for r in caplog.records)
+
+
+# -- database: engine pool settings (F1) --------------------------------
+
+
+def _capture_make_engine_kwargs(monkeypatch: pytest.MonkeyPatch, url: str) -> dict[str, object]:
+    """Build the app engine with ``create_async_engine`` mocked and return the
+    kwargs it was called with, without opening a real connection."""
+    captured: dict[str, object] = {}
+
+    def _fake_create(url_arg: str, **kwargs: object) -> MagicMock:
+        captured["url"] = url_arg
+        captured.update(kwargs)
+        # A non-sqlite MagicMock makes enable_sqlite_foreign_keys() return early.
+        return MagicMock()
+
+    monkeypatch.setenv("CIAREN_DATABASE_URL", url)
+    get_settings.cache_clear()
+    monkeypatch.setattr(db_mod, "create_async_engine", _fake_create)
+    try:
+        db_mod._make_engine()
+    finally:
+        get_settings.cache_clear()
+    return captured
+
+
+def test_make_engine_enables_pool_pre_ping_for_networked_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Postgres/MySQL (the documented prod path) pool connections across requests;
+    a server-closed connection must not surface as a 500. The factory must pass
+    ``pool_pre_ping`` + a ``pool_recycle`` for non-SQLite URLs."""
+    kwargs = _capture_make_engine_kwargs(monkeypatch, "postgresql+asyncpg://u:p@db.internal/ciaren")
+    assert kwargs["pool_pre_ping"] is True
+    assert kwargs["pool_recycle"] == db_mod.POOL_RECYCLE_SECONDS
+
+
+def test_make_engine_omits_pool_settings_for_sqlite(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SQLite (incl. the in-memory test DB) keeps its exact existing behavior: no
+    pool_pre_ping / pool_recycle, only the check_same_thread connect arg."""
+    kwargs = _capture_make_engine_kwargs(monkeypatch, "sqlite+aiosqlite:///:memory:")
+    assert "pool_pre_ping" not in kwargs
+    assert "pool_recycle" not in kwargs
+    assert kwargs["connect_args"] == {"check_same_thread": False}
+
+
+# -- database: Alembic-managed schema gating (F2) -----------------------
+
+
+def _spy_pending_column_ddl(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Wrap ``_pending_column_ddl`` so tests can see whether the additive-DDL
+    pass ran, while preserving its real return value."""
+    calls: list[int] = []
+    real = db_mod._pending_column_ddl
+
+    def _wrapper(connection: object) -> list[str]:
+        calls.append(1)
+        return real(connection)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(db_mod, "_pending_column_ddl", _wrapper)
+    return calls
+
+
+async def test_init_db_skips_additive_ddl_when_alembic_managed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """When an ``alembic_version`` table exists the DB is migration-managed, so
+    init_db must NOT run best-effort ADD COLUMN patching (it would diverge from
+    the migration history). A skip line is logged for observability."""
+    eng = create_async_engine(
+        "sqlite+aiosqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    monkeypatch.setattr(db_mod, "engine", eng)
+    calls = _spy_pending_column_ddl(monkeypatch)
+    try:
+        async with eng.begin() as conn:
+            await conn.exec_driver_sql("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        with caplog.at_level(logging.INFO, logger="ciaren.db"):
+            await db_mod.init_db()
+        assert calls == []  # additive-DDL pass was skipped entirely
+        assert any("Alembic-managed database detected" in r.message for r in caplog.records)
+    finally:
+        await eng.dispose()
+
+
+async def test_init_db_runs_additive_ddl_on_fresh_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fresh/dev DB (no alembic_version — the default SQLite quickstart) still
+    self-initializes exactly as before: create_all + the additive-DDL pass run
+    and the schema is created."""
+    eng = create_async_engine(
+        "sqlite+aiosqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    monkeypatch.setattr(db_mod, "engine", eng)
+    calls = _spy_pending_column_ddl(monkeypatch)
+    try:
+        await db_mod.init_db()
+        assert calls  # additive-DDL pass ran (fresh, unmanaged DB)
+        async with eng.connect() as conn:
+            names = await conn.run_sync(lambda c: inspect(c).get_table_names())
+        assert "projects" in names  # schema was initialized
+        assert "alembic_version" not in names
+    finally:
+        await eng.dispose()
 
 
 def test_default_literal_renders_each_scalar_type() -> None:

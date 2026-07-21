@@ -12,6 +12,12 @@ non-global address.
 Off by default: the common local-first setup legitimately talks to ``localhost``
 or a private-network database, so this is opt-in for shared/untrusted deployments.
 
+When enabled the guard fails closed on ambiguous values: a host containing
+multi-host or URI metacharacters (``,`` ``/`` ``@`` ``?`` ``#`` whitespace, or a
+``scheme://`` prefix) is refused outright, because drivers such as libpq and
+pymongo would interpret it as a seed list or a full URI and dial an address the
+guard never checked.
+
 Limitation: the guard resolves DNS once, then the driver resolves again — a
 determined DNS-rebinding attacker could still race the two lookups. This is a
 baseline control, not a substitute for network egress policy.
@@ -32,9 +38,25 @@ def _enabled() -> bool:
     return get_settings().CONNECTOR_BLOCK_PRIVATE_HOSTS
 
 
+# RFC 6052 NAT64 well-known prefix: 64:ff9b::a9fe:a9fe reports is_global=True but
+# NAT64-translates to 169.254.169.254 in DNS64/NAT64 environments.
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+# Characters a driver could interpret as a multi-host seed list, a URI, or
+# credentials-in-host (libpq comma lists, ``mongodb://`` URIs, ``user@host``).
+_HOST_METACHARS = (",", "/", "@", "?", "#")
+
+
 def _is_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Whether an address is off-limits: loopback, link-local (incl. cloud
-    metadata), private/RFC1918, unique-local, reserved, multicast, or unspecified."""
+    metadata), private/RFC1918, unique-local, reserved, multicast, unspecified,
+    or an IPv6 address embedding a blocked IPv4 (NAT64 / IPv4-mapped)."""
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip in _NAT64_PREFIX:
+            return True
+        mapped = ip.ipv4_mapped
+        if mapped is not None and _is_blocked(mapped):
+            return True
     return (
         ip.is_loopback
         or ip.is_link_local
@@ -68,19 +90,39 @@ def _resolve(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
     return list(ips)
 
 
+def _is_ambiguous(host: str) -> bool:
+    """Whether a driver could read ``host`` as something other than a single
+    hostname/IP: a ``scheme://`` URI, multi-host/URI metacharacters, or embedded
+    whitespace."""
+    return "://" in host or any(ch in host for ch in _HOST_METACHARS) or any(ch.isspace() for ch in host.strip())
+
+
 def guard_host(host: str | None) -> None:
     """Refuse a host that resolves to an internal address — but only when the
     SSRF guard is enabled. A falsy host (file-based DB, no custom endpoint) is a
-    no-op."""
+    no-op.
+
+    Fails closed on values a driver could dial differently than the guard read
+    them: comma-separated seed lists are split and every token is guarded, and a
+    host carrying URI/multi-host metacharacters is refused outright even when no
+    token resolves to a blocked address."""
     if not host or not _enabled():
         return
-    resolved = _resolve(host)
-    blocked = [ip for ip in resolved if _is_blocked(ip)]
-    if blocked:
+    # Defense in depth: libpq treats a comma as a multi-host seed list, so guard
+    # every token before rejecting the ambiguous value as a whole.
+    for token in host.split(","):
+        blocked = [ip for ip in _resolve(token) if _is_blocked(ip)]
+        if blocked:
+            raise ConnectorError(
+                f"Connection to {host!r} is blocked: it resolves to a private/internal "
+                f"address ({blocked[0]}). Set CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=false "
+                "to allow internal hosts."
+            )
+    if _is_ambiguous(host):
         raise ConnectorError(
-            f"Connection to {host!r} is blocked: it resolves to a private/internal "
-            f"address ({blocked[0]}). Set CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=false "
-            "to allow internal hosts."
+            f"Connection to {host!r} is blocked: the host contains characters a "
+            "driver could interpret as multiple hosts or a URI, so it cannot be "
+            "safely validated. Provide a single plain hostname or IP address."
         )
 
 

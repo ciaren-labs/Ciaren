@@ -90,7 +90,7 @@ def _update_available(catalog_version: str, installed_version: str) -> bool:
         return False
 
 
-def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path) -> str:
+def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path, *, trusted_index: bool) -> str:
     """The trust tier we can actually stand behind for a catalog entry: verify the
     local artifact's signature against the trusted keys and report ``official``
     (first-party, signed by a key pinned into the app) or ``trusted`` only on a
@@ -98,7 +98,7 @@ def _derived_trust(entry: marketplace.MarketplaceEntry, index_path: Path) -> str
     unreadable) is ``community`` no matter what the index claims."""
     from app.plugins.package import PackageError, verify_package
 
-    artifact = marketplace.resolve_artifact_path(entry, index_path)
+    artifact = marketplace.resolve_artifact_path(entry, index_path, trusted=trusted_index)
     if artifact is None or not artifact.is_file():
         return "community"
     try:
@@ -130,6 +130,9 @@ async def list_marketplace() -> MarketplaceCatalog:
     if index is None or index_path is None:
         return MarketplaceCatalog(configured=False)
     installed = _installed_versions()
+    # Whether the index source itself is trusted with local artifact paths (a
+    # local file today; a future hosted index gets strict confined resolution).
+    trusted_index = marketplace.configured_index_is_trusted()
 
     # _derived_trust signature-verifies each entry's artifact zip — file IO +
     # crypto per plugin — so the catalog build runs in a worker thread instead
@@ -143,7 +146,7 @@ async def list_marketplace() -> MarketplaceCatalog:
                 publisher=e.publisher,
                 description=e.description,
                 license=e.license,
-                trust=_derived_trust(e, index_path),
+                trust=_derived_trust(e, index_path, trusted_index=trusted_index),
                 capabilities=list(e.capabilities),
                 permissions=list(e.permissions),
                 ciaren_spec=e.ciaren_spec,
@@ -155,7 +158,9 @@ async def list_marketplace() -> MarketplaceCatalog:
                 installed_version=installed.get(e.id, ""),
                 update_available=_update_available(e.version, installed.get(e.id, "")),
                 revoked=index.is_revoked(e.id),
-                installable=bool((p := marketplace.resolve_artifact_path(e, index_path)) and p.is_file()),
+                installable=bool(
+                    (p := marketplace.resolve_artifact_path(e, index_path, trusted=trusted_index)) and p.is_file()
+                ),
             )
             for e in index.plugins
         ]
@@ -191,11 +196,13 @@ async def install_from_marketplace(plugin_id: str) -> PluginInstallResult:
     entry = index.find(plugin_id)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"{plugin_id!r} is not in the catalog")
-    artifact = marketplace.resolve_artifact_path(entry, index_path)
+    artifact = marketplace.resolve_artifact_path(entry, index_path, trusted=marketplace.configured_index_is_trusted())
     if artifact is None:
         raise HTTPException(
             status_code=400,
-            detail="this entry must be downloaded and installed manually (remote download not supported yet)",
+            detail="this entry's artifact is not available as a safe local file "
+            "(remote download is not supported yet, and an untrusted index may "
+            "only reference artifacts inside its own directory)",
         )
     if not artifact.is_file():
         raise HTTPException(status_code=404, detail=f"artifact for {plugin_id!r} not found at {artifact}")

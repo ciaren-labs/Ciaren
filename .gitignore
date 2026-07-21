@@ -264,3 +264,6 @@ backend/app/web/
 # node_modules created by running npm/vitest from the repo root)
 node_modules/
 .vite/
+
+# OS / shell crash dumps (e.g. Cygwin / Git-Bash stack dumps)
+*.stackdump

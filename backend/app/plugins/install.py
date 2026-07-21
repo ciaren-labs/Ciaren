@@ -22,6 +22,7 @@ from app.plugins.package import (
     MANIFEST_FILENAME,
     PackageError,
     VerifyResult,
+    compute_directory_digest,
     compute_manifest_digest,
     read_manifest,
     verify_package,
@@ -70,6 +71,30 @@ def _safe_target_name(plugin_id: str) -> str:
     if not plugin_id or plugin_id in (".", "..") or not all(c.isalnum() or c in "._-" for c in plugin_id):
         raise InstallError(f"invalid plugin id for installation: {plugin_id!r}")
     return plugin_id
+
+
+def _reject_case_collision(base: Path, name: str) -> None:
+    """Refuse an install whose target directory name differs from an existing
+    sibling's only by case. Plugin ids — and their state/TOFU entries — are
+    case-sensitive, but the install target is a real directory and common
+    filesystems (Windows, macOS) are case-insensitive: there, installing ``foo``
+    would ``rmtree`` ``Foo``'s files (the marketplace path always forces) while
+    both keep distinct state entries. Rejected on every platform so a package set
+    that installs on Linux never breaks elsewhere. Same-cased reinstalls are
+    unaffected."""
+    if not base.is_dir():
+        return
+    try:
+        siblings = [p.name for p in base.iterdir()]
+    except OSError:
+        return
+    for existing in siblings:
+        if existing != name and existing.casefold() == name.casefold():
+            raise InstallError(
+                f"cannot install {name!r}: {existing!r} is already installed and the two ids "
+                f"differ only by letter case, so they would share one install directory on a "
+                f"case-insensitive filesystem; uninstall {existing!r} first"
+            )
 
 
 def _is_unsafe_name(name: str) -> bool:
@@ -128,7 +153,9 @@ def _ensure_compatible(manifest: PluginManifest) -> None:
         )
 
 
-def _record_install_state(plugin_id: str, verification: VerifyResult, manifest_digest: str = "") -> None:
+def _record_install_state(
+    plugin_id: str, verification: VerifyResult, manifest_digest: str = "", code_digest: str = ""
+) -> None:
     """Persist how the package verified (trust badge) and enforce TOFU signer
     pinning: a plugin id is claimable, so approval the user gave to one publisher's
     code must not silently carry over to a replacement.
@@ -150,9 +177,14 @@ def _record_install_state(plugin_id: str, verification: VerifyResult, manifest_d
             state.set_approved(plugin_id, False)
     state.set_signature(plugin_id, verification.outcome, key_id=verification.key_id)
     # Pin the installed manifest so the loader can detect a post-install manifest
-    # edit (the license/permission-gate bypass). A source-directory install passes
-    # "" here, which the loader reads as "nothing to verify" and skips.
+    # edit (the license/permission-gate bypass), and the installed code tree so it
+    # can detect a post-install code edit (the signature is only verified at
+    # install; without this pin a .py swapped on disk later would still run with
+    # the recorded trust badge). A source-directory install passes "" for both,
+    # which the loader reads as "nothing to verify" and skips — dev installs are
+    # deliberately editable.
     state.set_manifest_digest(plugin_id, manifest_digest)
+    state.set_code_digest(plugin_id, code_digest)
     state.save()
 
 
@@ -177,6 +209,7 @@ def install_ciarenplugin(
 
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
+    _reject_case_collision(base, target.name)  # before exists(): case-blind on Windows/macOS
     if target.exists():
         if not force:
             raise InstallError(f"{manifest.id!r} is already installed at {target}; pass force to overwrite")
@@ -187,7 +220,12 @@ def install_ciarenplugin(
     if not (target / MANIFEST_FILENAME).is_file():  # defensive: should always be present
         shutil.rmtree(target, ignore_errors=True)
         raise InstallError(f"installed package for {manifest.id!r} is missing {MANIFEST_FILENAME}")
-    _record_install_state(manifest.id, result, compute_manifest_digest(target / MANIFEST_FILENAME))
+    _record_install_state(
+        manifest.id,
+        result,
+        compute_manifest_digest(target / MANIFEST_FILENAME),
+        compute_directory_digest(target),
+    )
     return InstallResult(plugin_id=manifest.id, location=target, verification=result)
 
 
@@ -205,6 +243,7 @@ def install_directory(
     _ensure_compatible(manifest)  # before we replace any existing install
     base = install_dir or user_plugins_dir()
     target = base / _safe_target_name(manifest.id)
+    _reject_case_collision(base, target.name)  # before exists(): case-blind on Windows/macOS
     if target.exists():
         if not force:
             raise InstallError(f"{manifest.id!r} is already installed at {target}; pass force to overwrite")

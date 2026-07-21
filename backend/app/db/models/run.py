@@ -21,7 +21,13 @@ class FlowRun(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     flow_id: Mapped[str] = mapped_column(String(36), ForeignKey("flows.id"), nullable=False)
-    input_dataset_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("datasets.id"), nullable=True)
+    # SET NULL (not RESTRICT): purging a dataset past its retention window must
+    # not be blocked by completed run history — the run row survives with its
+    # input link cleared instead of dangling (FK enforcement is ON for SQLite
+    # too, see app.core.database.enable_sqlite_foreign_keys).
+    input_dataset_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True
+    )
     # Every input dataset the run resolved, with its concrete version. Lets the
     # run view list all inputs of a multi-input flow (join/concat), not just the
     # primary `input_dataset_id` (which stays the filterable one).

@@ -67,6 +67,11 @@ class ServiceRegistry:
         #: capability string -> id of the provider/spec that first declared it.
         self._capability_source: dict[str, str] = {}
         self._plugins: list[PluginMetadata] = []
+        #: While a plugin's ``register()`` runs, the plugin id its contributions
+        #: must be attributed to; ``None`` outside plugin registration (host
+        #: built-ins register their providers directly and keep their declared
+        #: provider ids).
+        self._registering_plugin_id: str | None = None
         #: Hooks plugins subscribe to in ``register()`` and the core emits.
         self.events = EventBus()
 
@@ -77,20 +82,37 @@ class ServiceRegistry:
         :meth:`Plugin.register`. If registration raises (e.g. a duplicate-id
         collision with a core node), every partial contribution from this plugin
         is rolled back and the exception propagates, so one bad plugin can never
-        leave the catalog half-populated. Metadata is only recorded on success."""
+        leave the catalog half-populated. Metadata is only recorded on success.
+
+        While ``register()`` runs, node specs the plugin contributes are
+        attributed to the plugin's own id (see :meth:`register_node_provider`) —
+        a plugin cannot claim a foreign provider namespace."""
         meta = plugin.metadata()
         snapshot = self._snapshot()
+        self._registering_plugin_id = meta.id
         try:
             plugin.register(self)
         except Exception:
             self._restore(snapshot)
             raise
+        finally:
+            self._registering_plugin_id = None
         self._plugins.append(meta)
         return meta
 
     def register_node_provider(self, provider: NodeProvider) -> None:
         impls = provider.node_implementations()
+        owner = self._registering_plugin_id
         for spec in provider.nodes():
+            if owner is not None and spec.provider != owner:
+                # Provenance: ``spec.provider`` drives audit-log scoping, the
+                # permission/license context a bridged node runs with, and the
+                # catalog namespace — so a plugin's self-declared value (a foreign
+                # id, or simply the ``"ciaren.core"`` default left in place) is
+                # not trusted; it is overridden with the registering plugin's own
+                # id. Host built-ins register outside ``register_plugin`` and are
+                # unaffected.
+                spec = spec.model_copy(update={"provider": owner})
             self._put(self._node_specs, spec.id, spec, "node")
             if spec.id in impls:
                 self._node_impls[spec.id] = impls[spec.id]

@@ -14,7 +14,7 @@ from typing import Any, cast
 import aiofiles
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -61,6 +61,12 @@ _ALLOWED_EXTENSIONS: dict[str, str] = {
 }
 
 _SAMPLE_ROWS = 100
+
+# Safety cap for the unpaginated list endpoint. list_all accepts explicit
+# limit/offset, but a caller passing neither (today's route) is still bounded so a
+# project with thousands of datasets can't be loaded in one response. The route
+# wiring for real pagination is a follow-up (out of scope here).
+_DEFAULT_LIST_LIMIT = 500
 
 
 class DatasetService:
@@ -195,14 +201,69 @@ class DatasetService:
         await self.db.commit()
         return await self._read(dataset.id)
 
-    async def list_all(self, project_id: str | None = None, include_deleted: bool = False) -> list[DatasetRead]:
-        stmt = select(Dataset).options(selectinload(Dataset.versions)).order_by(Dataset.created_at.desc())
+    async def list_all(
+        self,
+        project_id: str | None = None,
+        include_deleted: bool = False,
+        limit: int | None = _DEFAULT_LIST_LIMIT,
+        offset: int = 0,
+    ) -> list[DatasetRead]:
+        """Newest-first datasets, optionally scoped to a project.
+
+        ``limit``/``offset`` page the result; ``limit=None`` returns every match.
+        A caller passing neither still gets a bounded page (``_DEFAULT_LIST_LIMIT``).
+
+        Rather than eager-loading every version of every dataset (a per-dataset
+        list that grows unbounded for output datasets — one version per run), the
+        latest-version schema/sample/profile and the version count are derived with
+        a grouped aggregate plus a single fetch of just the latest version row per
+        dataset. Memory stays proportional to the page size, not the total number
+        of versions."""
+        stmt = select(Dataset).order_by(Dataset.created_at.desc())
         if project_id is not None:
             stmt = stmt.where(Dataset.project_id == project_id)
         if not include_deleted:
             stmt = stmt.where(Dataset.deleted_at.is_(None))
-        result = await self.db.execute(stmt)
-        return [self._to_read(d) for d in result.scalars().all()]
+        if offset:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        datasets = list((await self.db.execute(stmt)).scalars().all())
+        if not datasets:
+            return []
+
+        ids = [d.id for d in datasets]
+        # version_count per dataset (one grouped query, no version rows loaded).
+        count_rows = await self.db.execute(
+            select(DatasetVersion.dataset_id, func.count())
+            .where(DatasetVersion.dataset_id.in_(ids))
+            .group_by(DatasetVersion.dataset_id)
+        )
+        counts: dict[str, int] = {did: count for did, count in count_rows.all()}
+
+        # Fetch only the latest version row per dataset (for its schema/sample/
+        # profile), matched on (dataset_id, max(version_number)).
+        latest_subq = (
+            select(
+                DatasetVersion.dataset_id.label("dataset_id"),
+                func.max(DatasetVersion.version_number).label("mv"),
+            )
+            .where(DatasetVersion.dataset_id.in_(ids))
+            .group_by(DatasetVersion.dataset_id)
+            .subquery()
+        )
+        latest_rows = await self.db.execute(
+            select(DatasetVersion).join(
+                latest_subq,
+                and_(
+                    DatasetVersion.dataset_id == latest_subq.c.dataset_id,
+                    DatasetVersion.version_number == latest_subq.c.mv,
+                ),
+            )
+        )
+        latest_by_dataset: dict[str, DatasetVersion] = {v.dataset_id: v for v in latest_rows.scalars().all()}
+
+        return [self._build_read(d, latest_by_dataset.get(d.id), counts.get(d.id, 0)) for d in datasets]
 
     async def get(self, dataset_id: str) -> DatasetRead:
         return await self._read(dataset_id)
@@ -497,9 +558,16 @@ class DatasetService:
         return await self._read(dataset.id)
 
     def _to_read(self, dataset: Dataset) -> DatasetRead:
-        """Build a DatasetRead, surfacing the latest version's schema/sample."""
+        """Build a DatasetRead from a dataset whose ``versions`` are loaded
+        (single-dataset paths). ``list_all`` uses ``_build_read`` with a
+        pre-computed latest version + count so it never loads all versions."""
         versions = sorted(dataset.versions, key=lambda v: v.version_number)
         latest = versions[-1] if versions else None
+        return self._build_read(dataset, latest, len(versions))
+
+    def _build_read(self, dataset: Dataset, latest: DatasetVersion | None, version_count: int) -> DatasetRead:
+        """Assemble a DatasetRead from a dataset, its latest version (or None), and
+        its total version count — surfacing the latest version's schema/sample."""
         return DatasetRead(
             id=dataset.id,
             name=dataset.name,
@@ -509,7 +577,7 @@ class DatasetService:
             deleted_at=dataset.deleted_at,
             project_id=dataset.project_id,
             latest_version=latest.version_number if latest else 0,
-            version_count=len(versions),
+            version_count=version_count,
             column_schema=latest.schema_json if latest else None,
             data_sample=latest.sample_json if latest else None,
             column_profile=latest.profile_json if latest else None,

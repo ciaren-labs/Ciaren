@@ -250,6 +250,30 @@ async def test_update_flow_can_clear_description(client: AsyncClient) -> None:
     assert r.json()["description"] is None
 
 
+async def test_update_flow_explicit_null_project_id_moves_to_default(client: AsyncClient) -> None:
+    """PUT with an explicit ``project_id: null`` means "move to the default
+    project", not "write NULL". It must resolve to the default project and return
+    200 — regression for the IntegrityError 500 an explicit null used to trigger
+    on the NOT NULL project_id column."""
+    # A custom project so the null-move is an observable relocation.
+    proj = await client.post("/api/projects", json={"name": "Custom"})
+    assert proj.status_code == 201, proj.text
+    project_id = proj.json()["id"]
+
+    created = await _create_flow(client, project_id=project_id)
+    assert created["project_id"] == project_id
+
+    r = await client.put(f"/api/flows/{created['id']}", json={"project_id": None})
+    assert r.status_code == 200, r.text
+    moved_to = r.json()["project_id"]
+    assert moved_to != project_id
+
+    # The destination is the default project.
+    projects = (await client.get("/api/projects")).json()
+    default_id = next(p["id"] for p in projects if p["is_default"])
+    assert moved_to == default_id
+
+
 # ---------------------------------------------------------------------------
 # DELETE /api/flows/{id}
 # ---------------------------------------------------------------------------

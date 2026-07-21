@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -158,18 +159,65 @@ def load_configured_index() -> MarketplaceIndex | None:
     return load_index(path)
 
 
-def resolve_artifact_path(entry: MarketplaceEntry, index_path: Path) -> Path | None:
-    """Local filesystem path to an entry's ``.ciarenplugin`` when ``download_url`` names
-    a local file — absolute, ``file://``, or relative to the index file. Returns
-    ``None`` for an ``http(s)`` URL (remote download is a future drop-in, not done
-    here so the catalog stays fully local)."""
+#: Any ``scheme://`` prefix (RFC 3986 scheme grammar). Used to recognize
+#: URL-shaped catalog sources, which are never trusted to name local files.
+_URL_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+
+
+def configured_index_is_trusted() -> bool:
+    """Whether the configured catalog source may name local artifact paths freely.
+
+    Trust is by inclusion: only a genuinely local source — a bare filesystem
+    path, or the empty default that falls back to the bundled index — is
+    trusted, because it is under the operator's control like any other local
+    configuration. Anything URL-shaped (``http(s)://`` today, ``file://``,
+    ``ftp://``, or any future fetchable scheme) is publisher-controlled or
+    ambiguous: it must never be able to point an entry at files on this
+    machine, so :func:`resolve_artifact_path` applies strict confined
+    resolution for it."""
+    from app.core.config import get_settings
+
+    raw = get_settings().MARKETPLACE_INDEX.strip()
+    return _URL_SCHEME_RE.match(raw) is None
+
+
+def resolve_artifact_path(entry: MarketplaceEntry, index_path: Path, *, trusted: bool = False) -> Path | None:
+    """Local filesystem path to an entry's ``.ciarenplugin``, or ``None`` when the
+    entry has no locally-usable artifact. An ``http(s)`` ``download_url`` always
+    returns ``None`` (remote download is a future drop-in, not done here so the
+    catalog stays fully local).
+
+    ``trusted`` states whether the *index itself* comes from a trusted local
+    source (see :func:`configured_index_is_trusted`). A trusted index keeps the
+    authoring contract: absolute paths, ``file://`` URLs, and paths relative to
+    the index file all resolve. An untrusted index — the planned hosted catalog —
+    must not be able to name arbitrary files on this machine as "packages", so
+    only a plain relative path confined under the index file's directory is
+    accepted: ``file:`` URLs, absolute/anchored paths, and any ``..`` component
+    return ``None``. The default is the strict mode so future callers are safe
+    unless they explicitly vouch for the source."""
     url = entry.download_url.strip()
-    if not url or url.startswith(("http://", "https://")):
+    if not url or url.lower().startswith(("http://", "https://")):
         return None
-    if url.startswith("file://"):
-        url = url[len("file://") :]
-    p = Path(url).expanduser()
-    return p if p.is_absolute() else index_path.parent / p
+    if trusted:
+        if url.startswith("file://"):
+            url = url[len("file://") :]
+        p = Path(url).expanduser()
+        return p if p.is_absolute() else index_path.parent / p
+    if url.lower().startswith("file:"):
+        return None
+    candidate = Path(url)
+    # ``anchor`` (not just ``is_absolute``) also catches drive-relative ("C:x")
+    # and rooted-but-driveless ("/etc/passwd") forms on Windows.
+    if candidate.anchor or ".." in candidate.parts:
+        return None
+    base = index_path.parent.resolve()
+    resolved = (base / candidate).resolve()
+    try:
+        resolved.relative_to(base)
+    except ValueError:  # e.g. a symlink under the index dir escaping it
+        return None
+    return resolved
 
 
 # -- index authoring (`ciaren plugin index add`) ---------------------------

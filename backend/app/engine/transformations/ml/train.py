@@ -264,7 +264,17 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         n: int,
         seed: int,
         x: Any,
-    ) -> tuple[str | None, str | None]:
+    ) -> tuple[str, str]:
+        """Persist the fitted pipeline to MLflow and return ``(run_id, model_uri)``.
+
+        A failure here means the model was **not** persisted — there is no local
+        fallback save, so the emitted model reference would carry a null URI and
+        silently break every downstream node (mlPredict, register_model). Rather
+        than reporting a clean SUCCESS for a train-only flow that saved nothing,
+        we raise: the node fails visibly with an actionable message. Only the
+        *secondary* metadata writes (params/metrics/tags) degrade-and-warn below,
+        because the model itself is still saved when those hiccup.
+        """
         try:
             import sklearn
 
@@ -321,9 +331,18 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
                         pip_requirements=self._pinned_requirements(config),
                     )
                     return run.info.run_id, info.model_uri
-        except Exception as exc:  # noqa: BLE001 - MLflow problems must not fail a good model
-            logger.warning("%s: MLflow logging failed (%s) — model trained but not tracked.", self.type, exc)
-            return None, None
+        except Exception as exc:  # noqa: BLE001 - surface as a node failure, see below
+            # The model was trained but could NOT be saved. Emitting a model_ref
+            # with a null URI here would let a train-only flow report SUCCESS
+            # having persisted nothing, and break any downstream consumer with an
+            # opaque "no usable model_uri". Fail loudly instead.
+            logger.warning("%s: MLflow model logging failed (%s) — model NOT saved.", self.type, exc)
+            raise RuntimeError(
+                f"{self.type}: the model trained successfully but could not be saved to MLflow ({exc}). "
+                f"No model was persisted, so downstream nodes cannot load it. On Windows this is commonly the "
+                f"artifact path exceeding the 260-character limit — shorten the MLflow tracking/artifact path "
+                f"(or enable long paths) and re-run."
+            ) from exc
 
     def _infer_signature(self, pipeline: Any, x: Any) -> Any:
         """Best-effort MLflow signature from the training features and predictions.

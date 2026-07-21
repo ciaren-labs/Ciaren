@@ -5,9 +5,16 @@ Two attack surfaces are covered (see docs/ml-architecture.md §6):
 
 1. ``model_uri`` is user-supplied (mlPredict config). It must be an MLflow URI
    (``runs:/`` / ``models:/``, which the MLflow client resolves and validates) or a
-   local path that resolves *inside* the artifact root — never an arbitrary path on
-   the server (path traversal). Loadable files are restricted to safe formats; a
-   pickle is rejected before it can execute code.
+   local path that resolves *inside* the artifact root. The local-path check blocks
+   path traversal to an arbitrary file on the server. The MLflow-URI path does NOT:
+   a ``runs:/`` / ``models:/`` reference resolves against the configured tracking
+   URI, which the operator can point at a remote store — so an MLflow URI can reach
+   a *remote* artifact, and loading it (cloudpickle) executes that store's code.
+   This is an accepted local-first tradeoff: an authenticated local operator loads
+   their own models from a store they configured. We surface a warning when the
+   tracking URI is a non-local host (see ``app/ml/tracking.py``) but do not block it.
+   Loadable files are restricted to safe formats; a pickle is rejected before it can
+   execute code.
 2. Hyperparameters are passed to estimator constructors as ``**kwargs``. They must
    be JSON-native values only — never code. We never ``eval``/``exec`` them; a value
    that looks like code is passed through as a literal string sklearn will reject.
@@ -84,6 +91,51 @@ def validate_model_file_suffix(path: str) -> None:
 
 # JSON-native scalar types hyperparameters may use.
 _JSON_SCALARS = (str, int, float, bool, type(None))
+
+# Hyperparameters that scale training compute (roughly) linearly-or-worse with
+# their value and have no natural upper bound. A huge value here (e.g.
+# ``n_estimators=1_000_000``) can wedge a fit for hours before the post-fit
+# model-size cap can fire — a self-inflicted DoS, especially on scheduled,
+# unattended flows. We cap these to a configurable maximum. This is a soft
+# guardrail against compute exhaustion, NOT a security boundary (the operator
+# runs on their own machine); raise ``ML_MAX_HYPERPARAMETER_VALUE`` for large
+# local jobs. Bounded-by-data params (``n_neighbors``, ``n_components``) are
+# included because a value far larger than the data is always a mistake.
+_UNBOUNDED_COMPUTE_HYPERPARAMS = frozenset(
+    {
+        "n_estimators",
+        "max_iter",
+        "num_boost_round",
+        "n_iter",
+        "iterations",
+        "max_leaf_nodes",
+        "num_leaves",
+        "n_neighbors",
+        "n_components",
+    }
+)
+
+
+def enforce_hyperparameter_bounds(params: dict[str, Any], max_value: int) -> None:
+    """Reject unbounded compute-scaling hyperparameters above ``max_value``.
+
+    Raises :class:`ModelSecurityError` with a clear, actionable message so a
+    runaway estimator can't exhaust a worker before training even begins. Only
+    positive integers in :data:`_UNBOUNDED_COMPUTE_HYPERPARAMS` are bounded;
+    everything else is left to sklearn to validate at fit time.
+    """
+    for key, value in params.items():
+        if key not in _UNBOUNDED_COMPUTE_HYPERPARAMS:
+            continue
+        # bool is an int subclass but never a magnitude — skip it.
+        if isinstance(value, bool) or not isinstance(value, int):
+            continue
+        if value > max_value:
+            raise ModelSecurityError(
+                f"hyperparameter {key!r}={value} exceeds the maximum of {max_value} "
+                f"(ML_MAX_HYPERPARAMETER_VALUE); a value this large can exhaust compute before the "
+                f"model-size limit applies. Lower it, or raise ML_MAX_HYPERPARAMETER_VALUE for large local jobs."
+            )
 
 
 def sanitize_hyperparameters(params: Any) -> dict[str, Any]:

@@ -57,7 +57,7 @@ npm run lint
 │   ├── overview.md
 │   ├── filter-rows.md
 │   ├── join.md
-│   └── ...                            # (50 node pages total)
+│   └── ...                            # (one file per node)
 ├── examples/
 │   ├── sales-analysis.md
 │   ├── customer-segmentation.md

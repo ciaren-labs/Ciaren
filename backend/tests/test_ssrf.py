@@ -67,6 +67,68 @@ def test_internal_endpoint_blocked(guard_on):
         guard_endpoint("http://127.0.0.1:9000/bucket")  # loopback endpoint
 
 
+# -- ambiguous multi-host / URI values fail closed ---------------------------
+
+
+def test_multi_host_seed_list_blocked(guard_on):
+    # libpq treats a comma as a multi-host seed list; every token is guarded.
+    with pytest.raises(ConnectorError, match="private/internal address"):
+        guard_host("169.254.169.254,169.254.169.254")
+
+
+def test_multi_host_list_of_public_hosts_still_blocked(guard_on):
+    # Even an all-public seed list is refused: the guard validates one host, the
+    # driver may dial several.
+    with pytest.raises(ConnectorError, match="cannot be safely validated"):
+        guard_host("8.8.8.8,8.8.4.4")
+
+
+def test_uri_in_host_blocked(guard_on):
+    # pymongo accepts a full mongodb:// URI in the host field.
+    with pytest.raises(ConnectorError, match="cannot be safely validated"):
+        guard_host("mongodb://169.254.169.254:27017")
+
+
+def test_credentials_in_host_blocked(guard_on):
+    with pytest.raises(ConnectorError, match="cannot be safely validated"):
+        guard_host("evil.com@169.254.169.254")
+
+
+def test_whitespace_in_host_blocked(guard_on):
+    with pytest.raises(ConnectorError, match="cannot be safely validated"):
+        guard_host("evil.com 169.254.169.254")
+
+
+def test_multi_host_endpoint_blocked(guard_on):
+    with pytest.raises(ConnectorError, match="private/internal address"):
+        guard_endpoint("http://169.254.169.254,169.254.169.254:9000")
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "64:ff9b::169.254.169.254",  # NAT64 well-known prefix -> metadata endpoint
+        "64:ff9b::a9fe:a9fe",  # same address, hex form
+        "[64:ff9b::169.254.169.254]",  # bracketed literal
+        "::ffff:169.254.169.254",  # IPv4-mapped form of the metadata endpoint
+    ],
+)
+def test_nat64_and_v4_embedded_addresses_blocked(guard_on, host):
+    with pytest.raises(ConnectorError, match="private/internal address"):
+        guard_host(host)
+
+
+def test_ambiguous_hosts_are_noop_when_disabled(monkeypatch):
+    _set_guard(monkeypatch, False)
+    try:
+        guard_host("169.254.169.254,169.254.169.254")
+        guard_host("mongodb://169.254.169.254:27017")
+        guard_host("evil.com@169.254.169.254")
+        guard_host("64:ff9b::169.254.169.254")
+    finally:
+        get_settings.cache_clear()
+
+
 # -- public addresses allowed ------------------------------------------------
 
 
@@ -92,6 +154,19 @@ def test_empty_host_is_noop(guard_on):
 def test_sql_connector_refuses_internal_host_when_enabled(guard_on):
     conn = SqlConnector()
     spec = ConnectionSpec(provider="postgresql", host="127.0.0.1", port=5432, database="d", username="u")
+    with pytest.raises(ConnectorError, match="private/internal address"):
+        conn.test_connection(spec)
+
+
+def test_sql_connector_refuses_multi_host_seed_list(guard_on):
+    conn = SqlConnector()
+    spec = ConnectionSpec(
+        provider="postgresql",
+        host="169.254.169.254,169.254.169.254",
+        port=5432,
+        database="d",
+        username="u",
+    )
     with pytest.raises(ConnectorError, match="private/internal address"):
         conn.test_connection(spec)
 

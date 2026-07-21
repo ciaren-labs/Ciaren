@@ -172,3 +172,28 @@ def test_connection_test_actually_acquires_the_lock(ml_env, monkeypatch, tmp_pat
     check_tracking_uri(str(tmp_path / "other_mlruns"))
 
     assert spy.acquire_count == 1
+
+
+# -- remote-tracking-URI warning (accepted local-first tradeoff, F5) ----------
+
+
+def test_remote_http_tracking_uri_warns(caplog):
+    # A non-local http(s) tracking store means a models:/ / runs:/ load resolves
+    # against a remote store and cloudpickle-deserializes its code. We don't block
+    # it (accepted local-first tradeoff) but we surface an audit-trail warning.
+    from app.ml.tracking import _warn_if_remote_tracking
+
+    with caplog.at_level("WARNING"):
+        _warn_if_remote_tracking("https://mlflow.example.com:5000")
+    assert "remote host" in caplog.text
+
+
+def test_local_and_file_tracking_uris_do_not_warn(caplog):
+    from app.ml.tracking import _warn_if_remote_tracking
+
+    with caplog.at_level("WARNING"):
+        _warn_if_remote_tracking("http://127.0.0.1:5000")
+        _warn_if_remote_tracking("http://localhost:5000")
+        _warn_if_remote_tracking("file:///tmp/mlruns")
+        _warn_if_remote_tracking("sqlite:///mlflow.db")
+    assert "remote host" not in caplog.text

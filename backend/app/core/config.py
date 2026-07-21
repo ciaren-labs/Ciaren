@@ -150,6 +150,10 @@ class Settings(BaseSettings):
     # X-Ciaren-Secret) are exempt. Set this whenever the API is reachable from a
     # network you don't fully trust — e.g. the Docker image binds 0.0.0.0. See
     # Optional shared-token gate for non-local deployments.
+    # Use a long, high-entropy random value — e.g.
+    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+    # It is the only auth gate when the server is network-exposed and there is
+    # no built-in rate limiting, so a weak or guessable token can be brute-forced.
     API_TOKEN: str | None = None
 
     # -- Webhook trigger -------------------------------------------------------
@@ -178,6 +182,12 @@ class Settings(BaseSettings):
     ML_MAX_MODEL_SIZE_MB: int = 500
     ML_MAX_TRAINING_ROWS: int = 5_000_000
     ML_MAX_FEATURE_COLUMNS: int = 500
+    # Soft cap on unbounded, compute-scaling hyperparameters (n_estimators,
+    # max_iter, ...). A value like n_estimators=1_000_000 wedges a fit for hours
+    # *before* the post-fit model-size cap can fire — a self-inflicted DoS on
+    # scheduled/unattended flows. Values over this are rejected with a clear
+    # error. Raise it for genuinely large local jobs. See app/ml/security.py.
+    ML_MAX_HYPERPARAMETER_VALUE: int = 100_000
 
     # Source for the "Explore" plugin catalog. Today a local JSON file path (the
     # MarketplaceIndex shape); empty uses Ciaren's bundled community catalog

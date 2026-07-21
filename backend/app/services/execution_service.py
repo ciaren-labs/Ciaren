@@ -71,6 +71,16 @@ class ExecutionService:
         if flow.is_disabled:
             raise ValidationError("This flow is disabled and cannot be run.")
 
+        # An explicit input_dataset_id is recorded verbatim on the run (lineage +
+        # run filtering). Validate it resolves to a real dataset in the flow's own
+        # project before it's stored, so a run can't point at a non-existent or
+        # cross-project dataset. Absent/None keeps the current "default to the
+        # first resolved input" behavior below.
+        if data.input_dataset_id is not None:
+            dataset = await DatasetService(self.db).get(data.input_dataset_id)  # 404 if missing
+            if dataset.project_id != flow.project_id:
+                raise ValidationError(f"input_dataset_id '{data.input_dataset_id}' is not in this flow's project.")
+
         self._guard_ml_enabled(flow.graph_json)
 
         # Engine precedence: explicit run request > the flow's saved editor

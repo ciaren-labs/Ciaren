@@ -70,6 +70,15 @@ class PluginStateEntry(BaseModel):
     #: manifest can also edit this — real license enforcement is the marketplace
     #: sandbox's job, server-side. See :func:`app.plugins.package.compute_manifest_digest`.
     manifest_digest: str = ""
+    #: SHA-256 over the plugin's installed *code* files (and manifest), recorded at
+    #: install ("" for source/dev installs, which are deliberately editable). The
+    #: loader recomputes it at startup and refuses to import the plugin on mismatch —
+    #: the package signature is only verified at install time, so without this a
+    #: ``.py``/``.pyc`` swapped on disk afterwards would run with the install-time
+    #: trust badge intact. Same caveat as ``manifest_digest``: best-effort, the
+    #: baseline lives in this user-writable file.
+    #: See :func:`app.plugins.package.compute_directory_digest`.
+    code_digest: str = ""
 
 
 def default_state_path() -> Path:
@@ -158,6 +167,13 @@ class PluginStateStore:
         entry = self._entries.get(plugin_id)
         return entry.manifest_digest if entry else ""
 
+    def recorded_code_digest(self, plugin_id: str) -> str:
+        """The install-tree code digest recorded at install, or "" when none was
+        recorded (a source/dev install, or state written before code pinning). ""
+        means "nothing to verify against" — the loader skips the code check then."""
+        entry = self._entries.get(plugin_id)
+        return entry.code_digest if entry else ""
+
     def missing_permissions(self, plugin_id: str, required: Iterable[Permission]) -> list[Permission]:
         granted = self.granted(plugin_id)
         return [p for p in required if p not in granted]
@@ -200,6 +216,15 @@ class PluginStateStore:
         entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
         if entry.manifest_digest != digest:
             entry.manifest_digest = digest
+            self._dirty = True
+
+    def set_code_digest(self, plugin_id: str, digest: str) -> None:
+        """Pin the install-tree code digest recorded at install (the baseline the
+        loader re-checks the installed code against). Cleared to "" for source/dev
+        installs, which are deliberately editable and not pinned."""
+        entry = self._entries.setdefault(plugin_id, PluginStateEntry(first_seen=datetime.now(UTC).isoformat()))
+        if entry.code_digest != digest:
+            entry.code_digest = digest
             self._dirty = True
 
     def grant(self, plugin_id: str, permissions: Iterable[Permission | str]) -> None:

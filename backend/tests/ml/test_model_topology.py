@@ -296,7 +296,7 @@ def test_resolver_config_uri_takes_precedence_over_wired_model():
     # wins (an intentional override); task still comes from the wired reference.
     engine = get_engine("pandas")
     frame = engine.from_pandas(pd.DataFrame([{"model_uri": "runs:/wired", "task_type": "classification"}]))
-    uri, task = NODE._resolve_model(engine, {"model": frame}, {"model_uri": "models:/override@prod"})
+    uri, task, _features = NODE._resolve_model(engine, {"model": frame}, {"model_uri": "models:/override@prod"})
     assert uri == "models:/override@prod"
     assert task == "classification"
 

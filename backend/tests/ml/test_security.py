@@ -5,6 +5,7 @@ import pytest
 
 from app.ml.security import (
     ModelSecurityError,
+    enforce_hyperparameter_bounds,
     sanitize_hyperparameters,
     validate_model_file_suffix,
     validate_model_uri,
@@ -113,6 +114,41 @@ def test_code_like_string_is_kept_as_literal():
 def test_nested_non_native_rejected():
     with pytest.raises(ModelSecurityError, match="non-JSON value"):
         sanitize_hyperparameters({"grid": [1, 2, object()]})
+
+
+# -- hyperparameter bounds (ML_MAX_HYPERPARAMETER_VALUE, F4) -----------------
+
+
+def test_enforce_bounds_rejects_runaway_value():
+    with pytest.raises(ModelSecurityError, match="exceeds the maximum"):
+        enforce_hyperparameter_bounds({"n_estimators": 1_000_000}, 100_000)
+
+
+def test_enforce_bounds_allows_reasonable_values():
+    # Below-cap values, unrelated params, bools, and non-ints all pass untouched.
+    enforce_hyperparameter_bounds(
+        {"n_estimators": 500, "max_iter": 1000, "alpha": 0.1, "warm_start": True, "max_depth": 9},
+        100_000,
+    )
+
+
+def test_enforce_bounds_ignores_bool_and_string_values():
+    # bool is an int subclass but never a magnitude; "auto"/"sqrt" pass to sklearn.
+    enforce_hyperparameter_bounds({"n_estimators": True, "max_iter": "auto"}, 1)
+
+
+def test_build_estimator_rejects_unbounded_hyperparameter(monkeypatch):
+    # The bound is wired into the estimator build path with the configured cap.
+    from app.core.config import get_settings
+    from app.ml.models import build_estimator
+
+    monkeypatch.setenv("CIAREN_ML_MAX_HYPERPARAMETER_VALUE", "1000")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ModelSecurityError, match="exceeds the maximum"):
+            build_estimator("random_forest_classifier", {"n_estimators": 100_000}, 1)
+    finally:
+        get_settings.cache_clear()
 
 
 # -- loader size guard (ML_MAX_MODEL_SIZE_MB) -------------------------------

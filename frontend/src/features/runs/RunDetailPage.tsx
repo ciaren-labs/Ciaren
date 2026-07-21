@@ -13,6 +13,9 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDuration } from "@/lib/format";
 import { useFormatDateTime } from "@/lib/useFormatDateTime";
 import { getNodeIcon } from "@/lib/nodeVisuals";
+import { downloadFromApi } from "@/lib/download";
+import { friendlyErrorMessage } from "@/lib/errors";
+import { toast } from "@/stores/toastStore";
 import { cn } from "@/lib/utils";
 import type { InputDatasetRef, NodeResult } from "@/features/runs/types";
 import type { ParameterValues } from "@/lib/types/shared";
@@ -313,6 +316,20 @@ function AssertionBadgePanel({ result }: { result: NodeResult }) {
 
 function NodeInspector({ result, runId }: { result: NodeResult; runId: string }) {
   const Icon = getNodeIcon(result.type);
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadFromApi(
+        `/runs/${runId}/output?node_id=${encodeURIComponent(result.node_id)}`,
+        result.label || "output",
+      );
+    } catch (e) {
+      toast.error("Download failed", { description: friendlyErrorMessage(e) });
+    } finally {
+      setDownloading(false);
+    }
+  };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2.5 border-b border-border p-4">
@@ -339,13 +356,19 @@ function NodeInspector({ result, runId }: { result: NodeResult; runId: string })
 
       {OUTPUT_NODE_TYPES.has(result.type) && result.status === "success" && (
         <div className="border-b border-border px-4 py-2">
-          <a
-            href={`/api/runs/${runId}/output?node_id=${encodeURIComponent(result.node_id)}`}
-            download
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100"
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-50"
           >
-            <Download className="h-4 w-4" /> Download output
-          </a>
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {downloading ? "Preparing…" : "Download output"}
+          </button>
         </div>
       )}
 

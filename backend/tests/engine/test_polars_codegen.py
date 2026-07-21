@@ -158,13 +158,14 @@ def _concat_graph() -> dict:
 
 
 def test_polars_concat_matches_engine_relaxed_schema(tmp_path: Path) -> None:
-    """execute() concats with how='vertical_relaxed'; the generated script must
-    do the same, or it fails on frames the app concatenates fine (int vs float)."""
+    """execute() concats with how='diagonal_relaxed'; the generated script must
+    do the same, or it fails on frames the app concatenates fine (int vs float,
+    or mismatched column sets)."""
     (tmp_path / "a.csv").write_text("x\n1\n2\n")  # x: int
     (tmp_path / "b.csv").write_text("x\n3.5\n")  # x: float
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_concat_graph(), {"A": "a.csv", "B": "b.csv"}, lazy=lazy)
-        assert "how='vertical_relaxed'" in code
+        assert "how='diagonal_relaxed'" in code
         out = _run(code, tmp_path)
         assert sorted(out["x"]) == [1.0, 2.0, 3.5]
 

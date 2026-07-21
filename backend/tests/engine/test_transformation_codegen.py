@@ -79,7 +79,17 @@ CODEGEN_CASES = [
     ("fill_mode_multimodal", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
     # reshape / compute
     ("groupby", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "sum"}}),
+    # A widened aggfunc (var) whose polars run-path/export previously disagreed
+    # with the narrow _AGG_FUNCS allowlist.
+    ("groupby_var", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "var"}}),
+    # first/last (skip NA) and nunique (exclude NA): the emitted polars expression
+    # must drop nulls to match pandas + the run-path engine (incl. all-null groups).
+    ("groupby_first", "groupByAggregate", {"group_by": ["g"], "aggregations": {"v": "first"}}),
+    ("groupby_last", "groupByAggregate", {"group_by": ["g"], "aggregations": {"v": "last"}}),
+    ("groupby_nunique", "groupByAggregate", {"group_by": ["g"], "aggregations": {"v": "nunique"}}),
     ("concat", "concatRows", {}),
+    # Inputs with different column sets: both engines must union + null-fill.
+    ("concat_mismatch", "concatRows", {}),
     ("calc", "calculatedColumn", {"column_name": "d", "expression": "a + b"}),
     # date coercion nodes: the engines dispatch on the column's dtype at runtime
     # (parse strings, cast already-temporal columns), and the input dtype depends

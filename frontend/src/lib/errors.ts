@@ -13,7 +13,7 @@ export function friendlyErrorMessage(error: unknown, fallback = "Something went 
     const isBareStatus = error.message.startsWith("Request failed with status");
     switch (true) {
       case error.status === 401 || error.status === 403:
-        return "You're not authorized for that. Check your API token in the header menu.";
+        return "You're not authorized for that. Add your API token to the URL as ?api_token=… (it must match the backend's CIAREN_API_TOKEN).";
       case error.status === 404 && isBareStatus:
         return "That item no longer exists — it may have been deleted. Refreshing the list should clear it up.";
       case error.status >= 500:

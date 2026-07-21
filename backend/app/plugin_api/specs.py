@@ -200,7 +200,7 @@ class ConnectorSpec(BaseModel):
     #: Provider name, e.g. ``"postgresql"``, ``"s3"``.
     id: str
     label: str
-    #: High-level kind: ``"sql"`` | ``"mongo"`` | ``"storage"`` | ``"mlflow"``.
+    #: High-level kind: ``"sql"`` | ``"mongo"`` | ``"storage"`` | ``"mlflow"`` | ``"api"``.
     kind: str
     available: bool = True
     driver_module: str | None = None

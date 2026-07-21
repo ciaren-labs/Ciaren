@@ -302,6 +302,83 @@ async def test_marketplace_trust_is_derived_not_echoed(client, monkeypatch, tmp_
     assert entry["trust"] == "community"
 
 
+async def test_untrusted_index_cannot_point_install_at_arbitrary_local_files(
+    client, monkeypatch, tmp_path, hello_ciarenplugin
+):
+    """A hosted (untrusted) index whose downloadUrl escapes its own directory —
+    ``..``, an absolute path, or ``file://`` — must not resolve: the entry reads
+    as not installable and install is a clean 400 (never a local file read),
+    even when the index-supplied digest matches the targeted file."""
+    import json as _json
+
+    from app.core.config import get_settings
+    from app.plugins import marketplace as marketplace_mod
+
+    market = tmp_path / "market"
+    market.mkdir()
+    victim = tmp_path / "victim.ciarenplugin"  # a real package OUTSIDE the index dir
+    victim.write_bytes(hello_ciarenplugin.read_bytes())
+    index_path = market / "index.json"
+    # Digest is computed from the victim bytes, so only path confinement blocks it.
+    add_to_index_file(index_path, victim, download_url="../victim.ciarenplugin")
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    # Sanity: as a trusted local index the same URL resolves (today's contract).
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["installable"] is True
+
+    # Simulate the planned hosted index: identical content, untrusted source.
+    monkeypatch.setattr(marketplace_mod, "configured_index_is_trusted", lambda: False)
+
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["installable"] is False
+    assert entry["trust"] == "community"
+
+    for url in ("../victim.ciarenplugin", str(victim), f"file://{victim.as_posix()}"):
+        raw = _json.loads(index_path.read_text(encoding="utf-8"))
+        raw["plugins"][0]["downloadUrl"] = url
+        index_path.write_text(_json.dumps(raw), encoding="utf-8")
+        resp = await client.post("/api/marketplace/community.hello/install")
+        assert resp.status_code == 400, (url, resp.text)
+        assert "artifact" in resp.json()["detail"]
+    # Nothing was installed by any of the attempts.
+    assert "community.hello" not in {p["id"] for p in (await client.get("/api/plugins")).json()}
+
+
+async def test_trusted_local_index_still_installs_absolute_path_artifacts(
+    client, monkeypatch, tmp_path, hello_ciarenplugin
+):
+    """The operator-controlled local index keeps its contract: an artifact
+    outside the index directory (recorded as an absolute downloadUrl by
+    ``ciaren plugin index add``) still lists as installable and installs."""
+    from app.core.config import get_settings
+
+    market = tmp_path / "market"
+    market.mkdir()
+    artifact = tmp_path / "elsewhere" / "community.hello-0.1.0.ciarenplugin"
+    artifact.parent.mkdir()
+    artifact.write_bytes(hello_ciarenplugin.read_bytes())
+    index_path = market / "index.json"
+    add_to_index_file(index_path, artifact)  # records the absolute path
+
+    monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", str(index_path))
+    _point_plugin_dirs_at(monkeypatch, tmp_path / "installed")
+    get_settings.cache_clear()
+
+    listing = await client.get("/api/marketplace")
+    entry = next(e for e in listing.json()["plugins"] if e["id"] == "community.hello")
+    assert entry["installable"] is True
+
+    resp = await client.post("/api/marketplace/community.hello/install")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["plugin"]["id"] == "community.hello"
+
+
 def _pack_hello_variant(tmp_path: Path, *, version: str | None = None, license_required: bool | None = None) -> Path:
     """A copy of the hello plugin with manifest tweaks, packed to a .ciarenplugin."""
     import json as _json

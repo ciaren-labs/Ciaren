@@ -360,6 +360,75 @@ def test_polars_groupby_unknown_func_raises() -> None:
         engine.groupby_agg(frame, ["g"], {"v": "bogus"})
 
 
+@pytest.mark.parametrize("func", ["sum", "mean", "median", "min", "max", "std", "var", "prod", "nunique"])
+def test_groupby_agg_engine_parity(func: str) -> None:
+    """Every aggregation the config layer accepts must produce the SAME result on
+    pandas and polars. Regression: 'var'/'prod' ran on pandas but raised
+    'Unsupported aggregation function' on the polars run-path (while the exported
+    polars script ran them via a fallback) — three paths that disagreed."""
+    data = {"g": ["a", "a", "b", "b", "a"], "v": [1.0, 3.0, 5.0, 9.0, 2.0]}
+    pandas_out = get_engine("pandas").groupby_agg(_make("pandas", data), ["g"], {"v": func})
+    polars_out = _pdf(get_engine("polars"), get_engine("polars").groupby_agg(_make("polars", data), ["g"], {"v": func}))
+    pd.testing.assert_frame_equal(
+        pandas_out.sort_values("g").reset_index(drop=True),
+        polars_out.sort_values("g").reset_index(drop=True),
+        check_dtype=False,
+    )
+
+
+@pytest.mark.parametrize("func", ["first", "last", "nunique"])
+def test_groupby_agg_engine_parity_with_nulls(func: str) -> None:
+    """first/last (skip NA) and nunique (exclude NA) must agree across engines
+    even when a group contains nulls or is entirely null. Regression: polars'
+    positional .first()/.last()/.n_unique() counted/returned nulls, so a group
+    ending in null gave pandas 2.0 vs polars null, and an all-null group gave
+    pandas nunique 0 vs polars 1 — a silent per-group divergence on real data.
+
+    The fixture is built so each func is load-bearing: group 'a' ENDS in a null
+    (positional .last() would return null, not 3.0), group 'b' STARTS with a null
+    (positional .first() would return null, not 2.0), and group 'c' is all-null
+    (nunique must be 0, not 1)."""
+    data = {"g": ["a", "a", "a", "b", "b", "c", "c"], "v": [1.0, 3.0, None, None, 2.0, None, None]}
+    pandas_out = get_engine("pandas").groupby_agg(_make("pandas", data), ["g"], {"v": func})
+    polars_out = _pdf(get_engine("polars"), get_engine("polars").groupby_agg(_make("polars", data), ["g"], {"v": func}))
+    pd.testing.assert_frame_equal(
+        pandas_out.sort_values("g").reset_index(drop=True),
+        polars_out.sort_values("g").reset_index(drop=True),
+        check_dtype=False,
+    )
+
+
+def test_groupby_agg_runpath_and_codegen_stay_in_sync() -> None:
+    """The polars run-path (_AGG_FUNCS) and the exported-code emitter
+    (reshape._POLARS_AGG) are independent representations that must produce the
+    same grouped result for every shared aggfunc — otherwise a future edit to one
+    silently diverges the run engine from the generated script. Compares them on a
+    frame with in-group nulls and an all-null group."""
+    from app.engine.backends.polars_engine import _AGG_FUNCS
+    from app.engine.transformations.reshape import GroupByAggregateTransformation
+
+    frame = pl.DataFrame({"g": ["a", "a", "b", "b", "c"], "v": [1.0, None, 3.0, 3.0, None]})
+    for func, suffix in GroupByAggregateTransformation._POLARS_AGG.items():
+        assert func in _AGG_FUNCS, f"{func!r} is emitted by codegen but missing from the run-path _AGG_FUNCS"
+        run = frame.group_by("g", maintain_order=True).agg(_AGG_FUNCS[func](pl.col("v")).alias("v")).sort("g")
+        gen_expr = eval(f"pl.col('v').{suffix}", {"pl": pl})  # noqa: S307 - trusted internal expression suffix
+        gen = frame.group_by("g", maintain_order=True).agg(gen_expr.alias("v")).sort("g")
+        assert run.to_dicts() == gen.to_dicts(), f"run-path and codegen disagree for {func!r}"
+
+
+def test_groupby_aggregate_rejects_non_shared_aggfunc() -> None:
+    """A reducer pandas knows but polars/exported-polars can't reproduce with
+    matching semantics (e.g. 'sem') is rejected up front by validate_config on
+    BOTH engines, instead of running on pandas and diverging/failing on polars."""
+    from app.engine.registry import get_transformation
+
+    t = get_transformation("groupByAggregate")
+    with pytest.raises(ValueError, match="not supported on both engines"):
+        t.validate_config({"group_by": ["g"], "aggregations": {"v": "sem"}})
+    # A widened function passes validation.
+    t.validate_config({"group_by": ["g"], "aggregations": {"v": "var"}})
+
+
 # -- join / concat / limit / replace ------------------------------------
 
 
@@ -393,6 +462,21 @@ def test_concat_and_limit_with_offset(engine_name: str) -> None:
     assert len(_pdf(engine, engine.concat([a, b]))) == 4
     sliced = _pdf(engine, engine.limit_rows(_make(engine_name, {"v": [1, 2, 3, 4]}), 2, 1))
     assert sliced["v"].tolist() == [2, 3]
+
+
+def test_concat_mismatched_columns_engine_parity() -> None:
+    """Concatenating frames with different column sets must union the columns and
+    null-fill on BOTH engines. Regression: pandas unioned (NaN fill) while polars'
+    vertical_relaxed raised a ComputeError on the column-name mismatch; the engines
+    now agree via diagonal_relaxed."""
+    a = {"x": [1, 2], "y": [10.0, 20.0]}
+    b = {"x": [3, 4], "z": [30.0, 40.0]}
+    pandas_out = get_engine("pandas").concat([_make("pandas", a), _make("pandas", b)])
+    polars_out = _pdf(get_engine("polars"), get_engine("polars").concat([_make("polars", a), _make("polars", b)]))
+    assert list(pandas_out.columns) == list(polars_out.columns) == ["x", "y", "z"]
+    pd.testing.assert_frame_equal(
+        pandas_out.reset_index(drop=True), polars_out.reset_index(drop=True), check_dtype=False
+    )
 
 
 @pytest.mark.parametrize("engine_name", ENGINES)

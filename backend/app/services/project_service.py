@@ -36,13 +36,22 @@ class ProjectService:
         if project is not None:
             return project
 
-        project = Project(
-            name=self.DEFAULT_NAME,
-            description="Your default workspace.",
-            color="violet",
-            is_default=True,
-        )
-        self.db.add(project)
+        # A non-default row may already hold the reserved name (e.g. created
+        # before create() rejected it). Inserting another "Default" would trip
+        # the unique name constraint and 500 every path that calls this — adopt
+        # the existing row as the default instead.
+        result = await self.db.execute(select(Project).where(func.lower(Project.name) == self.DEFAULT_NAME.lower()))
+        project = result.scalar_one_or_none()
+        if project is not None:
+            project.is_default = True
+        else:
+            project = Project(
+                name=self.DEFAULT_NAME,
+                description="Your default workspace.",
+                color="violet",
+                is_default=True,
+            )
+            self.db.add(project)
         await self.db.flush()  # assign project.id
         # Adopt any pre-existing rows that have no project yet.
         await self.db.execute(update(Dataset).where(Dataset.project_id.is_(None)).values(project_id=project.id))
@@ -65,6 +74,7 @@ class ProjectService:
         return self._to_read(project, dataset_counts.get(project.id, 0), flow_counts.get(project.id, 0))
 
     async def create(self, data: ProjectCreate) -> ProjectRead:
+        self._reject_reserved_name(data.name)
         await self._ensure_name_free(data.name)
         project = Project(name=data.name, description=data.description, color=data.color)
         self.db.add(project)
@@ -76,6 +86,8 @@ class ProjectService:
         project = await self._get_or_raise(project_id)
         updates = data.model_dump(exclude_unset=True)
         if "name" in updates and updates["name"] != project.name:
+            if not project.is_default:
+                self._reject_reserved_name(updates["name"])
             await self._ensure_name_free(updates["name"])
         for field, value in updates.items():
             setattr(project, field, value)
@@ -96,10 +108,39 @@ class ProjectService:
         if project.is_default:
             raise ValidationError("The default project cannot be deleted.")
         default = await self.ensure_default()
-        await self.db.execute(update(Dataset).where(Dataset.project_id == project_id).values(project_id=default.id))
+        await self._reassign_datasets_to_default(project, default)
+        # Flows have no per-project unique name constraint, so a plain
+        # reassignment can never collide.
         await self.db.execute(update(Flow).where(Flow.project_id == project_id).values(project_id=default.id))
         await self.db.delete(project)
         await self.db.commit()
+
+    async def _reassign_datasets_to_default(self, project: Project, default: Project) -> None:
+        """Move ``project``'s datasets into the default project, renaming any that
+        would collide with a dataset already there (datasets are unique per
+        ``(project_id, name)`` — a blind UPDATE would violate the constraint and
+        make the project undeletable)."""
+        result = await self.db.execute(select(Dataset).where(Dataset.project_id == project.id))
+        moved = list(result.scalars().all())
+        if not moved:
+            return
+        existing = await self.db.execute(select(Dataset.name).where(Dataset.project_id == default.id))
+        default_names = {name.lower() for name in existing.scalars().all()}
+        # Final (lowercased) names of the datasets being moved — starts as their
+        # current names (unique within the source project) and is kept up to date
+        # as clashing ones are renamed, so renames can't collide with each other.
+        moved_names = {ds.name.lower() for ds in moved}
+        for ds in moved:
+            if ds.name.lower() in default_names:
+                moved_names.discard(ds.name.lower())
+                candidate = f"{ds.name} (from {project.name})"
+                counter = 2
+                while candidate.lower() in default_names or candidate.lower() in moved_names:
+                    candidate = f"{ds.name} (from {project.name}) ({counter})"
+                    counter += 1
+                ds.name = candidate
+                moved_names.add(candidate.lower())
+            ds.project_id = default.id
 
     async def resolve_id(self, project_id: str | None) -> str:
         """Return a valid project id, falling back to the default when ``None``."""
@@ -189,6 +230,15 @@ class ProjectService:
     async def _counts(self, model: type[Dataset] | type[Flow]) -> dict[str, int]:
         result = await self.db.execute(select(model.project_id, func.count()).group_by(model.project_id))
         return {pid: count for pid, count in result.all() if pid is not None}
+
+    def _reject_reserved_name(self, name: str) -> None:
+        """Reject the reserved default-project name for user-created projects.
+
+        Without this, a project literally named "Default" created before the
+        default project exists makes ``ensure_default()``'s insert violate the
+        unique name constraint, 500-ing every path that touches it."""
+        if name.strip().lower() == self.DEFAULT_NAME.lower():
+            raise ValidationError(f"The name '{self.DEFAULT_NAME}' is reserved for the default project.")
 
     async def _ensure_name_free(self, name: str) -> None:
         result = await self.db.execute(select(Project).where(func.lower(Project.name) == name.lower()))

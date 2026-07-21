@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.ml.availability import LIGHTGBM, XGBOOST, MLLibrary, install_hint, library_available, require_library
-from app.ml.security import sanitize_hyperparameters
+from app.ml.security import enforce_hyperparameter_bounds, sanitize_hyperparameters
 
 CLASSIFICATION = "classification"
 REGRESSION = "regression"
@@ -323,10 +323,13 @@ def build_estimator(model_type: str, hyperparameters: dict[str, Any] | None, see
     missing) and hyperparameters, then builds with the run seed injected. A bad
     hyperparameter name surfaces as a ValueError rather than a raw sklearn TypeError.
     """
+    from app.core.config import get_settings
+
     spec = get_model_spec(model_type)
     for lib in spec.requires:
         require_library(lib)
     params = sanitize_hyperparameters(hyperparameters)
+    enforce_hyperparameter_bounds(params, get_settings().ML_MAX_HYPERPARAMETER_VALUE)
     try:
         return spec.builder(params, seed)
     except TypeError as exc:

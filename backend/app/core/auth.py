@@ -54,7 +54,10 @@ def _is_exempt(path: str, method: str) -> bool:
         return True
     if path in _EXEMPT_PATHS:
         return True
-    if path == "/api/settings/webhook":
+    # Only the status GET is part of the webhook surface; the settings router
+    # also matches this path via PUT/DELETE /{key}, and those writes must stay
+    # behind the token gate.
+    if path == "/api/settings/webhook" and method == "GET":
         return True
     if path.startswith("/api/flows/") and path.endswith("/trigger"):
         return True

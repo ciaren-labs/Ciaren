@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.core.database import Base
+from app.core.database import Base, enable_sqlite_foreign_keys
 
 
 @pytest.fixture(scope="session")
@@ -52,6 +52,9 @@ async def engine(database_url):
         echo=False,
         poolclass=NullPool,  # No connection pooling in tests
     )
+    # Mirror production: the app engine enforces SQLite foreign keys (no-op for
+    # PostgreSQL/MySQL, which always enforce them).
+    enable_sqlite_foreign_keys(async_engine)
 
     # Create all tables
     async with async_engine.begin() as conn:

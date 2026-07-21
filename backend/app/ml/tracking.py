@@ -5,11 +5,17 @@ sides agree on where artifacts live."""
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 # MLflow tracking targets that are not filesystem paths and must pass through as-is.
 _BARE_MLFLOW_SCHEMES = {"databricks", "databricks-uc", "uc"}
+
+# Hosts we treat as "local" when deciding whether to warn about a remote store.
+_LOCAL_TRACKING_HOSTS = {"", "localhost", "127.0.0.1", "::1"}
 
 # Serializes "configure_mlflow() + the fluent mlflow.* calls that follow it" as
 # one atomic unit. configure_mlflow calls mlflow.set_tracking_uri, which mutates
@@ -30,6 +36,33 @@ def mlflow_tracking_lock() -> threading.Lock:
     configure_mlflow() and every fluent mlflow.* call that follows, for the
     whole critical section."""
     return _MLFLOW_GLOBAL_STATE_LOCK
+
+
+def _warn_if_remote_tracking(uri: str) -> None:
+    """Warn when the MLflow tracking URI is a non-local http(s) host.
+
+    Loading a model from a ``runs:/`` / ``models:/`` URI resolves against this
+    store and deserializes with cloudpickle (code execution). A remote store is
+    an accepted local-first tradeoff — the operator configured it — but it is
+    worth an audit-trail warning so a surprising remote host doesn't go unnoticed.
+    Never raises: URI parsing problems are ignored (MLflow will surface them).
+    """
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(uri)
+    except (ValueError, TypeError):
+        return
+    if parsed.scheme not in ("http", "https"):
+        return
+    host = (parsed.hostname or "").lower()
+    if host in _LOCAL_TRACKING_HOSTS:
+        return
+    logger.warning(
+        "MLflow tracking URI points at a remote host %r; loading a model from it runs code "
+        "from that store (cloudpickle deserialization). Ensure the store is trusted.",
+        host,
+    )
 
 
 def normalize_tracking_uri(uri: str) -> str:
@@ -82,7 +115,9 @@ def configure_mlflow(tracking_uri: str | None = None) -> Any:
     settings = get_settings()
     # MLflow 3.14 puts the file store in maintenance mode and raises without this.
     os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
-    mlflow.set_tracking_uri(normalize_tracking_uri(_effective_tracking_uri(tracking_uri)))
+    effective = normalize_tracking_uri(_effective_tracking_uri(tracking_uri))
+    _warn_if_remote_tracking(effective)
+    mlflow.set_tracking_uri(effective)
     if settings.MLFLOW_REGISTRY_URI:
         mlflow.set_registry_uri(normalize_tracking_uri(settings.MLFLOW_REGISTRY_URI))
     return mlflow

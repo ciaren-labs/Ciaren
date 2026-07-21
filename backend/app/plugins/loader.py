@@ -95,9 +95,10 @@ class LoadResult:
 
 
 class TamperError(RuntimeError):
-    """Raised when an installed plugin's manifest no longer matches the digest
-    recorded at install — someone edited it on disk after installation (e.g. to
-    strip ``license_required`` or widen ``permissions``). Its code is not imported.
+    """Raised when an installed plugin's manifest or code no longer matches the
+    digests recorded at install — someone edited it on disk after installation
+    (e.g. to strip ``license_required``, widen ``permissions``, or swap in
+    different code behind an intact trust badge). Its code is not imported.
     Best-effort against a casual edit, not tamper-proof: the recorded baseline
     lives in the same user-writable state file, so this is defense in depth, not a
     substitute for server-side license enforcement."""
@@ -281,34 +282,155 @@ def _license_gate(registry: ServiceRegistry, candidate: PluginCandidate) -> Gate
     )
 
 
+def _find_bytecode_cache(root: Path) -> Path | None:
+    """First surviving ``__pycache__`` under ``root`` (real dir, undeletable dir,
+    or **symlink**), else ``None`` — used to confirm the cache clear succeeded.
+
+    Detection is via each parent's ``dirnames`` from ``os.walk``, NOT by waiting
+    for the walk to descend into the entry. ``os.walk(followlinks=False)`` never
+    yields a symlinked ``__pycache__`` as its own ``dirpath``, so a scan that
+    matched on ``dirpath`` would miss a symlinked cache entirely — the exact
+    bypass. A parent always lists ``__pycache__`` in ``dirnames`` whether it is a
+    real directory, a locked/read-only one, or a symlink, closing that gap.
+
+    Scoped deliberately to ``__pycache__``: the injection vector is a planted
+    ``__pycache__/<mod>.<tag>.pyc`` that Python's timestamp invalidation runs in
+    place of the digested source. A *bare* ``mod.pyc`` elsewhere in the tree (what
+    ``pack_directory(compile_python=True)`` ships for source-protected plugins, the
+    module living at ``pkg/mod.pyc`` with no ``.py``) is NOT a survivor: it is the
+    module itself and is already covered by the code digest, and Python never
+    imports a bare ``.pyc`` that sits next to a ``.py`` (source wins). Flagging it
+    here would wrongly refuse every untampered ``compile_python`` install."""
+    for dirpath, dirnames, _ in os.walk(root, followlinks=False):
+        if "__pycache__" in dirnames:
+            return Path(dirpath) / "__pycache__"
+    return None
+
+
+def _clear_pycache(root: Path) -> list[Path]:
+    """Delete every ``__pycache__`` under ``root`` — real dir OR symlink — and
+    return the caches that are *tamper evidence* (empty when the tree came out
+    clean).
+
+    Called before importing a *pinned* plugin so Python must recompile from the
+    digested source. Without this, ``__pycache__`` is a hole in the code digest:
+    an attacker who can write into the plugin dir can plant a
+    ``__pycache__/<mod>.<tag>.pyc`` whose header (magic + flags=0 + source mtime +
+    source size) matches the unchanged, digested ``.py``; timestamp-based pyc
+    invalidation then executes the planted bytecode while the source — and so the
+    digest — stays byte-identical.
+
+    Two things count as tamper evidence and land in the returned list:
+
+    - a ``__pycache__`` that could not be removed (an open handle / read-only dir
+      on Windows, which chmod/retry can't beat) — it survives and Python would run
+      the plant;
+    - a **symlinked** ``__pycache__`` — Python only ever creates a real cache
+      directory, so a symlink is never legitimate. The link is unlinked (breaking
+      the redirect for any retry), but its mere presence is treated as tampering.
+
+    A removal error is swallowed (logged, not raised): the *caller* decides. For
+    pinned installs :func:`_ensure_not_tampered` refuses the load when this list is
+    non-empty (fail-closed), rather than importing bytecode it could not vouch for."""
+    import shutil
+
+    problems: list[Path] = []
+    for dirpath, dirnames, _ in os.walk(root, followlinks=False):
+        if "__pycache__" in dirnames:
+            dirnames.remove("__pycache__")  # don't descend into what we're deleting
+            target = Path(dirpath) / "__pycache__"
+            try:
+                if target.is_symlink():
+                    target.unlink()  # rmtree refuses a symlink; drop the link itself
+                    problems.append(target)  # a symlinked cache is never legitimate
+                else:
+                    shutil.rmtree(target)
+            except OSError as exc:
+                logger.warning("Could not clear bytecode cache %s before import: %s", target, exc)
+                problems.append(target)
+    return problems
+
+
 def _ensure_not_tampered(candidate: PluginCandidate, state: PluginStateStore) -> None:
-    """Refuse to import a managed install whose on-disk manifest no longer matches
-    the digest pinned at install time. Only applies when there *is* a pinned digest
-    (packaged install) and a directory — source/dev-dir and entry-point plugins have
-    no baseline and are skipped. Only the manifest is checked (not the whole tree),
-    since the manifest is what the license/permission gates read; a plugin writing
-    data files inside its own directory is therefore never mistaken for tampered. A
-    read error is treated as "unverifiable, don't block": tamper detection must not
-    brick startup on IO.
+    """Refuse to import a managed install whose on-disk manifest or code no longer
+    matches the digests pinned at install time. Only applies when there *is* a
+    pinned digest (packaged install) and a directory — source/dev-dir and
+    entry-point plugins have no baseline and are skipped, so deliberately-editable
+    local installs are never falsely rejected. Two baselines are checked:
+
+    - the manifest digest (what the license/permission gates read — checked first
+      so a manifest edit gets its precise error);
+    - the install-tree code digest (``.py``/bare ``.pyc``/native modules; the
+      package signature is only verified at install, so without this a code file
+      swapped on disk afterwards would run with the recorded trust badge intact).
+
+    The code digest covers only code files (not ``__pycache__``, not runtime
+    data/cache files), so a plugin writing data into its own directory is never
+    mistaken for tampered. Because ``__pycache__`` is excluded from the digest, a
+    pinned plugin's ``__pycache__`` trees are *deleted* here before import so a
+    planted ``.pyc`` can't run in place of the digested source (see
+    :func:`app.plugins.package.compute_directory_digest`), and the deletion is then
+    *verified* — if any cache survives (undeletable via a lock/read-only), the load
+    is refused rather than importing a plant Python would trust over the source.
+
+    Fail-closed for pinned installs: if either digest cannot be recomputed (IO
+    error, unreadable/looping path — all forceable by an attacker as a way to skip
+    the check and then swap a digested file), or the bytecode cache cannot be
+    cleared, the plugin is *refused*, not loaded. Only manifest-less / non-pinned /
+    dev installs stay fail-open, since they have no security baseline to protect and
+    must not brick startup on IO.
     """
     manifest = candidate.manifest
     if manifest is None or candidate.path is None:
         return
-    recorded = state.recorded_manifest_digest(manifest.id)
-    if not recorded:
-        return
-    from app.plugins.package import compute_manifest_digest
+    from app.plugins.package import compute_directory_digest, compute_manifest_digest
 
-    try:
-        actual = compute_manifest_digest(candidate.path / MANIFEST_FILENAME)
-    except OSError as exc:
-        logger.warning("Could not verify plugin %s manifest for tampering: %s", manifest.id, exc)
-        return
-    if actual != recorded:
-        raise TamperError(
-            f"plugin {manifest.id!r} manifest changed on disk since it was installed "
-            "(digest mismatch) — reinstall it from a trusted source to load it again"
-        )
+    recorded = state.recorded_manifest_digest(manifest.id)
+    if recorded:
+        try:
+            actual = compute_manifest_digest(candidate.path / MANIFEST_FILENAME)
+        except OSError as exc:
+            raise TamperError(
+                f"plugin {manifest.id!r} manifest could not be verified against its pinned digest "
+                f"({exc}) — refusing to load; reinstall it from a trusted source"
+            ) from exc
+        if actual != recorded:
+            raise TamperError(
+                f"plugin {manifest.id!r} manifest changed on disk since it was installed "
+                "(digest mismatch) — reinstall it from a trusted source to load it again"
+            )
+    recorded_code = state.recorded_code_digest(manifest.id)
+    if recorded_code:
+        try:
+            actual_code = compute_directory_digest(candidate.path)
+        except OSError as exc:
+            raise TamperError(
+                f"plugin {manifest.id!r} code could not be verified against its pinned digest "
+                f"({exc}) — refusing to load; reinstall it from a trusted source"
+            ) from exc
+        if actual_code != recorded_code:
+            raise TamperError(
+                f"plugin {manifest.id!r} code changed on disk since it was installed "
+                "(install-tree digest mismatch) — reinstall it from a trusted source to load it again"
+            )
+        # Source verified — drop any bytecode caches so import can't run a planted
+        # .pyc in place of the digested source (the __pycache__ injection vector),
+        # then confirm the clear succeeded. Fail-closed: if any cache is tamper
+        # evidence — undeletable (a lock / read-only dir) or a symlink (never a
+        # legitimate cache) — or any __pycache__ still survives afterwards, refuse
+        # rather than import, since Python would trust a matching-header plant over
+        # the verified source.
+        problems = _clear_pycache(candidate.path)
+        survivor = _find_bytecode_cache(candidate.path)
+        if survivor is not None:
+            problems.append(survivor)
+        if problems:
+            raise TamperError(
+                f"plugin {manifest.id!r} has an unsafe bytecode cache ({problems[0]}) that could "
+                "not be cleared or is a symlink — refusing to load; a planted .pyc could run in "
+                "place of the verified source. Remove the cache (check for locks/read-only/symlink) "
+                "and retry."
+            )
 
 
 def _process(
@@ -341,6 +463,17 @@ def _process(
             logger.info("Plugin %s from %s gated (%s)", gated.plugin_id, candidate.source, gated.reason)
             return
         plugin = candidate.load()
+        # Identity pin: every gate above (enable, permissions, license, tamper)
+        # keyed on the *manifest* id, and registration attributes the plugin's
+        # contributions to its *metadata* id — the two must be the same plugin,
+        # or code approved as one id would register (and scope audit/permission
+        # contexts) under another. Entry-point plugins ship no manifest and are
+        # exempt (they are trusted by virtue of being pip-installed).
+        if manifest is not None and plugin.metadata().id != manifest.id:
+            raise ValueError(
+                f"plugin from {candidate.source} declares metadata id {plugin.metadata().id!r} "
+                f"but its manifest id is {manifest.id!r} — refusing to load"
+            )
         meta = registry.register_plugin(plugin)
         result.loaded.append(LoadedPlugin(source=candidate.source, metadata=meta, manifest=manifest))
         logger.info("Loaded plugin %s from %s", meta.id, candidate.source)

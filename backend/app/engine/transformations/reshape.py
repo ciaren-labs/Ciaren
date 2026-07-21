@@ -15,22 +15,50 @@ from app.engine.transformations.base import (
 class GroupByAggregateTransformation(BaseTransformation):
     type = "groupByAggregate"
 
-    # Aggregation name -> the polars Expr method that implements it.
+    # Aggregation name -> the polars expression suffix (applied to pl.col(col))
+    # that implements it. Keys use the pandas-facing names the config carries;
+    # every one matches pandas' groupby().agg(<name>) numeric AND null semantics,
+    # so the run-path polars engine (PolarsEngine._AGG_FUNCS) and this exported
+    # polars script agree with pandas. In particular pandas' 'first'/'last' SKIP
+    # NA and 'nunique' EXCLUDES NA, so drop_nulls() precedes those aggregations
+    # (an all-null group then yields null / 0, matching pandas). A consistency
+    # test pins these to _AGG_FUNCS so the two representations can't drift.
     _POLARS_AGG = {
-        "sum": "sum",
-        "mean": "mean",
-        "count": "count",
-        "min": "min",
-        "max": "max",
-        "median": "median",
-        "nunique": "n_unique",
+        "sum": "sum()",
+        "mean": "mean()",
+        "count": "count()",
+        "min": "min()",
+        "max": "max()",
+        "median": "median()",
+        "std": "std()",
+        "var": "var()",
+        "prod": "product()",
+        "first": "drop_nulls().first()",
+        "last": "drop_nulls().last()",
+        "nunique": "drop_nulls().n_unique()",
     }
+
+    # pandas' groupby().agg(name) accepts any reducer pandas knows (e.g. "sem",
+    # "skew", "kurt", "size"), but the polars run-path (_AGG_FUNCS) and the
+    # exported polars script only implement _POLARS_AGG. A flow always exports
+    # both a pandas and a polars script and can be re-run on either engine, so
+    # aggfuncs are restricted here to the shared set — otherwise a config that
+    # validates and runs on pandas would fail (or silently diverge) on polars.
+    # Mirrors PivotTransformation._SHARED_AGGFUNCS.
+    _SHARED_AGGFUNCS = frozenset(_POLARS_AGG)
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("group_by"):
             raise ValueError("groupByAggregate requires 'group_by' list")
-        if not config.get("aggregations"):
+        aggregations = config.get("aggregations")
+        if not aggregations:
             raise ValueError("groupByAggregate requires 'aggregations' dict {col: func}")
+        invalid = {func for func in aggregations.values() if func not in self._SHARED_AGGFUNCS}
+        if invalid:
+            raise ValueError(
+                f"groupByAggregate 'aggregations' function(s) {sorted(invalid)} not supported on "
+                f"both engines; use one of {sorted(self._SHARED_AGGFUNCS)}"
+            )
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -46,8 +74,10 @@ class GroupByAggregateTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         by = one_or_list(config["group_by"])
-        # No .alias(): every mapped agg method keeps its column's name.
-        aggs = [f"pl.col({col!r}).{self._POLARS_AGG.get(func, func)}()" for col, func in config["aggregations"].items()]
+        # No .alias(): every mapped agg expression keeps its column's name.
+        aggs = [
+            f"pl.col({col!r}).{self._POLARS_AGG.get(func, f'{func}()')}" for col, func in config["aggregations"].items()
+        ]
         return f"{dst} = {src}.group_by({by!r}).agg({pl_exprs_arg(aggs)})"
 
 
@@ -72,10 +102,11 @@ class ConcatRowsTransformation(BaseTransformation):
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         dst = output_vars["out"]
         srcs = ", ".join(input_vars.values())
-        # vertical_relaxed matches execute() (see PolarsEngine.concat): plain
-        # pl.concat is schema-strict and would fail where the app succeeds,
-        # e.g. concatenating an int column with a float column.
-        return f"{dst} = pl.concat([{srcs}], how='vertical_relaxed')"
+        # diagonal_relaxed matches execute() (see PolarsEngine.concat) and pandas'
+        # pd.concat(ignore_index=True): it unions columns (null-filling missing
+        # ones) and relaxes dtypes. Plain vertical concat is schema-strict and
+        # would fail where the app succeeds (mismatched columns or int+float).
+        return f"{dst} = pl.concat([{srcs}], how='diagonal_relaxed')"
 
 
 class CreateCalculatedColumnTransformation(BaseTransformation):

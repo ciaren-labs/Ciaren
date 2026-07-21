@@ -11,7 +11,10 @@ adds two defense-in-depth layers applied *before/around* execution:
    whose format-string mini-language can reach those same dunders as a runtime
    string the attribute scan can't see).
 2. :func:`safe_builtins` — a restricted ``__builtins__`` mapping to run the script
-   with, so the usual ``open``/``__import__``/``eval`` are simply absent.
+   with, so the usual ``open``/``eval`` are simply absent and ``__import__`` is a
+   curated wrapper enforcing the same import policy as the static scan (imports
+   that pass :func:`check_script`, e.g. ``import numpy``, keep working at runtime;
+   blocked ones fail with a clear guard error).
 
 These raise the bar and catch accidental or casual misuse; they are **not** a
 sandbox. A determined attacker can still find a bypass, so the real controls remain
@@ -25,46 +28,62 @@ from __future__ import annotations
 import ast
 import builtins
 
-#: Top-level modules a strict script may not import. Anything granting filesystem,
-#: process, network, or interpreter access — and the codegen/serialization escape
-#: hatches.
+#: Top-level modules a strict script may not import: anything granting the host
+#: capabilities the guard withholds — filesystem access (``io.open`` is builtin
+#: ``open``; ``tempfile``/``shutil``/``pathlib``/``glob``/``fileinput``/``mmap``/
+#: ``dbm``/``shelve`` all reach files), process/OS control, network I/O, native
+#: code (``ctypes``), code execution/deserialization (``pickle``/``marshal``/
+#: ``code``/``codeop``), and interpreter introspection. Pure data/compute modules
+#: (``math``, ``json``, ``datetime``, ``re``, ``numpy``, ``pandas``, …) stay
+#: allowed. Both :func:`check_script` (static) and :func:`_guarded_import`
+#: (runtime) read this single set — keep it that way.
 _BLOCKED_IMPORTS = frozenset(
     {
-        "os",
-        "sys",
-        "subprocess",
-        "socket",
-        "shutil",
-        "pathlib",
-        "ctypes",
-        "importlib",
-        "imp",
-        "runpy",
-        "pickle",
-        "marshal",
-        "shelve",
-        "code",
-        "pty",
-        "multiprocessing",
-        "threading",
+        "__builtin__",
         "asyncio",
-        "requests",
-        "urllib",
-        "urllib2",
+        "builtins",
+        "code",
+        "codeop",
+        "ctypes",
+        "dbm",
+        "fcntl",
+        "fileinput",
+        "ftplib",
+        "gc",
+        "glob",
         "http",
         "httpx",
-        "ftplib",
-        "smtplib",
-        "telnetlib",
-        "webbrowser",
-        "builtins",
-        "__builtin__",
-        "gc",
+        "imp",
+        "importlib",
         "inspect",
+        "io",
+        "marshal",
+        "mmap",
+        "msvcrt",
+        "multiprocessing",
+        "os",
+        "pathlib",
+        "pickle",
         "platform",
+        "pty",
+        "requests",
         "resource",
+        "runpy",
+        "shelve",
+        "shutil",
         "signal",
-        "fcntl",
+        "smtplib",
+        "socket",
+        "ssl",
+        "subprocess",
+        "sys",
+        "telnetlib",
+        "tempfile",
+        "threading",
+        "urllib",
+        "urllib2",
+        "webbrowser",
+        "winreg",
     }
 )
 
@@ -125,6 +144,20 @@ _BLOCKED_ATTRS = frozenset(
         "__module__",
         "__func__",
         "__self__",
+        # Frame/traceback traversal: a live frame's f_globals/f_builtins expose the
+        # *real* module builtins (open/eval/__import__), bypassing safe_builtins().
+        # Frames are reachable without any blocked dunder, e.g. via a generator's
+        # gi_frame or an exception's __traceback__.
+        "__traceback__",
+        "f_back",
+        "f_globals",
+        "f_locals",
+        "f_builtins",
+        "gi_frame",
+        "cr_frame",
+        "ag_frame",
+        "tb_frame",
+        "tb_next",
     }
 )
 
@@ -230,9 +263,37 @@ def check_script(script: str) -> None:
                 )
 
 
+def _guarded_import(
+    name: str,
+    globals: object | None = None,
+    locals: object | None = None,
+    fromlist: tuple[str, ...] = (),
+    level: int = 0,
+) -> object:
+    """``__import__`` replacement enforcing the *same* policy as :func:`check_script`:
+    imports whose root module is in :data:`_BLOCKED_IMPORTS` raise a clear,
+    guard-branded :class:`ImportError`; everything else (``math``, ``numpy``,
+    ``pandas``, …) imports normally. Sharing :data:`_BLOCKED_IMPORTS` keeps the
+    static scan and the runtime namespace from drifting apart."""
+    root = name.split(".")[0]
+    if root in _BLOCKED_IMPORTS:
+        raise ImportError(
+            f"import of module {root!r} is blocked by the Ciaren script guard (PYTHON_TRANSFORM_STRICT is enabled)."
+        )
+    return builtins.__import__(name, globals, locals, fromlist, level)  # type: ignore[arg-type]
+
+
 def safe_builtins() -> dict[str, object]:
     """A restricted ``__builtins__`` mapping for executing a strict script: only the
-    names in :data:`_ALLOWED_BUILTINS`, so ``open``/``__import__``/``eval`` etc. are
-    simply absent from the user's namespace."""
+    names in :data:`_ALLOWED_BUILTINS`, so ``open``/``eval`` etc. are simply absent
+    from the user's namespace, plus a curated ``__import__``
+    (:func:`_guarded_import`) so that ``import`` statements the static scan accepts
+    (e.g. ``import numpy``) also work at runtime instead of failing with an opaque
+    ``__import__ not found``."""
     available = vars(builtins)
-    return {name: available[name] for name in _ALLOWED_BUILTINS if name in available}
+    restricted: dict[str, object] = {name: available[name] for name in _ALLOWED_BUILTINS if name in available}
+    # The import statement's bytecode looks up ``__import__`` in ``__builtins__``.
+    # Direct calls to ``__import__`` in user code remain rejected statically via
+    # _BLOCKED_NAMES; this entry only serves ``import x`` / ``from x import y``.
+    restricted["__import__"] = _guarded_import
+    return restricted

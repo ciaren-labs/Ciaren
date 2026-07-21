@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, Literal, cast
 
@@ -59,22 +60,30 @@ _DTYPE_MAP = {
     "string": pl.Utf8,
 }
 
-# Aggregation function name -> method invoked on a pl.col(...) expression.
-# User-facing aggregation name -> polars Expr method. pandas-style names
-# (e.g. "nunique") are accepted and translated so both engines take the same
-# config. Names that map to themselves are still listed for validation.
-_AGG_FUNCS = {
-    "sum": "sum",
-    "mean": "mean",
-    "min": "min",
-    "max": "max",
-    "count": "count",
-    "median": "median",
-    "std": "std",
-    "first": "first",
-    "last": "last",
-    "nunique": "n_unique",
-    "n_unique": "n_unique",
+# User-facing (pandas-style) aggregation name -> a builder that turns the
+# grouped pl.col(...) expression into its aggregation. pandas-style names are
+# accepted and translated so both engines take the same config. Each builder is
+# chosen to match pandas' groupby().agg(<name>) numeric AND null semantics:
+# in particular pandas' 'first'/'last' SKIP NA and 'nunique' EXCLUDES NA, so the
+# polars side drops nulls first (an all-null group then yields null / 0, as in
+# pandas). The exported polars codegen (reshape.py _POLARS_AGG) must stay in sync
+# with these — a consistency test enforces it.
+_AGG_FUNCS: dict[str, Callable[[pl.Expr], pl.Expr]] = {
+    "sum": lambda c: c.sum(),
+    "mean": lambda c: c.mean(),
+    "min": lambda c: c.min(),
+    "max": lambda c: c.max(),
+    "count": lambda c: c.count(),
+    "median": lambda c: c.median(),
+    "std": lambda c: c.std(),
+    "var": lambda c: c.var(),
+    "prod": lambda c: c.product(),
+    # SKIP NA to match pandas agg('first'/'last'); all-null group -> null.
+    "first": lambda c: c.drop_nulls().first(),
+    "last": lambda c: c.drop_nulls().last(),
+    # EXCLUDE NA to match pandas nunique; all-null group -> 0.
+    "nunique": lambda c: c.drop_nulls().n_unique(),
+    "n_unique": lambda c: c.drop_nulls().n_unique(),
 }
 
 
@@ -289,8 +298,7 @@ class PolarsEngine:
         for column, func in aggregations.items():
             if func not in _AGG_FUNCS:
                 raise ValueError(f"Unsupported aggregation function: {func!r}")
-            method = _AGG_FUNCS[func]
-            exprs.append(getattr(pl.col(column), method)().alias(column))
+            exprs.append(_AGG_FUNCS[func](pl.col(column)).alias(column))
         return df.group_by(by, maintain_order=True).agg(exprs)
 
     def join(
@@ -315,7 +323,11 @@ class PolarsEngine:
         return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
-        return pl.concat(frames, how="vertical_relaxed")
+        # diagonal_relaxed unions columns (null-filling where a frame lacks one)
+        # AND relaxes dtypes — matching pandas' pd.concat(ignore_index=True). Plain
+        # vertical_relaxed only relaxes dtypes and raises on column-name mismatch,
+        # so it would fail where the pandas backend succeeds.
+        return pl.concat(frames, how="diagonal_relaxed")
 
     def limit_rows(self, df: pl.DataFrame, n: int, offset: int = 0) -> pl.DataFrame:
         return df.slice(offset, n)

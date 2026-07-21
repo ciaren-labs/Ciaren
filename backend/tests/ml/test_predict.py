@@ -118,3 +118,94 @@ def test_validate_config_rejects_bad_batch_and_proba():
         NODE.validate_config({"batch_size": 0})
     with pytest.raises(ValueError, match="output_proba_columns"):
         NODE.validate_config({"output_proba_columns": "proba"})
+
+
+# -- feature alignment fallback for models without feature_names_in_ (F2) -----
+
+
+class _NoNamesModel:
+    """A fitted model that carries no ``feature_names_in_`` (e.g. fit on a numpy
+    array or an external model)."""
+
+    def predict(self, x):
+        return np.zeros(len(x))
+
+
+def test_align_features_falls_back_to_recorded_features():
+    import pandas as pd
+
+    pdf = pd.DataFrame({"a": [1, 2], "b": [3, 4], "target": [0, 1], "extra": [9, 9]})
+    # Model has no feature_names_in_; recorded feature_columns come from the ref.
+    x = NODE._align_features(_NoNamesModel(), pdf, ["a", "b"])
+    # Subset to the recorded training features — target/extra are dropped, not fed.
+    assert list(x.columns) == ["a", "b"]
+
+
+def test_align_features_recorded_missing_feature_still_errors():
+    import pandas as pd
+
+    pdf = pd.DataFrame({"a": [1, 2]})  # missing recorded feature 'b'
+    with pytest.raises(ValueError, match="missing model features"):
+        NODE._align_features(_NoNamesModel(), pdf, ["a", "b"])
+
+
+def test_align_features_no_names_no_recorded_passes_through():
+    import pandas as pd
+
+    pdf = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    # Neither feature_names_in_ nor recorded features → rare external-model case,
+    # keep prior behavior and pass the frame through unchanged.
+    x = NODE._align_features(_NoNamesModel(), pdf, [])
+    assert list(x.columns) == ["a", "b"]
+
+
+def test_resolve_model_extracts_recorded_features():
+    import json
+
+    import pandas as pd
+
+    from app.engine.backends import get_engine
+
+    engine = get_engine("pandas")
+    frame = engine.from_pandas(
+        pd.DataFrame(
+            [
+                {
+                    "model_uri": "runs:/abc/model",
+                    "task_type": "classification",
+                    "feature_columns_json": json.dumps(["x1", "x2"]),
+                }
+            ]
+        )
+    )
+    uri, task, feats = NODE._resolve_model(engine, {"model": frame}, {})
+    assert uri == "runs:/abc/model"
+    assert task == "classification"
+    assert feats == ["x1", "x2"]
+
+
+# -- output-column collision warnings (F3) ------------------------------------
+
+
+def test_output_column_collision_warns(trained_classifier, caplog):
+    engine, model_ref, df = trained_classifier
+    noisy = df.drop(columns=["target"]).copy()
+    noisy["prediction"] = "original"  # would be silently clobbered
+    with caplog.at_level("WARNING"):
+        out, _ = NODE.execute_with_metadata(engine, {"in": engine.from_pandas(noisy), "model": model_ref}, {})
+    assert "already exists in the input" in caplog.text
+    # The prediction column was (intentionally) overwritten with model output.
+    assert "prediction" in engine.to_pandas(out["out"]).columns
+
+
+def test_proba_column_collision_warns(trained_classifier, caplog):
+    engine, model_ref, df = trained_classifier
+    noisy = df.drop(columns=["target"]).copy()
+    noisy["proba_1"] = 0.0  # collides with a requested probability column
+    with caplog.at_level("WARNING"):
+        NODE.execute_with_metadata(
+            engine,
+            {"in": engine.from_pandas(noisy), "model": model_ref},
+            {"output_proba_columns": ["proba_0", "proba_1"]},
+        )
+    assert "already exist in the input" in caplog.text

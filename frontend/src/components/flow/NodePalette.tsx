@@ -10,6 +10,7 @@ import {
   type NodeTypeDef,
 } from "@/features/flows/editor/nodeCatalog";
 import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safeStorage";
 import { getCategoryIcon, getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
 import {
@@ -37,18 +38,18 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("ciaren_palette_collapsed") === "true";
+    return readLocalStorage("ciaren_palette_collapsed") === "true";
   });
   // User-adjustable panel width (px), persisted. Clamped to a sensible range.
   const [width, setWidth] = useState(() => {
-    const v = Number(localStorage.getItem("ciaren_palette_width"));
+    const v = Number(readLocalStorage("ciaren_palette_width"));
     return v >= PALETTE_MIN_WIDTH && v <= PALETTE_MAX_WIDTH ? v : PALETTE_DEFAULT_WIDTH;
   });
 
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
-    localStorage.setItem("ciaren_palette_collapsed", String(next));
+    writeLocalStorage("ciaren_palette_collapsed", String(next));
   };
 
   // Drag the right edge to resize. Listeners live on the window so the drag keeps
@@ -67,7 +68,7 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
       window.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      localStorage.setItem("ciaren_palette_width", String(Math.round(latest)));
+      writeLocalStorage("ciaren_palette_width", String(Math.round(latest)));
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";

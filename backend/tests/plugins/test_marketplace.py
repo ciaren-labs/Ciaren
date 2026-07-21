@@ -6,7 +6,14 @@ import json
 
 import pytest
 
-from app.plugins.marketplace import MarketplaceIndexError, load_index, parse_index
+from app.plugins.marketplace import (
+    MarketplaceEntry,
+    MarketplaceIndexError,
+    configured_index_is_trusted,
+    load_index,
+    parse_index,
+    resolve_artifact_path,
+)
 
 _INDEX = {
     "schemaVersion": "1.0.0",
@@ -92,3 +99,104 @@ def test_revoked_ids_parse_and_answer():
     # Revocation works even for an id no longer listed in plugins.
     assert index.is_revoked("gone.plugin") is True
     assert index.is_revoked("community.hello") is False
+
+
+# -- resolve_artifact_path confinement ----------------------------------------
+
+
+def _entry(download_url: str) -> MarketplaceEntry:
+    return MarketplaceEntry(id="x.plugin", name="X", download_url=download_url)
+
+
+def test_resolve_artifact_path_untrusted_rejects_file_urls_absolute_and_traversal(tmp_path):
+    """A malicious hosted index must not be able to point a "package" at local
+    files: file: URLs, absolute paths, and any .. component all resolve to None."""
+    index_path = tmp_path / "market" / "index.json"
+    outside = tmp_path / "outside.ciarenplugin"  # absolute, exists outside the index dir
+    outside.write_bytes(b"victim")
+    for url in (
+        "file:///etc/passwd",
+        "file://C:/Windows/win.ini",
+        "FILE:///etc/passwd",
+        str(outside),
+        "/etc/passwd",
+        "../outside.ciarenplugin",
+        "../../secrets/id_rsa",
+        "pkgs/../../outside.ciarenplugin",
+        "..",
+    ):
+        assert resolve_artifact_path(_entry(url), index_path, trusted=False) is None, url
+
+
+def test_resolve_artifact_path_untrusted_allows_confined_relative(tmp_path):
+    """A legitimate relative artifact under the index directory still resolves
+    for an untrusted source (no false rejection, including nested dirs)."""
+    market = tmp_path / "market"
+    (market / "pkgs").mkdir(parents=True)
+    artifact = market / "pkgs" / "x.plugin-1.0.0.ciarenplugin"
+    artifact.write_bytes(b"pkg")
+    resolved = resolve_artifact_path(_entry("pkgs/x.plugin-1.0.0.ciarenplugin"), market / "index.json", trusted=False)
+    assert resolved is not None
+    assert resolved == artifact.resolve()
+    assert resolved.is_file()
+
+
+def test_resolve_artifact_path_trusted_keeps_local_index_contract(tmp_path):
+    """A trusted local index (operator/bundle-controlled) keeps the authoring
+    contract: absolute paths, file:// URLs, and index-relative paths resolve."""
+    index_path = tmp_path / "index.json"
+    absolute = tmp_path / "elsewhere" / "x.ciarenplugin"
+    assert resolve_artifact_path(_entry(str(absolute)), index_path, trusted=True) == absolute
+    relative = resolve_artifact_path(_entry("rel/x.ciarenplugin"), index_path, trusted=True)
+    assert relative == tmp_path / "rel" / "x.ciarenplugin"
+    via_file_url = resolve_artifact_path(_entry(f"file://{absolute.as_posix()}"), index_path, trusted=True)
+    assert via_file_url is not None and via_file_url.name == "x.ciarenplugin"
+
+
+@pytest.mark.parametrize("trusted", [True, False])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "",
+        "http://example.com/x.ciarenplugin",
+        "https://example.com/x.ciarenplugin",
+        "HTTP://example.com/x.ciarenplugin",  # scheme match is case-insensitive
+        "HTTPS://example.com/x.ciarenplugin",
+    ],
+)
+def test_resolve_artifact_path_remote_or_empty_is_none(tmp_path, trusted, url):
+    assert resolve_artifact_path(_entry(url), tmp_path / "index.json", trusted=trusted) is None
+
+
+# -- configured_index_is_trusted -----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("configured", "trusted"),
+    [
+        ("http://host/i.json", False),
+        ("https://host/i.json", False),
+        ("HTTPS://host/i.json", False),  # scheme check is case-insensitive
+        ("file:///opt/ciaren/index.json", False),
+        ("ftp://host/i.json", False),  # any future scheme:// stays untrusted
+        ("/opt/ciaren/index.json", True),
+        ("C:\\ciaren\\index.json", True),  # Windows drive path is not a URL
+        ("", True),  # empty -> bundled local fallback stays trusted
+        (None, True),  # env var absent entirely -> bundled fallback
+    ],
+)
+def test_configured_index_is_trusted_only_for_local_non_url_sources(monkeypatch, configured, trusted):
+    """Trust is by inclusion: any ``scheme://`` form (http, https, file, ftp,
+    any case) is untrusted; only a bare local path or the unset/empty default
+    (the bundled local index) is trusted."""
+    from app.core.config import get_settings
+
+    if configured is None:
+        monkeypatch.delenv("CIAREN_MARKETPLACE_INDEX", raising=False)
+    else:
+        monkeypatch.setenv("CIAREN_MARKETPLACE_INDEX", configured)
+    get_settings.cache_clear()
+    try:
+        assert configured_index_is_trusted() is trusted
+    finally:
+        get_settings.cache_clear()
