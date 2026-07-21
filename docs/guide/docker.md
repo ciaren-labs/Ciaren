@@ -232,7 +232,7 @@ docker build --build-arg EXTRAS=ml,postgres -t ciaren:full .
   container replacement.
 - **Set `CIAREN_CORS_ORIGINS`** if your frontend and API are on different
   origins (unnecessary when both are served from the same port).
-- **Pin the image tag** — use `ciaren:0.1.0` rather than `latest` in
+- **Pin the image tag** — use `ciaren:0.2.0` rather than `latest` in
   production compose files.
 - **Run behind a reverse proxy** (nginx, Caddy, Traefik) for TLS and
   compression. The image does not include TLS termination.

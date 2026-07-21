@@ -8,7 +8,51 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
-This release is a repo-wide correctness and hardening pass from an internal audit.
+## [0.2.0] - 2026-07-20
+
+A repo-wide correctness and hardening pass from an internal audit. Most of it is
+straightforward bug fixing, but a few changes alter results or reject input that
+previously passed — read **Breaking changes** before upgrading.
+
+### Breaking changes
+
+- **`groupByAggregate` rejects aggregations with no exact polars equivalent**
+  (`sem`, `skew`, `kurt`, `size`, `mad`). These previously ran on the pandas
+  backend and failed or silently differed elsewhere. *Migration:* switch to a
+  supported aggregation, or compute the statistic downstream in a
+  `pythonTransform` node.
+- **polars `first` / `last` / `nunique` now skip nulls, matching pandas.**
+  Groups containing nulls produce different (now correct and engine-consistent)
+  values. *Migration:* re-run affected flows; polars results now agree with the
+  pandas backend and with the exported code.
+- **`concatRows` on polars unions mismatched columns** and null-fills, instead
+  of raising. Flows that previously errored now succeed. *Migration:* none.
+- **`GET /api/datasets` and `GET /api/flows` return at most 500 rows** by
+  default. *Migration:* none for the UI; API consumers that relied on an
+  unbounded list should expect truncation until `limit`/`offset` query
+  parameters land.
+- **A Train node whose model fails to save now fails the run** instead of
+  reporting success with an unusable model reference. *Migration:* none — the
+  run was already broken downstream; the failure is now visible.
+- **Run creation rejects an unknown or cross-project `input_dataset_id`**
+  (404 / 400). *Migration:* pass a dataset that exists in the flow's project,
+  or omit the field.
+- **"Default" is a reserved project name** — creating or renaming a project to
+  it returns 400. *Migration:* pick another name.
+- **Plugins are re-verified at load.** An installed plugin whose files were
+  modified on disk after installation is refused (*migration:* reinstall it to
+  re-pin the baseline); an install whose id case-collides with an existing
+  plugin is rejected; a plugin whose metadata id differs from its manifest id
+  is refused; and a node's declared `provider` is forced to the owning plugin's
+  id.
+- **Hardened connector mode** (`CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=true`) now
+  rejects multi-host / URI-style hostnames (e.g. a comma-separated libpq seed
+  list) and refuses `verify_tls: false`. *Migration:* use a single plain
+  hostname per connection and keep TLS verification on, or leave the guard off.
+- **`pythonTransform` strict mode** (`CIAREN_PYTHON_TRANSFORM_STRICT=true`)
+  blocks additional capability modules (`io`, `tempfile`, `socket`, `pickle`,
+  …). Imports that are allowed now genuinely work at runtime, where they
+  previously failed with an opaque error.
 
 ### Security
 
@@ -60,12 +104,9 @@ This release is a repo-wide correctness and hardening pass from an internal audi
   (`pool_pre_ping`) so a stale pooled connection no longer surfaces as a 500,
   and startup no longer runs best-effort column patching on Alembic-managed
   databases.
-
-### Changed
-
-- `GET /api/datasets` and `GET /api/flows` now return at most 500 rows by
-  default and no longer eagerly load every dataset version (explicit
-  `limit`/`offset` query parameters are a planned follow-up).
+- Listing datasets no longer loads every version of every dataset into memory —
+  the latest version and version count come from an aggregate query, so a
+  workspace with a long run history stays responsive.
 
 ## [0.1.0] - 2026-07-14
 

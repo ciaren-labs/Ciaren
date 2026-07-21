@@ -27,7 +27,7 @@ MOCK_SCHEDULE = {"id": "sched-1", "flow_id": FLOW_ID, "cron": "0 9 * * *"}
 
 
 def test_package_version():
-    assert __version__ == "0.1.0"
+    assert __version__ == "0.2.0"
 
 
 # ---------------------------------------------------------------------------

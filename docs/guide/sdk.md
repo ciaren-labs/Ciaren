@@ -11,7 +11,7 @@ with a friendly interface. It installs independently from the full Ciaren
 application, ships both a synchronous (`Ciaren`) and an async (`AsyncCiaren`)
 client, and depends only on `httpx`.
 
-Current version: `0.1.0` (pre-1.0; breaking changes possible before `1.0.0`).
+Current version: `0.2.0` (pre-1.0; breaking changes possible before `1.0.0`).
 The package is typed and ships
 `py.typed` for editors and type checkers. The SDK is licensed under
 Apache-2.0.
