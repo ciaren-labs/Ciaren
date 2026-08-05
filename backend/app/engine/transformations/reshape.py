@@ -337,10 +337,12 @@ class PivotTransformation(BaseTransformation):
         index = config["index"]
         index = one_or_list(index) if isinstance(index, list) else index
         aggfunc = config.get("aggfunc", "sum")
-        agg = "len" if aggfunc == "count" else aggfunc
+        # count must count non-null (matching pandas pivot_table aggfunc='count'),
+        # not polars' deprecated 'count' (== 'len', row count).
+        agg = "pl.first().count()" if aggfunc == "count" else f"{aggfunc!r}"
         return (
             f"{dst} = {src}.pivot(on={config['columns']!r}, index={index!r}, "
-            f"values={config['values']!r}, aggregate_function={agg!r})"
+            f"values={config['values']!r}, aggregate_function={agg})"
         )
 
 

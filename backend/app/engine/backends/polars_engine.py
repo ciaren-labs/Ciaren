@@ -485,8 +485,11 @@ class PolarsEngine:
         values: str,
         aggfunc: str,
     ) -> pl.DataFrame:
-        agg = "len" if aggfunc == "count" else aggfunc
-        return df.pivot(on=columns, index=index, values=values, aggregate_function=cast(Any, agg))
+        # pandas' pivot_table(aggfunc='count') counts NON-NULL values; polars'
+        # 'count' is a deprecated alias of 'len' (row count). Map count to an
+        # expression that counts non-null, so both engines agree.
+        agg: Any = pl.first().count() if aggfunc == "count" else aggfunc
+        return df.pivot(on=columns, index=index, values=values, aggregate_function=agg)
 
     # -- New nodes (text/date/value mapping) ---------------------------
 

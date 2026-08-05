@@ -617,6 +617,21 @@ def test_pivot(engine_name: str, aggfunc: str) -> None:
     assert "r" in out.columns
 
 
+@pytest.mark.parametrize("engine_name", ENGINES)
+def test_pivot_count_counts_non_null(engine_name: str) -> None:
+    # aggfunc=count must count non-null values — not rows — so the engines agree
+    # when the values column has nulls (pandas pivot_table count counts non-null;
+    # polars' 'count' is a deprecated alias of 'len').
+    engine = get_engine(engine_name)
+    frame = _make(
+        engine_name,
+        {"r": ["a", "a", "a", "b"], "c": ["x", "x", "x", "y"], "v": [1.0, None, 2.0, 5.0]},
+    )
+    out = _pdf(engine, engine.pivot(frame, ["r"], "c", "v", "count"))
+    assert out.loc[out["r"] == "a", "x"].iloc[0] == 2  # 1.0, 2.0 — the null is excluded
+    assert out.loc[out["r"] == "b", "y"].iloc[0] == 1
+
+
 # -- to_records / row_count ---------------------------------------------
 
 

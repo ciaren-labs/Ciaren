@@ -111,7 +111,8 @@ def _wide() -> pd.DataFrame:
 
 
 def _pivotable() -> pd.DataFrame:
-    return pd.DataFrame({"r": ["r1", "r1", "r2"], "c": ["c1", "c2", "c1"], "v": [1.0, 2.0, 3.0]})
+    # 'v' carries a null so pivot aggfunc=count exercises non-null counting.
+    return pd.DataFrame({"r": ["r1", "r1", "r2"], "c": ["c1", "c2", "c1"], "v": [1.0, None, 3.0]})
 
 
 def _join_left() -> pd.DataFrame:

@@ -639,9 +639,13 @@ def test_conditional_column_numeric_value(engine):
 
 
 def test_pivot_str_index_and_count(engine):
-    pdf = pd.DataFrame({"r": ["x", "x", "y"], "c": ["m", "n", "m"], "v": [1, 2, 3]})
+    # 'v' carries a null so aggfunc=count exercises non-null counting (pandas
+    # pivot_table counts non-null; polars' 'count' alias would count rows).
+    pdf = pd.DataFrame({"r": ["x", "x", "y"], "c": ["m", "n", "m"], "v": [1, None, 3]})
     out = run(engine, "pivot", pdf, {"index": "r", "columns": "c", "values": "v", "aggfunc": "count"})
     assert "m" in out.columns and "n" in out.columns
+    assert out.loc[out["r"] == "x", "m"].iloc[0] == 1  # non-null count, not row count
+    assert out.loc[out["r"] == "y", "m"].iloc[0] == 1
 
 
 def test_pivot_median_aggfunc_runs_on_both_engines(engine):
