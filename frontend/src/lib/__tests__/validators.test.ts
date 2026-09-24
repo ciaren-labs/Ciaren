@@ -254,6 +254,8 @@ describe("replaceValues", () => {
 describe("stringTransform", () => {
   it("accepts a simple operation", () =>
     accepts("stringTransform", { column: "a", operation: "upper" }));
+  it.each(["lstrip", "rstrip"])("accepts the %s operation", (operation) =>
+    accepts("stringTransform", { column: "a", operation }));
   it("accepts replace with find", () =>
     accepts("stringTransform", { column: "a", operation: "replace", find: "x", replace_with: "y" }));
   it("accepts pad with width", () =>

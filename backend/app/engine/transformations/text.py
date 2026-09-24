@@ -52,6 +52,8 @@ class StringTransformTransformation(BaseTransformation):
         "lower": ("lower", "to_lowercase()"),
         "upper": ("upper", "to_uppercase()"),
         "strip": ("strip", "strip_chars()"),
+        "lstrip": ("lstrip", "strip_chars_start()"),
+        "rstrip": ("rstrip", "strip_chars_end()"),
         "title": ("title", "to_titlecase()"),
         # capitalize is special-cased in to_polars_code (no direct polars method).
         "capitalize": ("capitalize", None),

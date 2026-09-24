@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Lock, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, History, Lock, Search, X } from "lucide-react";
 import { transformationsApi } from "@/features/transformations/api";
 import {
   getCategoryLabel,
@@ -10,6 +10,7 @@ import {
   type NodeTypeDef,
 } from "@/features/flows/editor/nodeCatalog";
 import { useNodeCatalog } from "@/features/flows/useNodeCatalog";
+import { recordRecentNodeType, useRecentNodeTypes } from "@/features/flows/recentNodes";
 import { readLocalStorage, writeLocalStorage } from "@/lib/safeStorage";
 import { getCategoryIcon, getCategoryTheme, getNodeIcon } from "@/lib/nodeVisuals";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ interface NodePaletteProps {
   unlocked: boolean;
 }
 
-export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
+export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
   // Accordion: all sections collapsed by default per design. Categories are
   // strings (not just the built-in union) so plugin-contributed categories work.
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -105,6 +106,21 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
 
   // Built-in categories first, then any plugin-contributed categories present.
   const categories = useMemo(() => paletteCategories(visibleTypes), [visibleTypes]);
+
+  // Recent types resolved against the visible catalog, so uninstalled plugin nodes,
+  // unavailable ML nodes and palette-hidden legacy types never show.
+  const recentTypes = useRecentNodeTypes();
+  const recentDefs = useMemo(() => {
+    const byType = new Map(visibleTypes.map((n) => [n.type, n]));
+    return recentTypes.flatMap((type) => byType.get(type) ?? []);
+  }, [recentTypes, visibleTypes]);
+
+  // Click-to-add from the palette counts as "used"; a palette drag is recorded by
+  // the canvas when the drop actually places the node.
+  const onAdd = (def: NodeTypeDef) => {
+    onAddProp(def);
+    recordRecentNodeType(def.type);
+  };
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
@@ -221,14 +237,19 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
           )}
         </div>
       ) : (
-        <PaletteAccordion
-          unlocked={unlocked}
-          open={open}
-          toggle={toggle}
-          onAdd={onAdd}
-          nodeTypes={visibleTypes}
-          categories={categories}
-        />
+        <>
+          {recentDefs.length > 0 && (
+            <RecentlyUsed defs={recentDefs} unlocked={unlocked} onAdd={onAdd} />
+          )}
+          <PaletteAccordion
+            unlocked={unlocked}
+            open={open}
+            toggle={toggle}
+            onAdd={onAdd}
+            nodeTypes={visibleTypes}
+            categories={categories}
+          />
+        </>
       )}
       </div>
       <div
@@ -239,6 +260,40 @@ export function NodePalette({ onAdd, unlocked }: NodePaletteProps) {
         className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize transition-colors hover:bg-brand-300/60 active:bg-brand-400/70"
       />
     </div>
+  );
+}
+
+function RecentlyUsed({
+  defs,
+  unlocked,
+  onAdd,
+}: {
+  defs: NodeTypeDef[];
+  unlocked: boolean;
+  onAdd: (def: NodeTypeDef) => void;
+}) {
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId} className="flex flex-col">
+      <div className="flex items-center gap-2 px-1.5 py-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <History className="h-3 w-3" />
+        </span>
+        <h3 id={headingId} className="text-sm font-semibold text-foreground">
+          Recently used
+        </h3>
+      </div>
+      <div className="mt-1 flex flex-col gap-1 pl-1.5">
+        {defs.map((def) => (
+          <PaletteItem
+            key={def.type}
+            def={def}
+            disabled={!unlocked && def.category !== "input"}
+            onAdd={onAdd}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

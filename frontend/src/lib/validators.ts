@@ -48,6 +48,8 @@ export const stringOperations = [
   "lower",
   "upper",
   "strip",
+  "lstrip",
+  "rstrip",
   "title",
   "capitalize",
   "len",
