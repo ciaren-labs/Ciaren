@@ -46,15 +46,20 @@ within that bucket.
 
 When you pick a CSV or TSV file, the config panel reads the first 64 KB of the
 file and shows what it found, for example
-**Detected: Semicolon (;) · cp1252 · decimal comma**. It also fills in the
-**Separator**, **Encoding**, and **Decimal mark** fields with those values. The
-preview then splits columns correctly without any manual setup.
+**Detected: Semicolon (;) · cp1252 · decimal comma**. The **Separator**,
+**Encoding**, and **Decimal mark** fields stay on **Auto-detect** and show the
+detected value, so the preview splits columns correctly without any manual setup.
+Opening the node never changes its configuration.
 
-- **Override:** change any of the three fields. A value you set always wins over
-  detection, on both engines and in exported code.
-- **Auto-detect:** choose **Auto-detect** to leave a field unset. Ciaren then
-  detects it again on every preview and run. This helps when an upstream system
-  may change the file's format.
+- **Auto-detect:** a field left on **Auto-detect** is detected again on every
+  preview and run. This helps when an upstream system may change the file's
+  format.
+- **Override:** pick a value in any of the three fields, or click
+  **Use detected values** to pin the current detection. A value you set always
+  wins over detection, on both engines and in exported code.
+- **Exported code** only carries the dialect you set. A field left on
+  Auto-detect uses the pandas/polars default (comma, UTF-8, `.`) in the export,
+  so pin the values before exporting a non-default file.
 - **Fallback:** if the sample shows no clear dialect (an empty file, a single
   column, binary data, or bytes that are neither UTF-8 nor Windows-1252), the
   panel doesn't show a "Detected" value. Reads then use the defaults: comma,

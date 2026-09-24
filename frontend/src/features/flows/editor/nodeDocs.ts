@@ -395,7 +395,7 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
       {
         name: "Separator / Encoding / Decimal mark",
-        desc: "CSV/TSV only. Pre-filled from the detected dialect; change any to override, or pick Auto-detect.",
+        desc: "CSV/TSV only. Auto-detect by default (the detected value is shown); pick a value or use the detected ones to override.",
       },
     ],
   },

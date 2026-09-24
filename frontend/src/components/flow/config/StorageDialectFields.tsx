@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { Select } from "@/components/ui/select";
 import { useObjectDialect } from "@/features/connections/hooks";
 import {
@@ -11,31 +10,28 @@ import {
 import { Field } from "../configFields";
 import type { NodeConfigRenderProps } from "./shared";
 
-/** Dialect overrides for a storage CSV/TSV input, pre-filled once per picked
- *  file from the server-side detection. "Auto-detect" (unset) makes each read
- *  detect again; a set value always wins over detection. */
+/** Dialect overrides for a storage CSV/TSV input. The server-side detection is
+ *  shown as information only: opening the node never writes config, so an
+ *  unset field ("Auto-detect") keeps detecting on every preview and run. The
+ *  detected values are written only when the user clicks "Use detected values"
+ *  (or picks them in a field); a set value always wins over detection. */
 export function StorageDialectFields({ c, errors, set }: Omit<NodeConfigRenderProps, "columns">) {
   const format = c.format === "tsv" ? "tsv" : "csv";
   const path = (c.path as string) || null;
   const detection = useObjectDialect((c.connection_id as string) || null, path, format);
   const detected = detection.data;
 
-  // Pre-fill only the first time a file's detection arrives, and never over
-  // values already set — so choosing "Auto-detect" afterwards sticks.
-  const prefilledFor = useRef<string | null>(null);
-  const fileKey = `${c.connection_id}|${path}|${format}`;
-  useEffect(() => {
-    if (!detected || prefilledFor.current === fileKey) return;
-    prefilledFor.current = fileKey;
-    if (DIALECT_KEYS.some((k) => c[k])) return;
-    const patch: Record<string, string> = {};
-    for (const k of DIALECT_KEYS) {
-      const v = detected[k];
-      if (v && !(k === "delimiter" && format === "tsv")) patch[k] = v;
-    }
-    if (Object.keys(patch).length) set(patch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per detection result, not per config edit
-  }, [detected, fileKey]);
+  // The detected values that apply to this format (TSV is always tab-separated).
+  const detectedPatch: Record<string, string> = {};
+  for (const k of DIALECT_KEYS) {
+    const v = detected?.[k];
+    if (v && !(k === "delimiter" && format === "tsv")) detectedPatch[k] = v;
+  }
+  const canUseDetected = DIALECT_KEYS.some((k) => detectedPatch[k] && detectedPatch[k] !== c[k]);
+  const autoLabel = (value: string | undefined, options: readonly { value: string; label: string }[]) => {
+    const label = value ? (options.find((o) => o.value === value)?.label ?? value) : null;
+    return label ? `Auto-detect (${label})` : "Auto-detect";
+  };
 
   const summary = detected ? describeDialect(detected) : null;
   let status: React.ReactNode = null;
@@ -49,10 +45,19 @@ export function StorageDialectFields({ c, errors, set }: Omit<NodeConfigRenderPr
     );
   } else if (detected) {
     status = (
-      <p className="text-[11px] text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
         {summary
           ? `Detected: ${summary}`
           : "No dialect detected — reads use comma / UTF-8 unless you set them below."}
+        {canUseDetected && (
+          <button
+            type="button"
+            className="font-medium text-primary underline underline-offset-2"
+            onClick={() => set(detectedPatch)}
+          >
+            Use detected values
+          </button>
+        )}
       </p>
     );
   }
@@ -66,7 +71,7 @@ export function StorageDialectFields({ c, errors, set }: Omit<NodeConfigRenderPr
       {format === "csv" && (
         <Field label="Separator" error={errors.delimiter} help="Overrides the detected column separator.">
           <Select aria-label="Separator" value={c.delimiter ?? ""} onChange={choose("delimiter")}>
-            <option value="">Auto-detect</option>
+            <option value="">{autoLabel(detectedPatch.delimiter, DELIMITER_OPTIONS)}</option>
             {DELIMITER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -77,7 +82,7 @@ export function StorageDialectFields({ c, errors, set }: Omit<NodeConfigRenderPr
       )}
       <Field label="Encoding" error={errors.encoding} help="Overrides the detected text encoding.">
         <Select aria-label="Encoding" value={c.encoding ?? ""} onChange={choose("encoding")}>
-          <option value="">Auto-detect</option>
+          <option value="">{autoLabel(detectedPatch.encoding, ENCODING_OPTIONS)}</option>
           {ENCODING_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -87,7 +92,7 @@ export function StorageDialectFields({ c, errors, set }: Omit<NodeConfigRenderPr
       </Field>
       <Field label="Decimal mark" error={errors.decimal} help="Overrides the detected decimal separator.">
         <Select aria-label="Decimal mark" value={c.decimal ?? ""} onChange={choose("decimal")}>
-          <option value="">Auto-detect</option>
+          <option value="">{autoLabel(detectedPatch.decimal, DECIMAL_OPTIONS)}</option>
           {DECIMAL_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

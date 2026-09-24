@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -133,7 +133,7 @@ describe("NodeConfigForm — storageInput", () => {
 describe("NodeConfigForm — storageInput CSV dialect", () => {
   const CSV_CONFIG = { connection_id: "s3-1", path: "data/input.csv", format: "csv" };
 
-  it("shows the detected dialect and pre-fills the override fields from it", async () => {
+  it("shows the detected dialect on open without changing the node's config", async () => {
     vi.mocked(connectionsApi.objectDialect).mockResolvedValueOnce({
       delimiter: ";",
       encoding: "cp1252",
@@ -144,9 +144,26 @@ describe("NodeConfigForm — storageInput CSV dialect", () => {
 
     expect(await screen.findByText("Detected: Semicolon (;) · cp1252 · decimal comma")).toBeInTheDocument();
     expect(connectionsApi.objectDialect).toHaveBeenCalledWith("s3-1", "data/input.csv", "csv");
-    await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith({ ...CSV_CONFIG, delimiter: ";", encoding: "cp1252", decimal: "," }),
-    );
+    // Auto-detect stays auto-detect: opening the node must never write config
+    // (that would dirty the flow and pin the values on the next save).
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Separator")).toHaveValue("");
+  });
+
+  it("writes the detected values only when the user asks to use them", async () => {
+    const user = userEvent.setup();
+    vi.mocked(connectionsApi.objectDialect).mockResolvedValueOnce({
+      delimiter: ";",
+      encoding: "cp1252",
+      decimal: ",",
+    });
+    const onChange = vi.fn();
+    renderForm({ type: "storageInput", config: CSV_CONFIG, onChange });
+
+    await user.click(await screen.findByRole("button", { name: "Use detected values" }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ ...CSV_CONFIG, delimiter: ";", encoding: "cp1252", decimal: "," });
   });
 
   it("keeps explicit overrides over detection, and the user can still change them", async () => {
@@ -172,6 +189,7 @@ describe("NodeConfigForm — storageInput CSV dialect", () => {
 
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByText(/^Detected:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use detected values" })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
