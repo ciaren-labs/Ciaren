@@ -69,7 +69,7 @@ export default defineConfig({
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
   base: docsBasePath,
-  srcExclude: ['README.md', 'agent-runs/**'],
+  srcExclude: ['README.md', 'PUBLISHING.md', 'agent-runs/**'],
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
@@ -109,27 +109,16 @@ export default defineConfig({
         ]
       : []),
     // Open Graph — controls how links render on GitHub, Reddit, HN, Slack, etc.
+    // Per-page title/description/url tags are added in transformHead below.
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:locale', content: 'en' }],
     ['meta', { property: 'og:site_name', content: 'Ciaren' }],
-    ['meta', { property: 'og:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
-    ['meta', {
-      property: 'og:description',
-      content:
-        'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
-    }],
     ['meta', { property: 'og:image', content: socialImage }],
     ['meta', { property: 'og:image:width', content: '1280' }],
     ['meta', { property: 'og:image:height', content: '640' }],
     ['meta', { property: 'og:image:alt', content: 'Ciaren: visual ETL and data pipelines that export clean pandas and Polars Python' }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
-    ['meta', {
-      name: 'twitter:description',
-      content:
-        'Open-source, plugin-first, local-first platform for Data Engineering and Machine Learning workflows. Build visually, export portable Python.',
-    }],
     ['meta', { name: 'twitter:image', content: socialImage }],
   ],
 
@@ -137,19 +126,27 @@ export default defineConfig({
     hostname: docsOrigin,
   },
 
-  transformHead({ page }) {
+  // `title` is the rendered <title> (frontmatter title + template) and
+  // `description` is the frontmatter description, falling back to the site one.
+  transformHead({ page, title, description }) {
     const url = pageUrl(page)
 
     return [
       ['link', { rel: 'canonical', href: url }],
       ['meta', { property: 'og:url', content: url }],
+      ['meta', { property: 'og:title', content: title }],
+      ['meta', { property: 'og:description', content: description }],
+      ['meta', { name: 'twitter:title', content: title }],
+      ['meta', { name: 'twitter:description', content: description }],
     ]
   },
 
   lastUpdated: true,
   cleanUrls: true,
 
-  ignoreDeadLinks: true,
+  // Internal dead links fail the build. Only local dev-server URLs from the
+  // install/run instructions (localhost / 127.0.0.1) are exempt.
+  ignoreDeadLinks: [/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/],
 
   markdown: {
     lineNumbers: true,
