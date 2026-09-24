@@ -42,6 +42,7 @@ import {
   tooltipProps,
 } from "@/components/flow/chartChrome";
 import { clamp } from "@/lib/chartData";
+import { saveBlob } from "@/lib/download";
 import { inkForFill, mixHex, useChartTheme, type ChartTheme } from "@/lib/chartTheme";
 import type { BoxGroupStats, ChartArtifact, NodeResult } from "@/features/runs/types";
 
@@ -215,11 +216,7 @@ async function exportChartPng(
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) return;
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${title.replace(/[\\/:*?"<>|]+/g, "_") || "chart"}.png`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  saveBlob(blob, `${title.replace(/[\\/:*?"<>|]+/g, "_") || "chart"}.png`);
 }
 
 // ---------------------------------------------------------------------------
