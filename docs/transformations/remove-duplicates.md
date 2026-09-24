@@ -64,3 +64,4 @@ df_2 = df_1.drop_duplicates()
 ## See also
 
 - [Sort rows](./sort-rows.md) · [Group by + aggregate](./group-by-aggregate.md)
+- Recipe: [Remove Duplicate Rows](/recipes/remove-duplicate-rows)

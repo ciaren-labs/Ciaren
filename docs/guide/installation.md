@@ -6,7 +6,10 @@ search: install setup download run requirements frontend backend
 
 # Installation Guide
 
-Get Ciaren running on your machine in a few minutes. Ciaren has two parts:
+**For:** anyone setting up Ciaren locally. **You get:** a running app at
+`http://localhost:8055`, with the shortest route (PyPI) first.
+
+Ciaren has two parts:
 
 - a **backend** (FastAPI + the execution engine and scheduler), and
 - a **frontend** (the React visual editor).
@@ -16,11 +19,14 @@ You can run the backend on its own and drive it through the
 
 ## Requirements
 
-- **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
-- **Node.js 18+** — [Download Node.js](https://nodejs.org/en/download) (only for the frontend)
-- **Git** — [Download Git](https://git-scm.com/)
-- A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
-  are supported via an async driver.
+| Install method | You need |
+| --- | --- |
+| [PyPI package](#recommended-pypi-package) (recommended) | **Python 3.12+** — [Download Python](https://www.python.org/downloads/) |
+| [Docker](#alternative-docker) | **Docker** with Compose, and **Git** to clone the repository |
+| [From source](#run-from-source) | **Python 3.12+**, **Node.js 20+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
+
+A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
+are supported via an async driver.
 
 ## Recommended: PyPI Package
 
@@ -80,9 +86,8 @@ docker compose up --build
 
 Open `http://localhost:8055`.
 
-On first start, Ciaren creates its SQLite database automatically and seeds a
-**Demo project** with sample datasets and example flows. Open **Projects → Demo**
-to preview, run, and export working flows before uploading your own files.
+The first start creates the database and seeds the same **Demo project** as the
+PyPI install.
 
 :::tip Optional Docker extras
 The base Docker build keeps dependencies lean. To include optional connector or
@@ -401,18 +406,13 @@ Add the calling origin to `CIAREN_CORS_ORIGINS` (a JSON list) in `backend/.env`:
 CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
-## Next Steps
-
-- **[Quick Start Tutorial](/guide/quick-start)** — build your first flow
-- **[Interface Tour](/guide/interface)** — learn the UI
-- **[Transformation Reference](/transformations/overview)** — all available operations
-
 ## Need Help?
 
 - **[Troubleshooting Guide](/guide/troubleshooting)**
 - **[GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues)** — report bugs
 - **[GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — ask questions
 
----
+## Next Step
 
-Once it's running, head to [Quick Start](/guide/quick-start) to build your first data workflow! 🚀
+Once Ciaren is running, continue to the **[Quick Start](/guide/quick-start)**
+to build, run, and export your first flow.

@@ -9,7 +9,7 @@ search: recipe fill missing values nulls nan impute mean median mode constant fo
 Use the **Fill Nulls** node to replace missing values instead of dropping the
 rows. It works on both the polars and pandas engines.
 
-**You'll use:** File Input → Fill Nulls → File Output.
+**You'll use:** [File Input](/transformations/file-input) → [Fill Nulls](/transformations/fill-nulls) → [File Output](/transformations/file-output).
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"survey.csv"},

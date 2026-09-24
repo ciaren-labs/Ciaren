@@ -6,13 +6,13 @@ search: getting started introduction what is ciaren beginner technical overview
 
 # Getting Started with Ciaren
 
+**For:** anyone new to Ciaren. **You get:** the mental model in a few minutes,
+then a four-step path from installation to your first working flows.
+
 Ciaren is a visual workflow builder for local data engineering and lightweight
 machine-learning work. You build **flows** — Ciaren's word for a saved
 pipeline — on a canvas, preview real data at each step, run them locally, and
 export readable pandas, polars, or lazy polars Python.
-
-If you are new to the project, start here. This page gives you the mental model
-before you install anything.
 
 :::warning Alpha software
 Ciaren is in early development. APIs, generated code, workflow files, and plugin
@@ -79,14 +79,9 @@ the UI and still end with code.
 
 ## What You Need First
 
-For the fastest evaluation:
-
-- **Python 3.12+** for the PyPI package;
-- **Docker** if you prefer an isolated container;
-- **a browser** to open the visual editor;
-- **five minutes** to inspect the Demo project or build a small flow.
-
-You do not need your own dataset. Fresh installs seed a
+Python 3.12+ (or Docker) and a browser. The
+[Installation](/guide/installation) page lists the requirements for each
+install method. You do not need your own dataset: fresh installs seed a
 [Demo project](/guide/demo-project) with sample datasets and working flows.
 
 ## Choose Your Path
@@ -115,30 +110,20 @@ Ciaren is designed for local, single-machine workflows. It is not currently:
 It does include a lightweight scheduler for running individual flows on a cron
 schedule. See [Scheduling](/guide/scheduling).
 
-## Quick Preview
+## The Start Path
 
 ![Ciaren editor with data preview, node palette, canvas, and configuration panel](/screenshots/editor-data-preview.png)
 
-Here is the kind of pipeline you will build in the
-[Quick Start](/guide/quick-start):
+Read these in order. Each page ends with a link to the next one.
 
-<FlowPipeline :nodes='[
-  {"type":"input","label":"File Input","detail":"sales.csv"},
-  {"type":"clean","label":"Drop Nulls","detail":"remove rows missing amount"},
-  {"type":"clean","label":"Remove Duplicates","detail":"dedupe repeated orders"},
-  {"type":"transform","label":"Group By + Aggregate","detail":"sum amount by region"},
-  {"type":"output","label":"File Output","detail":"sales_summary.csv"}
-]' />
+1. **[Installation](/guide/installation)** — get Ciaren running at
+   `http://localhost:8055`.
+2. **[Quick Start](/guide/quick-start)** — build, run, and export your first
+   flow in about five minutes.
+3. **[Demo Project & Tutorials](/guide/demo-project)** — follow four
+   ready-made flows, from a linear cleanup to a three-input join.
+4. **Next steps** — learn the editor in the [Interface Tour](/guide/interface),
+   follow an end-to-end [example](/examples/sales-analysis), or browse the
+   [Transformations reference](/transformations/overview).
 
-## Next Step
-
-Install Ciaren and open the Demo project:
-
-```bash
-python -m pip install ciaren
-ciaren serve
-```
-
-Then open `http://localhost:8055`.
-
-[Continue to Installation →](/guide/installation)
+[Start with Installation →](/guide/installation)

@@ -1,0 +1,15 @@
+{
+  "order": [
+    "index",
+    "guide",
+    "transformations",
+    "plugins",
+    "specs",
+    "security",
+    "examples",
+    "recipes",
+    "api",
+    "faq",
+    "legal"
+  ]
+}

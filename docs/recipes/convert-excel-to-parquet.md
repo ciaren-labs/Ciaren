@@ -9,7 +9,7 @@ search: recipe convert excel xlsx to parquet columnar file format
 Parquet is a compact, columnar format that's much faster to read than Excel and
 keeps column types. Converting takes two nodes.
 
-**You'll use:** File Input → File Output.
+**You'll use:** [File Input](/transformations/file-input) → [File Output](/transformations/file-output).
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"data.xlsx"},
