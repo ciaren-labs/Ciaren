@@ -69,8 +69,8 @@ NodeSpec(
 )
 ```
 
-The field types and options are listed under
-[`ConfigFieldSpec`](/plugins/api-reference#configfieldspec-and-config_schema).
+The field types and options are listed in the `ConfigFieldSpec` section of the
+[Plugin API Reference](/plugins/api-reference).
 Without a schema, the editor falls back to fields inferred from
 `default_config`, so every plugin node stays configurable.
 
