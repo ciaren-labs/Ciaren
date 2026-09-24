@@ -70,6 +70,10 @@ class CodeExport(TypedDict, total=False):
     code: str
     polars: str
     polars_lazy: str
+    # Jupyter notebook JSON; None unless requested with include_notebooks.
+    notebook: str | None
+    notebook_polars: str | None
+    notebook_polars_lazy: str | None
     flow_document: FlowDocument
 
 
