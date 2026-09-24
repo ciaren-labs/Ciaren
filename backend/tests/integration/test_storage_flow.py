@@ -9,7 +9,7 @@ connections into the execution engine. Specifically it exercises:
 * the executor running the transform off the event loop
 * ``push_storage_outputs`` — upload the result back to S3
 
-It runs against MinIO (the same emulator as test_s3_connector) and self-skips
+It runs against the same S3 emulator as test_s3_connector and self-skips
 unless ``CIAREN_TEST_S3_ENDPOINT`` is set, under the ``connectors`` marker.
 """
 
@@ -54,7 +54,7 @@ def _s3_client():
 
 @pytest.fixture
 def bucket():
-    """A unique MinIO bucket, removed (with its objects) after the test."""
+    """A unique S3 bucket, removed (with its objects) after the test."""
     name = f"ciaren-flow-{uuid.uuid4().hex[:12]}"
     client = _s3_client()
     client.create_bucket(Bucket=name)
