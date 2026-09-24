@@ -69,8 +69,10 @@ class JoinTransformation(BaseTransformation):
         left_on, right_on = _as_list(config.get("left_on")), _as_list(config.get("right_on"))
         on = _as_list(config.get("on"))
         if how in ("semi", "anti"):
-            left_keys = left_on or on or []
-            right_keys = right_on or on or []
+            if left_on and right_on:
+                left_keys, right_keys = left_on, right_on
+            else:
+                left_keys = right_keys = on or []
             invert = "~" if how == "anti" else ""
             if len(left_keys) == 1:
                 left_key = f"{left}[{left_keys[0]!r}]"

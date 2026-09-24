@@ -494,6 +494,26 @@ def test_semi_anti_join_matches_across_engines(key_shape: str, how: str, expecte
     )
 
 
+@pytest.mark.parametrize("engine_name", ENGINES)
+@pytest.mark.parametrize(("how", "expected_rows"), [("semi", [1, 2]), ("anti", [0])])
+def test_semi_anti_join_ignores_incomplete_split_keys(engine_name: str, how: str, expected_rows: list[int]) -> None:
+    engine = get_engine(engine_name)
+    left = _make(
+        engine_name,
+        {
+            "id": [1, 2, 3],
+            "lid": [3, 1, 2],
+            "row_id": [0, 1, 2],
+        },
+    )
+    right = _make(engine_name, {"id": [2, 3]})
+
+    result = _pdf(engine, engine.join(left, right, ["id"], how, ["lid"], None))
+
+    assert result["row_id"].tolist() == expected_rows
+    assert list(result.columns) == ["id", "lid", "row_id"]
+
+
 @pytest.mark.parametrize(("how", "expected_rows"), [("semi", [1, 2]), ("anti", [0])])
 def test_pandas_single_key_semi_anti_matches_none_to_nan(how: str, expected_rows: list[int]) -> None:
     left = pd.DataFrame(

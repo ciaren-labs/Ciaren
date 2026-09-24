@@ -136,6 +136,8 @@ CODEGEN_CASES = [
     ("join_outer", "join", {"on": "id", "how": "outer"}),
     ("join_semi_on", "join", {"on": "id", "how": "semi"}),
     ("join_anti_on", "join", {"on": "id", "how": "anti"}),
+    ("join_semi_incomplete_split", "join", {"on": "id", "left_on": ["lid"], "how": "semi"}),
+    ("join_anti_incomplete_split", "join", {"on": "id", "left_on": ["lid"], "how": "anti"}),
     (
         "join_semi_split",
         "join",

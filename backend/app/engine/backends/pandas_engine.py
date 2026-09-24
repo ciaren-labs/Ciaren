@@ -242,8 +242,12 @@ class PandasEngine:
         if how in ("semi", "anti"):
             # pandas treats null join keys as equal; the Polars backend opts
             # into the same behavior so both engines share one contract.
-            left_keys = left_on or on
-            right_keys = right_on or on
+            left_keys: list[str] | None
+            right_keys: list[str] | None
+            if left_on and right_on:
+                left_keys, right_keys = left_on, right_on
+            else:
+                left_keys = right_keys = on
             if not left_keys or not right_keys:
                 raise ValueError("Semi/anti joins require join keys.")
             matches: Any

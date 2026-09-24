@@ -149,6 +149,20 @@ def _join_membership_right() -> pd.DataFrame:
     )
 
 
+def _join_incomplete_split_left() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "lid": [3, 1, 2],
+            "value": [10, 20, 30],
+        }
+    )
+
+
+def _join_incomplete_split_right() -> pd.DataFrame:
+    return pd.DataFrame({"id": [2, 3], "right_value": [40, 50]})
+
+
 def _grouped() -> pd.DataFrame:
     # Window/rolling/diff input: two partitions, scrambled tie-free order key,
     # and a null value so null propagation is exercised per engine.
@@ -275,6 +289,14 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "join_outer": {"left": _join_left, "right": _join_right},
     "join_semi_on": {"left": _join_membership_left, "right": _join_membership_right},
     "join_anti_on": {"left": _join_membership_left, "right": _join_membership_right},
+    "join_semi_incomplete_split": {
+        "left": _join_incomplete_split_left,
+        "right": _join_incomplete_split_right,
+    },
+    "join_anti_incomplete_split": {
+        "left": _join_incomplete_split_left,
+        "right": _join_incomplete_split_right,
+    },
     "join_semi_split": {"left": _join_membership_left, "right": _join_membership_right},
     "join_anti_split": {"left": _join_membership_left, "right": _join_membership_right},
     "sort_desc": {"in": _num},
