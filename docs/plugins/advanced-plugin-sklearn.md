@@ -342,7 +342,7 @@ ciaren-plugin index add ./mlp.ciarenplugin --index ./marketplace.json
 ```
 
 The example plugin does exactly this in
-[`build_mlp_classifier_ciarenplugin.py`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/build_mlp_classifier_ciarenplugin.py):
+[`build_mlp_classifier_ciarenplugin.py`](https://github.com/ciaren-labs/Ciaren/blob/main/examples/plugins/build_mlp_classifier_ciarenplugin.py):
 it regenerates the manifest, packs, signs with the demo key, and copies both the
 package and its index entry into the bundled catalog — which is why a fresh Ciaren
 install lists the MLP Classifier in Explore next to the Hello plugin, ready to install.

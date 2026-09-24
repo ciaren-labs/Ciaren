@@ -37,7 +37,7 @@ their own terms, and never through us.
 This site is a static site served by
 [GitHub Pages](https://pages.github.com/). GitHub may log standard request data
 (such as IP addresses) to operate the service; see the
-[GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement).
+[GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 We do not have access to those raw logs.
 
 ### Analytics (opt-in only)

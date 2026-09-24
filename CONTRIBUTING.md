@@ -171,7 +171,7 @@ Authoritative places to check:
 - I/O node kinds: `backend/app/engine/node_kinds.py`
 - API routes: `backend/app/api/routes/`
 - Frontend features: `frontend/src/features/`
-- System architecture: `docs/architecture/current-architecture-map.md`
+- Backend architecture: `backend/app/README.md`
 
 ### Backend (Python)
 
@@ -481,7 +481,7 @@ Nulls remain unchanged.
 ## ✍️ Improving Documentation
 
 Documentation lives in:
-- **[docs/architecture/current-architecture-map.md](docs/architecture/current-architecture-map.md)** — system design
+- **[backend/app/README.md](backend/app/README.md)** — backend architecture and layering rules
 - **[README.md](README.md)** — project overview and quick start
 - **[docs/](docs/)** — user guides, API reference, examples, and plugin docs
 - **Code comments** — explain the "why", not the "what"
