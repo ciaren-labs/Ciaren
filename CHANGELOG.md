@@ -18,6 +18,47 @@ breaking changes may still happen between `0.x` releases.
   every cell runs on its own. The notebook exporters are listed in
   `GET /api/catalog/exporters`, and the Python client's `export_flow_python`
   takes `include_notebooks`. Thanks to @tusharui.
+- **Run drift.** The run detail page shows a "Since last run" panel: per-node
+  row-count change and added or removed columns compared with the previous run
+  of the same flow, plus nodes added or removed when the graph changed (#142).
+  Thanks to @tusharui.
+- **CSV dialect detection for storage inputs.** CSV files read from a local
+  folder, S3, GCS, or Azure Blob connection now get the same delimiter,
+  encoding, and decimal detection as dataset uploads. The node panel shows the
+  detected values, and a delimiter, encoding, or decimal set in the node config
+  still wins (#200).
+- **Recently used nodes.** The node palette shows the last five node types you
+  placed when the search box is empty (#191).
+- **`lstrip` and `rstrip`** operations on the String transform node (#188).
+  Thanks to @rashmeetchhabra12.
+- **Validator example plugin** in `examples/plugins/validator-plugin/`, a
+  data-quality node between the Hello and MLP Classifier examples (#120).
+  Thanks to @tusharui.
+
+### Fixed
+
+- **`pivot` with `aggfunc="count"`** now counts non-null values on polars, so
+  the pandas and polars engines and their exported code agree when the values
+  column has nulls (#143). Thanks to @tusharui.
+- Transformation validation messages follow one documented format (#119).
+  Thanks to @tusharui.
+- An S3 error without a response object returned HTTP 500 instead of the
+  scrubbed connector error (#200).
+
+### Security
+
+- Patched vulnerable dependencies: aiohttp, anyio, cryptography, gitpython,
+  mlflow, pyasn1, and sqlparse in the backend lock file, and `npm audit fix`
+  for the frontend and docs (#189).
+
+### Documentation
+
+- Every docs page has a specific search description; README and client links
+  point at the live `/docs/latest/` URLs; the docs build now fails on dead
+  internal links (#193).
+- One start path from installation to the first flow, one sidebar home per
+  page, and clearer roles for the plugin tutorial, guide, and reference (#199).
+- Source installs need Node.js 20 or newer (vitest 4).
 
 ## [0.2.0] - 2026-07-20
 
