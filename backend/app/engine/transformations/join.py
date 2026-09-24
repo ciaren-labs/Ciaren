@@ -116,10 +116,20 @@ class JoinTransformation(BaseTransformation):
             # coalesce shared keys so 'full' joins keep a single key column (like pandas).
             coalesce = ", coalesce=True"
         if how in ("semi", "anti"):
-            return f"{dst} = {left}.join({right}, {keys}, how={how!r}, nulls_equal=True)"
+            return (
+                "_join_nulls_keyword = (\n"
+                "    'nulls_equal' if 'nulls_equal' in inspect.signature(pl.DataFrame.join).parameters\n"
+                "    else 'join_nulls'\n"
+                ")\n"
+                f"{dst} = {left}.join("
+                f"{right}, {keys}, how={how!r}, **{{_join_nulls_keyword: True}})"
+            )
         args = keys
         if how != "inner":  # polars' own default
             args += f", how={how!r}"
         if suffix != "_right":  # polars' own default; the node's is pandas' '_y'
             args += f", suffix={suffix!r}"
         return f"{dst} = {left}.join({right}, {args}{coalesce})"
+
+    def polars_imports(self, config: dict[str, Any]) -> list[str]:
+        return ["import inspect"] if config.get("how", "inner") in ("semi", "anti") else []

@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime as _dt
 from collections.abc import Callable
 from decimal import Decimal
+from inspect import signature
 from typing import Any, Literal, cast
 
 import pandas as pd
@@ -54,6 +55,10 @@ _JOIN_HOW = {
     "semi": "semi",
     "anti": "anti",
 }
+
+# Polars renamed ``join_nulls`` to ``nulls_equal`` in 1.24. Ciaren supports
+# Polars >=1.21, so select the installed version's spelling once at import.
+_JOIN_NULLS_KEYWORD = "nulls_equal" if "nulls_equal" in signature(pl.DataFrame.join).parameters else "join_nulls"
 
 _DTYPE_MAP = {
     "integer": pl.Int64,
@@ -316,29 +321,30 @@ class PolarsEngine:
         if how not in _JOIN_HOW:
             raise ValueError(f"Unsupported join how: {how!r}")
         how_arg = cast(Any, _JOIN_HOW[how])
-        # pandas matches null join keys; Polars requires an explicit opt-in.
-        nulls_equal = how in ("semi", "anti")
+        if how in ("semi", "anti"):
+            # pandas matches null join keys; Polars requires an explicit opt-in.
+            join = cast(Any, left.join)
+            nulls_kwargs = {_JOIN_NULLS_KEYWORD: True}
+            if left_on and right_on:
+                return cast(
+                    pl.DataFrame,
+                    join(
+                        right,
+                        left_on=left_on,
+                        right_on=right_on,
+                        how=how_arg,
+                        **nulls_kwargs,
+                    ),
+                )
+            return cast(pl.DataFrame, join(right, on=on, how=how_arg, **nulls_kwargs))
+
         # polars takes a single suffix for overlapping right-side columns.
         suffix = suffixes[1]
         if left_on and right_on:
-            return left.join(
-                right,
-                left_on=left_on,
-                right_on=right_on,
-                how=how_arg,
-                suffix=suffix,
-                nulls_equal=nulls_equal,
-            )
+            return left.join(right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix)
         # coalesce shared keys so a 'full'/'outer' join keeps a single key column,
         # matching pandas.merge(on=...). (Without it polars emits a duplicate 'key_y'.)
-        return left.join(
-            right,
-            on=on,
-            how=how_arg,
-            suffix=suffix,
-            coalesce=True,
-            nulls_equal=nulls_equal,
-        )
+        return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         # diagonal_relaxed unions columns (null-filling where a frame lacks one)

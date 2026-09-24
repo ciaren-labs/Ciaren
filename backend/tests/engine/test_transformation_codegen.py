@@ -384,3 +384,19 @@ def test_join_custom_suffixes_in_codegen() -> None:
     cfg = {"on": "id", "how": "outer", "suffixes": ["_l", "_r"]}
     assert "_l" in t.to_python_code(in_vars, out_vars, cfg)
     assert "_r" in t.to_polars_code(in_vars, out_vars, cfg)
+
+
+def test_polars_semi_join_codegen_dispatches_null_keyword_by_version() -> None:
+    t = get_transformation("join")
+    in_vars, out_vars = _vars("join")
+
+    semi = t.to_polars_code(in_vars, out_vars, {"on": "id", "how": "semi"})
+    inner = t.to_polars_code(in_vars, out_vars, {"on": "id", "how": "inner"})
+
+    assert "inspect.signature(pl.DataFrame.join)" in semi
+    assert "nulls_equal" in semi
+    assert "join_nulls" in semi
+    assert t.polars_imports({"on": "id", "how": "semi"}) == ["import inspect"]
+    assert "nulls_equal" not in inner
+    assert "join_nulls" not in inner
+    assert t.polars_imports({"on": "id", "how": "inner"}) == []
