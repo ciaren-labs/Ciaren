@@ -17,7 +17,7 @@ contributes a node makes it appear without a frontend rebuild.
 | --- | --- | --- |
 | `GET` | `/api/catalog/nodes` | Node specs (handles, default config, category, capabilities). Optional `?category=`. |
 | `GET` | `/api/catalog/connectors` | Connector specs with driver availability and connection-form metadata. |
-| `GET` | `/api/catalog/exporters` | Code/artifact exporters (python, eager-polars, lazy-polars) with capabilities. |
+| `GET` | `/api/catalog/exporters` | Code/artifact exporters (python, eager-polars, lazy-polars, and a Jupyter notebook of each) with capabilities. |
 | `GET` | `/api/catalog/categories` | Palette categories in display order. |
 
 Built-in ML nodes are included only when ML is enabled and ready (matching

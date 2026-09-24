@@ -121,6 +121,11 @@ flows = client.list_flows()
 flow = client.get_flow("flow-id")
 export = client.export_flow_python("flow-id")
 
+# Also get each variant as Jupyter notebook JSON (null unless requested)
+export = client.export_flow_python("flow-id", include_notebooks=True)
+with open("sales.ipynb", "w", encoding="utf-8") as f:
+    f.write(export["notebook"])  # or notebook_polars / notebook_polars_lazy
+
 # Copy a flow (graph, parameters, engine); schedules and run history stay
 # with the original
 copy = client.duplicate_flow("flow-id", name="Sales Pipeline (copy)")

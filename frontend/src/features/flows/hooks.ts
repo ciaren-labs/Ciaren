@@ -6,7 +6,14 @@ import {
 import { flowsApi } from "@/features/flows/api";
 import { queryKeys } from "@/lib/queryClient";
 import { toast } from "@/stores/toastStore";
-import type { FlowCreate, FlowImport, FlowPreviewRequest, FlowUpdate } from "@/features/flows/types";
+import type {
+  ExportCodeResponse,
+  ExportCodeVariant,
+  FlowCreate,
+  FlowImport,
+  FlowPreviewRequest,
+  FlowUpdate,
+} from "@/features/flows/types";
 
 export function useFlows(projectId?: string) {
   return useQuery({
@@ -121,6 +128,33 @@ export function useExportPython(id: string) {
   return useMutation({
     mutationFn: (freeIntermediates: boolean = false) =>
       flowsApi.exportPython(id, freeIntermediates),
+    // The export dialog renders failures inline.
+    meta: { suppressErrorToast: true },
+  });
+}
+
+const NOTEBOOK_FIELDS = {
+  pandas: "notebook",
+  polars: "notebook_polars",
+  polars_lazy: "notebook_polars_lazy",
+} as const satisfies Record<ExportCodeVariant, keyof ExportCodeResponse>;
+
+/** Export one engine variant of the flow as Jupyter notebook JSON, on demand:
+ *  the plain export leaves the notebooks out to keep its payload small. */
+export function useExportNotebook(id: string) {
+  return useMutation({
+    mutationFn: async ({
+      variant,
+      freeIntermediates,
+    }: {
+      variant: ExportCodeVariant;
+      freeIntermediates: boolean;
+    }) => {
+      const data = await flowsApi.exportPython(id, freeIntermediates, true);
+      const notebook = data[NOTEBOOK_FIELDS[variant]];
+      if (!notebook) throw new Error("This server does not support notebook export.");
+      return { notebook, fileName: `${data.flow_document?.name || "flow"}.ipynb` };
+    },
     // The export dialog renders failures inline.
     meta: { suppressErrorToast: true },
   });

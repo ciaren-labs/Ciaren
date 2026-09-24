@@ -5,6 +5,7 @@ Python code export endpoint tests.
 """
 
 import io
+import json
 from typing import Any
 
 import pandas as pd
@@ -123,6 +124,27 @@ async def test_export_python_happy_path(client: AsyncClient) -> None:
     assert "pl.scan_csv('people.csv')" in polars_lazy
     assert ".collect().write_csv(" in polars_lazy
     compile(polars_lazy, "<exported-polars-lazy>", "exec")
+
+
+async def test_export_notebooks_are_opt_in(client: AsyncClient) -> None:
+    ds = await _upload(client)
+    flow = await _create_flow(client, _full_graph(ds["id"]))
+    notebook_fields = {"notebook": "code", "notebook_polars": "polars", "notebook_polars_lazy": "polars_lazy"}
+
+    default = (await client.post(f"/api/flows/{flow['id']}/export/python")).json()
+    assert {field: default[field] for field in notebook_fields} == dict.fromkeys(notebook_fields)
+
+    r = await client.post(f"/api/flows/{flow['id']}/export/python?include_notebooks=true")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    for field, script_field in notebook_fields.items():
+        nb = json.loads(body[field])
+        assert nb["nbformat"] == 4
+        assert nb["cells"][0] == {"cell_type": "markdown", "id": "cell-0", "metadata": {}, "source": ["# f"]}
+        # Each notebook carries the script of its own engine variant.
+        cells = "\n".join("".join(c["source"]) for c in nb["cells"][1:])
+        script = body[script_field]
+        assert [ln for ln in cells.splitlines() if ln.strip()] == [ln for ln in script.splitlines() if ln.strip()]
 
 
 async def test_export_free_intermediates_adds_del(client: AsyncClient) -> None:

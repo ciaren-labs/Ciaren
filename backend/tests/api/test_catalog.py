@@ -58,13 +58,14 @@ async def test_catalog_exporters(client):
     resp = await client.get("/api/catalog/exporters")
     assert resp.status_code == 200
     by_id = {e["id"]: e for e in resp.json()}
-    # The three built-in code generators are exposed.
+    # The built-in code generators (scripts and notebooks) are exposed.
     assert "python" in by_id
     assert by_id["python"]["format"] == "python"
     assert by_id["python"]["file_extension"] == ".py"
     assert "polars" in by_id
     assert "polars-lazy" in by_id
     assert "exporter.python" in by_id["python"]["capabilities"]
+    assert {by_id[i]["file_extension"] for i in ("notebook", "notebook-polars", "notebook-polars-lazy")} == {".ipynb"}
 
 
 async def test_catalog_categories_ordered(client):

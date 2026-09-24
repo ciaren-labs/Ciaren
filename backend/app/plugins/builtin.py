@@ -266,6 +266,30 @@ class BuiltinExporterProvider(ExporterProvider):
                 capabilities=("exporter.polars_lazy",),
                 provider=CORE_PROVIDER,
             ),
+            ExporterSpec(
+                id="notebook",
+                label="Jupyter Notebook (pandas)",
+                format="notebook",
+                file_extension=".ipynb",
+                capabilities=("exporter.notebook",),
+                provider=CORE_PROVIDER,
+            ),
+            ExporterSpec(
+                id="notebook-polars",
+                label="Jupyter Notebook (polars)",
+                format="notebook",
+                file_extension=".ipynb",
+                capabilities=("exporter.notebook_polars",),
+                provider=CORE_PROVIDER,
+            ),
+            ExporterSpec(
+                id="notebook-polars-lazy",
+                label="Jupyter Notebook (polars, lazy)",
+                format="notebook",
+                file_extension=".ipynb",
+                capabilities=("exporter.notebook_polars_lazy",),
+                provider=CORE_PROVIDER,
+            ),
         ]
 
 

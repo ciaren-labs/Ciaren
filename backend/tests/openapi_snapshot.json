@@ -1315,6 +1315,12 @@
           "name": "free_intermediates",
           "required": false,
           "type": "boolean"
+        },
+        {
+          "in": "query",
+          "name": "include_notebooks",
+          "required": false,
+          "type": "boolean"
         }
       ],
       "request": null,
@@ -1818,6 +1824,9 @@
       "properties": {
         "code": "string",
         "flow_document": "#FlowDocument",
+        "notebook": "anyOf(null|string)",
+        "notebook_polars": "anyOf(null|string)",
+        "notebook_polars_lazy": "anyOf(null|string)",
         "polars": "string",
         "polars_lazy": "string"
       },
