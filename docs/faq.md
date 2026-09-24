@@ -84,7 +84,7 @@ before using Ciaren with important data.
 ### What are the system requirements?
 
 - Python 3.12+ (backend)
-- Node.js 18+ — only if you run the frontend from source; the PyPI install
+- Node.js 20+ — only if you run the frontend from source; the PyPI install
   bundles the visual editor
 - SQLite (default, no setup) — or PostgreSQL / MySQL via an async driver
 - ~500MB free disk space

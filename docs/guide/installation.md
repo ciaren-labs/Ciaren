@@ -23,7 +23,7 @@ You can run the backend on its own and drive it through the
 | --- | --- |
 | [PyPI package](#recommended-pypi-package) (recommended) | **Python 3.12+** — [Download Python](https://www.python.org/downloads/) |
 | [Docker](#alternative-docker) | **Docker** with Compose, and **Git** to clone the repository |
-| [From source](#run-from-source) | **Python 3.12+**, **Node.js 18+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
+| [From source](#run-from-source) | **Python 3.12+**, **Node.js 20+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
 
 A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
 are supported via an async driver.
