@@ -1,7 +1,7 @@
 name: Connectors Integration
 
 # Exercises the real I/O paths of the data-source connectors against ephemeral
-# containers (MinIO for S3, MongoDB, Azurite for Azure Blob, fake-gcs-server for
+# containers (moto server for S3, MongoDB, Azurite for Azure Blob, fake-gcs-server for
 # GCS). The default Backend Tests suite stays infra-free; these tests self-skip
 # there and run only here, where the service endpoints are provided via env vars.
 # Linux-only — the goal is to cover the connector code paths, not the OS matrix.
@@ -38,44 +38,39 @@ concurrency:
 
 jobs:
   s3:
-    name: S3 connector (MinIO)
+    name: S3 connector (moto server)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     env:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
       # Consumed by tests/integration/test_s3_connector.py (it self-skips without these).
+      # moto accepts any credentials.
       CIAREN_TEST_S3_ENDPOINT: http://127.0.0.1:9000
-      CIAREN_TEST_S3_ACCESS_KEY: minioadmin
-      CIAREN_TEST_S3_SECRET_KEY: minioadmin
+      CIAREN_TEST_S3_ACCESS_KEY: testing
+      CIAREN_TEST_S3_SECRET_KEY: testing
       CIAREN_TEST_S3_REGION: us-east-1
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # MinIO needs the `server /data` argument, which GitHub `services:` cannot
-      # supply (service containers run the image's default entrypoint only), so
-      # start it as a plain container instead.
-      - name: Start MinIO
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER="$MINIO_ROOT_USER" \
-            -e MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
-            minio/minio:latest server /data
+      # The minio/minio image is no longer published on Docker Hub (pulls are
+      # denied), so the S3 suite runs against moto's S3-compatible server.
+      # Pinned to a release tag so an upstream change cannot break CI silently.
+      - name: Start moto S3 server
+        run: docker run -d --name moto -p 9000:5000 motoserver/moto:5.2.3
 
-      - name: Wait for MinIO to be ready
+      - name: Wait for moto to be ready
         run: |
           for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:9000/minio/health/ready; then
-              echo "MinIO ready"
+            if curl -sf http://127.0.0.1:9000/moto-api/data.json > /dev/null; then
+              echo "moto ready"
               exit 0
             fi
             sleep 1
           done
-          echo "MinIO did not become ready in time"
-          docker logs minio || true
+          echo "moto did not become ready in time"
+          docker logs moto || true
           exit 1
 
       - name: Set up Python 3.12
@@ -84,7 +79,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         working-directory: backend
@@ -108,9 +103,9 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Stop MinIO
+      - name: Stop moto
         if: always()
-        run: docker rm -f minio || true
+        run: docker rm -f moto || true
 
   mongo:
     name: Mongo connector (MongoDB)
@@ -118,7 +113,7 @@ jobs:
     timeout-minutes: 15
 
     # The official mongo image runs mongod under its default entrypoint, so it
-    # works as a service container (no command override needed, unlike MinIO).
+    # works as a service container (no extra start and readiness steps needed).
     services:
       mongo:
         image: mongo:7
@@ -140,7 +135,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         working-directory: backend
@@ -222,7 +217,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         working-directory: backend
@@ -287,7 +282,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Install dependencies
         working-directory: backend
