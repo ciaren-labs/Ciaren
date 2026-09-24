@@ -231,8 +231,13 @@ class AsyncCiaren:
     async def preview_flow(self, flow_id: str, **payload: Any) -> Any:
         return await self.post(f"/api/flows/{flow_id}/preview", json=payload)
 
-    async def export_flow_python(self, flow_id: str, *, free_intermediates: bool = True) -> CodeExport:
-        return await self.post(f"/api/flows/{flow_id}/export/python", params={"free_intermediates": free_intermediates})
+    async def export_flow_python(
+        self, flow_id: str, *, free_intermediates: bool = True, include_notebooks: bool = False
+    ) -> CodeExport:
+        """Export the flow as code. ``include_notebooks`` also fills the
+        ``notebook*`` fields with Jupyter notebook (``.ipynb``) JSON."""
+        params = {"free_intermediates": free_intermediates, "include_notebooks": include_notebooks}
+        return await self.post(f"/api/flows/{flow_id}/export/python", params=params)
 
     async def migrate_flow_document(self, document: JsonDict) -> FlowMigrationResult:
         """Migrate/validate a raw .flow document to the current schema version

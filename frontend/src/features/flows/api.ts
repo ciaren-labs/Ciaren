@@ -45,11 +45,12 @@ export const flowsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  exportPython: (id: string, freeIntermediates = false) =>
+  exportPython: (id: string, freeIntermediates = false, includeNotebooks = false) =>
     request<ExportCodeResponse>(
-      `/flows/${id}/export/python${
-        freeIntermediates ? "?free_intermediates=true" : ""
-      }`,
+      `/flows/${id}/export/python${queryString({
+        free_intermediates: freeIntermediates ? "true" : undefined,
+        include_notebooks: includeNotebooks ? "true" : undefined,
+      })}`,
       {
         method: "POST",
         body: JSON.stringify({}),
