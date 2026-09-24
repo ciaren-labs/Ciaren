@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="brand-assets/wordmark-light-800.png" alt="Ciaren" width="320">
+  <img src="brand-assets/wordmark-light-800.png" alt="Ciaren — open-source visual ETL and data pipeline builder" width="320">
 </p>
 
-<p align="center">
-  <strong>Export the pandas/Polars code you'd write by hand — no lock-in.</strong>
-</p>
+<h3 align="center">
+  Open-source visual ETL and data pipeline builder that exports the pandas and Polars code you'd write by hand.
+</h3>
 
 <p align="center">
   Build data and ML pipelines on a canvas, preview every step, then export
@@ -18,6 +18,7 @@
   · <a href="https://ciaren.com/docs/plugins/overview">Plugins</a>
   · <a href="https://github.com/ciaren-labs/Ciaren/discussions">Discussions</a>
   · <a href="CONTRIBUTING.md">Contributing</a>
+  · <a href="https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a>
 </p>
 
 <p align="center">
@@ -29,6 +30,7 @@
   <a href="backend/app/plugin_api/"><img alt="Plugin API: Apache-2.0" src="https://img.shields.io/badge/Plugin%20API-Apache--2.0-green.svg"></a>
   <img alt="Python 3.12+" src="https://img.shields.io/badge/Python-3.12%2B-blue">
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
+  <a href="https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good first issues" src="https://img.shields.io/github/issues/ciaren-labs/Ciaren/good%20first%20issue?label=good%20first%20issues&color=7c3aed"></a>
   <a href="https://github.com/ciaren-labs/Ciaren/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ciaren-labs/Ciaren?style=social"></a>
 </p>
 
@@ -40,9 +42,11 @@
 
 ## What Is Ciaren?
 
-Ciaren is an open-core, plugin-first platform that exports the pandas or Polars
-code you'd write by hand for data engineering and lightweight machine-learning
-workflows — no proprietary runtime, no lock-in.
+Ciaren is an open-source, local-first **visual ETL tool** and **low-code data
+pipeline builder** for Python. You drag and drop nodes to load, clean, join,
+validate, and transform data, train lightweight machine-learning models, and
+schedule runs. Then you export the pandas or Polars code you'd write by hand —
+no proprietary runtime, no lock-in.
 
 The canvas is there for speed: build on it, preview every step, then keep the
 same clean, ordinary Python whether you run it inside Ciaren or take it
@@ -154,6 +158,9 @@ and Swagger docs stay on `http://localhost:8055`.
 
 ## Exported Code Is the Escape Hatch
 
+Every flow exports to a standalone Python script — pandas, eager Polars, or
+lazy Polars — so the visual pipeline never traps your logic.
+
 A simple read -> clean -> aggregate -> write flow can export to code like this:
 
 ```python
@@ -168,6 +175,16 @@ df_1.write_csv("summary.csv")
 The same flow can also export pandas or lazy Polars variants where supported,
 and each variant can be downloaded as a Jupyter notebook (`.ipynb`). That makes Ciaren useful for prototyping, teaching, code review, and migration
 from visual exploration into normal Python projects.
+
+## How It Compares
+
+| If you use… | Ciaren gives you… |
+| --- | --- |
+| **Jupyter notebooks or pandas scripts** | The same dataframe code, but built as a repeatable, previewable, schedulable flow. |
+| **Visual ETL / data-prep tools** (for example KNIME, Alteryx, Orange) | A drag-and-drop canvas whose output is plain pandas or Polars Python, not a proprietary workflow format. |
+| **Airflow, dbt, or Spark** | A lightweight, single-machine option for small and medium datasets — no cluster or warehouse to set up. Ciaren does not replace these tools at scale. |
+
+Read the full [comparison with notebooks, orchestrators, and visual ETL tools](https://ciaren.com/docs/guide/comparison).
 
 ## Built for Extension
 
@@ -260,7 +277,10 @@ internal APIs, proprietary storage systems, and organization-specific model
 logic should normally be built as plugins. If the SDK blocks that work, open an
 SDK-focused issue or discussion.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas can go to
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), then pick a
+[good first issue](https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+or a [help wanted](https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+issue — each one lists the files to touch and the acceptance criteria. Questions and ideas can go to
 [GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions), and
 reproducible bugs or focused feature requests can go to
 [GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues).

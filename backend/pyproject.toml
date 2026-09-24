@@ -1,7 +1,7 @@
 [project]
 name = "ciaren"
 version = "0.3.0.dev0"
-description = "Local-first visual builder for data and ML workflows that exports clean pandas/polars Python"
+description = "Open-source, local-first visual ETL and data pipeline builder that exports clean pandas and Polars Python code"
 dynamic = ["readme"]
 keywords = [
     "etl",
@@ -14,18 +14,34 @@ keywords = [
     "machine-learning",
     "code-generation",
     "local-first",
+    "low-code",
+    "no-code",
+    "dataframe",
+    "data-science",
+    "data-preparation",
+    "data-transformation",
+    "workflow-automation",
+    "self-hosted",
 ]
 requires-python = ">=3.12"
 authors = [{ name = "Rodrigo Arenas", email = "31422766+rodrigo-arenas@users.noreply.github.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
     "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 license = { text = "AGPL-3.0-only" }
@@ -111,6 +127,8 @@ Homepage = "https://ciaren.com"
 Repository = "https://github.com/ciaren-labs/Ciaren"
 Documentation = "https://ciaren.com/docs"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"
+Changelog = "https://github.com/ciaren-labs/Ciaren/blob/main/CHANGELOG.md"
+Discussions = "https://github.com/ciaren-labs/Ciaren/discussions"
 Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 
 [dependency-groups]
