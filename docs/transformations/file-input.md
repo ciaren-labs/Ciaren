@@ -49,6 +49,30 @@ The config form only offers datasets compatible with the selected format. Changi
 the file type clears the selected dataset so you cannot accidentally run a CSV
 dataset as Parquet, for example.
 
+## CSV dialect (delimiter, encoding, decimal mark)
+
+You don't need to set the dialect of an uploaded CSV or TSV before previewing it.
+When you upload the file, Ciaren detects the delimiter (`,` `;` tab `|`), the
+encoding (UTF-8, UTF-8 with BOM, UTF-16, or Windows-1252), and a decimal comma
+(`1,50`). It then stores a normalized copy (UTF-8, comma-separated). This node
+reads that copy, so previews and runs on both engines see correctly split
+columns.
+
+- **Override:** if detection guesses wrong, expand **Import options** on the
+  Datasets page and choose the separator, encoding, or decimal mark before you
+  upload. An explicit choice always wins over detection, and re-uploading adds a
+  new version.
+- **Fallback:** when the sample has no evidence (an empty file, a single
+  column), Ciaren uses the defaults: comma, UTF-8, and `.` as the decimal mark.
+- **Exported code:** the script reads your original file, so it includes the
+  detected or chosen dialect, such as `pd.read_csv('ventas.csv', sep=';',
+  encoding='cp1252', decimal=',')`. For polars, the script decodes the file to
+  UTF-8 first.
+
+For CSV files that you read directly from S3, GCS, Azure Blob, or a local folder,
+use [Storage input](./storage-input.md#csv-dialect-detection). It detects the
+dialect when you pick the file and has its own override fields.
+
 ## Generated Python code
 
 ```python
