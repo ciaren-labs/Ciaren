@@ -232,19 +232,54 @@ def test_cloud_read_sample_requests_only_the_bounded_range(monkeypatch, module, 
     assert store.ranges == [(0, 9)]
 
 
-def test_s3_read_sample_of_an_empty_object_is_empty(monkeypatch):
-    """S3 answers any range on an empty object with 416 InvalidRange."""
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        # S3 answers any range on an empty object with 416 InvalidRange.
+        ({"Error": {"Code": "InvalidRange"}}, b""),
+        # Any other failure — including one without a usable ``response`` — is a
+        # scrubbed ConnectorError, never an AttributeError/500.
+        ({"Error": {"Code": "AccessDenied"}}, ConnectorError),
+        (None, ConnectorError),
+        ("absent", ConnectorError),
+    ],
+    ids=["invalid-range", "access-denied", "response-none", "no-response"],
+)
+def test_s3_read_sample_errors(monkeypatch, response, expected):
     from app.connectors import s3
 
-    class _InvalidRange(Exception):
-        response = {"Error": {"Code": "InvalidRange"}}
+    class _S3Error(Exception):
+        pass
+
+    exc = _S3Error("s3 failure with secret-value")
+    if response != "absent":
+        exc.response = response  # type: ignore[attr-defined]
 
     class _Client:
         def get_object(self, **_kwargs):
-            raise _InvalidRange("The requested range is not satisfiable")
+            raise exc
 
     monkeypatch.setattr(s3, "_client", lambda _spec: _Client())
-    assert s3.S3Connector().read_sample(StorageSpec(provider="s3", bucket="b"), "empty.csv", 10) == b""
+    spec = StorageSpec(provider="s3", bucket="b", secret="secret-value")
+    if expected is ConnectorError:
+        with pytest.raises(ConnectorError) as info:
+            s3.S3Connector().read_sample(spec, "x.csv", 10)
+        assert "secret-value" not in str(info.value)
+    else:
+        assert s3.S3Connector().read_sample(spec, "x.csv", 10) == expected
+
+
+def test_storage_connector_protocol_declares_every_connector_method():
+    """Every built-in storage connector satisfies the full protocol, writes included."""
+    from app.connectors.azure_blob import AzureBlobConnector
+    from app.connectors.gcs import GCSConnector
+    from app.connectors.s3 import S3Connector
+    from app.connectors.storage_base import StorageConnector
+
+    for method in ("test_connection", "list_objects", "read_file", "read_sample", "write_file"):
+        assert callable(getattr(StorageConnector, method, None)), method
+    for cls in (LocalStorageConnector, S3Connector, GCSConnector, AzureBlobConnector):
+        assert isinstance(cls(), StorageConnector), cls.__name__
 
 
 def test_local_read_sample_is_bounded_and_confined(tmp_path):

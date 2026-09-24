@@ -99,7 +99,9 @@ class S3Connector:
             )
         except Exception as exc:
             # S3 answers a range on an empty object with 416 InvalidRange.
-            if getattr(exc, "response", {}).get("Error", {}).get("Code") == "InvalidRange":
+            # ``response`` is a dict on botocore ClientError but may be absent or None elsewhere.
+            error = (getattr(exc, "response", None) or {}).get("Error") or {}
+            if error.get("Code") == "InvalidRange":
                 return b""
             raise _guard(exc, spec.secret) from None
 

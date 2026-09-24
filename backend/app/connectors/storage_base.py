@@ -116,6 +116,7 @@ class StorageConnector(Protocol):
         self, spec: StorageSpec, path: str, fmt: str, parse_options: dict[str, Any] | None = None
     ) -> pd.DataFrame: ...
     def read_sample(self, spec: StorageSpec, path: str, max_bytes: int) -> bytes: ...
+    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None: ...
 
 
 def sniff_object_dialect(connector: StorageConnector, spec: StorageSpec, path: str, fmt: str) -> dict[str, str]:
@@ -123,5 +124,3 @@ def sniff_object_dialect(connector: StorageConnector, spec: StorageSpec, path: s
     sample (never the whole object). The single detection path for both the
     editor's "Detected" hint and ``storageInput`` reads, so they cannot disagree."""
     return sniff_csv_dialect(connector.read_sample(spec, path, SNIFF_SAMPLE_BYTES), fmt)
-
-    def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None: ...
