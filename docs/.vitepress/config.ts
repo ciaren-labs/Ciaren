@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitepress'
 
 const gaMeasurementId = process.env.VITEPRESS_GA_ID
-const docsOrigin = 'https://ciaren.com/docs'
+// Published docs root: ciaren.com serves the current docs under /docs/latest/.
+const docsOrigin = 'https://ciaren.com/docs/latest'
 const socialImage = `${docsOrigin}/og-image.png`
 
 // Set by CI to build a pinned version snapshot at /v/<tag>/ instead of the
@@ -123,7 +124,9 @@ export default defineConfig({
   ],
 
   sitemap: {
-    hostname: docsOrigin,
+    // Trailing slash: page paths resolve relative to the hostname URL, so
+    // without it the /latest segment would be dropped.
+    hostname: `${docsOrigin}/`,
   },
 
   // `title` is the rendered <title> (frontmatter title + template) and

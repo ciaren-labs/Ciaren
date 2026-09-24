@@ -48,4 +48,4 @@ Use `webhook_secret` only for `trigger()`, which calls the webhook endpoint.
 
 License: Apache-2.0.
 
-See the [SDK documentation](https://ciaren.com/docs/guide/sdk).
+See the [SDK documentation](https://ciaren.com/docs/latest/guide/sdk).
