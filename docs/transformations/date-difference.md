@@ -1,7 +1,7 @@
 ---
 title: Date difference
 search: date difference days hours between two dates duration elapsed
-description: Difference between two date columns in a chosen unit
+description: The Date difference node (dateDifference) computes the time between two date columns, in days, hours, or another unit, as a new numeric column.
 ---
 
 # Date difference — `dateDifference`

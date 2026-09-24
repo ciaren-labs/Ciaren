@@ -1,7 +1,7 @@
 ---
 title: Unpivot
 search: unpivot melt wide long reshape id_vars value_vars var_name value_name
-description: Reshape wide to long with pandas melt
+description: The Unpivot node reshapes a dataframe from wide to long like pandas melt, collapsing several columns into name and value columns. With pandas code.
 ---
 
 # Unpivot — `unpivot`

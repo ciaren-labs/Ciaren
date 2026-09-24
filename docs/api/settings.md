@@ -1,6 +1,6 @@
 ---
 title: Settings API
-description: Read and override the runtime-editable server settings
+description: "Settings REST API reference for Ciaren: read, override, and reset the allowlisted runtime settings behind the Settings page, stored in the database."
 search: api settings runtime configuration override reset env default engine timeout upload retention scheduler webhook
 ---
 

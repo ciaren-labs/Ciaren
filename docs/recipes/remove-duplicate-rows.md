@@ -1,6 +1,6 @@
 ---
 title: Remove Duplicate Rows
-description: Drop exact duplicate rows, or de-duplicate by a key column keeping the first or last occurrence.
+description: "Remove duplicate rows in Ciaren with the Remove Duplicates node: drop exact duplicates or de-duplicate by a key column, keeping the first or last."
 search: recipe remove duplicates deduplicate distinct unique rows keep first last
 ---
 

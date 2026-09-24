@@ -114,6 +114,8 @@ CODEGEN_CASES = [
     ("replace_literal", "replaceValues", {"column": "a", "to_replace": "x", "value": "y"}),
     ("replace_regex", "replaceValues", {"column": "a", "to_replace": "x+", "value": "y", "regex": True}),
     ("str_upper", "stringTransform", {"column": "a", "operation": "upper"}),
+    ("str_lstrip", "stringTransform", {"column": "a", "operation": "lstrip"}),
+    ("str_rstrip", "stringTransform", {"column": "a", "operation": "rstrip"}),
     ("str_replace", "stringTransform", {"column": "a", "operation": "replace", "find": "x", "replace_with": "y"}),
     (
         "str_pad_right",

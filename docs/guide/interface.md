@@ -1,6 +1,6 @@
 ---
 title: Interface Tour
-description: A tour of the Ciaren visual editor
+description: "A tour of the Ciaren visual editor: the Projects, Datasets, Flows, and Runs pages, plus the canvas, 80-node palette, config panel, live preview, and export."
 search: interface ui tour navigation editor canvas
 ---
 

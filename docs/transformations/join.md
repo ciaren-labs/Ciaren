@@ -1,7 +1,7 @@
 ---
 title: Join
 search: join merge left right inner outer on left_on right_on suffixes key
-description: Combine two inputs on a key with inner/left/right/outer semantics
+description: The Join node combines two dataframes on a key with inner, left, right, or outer semantics, like a SQL join or pandas merge. Config and pandas code.
 ---
 
 # Join — `join`

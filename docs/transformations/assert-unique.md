@@ -1,6 +1,6 @@
 ---
 title: Assert unique
-description: Fail or warn when a column combination contains duplicate rows
+description: The Assert unique data quality node (assertUnique) fails the run or warns when a column combination has duplicate rows, like a non-unique key.
 search: assert unique data quality duplicate rows primary key contract check
 ---
 

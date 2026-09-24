@@ -1,7 +1,7 @@
 ---
 title: Coalesce columns
 search: coalesce first non null fallback combine consolidate columns
-description: Take the first non-null value across several columns
+description: The Coalesce columns node (coalesceColumns) takes the first non-null value across several columns into a new column, a fallback chain for fields.
 ---
 
 # Coalesce columns — `coalesceColumns`

@@ -1,7 +1,7 @@
 ---
 title: Extract date parts
 search: extract date parts year month day weekday hour datetime components
-description: Add columns for parts of a date/datetime column
+description: The Extract date parts node (extractDateParts) adds year, month, day, weekday, or hour columns from a date or datetime column. With pandas code.
 ---
 
 # Extract date parts — `extractDateParts`

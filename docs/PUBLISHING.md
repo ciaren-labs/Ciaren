@@ -1,7 +1,7 @@
 # Publishing to ciaren.com
 
 These docs live here, but they are **also** published at
-[ciaren.com/docs](https://ciaren.com/docs). This page is the contract between
+[ciaren.com/docs](https://ciaren.com/docs/latest). This page is the contract between
 what you write here and what readers see there — follow it and your page
 publishes cleanly; step outside it and the sync fails loudly (which is better
 than shipping broken output).

@@ -1,7 +1,7 @@
 ---
 title: Window function
 search: window function row_number rank dense_rank cumsum cumcount cummax cummin lag lead partition order analytics
-description: Compute a window/analytics value into a new column, scoped to a partition and order
+description: The Window function node (windowFunction) adds row_number, rank, cumulative sum, lag, or lead values scoped to a partition and order.
 ---
 
 # Window function — `windowFunction`

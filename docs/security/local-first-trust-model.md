@@ -1,6 +1,6 @@
 ---
 title: Local-First Trust Model
-description: What Ciaren trusts, what it does not, and where the boundaries are
+description: "Ciaren's local-first security model: what the app trusts, what is not a hard boundary, where boundaries are enforced, and notes for shared use."
 search: security trust model local-first sandbox permissions secrets
 ---
 

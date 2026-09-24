@@ -1,7 +1,7 @@
 ---
 title: Map values
 search: map values lookup recode case when default mapping
-description: Recode column values via a lookup, with an optional default
+description: The Map values node (mapValues) recodes column values through a lookup table, CASE WHEN style, with an optional default for unmapped values.
 ---
 
 # Map values — `mapValues`

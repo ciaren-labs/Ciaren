@@ -1,6 +1,6 @@
 ---
 title: Assert row count
-description: Fail or warn when the number of rows falls outside declared bounds
+description: The Assert row count data quality node (assertRowCount) fails or warns when the number of rows falls outside declared bounds, catching empty data.
 search: assert row count min max rows data quality contract check size
 ---
 

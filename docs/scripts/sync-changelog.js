@@ -17,7 +17,7 @@ const TARGET = path.join(__dirname, '../guide/changelog.md');
 
 const FRONTMATTER = `---
 title: Changelog
-description: Notable changes to Ciaren, release by release
+description: Release notes for Ciaren, the visual ETL and ML workflow builder. Notable additions, changes, and fixes in each release, mirrored from CHANGELOG.md.
 search: changelog release notes history version
 ---
 

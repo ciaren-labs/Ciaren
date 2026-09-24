@@ -1,6 +1,6 @@
 ---
 title: Projects API
-description: Manage workspaces that group datasets and flows
+description: "Projects REST API reference for Ciaren: list, create, read, update, and delete the workspaces that group datasets and flows, including the Default project."
 search: api projects workspace crud default
 ---
 

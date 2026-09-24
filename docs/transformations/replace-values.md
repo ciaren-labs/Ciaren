@@ -1,7 +1,7 @@
 ---
 title: Replace values
 search: replace values substitute regex find to_replace value
-description: Substitute values in a column, literally or by regex
+description: The Replace values node (replaceValues) substitutes values in a column by exact match or regex to standardize codes. Config, example, and pandas code.
 ---
 
 # Replace values — `replaceValues`

@@ -1,6 +1,6 @@
 ---
 title: Python transform
-description: Run arbitrary Python code on a dataframe inside a flow node
+description: "The Python transform node (pythonTransform) runs your own Python code on a dataframe in a Ciaren flow: pre-injected names, syntax checks, and security."
 search: python transform script custom code exec pandas polars escape hatch
 ---
 

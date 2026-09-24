@@ -1,6 +1,6 @@
 ---
 title: Packaging & Distribution
-description: Build, sign, verify, install, and distribute Ciaren plugins
+description: "Package Ciaren plugins as .ciarenplugin files: build, sign with Ed25519, verify, install, and distribute them through a marketplace index."
 search: plugin package ciarenplugin sign signature verify install marketplace license
 ---
 

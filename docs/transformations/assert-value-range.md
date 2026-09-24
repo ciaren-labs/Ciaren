@@ -1,6 +1,6 @@
 ---
 title: Assert value range
-description: Fail or warn when a numeric column has values outside a declared range
+description: The Assert value range data quality node (assertValueRange) fails or warns when a numeric column has values outside a declared range.
 search: assert value range min max bounds data quality numeric validation contract
 ---
 

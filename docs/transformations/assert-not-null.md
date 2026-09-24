@@ -1,6 +1,6 @@
 ---
 title: Assert not null
-description: Fail or warn when a column contains null values
+description: The Assert not null data quality node (assertNotNull) fails the run or warns when chosen columns contain null values, and passes the data through.
 search: assert not null data quality validation missing values contract check
 ---
 

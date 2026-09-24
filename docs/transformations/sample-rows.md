@@ -1,7 +1,7 @@
 ---
 title: Sample rows
 search: sample rows random subset frac fraction seed reproducible
-description: Take a reproducible random sample of rows, by count or fraction
+description: The Sample rows node (sampleRows) takes a reproducible random sample of rows by count or fraction with a required seed. Config and pandas code.
 ---
 
 # Sample rows — `sampleRows`

@@ -1,6 +1,6 @@
 ---
 title: Data Quality Checks
-description: Standardize messy records, coerce types, and drop bad rows
+description: "Ciaren example: standardize a messy contact list by trimming text, coercing types, dropping nulls and duplicates, and filtering out-of-range rows."
 search: example data quality validation clean duplicates outliers coerce
 ---
 

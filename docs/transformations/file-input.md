@@ -1,6 +1,6 @@
 ---
 title: File input (CSV / Excel / Parquet / JSON / Text)
-description: Read an uploaded dataset into a flow
+description: The Ciaren File Input node reads an uploaded CSV, Excel, Parquet, JSON, or text dataset version into a flow. Config, tips, and generated pandas code.
 search: input csv excel parquet json text read dataset version source
 ---
 

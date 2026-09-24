@@ -1,6 +1,6 @@
 ---
 title: Frequently Asked Questions
-description: Common questions about Ciaren
+description: "Answers to common Ciaren questions: cost and AGPL licensing, system requirements, Windows support, dataset size limits, data privacy, and code export."
 search: faq help questions answers
 ---
 
@@ -22,7 +22,7 @@ Ciaren was created and is maintained by **Rodrigo Arenas**, a
 machine-learning engineer and open-source creator —
 [personal site](https://www.rodrigo-arenas.com/) ·
 [GitHub](https://github.com/rodrigo-arenas) ·
-[LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez/). It is open-core and
+[LinkedIn](https://www.linkedin.com/in/rodrigo-arenas-gomez). It is open-core and
 [contributions are welcome](https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md).
 
 ### How much does Ciaren cost?

@@ -1,6 +1,6 @@
 ---
 title: Flow Parameters
-description: Make a flow reusable with typed, named parameters supplied at run, preview, schedule, and export time
+description: Make a Ciaren flow reusable with typed, named parameters that you reference in node fields and supply at run, preview, schedule, API call, and export time.
 search: parameters variables runtime override placeholder reusable flow date input path
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Visualizations
-description: Chart any node's output right in the editor — histograms, correlations, line, scatter, and bar charts
+description: Chart any node's output in the Ciaren editor with histograms, correlation, line, scatter, and bar charts on a data sample while you build a flow.
 search: visualization chart histogram correlation heatmap scatter bar line plot preview sample
 ---
 

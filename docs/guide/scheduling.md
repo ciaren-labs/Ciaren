@@ -1,6 +1,6 @@
 ---
 title: Scheduling
-description: Run flows automatically with Ciaren's built-in cron scheduler
+description: "Run Ciaren flows automatically with the built-in cron scheduler: timezones, retries, catch-up, and auto-disable, with no broker or extra services."
 search: scheduling cron schedule retries catch up auto-disable timezone
 ---
 

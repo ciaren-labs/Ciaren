@@ -1,6 +1,6 @@
 ---
 title: Convert Excel to Parquet
-description: Read an Excel file and write it back out as a compact, columnar Parquet file — visually, in two nodes.
+description: Convert an Excel (.xlsx) file to Parquet in Ciaren with just two nodes, File Input and File Output, and export the equivalent Python code.
 search: recipe convert excel xlsx to parquet columnar file format
 ---
 

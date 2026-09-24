@@ -1,7 +1,7 @@
 ---
 title: Row difference
 search: difference delta pct change growth rate diff consecutive rows
-description: Difference or percent change between consecutive rows
+description: The Row difference node (rowDifference) computes the difference or percent change between consecutive rows, per partition, for growth rates.
 ---
 
 # Row difference — `rowDifference`

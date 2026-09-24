@@ -1,6 +1,6 @@
 ---
 title: Plugins Overview
-description: Ciaren is plugin-first — nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points you can build, package, sign, and share.
+description: "Ciaren is plugin-first: build and share custom nodes, data connectors, and ML model types as plugins, and see which other extension points are defined."
 search: plugins extensibility providers nodes connectors engines exporters validators ai marketplace ciarenplugin
 ---
 

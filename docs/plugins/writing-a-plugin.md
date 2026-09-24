@@ -1,3 +1,8 @@
+---
+title: Writing a Plugin
+description: "How to write a Ciaren plugin: implement Plugin and NodeRuntime, add a config_schema form, use NodeContext, react to events, and add a manifest."
+---
+
 # Writing a Ciaren plugin
 
 A plugin can contribute to the catalog (nodes/connectors/model types/engines/

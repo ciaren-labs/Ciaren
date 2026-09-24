@@ -1,6 +1,6 @@
 ---
 title: Machine Learning Quick Start
-description: Train, evaluate, and use a model visually with Ciaren's ML nodes.
+description: "Build a churn classifier visually in about 10 minutes with Ciaren's ML nodes: split, train, evaluate, and predict with scikit-learn, tracked in MLflow."
 search: machine learning ml train model predict mlflow scikit-learn
 layout: doc
 ---

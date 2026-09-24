@@ -1,6 +1,6 @@
 ---
 title: Customer Segmentation
-description: Join customers with orders and group them into spending tiers
+description: "Ciaren example: join customers with their orders and bucket them into spending tiers with Group by + Aggregate, Join, and Bin Column, then export Python."
 search: example customer segmentation join group by bin tiers
 ---
 
