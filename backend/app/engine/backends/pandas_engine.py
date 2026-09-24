@@ -274,6 +274,10 @@ class PandasEngine:
             result = accessor.upper()
         elif operation == "strip":
             result = accessor.strip()
+        elif operation == "lstrip":
+            result = accessor.lstrip()
+        elif operation == "rstrip":
+            result = accessor.rstrip()
         elif operation == "title":
             result = accessor.title()
         elif operation == "capitalize":

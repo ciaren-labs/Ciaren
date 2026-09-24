@@ -305,6 +305,16 @@ describe("NodeConfigForm", () => {
     expect(screen.getByText("Fill character")).toBeInTheDocument();
   });
 
+  it("offers left and right strip string operations", () => {
+    renderForm({
+      type: "stringTransform",
+      config: { column: "a", operation: "lstrip" },
+      columns: ["a"],
+    });
+    expect(screen.getByRole("button", { name: "Strip left" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Strip right" })).toBeInTheDocument();
+  });
+
   it("renders date-part chips for Extract Date Parts", () => {
     renderForm({
       type: "extractDateParts",

@@ -582,6 +582,8 @@ def test_window_lead(engine):
         ("lower", ["AbC"], ["abc"]),
         ("upper", ["AbC"], ["ABC"]),
         ("strip", ["  hi  "], ["hi"]),
+        ("lstrip", ["  hi  "], ["hi  "]),
+        ("rstrip", ["  hi  "], ["  hi"]),
         ("title", ["hello world"], ["Hello World"]),
         ("capitalize", ["hello WORLD"], ["Hello world"]),
     ],

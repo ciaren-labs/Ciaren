@@ -358,6 +358,10 @@ class PolarsEngine:
             expr = s.to_uppercase()
         elif operation == "strip":
             expr = s.strip_chars()
+        elif operation == "lstrip":
+            expr = s.strip_chars_start()
+        elif operation == "rstrip":
+            expr = s.strip_chars_end()
         elif operation == "title":
             expr = s.to_titlecase()
         elif operation == "capitalize":
