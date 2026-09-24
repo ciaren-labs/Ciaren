@@ -5,11 +5,13 @@ import pytest
 
 from app.engine.ingest import (
     ParseOptionsError,
+    config_parse_options,
     detect_csv_options,
     detect_decimal,
     detect_delimiter,
     detect_encoding,
     is_default_dialect,
+    sniff_csv_dialect,
     validate_parse_options,
 )
 
@@ -176,3 +178,68 @@ def test_is_default_dialect() -> None:
     assert is_default_dialect({}, "parquet")
     assert is_default_dialect({"sheet": 0}, "excel")
     assert not is_default_dialect({"sheet": "Ventas"}, "excel")
+
+
+# -- evidence-only sniffing (storage inputs) -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sample", "source_type", "expected"),
+    [
+        (
+            "name;price\ncafé;1,50\nthé;2,25\n".encode("cp1252"),
+            "csv",
+            {"encoding": "cp1252", "delimiter": ";", "decimal": ","},
+        ),
+        (b"a\tb\n1\t2\n", "csv", {"encoding": "utf-8", "delimiter": "\t"}),
+        (b"a|b\n1|2\n", "csv", {"encoding": "utf-8", "delimiter": "|"}),
+        (b"a,b\n1,2\n", "csv", {"encoding": "utf-8", "delimiter": ","}),
+        ("a\tb\n1,5\t2,5\n".encode("cp1252"), "tsv", {"encoding": "utf-8", "decimal": ","}),
+        # Detection failures: nothing is claimed, so readers use the defaults.
+        (b"", "csv", {}),
+        (b"  \n\n", "csv", {}),
+        (b"justonecolumn\nvalue\n", "csv", {"encoding": "utf-8"}),  # no delimiter evidence
+        (b"PK\x03\x04\x00\x00binary;junk,\x00", "csv", {}),  # NUL bytes: not text
+        (b"a;b\n\x81\x8d;\x8f\x90\n", "csv", {}),  # undecodable as UTF-8 and cp1252
+    ],
+    ids=[
+        "semicolon-cp1252-decimal",
+        "tab",
+        "pipe",
+        "comma",
+        "tsv-decimal",
+        "empty",
+        "blank",
+        "single-column",
+        "binary",
+        "undecodable",
+    ],
+)
+def test_sniff_csv_dialect_claims_only_evidenced_values(sample: bytes, source_type: str, expected: dict) -> None:
+    assert sniff_csv_dialect(sample, source_type) == expected
+
+
+@pytest.mark.parametrize(
+    ("config", "source_type", "expected"),
+    [
+        (
+            {"delimiter": ";", "encoding": "cp1252", "decimal": ","},
+            "csv",
+            {"delimiter": ";", "encoding": "cp1252", "decimal": ","},
+        ),
+        ({"delimiter": "", "encoding": None}, "csv", {}),  # blank = not overridden
+        ({"encoding": "latin-1"}, "tsv", {"encoding": "latin-1"}),
+        ({"delimiter": ";"}, "parquet", {}),  # no dialect for non-delimited formats
+    ],
+)
+def test_config_parse_options(config: dict, source_type: str, expected: dict) -> None:
+    assert config_parse_options({"path": "x", **config}, source_type) == expected
+
+
+@pytest.mark.parametrize(
+    ("config", "source_type"),
+    [({"delimiter": "abc"}, "csv"), ({"encoding": "ebcdic"}, "csv"), ({"delimiter": ";"}, "tsv")],
+)
+def test_config_parse_options_rejects_values_outside_the_whitelist(config: dict, source_type: str) -> None:
+    with pytest.raises(ParseOptionsError):
+        config_parse_options(config, source_type)

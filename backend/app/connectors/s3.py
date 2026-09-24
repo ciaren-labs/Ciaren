@@ -75,18 +75,33 @@ class S3Connector:
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
 
-    def read_file(self, spec: StorageSpec, path: str, fmt: str) -> pd.DataFrame:
+    def read_file(
+        self, spec: StorageSpec, path: str, fmt: str, parse_options: dict[str, Any] | None = None
+    ) -> pd.DataFrame:
         client = _client(spec)
         try:
             body = client.get_object(Bucket=spec.bucket, Key=path)["Body"].read()
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
         try:
-            return deserialize_dataframe(body, fmt)
+            return deserialize_dataframe(body, fmt, parse_options)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to parse s3://{spec.bucket}/{path} as {fmt}: {exc}") from None
+
+    def read_sample(self, spec: StorageSpec, path: str, max_bytes: int) -> bytes:
+        """The object's first ``max_bytes`` via a ranged GET (never the whole object)."""
+        client = _client(spec)
+        try:
+            return bytes(
+                client.get_object(Bucket=spec.bucket, Key=path, Range=f"bytes=0-{max_bytes - 1}")["Body"].read()
+            )
+        except Exception as exc:
+            # S3 answers a range on an empty object with 416 InvalidRange.
+            if getattr(exc, "response", {}).get("Error", {}).get("Code") == "InvalidRange":
+                return b""
+            raise _guard(exc, spec.secret) from None
 
     def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         client = _client(spec)

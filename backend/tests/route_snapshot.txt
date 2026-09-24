@@ -18,6 +18,7 @@ GET /api/connections/keyring/{name}
 GET /api/connections/providers
 GET /api/connections/{connection_id}
 GET /api/connections/{connection_id}/objects
+GET /api/connections/{connection_id}/objects/dialect
 GET /api/connections/{connection_id}/tables
 GET /api/datasets
 GET /api/datasets/{dataset_id}

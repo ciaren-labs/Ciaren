@@ -21,7 +21,7 @@ from app.connectors import (
     list_providers,
 )
 from app.connectors.base import DataConnector
-from app.connectors.storage_base import StorageConnector
+from app.connectors.storage_base import StorageConnector, sniff_object_dialect
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.secrets import (
     delete_keyring_secret,
@@ -51,6 +51,7 @@ from app.schemas.connection import (
     ConnectionRead,
     ConnectionTestResult,
     ConnectionUpdate,
+    FileDialect,
     KeyringAvailability,
     KeyringSecretStatus,
     KeyringSecretWrite,
@@ -340,6 +341,30 @@ class ConnectionService:
             return await asyncio.to_thread(connector.list_objects, spec, prefix)
         except ConnectorError as exc:
             raise ValidationError(str(exc)) from None
+
+    async def detect_object_dialect(self, connection_id: str, path: str, fmt: str) -> FileDialect:
+        """Detect a CSV/TSV object's dialect for the storage input editor.
+
+        Reads through the same connector method and path confinement a
+        ``storageInput`` read uses, and only a bounded sample. The response
+        holds whitelisted dialect values only, never file content."""
+        conn = await self._get_or_raise(connection_id)
+        if plugin_connector(conn.provider) is not None:
+            raise ValidationError("Dialect detection isn't available for plugin storage connectors.")
+        provider = get_provider(conn.provider)
+        if not is_storage_provider(provider):
+            raise ValidationError(f"'{provider.label}' is not a storage connection.")
+        if not driver_available(provider):
+            raise ValidationError(
+                f"The {provider.label} driver isn't installed (pip install ciaren[{provider.extra}])."
+            )
+        connector = cast(StorageConnector, get_connector(provider))  # storage (guarded above)
+        try:
+            spec = build_storage_spec(conn)
+            detected = await asyncio.to_thread(sniff_object_dialect, connector, spec, path, fmt)
+        except ConnectorError as exc:
+            raise ValidationError(str(exc)) from None
+        return FileDialect(**detected)
 
     # -- OS keychain secrets --------------------------------------------
     #
