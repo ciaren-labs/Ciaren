@@ -14,6 +14,7 @@ from ciaren_client._types import (
     CodeExport,
     Connection,
     ConnectionTestResult,
+    FileDialect,
     Dataset,
     DatasetVersion,
     Flow,
@@ -445,6 +446,14 @@ class AsyncCiaren:
 
     async def list_connection_objects(self, connection_id: str, *, prefix: str = "") -> list[str]:
         return await self.get(f"/api/connections/{connection_id}/objects", params={"prefix": prefix})
+
+    async def detect_connection_object_dialect(
+        self, connection_id: str, path: str, *, format: str = "csv"
+    ) -> FileDialect:
+        """Detect a CSV/TSV storage object's delimiter/encoding/decimal from a bounded sample."""
+        return await self.get(
+            f"/api/connections/{connection_id}/objects/dialect", params={"path": path, "format": format}
+        )
 
     # ------------------------------------------------------------------
     # Catalog / transformations / webhook settings

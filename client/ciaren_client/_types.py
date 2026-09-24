@@ -140,6 +140,14 @@ class ConnectionTestResult(TypedDict, total=False):
     details: JsonDict | None
 
 
+class FileDialect(TypedDict, total=False):
+    """Detected CSV/TSV dialect of a storage object; ``None`` = not detected."""
+
+    delimiter: str | None
+    encoding: str | None
+    decimal: str | None
+
+
 class WebhookStatus(TypedDict, total=False):
     configured: bool
 

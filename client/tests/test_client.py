@@ -101,6 +101,9 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
         mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
         mock.get("/api/schedules").mock(return_value=httpx.Response(200, json=[MOCK_SCHEDULE]))
         mock.post("/api/connections/test-config").mock(return_value=httpx.Response(200, json={"ok": True}))
+        dialect_route = mock.get("/api/connections/conn-1/objects/dialect").mock(
+            return_value=httpx.Response(200, json={"delimiter": "	", "encoding": "utf-8", "decimal": None})
+        )
         mock.get("/api/catalog/nodes").mock(return_value=httpx.Response(200, json=[{"type": "source"}]))
         mock.get("/api/transformations").mock(return_value=httpx.Response(200, json={"groups": []}))
         mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": True}))
@@ -112,6 +115,7 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
             schedule = client.create_schedule(FLOW_ID, "0 9 * * *", timezone="UTC")
             schedules = client.list_schedules(flow_id=FLOW_ID)
             connection_test = client.test_connection_config(provider="postgres", config={})
+            dialect = client.detect_connection_object_dialect("conn-1", "in/data.tsv", format="tsv")
             nodes = client.list_catalog_nodes(category="sources")
             transformations = client.list_transformations(include_ml=False)
             webhook = client.webhook_status()
@@ -122,6 +126,8 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
     assert schedule == MOCK_SCHEDULE
     assert schedules == [MOCK_SCHEDULE]
     assert connection_test["ok"] is True
+    assert dialect["delimiter"] == "	"
+    assert dict(dialect_route.calls[0].request.url.params) == {"path": "in/data.tsv", "format": "tsv"}
     assert nodes == [{"type": "source"}]
     assert transformations == {"groups": []}
     assert webhook["configured"] is True
@@ -368,6 +374,9 @@ async def test_async_connection_catalog_and_download_methods(tmp_path):
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/connections/providers").mock(return_value=httpx.Response(200, json=[{"name": "postgres"}]))
         mock.get("/api/connections/conn-1/objects").mock(return_value=httpx.Response(200, json=["raw/events"]))
+        dialect_route = mock.get("/api/connections/conn-1/objects/dialect").mock(
+            return_value=httpx.Response(200, json={"delimiter": ";", "encoding": "cp1252", "decimal": None})
+        )
         mock.get("/api/catalog/categories").mock(return_value=httpx.Response(200, json=[{"id": "sources"}]))
         mock.get("/api/datasets/ds-1/versions/1/download").mock(return_value=httpx.Response(200, content=b"value\n1\n"))
         mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": False}))
@@ -375,12 +384,15 @@ async def test_async_connection_catalog_and_download_methods(tmp_path):
         async with AsyncCiaren(BASE) as client:
             providers = await client.list_connection_providers()
             objects = await client.list_connection_objects("conn-1", prefix="raw/")
+            dialect = await client.detect_connection_object_dialect("conn-1", "raw/eu.csv")
             categories = await client.list_catalog_categories()
             downloaded = await client.download_dataset_version("ds-1", 1, target)
             webhook = await client.webhook_status()
 
     assert providers == [{"name": "postgres"}]
     assert objects == ["raw/events"]
+    assert dialect == {"delimiter": ";", "encoding": "cp1252", "decimal": None}
+    assert dict(dialect_route.calls[0].request.url.params) == {"path": "raw/eu.csv", "format": "csv"}
     assert categories == [{"id": "sources"}]
     assert downloaded == target
     assert target.read_bytes() == b"value\n1\n"
