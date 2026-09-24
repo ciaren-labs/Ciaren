@@ -15,7 +15,7 @@
     "test:build": "node ./scripts/test-build.js",
     "test:links": "node ./scripts/check-links.js",
     "search:build": "node ./scripts/build-search.js",
-    "lint": "markdownlint '**/*.md' --ignore node_modules --ignore '.vitepress'",
+    "lint": "markdownlint '**/*.md' --ignore node_modules --ignore '.vitepress' --ignore agent-runs",
     "format": "prettier --write '**/*.md' --prose-wrap always"
   },
   "dependencies": {

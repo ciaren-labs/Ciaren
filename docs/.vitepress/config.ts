@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 const gaMeasurementId = process.env.VITEPRESS_GA_ID
 const docsOrigin = 'https://ciaren.com/docs'
-const socialImage = `${docsOrigin}/Ciaren.png`
+const socialImage = `${docsOrigin}/og-image.png`
 
 // Set by CI to build a pinned version snapshot at /v/<tag>/ instead of the
 // root site. DOCS_VERSIONS_JSON is the full list of stable releases that
@@ -69,7 +69,7 @@ export default defineConfig({
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
   base: docsBasePath,
-  srcExclude: ['README.md'],
+  srcExclude: ['README.md', 'agent-runs/**'],
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
@@ -119,6 +119,9 @@ export default defineConfig({
         'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
     }],
     ['meta', { property: 'og:image', content: socialImage }],
+    ['meta', { property: 'og:image:width', content: '1280' }],
+    ['meta', { property: 'og:image:height', content: '640' }],
+    ['meta', { property: 'og:image:alt', content: 'Ciaren: visual ETL and data pipelines that export clean pandas and Polars Python' }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
