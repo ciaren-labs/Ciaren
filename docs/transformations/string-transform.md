@@ -1,6 +1,6 @@
 ---
 title: String transform
-search: string transform lower upper strip title capitalize len replace pad text
+search: string transform lower upper strip lstrip rstrip title capitalize len replace pad text
 description: The String transform node (stringTransform) applies lower, upper, title, strip, replace, length, or pad to a text column. Config and pandas code.
 ---
 
@@ -11,7 +11,7 @@ Apply a string operation to a column.
 ## Use cases
 
 - Normalize casing (`lower`/`upper`/`title`/`capitalize`) and trim whitespace
-  (`strip`).
+  (`strip`, or one side only with `lstrip`/`rstrip`).
 - Replace a substring, measure length (`len`), or zero-pad codes (`pad`).
 
 ## What it does
@@ -36,7 +36,7 @@ Chain multiple String transform nodes (one per operation) for multi-step cleanin
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
 | `column` | string | Yes | Column to transform |
-| `operation` | string | Yes | `lower`, `upper`, `strip`, `title`, `capitalize`, `len`, `replace`, `pad` |
+| `operation` | string | Yes | `lower`, `upper`, `strip`, `lstrip`, `rstrip`, `title`, `capitalize`, `len`, `replace`, `pad` |
 | `find` | string | Conditional | Required for `replace` |
 | `replace_with` | string | No | Replacement for `replace` (default empty) |
 | `width` | int | Conditional | Target width, required for `pad` |
