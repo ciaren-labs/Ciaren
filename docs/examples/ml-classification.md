@@ -105,6 +105,7 @@ scikit-learn script (this is the real codegen pattern — preprocessing is bundl
 into the `Pipeline` so it's reapplied identically at predict time):
 
 ```python
+import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer

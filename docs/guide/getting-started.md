@@ -72,8 +72,8 @@ the UI and still end with code.
   and use the CLI/API for automation.
 - **ML practitioners:** move from raw data to tracked lightweight ML workflows on
   the same canvas.
-- **Plugin authors:** add custom nodes, connectors, engines, model providers,
-  exporters, and validators without changing core.
+- **Plugin authors:** add custom nodes, connectors, and ML model types without
+  changing core.
 - **Contributors:** improve the editor, execution engine, transformations,
   examples, docs, tests, and plugin SDK.
 

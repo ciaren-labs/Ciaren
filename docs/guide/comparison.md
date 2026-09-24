@@ -36,7 +36,7 @@ September 2026. Check their sites for current terms and features.
 | Standalone Python export | pandas, eager Polars, and lazy Polars scripts, also as Jupyter notebooks. ML nodes export scikit-learn code | See their docs | See their docs | Polars scripts. Some nodes export as calls to the Flowfile API |
 | Machine learning | scikit-learn nodes with MLflow tracking. XGBoost and LightGBM optional | Integrations with popular ML libraries. Python, R, and JavaScript scripting | R-based predictive tools. Intelligence Suite adds machine learning tools | ML nodes. See their docs |
 | Scheduling | Built-in cron scheduler, included | Paid KNIME Hub plans and KNIME Business Hub | Alteryx Server, Desktop Automation (Scheduler), or Alteryx One cloud scheduling | Built in: interval, cron, or a trigger on catalog table updates |
-| Extensibility | Plugin SDK for nodes, connectors, engines, model providers, validators, and exporters | Node extensions, including extensions written in pure Python | AYX Python SDK and UI SDK for custom tools | Custom Python nodes built in the Node Designer |
+| Extensibility | Plugin SDK for nodes, connectors, and ML model types. More extension points (engines, exporters, validators) are defined but not yet run from plugins | Node extensions, including extensions written in pure Python | AYX Python SDK and UI SDK for custom tools | Custom Python nodes built in the Node Designer |
 
 ## Ciaren vs KNIME Analytics Platform
 
@@ -93,15 +93,15 @@ closest tool to Ciaren on this page. It does several things well:
 Ciaren and Flowfile share goals: local-first, visual, and exportable to Python.
 They differ in focus. Ciaren exports the same flow to pandas or Polars, and its
 machine learning nodes train scikit-learn models with MLflow tracking. It also
-has data-quality assertion nodes and a plugin SDK for connectors, engines, and
-model providers.
+has data-quality assertion nodes and a plugin SDK for nodes, connectors, and ML
+model types.
 
 **Choose Flowfile when** you work mainly in Polars, want to move between code
 and canvas, want a built-in data catalog, or prefer the MIT license.
 
 **Choose Ciaren when** you want pandas and Polars export from one flow, ML
-training on the canvas with MLflow tracking, or plugins that add connectors,
-engines, and model providers.
+training on the canvas with MLflow tracking, or plugins that add nodes,
+connectors, and ML model types.
 
 ## Other visual tools
 

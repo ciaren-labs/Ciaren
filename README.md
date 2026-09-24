@@ -75,7 +75,7 @@ scheduler, and web UI.
 | **Clean Python export** | Generate standalone pandas, Polars, or lazy Polars scripts you can review and run outside Ciaren. |
 | **Local-first execution** | SQLite works out of the box, and your data does not need to leave your machine. |
 | **Data engineering + ML** | Ingest, clean, validate, engineer features, train, evaluate, predict, and export from one canvas. |
-| **Plugin-first architecture** | Add custom nodes, connectors, engines, model providers, validators, and exporters outside core. |
+| **Plugin-first architecture** | Add custom nodes, connectors, and ML model types outside core. Engine, exporter, and validator extension points are defined for later releases. |
 
 Ciaren is not a hosted no-code black box. Every node maps to understandable
 dataframe behavior, every run leaves inspectable results, and every flow can
@@ -217,8 +217,8 @@ Start here:
 - **Python learners:** see how visual dataframe operations become pandas and
   Polars code.
 - **ML practitioners:** try lightweight ML flows with local MLflow tracking.
-- **Plugin authors:** ship custom nodes, connectors, engines, and model
-  providers without maintaining a fork.
+- **Plugin authors:** ship custom nodes, connectors, and ML model types
+  without maintaining a fork.
 - **Open-source contributors:** help polish the editor, execution engine,
   transformations, docs, tests, and plugin SDK.
 

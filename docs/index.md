@@ -146,7 +146,7 @@ exported to ordinary Python.
   <a class="ciaren-path-card" href="/plugins/overview">
     <span>For contributors and builders</span>
     <strong>Extend the platform instead of forking it</strong>
-    <p>Add custom nodes, connectors, model providers, engines, validators, and exporters through the plugin architecture.</p>
+    <p>Add custom nodes, connectors, and ML model types through the plugin architecture.</p>
   </a>
 </div>
 
