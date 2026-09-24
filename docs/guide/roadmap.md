@@ -71,8 +71,8 @@ These are roadmap themes, not promises of specific dated features.
 
 ### Exporters and portability
 
-- **More export targets** — explore notebooks, reusable job templates, and other
-  portable artifacts beyond standalone Python scripts.
+- **More export targets** — explore reusable job templates and other portable
+  artifacts beyond standalone Python scripts and Jupyter notebooks.
 - **Export validation** — add checks that generated artifacts can run and match
   the visual flow behavior.
 - **Reusable handoff** — make exported code easier to version, review, and run
