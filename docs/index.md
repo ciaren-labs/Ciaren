@@ -31,20 +31,20 @@ head:
 hero:
   name: <span class="ciaren-c">C</span>iaren
   text: Export the pandas/polars code you'd write by hand. No lock-in.
-  tagline: Prototype data and ML pipelines on a canvas, preview every step on real data, run locally, and keep readable pandas, polars, or lazy polars code with no proprietary runtime.
+  tagline: Ciaren is an open-source visual workflow builder for data engineering and lightweight ML. It is for analysts, Python engineers, and ML practitioners who work with small and medium datasets on their own machine. Build a pipeline on a canvas, preview each step on real data, run it locally, and keep readable pandas or polars code.
   image:
     src: /logo.svg
     alt: Ciaren logo
   actions:
     - theme: brand
-      text: Start in 5 Minutes
-      link: /guide/quick-start
-    - theme: alt
-      text: Install Locally
+      text: Install Ciaren
       link: /guide/installation
     - theme: alt
-      text: Star on GitHub
-      link: https://github.com/ciaren-labs/Ciaren
+      text: Quick Start (5 min)
+      link: /guide/quick-start
+    - theme: alt
+      text: See Examples
+      link: /examples/sales-analysis
 
 features:
   - icon: 🧩
