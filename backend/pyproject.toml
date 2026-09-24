@@ -125,7 +125,7 @@ ciaren-plugin = "app.cli_plugin:main"
 [project.urls]
 Homepage = "https://ciaren.com"
 Repository = "https://github.com/ciaren-labs/Ciaren"
-Documentation = "https://ciaren.com/docs"
+Documentation = "https://ciaren.com/docs/latest"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"
 Changelog = "https://github.com/ciaren-labs/Ciaren/blob/main/CHANGELOG.md"
 Discussions = "https://github.com/ciaren-labs/Ciaren/discussions"

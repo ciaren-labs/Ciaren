@@ -30,7 +30,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://www.ciaren.com/"
 Repository = "https://github.com/ciaren-labs/Ciaren"
-Documentation = "https://ciaren.com/docs"
+Documentation = "https://ciaren.com/docs/latest"
 Issues = "https://github.com/ciaren-labs/Ciaren/issues"
 Author = "https://www.linkedin.com/in/rodrigo-arenas-gomez/"
 

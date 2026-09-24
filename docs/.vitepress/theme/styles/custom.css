@@ -182,18 +182,16 @@ img {
   -webkit-text-fill-color: var(--vp-c-brand-1);
 }
 
-/* Home hero logo — sit the brand-purple logomark on a surface so it stays
-   legible against the purple background glow (the mark shares the brand hue). */
+/* Home hero logo on a plain bordered surface. */
 .VPHero .image-src {
   background: var(--vp-c-bg);
-  border-radius: 24px;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 12px;
   padding: 22px;
-  box-shadow: 0 10px 34px rgba(76, 29, 149, 0.18);
 }
 
 .dark .VPHero .image-src {
   background: var(--vp-c-bg-soft);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
 }
 
 /* Feature grid (for index page) */
@@ -213,12 +211,6 @@ img {
 
 .feature-card:hover {
   border-color: var(--vp-c-brand);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
-.dark .feature-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .feature-card h3 {
@@ -339,18 +331,13 @@ img {
 .ciaren-path-card {
   display: block;
   padding: 20px;
-  transition:
-    border-color var(--vp-transition-duration-base),
-    box-shadow var(--vp-transition-duration-base),
-    transform var(--vp-transition-duration-base);
+  transition: border-color var(--vp-transition-duration-base);
 }
 
 .ciaren-path-card:hover,
 .ciaren-next-grid a:hover {
   border-color: var(--vp-c-brand-2);
   color: var(--vp-c-brand-1);
-  box-shadow: 0 8px 26px rgba(76, 29, 149, 0.1);
-  transform: translateY(-1px);
 }
 
 .ciaren-path-card span {
@@ -380,10 +367,7 @@ img {
   color: var(--vp-c-text-1);
   font-weight: 600;
   padding: 14px 16px;
-  transition:
-    border-color var(--vp-transition-duration-base),
-    box-shadow var(--vp-transition-duration-base),
-    transform var(--vp-transition-duration-base);
+  transition: border-color var(--vp-transition-duration-base);
 }
 
 @media (max-width: 960px) {
