@@ -165,8 +165,8 @@ df_1 = df_1.group_by(["region"]).agg([pl.col("amount").sum().alias("amount")])
 df_1.write_csv("summary.csv")
 ```
 
-The same flow can also export pandas or lazy Polars variants where supported.
-That makes Ciaren useful for prototyping, teaching, code review, and migration
+The same flow can also export pandas or lazy Polars variants where supported,
+and each variant can be downloaded as a Jupyter notebook (`.ipynb`). That makes Ciaren useful for prototyping, teaching, code review, and migration
 from visual exploration into normal Python projects.
 
 ## Built for Extension
