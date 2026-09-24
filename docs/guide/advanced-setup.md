@@ -1,6 +1,6 @@
 ---
 title: Advanced Setup
-description: "Ciaren configuration reference: settings precedence, every environment variable, PostgreSQL and MySQL, execution and scheduler tuning, and production."
+description: "Ciaren configuration reference: settings precedence, the main environment variables, PostgreSQL and MySQL, execution and scheduler tuning, and production."
 search: advanced setup configuration env variables production database postgres reverse proxy cors
 ---
 
