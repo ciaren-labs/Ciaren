@@ -246,10 +246,11 @@ class PandasEngine:
             right_keys = right_on or on
             if not left_keys or not right_keys:
                 raise ValueError("Semi/anti joins require join keys.")
+            matches: Any
             if len(left_keys) == 1:
                 left_key = left[left_keys[0]]
                 right_key = right[right_keys[0]]
-                matches = left_key.isin(right_key) | (left_key.isna() & right_key.isna().any())
+                matches = left_key.isin(right_key) | (left_key.isna() & bool(right_key.isna().any()))
             else:
                 marker = "_ciaren_match"
                 while marker in left_keys or marker in right_keys:
@@ -266,7 +267,7 @@ class PandasEngine:
                     .eq("both")
                     .to_numpy()
                 )
-            return left.loc[matches if how == "semi" else ~matches]
+            return cast(pd.DataFrame, left.loc[matches if how == "semi" else ~matches])
         how_arg = cast(Literal["left", "right", "outer", "inner", "cross"], how)
         if left_on and right_on:
             return left.merge(right, left_on=left_on, right_on=right_on, how=how_arg, suffixes=suffixes)
