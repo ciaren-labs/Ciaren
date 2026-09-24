@@ -58,6 +58,9 @@ def _split_into_cells(code: str) -> list[str]:
     statement are kept.  Comments stay attached to the lines around them.  Code
     that does not parse becomes a single cell rather than being cut at a guess.
     """
+    # The tokenizer treats \r\n and a lone \r as line breaks too; normalize so
+    # the AST line numbers match the lines split below.
+    code = code.replace("\r\n", "\n").replace("\r", "\n")
     try:
         tree = ast.parse(code)
     except SyntaxError:
@@ -110,6 +113,11 @@ def script_to_notebook(
 
     if not cells:
         cells.append(_code_cell(""))
+
+    # nbformat 4.5 requires a unique id per cell; positional ids keep exports
+    # of the same flow byte-identical.
+    for index, cell in enumerate(cells):
+        cell["id"] = f"cell-{index}"
 
     return {
         "cells": cells,

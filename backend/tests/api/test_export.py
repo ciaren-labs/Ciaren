@@ -140,7 +140,7 @@ async def test_export_notebooks_are_opt_in(client: AsyncClient) -> None:
     for field, script_field in notebook_fields.items():
         nb = json.loads(body[field])
         assert nb["nbformat"] == 4
-        assert nb["cells"][0] == {"cell_type": "markdown", "metadata": {}, "source": ["# f"]}
+        assert nb["cells"][0] == {"cell_type": "markdown", "id": "cell-0", "metadata": {}, "source": ["# f"]}
         # Each notebook carries the script of its own engine variant.
         cells = "\n".join("".join(c["source"]) for c in nb["cells"][1:])
         script = body[script_field]

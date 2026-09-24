@@ -10,6 +10,7 @@ Verifies that:
 import ast
 import json
 import platform
+import re
 from pathlib import Path
 
 import pytest
@@ -39,11 +40,13 @@ def _simple_graph() -> dict:
 
 def test_notebook_structure_is_valid_nbformat_v4() -> None:
     code = CodeGenerator().generate(_simple_graph(), {"d": "sales.csv"})
-    nb = script_to_notebook(code)
-    assert nb["nbformat"] == 4
-    assert isinstance(nb["nbformat_minor"], int)
-    assert isinstance(nb["cells"], list)
-    assert len(nb["cells"]) >= 1
+    nb = script_to_notebook(code, flow_name="Sales")
+    assert (nb["nbformat"], nb["nbformat_minor"]) == (4, 5)
+    assert len(nb["cells"]) >= 2
+    # nbformat 4.5 requires every cell to carry a unique id of this shape.
+    ids = [cell["id"] for cell in nb["cells"]]
+    assert all(re.fullmatch(r"[a-zA-Z0-9-_]{1,64}", cell_id) for cell_id in ids)
+    assert len(set(ids)) == len(ids)
     meta = nb["metadata"]
     assert meta["kernelspec"]["language"] == "python"
     assert meta["language_info"] == {"name": "python", "version": platform.python_version()}
@@ -119,6 +122,11 @@ def test_split_into_cells_by_blank_lines() -> None:
             "a = 1\n\n# explain b\nb = 2\n# trailing note\n",
             ["a = 1", "# explain b\nb = 2\n# trailing note"],
             id="comments-stay-with-their-statements",
+        ),
+        pytest.param(
+            'a = """\r\r\r"""\n\ndef f():\n    x = 1\n\n    return x\n',
+            ['a = """\n\n\n"""', "def f():\n    x = 1\n\n    return x"],
+            id="lone-carriage-returns-count-as-line-breaks",
         ),
         pytest.param(
             "def broken(:\n    pass\n\nx = 1\n",
