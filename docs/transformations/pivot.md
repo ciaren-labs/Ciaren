@@ -62,3 +62,4 @@ df_2 = df_1.pivot_table(index='region', columns='month', values='amount', aggfun
 ## See also
 
 - [Unpivot](./unpivot.md) · [Group by + aggregate](./group-by-aggregate.md)
+- Recipe: [Pivot a Table](/recipes/pivot-a-table)

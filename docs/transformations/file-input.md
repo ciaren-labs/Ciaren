@@ -87,3 +87,4 @@ df_1 = pd.read_csv("log.txt", sep="\n", header=None, names=["text"], engine="pyt
 - [Database Connections](/guide/connections) — read files from S3, GCS, Azure Blob, or a local folder via a storage connection
 - [Projects & Runs](/guide/projects-and-runs) — datasets, versions, and runs
 - [Datasets API](/api/datasets)
+- Recipe: [Convert Excel to Parquet](/recipes/convert-excel-to-parquet)

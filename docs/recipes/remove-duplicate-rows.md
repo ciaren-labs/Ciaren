@@ -9,7 +9,7 @@ search: recipe remove duplicates deduplicate distinct unique rows keep first las
 Use the **Remove Duplicates** node to drop repeated rows — either fully identical
 rows or duplicates of a key column.
 
-**You'll use:** File Input → Remove Duplicates → File Output.
+**You'll use:** [File Input](/transformations/file-input) → [Remove Duplicates](/transformations/remove-duplicates) → [File Output](/transformations/file-output).
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"contacts.csv"},
