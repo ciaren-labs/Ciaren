@@ -45,6 +45,11 @@ breaking changes may still happen between `0.x` releases.
 - An S3 error without a response object returned HTTP 500 instead of the
   scrubbed connector error (#200).
 
+### Changed
+
+- Contributions no longer need a DCO `Signed-off-by` line. They are licensed
+  under the repository licenses through the GitHub Terms of Service (#202).
+
 ### Security
 
 - Patched vulnerable dependencies: aiohttp, anyio, cryptography, gitpython,
