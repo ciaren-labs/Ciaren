@@ -1,6 +1,6 @@
 ---
 title: DuckDB Analytics
-description: Read from and write to a DuckDB database in a visual flow — push a query down to DuckDB, transform the result, and land it back in a table.
+description: "Ciaren example: read from and write to DuckDB in a visual flow. Push a SQL query down with SQL Input, transform the result, and land it with SQL Output."
 search: example duckdb sql analytics connection query local database olap parquet
 ---
 

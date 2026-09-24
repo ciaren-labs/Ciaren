@@ -1,6 +1,6 @@
 ---
 title: Build an Advanced Plugin (scikit-learn)
-description: A step-by-step guide to a realistic Ciaren plugin — a scikit-learn MLPClassifier that trains through a custom node (persisting to MLflow, emitting a typed model reference) and doubles as a model type inside the core Train Classifier.
+description: "Build a realistic Ciaren plugin: a scikit-learn MLPClassifier train node with validated hyperparameters, MLflow persistence, and code export."
 search: advanced plugin scikit-learn sklearn mlpclassifier neural network machine learning hyperparameters validation node runtime example
 ---
 

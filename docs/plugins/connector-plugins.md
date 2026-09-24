@@ -1,6 +1,6 @@
 ---
 title: Connector Plugins
-description: Build database/API/storage connectors as plugins — test, list, read, and write implementations with a connection form driven entirely by your metadata.
+description: "Build Ciaren connector plugins for REST APIs, databases, and object storage: test, list, read, and write, with a connection form built from metadata."
 search: plugin connector connectorruntime connectorspec rest api database storage sql input dynamic form config_schema
 ---
 

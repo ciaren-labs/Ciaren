@@ -1,6 +1,6 @@
 ---
 title: Database Connections
-description: Connect Ciaren to PostgreSQL, MySQL, SQLite, SQL Server, and MongoDB
+description: Connect Ciaren to PostgreSQL, MySQL, SQLite, SQL Server, MongoDB, and web APIs, then read and write data with the SQL Input and SQL Output nodes.
 search: connections database sql postgres mysql mongodb sqlite security
 layout: doc
 ---

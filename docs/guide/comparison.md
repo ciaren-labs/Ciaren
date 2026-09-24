@@ -1,6 +1,6 @@
 ---
 title: How Ciaren Compares
-description: Where Ciaren fits versus notebooks and scripts, heavyweight orchestrators like Airflow/dbt/Spark, and traditional visual ETL tools.
+description: How Ciaren compares with Jupyter notebooks and pandas or Polars scripts, with Airflow, dbt, and Spark, and with visual ETL tools, and when not to use it.
 search: comparison ciaren vs notebooks jupyter airflow dbt spark alteryx knime visual etl alternative
 ---
 

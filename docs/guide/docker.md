@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Run Ciaren with Docker — single-command setup, built-in ML, optional database extras
+description: "Run Ciaren in Docker with one command: a single container with the web editor and backend, data persistence, PostgreSQL, and a production checklist."
 search: docker container compose deployment
 layout: doc
 ---

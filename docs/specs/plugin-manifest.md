@@ -1,3 +1,8 @@
+---
+title: Plugin Manifest
+description: "The Ciaren plugin manifest: required fields, declared permissions, version compatibility checks, and contract versioning, validated before code loads."
+---
+
 # The plugin manifest
 
 > Status: **draft**. Implemented as `PluginManifest` in

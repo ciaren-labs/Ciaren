@@ -1,6 +1,6 @@
 ---
 title: Build Your First Plugin (10 minutes)
-description: A step-by-step tutorial — create a Ciaren plugin that adds a working node to the canvas, runs end-to-end, and exports to Python.
+description: "Tutorial: build your first Ciaren plugin in 10 minutes, a Python package that adds a working node to the canvas that runs and exports to Python."
 search: plugin tutorial first plugin getting started node provider runtime hello quickstart build
 ---
 

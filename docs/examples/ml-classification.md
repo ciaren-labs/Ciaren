@@ -1,6 +1,6 @@
 ---
 title: Customer Churn Classification
-description: Train, evaluate, and score a customer-churn classifier visually — split, train, predict, evaluate — and export the scikit-learn code.
+description: "Ciaren example: train, evaluate, and score a customer churn classifier with Train/Test Split, Train Classifier, Predict, and Evaluate nodes."
 search: example machine learning classification churn train test split random forest evaluate predict sklearn mlflow
 ---
 

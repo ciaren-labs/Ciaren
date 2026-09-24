@@ -1,6 +1,6 @@
 ---
 title: Fill Missing Values
-description: Replace nulls/NaNs with a mean, median, mode, constant, or forward/backward fill — per column.
+description: "Replace missing values in Ciaren with the Fill Nulls node: mean, median, mode, a constant, or forward and backward fill, on Polars or pandas."
 search: recipe fill missing values nulls nan impute mean median mode constant forward fill
 ---
 

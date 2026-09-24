@@ -1,6 +1,6 @@
 ---
 title: Terms of Use
-description: Terms of use for the Ciaren website and disclaimers for the software
+description: "Terms of use for the Ciaren docs website, plus plain-language software terms: AGPL-3.0 and Apache-2.0 licensing, no warranty, and liability limits."
 search: legal terms of use disclaimer warranty liability license
 ---
 

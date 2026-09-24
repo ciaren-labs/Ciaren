@@ -1,6 +1,6 @@
 ---
 title: Privacy Policy
-description: What data this website and the Ciaren software do and do not collect
+description: "Ciaren privacy policy: the local-first software collects no data, and this docs website uses only standard hosting logs plus opt-in aggregate analytics."
 search: legal privacy policy analytics cookies telemetry data collection
 ---
 

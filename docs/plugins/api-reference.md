@@ -1,6 +1,6 @@
 ---
 title: Plugin API Reference
-description: The versioned plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a Ciaren plugin depends on.
+description: "Reference for the Ciaren plugin API (app.plugin_api): Plugin, provider interfaces, NodeSpec and other specs, ServiceRegistry, NodeRuntime, and ModelRef."
 search: plugin api reference provider nodeprovider nodespec noderuntime serviceregistry specs permissions contract
 ---
 

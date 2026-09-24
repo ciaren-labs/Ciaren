@@ -1,6 +1,6 @@
 ---
 title: Schedules API
-description: Run flows automatically on a cron schedule
+description: "Schedules REST API reference for Ciaren: create cron schedules with timezone, engine, retries, catch-up, timeouts, and parameters, and trigger run-now."
 search: api schedules cron timezone engine retries catch_up run-now runs
 ---
 

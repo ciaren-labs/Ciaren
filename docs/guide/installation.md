@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install and run Ciaren locally in minutes
+description: Install Ciaren from PyPI with pip, run it in Docker, or from source with Python 3.12+. Covers configuration, database setup, and install troubleshooting.
 search: install setup download run requirements frontend backend
 ---
 

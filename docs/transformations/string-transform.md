@@ -1,7 +1,7 @@
 ---
 title: String transform
 search: string transform lower upper strip title capitalize len replace pad text
-description: Apply a string operation to a text column
+description: The String transform node (stringTransform) applies lower, upper, title, strip, replace, length, or pad to a text column. Config and pandas code.
 ---
 
 # String transform — `stringTransform`

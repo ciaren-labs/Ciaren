@@ -1,6 +1,6 @@
 ---
 title: Pivot a Table
-description: Turn long rows into a wide summary — spread one column's values into new columns, aggregating the values.
+description: "Pivot a table from long to wide in Ciaren with the Pivot node: spread one column's values into new columns and aggregate a values column."
 search: recipe pivot table long to wide reshape crosstab summary
 ---
 

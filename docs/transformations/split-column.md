@@ -1,7 +1,7 @@
 ---
 title: Split column
 search: split column delimiter regex into capture groups expand
-description: Split one text column into several, by delimiter or regex capture groups
+description: The Split column node (splitColumn) splits one text column into several by a delimiter or regex capture groups, e.g. a full name into first and last.
 ---
 
 # Split column — `splitColumn`

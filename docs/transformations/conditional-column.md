@@ -1,7 +1,7 @@
 ---
 title: Conditional column
 search: conditional column case when if elif else rules match all any and or default
-description: Build a column from ordered if/elif/else rules, with AND/OR conditions
+description: The Conditional column node (conditionalColumn) builds a column from ordered if/elif/else rules with AND/OR conditions, like SQL CASE WHEN.
 ---
 
 # Conditional column — `conditionalColumn`

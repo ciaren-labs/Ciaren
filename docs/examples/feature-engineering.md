@@ -1,6 +1,6 @@
 ---
 title: Feature Engineering
-description: Prepare features for modeling visually — scale numerics, encode categories, select the best features, and reduce dimensions with PCA.
+description: "Ciaren example: prepare ML features visually. Fill nulls, encode categories, scale numeric columns, select the best features, and apply PCA."
 search: example feature engineering scale encode one-hot select features pca dimensionality reduction sklearn
 ---
 

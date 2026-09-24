@@ -1,3 +1,8 @@
+---
+title: Design System
+description: "Ciaren's purple, minimalist design system shared by the app and these docs: brand palette, semantic and status colours, typography, spacing, and motion."
+---
+
 # Design System
 
 Ciaren uses a **purple-based, minimalist** visual language. This page is the

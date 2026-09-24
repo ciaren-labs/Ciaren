@@ -1,6 +1,6 @@
 ---
 title: Projects & Runs
-description: Organize work into projects, version datasets, and monitor runs
+description: Organize Ciaren work into projects, keep immutable dataset versions, trace lineage, and monitor flow runs with per-node results, cancellation, and triggers.
 search: projects runs dataset versioning history run detail node results lineage
 ---
 

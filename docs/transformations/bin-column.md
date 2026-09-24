@@ -1,7 +1,7 @@
 ---
 title: Bin column
 search: bin column bucket cut quantile equalwidth bands labels histogram
-description: Bucket a numeric column into labeled bins as a new column
+description: The Bin column node (binColumn) buckets a numeric column into labeled equal-width or quantile bins as a new column. Config, example, and pandas code.
 ---
 
 # Bin column — `binColumn`

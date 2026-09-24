@@ -2,7 +2,7 @@
 layout: home
 title: Ciaren — Visual ETL That Exports Clean pandas and Polars Code
 titleTemplate: false
-description: Open-core, plugin-first platform that exports the pandas/polars code you'd write by hand for data engineering and machine-learning workflows — prototyped visually, run locally, no lock-in.
+description: Ciaren is an open-source visual ETL and ML workflow builder. Build data pipelines on a canvas, run them locally, and export clean pandas or Polars code.
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
 head:
   - - script

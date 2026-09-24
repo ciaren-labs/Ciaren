@@ -1,6 +1,6 @@
 ---
 title: ML Model Plugins
-description: Contribute trainable model types to Ciaren's ML catalog, or ship your own train node that persists models to MLflow and emits typed model references.
+description: "Extend Ciaren ML with plugins: add a model type to the Train Classifier and Train Regressor pickers, or ship a train node that logs models to MLflow."
 search: plugin ml model provider modeltypespec modelref modelstore train node mlflow sklearn classifier
 ---
 

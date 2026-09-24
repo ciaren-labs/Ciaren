@@ -1,6 +1,6 @@
 ---
 title: Frequently Asked Questions
-description: Common questions about Ciaren
+description: "Answers to common Ciaren questions: cost and AGPL licensing, system requirements, Windows support, dataset size limits, data privacy, and code export."
 search: faq help questions answers
 ---
 
