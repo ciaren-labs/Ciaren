@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NodeConfigForm } from "../NodeConfigForm";
 import type { Connection } from "@/features/connections/types";
+import { connectionsApi } from "@/features/connections/api";
 
 function makeConnection(id: string, name: string, connection_type: string): Connection {
   return {
@@ -38,6 +39,7 @@ vi.mock("@/features/connections/api", () => ({
       Promise.resolve([{ name: "orders", schema_name: "public", qualified: "public.orders" }]),
     ),
     objects: vi.fn(() => Promise.resolve(["data/input.csv", "data/report.xlsx", "notes.txt", "raw.bin"])),
+    objectDialect: vi.fn(() => Promise.resolve({ delimiter: null, encoding: null, decimal: null })),
   },
 }));
 
@@ -125,6 +127,69 @@ describe("NodeConfigForm — storageInput", () => {
   it("only shows the file picker once a connection is selected", () => {
     renderForm({ type: "storageInput", config: {} });
     expect(screen.queryByText(/Select a file from the storage connection/)).not.toBeInTheDocument();
+  });
+});
+
+describe("NodeConfigForm — storageInput CSV dialect", () => {
+  const CSV_CONFIG = { connection_id: "s3-1", path: "data/input.csv", format: "csv" };
+
+  it("shows the detected dialect and pre-fills the override fields from it", async () => {
+    vi.mocked(connectionsApi.objectDialect).mockResolvedValueOnce({
+      delimiter: ";",
+      encoding: "cp1252",
+      decimal: ",",
+    });
+    const onChange = vi.fn();
+    renderForm({ type: "storageInput", config: CSV_CONFIG, onChange });
+
+    expect(await screen.findByText("Detected: Semicolon (;) · cp1252 · decimal comma")).toBeInTheDocument();
+    expect(connectionsApi.objectDialect).toHaveBeenCalledWith("s3-1", "data/input.csv", "csv");
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ ...CSV_CONFIG, delimiter: ";", encoding: "cp1252", decimal: "," }),
+    );
+  });
+
+  it("keeps explicit overrides over detection, and the user can still change them", async () => {
+    const user = userEvent.setup();
+    vi.mocked(connectionsApi.objectDialect).mockResolvedValueOnce({ delimiter: ";", encoding: "cp1252", decimal: null });
+    const onChange = vi.fn();
+    renderForm({ type: "storageInput", config: { ...CSV_CONFIG, delimiter: "|" }, onChange });
+
+    await screen.findByText("Detected: Semicolon (;) · cp1252");
+    expect(onChange).not.toHaveBeenCalled(); // no pre-fill over an explicit value
+
+    await user.selectOptions(screen.getByLabelText("Encoding"), "latin-1");
+    expect(onChange).toHaveBeenLastCalledWith({ ...CSV_CONFIG, delimiter: "|", encoding: "latin-1" });
+  });
+
+  it.each([
+    ["nothing detected", () => Promise.resolve({ delimiter: null, encoding: null, decimal: null }), /No dialect detected/],
+    ["detection failed", () => Promise.reject(new Error("File not found")), /Couldn't detect the dialect/],
+  ])("shows no 'Detected' value and pre-fills nothing when %s", async (_label, result, message) => {
+    vi.mocked(connectionsApi.objectDialect).mockImplementationOnce(result);
+    const onChange = vi.fn();
+    renderForm({ type: "storageInput", config: CSV_CONFIG, onChange });
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(/^Detected:/)).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("clears overrides when another file is picked, and hides dialect fields for non-delimited formats", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { unmount } = renderForm({ type: "storageInput", config: { ...CSV_CONFIG, delimiter: ";" }, onChange });
+
+    await user.click(await screen.findByText("data/report.xlsx"));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "data/report.xlsx", format: "excel", delimiter: undefined }),
+    );
+    expect(screen.getByLabelText("Decimal mark")).toBeInTheDocument();
+
+    unmount();
+    renderForm({ type: "storageInput", config: { connection_id: "s3-1", path: "data/report.xlsx", format: "excel" } });
+    await screen.findByText("data/report.xlsx");
+    expect(screen.queryByLabelText("Decimal mark")).not.toBeInTheDocument();
   });
 });
 

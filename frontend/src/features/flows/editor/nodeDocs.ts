@@ -393,6 +393,10 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
       { name: "Storage connection", desc: "The cloud storage or local folder connection to use." },
       { name: "File path", desc: "Path to the file within the bucket or folder (e.g. data/input.csv)." },
       { name: "Format", desc: "File format: CSV, Excel, or Parquet." },
+      {
+        name: "Separator / Encoding / Decimal mark",
+        desc: "CSV/TSV only. Pre-filled from the detected dialect; change any to override, or pick Auto-detect.",
+      },
     ],
   },
 
