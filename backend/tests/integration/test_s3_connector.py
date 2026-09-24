@@ -1,17 +1,16 @@
 """Live round-trip tests for the S3 storage connector.
 
 These exercise the real boto3 code path (``app/connectors/s3.py``) against an
-S3-compatible endpoint — MinIO in CI (see ``.github/workflows/connectors-
+S3-compatible endpoint — moto server in CI (see ``.github/workflows/connectors-
 integration.yml``), or any endpoint you point the env vars at locally.
 
 The whole module self-skips unless ``CIAREN_TEST_S3_ENDPOINT`` is set, so the
-default infra-free suite is unaffected. To run locally against MinIO::
+default infra-free suite is unaffected. To run locally against moto::
 
-    docker run -d -p 9000:9000 -e MINIO_ROOT_USER=minioadmin \\
-        -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
+    docker run -d -p 9000:5000 motoserver/moto:5.2.3
     CIAREN_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \\
-    CIAREN_TEST_S3_ACCESS_KEY=minioadmin \\
-    CIAREN_TEST_S3_SECRET_KEY=minioadmin \\
+    CIAREN_TEST_S3_ACCESS_KEY=testing \\
+    CIAREN_TEST_S3_SECRET_KEY=testing \\
         pytest tests/integration/test_s3_connector.py -m connectors
 """
 

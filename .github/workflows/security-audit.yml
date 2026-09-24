@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Audit resolved dependencies
         working-directory: backend
@@ -115,9 +115,12 @@ jobs:
         # (GHSA-67mh-4wv8-2f99, any origin can read dev-server responses) has
         # no fix yet — vitepress pins vite <=6.4.2, which pins the vulnerable
         # esbuild, and the only newer vitepress is an unreleased 2.0.0-alpha.
+        # The same nested vite also carries a high dev-server advisory
+        # (GHSA-fx2h-pf6j-xcff, server.fs.deny bypass on Windows) with no fix
+        # reachable from vitepress 1.x.
         # Doesn't affect the built static site actually served in production,
         # only `npm run dev`. Revisit (restore --audit-level=high) once
-        # vitepress ships a stable release with a patched esbuild.
+        # vitepress ships a stable release with a patched vite/esbuild.
         run: npm audit --audit-level=critical
 
   summary:
