@@ -7,16 +7,21 @@ block) — and wraps the result in a valid nbformat v4 JSON structure **without*
 requiring the ``nbformat`` package: the .ipynb schema is simple enough to build
 by hand.
 
-Cells are split at blank lines, which the codegen pipeline already inserts as
-paragraph breaks around fused method chains (see
-:func:`app.engine.codegen_common.insert_paragraph_breaks`).  The first cell
-always contains the imports so the notebook can be run top-to-bottom; a
-parameters prelude (when present) becomes its own cell for easy tuning.
+Cells are split at blank lines between top-level statements, which the codegen
+pipeline already inserts as paragraph breaks around fused method chains (see
+:func:`app.engine.codegen_common.insert_paragraph_breaks`).  A blank line inside
+a statement (a ``pythonTransform`` function body, a multi-line string, a
+bracketed expression) never splits it, so every cell parses on its own.  The
+first cell always contains the imports so the notebook can be run
+top-to-bottom; a parameters prelude (when present) becomes its own cell for
+easy tuning.
 """
 
 from __future__ import annotations
 
+import ast
 import json
+import platform
 from typing import Any
 
 # Notebook format version (nbformat 4, nbformat_minor 5 — widely supported).
@@ -48,13 +53,26 @@ def _md_cell(source: str) -> dict[str, Any]:
 def _split_into_cells(code: str) -> list[str]:
     """Split a generated script into cell-sized chunks at blank-line boundaries.
 
-    Consecutive non-empty lines stay in the same cell; a blank line starts a new
-    one.  Trailing blank lines are ignored so the last cell is never empty.
+    Only a blank line *between* top-level statements (decorators count as part
+    of the statement they decorate) starts a new cell; blank lines inside a
+    statement are kept.  Comments stay attached to the lines around them.  Code
+    that does not parse becomes a single cell rather than being cut at a guess.
     """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return [code.strip("\n")]
+    # 0-based indices of every line that belongs to a top-level statement.
+    inside: set[int] = set()
+    for node in tree.body:
+        decorators = getattr(node, "decorator_list", [])
+        first = min([node.lineno, *(d.lineno for d in decorators)])
+        inside.update(range(first - 1, node.end_lineno or node.lineno))
+
     cells: list[str] = []
     current: list[str] = []
-    for line in code.split("\n"):
-        if line == "":
+    for index, line in enumerate(code.split("\n")):
+        if not line.strip() and index not in inside:
             if current:
                 cells.append("\n".join(current))
                 current = []
@@ -101,9 +119,10 @@ def script_to_notebook(
                 "language": "python",
                 "name": kernel_name,
             },
+            # The exporting interpreter's version; front-ends treat it as a hint.
             "language_info": {
                 "name": "python",
-                "version": "3.12.0",
+                "version": platform.python_version(),
             },
         },
         "nbformat": _NBFORMAT,

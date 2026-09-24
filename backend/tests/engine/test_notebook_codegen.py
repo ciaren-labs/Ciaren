@@ -2,15 +2,17 @@
 
 Verifies that:
 - ``script_to_notebook`` produces a valid nbformat v4 structure.
-- Cells are split at blank-line boundaries (paragraph breaks).
-- The notebook's combined cell source is equivalent to the original script.
-- A round-trip through ``exec`` of all cells reproduces the same result as
-  running the original ``.py`` script.
+- Cells split only at blank lines between top-level statements, never inside one.
+- Every code cell parses on its own, and running the cells one at a time in a
+  shared namespace (as Jupyter does) gives the same result as the ``.py`` script.
 """
 
+import ast
 import json
-import tempfile
+import platform
 from pathlib import Path
+
+import pytest
 
 from app.engine.codegen import CodeGenerator
 from app.engine.notebook_codegen import (
@@ -44,7 +46,7 @@ def test_notebook_structure_is_valid_nbformat_v4() -> None:
     assert len(nb["cells"]) >= 1
     meta = nb["metadata"]
     assert meta["kernelspec"]["language"] == "python"
-    assert meta["language_info"]["name"] == "python"
+    assert meta["language_info"] == {"name": "python", "version": platform.python_version()}
 
 
 def test_notebook_cells_are_all_code() -> None:
@@ -90,134 +92,109 @@ def test_split_into_cells_by_blank_lines() -> None:
     assert cells == ["import pandas as pd", "df = pd.read_csv('x.csv')", "df.head()"]
 
 
-def test_split_preserves_multiline_blocks() -> None:
-    code = (
-        "import pandas as pd\n"
-        "\n"
-        "df = pd.read_csv('x.csv')\n"
-        "df = df.dropna()\n"
-        "df = df.head(5)\n"
-        "\n"
-        "df.to_csv('out.csv')\n"
-    )
-    cells = _split_into_cells(code)
-    assert len(cells) == 3
-    assert "import pandas as pd" in cells[0]
-    assert "df.dropna()" in cells[1]
-    assert "to_csv" in cells[2]
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        pytest.param(
+            "import pandas as pd\n\ndef f(df):\n    a = 1\n\n    return df\n\nf(1)\n",
+            ["import pandas as pd", "def f(df):\n    a = 1\n\n    return df", "f(1)"],
+            id="blank-line-in-function-body",
+        ),
+        pytest.param(
+            'x = 1\n\nq = """first\n\nthird"""\n\nprint(q)\n',
+            ["x = 1", 'q = """first\n\nthird"""', "print(q)"],
+            id="blank-line-in-multiline-string",
+        ),
+        pytest.param(
+            "import functools\n\n@functools.cache\n\ndef f():\n    return 1\n",
+            ["import functools", "@functools.cache\n\ndef f():\n    return 1"],
+            id="blank-line-after-decorator",
+        ),
+        pytest.param(
+            "total = sum(\n    [1,\n\n     2]\n)\n",
+            ["total = sum(\n    [1,\n\n     2]\n)"],
+            id="blank-line-in-brackets",
+        ),
+        pytest.param(
+            "a = 1\n\n# explain b\nb = 2\n# trailing note\n",
+            ["a = 1", "# explain b\nb = 2\n# trailing note"],
+            id="comments-stay-with-their-statements",
+        ),
+        pytest.param(
+            "def broken(:\n    pass\n\nx = 1\n",
+            ["def broken(:\n    pass\n\nx = 1"],
+            id="syntax-error-is-one-cell",
+        ),
+    ],
+)
+def test_split_never_breaks_a_statement(code: str, expected: list[str]) -> None:
+    assert _split_into_cells(code) == expected
 
 
 # ---------------------------------------------------------------------------
-# Equivalence: notebook cells produce the same output as the .py script
+# Generated notebooks run cell by cell like the .py script
 # ---------------------------------------------------------------------------
 
+# A pythonTransform script with blank lines in its body and inside a string
+# literal: the generator emits it as a function, which must stay in one cell.
+_TRANSFORM_SCRIPT = 'total = df["a"].sum()\n\nlabel = """first\n\nthird"""\nreturn df.head(2)'
 
-def _write_sample_csv(path: Path) -> None:
-    path.write_text("a,b\n1,2\n3,4\n5,6\n")
-
-
-def _all_code_cells_source(nb: dict) -> str:
-    """Concatenate all code cell sources, separated by newlines."""
-    parts: list[str] = []
-    for cell in nb["cells"]:
-        if cell["cell_type"] != "code":
-            continue
-        src = "".join(cell["source"])
-        if src.strip():
-            parts.append(src)
-    return "\n\n".join(parts) + "\n"
+_VARIANTS = pytest.mark.parametrize("variant", ["pandas", "polars", "polars_lazy"])
 
 
-def test_pandas_notebook_exec_matches_script() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        csv_path = Path(tmpdir) / "data.csv"
-        out_py = Path(tmpdir) / "out_py.csv"
-        _write_sample_csv(csv_path)
-
-        graph = {
-            "nodes": [
-                {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
-                {"id": "h", "type": "limitRows", "data": {"config": {"n": 2}}},
-                {"id": "out", "type": "csvOutput", "data": {"config": {"path": str(out_py)}}},
-            ],
-            "edges": [
-                {"id": "e1", "source": "in", "target": "h"},
-                {"id": "e2", "source": "h", "target": "out"},
-            ],
-        }
-        code = CodeGenerator().generate(graph, {"d": str(csv_path)})
-        nb = script_to_notebook(code)
-        # Run .py script (writes to out_py).
-        exec(compile(code, "<pandas.py>", "exec"), {})  # noqa: S102
-        py_content = out_py.read_text()
-        # Run notebook cells (writes to out_nb).
-        nb_code = _all_code_cells_source(nb)
-        exec(compile(nb_code, "<notebook>", "exec"), {})  # noqa: S102
-        nb_content = out_py.read_text()
-        assert py_content == nb_content
+def _transform_flow_script(variant: str, tmp_path: Path) -> tuple[str, Path]:
+    """Script for csv -> pythonTransform -> csv, plus the path it writes to."""
+    csv_path = tmp_path / "data.csv"
+    csv_path.write_text("a,b\n1,2\n3,4\n5,6\n")
+    out_path = tmp_path / "out.csv"
+    graph = {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "t", "type": "pythonTransform", "data": {"config": {"script": _TRANSFORM_SCRIPT}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": str(out_path)}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "t"},
+            {"id": "e2", "source": "t", "target": "out"},
+        ],
+    }
+    datasets = {"d": str(csv_path)}
+    if variant == "pandas":
+        return CodeGenerator().generate(graph, datasets), out_path
+    return PolarsCodeGenerator().generate(graph, datasets, lazy=variant == "polars_lazy"), out_path
 
 
-def test_polars_notebook_exec_matches_script() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        csv_path = Path(tmpdir) / "data.csv"
-        out_path = Path(tmpdir) / "out.csv"
-        _write_sample_csv(csv_path)
-
-        graph = {
-            "nodes": [
-                {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
-                {"id": "h", "type": "limitRows", "data": {"config": {"n": 2}}},
-                {"id": "out", "type": "csvOutput", "data": {"config": {"path": str(out_path)}}},
-            ],
-            "edges": [
-                {"id": "e1", "source": "in", "target": "h"},
-                {"id": "e2", "source": "h", "target": "out"},
-            ],
-        }
-        code = PolarsCodeGenerator().generate(graph, {"d": str(csv_path)})
-        nb = script_to_notebook(code)
-        # Run .py script.
-        exec(compile(code, "<polars.py>", "exec"), {})  # noqa: S102
-        py_content = out_path.read_text()
-        # Run notebook cells.
-        nb_code = _all_code_cells_source(nb)
-        exec(compile(nb_code, "<notebook>", "exec"), {})  # noqa: S102
-        nb_content = out_path.read_text()
-        assert py_content == nb_content
+def _code_cells(nb: dict) -> list[str]:
+    return ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
 
 
-def test_polars_lazy_notebook_exec_matches_script() -> None:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        csv_path = Path(tmpdir) / "data.csv"
-        out_path = Path(tmpdir) / "out.csv"
-        _write_sample_csv(csv_path)
-
-        graph = {
-            "nodes": [
-                {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
-                {"id": "h", "type": "limitRows", "data": {"config": {"n": 2}}},
-                {"id": "out", "type": "csvOutput", "data": {"config": {"path": str(out_path)}}},
-            ],
-            "edges": [
-                {"id": "e1", "source": "in", "target": "h"},
-                {"id": "e2", "source": "h", "target": "out"},
-            ],
-        }
-        code = PolarsCodeGenerator().generate(graph, {"d": str(csv_path)}, lazy=True)
-        nb = script_to_notebook(code)
-        # Run .py script.
-        exec(compile(code, "<polars-lazy.py>", "exec"), {})  # noqa: S102
-        py_content = out_path.read_text()
-        # Run notebook cells.
-        nb_code = _all_code_cells_source(nb)
-        exec(compile(nb_code, "<notebook>", "exec"), {})  # noqa: S102
-        nb_content = out_path.read_text()
-        assert py_content == nb_content
+@_VARIANTS
+def test_every_code_cell_parses_on_its_own(variant: str, tmp_path: Path) -> None:
+    code, _ = _transform_flow_script(variant, tmp_path)
+    for cell in _code_cells(script_to_notebook(code, flow_name="Flow")):
+        ast.parse(cell)
 
 
-# ---------------------------------------------------------------------------
-# Edge case: multi-step pipeline with multiple nodes
-# ---------------------------------------------------------------------------
+@_VARIANTS
+def test_cells_run_one_by_one_match_script(variant: str, tmp_path: Path) -> None:
+    code, out_path = _transform_flow_script(variant, tmp_path)
+    exec(compile(code, "<script>", "exec"), {})  # noqa: S102
+    expected = out_path.read_text()
+    out_path.unlink()
+
+    # One cell at a time into a shared namespace, the way Jupyter runs them.
+    namespace: dict = {}
+    for i, cell in enumerate(_code_cells(script_to_notebook(code))):
+        exec(compile(cell, f"<cell {i}>", "exec"), namespace)  # noqa: S102
+    assert out_path.read_text() == expected
+
+
+@_VARIANTS
+def test_notebook_cells_keep_every_script_line(variant: str, tmp_path: Path) -> None:
+    """No source line (comments included) is lost; only separating blank lines go."""
+    code, _ = _transform_flow_script(variant, tmp_path)
+    combined = "\n".join(_code_cells(script_to_notebook(code)))
+    assert [ln for ln in combined.split("\n") if ln.strip()] == [ln for ln in code.split("\n") if ln.strip()]
 
 
 def test_multi_step_pipeline_notebook_structure() -> None:
@@ -233,20 +210,6 @@ def test_multi_step_pipeline_notebook_structure() -> None:
             {"id": "e2", "source": "h", "target": "out"},
         ],
     }
-    code = CodeGenerator().generate(graph, {"d": "data.csv"})
-    nb = script_to_notebook(code)
-    code_cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
+    code_cells = _code_cells(script_to_notebook(CodeGenerator().generate(graph, {"d": "data.csv"})))
     assert len(code_cells) >= 2
-    first_src = "".join(code_cells[0]["source"])
-    assert "import pandas as pd" in first_src
-
-
-def test_notebook_cells_combined_equals_script() -> None:
-    """Concatenating all code cells reproduces the original script's non-blank lines."""
-    code = CodeGenerator().generate(_simple_graph(), {"d": "sales.csv"})
-    nb = script_to_notebook(code)
-    cell_sources = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
-    combined = "\n\n".join(cell_sources) + "\n"
-    original_lines = [ln for ln in code.split("\n") if ln.strip()]
-    combined_lines = [ln for ln in combined.split("\n") if ln.strip()]
-    assert original_lines == combined_lines
+    assert "import pandas as pd" in code_cells[0]
