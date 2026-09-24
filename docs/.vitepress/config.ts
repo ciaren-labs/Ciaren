@@ -28,6 +28,79 @@ function pageUrl(page: string) {
   return path ? `${docsOrigin}/${path}` : `${docsOrigin}/`
 }
 
+// Sidebar for the user guide. Each page is listed once, in the order a new
+// user reads it: install, first flow, day-to-day features, then reference and
+// project pages. Contributor-only pages sit in the last group.
+//
+// Declared before `nav` on purpose: the ciaren.com docs sync derives each
+// folder's page order from the first `link: '/<folder>/<page>'` it finds in
+// this file (see PUBLISHING.md > Navigation and page order), so a nav-bar
+// link placed earlier would pull its page to the top of the published list.
+const guideSidebar = [
+  {
+    text: 'Getting Started',
+    items: [
+      { text: 'Introduction', link: '/guide/getting-started' },
+      { text: 'Installation', link: '/guide/installation' },
+      { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
+      { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
+      { text: 'Interface Tour', link: '/guide/interface' },
+    ],
+  },
+  {
+    text: 'Data Engineering',
+    items: [
+      { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
+      { text: 'Database Connections', link: '/guide/connections' },
+      { text: 'Engines (polars / pandas)', link: '/guide/engines' },
+      { text: 'Flow Parameters', link: '/guide/parameters' },
+      { text: 'Scheduling', link: '/guide/scheduling' },
+      { text: 'Webhook Trigger', link: '/guide/webhook' },
+      { text: 'Python SDK', link: '/guide/sdk' },
+      { text: 'CLI Reference', link: '/guide/cli' },
+    ],
+  },
+  {
+    text: 'Machine Learning',
+    items: [
+      { text: 'ML Quick Start', link: '/guide/ml-quickstart' },
+      { text: 'Visualizations', link: '/guide/visualizations' },
+    ],
+  },
+  {
+    text: 'Deployment',
+    collapsed: true,
+    items: [
+      { text: 'Docker', link: '/guide/docker' },
+      { text: 'Advanced Setup', link: '/guide/advanced-setup' },
+    ],
+  },
+  {
+    text: 'Help',
+    collapsed: true,
+    items: [
+      { text: 'Troubleshooting', link: '/guide/troubleshooting' },
+      { text: 'FAQ', link: '/faq' },
+    ],
+  },
+  {
+    text: 'About the Project',
+    collapsed: true,
+    items: [
+      { text: 'How Ciaren Compares', link: '/guide/comparison' },
+      { text: 'Roadmap', link: '/guide/roadmap' },
+      { text: 'Changelog', link: '/guide/changelog' },
+    ],
+  },
+  {
+    text: 'For Contributors',
+    collapsed: true,
+    items: [
+      { text: 'Design System', link: '/guide/design-system' },
+    ],
+  },
+]
+
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
 // public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
 // Plugins are a first-class concept in Ciaren, so this sidebar leads with the
@@ -224,88 +297,7 @@ export default defineConfig({
     ],
 
     sidebar: {
-      '/guide/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Introduction', link: '/guide/getting-started' },
-            { text: 'Installation', link: '/guide/installation' },
-            { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
-            { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
-            { text: 'Interface Tour', link: '/guide/interface' },
-            { text: 'How Ciaren Compares', link: '/guide/comparison' },
-          ],
-        },
-        {
-          text: 'Data Engineering',
-          items: [
-            { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
-            { text: 'Database Connections', link: '/guide/connections' },
-            { text: 'Engines (polars / pandas)', link: '/guide/engines' },
-            { text: 'Flow Parameters', link: '/guide/parameters' },
-            { text: 'Scheduling', link: '/guide/scheduling' },
-            { text: 'Webhook Trigger', link: '/guide/webhook' },
-            { text: 'Python SDK', link: '/guide/sdk' },
-            { text: 'CLI Reference', link: '/guide/cli' },
-          ],
-        },
-        {
-          text: 'Machine Learning',
-          items: [
-            { text: 'ML Quick Start', link: '/guide/ml-quickstart' },
-            { text: 'ML Nodes Reference', link: '/transformations/machine-learning' },
-            { text: 'Visualizations', link: '/guide/visualizations' },
-          ],
-        },
-        {
-          text: 'Plugins & Extensibility',
-          items: [
-            { text: 'Overview', link: '/plugins/overview' },
-            { text: 'Installing & Managing Plugins', link: '/plugins/managing-plugins' },
-            { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
-            { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
-            { text: 'ML Model Plugins', link: '/plugins/ml-model-plugins' },
-            { text: 'Connector Plugins', link: '/plugins/connector-plugins' },
-            { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
-            { text: 'Build an Advanced Plugin (scikit-learn)', link: '/plugins/advanced-plugin-sklearn' },
-            { text: 'Plugin API Reference', link: '/plugins/api-reference' },
-            { text: 'Plugin CLI Reference', link: '/plugins/cli-reference' },
-            { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
-          ],
-        },
-        {
-          text: 'Deployment',
-          collapsed: true,
-          items: [
-            { text: 'Docker', link: '/guide/docker' },
-            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
-          ],
-        },
-        {
-          text: 'Reference',
-          collapsed: true,
-          items: [
-            { text: 'Design System', link: '/guide/design-system' },
-          ],
-        },
-        {
-          text: 'Community',
-          collapsed: true,
-          items: [
-            { text: 'Roadmap', link: '/guide/roadmap' },
-            { text: 'Changelog', link: '/guide/changelog' },
-            { text: 'How Ciaren Compares', link: '/guide/comparison' },
-          ],
-        },
-        {
-          text: 'Help',
-          collapsed: true,
-          items: [
-            { text: 'Troubleshooting', link: '/guide/troubleshooting' },
-            { text: 'FAQ', link: '/faq' },
-          ],
-        },
-      ],
+      '/guide/': guideSidebar,
 
       '/transformations/': [
         {
@@ -450,12 +442,6 @@ export default defineConfig({
             { text: 'Feature Engineering', link: '/examples/feature-engineering' },
           ],
         },
-        {
-          text: 'More',
-          items: [
-            { text: 'Recipes (quick tasks)', link: '/recipes/overview' },
-          ],
-        },
       ],
 
       '/recipes/': [
@@ -490,13 +476,6 @@ export default defineConfig({
             { text: 'Schedules', link: '/api/schedules' },
             { text: 'Connections', link: '/api/connections' },
             { text: 'Settings', link: '/api/settings' },
-          ],
-        },
-        {
-          text: 'Automation',
-          items: [
-            { text: 'Webhook Trigger', link: '/guide/webhook' },
-            { text: 'Python SDK', link: '/guide/sdk' },
           ],
         },
       ],

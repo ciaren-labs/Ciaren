@@ -141,6 +141,29 @@ blocks are all rendered into styled components on ciaren.com. If you add a
 **new** `ciaren-*` grid class, the sync fails until the website adds a matching
 renderer — coordinate that change with the website repo before merging.
 
+## Navigation and page order
+
+The ciaren.com sidebar is **not** the VitePress sidebar. The sync deletes
+`.vitepress/` and builds its own navigation from the files:
+
+- **Groups are folders.** Each top-level folder (`guide/`, `plugins/`, …) is one
+  sidebar group, labeled with the folder name. VitePress group headings
+  (`text: 'Getting Started'`) and sidebars that mix folders do not publish.
+- **Page titles** come from each page's `title` frontmatter (or its first
+  `# Heading`).
+- **Page order inside a folder** is derived from `.vitepress/config.ts`: the
+  first `link: '/<folder>/<page>'` found in the file, top to bottom, sets the
+  position. That is why the sidebar constants are declared above `nav`. Pages
+  with no link sort to the end.
+- **Top-level order** comes from `docs/_meta.json`. Add new top-level folders
+  there too.
+- **No redirects.** The site does not read redirects from these docs, so moving
+  or renaming a page breaks its published URL and every inbound link. Regroup
+  pages through the sidebar order instead of moving files.
+
+List each page **once** in the VitePress sidebars, so each topic keeps one
+home in both renderings.
+
 ## Visual parity
 
 The website deliberately **re-styles** these docs rather than mirroring

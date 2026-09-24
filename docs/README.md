@@ -132,7 +132,9 @@ search: keyword1 keyword2
 
 ### Navigation
 
-Update `.vitepress/config.ts` to add pages to the sidebar.
+Update `.vitepress/config.ts` to add pages to the sidebar. The sidebar order
+also sets the page order on ciaren.com; see
+[Navigation and page order](PUBLISHING.md#navigation-and-page-order).
 
 ### Code Examples
 
