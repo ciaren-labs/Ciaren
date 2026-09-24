@@ -1,8 +1,6 @@
 ---
 title: Chart Nodes
-description:
-  Reference for Ciaren's chart nodes — bar, line, area, scatter, pie,
-  histogram, box plot, and correlation heatmap stored on every run.
+description: "Reference for Ciaren's eight chart nodes: bar, line, area, scatter, pie, histogram, box plot, and correlation heatmap charts saved with every run."
 search:
   chart nodes bar line area scatter pie histogram box plot heatmap visualization
   run artifact export png title

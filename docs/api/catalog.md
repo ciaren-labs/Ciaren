@@ -1,6 +1,6 @@
 ---
 title: Catalog & Plugins API
-description: Backend-fed node catalog and installed-plugin introspection
+description: "Catalog and Plugins REST API reference for Ciaren: read the node, connector, and category catalog that builds the editor palette, and inspect installed plugins."
 search: api catalog nodes connectors categories plugins diagnostics extension
 ---
 

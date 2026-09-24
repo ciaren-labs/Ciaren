@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install and run Ciaren locally in minutes
+description: Install Ciaren from PyPI with pip, run it in Docker, or from source with Python 3.12+. Covers configuration, database setup, and install troubleshooting.
 search: install setup download run requirements frontend backend
 ---
 
@@ -17,7 +17,7 @@ You can run the backend on its own and drive it through the
 ## Requirements
 
 - **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
-- **Node.js 18+** — [Download Node.js](https://nodejs.org/) (only for the frontend)
+- **Node.js 18+** — [Download Node.js](https://nodejs.org/en/download) (only for the frontend)
 - **Git** — [Download Git](https://git-scm.com/)
 - A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
   are supported via an async driver.

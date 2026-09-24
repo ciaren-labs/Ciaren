@@ -1,7 +1,7 @@
 ---
 title: Rolling aggregate
 search: rolling moving average window mean sum std time series smoothing
-description: Moving aggregate over a window of N rows
+description: The Rolling aggregate node (rollingAggregate) computes a moving mean, sum, min, max, std, or median over N rows per partition, ideal for time series.
 ---
 
 # Rolling aggregate — `rollingAggregate`

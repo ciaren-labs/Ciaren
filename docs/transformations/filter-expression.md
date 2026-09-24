@@ -1,7 +1,7 @@
 ---
 title: Filter by expression
 search: filter expression query boolean multi condition and or keep rows
-description: Keep rows where a boolean expression is true
+description: The Filter by expression node (filterExpression) keeps rows where a boolean expression over several columns with and/or is true. With pandas code.
 ---
 
 # Filter by expression — `filterExpression`

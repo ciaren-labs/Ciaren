@@ -1,7 +1,7 @@
 ---
 title: Filter rows
 search: filter rows where condition operator between in contains isnull keep
-description: Keep only the rows that match a condition
+description: "The Filter rows node (filterRows) keeps rows matching one condition: comparisons, between, in, contains, or null checks. Config and pandas code."
 ---
 
 # Filter rows — `filterRows`

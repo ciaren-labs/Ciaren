@@ -13,9 +13,9 @@
 </p>
 
 <p align="center">
-  <a href="https://ciaren.com/docs/">Docs</a>
-  · <a href="https://ciaren.com/docs/guide/quick-start">Quick Start</a>
-  · <a href="https://ciaren.com/docs/plugins/overview">Plugins</a>
+  <a href="https://ciaren.com/docs/latest">Docs</a>
+  · <a href="https://ciaren.com/docs/latest/guide/quick-start">Quick Start</a>
+  · <a href="https://ciaren.com/docs/latest/plugins/overview">Plugins</a>
   · <a href="https://github.com/ciaren-labs/Ciaren/discussions">Discussions</a>
   · <a href="CONTRIBUTING.md">Contributing</a>
   · <a href="https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a>
@@ -31,7 +31,7 @@
   <img alt="Python 3.12+" src="https://img.shields.io/badge/Python-3.12%2B-blue">
   <img alt="Status: Alpha" src="https://img.shields.io/badge/Status-Alpha-orange">
   <a href="https://github.com/ciaren-labs/Ciaren/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good first issues" src="https://img.shields.io/github/issues/ciaren-labs/Ciaren/good%20first%20issue?label=good%20first%20issues&color=7c3aed"></a>
-  <a href="https://github.com/ciaren-labs/Ciaren/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ciaren-labs/Ciaren?style=social"></a>
+  <a href="https://github.com/ciaren-labs/Ciaren"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ciaren-labs/Ciaren?style=social"></a>
 </p>
 
 ![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
@@ -184,7 +184,7 @@ from visual exploration into normal Python projects.
 | **Visual ETL / data-prep tools** (for example KNIME, Alteryx, Orange) | A drag-and-drop canvas whose output is plain pandas or Polars Python, not a proprietary workflow format. |
 | **Airflow, dbt, or Spark** | A lightweight, single-machine option for small and medium datasets — no cluster or warehouse to set up. Ciaren does not replace these tools at scale. |
 
-Read the full [comparison with notebooks, orchestrators, and visual ETL tools](https://ciaren.com/docs/guide/comparison).
+Read the full [comparison with notebooks, orchestrators, and visual ETL tools](https://ciaren.com/docs/latest/guide/comparison).
 
 ## Built for Extension
 
@@ -204,9 +204,9 @@ enabled, disabled, and distributed independently.
 
 Start here:
 
-- [Plugins Overview](https://ciaren.com/docs/plugins/overview)
-- [Build Your First Plugin](https://ciaren.com/docs/plugins/first-plugin)
-- [Plugin API Reference](https://ciaren.com/docs/plugins/api-reference)
+- [Plugins Overview](https://ciaren.com/docs/latest/plugins/overview)
+- [Build Your First Plugin](https://ciaren.com/docs/latest/plugins/first-plugin)
+- [Plugin API Reference](https://ciaren.com/docs/latest/plugins/api-reference)
 
 ## Who It Is For
 
@@ -224,19 +224,19 @@ Start here:
 
 ## Documentation
 
-- [Installation](https://ciaren.com/docs/guide/installation) - PyPI, Docker,
+- [Installation](https://ciaren.com/docs/latest/guide/installation) - PyPI, Docker,
   source installs, extras, and troubleshooting.
-- [Quick Start](https://ciaren.com/docs/guide/quick-start) - build your first
+- [Quick Start](https://ciaren.com/docs/latest/guide/quick-start) - build your first
   flow in five minutes.
-- [Demo Project & Tutorials](https://ciaren.com/docs/guide/demo-project) - walk
+- [Demo Project & Tutorials](https://ciaren.com/docs/latest/guide/demo-project) - walk
   through the seeded example flows.
-- [Examples](https://ciaren.com/docs/examples/sales-analysis) - end-to-end
+- [Examples](https://ciaren.com/docs/latest/examples/sales-analysis) - end-to-end
   workflow walkthroughs.
-- [Machine Learning Quick Start](https://ciaren.com/docs/guide/ml-quickstart) -
+- [Machine Learning Quick Start](https://ciaren.com/docs/latest/guide/ml-quickstart) -
   train and evaluate a model on the canvas.
-- [Plugin Guide](https://ciaren.com/docs/plugins/first-plugin) - build your
+- [Plugin Guide](https://ciaren.com/docs/latest/plugins/first-plugin) - build your
   first plugin.
-- [Roadmap](https://ciaren.com/docs/guide/roadmap)
+- [Roadmap](https://ciaren.com/docs/latest/guide/roadmap)
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
@@ -311,7 +311,7 @@ add on top rather than carving features out.
 
 See [LICENSE](LICENSE), [NOTICE](NOTICE), and [LICENSES/](LICENSES/) for the
 complete license texts and notices, and the
-[licensing FAQ](https://ciaren.com/docs/faq) for common questions.
+[licensing FAQ](https://ciaren.com/docs/latest/faq) for common questions.
 
 ## Citation
 

@@ -1,7 +1,7 @@
 ---
 title: Change types
 search: cast types change types dtype convert integer float boolean string datetime coerce
-description: Convert column data types, with optional coercion and datetime format
+description: The Change types node (castDtypes) converts column data types to integer, float, boolean, string, or datetime, optionally coercing bad values to null.
 ---
 
 # Change types — `castDtypes`

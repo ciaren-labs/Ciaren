@@ -1,6 +1,6 @@
 ---
 title: Installing & Managing Plugins
-description: Install, approve, disable, and uninstall Ciaren plugins from the Plugins page or the CLI — and understand the approval gate that keeps plugin code from running until you say so.
+description: Install, approve, disable, and uninstall Ciaren plugins from the Plugins page, the Explore catalog, or the ciaren-plugin CLI, and how approval works.
 search: install plugin uninstall enable disable approve permissions manage plugins ciarenplugin marketplace explore
 ---
 

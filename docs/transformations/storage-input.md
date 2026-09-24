@@ -1,7 +1,7 @@
 ---
 title: Storage input (S3 / GCS / Azure Blob / Local)
 search: storage input s3 gcs azure blob local folder read file bucket object cloud
-description: Read a file from object storage or a local folder into a flow
+description: The Ciaren Storage Input node reads a file from AWS S3, Google Cloud Storage, Azure Blob Storage, or a local folder through a storage connection.
 ---
 
 # Storage input — `storageInput`

@@ -1,6 +1,6 @@
 ---
 title: Demo Project & Tutorials
-description: The sample datasets and example flows Ciaren ships with, walked through step by step
+description: "Tour the built-in Ciaren Demo project: 11 sample datasets and 18 example flows, with tutorials for cleaning, dates, joins, and a three-input sales mart."
 search: demo project sample data tutorial example flows customers orders products clean join aggregate
 ---
 

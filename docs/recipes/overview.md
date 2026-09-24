@@ -1,6 +1,6 @@
 ---
 title: Recipes
-description: Short, copy-paste task recipes for common data jobs in Ciaren — convert formats, remove duplicates, pivot, fill missing values, and more.
+description: "Short Ciaren recipes for common data tasks: convert Excel to Parquet, remove duplicate rows, fill missing values, and pivot a table in a minute or two."
 search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values
 ---
 

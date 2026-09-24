@@ -1,7 +1,7 @@
 ---
 title: Sort rows
 search: sort rows order ascending descending na_position multi-column
-description: Sort by one or more columns, with per-column direction and null placement
+description: The Sort rows node (sortRows) sorts a dataframe by one or more columns with per-column ascending or descending order and null placement.
 ---
 
 # Sort rows — `sortRows`

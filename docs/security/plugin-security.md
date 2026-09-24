@@ -1,6 +1,6 @@
 ---
 title: Plugin Security & Permissions
-description: How Ciaren gates, verifies, and isolates plugins
+description: "How Ciaren secures plugins: declared permissions, approval gating, signature verification, trust-on-first-use reinstalls, and install hardening."
 search: plugin security permissions signature verification approve enable disable
 ---
 

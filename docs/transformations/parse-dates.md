@@ -1,7 +1,7 @@
 ---
 title: Parse dates
 search: parse dates to_datetime format errors coerce strptime text datetime
-description: Parse text columns into real datetimes so date operations work
+description: The Parse dates node (parseDates) converts text columns into real datetimes, with an optional format and unparseable values sent to null.
 ---
 
 # Parse dates — `parseDates`

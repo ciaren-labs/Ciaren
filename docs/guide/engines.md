@@ -1,6 +1,6 @@
 ---
 title: Engines (polars / pandas)
-description: How Ciaren runs flows on polars or pandas, and how it exports code
+description: Run Ciaren flows on Polars (default) or pandas, pick the engine per run, and export pandas, Polars, lazy Polars, or Jupyter notebook code.
 search: engines polars pandas default execution mode export code timeout
 ---
 

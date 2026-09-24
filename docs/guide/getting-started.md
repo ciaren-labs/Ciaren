@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Understand what Ciaren is, who it is for, and the fastest path to try it
+description: "What Ciaren is, who it is for, and how to start: build visual ETL flows on a canvas, preview real data, run locally, and export pandas or Polars code."
 search: getting started introduction what is ciaren beginner technical overview
 ---
 

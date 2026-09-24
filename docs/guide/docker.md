@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Run Ciaren with Docker — single-command setup, built-in ML, optional database extras
+description: "Run Ciaren in Docker with one command: a single container with the web editor and backend, data persistence, PostgreSQL, and a production checklist."
 search: docker container compose deployment
 layout: doc
 ---
@@ -13,7 +13,7 @@ data persistence, and zero Node.js or Python tooling required on the host.
 
 ## Prerequisites
 
-- [Docker Desktop](https://docs.docker.com/get-docker/) 24+ (or Docker Engine
+- [Docker Desktop](https://docs.docker.com/get-started/get-docker/) 24+ (or Docker Engine
   - Docker Compose v2)
 - No other dependencies — the image includes Python 3.13, all backend packages,
   and the pre-built frontend

@@ -1,6 +1,6 @@
 ---
 title: Quick Start (5 Minutes)
-description: Build and run your first data workflow in the Ciaren editor
+description: "Build and run your first Ciaren flow in five minutes: pick or upload a CSV dataset, add cleaning nodes, run it, export Python code, and optionally schedule it."
 search: quick start tutorial first flow editor api
 ---
 

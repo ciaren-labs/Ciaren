@@ -1,7 +1,7 @@
 ---
 title: Concat Rows
 search: union concat stack append rows combine multiple inputs variadic concat rows
-description: Stack multiple inputs row-wise into one frame
+description: The Concat Rows node (concatRows) stacks two or more inputs row-wise into one dataframe, aligning columns by name, like a SQL union or pandas concat.
 ---
 
 # Concat Rows (Union / Concat) — `concatRows`

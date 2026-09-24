@@ -1,6 +1,6 @@
 ---
 title: Webhook Trigger
-description: Trigger Ciaren flows from CI/CD pipelines, Airflow DAGs, and any HTTP client
+description: Trigger Ciaren flow runs over HTTP from CI/CD, GitHub Actions, or Airflow with a secret-protected webhook, including retry-safe duplicate protection.
 search: webhook trigger secret ci cd airflow pipeline http external automation
 ---
 

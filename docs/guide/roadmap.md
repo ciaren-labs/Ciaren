@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: Where Ciaren is today and the direction it's heading — toward a stable, local-first platform with plugins, connectors, exports, data quality, ML, and AI extension points.
+description: "Where alpha-stage Ciaren is heading: plugins, connectors, exporters, data quality, machine learning, AI extension points, scheduling, and security."
 search: roadmap direction future plugins ecosystem status alpha connectors exporters data quality machine learning ai scheduling security
 ---
 

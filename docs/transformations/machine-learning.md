@@ -1,6 +1,6 @@
 ---
 title: Machine Learning Nodes
-description: Reference for Ciaren's ML nodes — split, feature engineering, train, predict, evaluate.
+description: "Reference for Ciaren's ML nodes: Train/Test Split, scaling, encoding, PCA, Train Classifier and Regressor, Predict, Evaluate, and Cross-Validate."
 search: ml machine learning train predict evaluate split scale encode pca feature importance
 layout: doc
 ---

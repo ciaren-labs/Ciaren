@@ -1,6 +1,6 @@
 ---
 title: Flows API
-description: Create, read, update, delete, preview, and export flows
+description: "Flows REST API reference for Ciaren: create, read, update, delete, and import flows, preview nodes, and export a flow as pandas or Polars Python code."
 search: api flows crud graph nodes edges preview export python pandas polars
 ---
 

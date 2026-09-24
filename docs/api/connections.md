@@ -1,6 +1,6 @@
 ---
 title: Connections API
-description: Manage reusable database connections for SQL input/output nodes
+description: "Connections REST API reference for Ciaren: manage, test, and list tables of reusable database connections whose passwords come from secret references."
 search: api connections database sql providers test tables postgres mysql mongo
 ---
 

@@ -1,8 +1,32 @@
 ---
 layout: home
-title: Ciaren
-description: Open-core, plugin-first platform that exports the pandas/polars code you'd write by hand for data engineering and machine-learning workflows — prototyped visually, run locally, no lock-in.
+title: Ciaren — Visual ETL That Exports Clean pandas and Polars Code
+titleTemplate: false
+description: Ciaren is an open-source visual ETL and ML workflow builder. Build data pipelines on a canvas, run them locally, and export clean pandas or Polars code.
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
+head:
+  - - script
+    - type: application/ld+json
+    - |
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Ciaren",
+        "description": "Open-source visual ETL and ML workflow builder that exports clean pandas and Polars Python code.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "url": "https://ciaren.com",
+        "license": "https://spdx.org/licenses/AGPL-3.0-only.html",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "sameAs": [
+          "https://github.com/ciaren-labs/Ciaren",
+          "https://pypi.org/project/ciaren/"
+        ]
+      }
 
 hero:
   name: <span class="ciaren-c">C</span>iaren
@@ -10,7 +34,7 @@ hero:
   tagline: Prototype data and ML pipelines on a canvas, preview every step on real data, run locally, and keep readable pandas, polars, or lazy polars code with no proprietary runtime.
   image:
     src: /logo.svg
-    alt: Ciaren
+    alt: Ciaren logo
   actions:
     - theme: brand
       text: Start in 5 Minutes
@@ -80,7 +104,7 @@ Join a CSV file and a SQL table, clean each side, train a classifier, preview th
 result on real data, and export it as clean Polars — without leaving the editor.
 
 <div style="margin: 1.5rem 0 2.5rem; border-radius: 14px; overflow: hidden; box-shadow: 0 16px 48px -16px rgba(109,40,217,0.4); border: 1px solid var(--vp-c-divider);">
-  <video autoplay loop muted playsinline poster="/screenshots/hero-ml-pipeline-poster.jpg" style="display:block; width:100%; height:auto;">
+  <video autoplay loop muted playsinline aria-label="Demo of the Ciaren editor: a CSV file and a SQL table are joined, cleaned, and used to train a Random Forest classifier, previewed on real data, exported to Polars code, and run end to end" poster="/screenshots/hero-ml-pipeline-poster.jpg" style="display:block; width:100%; height:auto;">
     <source src="/hero-ml-pipeline.mp4" type="video/mp4" />
     <img src="/screenshots/hero-ml-pipeline.gif" alt="Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data, exported to clean Polars code, run end to end, and inspected through a Bar Chart node rendering the predicted-status distribution" style="width:100%" />
   </video>
