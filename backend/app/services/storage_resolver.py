@@ -22,8 +22,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import ConnectorError, get_connector, get_provider, is_storage_provider
+from app.connectors.storage_base import sniff_object_dialect
 from app.core.exceptions import ValidationError
 from app.db.models.connection import Connection
+from app.engine.ingest import ParseOptionsError, config_parse_options
 from app.engine.node_kinds import STORAGE_INPUT_TYPE, STORAGE_OUTPUT_TYPE
 from app.plugins.connectors import connection_config, guard_plugin_connection, plugin_connector
 from app.services.connection_service import build_storage_spec
@@ -75,8 +77,20 @@ async def materialize_storage_inputs(
         if not file_path:
             raise ValidationError(f"Storage input node {node['id']!r} has no file path configured.")
 
+        try:
+            explicit = config_parse_options(config, fmt)
+        except ParseOptionsError as exc:
+            raise ValidationError(f"Storage input node {node['id']!r}: {exc}") from None
+
         plugin = _storage_plugin(conn)
         if plugin is not None:
+            if explicit:
+                # The plugin read contract has no dialect options; refusing beats
+                # silently reading with a different dialect than configured.
+                raise ValidationError(
+                    f"Connector '{conn.provider}' does not support delimiter/encoding/decimal options — "
+                    "clear them on the storage input node."
+                )
             runtime = plugin[1]
             guard_plugin_connection(conn.host, conn.options_json)
             runtime_config = connection_config(conn)
@@ -100,9 +114,13 @@ async def materialize_storage_inputs(
             connector = get_connector(provider)
             spec = build_storage_spec(conn)
 
-            def _read(connector=connector, spec=spec, path=file_path, fmt=fmt, limit=limit):  # type: ignore[no-untyped-def]
+            def _read(connector=connector, spec=spec, path=file_path, fmt=fmt, limit=limit, explicit=explicit):  # type: ignore[no-untyped-def]
                 try:
-                    df = connector.read_file(spec, path, fmt)
+                    options = None
+                    if fmt in ("csv", "tsv"):
+                        # Detected dialect, with the node's explicit overrides on top.
+                        options = {**sniff_object_dialect(connector, spec, path, fmt), **explicit}
+                    df = connector.read_file(spec, path, fmt, options)
                 except Exception as exc:
                     raise ValidationError(str(exc)) from None
                 return df.head(limit) if limit is not None else df

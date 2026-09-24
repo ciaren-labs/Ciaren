@@ -74,7 +74,9 @@ class GCSConnector:
         except Exception as exc:
             raise _guard(exc, spec.secret) from None
 
-    def read_file(self, spec: StorageSpec, path: str, fmt: str) -> pd.DataFrame:
+    def read_file(
+        self, spec: StorageSpec, path: str, fmt: str, parse_options: dict[str, Any] | None = None
+    ) -> pd.DataFrame:
         try:
             body = _client(spec).bucket(spec.bucket).blob(path).download_as_bytes()
         except ConnectorError:
@@ -83,11 +85,21 @@ class GCSConnector:
             raise _guard(exc, spec.secret) from None
 
         try:
-            return deserialize_dataframe(body, fmt)
+            return deserialize_dataframe(body, fmt, parse_options)
         except ConnectorError:
             raise
         except Exception as exc:
             raise ConnectorError(f"Failed to parse gs://{spec.bucket}/{path} as {fmt}: {exc}") from None
+
+    def read_sample(self, spec: StorageSpec, path: str, max_bytes: int) -> bytes:
+        """The object's first ``max_bytes`` via a ranged download (``end`` is inclusive)."""
+        try:
+            blob = _client(spec).bucket(spec.bucket).blob(path)
+            return bytes(blob.download_as_bytes(start=0, end=max_bytes - 1))
+        except ConnectorError:
+            raise
+        except Exception as exc:
+            raise _guard(exc, spec.secret) from None
 
     def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:
         client = _client(spec)

@@ -5,6 +5,8 @@ import { Field } from "../configFields";
 import type { Connection } from "@/features/connections/types";
 import type { useConnectionObjects, useConnectionTables } from "@/features/connections/hooks";
 import type { NodeConfigRenderProps } from "./shared";
+import { CLEAR_DIALECT } from "@/lib/csvDialect";
+import { StorageDialectFields } from "./StorageDialectFields";
 
 // SQL/storage nodes are the one family that can't be pure closures: their
 // table/object pickers depend on live connection queries, whose hooks must
@@ -186,7 +188,7 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
           <Field label="Storage connection" error={errors.connection_id} help="S3, Azure Blob, GCS, or local folder (manage on the Connections page).">
             <Select
               value={c.connection_id ?? ""}
-              onChange={(e) => set({ connection_id: e.target.value, path: "", format: "csv" })}
+              onChange={(e) => set({ connection_id: e.target.value, path: "", format: "csv", ...CLEAR_DIALECT })}
             >
               <option value="">Select a storage connection…</option>
               {storageConnections.map((cn) => (
@@ -216,7 +218,7 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
                       <button
                         key={obj}
                         type="button"
-                        onClick={() => set({ path: obj, format: formatFromPath(obj) })}
+                        onClick={() => set({ path: obj, format: formatFromPath(obj), ...CLEAR_DIALECT })}
                         className={cn(
                           "w-full px-2 py-1 text-left text-[11px] font-mono hover:bg-muted",
                           selectedPath === obj && "bg-primary/10 font-semibold text-primary",
@@ -240,13 +242,15 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
               <Input
                 className="mt-1"
                 value={selectedPath}
-                onChange={(e) => set({ path: e.target.value, format: formatFromPath(e.target.value) })}
+                onChange={(e) =>
+                  set({ path: e.target.value, format: formatFromPath(e.target.value), ...CLEAR_DIALECT })
+                }
                 placeholder="data/input.csv"
               />
             </Field>
           )}
           <Field label="Format" error={errors.format} help="File format to read.">
-            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value })}>
+            <Select value={c.format ?? "csv"} onChange={(e) => set({ format: e.target.value, ...CLEAR_DIALECT })}>
               <option value="csv">CSV</option>
               <option value="tsv">TSV</option>
               <option value="excel">Excel (.xlsx)</option>
@@ -256,6 +260,9 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
               <option value="text">Text (one row per line)</option>
             </Select>
           </Field>
+          {c.connection_id && selectedPath && ["csv", "tsv"].includes(c.format ?? "csv") && (
+            <StorageDialectFields c={c} errors={errors} set={set} />
+          )}
         </>
       );
     }

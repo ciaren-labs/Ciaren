@@ -1,5 +1,6 @@
 // Zod schemas for validating each node type's config in the sidebar forms.
 import { z } from "zod";
+import { DECIMAL_VALUES, DELIMITER_VALUES, ENCODING_VALUES } from "./csvDialect";
 import {
   isSupervisedModel,
   CV_STRATEGY_VALUES,
@@ -622,11 +623,20 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     if_exists: z.enum(["replace", "append", "fail"]).optional(),
   }),
 
-  storageInput: z.object({
-    connection_id: z.string().min(1, "Select a storage connection"),
-    path: z.string().min(1, "File path is required"),
-    format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
-  }),
+  storageInput: z
+    .object({
+      connection_id: z.string().min(1, "Select a storage connection"),
+      path: z.string().min(1, "File path is required"),
+      format: z.enum(["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"]),
+      // Dialect overrides (CSV/TSV); the backend enforces the same whitelist.
+      delimiter: z.enum(DELIMITER_VALUES).optional(),
+      encoding: z.enum(ENCODING_VALUES).optional(),
+      decimal: z.enum(DECIMAL_VALUES).optional(),
+    })
+    .refine((cfg) => !(cfg.format === "tsv" && cfg.delimiter), {
+      path: ["delimiter"],
+      message: "TSV files are always tab-separated",
+    }),
   storageOutput: z.object({
     connection_id: z.string().min(1, "Select a storage connection"),
     path: z.string().min(1, "Destination path is required"),

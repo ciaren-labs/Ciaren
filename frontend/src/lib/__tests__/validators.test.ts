@@ -678,6 +678,21 @@ describe("storageInput", () => {
     rejects("storageInput", { connection_id: "c1", path: "", format: "csv" }, "path"));
   it("rejects a bad format", () =>
     rejects("storageInput", { connection_id: "c1", path: "x", format: "avro" }, "format"));
+  it("accepts CSV dialect overrides", () =>
+    accepts("storageInput", {
+      connection_id: "c1",
+      path: "x.csv",
+      format: "csv",
+      delimiter: "\t",
+      encoding: "cp1252",
+      decimal: ",",
+    }));
+  it.each([
+    [{ format: "csv", delimiter: "abc" }, "delimiter"],
+    [{ format: "csv", encoding: "ebcdic" }, "encoding"],
+    [{ format: "tsv", delimiter: ";" }, "delimiter"],
+  ])("rejects dialect override %j (backend whitelist parity)", (patch, path) =>
+    rejects("storageInput", { connection_id: "c1", path: "x.csv", ...patch }, path));
 });
 
 describe("storageOutput", () => {

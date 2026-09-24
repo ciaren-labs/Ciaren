@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import type { CsvDialect } from "@/lib/csvDialect";
 import type {
   Connection,
   ConnectionCreate,
@@ -34,6 +35,10 @@ export const connectionsApi = {
   tables: (id: string) => request<TableInfo[]>(`/connections/${id}/tables`),
   objects: (id: string, prefix?: string) =>
     request<string[]>(`/connections/${id}/objects${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ""}`),
+  objectDialect: (id: string, path: string, format: "csv" | "tsv") =>
+    request<CsvDialect>(
+      `/connections/${id}/objects/dialect?path=${encodeURIComponent(path)}&format=${format}`,
+    ),
   // OS keychain secrets: store a value once, keep only a keyring:NAME reference.
   keyringStatus: () => request<KeyringAvailability>("/connections/keyring"),
   keyringSecretStatus: (name: string) =>
