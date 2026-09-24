@@ -64,3 +64,4 @@ df_2 = df_1.fillna({'region': 'Unknown'})
 ## See also
 
 - [Drop nulls](./drop-nulls.md) · [Change types](./cast-types.md)
+- Recipe: [Fill Missing Values](/recipes/fill-missing-values)

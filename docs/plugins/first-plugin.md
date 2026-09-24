@@ -6,10 +6,14 @@ search: plugin tutorial first plugin getting started node provider runtime hello
 
 # Build Your First Plugin in 10 Minutes
 
-By the end of this tutorial you'll have a working Ciaren plugin that adds a new
-node to the canvas — one that runs in previews and runs, and exports to Python,
-exactly like a built-in node. We'll build a small **"Add Greeting"** node that adds
-a constant column.
+**Tutorial** for Python developers new to Ciaren plugins. **You get:** a working
+plugin node that previews, runs, and exports to Python like a built-in node.
+
+Follow the steps in order; each one builds on the last. We'll build a small
+**"Add Greeting"** node that adds a constant column. When you need more than the
+steps cover, [Writing a Plugin](/plugins/writing-a-plugin) explains how the
+parts fit, and the [Plugin API Reference](/plugins/api-reference) lists every
+class and field.
 
 This mirrors the runnable example in the repo at
 [`examples/plugins/hello-node-plugin/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin)
@@ -162,11 +166,9 @@ See the [Plugin Manifest](/specs/plugin-manifest) reference for every field.
 
 ::: tip Three versions, don't confuse them
 `version` is *this plugin's* release. `ciaren` is which **app** builds it runs on.
-`api_version` is the **plugin-contract** it targets — it changes *only* when the
-contract (`app.plugin_api`) changes, not on every plugin release. The contract is
-currently pre-1.0 (`0.1.0-alpha.1`) and makes **no** backward-compatibility promise:
-target the exact version the backend reports and rebuild when it bumps. See
-[Contract versioning](/specs/plugin-manifest#contract-versioning).
+`api_version` is the **plugin contract** it targets. For this tutorial, keep the
+values above; [Contract versioning](/specs/plugin-manifest#contract-versioning)
+explains when each one changes.
 :::
 
 ::: tip Don't hand-write it — generate it
@@ -263,10 +265,10 @@ for the trust model.
 
 ## What next?
 
-- **[Installing & Managing Plugins](/plugins/managing-plugins)** — approving, disabling, and uninstalling plugins
-- **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
-- **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
-- **[Plugins Overview](/plugins/overview)** — all the extension points
+- **[Writing a Plugin](/plugins/writing-a-plugin)** — the guide: config forms,
+  host services, events, manifests, discovery, and rules
+- **[Plugins Overview](/plugins/overview#which-page-do-i-need)** — find the page
+  for your next task, such as connectors, ML model types, or signing
 
 ::: tip Built something?
 Share it in [Discussions](https://github.com/ciaren-labs/Ciaren/discussions)

@@ -68,3 +68,4 @@ Excel/Parquet/text emit `to_excel(...)` / `to_parquet(...)` / a tab-separated
 - [SQL output](./sql-output.md) — write to a database table instead of a file
 - [Storage output](./storage-output.md) — write to S3 / GCS / Azure Blob
 - [Projects & Runs](/guide/projects-and-runs)
+- Recipe: [Convert Excel to Parquet](/recipes/convert-excel-to-parquet)
