@@ -363,6 +363,8 @@ export function renderCleaningConfig(
         lower: "Lowercase",
         upper: "Uppercase",
         strip: "Strip spaces",
+        lstrip: "Strip left",
+        rstrip: "Strip right",
         title: "Title Case",
         capitalize: "Capitalize",
         len: "Count chars",

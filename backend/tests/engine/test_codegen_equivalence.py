@@ -43,6 +43,10 @@ def _text() -> pd.DataFrame:
     return pd.DataFrame({"a": ["x", "zebra", None, "yz", "x"], "b": [1, 2, 3, 4, 5]})
 
 
+def _text_with_surrounding_spaces() -> pd.DataFrame:
+    return pd.DataFrame({"a": ["  both  ", "left  ", "  right", None]})
+
+
 def _dates_str() -> pd.DataFrame:
     return pd.DataFrame({"a": ["2024-01-02", "2024-03-04", None]})
 
@@ -233,6 +237,8 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "replace_literal": {"in": _text},
     "replace_regex": {"in": _text},
     "str_upper": {"in": _text},
+    "str_lstrip": {"in": _text_with_surrounding_spaces},
+    "str_rstrip": {"in": _text_with_surrounding_spaces},
     "str_replace": {"in": _text},
     "str_pad_right": {"in": _text},
     "str_pad_left": {"in": _text},
