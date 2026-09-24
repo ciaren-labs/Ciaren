@@ -127,6 +127,28 @@ def _join_right() -> pd.DataFrame:
     return pd.DataFrame({"id": [2, 3, 4], "rid": [2, 3, 4], "v": [7.0, 8.0, 9.0]})
 
 
+def _join_membership_left() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "id": pd.Series([1, 2, 2, None, 3], dtype=object),
+            "left_1": [1, 1, 2, 2, None],
+            "left_2": ["x", "y", "x", None, "x"],
+            "value": [10, 20, 30, 40, 50],
+        }
+    )
+
+
+def _join_membership_right() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "id": pd.Series([2, 2, float("nan"), 4, 4], dtype=object),
+            "right_1": [1, 1, 2, None, 4],
+            "right_2": ["x", "x", None, "x", "z"],
+            "right_value": [1, 2, 3, 4, 5],
+        }
+    )
+
+
 def _grouped() -> pd.DataFrame:
     # Window/rolling/diff input: two partitions, scrambled tie-free order key,
     # and a null value so null propagation is exercised per engine.
@@ -251,6 +273,10 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "join_on": {"left": _join_left, "right": _join_right},
     "join_split": {"left": _join_left, "right": _join_right},
     "join_outer": {"left": _join_left, "right": _join_right},
+    "join_semi_on": {"left": _join_membership_left, "right": _join_membership_right},
+    "join_anti_on": {"left": _join_membership_left, "right": _join_membership_right},
+    "join_semi_split": {"left": _join_membership_left, "right": _join_membership_right},
+    "join_anti_split": {"left": _join_membership_left, "right": _join_membership_right},
     "sort_desc": {"in": _num},
     "dedupe_keep_none": {"in": _num},
     "fill_bfill": {"in": _num},

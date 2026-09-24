@@ -51,6 +51,8 @@ _JOIN_HOW = {
     "left": "left",
     "right": "right",
     "outer": "full",
+    "semi": "semi",
+    "anti": "anti",
 }
 
 _DTYPE_MAP = {
@@ -314,13 +316,29 @@ class PolarsEngine:
         if how not in _JOIN_HOW:
             raise ValueError(f"Unsupported join how: {how!r}")
         how_arg = cast(Any, _JOIN_HOW[how])
+        # pandas matches null join keys; Polars requires an explicit opt-in.
+        nulls_equal = how in ("semi", "anti")
         # polars takes a single suffix for overlapping right-side columns.
         suffix = suffixes[1]
         if left_on and right_on:
-            return left.join(right, left_on=left_on, right_on=right_on, how=how_arg, suffix=suffix)
+            return left.join(
+                right,
+                left_on=left_on,
+                right_on=right_on,
+                how=how_arg,
+                suffix=suffix,
+                nulls_equal=nulls_equal,
+            )
         # coalesce shared keys so a 'full'/'outer' join keeps a single key column,
         # matching pandas.merge(on=...). (Without it polars emits a duplicate 'key_y'.)
-        return left.join(right, on=on, how=how_arg, suffix=suffix, coalesce=True)
+        return left.join(
+            right,
+            on=on,
+            how=how_arg,
+            suffix=suffix,
+            coalesce=True,
+            nulls_equal=nulls_equal,
+        )
 
     def concat(self, frames: list[pl.DataFrame]) -> pl.DataFrame:
         # diagonal_relaxed unions columns (null-filling where a frame lacks one)

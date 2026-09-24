@@ -134,6 +134,18 @@ CODEGEN_CASES = [
     ("join_on", "join", {"on": "id", "how": "inner"}),
     ("join_split", "join", {"left_on": "lid", "right_on": "rid", "how": "left", "suffixes": ["_l", "_r"]}),
     ("join_outer", "join", {"on": "id", "how": "outer"}),
+    ("join_semi_on", "join", {"on": "id", "how": "semi"}),
+    ("join_anti_on", "join", {"on": "id", "how": "anti"}),
+    (
+        "join_semi_split",
+        "join",
+        {"left_on": ["left_1", "left_2"], "right_on": ["right_1", "right_2"], "how": "semi"},
+    ),
+    (
+        "join_anti_split",
+        "join",
+        {"left_on": ["left_1", "left_2"], "right_on": ["right_1", "right_2"], "how": "anti"},
+    ),
     # sort: single-column descending collapses the direction list
     ("sort_desc", "sortRows", {"columns": ["a"], "ascending": False}),
     # dedupe keep=False (drop every duplicate)

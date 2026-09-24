@@ -548,6 +548,8 @@ describe("NodeConfigForm", () => {
     );
     expect(screen.getByText("Join on")).toBeInTheDocument();
     expect(screen.queryByText("Left key(s)")).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Semi — left rows with a match" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Anti — left rows without a match" })).toBeInTheDocument();
 
     rerender(
       <Wrap>
