@@ -81,13 +81,14 @@ class CodeExportResponse(BaseModel):
     #
     # The `notebook*` fields are Jupyter notebook JSON (nbformat v4) wrapping
     # the same generated code as the corresponding `.py` exports — one cell per
-    # blank-line-separated paragraph so the notebook runs top-to-bottom.
+    # paragraph between top-level statements, so the notebook runs top-to-bottom.
+    # They are only filled when the export asks for `include_notebooks`.
     code: str
     polars: str
     polars_lazy: str
-    notebook: str  # pandas notebook JSON
-    notebook_polars: str  # eager polars notebook JSON
-    notebook_polars_lazy: str  # lazy polars notebook JSON
+    notebook: str | None = None  # pandas notebook JSON
+    notebook_polars: str | None = None  # eager polars notebook JSON
+    notebook_polars_lazy: str | None = None  # lazy polars notebook JSON
     flow_document: FlowDocument
 
 

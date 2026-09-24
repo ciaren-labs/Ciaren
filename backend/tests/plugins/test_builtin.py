@@ -129,8 +129,9 @@ def test_execution_specs_include_engines():
 def test_exporter_specs():
     reg = build_registry()
     ids = {e.id for e in reg.exporter_specs()}
-    assert ids == {"python", "polars", "polars-lazy"}
+    assert ids == {"python", "polars", "polars-lazy", "notebook", "notebook-polars", "notebook-polars-lazy"}
     assert reg.has_capability("exporter.python")
+    assert reg.has_capability("exporter.notebook")
 
 
 def test_validator_specs_cover_quality_nodes():

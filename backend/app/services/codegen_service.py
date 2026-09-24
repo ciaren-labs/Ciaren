@@ -29,13 +29,19 @@ class CodegenService:
     async def export_python(self, flow_id: str) -> str:
         return str((await self.export(flow_id))["pandas"])
 
-    async def export(self, flow_id: str, *, free_intermediates: bool = False) -> dict[str, Any]:
-        """Generate the pandas, eager-polars and lazy-polars equivalents of a flow,
-        plus Jupyter notebook (``.ipynb``) variants of each.
+    async def export(
+        self, flow_id: str, *, free_intermediates: bool = False, include_notebooks: bool = False
+    ) -> dict[str, Any]:
+        """Generate the pandas, eager-polars and lazy-polars equivalents of a flow.
 
         ``free_intermediates`` adds ``del`` statements to the materializing
         (pandas / eager-polars) scripts to lower peak memory; the lazy script is
         unaffected since its variables are query plans, not data.
+
+        ``include_notebooks`` also wraps each script as Jupyter notebook
+        (``.ipynb``) JSON; otherwise the ``notebook*`` entries are ``None`` so
+        callers that only want the ``.py`` scripts don't pay for three more
+        copies of the code.
         """
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
@@ -100,14 +106,17 @@ class CodegenService:
                     dataset_parse_options=parse_options,
                 )
             )
-            flow_name = flow.name
+
+            def notebook(script: str) -> str | None:
+                return script_to_notebook_json(script, flow_name=flow.name) if include_notebooks else None
+
             return {
                 "pandas": pandas_script,
                 "polars": polars_script,
                 "polars_lazy": polars_lazy_script,
-                "notebook": script_to_notebook_json(pandas_script, flow_name=flow_name),
-                "notebook_polars": script_to_notebook_json(polars_script, flow_name=flow_name),
-                "notebook_polars_lazy": script_to_notebook_json(polars_lazy_script, flow_name=flow_name),
+                "notebook": notebook(pandas_script),
+                "notebook_polars": notebook(polars_script),
+                "notebook_polars_lazy": notebook(polars_lazy_script),
                 "flow_document": FlowDocument(name=flow.name, description=flow.description, graph_json=graph),
             }
         except GraphValidationError as exc:
