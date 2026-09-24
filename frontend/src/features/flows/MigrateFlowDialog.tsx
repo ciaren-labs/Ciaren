@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useMigrateFlowDocument } from "./hooks";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { saveBlob } from "@/lib/download";
 
 interface MigrateFlowDialogProps {
   open: boolean;
@@ -49,14 +50,10 @@ export function MigrateFlowDialog({ open, onOpenChange }: MigrateFlowDialogProps
 
   const download = () => {
     if (!migrate.data) return;
-    const url = URL.createObjectURL(
+    saveBlob(
       new Blob([JSON.stringify(migrate.data.document, null, 2)], { type: "application/json" }),
+      `${fileName?.replace(/\.json$/i, "") ?? "flow"}.migrated.json`,
     );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName?.replace(/\.json$/i, "") ?? "flow"}.migrated.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (

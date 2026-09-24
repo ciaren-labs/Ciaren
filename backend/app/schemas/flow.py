@@ -78,9 +78,17 @@ class CodeExportResponse(BaseModel):
     # equivalent eager polars script; `polars_lazy` is the optimized lazy
     # (`scan_*` → `collect()`) polars script. `flow_document` is the importable
     # JSON description of the flow (name + node graph).
+    #
+    # The `notebook*` fields are Jupyter notebook JSON (nbformat v4) wrapping
+    # the same generated code as the corresponding `.py` exports — one cell per
+    # paragraph between top-level statements, so the notebook runs top-to-bottom.
+    # They are only filled when the export asks for `include_notebooks`.
     code: str
     polars: str
     polars_lazy: str
+    notebook: str | None = None  # pandas notebook JSON
+    notebook_polars: str | None = None  # eager polars notebook JSON
+    notebook_polars_lazy: str | None = None  # lazy polars notebook JSON
     flow_document: FlowDocument
 
 

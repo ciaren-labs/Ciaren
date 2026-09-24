@@ -8,6 +8,17 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Jupyter notebook export.** The code export dialog can download each engine
+  variant (pandas, polars, lazy polars) as a `.ipynb` notebook, and
+  `POST /api/flows/{flow_id}/export/python?include_notebooks=true` returns them
+  in the new `notebook`, `notebook_polars`, and `notebook_polars_lazy` fields
+  (`null` unless requested). Cells split only between top-level statements, so
+  every cell runs on its own. The notebook exporters are listed in
+  `GET /api/catalog/exporters`, and the Python client's `export_flow_python`
+  takes `include_notebooks`. Thanks to @tusharui.
+
 ## [0.2.0] - 2026-07-20
 
 A repo-wide correctness and hardening pass from an internal audit. Most of it is

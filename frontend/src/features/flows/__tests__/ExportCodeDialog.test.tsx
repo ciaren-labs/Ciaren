@@ -3,12 +3,19 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExportCodeDialog } from "../ExportCodeDialog";
+import { saveBlob } from "@/lib/download";
+
+// Stop at the browser boundary: capture what would go to the download manager.
+vi.mock("@/lib/download", () => ({ saveBlob: vi.fn() }));
 
 // Three distinct scripts so each tab is identifiable by a unique substring.
 const EXPORT_RESPONSE = {
   code: 'import pandas as pd\ndf_1 = pd.read_csv("sales.csv")\n',
   polars: 'import polars as pl\ndf_1 = pl.read_csv("sales.csv")\n',
   polars_lazy: 'import polars as pl\ndf_1 = pl.scan_csv("sales.csv")\n',
+  notebook: null,
+  notebook_polars: null,
+  notebook_polars_lazy: null,
   flow_document: {
     format: "ciaren.flow/v1",
     name: "Sales",
@@ -28,6 +35,7 @@ beforeEach(() => {
     json: async () => EXPORT_RESPONSE,
   }));
   vi.stubGlobal("fetch", fetchMock);
+  vi.mocked(saveBlob).mockClear();
 });
 
 afterEach(() => {
@@ -110,5 +118,53 @@ describe("ExportCodeDialog", () => {
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/flows/f1/export/python?free_intermediates=true",
     );
+  });
+
+  it.each([
+    ["pandas", "notebook"],
+    ["polars", "notebook_polars"],
+    ["polars (lazy)", "notebook_polars_lazy"],
+  ] as const)("downloads the %s tab as <flow name>.ipynb", async (tab, field) => {
+    // Only a request that opts in gets notebooks back, like the real backend.
+    fetchMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        url.includes("include_notebooks=true")
+          ? {
+              ...EXPORT_RESPONSE,
+              notebook: '{"variant": "notebook"}',
+              notebook_polars: '{"variant": "notebook_polars"}',
+              notebook_polars_lazy: '{"variant": "notebook_polars_lazy"}',
+            }
+          : EXPORT_RESPONSE,
+    }));
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByText(/pd\.read_csv/, { selector: "code" });
+
+    await user.click(screen.getByRole("tab", { name: tab }));
+    await user.click(await screen.findByRole("button", { name: /download \.ipynb/i }));
+
+    await waitFor(() => expect(saveBlob).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/flows/f1/export/python?include_notebooks=true");
+    const [blob, fileName] = vi.mocked(saveBlob).mock.calls[0];
+    expect(fileName).toBe("Sales.ipynb");
+    // jsdom's Blob has no .text(); FileReader is its supported read path.
+    const reader = new FileReader();
+    const content = new Promise((resolve) => (reader.onload = () => resolve(reader.result)));
+    reader.readAsText(blob);
+    expect(await content).toBe(`{"variant": "${field}"}`);
+  });
+
+  it("explains when the server returns no notebook (older backend)", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByText(/pd\.read_csv/, { selector: "code" });
+
+    await user.click(screen.getByRole("button", { name: /download \.ipynb/i }));
+
+    expect(await screen.findByText(/does not support notebook export/i)).toBeInTheDocument();
+    expect(saveBlob).not.toHaveBeenCalled();
   });
 });

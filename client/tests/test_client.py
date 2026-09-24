@@ -285,6 +285,21 @@ def test_sync_retry_run():
     assert run == MOCK_RUN
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [({}, "false"), ({"include_notebooks": True}, "true")],
+)
+def test_sync_export_flow_python_notebooks_are_opt_in(kwargs, expected):
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(
+            return_value=httpx.Response(200, json={"code": "print(1)", "notebook": None})
+        )
+        with Ciaren(BASE) as client:
+            export = client.export_flow_python(FLOW_ID, **kwargs)
+    assert export["code"] == "print(1)"
+    assert route.calls[0].request.url.params["include_notebooks"] == expected
+
+
 def test_sync_stream_logs():
     sse_body = (
         'data: {"level": "info", "message": "done"}\n\n'
@@ -323,7 +338,9 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
         mock.post("/api/projects").mock(return_value=httpx.Response(201, json=MOCK_PROJECT))
         mock.post("/api/datasets/upload").mock(return_value=httpx.Response(201, json=MOCK_DATASET))
         mock.post("/api/flows/import").mock(return_value=httpx.Response(201, json=MOCK_FLOW))
-        mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(return_value=httpx.Response(200, json={"code": "print(1)"}))
+        export_route = mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(
+            return_value=httpx.Response(200, json={"code": "print(1)"})
+        )
         mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
         mock.post("/api/transformations/preview").mock(return_value=httpx.Response(200, json={"rows": []}))
 
@@ -331,7 +348,7 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
             project = await client.create_project("Default")
             dataset = await client.upload_dataset(csv_path)
             flow = await client.import_flow({"nodes": []}, name="Imported")
-            export = await client.export_flow_python(FLOW_ID)
+            export = await client.export_flow_python(FLOW_ID, include_notebooks=True)
             schedule = await client.create_schedule(FLOW_ID, "0 9 * * *")
             preview = await client.preview_transformation(type="select", config={})
 
@@ -339,6 +356,7 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
     assert dataset == MOCK_DATASET
     assert flow == MOCK_FLOW
     assert export["code"] == "print(1)"
+    assert export_route.calls[0].request.url.params["include_notebooks"] == "true"
     assert schedule == MOCK_SCHEDULE
     assert preview == {"rows": []}
 
