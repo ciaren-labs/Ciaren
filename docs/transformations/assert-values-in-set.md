@@ -1,7 +1,7 @@
 ---
 title: Assert values in set
 search: assert values in set allowed domain categorical contract validation
-description: Fail or warn when a column has values outside an allowed set
+description: The Assert values in set data quality node (assertValuesInSet) fails or warns when a categorical column holds values outside an allowed set.
 ---
 
 # Assert values in set — `assertValuesInSet`

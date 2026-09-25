@@ -1,21 +1,20 @@
 ---
 title: Demo Project & Tutorials
-description: The sample datasets and example flows Ciaren ships with, walked through step by step
+description: "Tour the built-in Ciaren Demo project: 11 sample datasets and 18 example flows, with tutorials for cleaning, dates, joins, and a three-input sales mart."
 search: demo project sample data tutorial example flows customers orders products clean join aggregate
 ---
 
 # Demo Project & Tutorials
 
-Ciaren ships with a built-in **Demo** project so you have something real to
-explore the first time you open it. It contains **11 sample datasets** and
-**18 example flows** — from a simple linear cleanup to a three-input sales
-mart, plus a batch of newer ML-focused flows (PCA, clustering, feature
-selection, regression, cross-validation, and more) built on datasets like
-`house_prices.csv` and `iris.csv`. This page walks through the four
-foundational tutorial flows in detail, and every tutorial below walks through a
-flow **that is already in your Demo project**. Open the flow, follow along,
-preview each step, and tweak it — then browse the rest of the Demo project for
-the more advanced, ML-oriented flows.
+**For:** anyone who finished the [Quick Start](/guide/quick-start) or learns best
+from working examples. **You get:** four guided tutorials on flows that are
+already in your Demo project, from a linear cleanup to a three-input sales mart.
+
+The built-in **Demo** project contains **11 sample datasets** and **18 example
+flows**. Open each tutorial flow, preview every step, and tweak it. The other
+14 flows cover more cleaning and data-quality patterns plus ML work (PCA,
+clustering, feature selection, regression, cross-validation, and more) on
+datasets like `house_prices.csv` and `iris.csv`.
 
 ## Where the demo comes from
 
@@ -252,12 +251,15 @@ appear.
 
 ## Next steps
 
-- See every node these flows use in the [Transformations reference](../transformations/overview.md).
-- Run a flow and read the [exported Python code](./engines.md#code-export-pandas-polars-and-lazy-polars)
-  it generates — the demo flows make for readable, educational examples.
-- Beyond the four tutorials above, the Demo project includes 14 more flows —
-  mostly ML-focused (PCA, clustering, feature selection, classification/
-  regression, cross-validation) built on `house_prices.csv`, `iris.csv`, and
-  the other seeded datasets. Open **Projects → Demo → Flows** to browse them;
-  see [ML Quick Start](./ml-quickstart.md) for the concepts they use.
-- Build your own: [Quick Start (5 min)](./quick-start.md).
+You have finished the start path. Pick what fits your next task:
+
+- **Learn the editor** — the [Interface Tour](./interface.md) covers every panel.
+- **Follow an end-to-end example** — start with
+  [Sales Analysis](/examples/sales-analysis).
+- **Look up a node** — the [Transformations reference](../transformations/overview.md)
+  documents every node these flows use.
+- **Read the generated code** — run a flow and open its
+  [exported Python code](./engines.md#code-export-pandas-polars-and-lazy-polars);
+  the demo flows make readable, educational examples.
+- **Try the ML flows** — open **Projects → Demo → Flows** and read the
+  [ML Quick Start](./ml-quickstart.md) for the concepts they use.

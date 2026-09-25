@@ -106,6 +106,21 @@ export function useConnectionObjects(id: string | null, prefix?: string, enabled
   });
 }
 
+/** The detected dialect of a CSV/TSV object in a storage connection (bounded
+ *  server-side sample). Disabled until a connection, path and format are set. */
+export function useObjectDialect(id: string | null, path: string | null, format: "csv" | "tsv" | null) {
+  return useQuery({
+    queryKey:
+      id && path && format
+        ? queryKeys.connectionObjectDialect(id, path, format)
+        : ["connections", "none", "objects", "dialect"],
+    queryFn: () => connectionsApi.objectDialect(id as string, path as string, format as "csv" | "tsv"),
+    enabled: !!id && !!path && !!format,
+    // A failed detection (missing file, plugin connector) is final and shown inline.
+    retry: false,
+  });
+}
+
 /** Whether this host has a usable OS keychain, so the form can offer or hide
  * the "save to keychain" action. Cached for the session — it can't change. */
 export function useKeyringAvailability() {

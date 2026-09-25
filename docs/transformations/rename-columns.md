@@ -1,7 +1,7 @@
 ---
 title: Rename columns
 search: rename columns mapping old new header
-description: Rename columns via an old to new mapping
+description: The Rename columns node (renameColumns) renames columns with an old-to-new mapping, e.g. to align headers before a join. Config and pandas code.
 ---
 
 # Rename columns — `renameColumns`

@@ -1,6 +1,6 @@
 ---
 title: REST API Reference
-description: Ciaren REST API — overview and conventions
+description: "Overview of the Ciaren REST API: the FastAPI endpoints behind the visual editor, base URL, Swagger UI and ReDoc, conventions, and a typical workflow."
 search: api rest endpoints overview conventions base url swagger webhook trigger
 ---
 

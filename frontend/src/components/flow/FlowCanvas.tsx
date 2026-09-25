@@ -34,6 +34,7 @@ import {
 } from "@/features/flows/editor/connectionRules";
 import { cloneSelection, hasReadyInput, isFlowStartNode, wouldCreateCycle } from "@/features/flows/editor/flowGraph";
 import { createFlowNode } from "@/features/flows/editor/createNode";
+import { recordRecentNodeType } from "@/features/flows/recentNodes";
 import { applyLayout, DEFAULT_LAYOUT, LAYOUT_OPTIONS, type LayoutKind } from "@/lib/autoLayout";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,8 @@ export function FlowCanvas() {
         y: event.clientY,
       });
       addNode(createFlowNode(def, position));
+      // NODE_DND_MIME is only set by a palette drag, so this is a palette placement.
+      recordRecentNodeType(def.type);
     },
     [nodes, screenToFlowPosition, addNode],
   );

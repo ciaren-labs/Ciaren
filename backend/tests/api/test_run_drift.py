@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Run drift tests — schema/row-count diff vs the previous run of a flow.
 
-  GET /api/runs/{run_id}  (the ``drift`` field)
+GET /api/runs/{run_id}  (the ``drift`` field)
 """
 
 import io

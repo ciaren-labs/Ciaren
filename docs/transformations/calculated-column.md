@@ -1,7 +1,7 @@
 ---
 title: Calculated column
 search: calculated column expression eval compute derived arithmetic formula
-description: Add a column computed from an arithmetic expression over existing columns
+description: The Calculated column node (calculatedColumn) adds a column computed from an arithmetic expression over existing columns, e.g. total = price * quantity.
 ---
 
 # Calculated column — `calculatedColumn`

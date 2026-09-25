@@ -70,6 +70,10 @@ class CodeExport(TypedDict, total=False):
     code: str
     polars: str
     polars_lazy: str
+    # Jupyter notebook JSON; None unless requested with include_notebooks.
+    notebook: str | None
+    notebook_polars: str | None
+    notebook_polars_lazy: str | None
     flow_document: FlowDocument
 
 
@@ -134,6 +138,14 @@ class ConnectionTestResult(TypedDict, total=False):
     ok: bool
     message: str
     details: JsonDict | None
+
+
+class FileDialect(TypedDict, total=False):
+    """Detected CSV/TSV dialect of a storage object; ``None`` = not detected."""
+
+    delimiter: str | None
+    encoding: str | None
+    decimal: str | None
 
 
 class WebhookStatus(TypedDict, total=False):

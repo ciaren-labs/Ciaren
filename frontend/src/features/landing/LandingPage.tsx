@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const REPO_URL = "https://github.com/ciaren-labs/Ciaren";
-const DOCS_URL = "https://ciaren.com/docs";
+const DOCS_URL = "https://ciaren.com/docs/latest";
 const WEBSITE_URL = "https://www.ciaren.com";
 
 const FEATURES = [

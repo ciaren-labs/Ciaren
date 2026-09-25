@@ -13,11 +13,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 from app.connectors.base import ConnectorError
 from app.connectors.storage_base import FILE_FORMATS, StorageSpec
+from app.engine.ingest import read_delimited
 
 
 def _read_text(path: Path) -> pd.DataFrame:
@@ -34,13 +36,9 @@ def _read_jsonl(path: Path) -> pd.DataFrame:
     return pd.read_json(path, lines=True)
 
 
-def _read_tsv(path: Path) -> pd.DataFrame:
-    return pd.read_csv(path, sep="\t")
-
-
+# Readers for the dialect-free formats; CSV/TSV go through ``pd.read_csv`` with
+# their parse options (see ``read_file``).
 _READERS: dict[str, Callable[..., pd.DataFrame]] = {
-    "csv": pd.read_csv,
-    "tsv": _read_tsv,
     "excel": pd.read_excel,
     "parquet": pd.read_parquet,
     "json": _read_json,
@@ -95,16 +93,30 @@ class LocalStorageConnector:
             if p.is_file() and (not prefix or p.relative_to(root).as_posix().startswith(prefix))
         )
 
-    def read_file(self, spec: StorageSpec, path: str, fmt: str) -> pd.DataFrame:
-        reader = _READERS.get(fmt)
-        if reader is None:
-            raise ConnectorError(f"Unsupported format {fmt!r}. Supported: csv, excel, parquet, json, text.")
+    def read_file(
+        self, spec: StorageSpec, path: str, fmt: str, parse_options: dict[str, Any] | None = None
+    ) -> pd.DataFrame:
+        if fmt not in FILE_FORMATS:
+            raise ConnectorError(f"Unsupported format {fmt!r}. Supported: {', '.join(FILE_FORMATS)}.")
         full = self._safe_path(spec, path)
         if not full.exists():
             raise ConnectorError(f"File not found: {full}")
         try:
-            return reader(full)
+            if fmt in ("csv", "tsv"):
+                return read_delimited(full, fmt, parse_options or {})
+            return _READERS[fmt](full)
         except Exception as exc:
+            raise ConnectorError(f"Failed to read {full}: {exc}") from None
+
+    def read_sample(self, spec: StorageSpec, path: str, max_bytes: int) -> bytes:
+        """The first ``max_bytes`` of a file inside the root (same confinement as reads)."""
+        full = self._safe_path(spec, path)
+        if not full.is_file():
+            raise ConnectorError(f"File not found: {full}")
+        try:
+            with full.open("rb") as fh:
+                return fh.read(max_bytes)
+        except OSError as exc:
             raise ConnectorError(f"Failed to read {full}: {exc}") from None
 
     def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None:

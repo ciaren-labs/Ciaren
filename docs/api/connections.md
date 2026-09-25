@@ -1,6 +1,6 @@
 ---
 title: Connections API
-description: Manage reusable database connections for SQL input/output nodes
+description: "Connections REST API reference for Ciaren: manage, test, and list tables of reusable database connections whose passwords come from secret references."
 search: api connections database sql providers test tables postgres mysql mongo
 ---
 
@@ -25,6 +25,7 @@ file (`file:/path`) — and never stored** (see
 | `POST` | `/api/connections/{connection_id}/test` | Test a saved connection (connectivity + auth) |
 | `GET` | `/api/connections/{connection_id}/tables` | List tables/collections available to the connection |
 | `GET` | `/api/connections/{connection_id}/objects` | List files/objects available to a storage connection (optional `?prefix=`) |
+| `GET` | `/api/connections/{connection_id}/objects/dialect` | Detect a CSV/TSV object's delimiter, encoding, and decimal mark (`?path=` required, `?format=csv\|tsv`) |
 | `GET` | `/api/connections/keyring` | Whether this host has a usable OS keychain |
 | `POST` | `/api/connections/keyring` | Store a secret in the OS keychain; returns its `keyring:NAME` reference |
 | `GET` | `/api/connections/keyring/{name}` | Whether a keychain secret exists (never its value) |
@@ -34,6 +35,13 @@ file (`file:/path`) — and never stored** (see
 `POST /api/connections/{id}/test` checks an already-saved one. `GET .../tables`
 backs the table picker in the SQL node config form, and `GET .../objects` backs
 the equivalent picker for storage connections (S3, Azure Blob, GCS, local folder).
+
+`GET .../objects/dialect` backs the **Detected** hint in the
+[Storage input](/transformations/storage-input#csv-dialect-detection) panel. It
+reads only the object's first 64 KB, using the same connector and path checks as
+a `storageInput` read. It returns `{"delimiter", "encoding", "decimal"}`, and a
+`null` field means the sample showed no evidence for it. It never returns file
+content. Plugin storage connections and non-storage connections get a `400`.
 
 Testing a saved connection records the outcome on the connection itself:
 `last_tested_at`, `last_test_status` (`ok` \| `failed` \| `error`), and

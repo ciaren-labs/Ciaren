@@ -1,7 +1,7 @@
 ---
 title: Storage output (S3 / GCS / Azure Blob / Local)
 search: storage output s3 gcs azure blob local folder write file bucket object cloud
-description: Write the result of a flow to object storage or a local folder
+description: The Ciaren Storage Output node writes a flow's result as a file to AWS S3, Google Cloud Storage, Azure Blob Storage, or a local folder.
 ---
 
 # Storage output — `storageOutput`

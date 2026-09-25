@@ -1,6 +1,6 @@
 ---
 title: Plugins Overview
-description: Ciaren is plugin-first — nodes, connectors, storage, execution engines, exporters, validators, and AI capabilities are all extension points you can build, package, sign, and share.
+description: "Ciaren is plugin-first: build and share custom nodes, data connectors, and ML model types as plugins, and see which other extension points are defined."
 search: plugins extensibility providers nodes connectors engines exporters validators ai marketplace ciarenplugin
 ---
 
@@ -24,6 +24,22 @@ not as ever-growing core surface area.
 If Ciaren doesn't do something you need, you can add it as a plugin — and ship
 it as a portable, optionally **signed** package.
 :::
+
+## Which page do I need?
+
+| I want to… | Read | Kind of page |
+| --- | --- | --- |
+| Install, approve, disable, or remove a plugin | [Installing & Managing Plugins](/plugins/managing-plugins) | How-to |
+| Build my first plugin, step by step | [Build Your First Plugin](/plugins/first-plugin) | Tutorial |
+| Understand how a plugin fits together: runtimes, forms, events, manifest, discovery | [Writing a Plugin](/plugins/writing-a-plugin) | Guide |
+| Look up an exact class, method, or field | [Plugin API Reference](/plugins/api-reference) | Reference |
+| Add a trainable model type or a train node | [ML Model Plugins](/plugins/ml-model-plugins) | Guide |
+| Add a database, API, or storage connector | [Connector Plugins](/plugins/connector-plugins) | Guide |
+| Package, sign, and share a plugin | [Packaging & Distribution](/plugins/packaging-and-distribution) | How-to |
+| Follow a larger worked example with hyperparameters and code export | [Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn) | Tutorial |
+| Use the `ciaren-plugin` command line | [Plugin CLI Reference](/plugins/cli-reference) | Reference |
+| Check a manifest field | [Plugin Manifest](/specs/plugin-manifest) | Reference |
+| Decide which plugins to trust | [Plugin Security & Permissions](/security/plugin-security) | Explanation |
 
 ## What you can extend
 
@@ -151,20 +167,6 @@ stays open and useful on its own; extensions install from the outside.
 If you want Ciaren to support a new external system, start by building a plugin.
 If the Plugin API blocks that work, open an issue for the SDK gap rather than a
 request to add the system directly to core.
-
-## Next steps
-
-- **[Installing & Managing Plugins](/plugins/managing-plugins)** — install, approve, disable, and uninstall
-- **[Build Your First Plugin](/plugins/first-plugin)** — a 10-minute, step-by-step tutorial
-- **[Writing a Plugin](/plugins/writing-a-plugin)** — the full contract, events, and rules
-- **[ML Model Plugins](/plugins/ml-model-plugins)** — model types, train nodes, and model references
-- **[Connector Plugins](/plugins/connector-plugins)** — database/API/storage connectors with runtime behavior
-- **[Packaging & Distribution](/plugins/packaging-and-distribution)** — package and sign
-- **[Build an Advanced Plugin (scikit-learn)](/plugins/advanced-plugin-sklearn)** — hyperparameters, validation, and code export
-- **[Plugin API Reference](/plugins/api-reference)** — every provider, spec, and method
-- **[Plugin Manifest](/specs/plugin-manifest)** — the manifest schema
-- **[Plugin Security & Permissions](/security/plugin-security)** — the trust model
-- **[Catalog & Plugins API](/api/catalog)** — inspect what an instance exposes
 
 ---
 

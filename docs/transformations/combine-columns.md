@@ -1,7 +1,7 @@
 ---
 title: Combine columns
 search: combine concatenate columns join merge text separator full name
-description: Join several columns into one text column with a separator
+description: The Combine columns node (combineColumns) joins several columns into one text column with a separator, e.g. a full name. Config and pandas code.
 ---
 
 # Combine columns — `combineColumns`

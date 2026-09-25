@@ -1,6 +1,6 @@
 ---
 title: Transformations API
-description: List available node types and preview a single transformation
+description: "Transformations REST API reference for Ciaren: list the registered transformation node types and preview a single transformation against sample data."
 search: api transformations list preview node types sample
 ---
 

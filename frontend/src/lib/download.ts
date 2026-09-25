@@ -36,9 +36,14 @@ export async function downloadFromApi(path: string, fallbackName: string): Promi
   const url = /^https?:\/\//.test(path) || path.startsWith(BASE_URL) ? path : `${BASE_URL}${path}`;
   const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) throw await parseError(res);
-  const blob = await res.blob();
-  const filename =
-    filenameFromContentDisposition(res.headers.get("Content-Disposition")) ?? fallbackName;
+  saveBlob(
+    await res.blob(),
+    filenameFromContentDisposition(res.headers.get("Content-Disposition")) ?? fallbackName,
+  );
+}
+
+/** Hand in-memory content to the browser's download manager as `filename`. */
+export function saveBlob(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   try {
     const anchor = document.createElement("a");

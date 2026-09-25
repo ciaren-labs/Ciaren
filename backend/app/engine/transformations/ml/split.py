@@ -28,9 +28,7 @@ class TrainTestSplitTransformation(MLTransformation):
         seed = config.get("seed")
         # bool is an int subclass — reject True/False masquerading as a seed.
         if not isinstance(seed, int) or isinstance(seed, bool):
-            raise ValueError(
-                "trainTestSplit requires an integer 'seed' for reproducibility."
-            )
+            raise ValueError("trainTestSplit requires an integer 'seed' for reproducibility.")
         test_size = config.get("test_size", 0.2)
         if not isinstance(test_size, (int, float)) or isinstance(test_size, bool) or not (0.0 < test_size < 1.0):
             raise ValueError("trainTestSplit 'test_size' must be a number strictly between 0 and 1.")

@@ -1,7 +1,7 @@
 ---
 title: Drop nulls
 search: drop nulls missing na dropna how any all subset
-description: Remove rows with missing values, optionally only in chosen columns
+description: The Drop nulls node (dropNulls) removes rows with missing values, in any column or only in the columns you choose. Config, example, and pandas code.
 ---
 
 # Drop nulls — `dropNulls`

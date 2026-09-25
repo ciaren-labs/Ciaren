@@ -1,7 +1,7 @@
 ---
 title: Pivot
 search: pivot wide long reshape pivot_table index columns values aggfunc crosstab
-description: Reshape long to wide, spreading a column's values into new columns
+description: The Pivot node reshapes a dataframe from long to wide, spreading one column's unique values into new aggregated columns. Config and pandas code.
 ---
 
 # Pivot — `pivot`
@@ -62,3 +62,4 @@ df_2 = df_1.pivot_table(index='region', columns='month', values='amount', aggfun
 ## See also
 
 - [Unpivot](./unpivot.md) · [Group by + aggregate](./group-by-aggregate.md)
+- Recipe: [Pivot a Table](/recipes/pivot-a-table)

@@ -171,6 +171,125 @@ def test_local_storage_absolute_path_rejected(tmp_path):
         conn.read_file(_local_spec(tmp_path), evil_path, "csv")
 
 
+# -- bounded samples for dialect detection -------------------------------------
+
+
+class _FakeObjectStore:
+    """Stand-in for the S3/GCS/Azure SDK objects: records the requested range and
+    serves that slice of ``data``."""
+
+    def __init__(self, data: bytes) -> None:
+        self.data = data
+        self.ranges: list[tuple[int, int]] = []
+
+    def serve(self, start: int, end_inclusive: int) -> bytes:
+        self.ranges.append((start, end_inclusive))
+        return self.data[start : end_inclusive + 1]
+
+    # S3 client
+    def get_object(self, Bucket: str, Key: str, Range: str) -> dict:  # noqa: N803 - boto3 keyword names
+        start, end = Range.removeprefix("bytes=").split("-")
+        payload = self.serve(int(start), int(end))
+        return {"Body": type("Body", (), {"read": lambda _self: payload})()}
+
+    # GCS client/bucket/blob chain
+    def bucket(self, _name: str) -> "_FakeObjectStore":
+        return self
+
+    def blob(self, _path: str) -> "_FakeObjectStore":
+        return self
+
+    def download_as_bytes(self, start: int, end: int) -> bytes:
+        return self.serve(start, end)
+
+    # Azure service/blob client chain
+    def get_blob_client(self, container: str, blob: str) -> "_FakeObjectStore":
+        return self
+
+    def download_blob(self, offset: int, length: int) -> object:
+        payload = self.serve(offset, offset + length - 1)
+        return type("Downloader", (), {"readall": lambda _self: payload})()
+
+
+@pytest.mark.parametrize(
+    ("module", "factory", "cls"),
+    [
+        ("s3", "_client", "S3Connector"),
+        ("gcs", "_client", "GCSConnector"),
+        ("azure_blob", "_service_client", "AzureBlobConnector"),
+    ],
+)
+def test_cloud_read_sample_requests_only_the_bounded_range(monkeypatch, module, factory, cls):
+    import importlib
+
+    mod = importlib.import_module(f"app.connectors.{module}")
+    store = _FakeObjectStore(b"a;b\n" * 1000)
+    monkeypatch.setattr(mod, factory, lambda _spec: store)
+
+    sample = getattr(mod, cls)().read_sample(StorageSpec(provider=module, bucket="b"), "x.csv", 10)
+
+    assert sample == b"a;b\na;b\na;"
+    assert store.ranges == [(0, 9)]
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        # S3 answers any range on an empty object with 416 InvalidRange.
+        ({"Error": {"Code": "InvalidRange"}}, b""),
+        # Any other failure — including one without a usable ``response`` — is a
+        # scrubbed ConnectorError, never an AttributeError/500.
+        ({"Error": {"Code": "AccessDenied"}}, ConnectorError),
+        (None, ConnectorError),
+        ("absent", ConnectorError),
+    ],
+    ids=["invalid-range", "access-denied", "response-none", "no-response"],
+)
+def test_s3_read_sample_errors(monkeypatch, response, expected):
+    from app.connectors import s3
+
+    class _S3Error(Exception):
+        pass
+
+    exc = _S3Error("s3 failure with secret-value")
+    if response != "absent":
+        exc.response = response  # type: ignore[attr-defined]
+
+    class _Client:
+        def get_object(self, **_kwargs):
+            raise exc
+
+    monkeypatch.setattr(s3, "_client", lambda _spec: _Client())
+    spec = StorageSpec(provider="s3", bucket="b", secret="secret-value")
+    if expected is ConnectorError:
+        with pytest.raises(ConnectorError) as info:
+            s3.S3Connector().read_sample(spec, "x.csv", 10)
+        assert "secret-value" not in str(info.value)
+    else:
+        assert s3.S3Connector().read_sample(spec, "x.csv", 10) == expected
+
+
+def test_storage_connector_protocol_declares_every_connector_method():
+    """Every built-in storage connector satisfies the full protocol, writes included."""
+    from app.connectors.azure_blob import AzureBlobConnector
+    from app.connectors.gcs import GCSConnector
+    from app.connectors.s3 import S3Connector
+    from app.connectors.storage_base import StorageConnector
+
+    for method in ("test_connection", "list_objects", "read_file", "read_sample", "write_file"):
+        assert callable(getattr(StorageConnector, method, None)), method
+    for cls in (LocalStorageConnector, S3Connector, GCSConnector, AzureBlobConnector):
+        assert isinstance(cls(), StorageConnector), cls.__name__
+
+
+def test_local_read_sample_is_bounded_and_confined(tmp_path):
+    (tmp_path / "big.csv").write_bytes(b"a;b\n" * 1000)
+    conn = LocalStorageConnector()
+    assert conn.read_sample(_local_spec(tmp_path), "big.csv", 10) == b"a;b\na;b\na;"
+    with pytest.raises(ConnectorError, match="escapes the storage root"):
+        conn.read_sample(_local_spec(tmp_path / "sub"), "../big.csv", 10)
+
+
 # -- local storage root confinement (CIAREN_STORAGE_ALLOWED_ROOTS) -------
 
 

@@ -338,6 +338,37 @@
         }
       }
     },
+    "GET /api/connections/{connection_id}/objects/dialect": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "connection_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "format",
+          "required": false,
+          "type": "string{csv,tsv}"
+        },
+        {
+          "in": "query",
+          "name": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#FileDialect"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "GET /api/connections/{connection_id}/tables": {
       "parameters": [
         {
@@ -1315,6 +1346,12 @@
           "name": "free_intermediates",
           "required": false,
           "type": "boolean"
+        },
+        {
+          "in": "query",
+          "name": "include_notebooks",
+          "required": false,
+          "type": "boolean"
         }
       ],
       "request": null,
@@ -1818,6 +1855,9 @@
       "properties": {
         "code": "string",
         "flow_document": "#FlowDocument",
+        "notebook": "anyOf(null|string)",
+        "notebook_polars": "anyOf(null|string)",
+        "notebook_polars_lazy": "anyOf(null|string)",
         "polars": "string",
         "polars_lazy": "string"
       },
@@ -1985,6 +2025,14 @@
         "id",
         "label"
       ]
+    },
+    "FileDialect": {
+      "properties": {
+        "decimal": "anyOf(null|string)",
+        "delimiter": "anyOf(null|string)",
+        "encoding": "anyOf(null|string)"
+      },
+      "required": []
     },
     "FlowCreate": {
       "properties": {

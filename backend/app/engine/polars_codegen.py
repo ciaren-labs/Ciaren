@@ -50,6 +50,7 @@ from app.engine.codegen_common import (
     strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
+from app.engine.ingest import config_parse_options
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
@@ -65,6 +66,27 @@ from app.engine.node_kinds import (
 )
 from app.engine.registry import get_transformation
 from app.engine.sql_codegen import graph_has_sql, sql_secret_imports
+
+
+def _decoded_csv_read_lines(var: str, path: Any, source_type: str, dialect: dict[str, Any], lazy: bool) -> list[str]:
+    """Read a non-UTF-8 CSV/TSV: polars only reads UTF-8, so decode via Python
+    and parse the UTF-8 bytes — eager even in lazy mode (scan_csv cannot
+    re-encode a file). The separator is built explicitly: TSV always needs the
+    tab (polars_dialect_kwargs never emits it for tsv, and the decimal flag being
+    present must not displace it)."""
+    suffix = ".lazy()" if lazy else ""
+    sep_kwargs = ""
+    if source_type == "tsv":
+        sep_kwargs += ', separator="\\t"'
+    elif dialect.get("delimiter", ",") != ",":
+        sep_kwargs += f", separator={dialect['delimiter']!r}"
+    if dialect.get("decimal", ".") == ",":
+        sep_kwargs += ", decimal_comma=True"
+    return [
+        f"with open({path!r}, encoding={dialect['encoding']!r}) as _f:",
+        f"    {var} = pl.read_csv(_f.read().encode(){sep_kwargs}){suffix}",
+    ]
+
 
 _INPUT_READ = {
     "fileInput": "pl.read_csv",
@@ -378,19 +400,23 @@ class PolarsCodeGenerator:
                 var = input_var(name_hint)
                 node_outputs[node_id] = {"out": var}
                 lines.append(f"# {node_type}: download {remote or path!r} from your storage connection first")
+                storage_dialect = config_parse_options(config, source_type)
+                storage_dialect_kwargs = polars_dialect_kwargs(source_type, storage_dialect)
                 suffix = ".lazy()" if lazy else ""
-                if source_type == "text":
+                if dialect_needs_decode(source_type, storage_dialect):
+                    lines.extend(_decoded_csv_read_lines(var, path, source_type, storage_dialect, lazy))
+                elif source_type == "text":
                     lines.append(f"with open({path!r}) as _f:")
                     lines.append(f'    {var} = pl.DataFrame({{"text": _f.read().splitlines()}}){suffix}')
                 elif lazy and source_type in _INPUT_SCAN_BY_FORMAT:
                     sep = ', separator="\\t"' if source_type == "tsv" else ""
-                    lines.append(f"{var} = {_INPUT_SCAN_BY_FORMAT[source_type]}({path!r}{sep})")
+                    lines.append(f"{var} = {_INPUT_SCAN_BY_FORMAT[source_type]}({path!r}{sep}{storage_dialect_kwargs})")
                 else:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
                     extra = ', separator="\\t"' if source_type == "tsv" else ""
                     if source_type == "excel":
                         extra = ', engine="openpyxl"'
-                    lines.append(f"{var} = {read}({path!r}{extra}){suffix}")
+                    lines.append(f"{var} = {read}({path!r}{extra}{storage_dialect_kwargs}){suffix}")
             elif node_type in _INPUT_READ:
                 source_type = input_source_type(node_type, config)
                 # Semantic names only for resolved datasets — a placeholder's
@@ -402,24 +428,8 @@ class PolarsCodeGenerator:
                 dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
                 dialect_kwargs = polars_dialect_kwargs(source_type, dialect)
                 # repr() the path so Windows backslashes / spaces / quotes stay valid.
-                if dialect_needs_decode(source_type, dialect):
-                    # polars only reads UTF-8; the user's original file isn't.
-                    # Decode via Python, then parse the UTF-8 bytes — eager even
-                    # in lazy mode (scan_csv cannot re-encode a file).
-                    assert dialect is not None  # dialect_needs_decode implies it
-                    suffix = ".lazy()" if lazy else ""
-                    # Build the separator explicitly: TSV always needs the tab
-                    # (polars_dialect_kwargs never emits it for tsv, and the
-                    # decimal flag being present must not displace it).
-                    sep_kwargs = ""
-                    if source_type == "tsv":
-                        sep_kwargs += ', separator="\\t"'
-                    elif dialect.get("delimiter", ",") != ",":
-                        sep_kwargs += f", separator={dialect['delimiter']!r}"
-                    if dialect.get("decimal", ".") == ",":
-                        sep_kwargs += ", decimal_comma=True"
-                    lines.append(f"with open({path!r}, encoding={dialect['encoding']!r}) as _f:")
-                    lines.append(f"    {var} = pl.read_csv(_f.read().encode(){sep_kwargs}){suffix}")
+                if dialect is not None and dialect_needs_decode(source_type, dialect):
+                    lines.extend(_decoded_csv_read_lines(var, path, source_type, dialect, lazy))
                 elif node_type == FILE_INPUT_TYPE:
                     read = _INPUT_READ_BY_FORMAT.get(source_type, "pl.read_csv")
                     scan = _INPUT_SCAN_BY_FORMAT.get(source_type)

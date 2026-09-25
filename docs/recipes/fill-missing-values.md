@@ -1,6 +1,6 @@
 ---
 title: Fill Missing Values
-description: Replace nulls/NaNs with a mean, median, mode, constant, or forward/backward fill — per column.
+description: "Replace missing values in Ciaren with the Fill Nulls node: mean, median, mode, a constant, or forward and backward fill, on Polars or pandas."
 search: recipe fill missing values nulls nan impute mean median mode constant forward fill
 ---
 
@@ -9,7 +9,7 @@ search: recipe fill missing values nulls nan impute mean median mode constant fo
 Use the **Fill Nulls** node to replace missing values instead of dropping the
 rows. It works on both the polars and pandas engines.
 
-**You'll use:** File Input → Fill Nulls → File Output.
+**You'll use:** [File Input](/transformations/file-input) → [Fill Nulls](/transformations/fill-nulls) → [File Output](/transformations/file-output).
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"survey.csv"},

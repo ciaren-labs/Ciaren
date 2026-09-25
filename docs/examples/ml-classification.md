@@ -1,6 +1,6 @@
 ---
 title: Customer Churn Classification
-description: Train, evaluate, and score a customer-churn classifier visually — split, train, predict, evaluate — and export the scikit-learn code.
+description: "Ciaren example: train, evaluate, and score a customer churn classifier with Train/Test Split, Train Classifier, Predict, and Evaluate nodes."
 search: example machine learning classification churn train test split random forest evaluate predict sklearn mlflow
 ---
 
@@ -105,6 +105,7 @@ scikit-learn script (this is the real codegen pattern — preprocessing is bundl
 into the `Pipeline` so it's reapplied identically at predict time):
 
 ```python
+import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer

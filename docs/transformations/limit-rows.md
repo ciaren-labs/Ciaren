@@ -1,7 +1,7 @@
 ---
 title: Limit rows
 search: limit rows head top n offset slice first
-description: Keep a slice of rows, optionally skipping some first
+description: The Limit rows node (limitRows) keeps the first N rows, optionally after an offset. Use it after Sort rows for a top-N list. With pandas code.
 ---
 
 # Limit rows — `limitRows`

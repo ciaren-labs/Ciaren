@@ -1,6 +1,6 @@
 ---
 title: Flows API
-description: Create, read, update, delete, preview, and export flows
+description: "Flows REST API reference for Ciaren: create, read, update, delete, and import flows, preview nodes, and export a flow as pandas or Polars Python code."
 search: api flows crud graph nodes edges preview export python pandas polars
 ---
 
@@ -20,10 +20,13 @@ Flow-compatible graph (`nodes` and `edges`).
 | `DELETE` | `/api/flows/{flow_id}` | Delete a flow; also deletes its run history and schedules |
 | `POST` | `/api/flows/{flow_id}/duplicate` | Duplicate a flow (optional `?name=`); copies the graph into a new flow with no run history |
 | `POST` | `/api/flows/{flow_id}/preview` | Preview the flow output without saving a run; body accepts `node_id`, `limit`, `profile`, and parameter overrides |
-| `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code; `?free_intermediates=true` also releases intermediate frames in generated code |
+| `POST` | `/api/flows/{flow_id}/export/python` | Export the flow as code; `?free_intermediates=true` also releases intermediate frames in generated code; `?include_notebooks=true` also returns Jupyter notebooks |
 
 The export response carries `code` (pandas), `polars`, `polars_lazy`, and a
-portable `flow_document`. See [Engines → Code export](/guide/engines#code-export-pandas-polars-and-lazy-polars).
+portable `flow_document`. It also has `notebook`, `notebook_polars`, and
+`notebook_polars_lazy`: each is the matching script as Jupyter notebook JSON
+(nbformat 4, save it as `.ipynb`) when you pass `?include_notebooks=true`, and
+`null` otherwise. See [Engines → Code export](/guide/engines#code-export-pandas-polars-and-lazy-polars).
 
 Previews run against the saved flow graph, not unsaved canvas edits. The preview
 path uses the same graph validation and ML feature gate as a full run, so invalid

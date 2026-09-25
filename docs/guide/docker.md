@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Run Ciaren with Docker — single-command setup, built-in ML, optional database extras
+description: "Run Ciaren in Docker with one command: a single container with the web editor and backend, data persistence, PostgreSQL, and a production checklist."
 search: docker container compose deployment
 layout: doc
 ---
@@ -13,7 +13,7 @@ data persistence, and zero Node.js or Python tooling required on the host.
 
 ## Prerequisites
 
-- [Docker Desktop](https://docs.docker.com/get-docker/) 24+ (or Docker Engine
+- [Docker Desktop](https://docs.docker.com/get-started/get-docker/) 24+ (or Docker Engine
   - Docker Compose v2)
 - No other dependencies — the image includes Python 3.13, all backend packages,
   and the pre-built frontend
@@ -232,7 +232,7 @@ docker build --build-arg EXTRAS=ml,postgres -t ciaren:full .
   container replacement.
 - **Set `CIAREN_CORS_ORIGINS`** if your frontend and API are on different
   origins (unnecessary when both are served from the same port).
-- **Pin the image tag** — use `ciaren:0.2.0` rather than `latest` in
+- **Pin the image tag** — use `ciaren:0.3.0` rather than `latest` in
   production compose files.
 - **Run behind a reverse proxy** (nginx, Caddy, Traefik) for TLS and
   compression. The image does not include TLS termination.

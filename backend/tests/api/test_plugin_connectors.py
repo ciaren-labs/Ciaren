@@ -418,6 +418,35 @@ async def test_storage_resolver_reads_plugin_files(db_session, tmp_path, mem_con
     assert list(pd.read_parquet(paths["st1"])["id"]) == [1, 2, 3]
 
 
+async def test_plugin_storage_refuses_dialect_options_and_detection(db_session, client, tmp_path, mem_connector):
+    """The plugin read contract has no dialect options: an override must fail
+    loudly (not be silently ignored), and detection is unavailable."""
+    from app.services.storage_resolver import materialize_storage_inputs
+
+    conn = _conn_row("memstore")
+    db_session.add(conn)
+    await db_session.commit()
+
+    graph = {
+        "nodes": [
+            {
+                "id": "st1",
+                "type": "storageInput",
+                "data": {
+                    "config": {"connection_id": conn.id, "path": "in/users.csv", "format": "csv", "delimiter": ";"}
+                },
+            }
+        ],
+        "edges": [],
+    }
+    with pytest.raises(ValidationError, match="does not support delimiter/encoding/decimal"):
+        await materialize_storage_inputs(db_session, graph, tmp_path)
+
+    r = await client.get(f"/api/connections/{conn.id}/objects/dialect", params={"path": "in/users.csv"})
+    assert r.status_code == 400, r.text
+    assert "plugin storage connectors" in r.json()["detail"]
+
+
 async def test_sql_nodes_reject_plugin_storage_connection(db_session, tmp_path, mem_connector):
     from app.services.sql_resolver import materialize_sql_inputs
 

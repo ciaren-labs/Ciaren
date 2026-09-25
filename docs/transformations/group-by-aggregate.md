@@ -1,7 +1,7 @@
 ---
 title: Group by + aggregate
 search: group by aggregate sum mean count min max median nunique std var first last
-description: Group rows by columns and compute aggregates per group
+description: The Group by + aggregate node (groupByAggregate) groups rows by key columns and computes sum, mean, count, min, max, median, or nunique per group.
 ---
 
 # Group by + aggregate — `groupByAggregate`

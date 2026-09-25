@@ -1,6 +1,6 @@
 ---
 title: Engines (polars / pandas)
-description: How Ciaren runs flows on polars or pandas, and how it exports code
+description: Run Ciaren flows on Polars (default) or pandas, pick the engine per run, and export pandas, Polars, lazy Polars, or Jupyter notebook code.
 search: engines polars pandas default execution mode export code timeout
 ---
 
@@ -139,6 +139,22 @@ throughout, so it has nothing to `del` — the option matters for flows with
 fan-outs or joins, where intermediates outlive the next step. The lazy script is
 unaffected — its variables are query plans, not materialized data, so there is
 nothing to free.
+
+### Jupyter notebooks (`.ipynb`)
+
+Each tab in the export dialog also has a **Download .ipynb** button that saves
+that variant as a Jupyter notebook named after the flow (`<flow name>.ipynb`).
+The notebook holds the same code as the script: a title cell, then one code cell
+per paragraph (imports, parameters, each read, chain, and write). Cells split
+only between top-level statements, so a multi-line block such as a
+[Python transform](/transformations/python-transform) function stays in one cell
+and the notebook runs top to bottom. It opens in JupyterLab, classic Notebook,
+VS Code, and `nbconvert`.
+
+Over the API, pass `?include_notebooks=true` to get the notebooks in the
+`notebook`, `notebook_polars`, and `notebook_polars_lazy` fields (see the
+[Flows API](/api/flows)). They are `null` by default, so a plain export stays
+small.
 
 ### Streaming reads at runtime (polars)
 

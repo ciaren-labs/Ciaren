@@ -37,6 +37,7 @@ from app.engine.ingest import (
     ParseOptionsError,
     detect_csv_options,
     is_default_dialect,
+    read_delimited,
     validate_parse_options,
 )
 from app.engine.profile import profile_frame
@@ -678,20 +679,8 @@ def _parse_dataframe(
     opts = options or {}
     buf = io.BytesIO(content)
     try:
-        if source_type == "csv":
-            return pd.read_csv(
-                buf,
-                sep=opts.get("delimiter", ","),
-                encoding=opts.get("encoding", "utf-8"),
-                decimal=opts.get("decimal", "."),
-            )
-        if source_type == "tsv":
-            return pd.read_csv(
-                buf,
-                sep="\t",
-                encoding=opts.get("encoding", "utf-8"),
-                decimal=opts.get("decimal", "."),
-            )
+        if source_type in ("csv", "tsv"):
+            return read_delimited(buf, source_type, opts)
         if source_type == "excel":
             frame = pd.read_excel(buf, sheet_name=opts.get("sheet", 0))
             assert isinstance(frame, pd.DataFrame)  # single sheet requested, never a dict

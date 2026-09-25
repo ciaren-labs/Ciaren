@@ -4,6 +4,9 @@
  * Regenerates docs/guide/changelog.md from the repo-root CHANGELOG.md, so the
  * docs site and the GitHub-rendered changelog never drift — the root file
  * stays the single source of truth. Runs automatically before `dev`/`build`.
+ * The generated page is committed because the published docs are copied from
+ * this folder without running the docs build; backend/tests/test_docs_changelog.py
+ * fails when it no longer matches CHANGELOG.md.
  */
 
 import fs from 'fs';
@@ -17,13 +20,14 @@ const TARGET = path.join(__dirname, '../guide/changelog.md');
 
 const FRONTMATTER = `---
 title: Changelog
-description: Notable changes to Ciaren, release by release
+description: Release notes for Ciaren, the visual ETL and ML workflow builder. Notable additions, changes, and fixes in each release, mirrored from CHANGELOG.md.
 search: changelog release notes history version
 ---
 
 `;
 
-const source = fs.readFileSync(SOURCE, 'utf8');
+// Normalize CRLF (Windows checkouts) so the H1 strip below matches.
+const source = fs.readFileSync(SOURCE, 'utf8').replace(/\r\n/g, '\n');
 
 // Drop the source's own "# Changelog" H1 — the frontmatter title covers it,
 // and VitePress pages conventionally start with frontmatter, not a duplicate H1.

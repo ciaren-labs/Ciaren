@@ -104,9 +104,16 @@ export interface ExportCodeResponse {
   polars: string;
   /** optimized lazy polars (`scan_*` → `collect()`) equivalent. */
   polars_lazy: string;
+  /** Jupyter notebook JSON per variant; null unless requested with include_notebooks. */
+  notebook?: string | null;
+  notebook_polars?: string | null;
+  notebook_polars_lazy?: string | null;
   /** importable JSON description of the flow. */
   flow_document: FlowDocument;
 }
+
+/** The engine variants the code export offers (the dialog's tabs). */
+export type ExportCodeVariant = "pandas" | "polars" | "polars_lazy";
 
 // ---- Catalog (backend-fed node metadata) -----------------------------------
 // Mirrors app/plugin_api NodeSpec/PortSpec, served by GET /api/catalog/nodes.

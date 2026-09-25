@@ -1,7 +1,7 @@
 ---
 title: Join
 search: join merge left right inner outer semi anti on left_on right_on suffixes key
-description: Combine or filter two inputs with inner/left/right/outer/semi/anti join semantics
+description: The Join node combines or filters two dataframes using inner, left, right, outer, semi, or anti joins. Config and pandas code.
 ---
 
 # Join — `join`

@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: Where Ciaren is today and the direction it's heading — toward a stable, local-first platform with plugins, connectors, exports, data quality, ML, and AI extension points.
+description: "Where alpha-stage Ciaren is heading: plugins, connectors, exporters, data quality, machine learning, AI extension points, scheduling, and security."
 search: roadmap direction future plugins ecosystem status alpha connectors exporters data quality machine learning ai scheduling security
 ---
 
@@ -71,8 +71,8 @@ These are roadmap themes, not promises of specific dated features.
 
 ### Exporters and portability
 
-- **More export targets** — explore notebooks, reusable job templates, and other
-  portable artifacts beyond standalone Python scripts.
+- **More export targets** — explore reusable job templates and other portable
+  artifacts beyond standalone Python scripts and Jupyter notebooks.
 - **Export validation** — add checks that generated artifacts can run and match
   the visual flow behavior.
 - **Reusable handoff** — make exported code easier to version, review, and run

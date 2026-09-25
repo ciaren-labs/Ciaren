@@ -1,22 +1,24 @@
 ---
 title: Quick Start (5 Minutes)
-description: Build and run your first data workflow in the Ciaren editor
+description: "Build and run your first Ciaren flow in five minutes: pick or upload a CSV dataset, add cleaning nodes, run it, export Python code, and optionally schedule it."
 search: quick start tutorial first flow editor api
 ---
 
 # Quick Start (5 Minutes)
 
-This walkthrough builds your first pipeline end to end: bring in data, clean it,
-run it, and export Python. In Ciaren, a saved pipeline is called a **flow** —
-you'll see that word everywhere in the editor and the API. We'll use the visual
-editor; an API-only version is at the bottom for developers who want to inspect
-the REST surface.
+**For:** first-time users who have Ciaren running. **You get:** your first flow,
+built, run, and exported as Python in about five minutes.
+
+In Ciaren, a saved pipeline is called a **flow** — you'll see that word
+everywhere in the editor and the API. This walkthrough uses the visual editor;
+an API-only version is at the bottom for developers who want to inspect the
+REST surface.
 
 ## Before You Start
 
-- Ciaren running locally. If you installed from PyPI or used Docker, open
-  `http://localhost:8055`. If you run from source in development mode, open
-  `http://localhost:5173`.
+- Ciaren running locally ([Installation](/guide/installation)). If you
+  installed from PyPI or used Docker, open `http://localhost:8055`. If you run
+  from source in development mode, open `http://localhost:5173`.
 - Either the built-in Demo project or a small CSV. Any file with a header row
   works — for example `sales.csv`:
 
@@ -28,16 +30,10 @@ the REST surface.
   3,,80,
   ```
 
-:::tip Fastest route: use the built-in Demo project
-Every fresh install seeds a **Demo** project with sample datasets and ready-made
-example flows, including ML-focused ones. Open **Projects → Demo** and you can
-preview, run, and export without uploading anything.
-
-The demo is optional but recommended for a first install — it's the fastest
-way to see working examples. The
-[Demo Project & Tutorials](/guide/demo-project) page walks through the
-foundational tutorial flows step by step. If you'd rather start empty, launch
-the backend with `ciaren serve --no-demo` or set `CIAREN_SEED_DEMO=false`.
+:::tip No CSV at hand? Use the Demo project
+Every fresh install seeds a **Demo** project with sample datasets, so you can
+follow this walkthrough without uploading anything. What it contains, and how to
+start without it, is on [Demo Project & Tutorials](/guide/demo-project).
 :::
 
 ## What you'll build
@@ -144,9 +140,13 @@ The flow graph format (node `type`s, `data.config`, and edges) is described in
 the [Transformations Reference](/transformations/overview) and the
 [REST API Reference](/api/rest-api).
 
-## Next Steps
+## Next Step
 
-- [Demo Project & Tutorials](/guide/demo-project) — inspect working flows without setup
+Continue to **[Demo Project & Tutorials](/guide/demo-project)** to follow four
+ready-made flows step by step, from a linear cleanup to a three-input join.
+
+Other places to go from here:
+
 - [Interface Tour](/guide/interface) — learn the editor
 - [Transformations Reference](/transformations/overview) — all node types
 - [Examples](/examples/sales-analysis) — real-world, end-to-end walkthroughs

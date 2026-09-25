@@ -17,6 +17,7 @@ from typing import Any, Protocol, runtime_checkable
 import pandas as pd
 
 from app.connectors.base import ConnectorError
+from app.engine.ingest import SNIFF_SAMPLE_BYTES, read_delimited, sniff_csv_dialect
 
 log = logging.getLogger("app.connectors.storage")
 
@@ -62,13 +63,13 @@ def serialize_dataframe(df: pd.DataFrame, fmt: str) -> tuple[bytes, str]:
     return buf.getvalue(), _CONTENT_TYPES[fmt]
 
 
-def deserialize_dataframe(data: bytes, fmt: str) -> pd.DataFrame:
-    """Parse bytes read from a storage backend into a frame (all five formats)."""
+def deserialize_dataframe(data: bytes, fmt: str, parse_options: dict[str, Any] | None = None) -> pd.DataFrame:
+    """Parse bytes read from a storage backend into a frame (all five formats).
+
+    ``parse_options`` (delimiter/encoding/decimal) apply to CSV/TSV only."""
     buf = io.BytesIO(data)
-    if fmt == "csv":
-        return pd.read_csv(buf)
-    if fmt == "tsv":
-        return pd.read_csv(buf, sep="\t")
+    if fmt in ("csv", "tsv"):
+        return read_delimited(buf, fmt, parse_options or {})
     if fmt == "excel":
         return pd.read_excel(buf)
     if fmt == "parquet":
@@ -111,5 +112,15 @@ class StorageConnector(Protocol):
 
     def test_connection(self, spec: StorageSpec) -> None: ...
     def list_objects(self, spec: StorageSpec, prefix: str = "") -> list[str]: ...
-    def read_file(self, spec: StorageSpec, path: str, fmt: str) -> pd.DataFrame: ...
+    def read_file(
+        self, spec: StorageSpec, path: str, fmt: str, parse_options: dict[str, Any] | None = None
+    ) -> pd.DataFrame: ...
+    def read_sample(self, spec: StorageSpec, path: str, max_bytes: int) -> bytes: ...
     def write_file(self, spec: StorageSpec, df: pd.DataFrame, path: str, fmt: str, if_exists: str) -> None: ...
+
+
+def sniff_object_dialect(connector: StorageConnector, spec: StorageSpec, path: str, fmt: str) -> dict[str, str]:
+    """The confidently detected dialect of a CSV/TSV object, from a bounded
+    sample (never the whole object). The single detection path for both the
+    editor's "Detected" hint and ``storageInput`` reads, so they cannot disagree."""
+    return sniff_csv_dialect(connector.read_sample(spec, path, SNIFF_SAMPLE_BYTES), fmt)

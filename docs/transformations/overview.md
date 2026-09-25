@@ -1,6 +1,6 @@
 ---
 title: Transformations Reference
-description: Every transformation node, its config, and the code it generates
+description: "Reference for every Ciaren node: inputs, outputs, and 66 transformations for cleaning, reshaping, joining, and validating data, as pandas or Polars code."
 search: transformations nodes all reference config pandas polars
 ---
 

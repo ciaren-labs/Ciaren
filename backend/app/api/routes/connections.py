@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-from fastapi import APIRouter, status
+from typing import Literal
+
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import ConnectionServiceDep
 from app.schemas.connection import (
@@ -7,6 +9,7 @@ from app.schemas.connection import (
     ConnectionRead,
     ConnectionTestResult,
     ConnectionUpdate,
+    FileDialect,
     KeyringAvailability,
     KeyringSecretStatus,
     KeyringSecretWrite,
@@ -103,3 +106,16 @@ async def list_connection_tables(connection_id: str, service: ConnectionServiceD
 async def list_connection_objects(connection_id: str, service: ConnectionServiceDep, prefix: str = "") -> list[str]:
     """List files/objects in a storage connection (S3 bucket, local folder, …)."""
     return await service.list_objects(connection_id, prefix)
+
+
+@router.get("/{connection_id}/objects/dialect", response_model=FileDialect)
+async def detect_connection_object_dialect(
+    connection_id: str,
+    service: ConnectionServiceDep,
+    path: str = Query(..., min_length=1, max_length=1024),
+    format: Literal["csv", "tsv"] = "csv",
+) -> FileDialect:
+    """Detect a CSV/TSV object's delimiter/encoding/decimal from a bounded sample.
+
+    Unset fields were not detected; a storage input reads them with the defaults."""
+    return await service.detect_object_dialect(connection_id, path, format)

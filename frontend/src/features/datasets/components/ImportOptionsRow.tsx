@@ -1,3 +1,4 @@
+import { DECIMAL_OPTIONS, DELIMITER_OPTIONS, ENCODING_OPTIONS } from "@/lib/csvDialect";
 import { cn } from "@/lib/utils";
 
 /** Optional dialect overrides for uploads. Everything is auto-detected by
@@ -28,10 +29,11 @@ export function ImportOptionsRow({
             onChange={(e) => set({ delimiter: e.target.value })}
           >
             <option value="">Auto</option>
-            <option value=",">Comma (,)</option>
-            <option value=";">Semicolon (;)</option>
-            <option value={"\t"}>Tab</option>
-            <option value="|">Pipe (|)</option>
+            {DELIMITER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -42,11 +44,11 @@ export function ImportOptionsRow({
             onChange={(e) => set({ encoding: e.target.value })}
           >
             <option value="">Auto</option>
-            <option value="utf-8">UTF-8</option>
-            <option value="utf-8-sig">UTF-8 (BOM)</option>
-            <option value="latin-1">Latin-1</option>
-            <option value="cp1252">Windows-1252</option>
-            <option value="utf-16">UTF-16</option>
+            {ENCODING_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -57,8 +59,11 @@ export function ImportOptionsRow({
             onChange={(e) => set({ decimal: e.target.value })}
           >
             <option value="">Auto</option>
-            <option value=".">Point (.)</option>
-            <option value=",">Comma (,)</option>
+            {DECIMAL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">

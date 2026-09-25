@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Check, Copy, Download } from "lucide-react";
 import {
   Dialog,
@@ -9,8 +9,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useExportPython } from "./hooks";
+import { useExportNotebook, useExportPython } from "./hooks";
+import type { ExportCodeVariant } from "./types";
 import { friendlyErrorMessage } from "@/lib/errors";
+import { saveBlob } from "@/lib/download";
 
 interface ExportCodeDialogProps {
   flowId: string;
@@ -25,6 +27,26 @@ export function ExportCodeDialog({
 }: ExportCodeDialogProps) {
   const exportPython = useExportPython(flowId);
   const [freeIntermediates, setFreeIntermediates] = useState(false);
+  const exportNotebook = useExportNotebook(flowId);
+
+  const notebookButton = (variant: ExportCodeVariant) => (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={exportNotebook.isPending}
+      onClick={() =>
+        exportNotebook.mutate(
+          { variant, freeIntermediates },
+          {
+            onSuccess: ({ notebook, fileName }) =>
+              saveBlob(new Blob([notebook], { type: "application/x-ipynb+json" }), fileName),
+          },
+        )
+      }
+    >
+      <Download className="h-3.5 w-3.5" /> Download .ipynb
+    </Button>
+  );
 
   useEffect(() => {
     if (open) exportPython.mutate(freeIntermediates);
@@ -46,6 +68,11 @@ export function ExportCodeDialog({
             {friendlyErrorMessage(exportPython.error, "Export failed.")}
           </p>
         )}
+        {exportNotebook.isError && (
+          <p className="text-sm text-destructive">
+            {friendlyErrorMessage(exportNotebook.error, "Notebook export failed.")}
+          </p>
+        )}
         {exportPython.data && (
           <Tabs defaultValue="pandas" className="min-w-0">
             <TabsList>
@@ -57,17 +84,20 @@ export function ExportCodeDialog({
               )}
             </TabsList>
             <TabsContent value="pandas" className="min-w-0">
-              <CodeBlock code={exportPython.data.code} />
+              <CodeBlock code={exportPython.data.code} actions={notebookButton("pandas")} />
             </TabsContent>
             <TabsContent value="polars" className="min-w-0">
-              <CodeBlock code={exportPython.data.polars} />
+              <CodeBlock code={exportPython.data.polars} actions={notebookButton("polars")} />
             </TabsContent>
             <TabsContent value="polars_lazy" className="min-w-0">
               <p className="mb-2 text-xs text-muted-foreground">
                 Builds a single lazy query (scan → collect) so polars can apply
                 projection / predicate pushdown. Best for large inputs.
               </p>
-              <CodeBlock code={exportPython.data.polars_lazy} />
+              <CodeBlock
+                code={exportPython.data.polars_lazy}
+                actions={notebookButton("polars_lazy")}
+              />
             </TabsContent>
             {exportPython.data.flow_document && (
               <TabsContent value="json" className="min-w-0">
@@ -109,7 +139,15 @@ export function ExportCodeDialog({
   );
 }
 
-function CodeBlock({ code, downloadName }: { code: string; downloadName?: string }) {
+function CodeBlock({
+  code,
+  downloadName,
+  actions,
+}: {
+  code: string;
+  downloadName?: string;
+  actions?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     await navigator.clipboard.writeText(code);
@@ -117,17 +155,12 @@ function CodeBlock({ code, downloadName }: { code: string; downloadName?: string
     setTimeout(() => setCopied(false), 1500);
   };
   const download = () => {
-    if (!downloadName) return;
-    const url = URL.createObjectURL(new Blob([code], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = downloadName;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (downloadName) saveBlob(new Blob([code], { type: "application/json" }), downloadName);
   };
   return (
     <div className="relative min-w-0">
       <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+        {actions}
         {downloadName && (
           <Button variant="outline" size="sm" onClick={download}>
             <Download className="h-3.5 w-3.5" /> Download

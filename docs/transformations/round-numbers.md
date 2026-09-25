@@ -1,7 +1,7 @@
 ---
 title: Round numbers
 search: round numbers decimals precision numeric
-description: Round numeric columns to a number of decimal places
+description: The Round numbers node (roundNumbers) rounds numeric columns to a set number of decimal places, e.g. currency to 2 decimals. Config and pandas code.
 ---
 
 # Round numbers — `roundNumbers`

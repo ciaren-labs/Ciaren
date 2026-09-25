@@ -99,11 +99,7 @@ def compute_node_drift(
         columns_removed = sorted(prev_cols - cur_cols)
         rows_before = _rows(prev)
         rows_after = _rows(cur)
-        rows_delta = (
-            rows_after - rows_before
-            if rows_before is not None and rows_after is not None
-            else None
-        )
+        rows_delta = rows_after - rows_before if rows_before is not None and rows_after is not None else None
         if not columns_added and not columns_removed and rows_delta in (None, 0):
             continue  # nothing changed for this node — stay silent
         nodes.append(

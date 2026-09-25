@@ -1,6 +1,6 @@
 ---
 title: Datasets API
-description: Upload and inspect versioned source files
+description: "Datasets REST API reference for Ciaren: upload CSV, Excel, Parquet, JSON, and text files, manage immutable versions, and read schema, samples, and lineage."
 search: api datasets upload versions schema sample lineage flows
 ---
 
