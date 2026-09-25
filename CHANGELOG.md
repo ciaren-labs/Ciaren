@@ -8,8 +8,22 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
+Notebook export, run drift, CSV dialect detection for storage inputs, and a
+way to try Ciaren in the browser with GitHub Codespaces. There are no breaking
+changes. The polars `pivot` count fix changes results where the values column
+has nulls, so the engines now agree.
+
 ### Added
 
+- **Try Ciaren in GitHub Codespaces.** The repository ships a dev container,
+  and the README's "Open in GitHub Codespaces" badge opens the editor with the
+  Demo project in your browser, with nothing to install. The server trusts
+  exactly the codespace's forwarded URL through `CIAREN_CORS_ORIGINS`, so the
+  cross-site request guard stays on. The installation guide covers it.
+- **`ciaren serve` asks for a GitHub star.** One static line after the app URL.
+  It makes no network call and records nothing.
 - **Jupyter notebook export.** The code export dialog can download each engine
   variant (pandas, polars, lazy polars) as a `.ipynb` notebook, and
   `POST /api/flows/{flow_id}/export/python?include_notebooks=true` returns them
@@ -49,6 +63,14 @@ breaking changes may still happen between `0.x` releases.
 
 - Contributions no longer need a DCO `Signed-off-by` line. They are licensed
   under the repository licenses through the GitHub Terms of Service (#202).
+- The PyPI project links and the app's footer and landing links point at
+  `/docs/latest` instead of the redirecting `/docs` URL. The docs home drops
+  its hero glow and card hover effects to match ciaren.com (#203).
+- The test suite builds, signs, installs, and runs every example plugin from
+  source (#190).
+- Pull-request checks also run against release-preparation branches, and
+  routine Dependabot updates for dependencies and GitHub Actions are folded in
+  (#137).
 
 ### Security
 
@@ -64,6 +86,16 @@ breaking changes may still happen between `0.x` releases.
 - One start path from installation to the first flow, one sidebar home per
   page, and clearer roles for the plugin tutorial, guide, and reference (#199).
 - Source installs need Node.js 20 or newer (vitest 4).
+- The README, PyPI description, keywords, and project URLs are clearer, and
+  the docs have a social card for link previews (#177).
+- The comparison page compares Ciaren with KNIME, Alteryx, and Flowfile by
+  name (#204).
+- The docs state what plugins can run today: nodes, connectors, and ML model
+  types work end to end, while engine, exporter, and validator providers only
+  register metadata so far. The ML classification example now imports pandas
+  before using it.
+- The docs site has a Changelog page with these release notes, checked in and
+  kept identical to `CHANGELOG.md` by a test.
 
 ## [0.2.0] - 2026-07-20
 
