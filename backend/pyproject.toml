@@ -1,6 +1,6 @@
 [project]
 name = "ciaren"
-version = "0.3.0.dev0"
+version = "0.3.0"
 description = "Open-source, local-first visual ETL and data pipeline builder that exports clean pandas and Polars Python code"
 dynamic = ["readme"]
 keywords = [

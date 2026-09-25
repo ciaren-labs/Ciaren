@@ -51,7 +51,7 @@ For repeatable tutorials, CI jobs, or controlled internal evaluation, pin the
 exact version:
 
 ```bash
-python -m pip install "ciaren==0.2.0"
+python -m pip install "ciaren==0.3.0"
 ```
 
 :::
