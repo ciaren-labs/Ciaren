@@ -8,6 +8,14 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+### Changed
+
+- **Codespaces opens the editor directly.** The dev container installs the
+  released package from PyPI (about a minute instead of a frontend build),
+  waits for the install before opening, and shows the editor in a tab inside
+  the codespace with a short welcome note. The README puts the "Try it in your
+  browser" button right under the tagline.
+
 ## [0.3.0] - 2026-09-25
 
 Notebook export, run drift, CSV dialect detection for storage inputs, and a

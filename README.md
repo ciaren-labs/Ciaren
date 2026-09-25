@@ -12,6 +12,17 @@
   What you keep is real, reviewable Python you can run and version anywhere.
 </p>
 
+<h3 align="center">Try it in your browser, nothing to install</h3>
+
+<p align="center">
+  <a href="https://codespaces.new/ciaren-labs/Ciaren?quickstart=1"><img alt="Open in GitHub Codespaces" src="https://github.com/codespaces/badge.svg" height="44"></a>
+</p>
+
+<p align="center">
+  Opens the Ciaren editor with the demo project in about a minute, on your free GitHub Codespaces hours.<br>
+  Or run it locally: <code>python -m pip install ciaren</code> then <code>ciaren serve</code>
+</p>
+
 <p align="center">
   <a href="https://ciaren.com/docs/latest">Docs</a>
   · <a href="https://ciaren.com/docs/latest/guide/quick-start">Quick Start</a>
@@ -35,10 +46,6 @@
 </p>
 
 <p align="center">
-  <strong>Try it</strong><br>
-  <a href="https://codespaces.new/ciaren-labs/Ciaren?quickstart=1"><img alt="Open in GitHub Codespaces" src="https://github.com/codespaces/badge.svg"></a><br>
-  Opens the editor with the demo project in your browser. It runs on your free GitHub Codespaces hours, with nothing to install.<br>
-  Or run it locally: <code>python -m pip install ciaren &amp;&amp; ciaren serve</code><br>
   If Ciaren is useful to you, a star on GitHub helps other people find it.
 </p>
 

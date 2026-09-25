@@ -110,10 +110,14 @@ Use Codespaces to try Ciaren in your browser without installing anything. Open
 (or the **Open in GitHub Codespaces** badge in the README) and create the
 codespace.
 
-The repository's `.devcontainer/` setup builds the editor, installs Ciaren from
-the checkout, starts `ciaren serve` on port 8055, and opens the forwarded port
-in a new tab with the **Demo project** loaded. The first start takes a few
-minutes; restarting a stopped codespace is much faster.
+The repository's `.devcontainer/` setup installs the released Ciaren package
+from PyPI, starts `ciaren serve` on port 8055, and opens the editor in a tab
+inside the codespace with the **Demo project** loaded. The first start takes
+about a minute; restarting a stopped codespace is faster. If the editor tab
+does not appear, open the **Ports** panel and click the globe icon next to
+**Ciaren editor**. On a development branch whose version is not on PyPI yet,
+the setup builds the editor from the checkout instead, which takes a few
+minutes.
 
 - It runs on your GitHub account's free monthly Codespaces hours. Stop or delete
   the codespace when you are done.

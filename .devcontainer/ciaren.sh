@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Dev container / GitHub Codespaces lifecycle for Ciaren.
 #
-#   ciaren.sh install  postCreateCommand: build the editor and install Ciaren
-#                      from this checkout into a virtualenv.
+#   ciaren.sh install  postCreateCommand: install this version of Ciaren from
+#                      PyPI (or build it from this checkout if it is
+#                      unreleased) into a virtualenv.
 #   ciaren.sh start    postStartCommand: start `ciaren serve` on port 8055 in
 #                      the background, logging to $DATA_DIR/ciaren.log.
 #
@@ -17,11 +18,19 @@ DATA_DIR="$HOME/ciaren-data"
 PORT=8055
 
 install() {
-  # An editable install serves the editor straight from frontend/dist, so the
-  # same steps work before and after a PyPI release.
+  python -m venv "$VENV"
+  # Fast path: the released wheel on PyPI already bundles the built editor, so
+  # a codespace for a released version is ready in about a minute.
+  local version
+  version="$(grep -m1 '^version = ' "$REPO/backend/pyproject.toml" | cut -d '"' -f2)"
+  if "$VENV/bin/python" -m pip install --quiet "ciaren==$version"; then
+    return 0
+  fi
+  # Unreleased version (a development branch): build the editor and install
+  # this checkout instead.
+  echo "ciaren==$version is not on PyPI; building from this checkout."
   npm ci --prefix "$REPO/frontend" --no-audit --no-fund
   npm run build --prefix "$REPO/frontend"
-  python -m venv "$VENV"
   "$VENV/bin/python" -m pip install --quiet --editable "$REPO/backend"
 }
 

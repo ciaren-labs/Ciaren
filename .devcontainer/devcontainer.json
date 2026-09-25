@@ -8,11 +8,22 @@
   },
   "postCreateCommand": "bash .devcontainer/ciaren.sh install",
   "postStartCommand": "bash .devcontainer/ciaren.sh start",
+  "waitFor": "postCreateCommand",
   "forwardPorts": [8055],
   "portsAttributes": {
     "8055": {
       "label": "Ciaren editor",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "openPreview"
+    }
+  },
+  "customizations": {
+    "codespaces": {
+      "openFiles": [".devcontainer/WELCOME.md"]
+    },
+    "vscode": {
+      "settings": {
+        "workbench.startupEditor": "none"
+      }
     }
   },
   "remoteEnv": {
