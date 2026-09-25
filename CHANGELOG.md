@@ -8,6 +8,15 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+### Changed
+
+- **Codespaces opens the editor directly.** The dev container builds from a
+  slim image with the expired Yarn apt source removed (the old setup fell back
+  to a recovery container without Ciaren), installs the released package from
+  PyPI onto the `/workspaces` volume, starts Ciaren in the terminal when the
+  editor attaches, and opens it in a new browser tab. The README puts the "Try
+  it in your browser" button right under the tagline.
+
 ## [0.3.0] - 2026-09-25
 
 Notebook export, run drift, CSV dialect detection for storage inputs, and a

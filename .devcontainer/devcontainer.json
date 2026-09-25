@@ -1,21 +1,29 @@
 {
   "name": "Ciaren",
-  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "build": { "dockerfile": "Dockerfile" },
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "22"
-    }
+    "ghcr.io/devcontainers/features/sshd:1": {}
   },
   "postCreateCommand": "bash .devcontainer/ciaren.sh install",
-  "postStartCommand": "bash .devcontainer/ciaren.sh start",
-  "forwardPorts": [8055],
+  "postAttachCommand": "bash .devcontainer/ciaren.sh serve",
+  "waitFor": "postCreateCommand",
   "portsAttributes": {
     "8055": {
       "label": "Ciaren editor",
       "onAutoForward": "openBrowser"
     }
   },
+  "customizations": {
+    "codespaces": {
+      "openFiles": [".devcontainer/WELCOME.md"]
+    },
+    "vscode": {
+      "settings": {
+        "workbench.startupEditor": "none"
+      }
+    }
+  },
   "remoteEnv": {
-    "PATH": "/home/vscode/.venvs/ciaren/bin:${containerEnv:PATH}"
+    "PATH": "/workspaces/.ciaren/venv/bin:${containerEnv:PATH}"
   }
 }
