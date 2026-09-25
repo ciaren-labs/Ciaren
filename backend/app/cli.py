@@ -394,6 +394,8 @@ def _print_serve_banner(args: argparse.Namespace) -> None:
         print(f"  {arrow} API:           {base}  (docs at {base}/docs)")
         print("    Web UI:        run `npm run dev` in frontend/, then open http://localhost:5173")
         print("                   (or build it with `npm run build` to serve the UI from here)")
+    # A static line only: no network call and nothing is recorded.
+    print("  Like Ciaren? Star it on GitHub: https://github.com/ciaren-labs/Ciaren")
     print("")
 
 

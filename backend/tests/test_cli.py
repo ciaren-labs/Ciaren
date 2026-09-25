@@ -165,6 +165,19 @@ def test_main_serve_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["log_level"] == "warning"
 
 
+def test_serve_banner_asks_for_a_star_after_the_url(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: None)
+    cli.main(["serve", "--port", "9100"])
+    lines = capsys.readouterr().out.splitlines()
+
+    star = "  Like Ciaren? Star it on GitHub: https://github.com/ciaren-labs/Ciaren"
+    assert lines.count(star) == 1
+    url_line = next(i for i, line in enumerate(lines) if "http://127.0.0.1:9100" in line)
+    assert lines.index(star) > url_line
+
+
 def test_main_without_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     cli.main([])
     out = capsys.readouterr().out
