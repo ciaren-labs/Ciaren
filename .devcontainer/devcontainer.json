@@ -8,8 +8,8 @@
   },
   "postCreateCommand": "bash .devcontainer/ciaren.sh install",
   "postStartCommand": "bash .devcontainer/ciaren.sh start",
+  "postAttachCommand": "bash .devcontainer/ciaren.sh url",
   "waitFor": "postCreateCommand",
-  "forwardPorts": [8055],
   "portsAttributes": {
     "8055": {
       "label": "Ciaren editor",

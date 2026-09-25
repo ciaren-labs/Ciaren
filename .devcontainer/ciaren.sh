@@ -54,11 +54,26 @@ start() {
   echo "Ciaren is starting on port $PORT (log: $DATA_DIR/ciaren.log)."
 }
 
+url() {
+  # postAttachCommand: print the editor link in the terminal, as a fallback
+  # when the preview tab does not open by itself.
+  for _ in $(seq 1 60); do
+    curl --silent --fail "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break
+    sleep 2
+  done
+  if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
+    echo "Ciaren editor: https://${CODESPACE_NAME}-${PORT}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  else
+    echo "Ciaren editor: http://127.0.0.1:$PORT"
+  fi
+}
+
 case "${1:-}" in
   install) install ;;
   start) start ;;
+  url) url ;;
   *)
-    echo "usage: $0 {install|start}" >&2
+    echo "usage: $0 {install|start|url}" >&2
     exit 2
     ;;
 esac
