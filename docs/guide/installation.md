@@ -23,6 +23,7 @@ You can run the backend on its own and drive it through the
 | --- | --- |
 | [PyPI package](#recommended-pypi-package) (recommended) | **Python 3.12+** — [Download Python](https://www.python.org/downloads/) |
 | [Docker](#alternative-docker) | **Docker** with Compose, and **Git** to clone the repository |
+| [GitHub Codespaces](#no-install-github-codespaces) | A **GitHub account**; nothing installed locally |
 | [From source](#run-from-source) | **Python 3.12+**, **Node.js 20+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
 
 A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
@@ -101,6 +102,29 @@ EXTRAS=all-connectors docker compose up --build
 The available extras are documented in `docker-compose.yml` and the backend
 package metadata.
 :::
+
+## No Install: GitHub Codespaces
+
+Use Codespaces to try Ciaren in your browser without installing anything. Open
+[codespaces.new/ciaren-labs/Ciaren](https://codespaces.new/ciaren-labs/Ciaren?quickstart=1)
+(or the **Open in GitHub Codespaces** badge in the README) and create the
+codespace.
+
+The repository's `.devcontainer/` setup builds the editor, installs Ciaren from
+the checkout, starts `ciaren serve` on port 8055, and opens the forwarded port
+in a new tab with the **Demo project** loaded. The first start takes a few
+minutes; restarting a stopped codespace is much faster.
+
+- It runs on your GitHub account's free monthly Codespaces hours. Stop or delete
+  the codespace when you are done.
+- The forwarded port stays private, so only your GitHub account can open it.
+  The server trusts exactly that forwarded URL for changes (through
+  `CIAREN_CORS_ORIGINS`), and still refuses cross-site requests from any other
+  origin.
+- Data and the server log live in `~/ciaren-data` inside the codespace and are
+  deleted with it. If the tab did not open, use the **Ports** panel to open
+  **Ciaren editor**; to restart the server, run
+  `bash .devcontainer/ciaren.sh start`.
 
 ## Run From Source
 

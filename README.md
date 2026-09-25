@@ -34,11 +34,15 @@
   <a href="https://github.com/ciaren-labs/Ciaren"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ciaren-labs/Ciaren?style=social"></a>
 </p>
 
-![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
-
 <p align="center">
-  If this looks like something you'd use, a ⭐ on GitHub genuinely helps a small open-source project like this get discovered.
+  <strong>Try it</strong><br>
+  <a href="https://codespaces.new/ciaren-labs/Ciaren?quickstart=1"><img alt="Open in GitHub Codespaces" src="https://github.com/codespaces/badge.svg"></a><br>
+  Opens the editor with the demo project in your browser. It runs on your free GitHub Codespaces hours, with nothing to install.<br>
+  Or run it locally: <code>python -m pip install ciaren &amp;&amp; ciaren serve</code><br>
+  If Ciaren is useful to you, a star on GitHub helps other people find it.
 </p>
+
+![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
 
 ## What Is Ciaren?
 

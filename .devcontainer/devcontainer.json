@@ -1,0 +1,21 @@
+{
+  "name": "Ciaren",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/ciaren.sh install",
+  "postStartCommand": "bash .devcontainer/ciaren.sh start",
+  "forwardPorts": [8055],
+  "portsAttributes": {
+    "8055": {
+      "label": "Ciaren editor",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "remoteEnv": {
+    "PATH": "/home/vscode/.venvs/ciaren/bin:${containerEnv:PATH}"
+  }
+}
