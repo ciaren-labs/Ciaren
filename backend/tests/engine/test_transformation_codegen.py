@@ -134,6 +134,20 @@ CODEGEN_CASES = [
     ("join_on", "join", {"on": "id", "how": "inner"}),
     ("join_split", "join", {"left_on": "lid", "right_on": "rid", "how": "left", "suffixes": ["_l", "_r"]}),
     ("join_outer", "join", {"on": "id", "how": "outer"}),
+    ("join_semi_on", "join", {"on": "id", "how": "semi"}),
+    ("join_anti_on", "join", {"on": "id", "how": "anti"}),
+    ("join_semi_incomplete_split", "join", {"on": "id", "left_on": ["lid"], "how": "semi"}),
+    ("join_anti_incomplete_split", "join", {"on": "id", "left_on": ["lid"], "how": "anti"}),
+    (
+        "join_semi_split",
+        "join",
+        {"left_on": ["left_1", "left_2"], "right_on": ["right_1", "right_2"], "how": "semi"},
+    ),
+    (
+        "join_anti_split",
+        "join",
+        {"left_on": ["left_1", "left_2"], "right_on": ["right_1", "right_2"], "how": "anti"},
+    ),
     # sort: single-column descending collapses the direction list
     ("sort_desc", "sortRows", {"columns": ["a"], "ascending": False}),
     # dedupe keep=False (drop every duplicate)
@@ -372,3 +386,19 @@ def test_join_custom_suffixes_in_codegen() -> None:
     cfg = {"on": "id", "how": "outer", "suffixes": ["_l", "_r"]}
     assert "_l" in t.to_python_code(in_vars, out_vars, cfg)
     assert "_r" in t.to_polars_code(in_vars, out_vars, cfg)
+
+
+def test_polars_semi_join_codegen_uses_nulls_equal() -> None:
+    t = get_transformation("join")
+    in_vars, out_vars = _vars("join")
+
+    semi = t.to_polars_code(in_vars, out_vars, {"on": "id", "how": "semi"})
+    inner = t.to_polars_code(in_vars, out_vars, {"on": "id", "how": "inner"})
+
+    assert "nulls_equal=True" in semi
+    assert "inspect" not in semi
+    assert "join_nulls" not in semi
+    assert t.polars_imports({"on": "id", "how": "semi"}) == []
+    assert "nulls_equal" not in inner
+    assert "join_nulls" not in inner
+    assert t.polars_imports({"on": "id", "how": "inner"}) == []

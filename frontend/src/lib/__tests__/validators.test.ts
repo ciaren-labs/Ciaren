@@ -291,6 +291,8 @@ describe("groupByAggregate", () => {
 describe("join", () => {
   it("accepts a single 'on' key", () => accepts("join", { on: "id", how: "inner" }));
   it("accepts an array 'on'", () => accepts("join", { on: ["id", "date"], how: "left" }));
+  it.each(["semi", "anti"])("accepts %s joins", (how) =>
+    accepts("join", { on: "id", how }));
   it("accepts split left_on + right_on keys", () =>
     accepts("join", { left_on: ["id"], right_on: ["ref"], how: "outer" }));
   it("accepts suffixes of length 2", () =>

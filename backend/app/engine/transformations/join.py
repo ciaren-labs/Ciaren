@@ -4,7 +4,7 @@ from typing import Any
 from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.transformations.base import BaseTransformation, one_or_list
 
-_VALID_HOW = {"inner", "left", "right", "outer"}
+_VALID_HOW = {"inner", "left", "right", "outer", "semi", "anti"}
 
 
 def _as_list(value: Any) -> list[str] | None:
@@ -18,7 +18,14 @@ class JoinTransformation(BaseTransformation):
     input_handles = ("left", "right")
 
     # pandas merge 'how' -> polars join 'how' (pandas 'outer' is polars 'full').
-    _POLARS_HOW = {"inner": "inner", "left": "left", "right": "right", "outer": "full"}
+    _POLARS_HOW = {
+        "inner": "inner",
+        "left": "left",
+        "right": "right",
+        "outer": "full",
+        "semi": "semi",
+        "anti": "anti",
+    }
 
     def validate_config(self, config: dict[str, Any]) -> None:
         has_on = bool(config.get("on"))
@@ -60,10 +67,36 @@ class JoinTransformation(BaseTransformation):
         how = config.get("how", "inner")
         suffixes = self._suffixes(config)
         left_on, right_on = _as_list(config.get("left_on")), _as_list(config.get("right_on"))
+        on = _as_list(config.get("on"))
+        if how in ("semi", "anti"):
+            if left_on and right_on:
+                left_keys, right_keys = left_on, right_on
+            else:
+                left_keys = right_keys = on or []
+            invert = "~" if how == "anti" else ""
+            if len(left_keys) == 1:
+                left_key = f"{left}[{left_keys[0]!r}]"
+                right_key = f"{right}[{right_keys[0]!r}]"
+                matches = f"({left_key}.isin({right_key}) | ({left_key}.isna() & {right_key}.isna().any()))"
+                return f"{dst} = {left}.loc[{invert}{matches}]"
+
+            marker = "_ciaren_match"
+            while marker in left_keys or marker in right_keys:
+                marker += "_"
+            if left_on and right_on:
+                keys = f"left_on={one_or_list(left_keys)!r}, right_on={one_or_list(right_keys)!r}"
+            else:
+                keys = f"on={one_or_list(left_keys)!r}"
+            return (
+                f"_right_keys = {right}[{right_keys!r}].drop_duplicates()\n"
+                f"_matches = {left}[{left_keys!r}].merge("
+                f"_right_keys, {keys}, how='left', indicator={marker!r})[{marker!r}].eq('both').to_numpy()\n"
+                f"{dst} = {left}.loc[{invert}_matches]"
+            )
         if left_on and right_on:
             keys = f"left_on={one_or_list(left_on)!r}, right_on={one_or_list(right_on)!r}"
         else:
-            keys = f"on={one_or_list(_as_list(config.get('on')) or [])!r}"
+            keys = f"on={one_or_list(on or [])!r}"
         args = keys
         if how != "inner":  # pandas' own default
             args += f", how={how!r}"
@@ -84,6 +117,8 @@ class JoinTransformation(BaseTransformation):
             keys = f"on={one_or_list(_as_list(config.get('on')) or [])!r}"
             # coalesce shared keys so 'full' joins keep a single key column (like pandas).
             coalesce = ", coalesce=True"
+        if how in ("semi", "anti"):
+            return f"{dst} = {left}.join({right}, {keys}, how={how!r}, nulls_equal=True)"
         args = keys
         if how != "inner":  # polars' own default
             args += f", how={how!r}"

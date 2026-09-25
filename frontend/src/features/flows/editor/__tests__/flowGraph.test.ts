@@ -198,6 +198,22 @@ describe("computeNodeColumns", () => {
     const edges = [edge("l", "j", "left"), edge("r", "j", "right")];
     const cols = computeNodeColumns(nodes, edges, ds);
     expect(cols.get("j")?.input.sort()).toEqual(["amount", "id", "name"]);
+    expect(cols.get("j")?.output.sort()).toEqual(["amount", "id", "name"]);
+  });
+
+  it.each(["semi", "anti"])("keeps only left output columns for a %s join", (how) => {
+    const ds = [dataset("d1", ["id", "name"]), dataset("d2", ["id", "amount"])];
+    const nodes = [
+      node("l", "csvInput", { dataset_id: "d1" }),
+      node("r", "csvInput", { dataset_id: "d2" }),
+      node("j", "join", { on: "id", how }),
+    ];
+    const edges = [edge("l", "j", "left"), edge("r", "j", "right")];
+
+    const cols = computeNodeColumns(nodes, edges, ds);
+
+    expect(cols.get("j")?.input.sort()).toEqual(["amount", "id", "name"]);
+    expect(cols.get("j")?.output).toEqual(["id", "name"]);
   });
 
   it("does not let a model wire pollute mlPredict's data columns", () => {

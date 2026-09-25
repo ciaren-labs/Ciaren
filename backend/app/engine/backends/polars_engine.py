@@ -51,6 +51,8 @@ _JOIN_HOW = {
     "left": "left",
     "right": "right",
     "outer": "full",
+    "semi": "semi",
+    "anti": "anti",
 }
 
 _DTYPE_MAP = {
@@ -314,6 +316,18 @@ class PolarsEngine:
         if how not in _JOIN_HOW:
             raise ValueError(f"Unsupported join how: {how!r}")
         how_arg = cast(Any, _JOIN_HOW[how])
+        if how in ("semi", "anti"):
+            # pandas matches null join keys; Polars requires an explicit opt-in.
+            if left_on and right_on:
+                return left.join(
+                    right,
+                    left_on=left_on,
+                    right_on=right_on,
+                    how=how_arg,
+                    nulls_equal=True,
+                )
+            return left.join(right, on=on, how=how_arg, nulls_equal=True)
+
         # polars takes a single suffix for overlapping right-side columns.
         suffix = suffixes[1]
         if left_on and right_on:
