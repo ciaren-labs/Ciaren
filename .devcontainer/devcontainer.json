@@ -1,6 +1,6 @@
 {
   "name": "Ciaren",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "postCreateCommand": "bash .devcontainer/ciaren.sh install",
   "postStartCommand": "bash .devcontainer/ciaren.sh start",
   "postAttachCommand": "bash .devcontainer/ciaren.sh url",
@@ -22,6 +22,6 @@
     }
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:HOME}/.venvs/ciaren/bin:${containerEnv:PATH}"
+    "PATH": "/workspaces/.ciaren/venv/bin:${containerEnv:PATH}"
   }
 }

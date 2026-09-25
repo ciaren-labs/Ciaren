@@ -7,7 +7,7 @@ loaded. If the tab does not appear:
 2. Find **Ciaren editor** (port 8055).
 3. Click the globe icon to open it in your browser.
 
-The server log is in `~/ciaren-data/ciaren.log`. To restart the server, run
+The server log is in `/workspaces/.ciaren/data/ciaren.log`. To restart the server, run
 `bash .devcontainer/ciaren.sh start` in the terminal.
 
 Next steps: [Quick start](https://ciaren.com/docs/latest/guide/quick-start) ·

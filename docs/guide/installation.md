@@ -125,7 +125,7 @@ minutes.
   The server trusts exactly that forwarded URL for changes (through
   `CIAREN_CORS_ORIGINS`), and still refuses cross-site requests from any other
   origin.
-- Data and the server log live in `~/ciaren-data` inside the codespace and are
+- Data and the server log live in `/workspaces/.ciaren/data` inside the codespace and are
   deleted with it. If the tab did not open, use the **Ports** panel to open
   **Ciaren editor**; to restart the server, run
   `bash .devcontainer/ciaren.sh start`.
