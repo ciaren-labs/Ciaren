@@ -16,11 +16,12 @@ breaking changes may still happen between `0.x` releases.
 
 ### Changed
 
-- **Codespaces opens the editor directly.** The dev container installs the
-  released package from PyPI (about a minute instead of a frontend build),
-  waits for the install before opening, and shows the editor in a tab inside
-  the codespace with a short welcome note. The README puts the "Try it in your
-  browser" button right under the tagline.
+- **Codespaces opens the editor directly.** The dev container builds from a
+  slim image with the expired Yarn apt source removed (the old setup fell back
+  to a recovery container without Ciaren), installs the released package from
+  PyPI onto the `/workspaces` volume, starts Ciaren in the terminal when the
+  editor attaches, and opens it in a new browser tab. The README puts the "Try
+  it in your browser" button right under the tagline.
 
 ## [0.3.0] - 2026-09-25
 

@@ -10,7 +10,7 @@
   "portsAttributes": {
     "8055": {
       "label": "Ciaren editor",
-      "onAutoForward": "openPreview"
+      "onAutoForward": "openBrowser"
     }
   },
   "customizations": {
@@ -19,7 +19,8 @@
     },
     "vscode": {
       "settings": {
-        "workbench.startupEditor": "none"
+        "workbench.startupEditor": "none",
+        "security.workspace.trust.enabled": false
       }
     }
   },

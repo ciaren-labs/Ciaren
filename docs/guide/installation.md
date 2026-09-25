@@ -111,13 +111,16 @@ Use Codespaces to try Ciaren in your browser without installing anything. Open
 codespace.
 
 The repository's `.devcontainer/` setup installs the released Ciaren package
-from PyPI, starts `ciaren serve` on port 8055, and opens the editor in a tab
-inside the codespace with the **Demo project** loaded. The first start takes
-about a minute; restarting a stopped codespace is faster. If the editor tab
-does not appear, open the **Ports** panel and click the globe icon next to
-**Ciaren editor**. On a development branch whose version is not on PyPI yet,
-the setup builds the editor from the checkout instead, which takes a few
-minutes.
+from PyPI, starts `ciaren serve` on port 8055 in the codespace terminal, and
+opens the editor in a new browser tab with the **Demo project** loaded. The
+first start takes about two minutes; restarting a stopped codespace is faster.
+If your browser blocks the new tab, click the link printed in the terminal, or
+open the **Ports** panel and click the globe icon next to **Ciaren editor**. On
+a development branch whose version is not on PyPI yet, the setup builds the
+editor from the checkout instead, which needs Node.js.
+
+The dev container turns off VS Code's Workspace Trust prompt, so the server can
+start without a click. Create the codespace only from a repository you trust.
 
 - It runs on your GitHub account's free monthly Codespaces hours. Stop or delete
   the codespace when you are done.
@@ -126,9 +129,8 @@ minutes.
   `CIAREN_CORS_ORIGINS`), and still refuses cross-site requests from any other
   origin.
 - Data and the server log live in `/workspaces/.ciaren/data` inside the codespace and are
-  deleted with it. If the tab did not open, use the **Ports** panel to open
-  **Ciaren editor**; to restart the server, run
-  `bash .devcontainer/ciaren.sh start`.
+  deleted with it. To restart the server after you stop it, run
+  `bash .devcontainer/ciaren.sh serve` in the terminal.
 
 ## Run From Source
 
