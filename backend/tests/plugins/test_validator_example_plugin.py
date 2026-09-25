@@ -73,9 +73,7 @@ def test_execute_regex_rule(runtime):
 
 def test_execute_allowed_set_coerces_column_to_str(runtime):
     # "qty" is integer-typed; runtime str-coerces before the membership check.
-    out = runtime.execute(
-        {"in": _df()}, {"column": "qty", "rule": "allowed_set", "allowed_values": ["1", "3"]}
-    )
+    out = runtime.execute({"in": _df()}, {"column": "qty", "rule": "allowed_set", "allowed_values": ["1", "3"]})
     assert list(out["out"]["passed"]) == [True, False, True, False]
 
 
