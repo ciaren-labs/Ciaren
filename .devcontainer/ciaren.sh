@@ -17,8 +17,22 @@ VENV="$HOME/.venvs/ciaren"
 DATA_DIR="$HOME/ciaren-data"
 PORT=8055
 
+pick_python() {
+  # Ciaren needs Python 3.12 or newer; use the first interpreter that fits.
+  local candidate
+  for candidate in python3.13 python3.12 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 &&
+      "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 12))' 2>/dev/null; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  echo "Ciaren needs Python 3.12 or newer, and none was found." >&2
+  return 1
+}
+
 install() {
-  python -m venv "$VENV"
+  "$(pick_python)" -m venv "$VENV"
   # Fast path: the released wheel on PyPI already bundles the built editor, so
   # a codespace for a released version is ready in about a minute.
   local version
