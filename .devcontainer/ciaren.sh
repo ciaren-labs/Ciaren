@@ -4,8 +4,12 @@
 #   ciaren.sh install  postCreateCommand: install this version of Ciaren from
 #                      PyPI (or build it from this checkout if it is
 #                      unreleased) into a virtualenv.
-#   ciaren.sh start    postStartCommand: start `ciaren serve` on port 8055 in
-#                      the background, logging to $DATA_DIR/ciaren.log.
+#   ciaren.sh serve    postAttachCommand: run `ciaren serve` on port 8055 in the
+#                      foreground while the editor is attached (processes a
+#                      postStartCommand leaves in the background are killed
+#                      when it returns), or print the link if it is running.
+#   ciaren.sh start    Manual restart: start `ciaren serve` in the background,
+#                      logging to $DATA_DIR/ciaren.log.
 #
 # The virtualenv path must match the PATH entry in devcontainer.json remoteEnv.
 set -euo pipefail
@@ -58,46 +62,58 @@ install() {
   "$VENV/bin/python" -m pip install --quiet --no-cache-dir --editable "$REPO/backend"
 }
 
-start() {
-  if curl --silent --fail "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
-    echo "Ciaren is already running on port $PORT."
-    return 0
+editor_url() {
+  if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
+    echo "https://${CODESPACE_NAME}-${PORT}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  else
+    echo "http://127.0.0.1:$PORT"
   fi
+}
+
+prepare_env() {
   if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
     # The browser loads the editor from the forwarded URL and sends it as the
     # Origin of every write. Trust exactly that origin, not the forwarding
     # domain every codespace shares, so the CSRF guard keeps refusing others.
-    export CIAREN_CORS_ORIGINS="[\"https://${CODESPACE_NAME}-${PORT}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}\"]"
+    export CIAREN_CORS_ORIGINS="[\"$(editor_url)\"]"
   fi
   mkdir -p "$DATA_DIR"
   cd "$DATA_DIR"
-  # setsid + nohup detach the server from the lifecycle command's session,
-  # which the dev container runtime tears down when this script returns.
+}
+
+is_running() {
+  curl --silent --fail "http://127.0.0.1:$PORT/health" >/dev/null 2>&1
+}
+
+serve() {
+  if is_running; then
+    echo "Ciaren is running. Editor: $(editor_url)"
+    return 0
+  fi
+  prepare_env
+  echo "Starting Ciaren. The editor opens in a tab; if it does not, use: $(editor_url)"
+  exec "$VENV/bin/ciaren" serve --host 127.0.0.1 --port "$PORT"
+}
+
+start() {
+  if is_running; then
+    echo "Ciaren is already running on port $PORT."
+    return 0
+  fi
+  prepare_env
+  # setsid + nohup detach the server from this shell so it keeps running after
+  # the terminal closes.
   setsid nohup "$VENV/bin/ciaren" serve --host 127.0.0.1 --port "$PORT" \
     >"$DATA_DIR/ciaren.log" 2>&1 </dev/null &
   echo "Ciaren is starting on port $PORT (log: $DATA_DIR/ciaren.log)."
 }
 
-url() {
-  # postAttachCommand: print the editor link in the terminal, as a fallback
-  # when the preview tab does not open by itself.
-  for _ in $(seq 1 60); do
-    curl --silent --fail "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && break
-    sleep 2
-  done
-  if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
-    echo "Ciaren editor: https://${CODESPACE_NAME}-${PORT}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
-  else
-    echo "Ciaren editor: http://127.0.0.1:$PORT"
-  fi
-}
-
 case "${1:-}" in
   install) install ;;
+  serve) serve ;;
   start) start ;;
-  url) url ;;
   *)
-    echo "usage: $0 {install|start|url}" >&2
+    echo "usage: $0 {install|serve|start}" >&2
     exit 2
     ;;
 esac

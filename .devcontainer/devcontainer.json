@@ -5,8 +5,7 @@
     "ghcr.io/devcontainers/features/sshd:1": {}
   },
   "postCreateCommand": "bash .devcontainer/ciaren.sh install",
-  "postStartCommand": "bash .devcontainer/ciaren.sh start",
-  "postAttachCommand": "bash .devcontainer/ciaren.sh url",
+  "postAttachCommand": "bash .devcontainer/ciaren.sh serve",
   "waitFor": "postCreateCommand",
   "portsAttributes": {
     "8055": {
