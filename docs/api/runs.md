@@ -1,6 +1,6 @@
 ---
 title: Runs API
-description: Execute flows and read run status, logs, and per-node results
+description: "Runs REST API reference for Ciaren: execute a flow on Polars or pandas, read run status, logs, and per-node results, and stream logs over SSE."
 search: api runs execute engine status logs node results duration filter stream sse webhook
 ---
 

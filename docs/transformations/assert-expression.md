@@ -1,6 +1,6 @@
 ---
 title: Assert expression
-description: Fail or warn when a boolean column expression is not true for every row
+description: The Assert expression data quality node (assertExpression) fails or warns when a custom boolean expression over columns is not true for every row.
 search: assert expression boolean eval data quality custom condition contract check
 ---
 

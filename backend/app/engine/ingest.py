@@ -19,7 +19,10 @@ from __future__ import annotations
 
 import csv
 import re
-from typing import Any
+from pathlib import Path
+from typing import IO, Any
+
+import pandas as pd
 
 # Whitelists: these values flow into pandas read kwargs and into *generated
 # Python source* (codegen emits them via repr), so free-form strings are not
@@ -40,6 +43,12 @@ _MAX_SHEET_NAME_LEN = 128
 # How much of the file the detectors look at. Enough for headers plus a few
 # thousand rows; independent of upload size.
 _SNIFF_BYTES = 64 * 1024
+#: Bytes to fetch when only a sample is read (e.g. a storage object): one past
+#: what the detectors inspect, so ``detect_encoding`` can tell a truncated
+#: sample from a whole file.
+SNIFF_SAMPLE_BYTES = _SNIFF_BYTES + 1
+#: Node-config keys that override a delimited file's detected dialect.
+DIALECT_KEYS = ("delimiter", "encoding", "decimal")
 
 # Unambiguous decimal-comma evidence: a fraction that isn't exactly 3 digits
 # (1,50 / 1,2345 — can't be a thousands group), or dot-thousands + comma
@@ -157,10 +166,14 @@ def detect_delimiter(text_sample: str) -> str:
         return csv.Sniffer().sniff(text_sample, delimiters=",;\t|").delimiter
     except csv.Error:
         pass
-    first_line = next((ln for ln in text_sample.splitlines() if ln.strip()), "")
+    first_line = _first_line(text_sample)
     counts = {d: first_line.count(d) for d in ALLOWED_DELIMITERS}
     best = max(counts, key=lambda d: counts[d])
     return best if counts[best] > 0 else ","
+
+
+def _first_line(text_sample: str) -> str:
+    return next((ln for ln in text_sample.splitlines() if ln.strip()), "")
 
 
 def detect_decimal(text_sample: str, delimiter: str) -> str:
@@ -195,6 +208,65 @@ def detect_csv_options(content: bytes, source_type: str) -> dict[str, Any]:
         "delimiter": delimiter,
         "decimal": detect_decimal(sample, delimiter),
     }
+
+
+def sniff_csv_dialect(sample: bytes, source_type: str) -> dict[str, str]:
+    """The dialect a CSV/TSV sample actually evidences — only confident keys.
+
+    Unlike :func:`detect_csv_options` (which always answers, for ingest), this
+    omits what the sample doesn't show, so callers fall back to the reader
+    defaults and a UI never labels a guess as "detected":
+
+    - empty, binary (NUL bytes outside UTF-16), or undecodable (neither UTF-8
+      nor cp1252) samples → ``{}``;
+    - a delimiter only when it occurs in the first line (a single-column file
+      has none);
+    - a decimal only when it is the non-default ``,``.
+
+    ``sample`` should be the file's first :data:`SNIFF_SAMPLE_BYTES` bytes (or
+    the whole file) so encoding detection can recognise truncation."""
+    if not sample.strip():
+        return {}
+    encoding = detect_encoding(sample)
+    if encoding == "latin-1":  # detect_encoding's never-fails fallback: no real evidence
+        return {}
+    if b"\x00" in sample and encoding != "utf-16":
+        return {}
+    text = sample[:_SNIFF_BYTES].decode(encoding, errors="replace")
+    options = {"encoding": encoding}
+    delimiter = "\t"
+    if source_type == "csv":
+        delimiter = detect_delimiter(text)
+        if delimiter not in _first_line(text):
+            delimiter = ","
+        else:
+            options["delimiter"] = delimiter
+    if detect_decimal(text, delimiter) == ",":
+        options["decimal"] = ","
+    return options
+
+
+def config_parse_options(config: dict[str, Any], source_type: str) -> dict[str, Any]:
+    """Validated dialect overrides a node config sets for a delimited read.
+
+    Empty for non-delimited formats (they have no dialect). Blank values mean
+    "not overridden". Raises :class:`ParseOptionsError` for a value outside the
+    whitelist — including a TSV ``delimiter``, which is always a tab."""
+    if source_type not in ("csv", "tsv"):
+        return {}
+    raw = {key: config[key] for key in DIALECT_KEYS if config.get(key) not in (None, "")}
+    return validate_parse_options(raw, source_type)
+
+
+def read_delimited(source: str | Path | IO[bytes], source_type: str, options: dict[str, Any]) -> pd.DataFrame:
+    """Read a CSV/TSV with the given parse options (reader defaults for any
+    key that is absent; TSV is always tab-separated)."""
+    return pd.read_csv(
+        source,
+        sep="\t" if source_type == "tsv" else str(options.get("delimiter", ",")),
+        encoding=str(options.get("encoding", "utf-8")),
+        decimal=str(options.get("decimal", ".")),
+    )
 
 
 def is_default_dialect(options: dict[str, Any], source_type: str) -> bool:

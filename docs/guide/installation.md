@@ -1,12 +1,15 @@
 ---
 title: Installation
-description: Install and run Ciaren locally in minutes
+description: Install Ciaren from PyPI with pip, run it in Docker, or from source with Python 3.12+. Covers configuration, database setup, and install troubleshooting.
 search: install setup download run requirements frontend backend
 ---
 
 # Installation Guide
 
-Get Ciaren running on your machine in a few minutes. Ciaren has two parts:
+**For:** anyone setting up Ciaren locally. **You get:** a running app at
+`http://localhost:8055`, with the shortest route (PyPI) first.
+
+Ciaren has two parts:
 
 - a **backend** (FastAPI + the execution engine and scheduler), and
 - a **frontend** (the React visual editor).
@@ -16,11 +19,15 @@ You can run the backend on its own and drive it through the
 
 ## Requirements
 
-- **Python 3.12+** — [Download Python](https://www.python.org/downloads/)
-- **Node.js 18+** — [Download Node.js](https://nodejs.org/) (only for the frontend)
-- **Git** — [Download Git](https://git-scm.com/)
-- A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
-  are supported via an async driver.
+| Install method | You need |
+| --- | --- |
+| [PyPI package](#recommended-pypi-package) (recommended) | **Python 3.12+** — [Download Python](https://www.python.org/downloads/) |
+| [Docker](#alternative-docker) | **Docker** with Compose, and **Git** to clone the repository |
+| [GitHub Codespaces](#no-install-github-codespaces) | A **GitHub account**; nothing installed locally |
+| [From source](#run-from-source) | **Python 3.12+**, **Node.js 20+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
+
+A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
+are supported via an async driver.
 
 ## Recommended: PyPI Package
 
@@ -44,7 +51,7 @@ For repeatable tutorials, CI jobs, or controlled internal evaluation, pin the
 exact version:
 
 ```bash
-python -m pip install "ciaren==0.2.0"
+python -m pip install "ciaren==0.3.0"
 ```
 
 :::
@@ -80,9 +87,8 @@ docker compose up --build
 
 Open `http://localhost:8055`.
 
-On first start, Ciaren creates its SQLite database automatically and seeds a
-**Demo project** with sample datasets and example flows. Open **Projects → Demo**
-to preview, run, and export working flows before uploading your own files.
+The first start creates the database and seeds the same **Demo project** as the
+PyPI install.
 
 :::tip Optional Docker extras
 The base Docker build keeps dependencies lean. To include optional connector or
@@ -96,6 +102,29 @@ EXTRAS=all-connectors docker compose up --build
 The available extras are documented in `docker-compose.yml` and the backend
 package metadata.
 :::
+
+## No Install: GitHub Codespaces
+
+Use Codespaces to try Ciaren in your browser without installing anything. Open
+[codespaces.new/ciaren-labs/Ciaren](https://codespaces.new/ciaren-labs/Ciaren?quickstart=1)
+(or the **Open in GitHub Codespaces** badge in the README) and create the
+codespace.
+
+The repository's `.devcontainer/` setup builds the editor, installs Ciaren from
+the checkout, starts `ciaren serve` on port 8055, and opens the forwarded port
+in a new tab with the **Demo project** loaded. The first start takes a few
+minutes; restarting a stopped codespace is much faster.
+
+- It runs on your GitHub account's free monthly Codespaces hours. Stop or delete
+  the codespace when you are done.
+- The forwarded port stays private, so only your GitHub account can open it.
+  The server trusts exactly that forwarded URL for changes (through
+  `CIAREN_CORS_ORIGINS`), and still refuses cross-site requests from any other
+  origin.
+- Data and the server log live in `~/ciaren-data` inside the codespace and are
+  deleted with it. If the tab did not open, use the **Ports** panel to open
+  **Ciaren editor**; to restart the server, run
+  `bash .devcontainer/ciaren.sh start`.
 
 ## Run From Source
 
@@ -401,18 +430,13 @@ Add the calling origin to `CIAREN_CORS_ORIGINS` (a JSON list) in `backend/.env`:
 CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 ```
 
-## Next Steps
-
-- **[Quick Start Tutorial](/guide/quick-start)** — build your first flow
-- **[Interface Tour](/guide/interface)** — learn the UI
-- **[Transformation Reference](/transformations/overview)** — all available operations
-
 ## Need Help?
 
 - **[Troubleshooting Guide](/guide/troubleshooting)**
 - **[GitHub Issues](https://github.com/ciaren-labs/Ciaren/issues)** — report bugs
 - **[GitHub Discussions](https://github.com/ciaren-labs/Ciaren/discussions)** — ask questions
 
----
+## Next Step
 
-Once it's running, head to [Quick Start](/guide/quick-start) to build your first data workflow! 🚀
+Once Ciaren is running, continue to the **[Quick Start](/guide/quick-start)**
+to build, run, and export your first flow.

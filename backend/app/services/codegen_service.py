@@ -14,6 +14,7 @@ from app.engine.codegen_params import parameter_block_lines, substitute_for_code
 from app.engine.graph import GraphValidationError
 from app.engine.node_kinds import FILE_INPUT_TYPE
 from app.engine.node_kinds import INPUT_SOURCE_TYPES as _LEGACY_FILE_INPUT_TYPES
+from app.engine.notebook_codegen import script_to_notebook_json
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.polars_codegen import PolarsCodeGenerator
 from app.engine.sql_codegen import SQL_NODE_TYPES
@@ -28,12 +29,19 @@ class CodegenService:
     async def export_python(self, flow_id: str) -> str:
         return str((await self.export(flow_id))["pandas"])
 
-    async def export(self, flow_id: str, *, free_intermediates: bool = False) -> dict[str, Any]:
+    async def export(
+        self, flow_id: str, *, free_intermediates: bool = False, include_notebooks: bool = False
+    ) -> dict[str, Any]:
         """Generate the pandas, eager-polars and lazy-polars equivalents of a flow.
 
         ``free_intermediates`` adds ``del`` statements to the materializing
         (pandas / eager-polars) scripts to lower peak memory; the lazy script is
         unaffected since its variables are query plans, not data.
+
+        ``include_notebooks`` also wraps each script as Jupyter notebook
+        (``.ipynb``) JSON; otherwise the ``notebook*`` entries are ``None`` so
+        callers that only want the ``.py`` scripts don't pay for three more
+        copies of the code.
         """
         flow = await self._get_flow(flow_id)
         graph = flow.graph_json
@@ -68,37 +76,47 @@ class CodegenService:
                 return str(generate(fallback_graph, []))
 
         try:
+            pandas_script = safe(
+                lambda g, p: CodeGenerator().generate(
+                    g,
+                    dataset_names,
+                    connections,
+                    free_intermediates=free_intermediates,
+                    parameter_lines=p,
+                    dataset_parse_options=parse_options,
+                )
+            )
+            polars_script = safe(
+                lambda g, p: PolarsCodeGenerator().generate(
+                    g,
+                    dataset_names,
+                    connections,
+                    free_intermediates=free_intermediates,
+                    parameter_lines=p,
+                    dataset_parse_options=parse_options,
+                )
+            )
+            polars_lazy_script = safe(
+                lambda g, p: PolarsCodeGenerator().generate(
+                    g,
+                    dataset_names,
+                    connections,
+                    lazy=True,
+                    parameter_lines=p,
+                    dataset_parse_options=parse_options,
+                )
+            )
+
+            def notebook(script: str) -> str | None:
+                return script_to_notebook_json(script, flow_name=flow.name) if include_notebooks else None
+
             return {
-                "pandas": safe(
-                    lambda g, p: CodeGenerator().generate(
-                        g,
-                        dataset_names,
-                        connections,
-                        free_intermediates=free_intermediates,
-                        parameter_lines=p,
-                        dataset_parse_options=parse_options,
-                    )
-                ),
-                "polars": safe(
-                    lambda g, p: PolarsCodeGenerator().generate(
-                        g,
-                        dataset_names,
-                        connections,
-                        free_intermediates=free_intermediates,
-                        parameter_lines=p,
-                        dataset_parse_options=parse_options,
-                    )
-                ),
-                "polars_lazy": safe(
-                    lambda g, p: PolarsCodeGenerator().generate(
-                        g,
-                        dataset_names,
-                        connections,
-                        lazy=True,
-                        parameter_lines=p,
-                        dataset_parse_options=parse_options,
-                    )
-                ),
+                "pandas": pandas_script,
+                "polars": polars_script,
+                "polars_lazy": polars_lazy_script,
+                "notebook": notebook(pandas_script),
+                "notebook_polars": notebook(polars_script),
+                "notebook_polars_lazy": notebook(polars_lazy_script),
                 "flow_document": FlowDocument(name=flow.name, description=flow.description, graph_json=graph),
             }
         except GraphValidationError as exc:

@@ -1,6 +1,6 @@
 ---
 title: Plugin CLI Reference
-description: The ciaren-plugin command — install, inspect, sign, and license plugins
+description: "Reference for the ciaren-plugin command: install, uninstall, enable, disable, and verify plugins, plus keygen, pack, sign, and index for publishers."
 search: cli ciaren-plugin install uninstall verify enable disable keygen pack sign manifest search index license licenses
 ---
 

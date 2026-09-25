@@ -1,6 +1,6 @@
 ---
 title: Sales Data Analysis
-description: Clean raw sales data and summarize revenue by region
+description: "Ciaren example: clean a messy sales CSV and summarize revenue by region with Drop Nulls, Filter Rows, and Group by + Aggregate, then export Python."
 search: example sales analysis group by aggregate clean
 ---
 

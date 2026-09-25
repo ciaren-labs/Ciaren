@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitepress'
 
 const gaMeasurementId = process.env.VITEPRESS_GA_ID
-const docsOrigin = 'https://ciaren.com/docs'
-const socialImage = `${docsOrigin}/Ciaren.png`
+// Published docs root: ciaren.com serves the current docs under /docs/latest/.
+const docsOrigin = 'https://ciaren.com/docs/latest'
+const socialImage = `${docsOrigin}/og-image.png`
 
 // Set by CI to build a pinned version snapshot at /v/<tag>/ instead of the
 // root site. DOCS_VERSIONS_JSON is the full list of stable releases that
@@ -26,6 +27,79 @@ function pageUrl(page: string) {
 
   return path ? `${docsOrigin}/${path}` : `${docsOrigin}/`
 }
+
+// Sidebar for the user guide. Each page is listed once, in the order a new
+// user reads it: install, first flow, day-to-day features, then reference and
+// project pages. Contributor-only pages sit in the last group.
+//
+// Declared before `nav` on purpose: the ciaren.com docs sync derives each
+// folder's page order from the first `link: '/<folder>/<page>'` it finds in
+// this file (see PUBLISHING.md > Navigation and page order), so a nav-bar
+// link placed earlier would pull its page to the top of the published list.
+const guideSidebar = [
+  {
+    text: 'Getting Started',
+    items: [
+      { text: 'Introduction', link: '/guide/getting-started' },
+      { text: 'Installation', link: '/guide/installation' },
+      { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
+      { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
+      { text: 'Interface Tour', link: '/guide/interface' },
+    ],
+  },
+  {
+    text: 'Data Engineering',
+    items: [
+      { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
+      { text: 'Database Connections', link: '/guide/connections' },
+      { text: 'Engines (polars / pandas)', link: '/guide/engines' },
+      { text: 'Flow Parameters', link: '/guide/parameters' },
+      { text: 'Scheduling', link: '/guide/scheduling' },
+      { text: 'Webhook Trigger', link: '/guide/webhook' },
+      { text: 'Python SDK', link: '/guide/sdk' },
+      { text: 'CLI Reference', link: '/guide/cli' },
+    ],
+  },
+  {
+    text: 'Machine Learning',
+    items: [
+      { text: 'ML Quick Start', link: '/guide/ml-quickstart' },
+      { text: 'Visualizations', link: '/guide/visualizations' },
+    ],
+  },
+  {
+    text: 'Deployment',
+    collapsed: true,
+    items: [
+      { text: 'Docker', link: '/guide/docker' },
+      { text: 'Advanced Setup', link: '/guide/advanced-setup' },
+    ],
+  },
+  {
+    text: 'Help',
+    collapsed: true,
+    items: [
+      { text: 'Troubleshooting', link: '/guide/troubleshooting' },
+      { text: 'FAQ', link: '/faq' },
+    ],
+  },
+  {
+    text: 'About the Project',
+    collapsed: true,
+    items: [
+      { text: 'How Ciaren Compares', link: '/guide/comparison' },
+      { text: 'Roadmap', link: '/guide/roadmap' },
+      { text: 'Changelog', link: '/guide/changelog' },
+    ],
+  },
+  {
+    text: 'For Contributors',
+    collapsed: true,
+    items: [
+      { text: 'Design System', link: '/guide/design-system' },
+    ],
+  },
+]
 
 // Shared sidebar for the developer-facing extensibility docs (plugins + the
 // public .flow / manifest schemas). Reused across /plugins/, /specs/, /security/.
@@ -69,7 +143,7 @@ export default defineConfig({
     'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
   lang: 'en-US',
   base: docsBasePath,
-  srcExclude: ['README.md'],
+  srcExclude: ['README.md', 'PUBLISHING.md', 'agent-runs/**'],
 
   head: [
     ['meta', { name: 'theme-color', content: '#7c3aed' }],
@@ -109,44 +183,46 @@ export default defineConfig({
         ]
       : []),
     // Open Graph — controls how links render on GitHub, Reddit, HN, Slack, etc.
+    // Per-page title/description/url tags are added in transformHead below.
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:locale', content: 'en' }],
     ['meta', { property: 'og:site_name', content: 'Ciaren' }],
-    ['meta', { property: 'og:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
-    ['meta', {
-      property: 'og:description',
-      content:
-        'Open-source, plugin-first, local-first platform for building Data Engineering and Machine Learning workflows visually — with portable pandas/polars code export.',
-    }],
     ['meta', { property: 'og:image', content: socialImage }],
+    ['meta', { property: 'og:image:width', content: '1280' }],
+    ['meta', { property: 'og:image:height', content: '640' }],
+    ['meta', { property: 'og:image:alt', content: 'Ciaren: visual ETL and data pipelines that export clean pandas and Polars Python' }],
     // Twitter / X card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Ciaren — Visual Data Engineering & ML, exported to clean Python' }],
-    ['meta', {
-      name: 'twitter:description',
-      content:
-        'Open-source, plugin-first, local-first platform for Data Engineering and Machine Learning workflows. Build visually, export portable Python.',
-    }],
     ['meta', { name: 'twitter:image', content: socialImage }],
   ],
 
   sitemap: {
-    hostname: docsOrigin,
+    // Trailing slash: page paths resolve relative to the hostname URL, so
+    // without it the /latest segment would be dropped.
+    hostname: `${docsOrigin}/`,
   },
 
-  transformHead({ page }) {
+  // `title` is the rendered <title> (frontmatter title + template) and
+  // `description` is the frontmatter description, falling back to the site one.
+  transformHead({ page, title, description }) {
     const url = pageUrl(page)
 
     return [
       ['link', { rel: 'canonical', href: url }],
       ['meta', { property: 'og:url', content: url }],
+      ['meta', { property: 'og:title', content: title }],
+      ['meta', { property: 'og:description', content: description }],
+      ['meta', { name: 'twitter:title', content: title }],
+      ['meta', { name: 'twitter:description', content: description }],
     ]
   },
 
   lastUpdated: true,
   cleanUrls: true,
 
-  ignoreDeadLinks: true,
+  // Internal dead links fail the build. Only local dev-server URLs from the
+  // install/run instructions (localhost / 127.0.0.1) are exempt.
+  ignoreDeadLinks: [/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/],
 
   markdown: {
     lineNumbers: true,
@@ -221,88 +297,7 @@ export default defineConfig({
     ],
 
     sidebar: {
-      '/guide/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Introduction', link: '/guide/getting-started' },
-            { text: 'Installation', link: '/guide/installation' },
-            { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
-            { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
-            { text: 'Interface Tour', link: '/guide/interface' },
-            { text: 'How Ciaren Compares', link: '/guide/comparison' },
-          ],
-        },
-        {
-          text: 'Data Engineering',
-          items: [
-            { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
-            { text: 'Database Connections', link: '/guide/connections' },
-            { text: 'Engines (polars / pandas)', link: '/guide/engines' },
-            { text: 'Flow Parameters', link: '/guide/parameters' },
-            { text: 'Scheduling', link: '/guide/scheduling' },
-            { text: 'Webhook Trigger', link: '/guide/webhook' },
-            { text: 'Python SDK', link: '/guide/sdk' },
-            { text: 'CLI Reference', link: '/guide/cli' },
-          ],
-        },
-        {
-          text: 'Machine Learning',
-          items: [
-            { text: 'ML Quick Start', link: '/guide/ml-quickstart' },
-            { text: 'ML Nodes Reference', link: '/transformations/machine-learning' },
-            { text: 'Visualizations', link: '/guide/visualizations' },
-          ],
-        },
-        {
-          text: 'Plugins & Extensibility',
-          items: [
-            { text: 'Overview', link: '/plugins/overview' },
-            { text: 'Installing & Managing Plugins', link: '/plugins/managing-plugins' },
-            { text: 'Build Your First Plugin', link: '/plugins/first-plugin' },
-            { text: 'Writing a Plugin', link: '/plugins/writing-a-plugin' },
-            { text: 'ML Model Plugins', link: '/plugins/ml-model-plugins' },
-            { text: 'Connector Plugins', link: '/plugins/connector-plugins' },
-            { text: 'Packaging & Distribution', link: '/plugins/packaging-and-distribution' },
-            { text: 'Build an Advanced Plugin (scikit-learn)', link: '/plugins/advanced-plugin-sklearn' },
-            { text: 'Plugin API Reference', link: '/plugins/api-reference' },
-            { text: 'Plugin CLI Reference', link: '/plugins/cli-reference' },
-            { text: 'Plugin Security & Permissions', link: '/security/plugin-security' },
-          ],
-        },
-        {
-          text: 'Deployment',
-          collapsed: true,
-          items: [
-            { text: 'Docker', link: '/guide/docker' },
-            { text: 'Advanced Setup', link: '/guide/advanced-setup' },
-          ],
-        },
-        {
-          text: 'Reference',
-          collapsed: true,
-          items: [
-            { text: 'Design System', link: '/guide/design-system' },
-          ],
-        },
-        {
-          text: 'Community',
-          collapsed: true,
-          items: [
-            { text: 'Roadmap', link: '/guide/roadmap' },
-            { text: 'Changelog', link: '/guide/changelog' },
-            { text: 'How Ciaren Compares', link: '/guide/comparison' },
-          ],
-        },
-        {
-          text: 'Help',
-          collapsed: true,
-          items: [
-            { text: 'Troubleshooting', link: '/guide/troubleshooting' },
-            { text: 'FAQ', link: '/faq' },
-          ],
-        },
-      ],
+      '/guide/': guideSidebar,
 
       '/transformations/': [
         {
@@ -447,12 +442,6 @@ export default defineConfig({
             { text: 'Feature Engineering', link: '/examples/feature-engineering' },
           ],
         },
-        {
-          text: 'More',
-          items: [
-            { text: 'Recipes (quick tasks)', link: '/recipes/overview' },
-          ],
-        },
       ],
 
       '/recipes/': [
@@ -487,13 +476,6 @@ export default defineConfig({
             { text: 'Schedules', link: '/api/schedules' },
             { text: 'Connections', link: '/api/connections' },
             { text: 'Settings', link: '/api/settings' },
-          ],
-        },
-        {
-          text: 'Automation',
-          items: [
-            { text: 'Webhook Trigger', link: '/guide/webhook' },
-            { text: 'Python SDK', link: '/guide/sdk' },
           ],
         },
       ],

@@ -8,6 +8,95 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
+Notebook export, run drift, CSV dialect detection for storage inputs, and a
+way to try Ciaren in the browser with GitHub Codespaces. There are no breaking
+changes. The polars `pivot` count fix changes results where the values column
+has nulls, so the engines now agree.
+
+### Added
+
+- **Try Ciaren in GitHub Codespaces.** The repository ships a dev container,
+  and the README's "Open in GitHub Codespaces" badge opens the editor with the
+  Demo project in your browser, with nothing to install. The server trusts
+  exactly the codespace's forwarded URL through `CIAREN_CORS_ORIGINS`, so the
+  cross-site request guard stays on. The installation guide covers it.
+- **`ciaren serve` asks for a GitHub star.** One static line after the app URL.
+  It makes no network call and records nothing.
+- **Jupyter notebook export.** The code export dialog can download each engine
+  variant (pandas, polars, lazy polars) as a `.ipynb` notebook, and
+  `POST /api/flows/{flow_id}/export/python?include_notebooks=true` returns them
+  in the new `notebook`, `notebook_polars`, and `notebook_polars_lazy` fields
+  (`null` unless requested). Cells split only between top-level statements, so
+  every cell runs on its own. The notebook exporters are listed in
+  `GET /api/catalog/exporters`, and the Python client's `export_flow_python`
+  takes `include_notebooks`. Thanks to @tusharui.
+- **Run drift.** The run detail page shows a "Since last run" panel: per-node
+  row-count change and added or removed columns compared with the previous run
+  of the same flow, plus nodes added or removed when the graph changed (#142).
+  Thanks to @tusharui.
+- **CSV dialect detection for storage inputs.** CSV files read from a local
+  folder, S3, GCS, or Azure Blob connection now get the same delimiter,
+  encoding, and decimal detection as dataset uploads. The node panel shows the
+  detected values, and a delimiter, encoding, or decimal set in the node config
+  still wins (#200).
+- **Recently used nodes.** The node palette shows the last five node types you
+  placed when the search box is empty (#191).
+- **`lstrip` and `rstrip`** operations on the String transform node (#188).
+  Thanks to @rashmeetchhabra12.
+- **Validator example plugin** in `examples/plugins/validator-plugin/`, a
+  data-quality node between the Hello and MLP Classifier examples (#120).
+  Thanks to @tusharui.
+
+### Fixed
+
+- **`pivot` with `aggfunc="count"`** now counts non-null values on polars, so
+  the pandas and polars engines and their exported code agree when the values
+  column has nulls (#143). Thanks to @tusharui.
+- Transformation validation messages follow one documented format (#119).
+  Thanks to @tusharui.
+- An S3 error without a response object returned HTTP 500 instead of the
+  scrubbed connector error (#200).
+
+### Changed
+
+- Contributions no longer need a DCO `Signed-off-by` line. They are licensed
+  under the repository licenses through the GitHub Terms of Service (#202).
+- The PyPI project links and the app's footer and landing links point at
+  `/docs/latest` instead of the redirecting `/docs` URL. The docs home drops
+  its hero glow and card hover effects to match ciaren.com (#203).
+- The test suite builds, signs, installs, and runs every example plugin from
+  source (#190).
+- Pull-request checks also run against release-preparation branches, and
+  routine Dependabot updates for dependencies and GitHub Actions are folded in
+  (#137).
+
+### Security
+
+- Patched vulnerable dependencies: aiohttp, anyio, cryptography, gitpython,
+  mlflow, pyasn1, and sqlparse in the backend lock file, and `npm audit fix`
+  for the frontend and docs (#189).
+
+### Documentation
+
+- Every docs page has a specific search description; README and client links
+  point at the live `/docs/latest/` URLs; the docs build now fails on dead
+  internal links (#193).
+- One start path from installation to the first flow, one sidebar home per
+  page, and clearer roles for the plugin tutorial, guide, and reference (#199).
+- Source installs need Node.js 20 or newer (vitest 4).
+- The README, PyPI description, keywords, and project URLs are clearer, and
+  the docs have a social card for link previews (#177).
+- The comparison page compares Ciaren with KNIME, Alteryx, and Flowfile by
+  name (#204).
+- The docs state what plugins can run today: nodes, connectors, and ML model
+  types work end to end, while engine, exporter, and validator providers only
+  register metadata so far. The ML classification example now imports pandas
+  before using it.
+- The docs site has a Changelog page with these release notes, checked in and
+  kept identical to `CHANGELOG.md` by a test.
+
 ## [0.2.0] - 2026-07-20
 
 A repo-wide correctness and hardening pass from an internal audit. Most of it is

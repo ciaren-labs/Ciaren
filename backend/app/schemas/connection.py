@@ -170,6 +170,15 @@ class TableInfo(BaseModel):
     qualified: str
 
 
+class FileDialect(BaseModel):
+    """What a bounded sample of a CSV/TSV file evidences. ``None`` means "not
+    detected" — reads then use the default (``,`` / ``utf-8`` / ``.``)."""
+
+    delimiter: str | None = None
+    encoding: str | None = None
+    decimal: str | None = None
+
+
 class KeyringSecretWrite(BaseModel):
     """Request to store a secret in the OS keychain from the connection form.
 

@@ -72,12 +72,18 @@ async def preview_flow(flow_id: str, body: FlowPreviewRequest, service: PreviewS
 
 @router.post("/{flow_id}/export/python", response_model=CodeExportResponse)
 async def export_flow_python(
-    flow_id: str, service: CodegenServiceDep, free_intermediates: bool = False
+    flow_id: str, service: CodegenServiceDep, free_intermediates: bool = False, include_notebooks: bool = False
 ) -> CodeExportResponse:
-    code = await service.export(flow_id, free_intermediates=free_intermediates)
+    """Export the flow as pandas / polars / lazy-polars scripts. Pass
+    ``include_notebooks=true`` to also get each script as Jupyter notebook
+    JSON (the ``notebook*`` fields, ``null`` otherwise)."""
+    code = await service.export(flow_id, free_intermediates=free_intermediates, include_notebooks=include_notebooks)
     return CodeExportResponse(
         code=code["pandas"],
         polars=code["polars"],
         polars_lazy=code["polars_lazy"],
+        notebook=code["notebook"],
+        notebook_polars=code["notebook_polars"],
+        notebook_polars_lazy=code["notebook_polars_lazy"],
         flow_document=code["flow_document"],
     )

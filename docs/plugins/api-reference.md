@@ -1,30 +1,28 @@
 ---
 title: Plugin API Reference
-description: The versioned plugin contract — Plugin, the provider interfaces, the spec types, the ServiceRegistry, and the NodeRuntime — that a Ciaren plugin depends on.
+description: "Reference for the Ciaren plugin API (app.plugin_api): Plugin, provider interfaces, NodeSpec and other specs, ServiceRegistry, NodeRuntime, and ModelRef."
 search: plugin api reference provider nodeprovider nodespec noderuntime serviceregistry specs permissions contract
 ---
 
 # Plugin API Reference
 
-This is the reference for `app.plugin_api` — the versioned contract a plugin
-depends on (and which will publish separately as `ciaren-plugin-api`). It is
-still **alpha** and may change between releases until 1.0.0. A plugin imports
-**only** from this package, never from Ciaren's app, engine, or FastAPI
-internals.
+**Reference** for plugin authors. **You get:** every class, method, and field in
+`app.plugin_api`, for lookup rather than reading top to bottom.
 
-New to plugins? Start with the [Overview](/plugins/overview) and the
-[10-minute tutorial](/plugins/first-plugin); this page is the detailed contract.
+New to plugins? Build one with the [10-minute tutorial](/plugins/first-plugin),
+then read [Writing a Plugin](/plugins/writing-a-plugin) for how the parts fit.
 
-The contract itself is versioned independently of the app:
-`app.plugin_api.PLUGIN_API_VERSION` (currently `"0.1.0-alpha.1"`). A plugin
-declares which contract it targets via its manifest's `api_version`; the loader
-rejects a plugin whose contract is incompatible with the running backend **before
-importing it**. **Pre-1.0 (alpha) the contract makes no backward-compatibility
-promise** — a plugin must target the *exact* `major.minor` the backend provides;
-from 1.0 on, minors become additive and only a major bump breaks. The backend's
-own value is exposed as `plugin_api_version` in `GET /api/plugins/diagnostics`.
-See [Contract versioning](/specs/plugin-manifest#contract-versioning) for the full
-policy.
+`app.plugin_api` is the versioned contract a plugin depends on (and which will
+publish separately as `ciaren-plugin-api`). It is still **alpha** and may change
+between releases until 1.0.0. A plugin imports **only** from this package, never
+from Ciaren's app, engine, or FastAPI internals.
+
+The contract is versioned independently of the app:
+`app.plugin_api.PLUGIN_API_VERSION` (currently `"0.1.0-alpha.1"`), exposed as
+`plugin_api_version` in `GET /api/plugins/diagnostics`. A plugin declares the
+contract it targets in its manifest's `api_version`, and the loader rejects an
+incompatible plugin **before importing it**. The compatibility rules are in
+[Contract versioning](/specs/plugin-manifest#contract-versioning).
 
 ::: info The 0.1 contract surface
 `ModelRef` and typed model wires, `ModelProvider`/`ModelTypeSpec` (contribute

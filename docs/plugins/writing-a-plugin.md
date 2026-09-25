@@ -1,49 +1,36 @@
+---
+title: Writing a Plugin
+description: "How to write a Ciaren plugin: implement Plugin and NodeRuntime, add a config_schema form, use NodeContext, react to events, and add a manifest."
+---
+
 # Writing a Ciaren plugin
 
-A plugin can contribute to the catalog (nodes/connectors/model types/engines/
-exporters/validators), declare capabilities and permissions, ship **executable**
-nodes, connectors, and ML model types that run end-to-end (via `NodeRuntime`,
-`ConnectorRuntime`, and `ModelProvider` builders), and subscribe to
-lifecycle/execution **events**.
+**Guide** for plugin authors who have built the
+[first plugin](/plugins/first-plugin). **You get:** how the parts of a plugin fit
+together and the rules the loader enforces, beyond the tutorial's single node.
 
 A plugin is a small Python package that implements the `Plugin` contract and
 registers one or more providers. It depends **only** on the Ciaren plugin API
 (`app.plugin_api`, which will publish separately as `ciaren-plugin-api`) — never
-on Ciaren's private internals.
+on Ciaren's private internals. Besides describing nodes, connectors, and model
+types for the catalog, it can make them **executable** (via `NodeRuntime`,
+`ConnectorRuntime`, and `ModelProvider` builders) and subscribe to
+lifecycle/execution **events**.
 
-See a complete, runnable example in
+Exact signatures and fields are in the [Plugin API Reference](/plugins/api-reference).
+A complete, runnable example is
 [`examples/plugins/hello-node-plugin/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin).
 
 ## 1. Implement `Plugin`
 
-```python
-from app.plugin_api import (
-    NodeProvider, NodeSpec, Plugin, PluginMetadata, PortSpec, ServiceRegistry,
-)
+A plugin module has three parts; step 2 of the
+[tutorial](/plugins/first-plugin) shows all three in one file:
 
-class _MyNodes(NodeProvider):
-    def nodes(self) -> list[NodeSpec]:
-        return [
-            NodeSpec(
-                id="acme.greeting",
-                label="Add Greeting",
-                category="columns",
-                description="Adds a greeting column.",
-                provider="acme.hello",
-                inputs=(PortSpec(id="in"),),
-                outputs=(PortSpec(id="out"),),
-                default_config={"name": "world"},
-                capabilities=("node.greeting",),
-            )
-        ]
-
-class AcmePlugin(Plugin):
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(id="acme.hello", name="Acme Hello", version="0.1.0-alpha.1")
-
-    def register(self, registry: ServiceRegistry) -> None:
-        registry.register_node_provider(_MyNodes())
-```
+- a **`Plugin`** subclass whose `metadata()` returns the plugin's identity and
+  whose `register(registry)` registers each provider;
+- one or more **providers**, such as a `NodeProvider` whose `nodes()` returns the
+  `NodeSpec` descriptions shown in the catalog;
+- **runtimes** that make those nodes run (next section).
 
 Other provider interfaces you can register: `ConnectorProvider`
 ([executable connectors →](/plugins/connector-plugins)), `ModelProvider`
@@ -56,27 +43,10 @@ Other provider interfaces you can register: `ConnectorProvider`
 A `NodeSpec` only *describes* a node. To make it run, ship a `NodeRuntime` and
 return it from the provider's `node_implementations()`, keyed by node id. The
 runtime works on **pandas** frames; Ciaren bridges to the active engine
-(pandas/polars) automatically, so a single runtime runs on both.
-
-```python
-from app.plugin_api import NodeRuntime
-
-class GreetingRuntime(NodeRuntime):
-    def execute(self, inputs, config):
-        df = inputs["in"].copy()
-        df[config["column"]] = f"Hello, {config.get('name', 'world')}!"
-        return {"out": df}
-
-    # Optional: makes "Export Python" work for this node.
-    def to_python_code(self, input_vars, output_vars, config):
-        col, name = config["column"], config.get("name", "world")
-        return f"{output_vars['out']} = {input_vars['in']}.assign(**{{{col!r}: {f'Hello, {name}!'!r}}})"
-
-class _MyNodes(NodeProvider):
-    def nodes(self): ...
-    def node_implementations(self):
-        return {"acme.greeting": GreetingRuntime()}
-```
+(pandas/polars) automatically, so a single runtime runs on both. Implement
+`execute(inputs, config)` for the work and, optionally,
+`to_python_code(input_vars, output_vars, config)` so **Export Python** works for
+the node.
 
 Once registered the node executes in runs and previews, passes graph validation,
 and (if `to_python_code` is implemented) appears in both the pandas and polars
@@ -99,26 +69,21 @@ NodeSpec(
 )
 ```
 
-Field types: `string`, `number`, `integer`, `boolean`, `select` (+ `options`),
-`string_list`, and `column`/`column_list` (resolved against the columns arriving
-on the node's wire). Without a schema, the editor falls back to fields inferred
-from `default_config`, so every plugin node stays configurable.
+The field types and options are listed in the `ConfigFieldSpec` section of the
+[Plugin API Reference](/plugins/api-reference).
+Without a schema, the editor falls back to fields inferred from
+`default_config`, so every plugin node stays configurable.
 
 #### Host services in the runtime (`NodeContext`)
 
 Ciaren actually invokes `execute_with_context(inputs, config, context)`; the
 default implementation delegates to `execute`, so simple runtimes never notice.
-Override it when you need the context:
-
-- `context.in_preview` — True during editor previews on sampled data; skip
-  training/persisting and return a cheap placeholder.
-- `context.models` — the MLflow-backed **ModelStore** for train-style nodes
-  (see [ML Model Plugins](/plugins/ml-model-plugins)).
-- `context.permissions` — the permissions the user actually granted.
-- `context.license_token` — this plugin's own signed license token (raw JSON, or
-  `""`). Forward it to your server to build a **thin-client** paid node whose logic
-  and license check run server-side; see
-  [thin-client plugins](/plugins/api-reference#thin-client-plugins).
+Override it when the node needs host services: the preview flag (skip training
+on sampled preview data), the MLflow-backed **ModelStore** for train-style nodes
+(see [ML Model Plugins](/plugins/ml-model-plugins)), the permissions the user
+actually granted, or the plugin's license token for
+[thin-client plugins](/plugins/api-reference#thin-client-plugins). The fields
+are listed under [`NodeContext`](/plugins/api-reference#nodecontext).
 
 #### Node categories
 
@@ -166,11 +131,8 @@ checks compatibility on **two independent axes** before importing your code: the
 Ciaren **app** version (`ciaren` specifier) and the **plugin-contract** version
 (`api_version` vs the backend's `PLUGIN_API_VERSION`). An incompatible plugin on
 either axis is rejected up front and reported in `/api/plugins/diagnostics` — it
-never runs. The contract version bumps *only* when `app.plugin_api` changes,
-independently of your plugin's own `version`; while it is pre-1.0 (alpha) it makes
-no backward-compatibility promise, so target the exact version the backend reports
-and rebuild when it bumps. See
-[Contract versioning](../specs/plugin-manifest.md#contract-versioning).
+never runs. [Contract versioning](../specs/plugin-manifest.md#contract-versioning)
+explains when the contract version changes and what that means for your plugin.
 
 You don't have to hand-write it. Because your `Plugin` already declares the id,
 version, permissions, nodes, and categories, generate the manifest from the code

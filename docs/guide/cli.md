@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: The ciaren command — serve, init, info, and check
+description: "Reference for the ciaren command-line tool: serve, init, info, check, db, transformations, flow, and secret commands, their flags, and environment variables."
 search: cli ciaren serve init info check command env variables flags
 ---
 

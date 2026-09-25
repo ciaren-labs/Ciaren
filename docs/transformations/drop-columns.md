@@ -1,7 +1,7 @@
 ---
 title: Drop columns
 search: drop columns remove delete column field
-description: Remove one or more columns from the frame
+description: The Drop columns node (dropColumns) removes one or more columns from a dataframe, such as internal IDs or PII. Config, example, and pandas code.
 ---
 
 # Drop columns — `dropColumns`

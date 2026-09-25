@@ -1,7 +1,7 @@
 ---
 title: Remove outliers
 search: remove outliers iqr zscore percentile drop clip threshold factor
-description: Drop or clip outliers in numeric columns using IQR, z-score, or percentiles
+description: The Remove outliers node (removeOutliers) drops or clips outliers in numeric columns using IQR, z-score, or percentile bounds. With pandas code.
 ---
 
 # Remove outliers — `removeOutliers`

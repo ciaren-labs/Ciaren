@@ -1,0 +1,2 @@
+# The lifecycle script runs in Linux; CRLF from a Windows checkout breaks bash.
+*.sh text eol=lf

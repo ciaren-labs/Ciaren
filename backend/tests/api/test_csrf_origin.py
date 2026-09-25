@@ -86,6 +86,30 @@ async def test_trusted_hosts_setting_allows_named_host(client, monkeypatch):
     assert resp.status_code in (200, 201), resp.text
 
 
+_CODESPACE_ORIGIN = "https://fuzzy-train-abc123-8055.app.github.dev"
+
+
+@pytest.mark.parametrize(
+    ("origin", "expected"),
+    [
+        (_CODESPACE_ORIGIN, 201),
+        # Every codespace shares the forwarding domain, so a sibling codespace,
+        # another forwarded port, or plain http must stay untrusted.
+        ("https://someone-else-8055.app.github.dev", 403),
+        ("https://fuzzy-train-abc123-9000.app.github.dev", 403),
+        ("http://fuzzy-train-abc123-8055.app.github.dev", 403),
+    ],
+)
+async def test_codespaces_forwarded_origin(client, monkeypatch, origin, expected):
+    """.devcontainer/ciaren.sh trusts exactly the codespace's forwarded origin
+    through CIAREN_CORS_ORIGINS (the JSON list it exports)."""
+    _clear_token(monkeypatch)
+    monkeypatch.setenv("CIAREN_CORS_ORIGINS", f'["{_CODESPACE_ORIGIN}"]')
+    get_settings.cache_clear()
+    resp = await client.post("/api/projects", json={"name": "csrf-codespace"}, headers={"Origin": origin})
+    assert resp.status_code == expected, resp.text
+
+
 async def test_reads_not_guarded(client, monkeypatch):
     """GETs are left to CORS (side-effect-free); the guard only gates mutations."""
     _clear_token(monkeypatch)

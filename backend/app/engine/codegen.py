@@ -54,6 +54,7 @@ from app.engine.codegen_common import (
     strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
+from app.engine.ingest import config_parse_options
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
@@ -216,6 +217,7 @@ class CodeGenerator:
                     else:  # parameterized path (CodeRef): !r renders the variable
                         name_hint, path = None, remote
                     func = _READ_FUNCS_BY_FORMAT.get(source_type)
+                    dialect: dict[str, Any] | None = config_parse_options(config, source_type)
                     body.append(f"# {node_type}: download {remote or path!r} from your storage connection first")
                 else:
                     source_type = input_source_type(node_type, config)
@@ -228,6 +230,7 @@ class CodeGenerator:
                         if node_type == FILE_INPUT_TYPE
                         else _READ_FUNCS.get(node_type)
                     )
+                    dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
                 var = input_var(name_hint)
                 node_outputs[node_id] = {"out": var}
                 # repr() the path so Windows backslashes, spaces, or quotes in a
@@ -238,7 +241,6 @@ class CodeGenerator:
                         kwargs = ", sep='\\t'"
                     elif source_type == "jsonl":
                         kwargs = ", lines=True"
-                    dialect = (dataset_parse_options or {}).get(config.get("dataset_id", ""))
                     kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
                 elif source_type == "text":

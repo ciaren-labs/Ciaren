@@ -1,7 +1,7 @@
 ---
 title: Split to rows
 search: explode split rows delimited list one row per value unnest
-description: Expand a delimited or list column into one row per value
+description: The Split to rows node (explodeRows) expands a delimited text or list column into one row per value, repeating the other columns. With pandas code.
 ---
 
 # Split to rows — `explodeRows`

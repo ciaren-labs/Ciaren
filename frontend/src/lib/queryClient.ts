@@ -72,6 +72,8 @@ export const queryKeys = {
   connectionTables: (id: string) => ["connections", id, "tables"] as const,
   connectionObjects: (id: string, prefix?: string) =>
     ["connections", id, "objects", { prefix: prefix ?? "" }] as const,
+  connectionObjectDialect: (id: string, path: string, format: string) =>
+    ["connections", id, "objects", "dialect", { path, format }] as const,
   plugins: ["plugins"] as const,
   pluginDiagnostics: ["plugins", "diagnostics"] as const,
   pluginLicense: (id: string) => ["plugins", id, "license"] as const,

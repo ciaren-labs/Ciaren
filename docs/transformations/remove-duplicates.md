@@ -1,7 +1,7 @@
 ---
 title: Remove duplicates
 search: remove duplicates dedupe drop_duplicates keep first last subset unique
-description: Drop duplicate rows, optionally keying on a subset of columns
+description: The Remove duplicates node (removeDuplicates) drops duplicate rows, optionally keyed on a subset of columns, keeping the first or last occurrence.
 ---
 
 # Remove duplicates — `removeDuplicates`
@@ -64,3 +64,4 @@ df_2 = df_1.drop_duplicates()
 ## See also
 
 - [Sort rows](./sort-rows.md) · [Group by + aggregate](./group-by-aggregate.md)
+- Recipe: [Remove Duplicate Rows](/recipes/remove-duplicate-rows)

@@ -1,7 +1,7 @@
 ---
 title: SQL output
 search: sql output database table write connection if_exists append replace
-description: Write the result of a flow to a database table via a reusable connection
+description: The Ciaren SQL Output node writes a flow's result to a database table through a reusable connection, appending to or replacing it. Config and code.
 ---
 
 # SQL output — `sqlOutput`

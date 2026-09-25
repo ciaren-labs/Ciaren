@@ -1,6 +1,6 @@
 ---
 title: Python SDK
-description: Control Ciaren from Python scripts, notebooks, and orchestrators
+description: "Control Ciaren from Python with the ciaren-client SDK: sync and async clients for flows, runs, datasets, and schedules, log streaming, and Airflow examples."
 search: sdk python client ciaren-client trigger run stream logs async httpx
 ---
 
@@ -11,7 +11,7 @@ with a friendly interface. It installs independently from the full Ciaren
 application, ships both a synchronous (`Ciaren`) and an async (`AsyncCiaren`)
 client, and depends only on `httpx`.
 
-Current version: `0.2.0` (pre-1.0; breaking changes possible before `1.0.0`).
+Current version: `0.3.0` (pre-1.0; breaking changes possible before `1.0.0`).
 The package is typed and ships
 `py.typed` for editors and type checkers. The SDK is licensed under
 Apache-2.0.
@@ -120,6 +120,11 @@ flows = client.list_flows()
 
 flow = client.get_flow("flow-id")
 export = client.export_flow_python("flow-id")
+
+# Also get each variant as Jupyter notebook JSON (null unless requested)
+export = client.export_flow_python("flow-id", include_notebooks=True)
+with open("sales.ipynb", "w", encoding="utf-8") as f:
+    f.write(export["notebook"])  # or notebook_polars / notebook_polars_lazy
 
 # Copy a flow (graph, parameters, engine); schedules and run history stay
 # with the original

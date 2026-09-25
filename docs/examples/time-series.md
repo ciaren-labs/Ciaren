@@ -1,6 +1,6 @@
 ---
 title: Time Series Analysis
-description: Aggregate time-stamped data into monthly summaries
+description: "Ciaren example: turn time-stamped events into a monthly summary with Change Types, Extract Date Parts, and Group by + Aggregate, then export Python."
 search: example time series date parts monthly aggregate temporal
 ---
 

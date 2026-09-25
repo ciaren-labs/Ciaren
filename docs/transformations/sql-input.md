@@ -1,7 +1,7 @@
 ---
 title: SQL input
 search: sql input database table query connection live read postgres mysql mongo
-description: Read rows live from a database at run time via a reusable connection
+description: The Ciaren SQL Input node reads a database table or query live on every run through a reusable connection, so scheduled flows process fresh data.
 ---
 
 # SQL input — `sqlInput`

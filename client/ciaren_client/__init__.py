@@ -25,6 +25,7 @@ from ciaren_client._types import (
     CodeExport,
     Connection,
     ConnectionTestResult,
+    FileDialect,
     Dataset,
     DatasetVersion,
     Flow,
@@ -40,7 +41,7 @@ from ciaren_client._types import (
     WebhookStatus,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "AppSetting",
@@ -49,6 +50,7 @@ __all__ = [
     "CodeExport",
     "Connection",
     "ConnectionTestResult",
+    "FileDialect",
     "Dataset",
     "DatasetVersion",
     "Flow",

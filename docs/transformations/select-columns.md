@@ -1,7 +1,7 @@
 ---
 title: Select columns
 search: select columns keep reorder subset project
-description: Keep only the listed columns and reorder them
+description: The Select columns node (selectColumns) keeps only the listed columns of a dataframe and reorders them. Config, example, and generated pandas code.
 ---
 
 # Select columns — `selectColumns`

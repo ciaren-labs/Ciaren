@@ -2,6 +2,7 @@
 from collections import defaultdict, deque
 from typing import Any
 
+from app.engine.ingest import DIALECT_KEYS, ParseOptionsError, config_parse_options
 from app.engine.node_kinds import INPUT_TYPES as _INPUT_TYPES
 from app.engine.node_kinds import (
     MODEL_DEFINITION_NODE_TYPES,
@@ -234,6 +235,14 @@ def _validate_storage_input(label: str, config: dict[str, Any]) -> None:
         raise GraphValidationError(f"{label}: no storage connection selected.")
     if not config.get("path"):
         raise GraphValidationError(f"{label}: no file path specified.")
+    # Only concrete strings are checked here: parameterized export passes
+    # CodeRef placeholders through. The storage resolver re-validates every
+    # value before reading.
+    if all(isinstance(config.get(key), (str, type(None))) for key in DIALECT_KEYS):
+        try:
+            config_parse_options(config, config.get("format") or "csv")
+        except ParseOptionsError as exc:
+            raise GraphValidationError(f"{label}: {exc}") from exc
 
 
 def _validate_sql_input(label: str, config: dict[str, Any]) -> None:

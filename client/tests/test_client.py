@@ -27,7 +27,7 @@ MOCK_SCHEDULE = {"id": "sched-1", "flow_id": FLOW_ID, "cron": "0 9 * * *"}
 
 
 def test_package_version():
-    assert __version__ == "0.2.0"
+    assert __version__ == "0.3.0"
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +101,9 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
         mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
         mock.get("/api/schedules").mock(return_value=httpx.Response(200, json=[MOCK_SCHEDULE]))
         mock.post("/api/connections/test-config").mock(return_value=httpx.Response(200, json={"ok": True}))
+        dialect_route = mock.get("/api/connections/conn-1/objects/dialect").mock(
+            return_value=httpx.Response(200, json={"delimiter": "	", "encoding": "utf-8", "decimal": None})
+        )
         mock.get("/api/catalog/nodes").mock(return_value=httpx.Response(200, json=[{"type": "source"}]))
         mock.get("/api/transformations").mock(return_value=httpx.Response(200, json={"groups": []}))
         mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": True}))
@@ -112,6 +115,7 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
             schedule = client.create_schedule(FLOW_ID, "0 9 * * *", timezone="UTC")
             schedules = client.list_schedules(flow_id=FLOW_ID)
             connection_test = client.test_connection_config(provider="postgres", config={})
+            dialect = client.detect_connection_object_dialect("conn-1", "in/data.tsv", format="tsv")
             nodes = client.list_catalog_nodes(category="sources")
             transformations = client.list_transformations(include_ml=False)
             webhook = client.webhook_status()
@@ -122,6 +126,8 @@ def test_sync_flow_run_schedule_connection_and_catalog_methods():
     assert schedule == MOCK_SCHEDULE
     assert schedules == [MOCK_SCHEDULE]
     assert connection_test["ok"] is True
+    assert dialect["delimiter"] == "	"
+    assert dict(dialect_route.calls[0].request.url.params) == {"path": "in/data.tsv", "format": "tsv"}
     assert nodes == [{"type": "source"}]
     assert transformations == {"groups": []}
     assert webhook["configured"] is True
@@ -285,6 +291,21 @@ def test_sync_retry_run():
     assert run == MOCK_RUN
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [({}, "false"), ({"include_notebooks": True}, "true")],
+)
+def test_sync_export_flow_python_notebooks_are_opt_in(kwargs, expected):
+    with respx.mock(base_url=BASE) as mock:
+        route = mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(
+            return_value=httpx.Response(200, json={"code": "print(1)", "notebook": None})
+        )
+        with Ciaren(BASE) as client:
+            export = client.export_flow_python(FLOW_ID, **kwargs)
+    assert export["code"] == "print(1)"
+    assert route.calls[0].request.url.params["include_notebooks"] == expected
+
+
 def test_sync_stream_logs():
     sse_body = (
         'data: {"level": "info", "message": "done"}\n\n'
@@ -323,7 +344,9 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
         mock.post("/api/projects").mock(return_value=httpx.Response(201, json=MOCK_PROJECT))
         mock.post("/api/datasets/upload").mock(return_value=httpx.Response(201, json=MOCK_DATASET))
         mock.post("/api/flows/import").mock(return_value=httpx.Response(201, json=MOCK_FLOW))
-        mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(return_value=httpx.Response(200, json={"code": "print(1)"}))
+        export_route = mock.post(f"/api/flows/{FLOW_ID}/export/python").mock(
+            return_value=httpx.Response(200, json={"code": "print(1)"})
+        )
         mock.post(f"/api/flows/{FLOW_ID}/schedules").mock(return_value=httpx.Response(201, json=MOCK_SCHEDULE))
         mock.post("/api/transformations/preview").mock(return_value=httpx.Response(200, json={"rows": []}))
 
@@ -331,7 +354,7 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
             project = await client.create_project("Default")
             dataset = await client.upload_dataset(csv_path)
             flow = await client.import_flow({"nodes": []}, name="Imported")
-            export = await client.export_flow_python(FLOW_ID)
+            export = await client.export_flow_python(FLOW_ID, include_notebooks=True)
             schedule = await client.create_schedule(FLOW_ID, "0 9 * * *")
             preview = await client.preview_transformation(type="select", config={})
 
@@ -339,6 +362,7 @@ async def test_async_project_dataset_flow_and_schedule_methods(tmp_path):
     assert dataset == MOCK_DATASET
     assert flow == MOCK_FLOW
     assert export["code"] == "print(1)"
+    assert export_route.calls[0].request.url.params["include_notebooks"] == "true"
     assert schedule == MOCK_SCHEDULE
     assert preview == {"rows": []}
 
@@ -350,6 +374,9 @@ async def test_async_connection_catalog_and_download_methods(tmp_path):
     with respx.mock(base_url=BASE) as mock:
         mock.get("/api/connections/providers").mock(return_value=httpx.Response(200, json=[{"name": "postgres"}]))
         mock.get("/api/connections/conn-1/objects").mock(return_value=httpx.Response(200, json=["raw/events"]))
+        dialect_route = mock.get("/api/connections/conn-1/objects/dialect").mock(
+            return_value=httpx.Response(200, json={"delimiter": ";", "encoding": "cp1252", "decimal": None})
+        )
         mock.get("/api/catalog/categories").mock(return_value=httpx.Response(200, json=[{"id": "sources"}]))
         mock.get("/api/datasets/ds-1/versions/1/download").mock(return_value=httpx.Response(200, content=b"value\n1\n"))
         mock.get("/api/settings/webhook").mock(return_value=httpx.Response(200, json={"configured": False}))
@@ -357,12 +384,15 @@ async def test_async_connection_catalog_and_download_methods(tmp_path):
         async with AsyncCiaren(BASE) as client:
             providers = await client.list_connection_providers()
             objects = await client.list_connection_objects("conn-1", prefix="raw/")
+            dialect = await client.detect_connection_object_dialect("conn-1", "raw/eu.csv")
             categories = await client.list_catalog_categories()
             downloaded = await client.download_dataset_version("ds-1", 1, target)
             webhook = await client.webhook_status()
 
     assert providers == [{"name": "postgres"}]
     assert objects == ["raw/events"]
+    assert dialect == {"delimiter": ";", "encoding": "cp1252", "decimal": None}
+    assert dict(dialect_route.calls[0].request.url.params) == {"path": "raw/eu.csv", "format": "csv"}
     assert categories == [{"id": "sources"}]
     assert downloaded == target
     assert target.read_bytes() == b"value\n1\n"

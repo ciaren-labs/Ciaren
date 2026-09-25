@@ -1,7 +1,7 @@
 ---
 title: Fill nulls
 search: fill nulls missing na fillna mean median mode min max zero ffill bfill strategy
-description: Replace missing values using a constant or a computed strategy
+description: The Fill nulls node (fillNulls) replaces missing values with a constant, mean, median, mode, min, max, or forward or backward fill, keeping every row.
 ---
 
 # Fill nulls — `fillNulls`
@@ -64,3 +64,4 @@ df_2 = df_1.fillna({'region': 'Unknown'})
 ## See also
 
 - [Drop nulls](./drop-nulls.md) · [Change types](./cast-types.md)
+- Recipe: [Fill Missing Values](/recipes/fill-missing-values)

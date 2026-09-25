@@ -1,6 +1,6 @@
 ---
 title: File output (CSV / TSV / Excel / Parquet / JSON / JSONL / text)
-description: Write the result of a flow to a file
+description: The Ciaren File Output node writes a flow's result to CSV, TSV, Excel, Parquet, JSON, JSONL, or text as a downloadable dataset. Config and code.
 search: output csv tsv excel parquet json jsonl text write save result dataset file
 ---
 
@@ -68,3 +68,4 @@ Excel/Parquet/text emit `to_excel(...)` / `to_parquet(...)` / a tab-separated
 - [SQL output](./sql-output.md) — write to a database table instead of a file
 - [Storage output](./storage-output.md) — write to S3 / GCS / Azure Blob
 - [Projects & Runs](/guide/projects-and-runs)
+- Recipe: [Convert Excel to Parquet](/recipes/convert-excel-to-parquet)
