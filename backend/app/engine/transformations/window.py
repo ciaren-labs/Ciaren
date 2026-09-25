@@ -39,12 +39,12 @@ _ROLLING_POLARS = {
 # Functions that rank by the order key (need a non-empty order_by).
 _RANK_FUNCS = {"rank", "dense_rank"}
 # Functions that operate on a value column (need a target).
-_TARGET_FUNCS = {"cumsum", "cummax", "cummin", "lag", "lead"}
+_TARGET_FUNCS = {"cumsum", "cummax", "cummin", "cumprod", "lag", "lead"}
 # Positional functions that need neither a target nor an order key.
 _POSITIONAL = {"row_number", "cumcount"}
 _ALL_FUNCS = _RANK_FUNCS | _TARGET_FUNCS | _POSITIONAL
 
-_CUM_POLARS = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min"}
+_CUM_POLARS = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min", "cumprod": "cum_prod"}
 
 # (function, partition_by, order_by, target, offset, descending, new_column)
 _WindowArgs = tuple[str, list[str], list[str], str | None, int, bool, str]
@@ -54,7 +54,7 @@ class WindowFunctionTransformation(BaseTransformation):
     """Compute a window function into a new column.
 
     ``function`` is one of: ``row_number``, ``rank``, ``dense_rank``, ``cumcount``,
-    ``cumsum``, ``cummax``, ``cummin``, ``lag``, ``lead``. ``partition_by`` scopes
+    ``cumsum``, ``cummax``, ``cummin``, ``cumprod``, ``lag``, ``lead``. ``partition_by`` scopes
     the window; ``order_by`` orders rows within it.
     """
 
@@ -131,7 +131,7 @@ class WindowFunctionTransformation(BaseTransformation):
                 base = f"_d[{order[0]!r}].rank(method='first', na_option='bottom'{asc_arg}).astype('int64')"
                 return base if function == "row_number" else f"{base} - 1"
             return None  # multi-column order without partition: no one-liner
-        if function in ("cumsum", "cummax", "cummin"):
+        if function in ("cumsum", "cummax", "cummin", "cumprod"):
             return f"{grp}[{target!r}].{function}()"
         periods = offset if function == "lag" else -offset  # lag / lead
         return f"{grp}[{target!r}].shift({periods})"
@@ -162,7 +162,7 @@ class WindowFunctionTransformation(BaseTransformation):
             desc_arg = ", descending=True" if desc else ""
             method = "dense" if function == "dense_rank" else "min"
             return f"pl.col({order[0]!r}).rank(method={method!r}{desc_arg})"
-        if function in ("cumsum", "cummax", "cummin"):
+        if function in ("cumsum", "cummax", "cummin", "cumprod"):
             return f"pl.col({target!r}).{_CUM_POLARS[function]}()"
         return f"pl.col({target!r}).shift({offset if function == 'lag' else -offset})"  # lag / lead
 
