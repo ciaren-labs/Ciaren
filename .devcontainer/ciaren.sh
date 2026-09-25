@@ -62,6 +62,19 @@ install() {
   "$VENV/bin/python" -m pip install --quiet --no-cache-dir --editable "$REPO/backend"
 }
 
+load_codespace_env() {
+  # Some shells (ssh, lifecycle commands) lack the Codespaces variables; read
+  # just these two keys from the file Codespaces writes, never source it.
+  local env_file=/workspaces/.codespaces/shared/.env key value
+  [ -f "$env_file" ] || return 0
+  for key in CODESPACE_NAME GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN; do
+    if [ -z "${!key:-}" ]; then
+      value="$(grep -m1 "^$key=" "$env_file" | cut -d= -f2- | tr -d '"' || true)"
+      [ -n "$value" ] && export "$key=$value"
+    fi
+  done
+}
+
 editor_url() {
   if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
     echo "https://${CODESPACE_NAME}-${PORT}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
@@ -107,6 +120,8 @@ start() {
     >"$DATA_DIR/ciaren.log" 2>&1 </dev/null &
   echo "Ciaren is starting on port $PORT (log: $DATA_DIR/ciaren.log)."
 }
+
+load_codespace_env
 
 case "${1:-}" in
   install) install ;;
