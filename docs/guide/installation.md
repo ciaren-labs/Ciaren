@@ -119,8 +119,9 @@ open the **Ports** panel and click the globe icon next to **Ciaren editor**. On
 a development branch whose version is not on PyPI yet, the setup builds the
 editor from the checkout instead, which needs Node.js.
 
-The dev container turns off VS Code's Workspace Trust prompt, so the server can
-start without a click. Create the codespace only from a repository you trust.
+When VS Code asks whether you trust the authors of the folder, choose **Trust**:
+the server starts in a terminal, and VS Code runs terminal commands only in a
+trusted folder.
 
 - It runs on your GitHub account's free monthly Codespaces hours. Stop or delete
   the codespace when you are done.

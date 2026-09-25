@@ -1,4 +1,7 @@
-# Ciaren is running
+# Ciaren is starting
+
+If VS Code asks whether you trust the authors of this folder, choose **Trust**:
+Ciaren starts in the terminal below.
 
 The Ciaren editor opens in a new browser tab, with the Demo project loaded.
 If your browser blocked the tab, use the link printed in the terminal below, or:

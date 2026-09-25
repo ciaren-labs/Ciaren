@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  Opens the Ciaren editor with the demo project in about a minute, on your free GitHub Codespaces hours.<br>
+  Opens the Ciaren editor with the demo project in about two minutes, on your free GitHub Codespaces hours.<br>
   Or run it locally: <code>python -m pip install ciaren</code> then <code>ciaren serve</code>
 </p>
 
