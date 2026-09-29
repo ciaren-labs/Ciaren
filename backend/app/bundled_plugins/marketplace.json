@@ -51,6 +51,29 @@
       "digest": "4631d4b6940e76a460859f1fd8f79b12d0f1230c72d5702f356fcd37c5fe6565",
       "keyId": "ciaren-demo",
       "licenseRequired": false
+    },
+    {
+      "id": "community.https-input",
+      "name": "HTTPS Input Connector",
+      "version": "0.1.0-alpha.1",
+      "publisher": "community",
+      "description": "Example read-only connector for HTTPS CSV and JSON documents.",
+      "license": "community",
+      "trust": "community",
+      "capabilities": [
+        "connector.https-input"
+      ],
+      "permissions": [
+        "network"
+      ],
+      "ciarenSpec": ">=0.1",
+      "dependencies": [],
+      "nodes": [],
+      "nodeCategories": {},
+      "downloadUrl": "community.https-input-0.1.0-alpha.1.ciarenplugin",
+      "digest": "0486f9aeeeb331008836523bc5af622b364a79fd637818fdd22dee1858dee3a9",
+      "keyId": "ciaren-demo",
+      "licenseRequired": false
     }
   ],
   "revoked": []

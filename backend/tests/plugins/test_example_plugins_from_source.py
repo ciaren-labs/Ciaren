@@ -91,6 +91,7 @@ def loaded_example(example_dir: Path, tmp_path, monkeypatch):
 
     state = PluginStateStore()
     state.set_approved(manifest.id, True)
+    state.grant(manifest.id, manifest.permissions)
     state.save()
 
     # Discover only this install (not a developer's ~/.ciaren/plugins), and keep
@@ -133,6 +134,8 @@ def test_example_builds_installs_and_registers(loaded_example):
     assert manifest.id in {p.metadata.id for p in result.loaded}
     registered = {spec.id for spec in registry.node_specs() if spec.provider == manifest.id}
     assert registered == set(manifest.ui.nodes)
+    if not manifest.ui.nodes:
+        assert any(spec.provider == manifest.id for spec in registry.connector_specs())
     for node_id in manifest.ui.nodes:
         get_transformation(node_id)  # bridged into the engine, or KeyError
     entry_module = sys.modules[manifest.entrypoint.partition(":")[0]]

@@ -1,0 +1,18 @@
+{
+  "id": "community.https-input",
+  "name": "HTTPS Input Connector",
+  "version": "0.1.0-alpha.1",
+  "publisher": "community",
+  "description": "Example read-only connector for HTTPS CSV and JSON documents.",
+  "license": "community",
+  "ciaren": ">=0.1",
+  "api_version": "0.1.0-alpha.1",
+  "entrypoint": "ciaren_https_input.plugin:HttpsInputPlugin",
+  "permissions": ["network"],
+  "capabilities": ["connector.https-input"],
+  "ui": {
+    "nodes": []
+  },
+  "trust": "community"
+}
+
