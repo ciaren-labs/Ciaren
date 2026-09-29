@@ -549,9 +549,20 @@ export function computeNodeColumns(
       for (const c of result.get(source)?.output ?? []) inputSet.add(c);
     }
     const input = Array.from(inputSet);
+    const how = node.data.config.how;
+    const leftOnlyJoin = node.type === "join" && (how === "semi" || how === "anti");
+    const output = leftOnlyJoin
+      ? Array.from(
+          new Set(
+            sources
+              .filter(({ handle }) => handle === "left")
+              .flatMap(({ source }) => result.get(source)?.output ?? []),
+          ),
+        )
+      : outputColumns(node.type, node.data.config, input);
     result.set(id, {
       input,
-      output: outputColumns(node.type, node.data.config, input),
+      output,
     });
   }
 

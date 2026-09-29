@@ -239,6 +239,39 @@ class PandasEngine:
         right_on: list[str] | None = None,
         suffixes: tuple[str, str] = ("_x", "_y"),
     ) -> pd.DataFrame:
+        if how in ("semi", "anti"):
+            # pandas treats null join keys as equal; the Polars backend opts
+            # into the same behavior so both engines share one contract.
+            left_keys: list[str] | None
+            right_keys: list[str] | None
+            if left_on and right_on:
+                left_keys, right_keys = left_on, right_on
+            else:
+                left_keys = right_keys = on
+            if not left_keys or not right_keys:
+                raise ValueError("Semi/anti joins require join keys.")
+            matches: Any
+            if len(left_keys) == 1:
+                left_key = left[left_keys[0]]
+                right_key = right[right_keys[0]]
+                matches = left_key.isin(right_key) | (left_key.isna() & bool(right_key.isna().any()))
+            else:
+                marker = "_ciaren_match"
+                while marker in left_keys or marker in right_keys:
+                    marker += "_"
+                matches = (
+                    left[left_keys]
+                    .merge(
+                        right[right_keys].drop_duplicates(),
+                        left_on=left_keys,
+                        right_on=right_keys,
+                        how="left",
+                        indicator=marker,
+                    )[marker]
+                    .eq("both")
+                    .to_numpy()
+                )
+            return cast(pd.DataFrame, left.loc[matches if how == "semi" else ~matches])
         how_arg = cast(Literal["left", "right", "outer", "inner", "cross"], how)
         if left_on and right_on:
             return left.merge(right, left_on=left_on, right_on=right_on, how=how_arg, suffixes=suffixes)

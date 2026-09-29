@@ -446,6 +446,90 @@ def test_join_on_and_left_right_on(engine_name: str) -> None:
     assert len(lr_result) == 2
 
 
+@pytest.mark.parametrize(
+    ("key_shape", "how", "expected_rows"),
+    [
+        ("on", "semi", [1, 2, 3, 5]),
+        ("on", "anti", [0, 4]),
+        ("split", "semi", [0, 3, 4, 5]),
+        ("split", "anti", [1, 2]),
+    ],
+)
+def test_semi_anti_join_matches_across_engines(key_shape: str, how: str, expected_rows: list[int]) -> None:
+    if key_shape == "on":
+        left_data = {
+            "key": [1, 2, 2, None, 3, None],
+            "row_id": list(range(6)),
+            "left_value": list("abcdef"),
+        }
+        right_data = {"key": [2, 2, None, 4], "right_value": list("wxyz")}
+        on, left_on, right_on = ["key"], None, None
+    else:
+        left_data = {
+            "key_1": [1, 1, 2, 2, None, None],
+            "key_2": ["x", "y", "x", None, "x", None],
+            "row_id": list(range(6)),
+            "left_value": list("abcdef"),
+        }
+        right_data = {
+            "ref_1": [1, 1, 2, None, None],
+            "ref_2": ["x", "x", None, "x", None],
+            "right_value": list("vwxyz"),
+        }
+        on, left_on, right_on = None, ["key_1", "key_2"], ["ref_1", "ref_2"]
+
+    results: dict[str, pd.DataFrame] = {}
+    for engine_name in ENGINES:
+        engine = get_engine(engine_name)
+        left = _make(engine_name, left_data)
+        right = _make(engine_name, right_data)
+        results[engine_name] = _pdf(engine, engine.join(left, right, on, how, left_on, right_on))
+
+    assert results["pandas"]["row_id"].tolist() == expected_rows
+    assert list(results["pandas"].columns) == list(left_data)
+    pd.testing.assert_frame_equal(
+        results["pandas"].reset_index(drop=True),
+        results["polars"].reset_index(drop=True),
+        check_dtype=False,
+    )
+
+
+@pytest.mark.parametrize("engine_name", ENGINES)
+@pytest.mark.parametrize(("how", "expected_rows"), [("semi", [1, 2]), ("anti", [0])])
+def test_semi_anti_join_ignores_incomplete_split_keys(engine_name: str, how: str, expected_rows: list[int]) -> None:
+    engine = get_engine(engine_name)
+    left = _make(
+        engine_name,
+        {
+            "id": [1, 2, 3],
+            "lid": [3, 1, 2],
+            "row_id": [0, 1, 2],
+        },
+    )
+    right = _make(engine_name, {"id": [2, 3]})
+
+    result = _pdf(engine, engine.join(left, right, ["id"], how, ["lid"], None))
+
+    assert result["row_id"].tolist() == expected_rows
+    assert list(result.columns) == ["id", "lid", "row_id"]
+
+
+@pytest.mark.parametrize(("how", "expected_rows"), [("semi", [1, 2]), ("anti", [0])])
+def test_pandas_single_key_semi_anti_matches_none_to_nan(how: str, expected_rows: list[int]) -> None:
+    left = pd.DataFrame(
+        {
+            "key": pd.Series(["a", None, "b"], dtype=object),
+            "row_id": [0, 1, 2],
+        }
+    )
+    right = pd.DataFrame({"key": pd.Series([float("nan"), "b"], dtype=object)})
+
+    result = get_engine("pandas").join(left, right, ["key"], how)
+
+    assert result["row_id"].tolist() == expected_rows
+    assert list(result.columns) == list(left.columns)
+
+
 def test_polars_join_unknown_how_raises() -> None:
     engine = get_engine("polars")
     left = _make("polars", {"id": [1]})

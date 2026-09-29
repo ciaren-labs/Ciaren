@@ -82,7 +82,7 @@ export const aggFunctions = [
 // the pivot form must not offer a choice that would always fail validation.
 export const pivotAggFunctions = ["sum", "mean", "count", "min", "max", "median", "first", "last"] as const;
 
-export const joinHows = ["inner", "left", "right", "outer"] as const;
+export const joinHows = ["inner", "left", "right", "outer", "semi", "anti"] as const;
 
 export const FILTER_OPERATOR_LABELS: Record<string, string> = {
   "==": "= equals",
@@ -116,6 +116,8 @@ export const JOIN_HOW_LABELS: Record<string, string> = {
   left: "Left — all left rows, matched right",
   right: "Right — all right rows, matched left",
   outer: "Full outer — all rows from both sides",
+  semi: "Semi — left rows with a match",
+  anti: "Anti — left rows without a match",
 };
 
 export const OUTLIER_METHOD_LABELS: Record<string, string> = {
