@@ -8,12 +8,13 @@ only at the boundary where the ConnectorRuntime contract returns a DataFrame.
 from __future__ import annotations
 
 import csv
+import http.client
 import ipaddress
 import json
 import socket
-import urllib.error
+import ssl
 import urllib.parse
-import urllib.request
+from dataclasses import dataclass
 from io import StringIO
 from typing import Any
 
@@ -44,14 +45,22 @@ class ResponseTooLargeError(ValueError):
     """Raised when the response exceeds the configured streamed limit."""
 
 
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
-        return None
+@dataclass(frozen=True)
+class _VettedUrl:
+    parsed: urllib.parse.SplitResult
+    address: str
 
-    def http_error_301(self, req, fp, code, msg, headers):  # noqa: ANN001, ANN201
-        return fp
 
-    http_error_302 = http_error_303 = http_error_307 = http_error_308 = http_error_301
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection that dials a vetted IP while keeping hostname semantics."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: int) -> None:
+        super().__init__(host, port=port, timeout=timeout, context=ssl.create_default_context())
+        self._address = address
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self._address, self.port), self.timeout, self.source_address)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host)
 
 
 class _HttpsInputRuntime(ConnectorRuntime):
@@ -188,32 +197,44 @@ def _positive_int(value: Any, default: int, label: str) -> int:
 
 
 def _download(url: str, *, max_bytes: int, timeout: int) -> bytes:
-    _validate_https_public_url(url)
-    request = urllib.request.Request(url, headers={"User-Agent": "Ciaren HTTPS input example"})
-    opener = urllib.request.build_opener(_NoRedirectHandler)
+    vetted = _validate_https_public_url(url)
+    connection: http.client.HTTPSConnection | None = None
     try:
-        with opener.open(request, timeout=timeout) as response:
-            status = getattr(response, "status", response.getcode())
-            if 300 <= int(status) < 400:
-                location = response.headers.get("Location", "")
-                if location:
-                    redirected = urllib.parse.urljoin(url, location)
-                    _validate_https_public_url(redirected)
-                raise UnsafeUrlError("redirect responses are not followed")
-
-            content_length = response.headers.get("Content-Length")
-            if content_length and int(content_length) > max_bytes:
-                raise ResponseTooLargeError(f"response exceeds {max_bytes} bytes")
-
-            return _read_limited(response, max_bytes)
-    except urllib.error.HTTPError as exc:
-        if 300 <= exc.code < 400:
-            location = exc.headers.get("Location", "")
+        connection, response = _request_pinned(vetted, timeout)
+        status = int(getattr(response, "status", response.getcode()))
+        if 300 <= status < 400:
+            location = _response_header(response, "Location")
             if location:
                 redirected = urllib.parse.urljoin(url, location)
                 _validate_https_public_url(redirected)
-            raise UnsafeUrlError("redirect responses are not followed") from exc
-        raise
+            raise UnsafeUrlError("redirect responses are not followed")
+
+        content_length = _response_header(response, "Content-Length")
+        if content_length and int(content_length) > max_bytes:
+            raise ResponseTooLargeError(f"response exceeds {max_bytes} bytes")
+
+        return _read_limited(response, max_bytes)
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _request_pinned(vetted: _VettedUrl, timeout: int) -> tuple[http.client.HTTPSConnection, Any]:
+    parsed = vetted.parsed
+    host = parsed.hostname
+    if host is None:
+        raise UnsafeUrlError("URL must include a hostname")
+    port = parsed.port or 443
+    target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+    connection = _PinnedHTTPSConnection(host, port, vetted.address, timeout)
+    connection.request("GET", target, headers={"User-Agent": "Ciaren HTTPS input example"})
+    return connection, connection.getresponse()
+
+
+def _response_header(response: Any, name: str) -> str | None:
+    if hasattr(response, "getheader"):
+        return response.getheader(name)
+    return response.headers.get(name)
 
 
 def _read_limited(response: Any, max_bytes: int) -> bytes:
@@ -230,7 +251,7 @@ def _read_limited(response: Any, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
-def _validate_https_public_url(url: str) -> None:
+def _validate_https_public_url(url: str) -> _VettedUrl:
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme.lower() != "https":
         raise UnsafeUrlError("only https:// URLs are allowed")
@@ -258,6 +279,7 @@ def _validate_https_public_url(url: str) -> None:
             or ip.is_unspecified
         ):
             raise UnsafeUrlError(f"URL resolves to a disallowed address: {ip}")
+    return _VettedUrl(parsed=parsed, address=sorted(addresses)[0])
 
 
 def _parse_body(body: bytes, fmt: str) -> list[dict[str, Any]]:

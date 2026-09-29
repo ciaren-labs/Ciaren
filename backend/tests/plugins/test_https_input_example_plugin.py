@@ -30,6 +30,9 @@ class _Response:
     def getcode(self) -> int:
         return self.status
 
+    def getheader(self, name: str) -> str | None:
+        return self.headers.get(name)
+
     def read(self, size: int = -1) -> bytes:
         if self._chunk_size is not None and size > self._chunk_size:
             size = self._chunk_size
@@ -42,16 +45,25 @@ class _Response:
         return False
 
 
-class _Opener:
+class _Connection:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _RequestCapture:
     def __init__(self, response: _Response) -> None:
         self.response = response
-        self.requests: list[Any] = []
+        self.vetted: list[Any] = []
         self.timeouts: list[int] = []
+        self.connection = _Connection()
 
-    def open(self, request, timeout):  # noqa: ANN001, ANN201
-        self.requests.append(request)
+    def request(self, vetted, timeout):  # noqa: ANN001, ANN201
+        self.vetted.append(vetted)
         self.timeouts.append(timeout)
-        return self.response
+        return self.connection, self.response
 
 
 @pytest.fixture(scope="module")
@@ -73,19 +85,21 @@ def runtime(plugin_module, monkeypatch):
     return plugin_module._HttpsInputRuntime()
 
 
-def _mock_response(plugin_module, monkeypatch, response: _Response) -> _Opener:
-    opener = _Opener(response)
-    monkeypatch.setattr(plugin_module.urllib.request, "build_opener", lambda *handlers: opener)
-    return opener
+def _mock_response(plugin_module, monkeypatch, response: _Response) -> _RequestCapture:
+    capture = _RequestCapture(response)
+    monkeypatch.setattr(plugin_module, "_request_pinned", capture.request)
+    return capture
 
 
 def test_reads_csv_success(plugin_module, runtime, monkeypatch):
-    opener = _mock_response(plugin_module, monkeypatch, _Response(b"name,age\nAda,37\nBo,41\n"))
+    capture = _mock_response(plugin_module, monkeypatch, _Response(b"name,age\nAda,37\nBo,41\n"))
 
     df = runtime.read({"options": {"url": "https://data.example/users.csv", "format": "csv"}}, {})
 
     assert list(df["name"]) == ["Ada", "Bo"]
-    assert opener.timeouts == [plugin_module.DEFAULT_TIMEOUT_SECONDS]
+    assert capture.timeouts == [plugin_module.DEFAULT_TIMEOUT_SECONDS]
+    assert capture.vetted[0].address == "93.184.216.34"
+    assert capture.connection.closed is True
 
 
 def test_reads_json_success(plugin_module, runtime, monkeypatch):
@@ -133,6 +147,42 @@ def test_rejects_redirect_and_validates_location(plugin_module, runtime, monkeyp
 
     with pytest.raises(plugin_module.UnsafeUrlError, match="disallowed address"):
         runtime.read({"options": {"url": "https://data.example/users.csv", "format": "csv"}}, {})
+
+
+def test_connection_uses_vetted_ip_when_dns_rebinding_changes_later_answer(plugin_module, monkeypatch):
+    lookups = 0
+
+    def _resolve(host, port, type=0):
+        nonlocal lookups
+        lookups += 1
+        address = "93.184.216.34" if lookups == 1 else "10.0.0.5"
+        return [(None, None, None, "", (address, port))]
+
+    created_connections: list[tuple[tuple[str, int], int]] = []
+    server_names: list[str] = []
+
+    class _Context:
+        def wrap_socket(self, sock, server_hostname=None):  # noqa: ANN001, ANN201
+            server_names.append(server_hostname)
+            return sock
+
+    monkeypatch.setattr(plugin_module.socket, "getaddrinfo", _resolve)
+    monkeypatch.setattr(plugin_module.ssl, "create_default_context", lambda: _Context())
+
+    def _create_connection(target, timeout, source_address=None):  # noqa: ANN001, ANN201
+        created_connections.append((target, timeout))
+        return object()
+
+    monkeypatch.setattr(plugin_module.socket, "create_connection", _create_connection)
+
+    vetted = plugin_module._validate_https_public_url("https://data.example/users.csv")
+    connection = plugin_module._PinnedHTTPSConnection("data.example", 443, vetted.address, 10)
+    connection.connect()
+
+    assert lookups == 1
+    assert vetted.address == "93.184.216.34"
+    assert created_connections == [(("93.184.216.34", 443), 10)]
+    assert server_names == ["data.example"]
 
 
 def test_rejects_oversized_response(plugin_module, runtime, monkeypatch):
