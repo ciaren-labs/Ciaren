@@ -185,6 +185,46 @@ def test_connection_uses_vetted_ip_when_dns_rebinding_changes_later_answer(plugi
     assert server_names == ["data.example"]
 
 
+@pytest.mark.parametrize("failure_point", ["request", "getresponse"])
+def test_request_pinned_closes_connection_when_request_setup_fails(plugin_module, monkeypatch, failure_point):
+    created_connections = []
+    monkeypatch.setattr(
+        plugin_module.socket,
+        "getaddrinfo",
+        lambda host, port, type=0: [(None, None, None, "", ("93.184.216.34", port))],
+    )
+
+    class _FailingConnection:
+        def __init__(self, host, port, address, timeout):  # noqa: ANN001
+            self.host = host
+            self.port = port
+            self.address = address
+            self.timeout = timeout
+            self.closed = False
+            created_connections.append(self)
+
+        def request(self, method, target, headers):  # noqa: ANN001
+            if failure_point == "request":
+                raise RuntimeError("request failed")
+
+        def getresponse(self):
+            if failure_point == "getresponse":
+                raise RuntimeError("response failed")
+            return _Response(b"name\nAda\n")
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr(plugin_module, "_PinnedHTTPSConnection", _FailingConnection)
+    vetted = plugin_module._validate_https_public_url("https://data.example/users.csv")
+
+    with pytest.raises(RuntimeError):
+        plugin_module._request_pinned(vetted, 10)
+
+    assert len(created_connections) == 1
+    assert created_connections[0].closed is True
+
+
 def test_rejects_oversized_response(plugin_module, runtime, monkeypatch):
     _mock_response(plugin_module, monkeypatch, _Response(b"abcdef", chunk_size=2))
 

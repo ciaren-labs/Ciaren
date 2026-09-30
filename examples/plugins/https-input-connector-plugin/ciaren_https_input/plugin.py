@@ -227,8 +227,12 @@ def _request_pinned(vetted: _VettedUrl, timeout: int) -> tuple[http.client.HTTPS
     port = parsed.port or 443
     target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
     connection = _PinnedHTTPSConnection(host, port, vetted.address, timeout)
-    connection.request("GET", target, headers={"User-Agent": "Ciaren HTTPS input example"})
-    return connection, connection.getresponse()
+    try:
+        connection.request("GET", target, headers={"User-Agent": "Ciaren HTTPS input example"})
+        return connection, connection.getresponse()
+    except Exception:
+        connection.close()
+        raise
 
 
 def _response_header(response: Any, name: str) -> str | None:
