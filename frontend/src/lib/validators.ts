@@ -140,11 +140,12 @@ export const windowFunctions = [
   "cumsum",
   "cummax",
   "cummin",
+  "cumprod",
   "lag",
   "lead",
 ] as const;
 // Functions that operate on a value column, and those that need an order key.
-export const windowTargetFuncs = new Set(["cumsum", "cummax", "cummin", "lag", "lead"]);
+export const windowTargetFuncs = new Set(["cumsum", "cummax", "cummin", "cumprod", "lag", "lead"]);
 export const windowRankFuncs = new Set(["rank", "dense_rank"]);
 
 // Rolling-aggregate functions (rollingAggregate) and row-difference methods.

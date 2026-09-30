@@ -721,8 +721,8 @@ def _polars_window_expr(
     elif function in ("rank", "dense_rank"):
         method = "dense" if function == "dense_rank" else "min"
         expr = pl.col(order_by[0]).rank(method=cast(Any, method), descending=descending)
-    elif function in ("cumsum", "cummax", "cummin"):
-        method = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min"}[function]
+    elif function in ("cumsum", "cummax", "cummin", "cumprod"):
+        method = {"cumsum": "cum_sum", "cummax": "cum_max", "cummin": "cum_min", "cumprod": "cum_prod"}[function]
         expr = getattr(pl.col(cast(str, target)), method)()
     elif function in ("lag", "lead"):
         expr = pl.col(cast(str, target)).shift(offset if function == "lag" else -offset)

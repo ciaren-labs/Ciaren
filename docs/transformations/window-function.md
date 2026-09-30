@@ -1,6 +1,6 @@
 ---
 title: Window function
-search: window function row_number rank dense_rank cumsum cumcount cummax cummin lag lead partition order analytics
+search: window function row_number rank dense_rank cumsum cumcount cummax cummin cumprod lag lead partition order analytics
 description: The Window function node (windowFunction) adds row_number, rank, cumulative sum, lag, or lead values scoped to a partition and order.
 ---
 
@@ -13,7 +13,7 @@ new column.
 ## Use cases
 
 - Rank rows within each group (top product per region).
-- Running totals, cumulative max/min over an ordered key.
+- Running totals, cumulative max/min/product over an ordered key.
 - Compare a row to the previous/next one with `lag`/`lead`.
 
 ## What it does
@@ -52,11 +52,11 @@ running total without collapsing rows.
 
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `function` | string | Yes | `row_number`, `rank`, `dense_rank`, `cumcount`, `cumsum`, `cummax`, `cummin`, `lag`, `lead` |
+| `function` | string | Yes | `row_number`, `rank`, `dense_rank`, `cumcount`, `cumsum`, `cummax`, `cummin`, `cumprod`, `lag`, `lead` |
 | `new_column` | string | Yes | Name of the column to add |
 | `partition_by` | string[] | No | Restart the window within each group (empty = whole table) |
 | `order_by` | string[] | Conditional | Row order within the window; required for `rank`/`dense_rank` |
-| `target` | string | Conditional | Value column; required for `cumsum`/`cummax`/`cummin`/`lag`/`lead` |
+| `target` | string | Conditional | Value column; required for `cumsum`/`cummax`/`cummin`/`cumprod`/`lag`/`lead` |
 | `offset` | int | No | Shift distance for `lag`/`lead` (default 1) |
 | `descending` | bool | No | Order descending (default `false`) |
 
@@ -70,8 +70,11 @@ df_2 = df_1.assign(running_total=lambda _d: _d.sort_values('date', kind='stable'
 ## Tips & common mistakes
 
 - **Each function needs its own inputs:** ranking needs `order_by`; value
-  functions (`cumsum`, `cummax`, `cummin`, `lag`, `lead`) need a `target`.
+  functions (`cumsum`, `cummax`, `cummin`, `cumprod`, `lag`, `lead`) need a `target`.
 - `rank`/`dense_rank` rank by the **first** `order_by` column.
+- `cumprod` chains growth rates — e.g. monthly returns `[1.02, 1.03]` compound to
+  `[1.02, 1.0506]`. Nulls are skipped on both engines (they neither reset the
+  product nor propagate).
 - For `lag`/`lead`, rows at the window edge with no neighbor are null.
 - Use `partition_by` to restart the calculation per group; leave it empty to run
   across the whole table.

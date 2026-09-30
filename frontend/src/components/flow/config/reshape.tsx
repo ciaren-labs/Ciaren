@@ -468,7 +468,7 @@ export function renderReshapeConfig(
       const isLagLead = fn === "lag" || fn === "lead";
       return (
         <>
-          <Field label="Function" error={errors.function} help="row_number/rank order rows; cumsum/cummax/cummin run totals; lag/lead shift values.">
+          <Field label="Function" error={errors.function} help="row_number/rank order rows; cumsum/cummax/cummin/cumprod run totals; lag/lead shift values.">
             <Select
               value={fn}
               onChange={(e) => {
