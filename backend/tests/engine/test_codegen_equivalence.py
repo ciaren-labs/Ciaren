@@ -321,6 +321,7 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "window_rank": {"in": _grouped},
     "window_rank_desc_nopart": {"in": _grouped},
     "window_cumsum": {"in": _grouped},
+    "window_cumprod": {"in": _grouped},
     "window_lag_nopart": {"in": _grouped},
     "window_rownum_order_nopart": {"in": _grouped},
     "window_rownum_null_order": {"in": _grouped},

@@ -239,6 +239,11 @@ CODEGEN_CASES = [
         {"function": "cumsum", "partition_by": ["g"], "order_by": ["t"], "target": "v", "new_column": "cs"},
     ),
     (
+        "window_cumprod",
+        "windowFunction",
+        {"function": "cumprod", "partition_by": ["g"], "order_by": ["t"], "target": "v", "new_column": "cp"},
+    ),
+    (
         "window_lag_nopart",
         "windowFunction",
         {"function": "lag", "order_by": ["t"], "target": "v", "offset": 1, "new_column": "prev"},

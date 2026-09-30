@@ -519,7 +519,7 @@ class PandasEngine:
                 else work[key].rank(method=method, ascending=not descending)
             )
             return ranked.astype("int64")
-        if function in ("cumsum", "cummax", "cummin"):
+        if function in ("cumsum", "cummax", "cummin", "cumprod"):
             series = grouped[cast(str, target)] if grouped is not None else work[cast(str, target)]
             return getattr(series, function)()
         if function in ("lag", "lead"):

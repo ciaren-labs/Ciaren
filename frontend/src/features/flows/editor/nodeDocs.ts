@@ -260,11 +260,11 @@ export const NODE_DOCS: Record<string, NodeDoc> = {
     fields: [
       {
         name: "Function",
-        desc: "Ranking: row_number, rank, dense_rank, cumcount. Running totals: cumsum, cummax, cummin. Time-shifted: lag (previous row), lead (next row).",
+        desc: "Ranking: row_number, rank, dense_rank, cumcount. Running totals: cumsum, cummax, cummin, cumprod. Time-shifted: lag (previous row), lead (next row).",
       },
       { name: "Partition by", desc: "Reset the window per group — e.g. partition by region gives an independent running total per region." },
       { name: "Order by", desc: "Defines row order within each partition. Required for lag/lead and most ranking functions." },
-      { name: "Target column", desc: "Source column for cumsum / cummax / cummin / lag / lead. Not needed for ranking functions." },
+      { name: "Target column", desc: "Source column for cumsum / cummax / cummin / cumprod / lag / lead. Not needed for ranking functions." },
       { name: "New column name", desc: "Where the result is written." },
     ],
     example: "cumsum partitioned by region, ordered by date → running sales total that resets per region.",

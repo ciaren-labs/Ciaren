@@ -559,6 +559,12 @@ describe("windowFunction", () => {
       target: "amount",
       new_column: "running_total",
     }));
+  it("accepts cumprod with a target", () =>
+    accepts("windowFunction", {
+      function: "cumprod",
+      target: "growth",
+      new_column: "compound",
+    }));
   it("accepts a rank function with an order_by", () =>
     accepts("windowFunction", { function: "rank", order_by: ["score"], new_column: "rank" }));
   it("rejects a missing new column", () =>

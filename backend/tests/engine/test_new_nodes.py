@@ -533,6 +533,7 @@ def test_join_custom_suffixes(engine):
     [
         ("cummax", "v", [5, 5, 9, 9]),
         ("cummin", "v", [5, 1, 1, 1]),
+        ("cumprod", "v", [5, 5, 45, 135]),
     ],
 )
 def test_window_cumulative_variants(engine, function, target, expected):
@@ -544,6 +545,25 @@ def test_window_cumulative_variants(engine, function, target, expected):
         {"function": function, "order_by": ["o"], "target": target, "new_column": "r"},
     )
     assert out["r"].tolist() == expected
+
+
+def test_window_cumprod_partitioned_with_nulls(engine):
+    # Null behavior (same on both engines): the null row stays null and the
+    # running product continues from the last non-null value — nulls neither
+    # reset the product nor propagate.
+    pdf = pd.DataFrame({"g": ["a", "a", "a", "b", "b"], "o": [1, 2, 3, 1, 2], "v": [2.0, None, 3.0, 4.0, 5.0]})
+    out = run(
+        engine,
+        "windowFunction",
+        pdf,
+        {"function": "cumprod", "partition_by": ["g"], "order_by": ["o"], "target": "v", "new_column": "r"},
+    )
+    vals = out["r"].tolist()
+    assert vals[0] == 2.0
+    assert pd.isna(vals[1])
+    assert vals[2] == 6.0  # null skipped, product continues
+    assert vals[3] == 4.0  # partition restarts the window
+    assert vals[4] == 20.0
 
 
 def test_window_dense_rank(engine):
@@ -938,6 +958,11 @@ _CODEGEN_CASES = [
     (
         "windowFunction",
         {"function": "cummin", "order_by": ["o"], "target": "v", "new_column": "r"},
+        {"in": "df_1"},
+    ),
+    (
+        "windowFunction",
+        {"function": "cumprod", "order_by": ["o"], "target": "v", "new_column": "r"},
         {"in": "df_1"},
     ),
     (
