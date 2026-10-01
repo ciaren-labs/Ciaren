@@ -51,6 +51,14 @@ def _dates_str() -> pd.DataFrame:
     return pd.DataFrame({"a": ["2024-01-02", "2024-03-04", None]})
 
 
+def _dateparts_str() -> pd.DataFrame:
+    return pd.DataFrame({"a": ["2024-12-30 23:45", "2024-01-01 00:05", "not-a-date", None]})
+
+
+def _dateparts_dt() -> pd.DataFrame:
+    return pd.DataFrame({"d": pd.to_datetime(["2024-12-30 23:45", "2024-01-01 00:05", None])})
+
+
 def _datetimes() -> pd.DataFrame:
     return pd.DataFrame({"d": pd.to_datetime(["2024-01-02 03:04:05", "2023-12-31 23:59:59", "2024-06-15 12:00:00"])})
 
@@ -259,8 +267,8 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "concat": {"in": _num, "in_1": _num},
     "concat_mismatch": {"in": _concat_a, "in_1": _concat_b},
     "calc": {"in": _num},
-    "dateparts": {"in": _datetimes},
-    "dateparts_str": {"in": _dates_str},
+    "dateparts": {"in": _dateparts_dt},
+    "dateparts_str": {"in": _dateparts_str},
     "parse_dates": {"in": _dates_str},
     "parse_dates_fmt": {"in": _dates_str},
     "parse_dates_datetime": {"in": _datetimes},

@@ -477,6 +477,10 @@ class PolarsEngine:
             # polars weekday is Monday=1..Sunday=7; pandas is Monday=0..Sunday=6.
             "weekday": dt.dt.weekday() - 1,
             "hour": dt.dt.hour(),
+            "quarter": dt.dt.quarter(),
+            "week": dt.dt.week(),
+            "day_of_year": dt.dt.ordinal_day(),
+            "minute": dt.dt.minute(),
         }
         return df.with_columns([accessors[p].alias(f"{column}_{p}") for p in parts])
 
