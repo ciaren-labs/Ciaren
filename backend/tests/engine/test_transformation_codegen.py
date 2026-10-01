@@ -95,8 +95,22 @@ CODEGEN_CASES = [
     # (parse strings, cast already-temporal columns), and the input dtype depends
     # on upstream nodes — so each node gets a string-input AND a datetime-input
     # case, and the emitters must reproduce the dispatch in the generated code.
-    ("dateparts", "extractDateParts", {"column": "d", "parts": ["year", "month", "day", "weekday", "hour"]}),
-    ("dateparts_str", "extractDateParts", {"column": "a", "parts": ["year", "month", "day", "weekday", "hour"]}),
+    (
+        "dateparts",
+        "extractDateParts",
+        {
+            "column": "d",
+            "parts": ["year", "month", "day", "weekday", "hour", "quarter", "week", "day_of_year", "minute"],
+        },
+    ),
+    (
+        "dateparts_str",
+        "extractDateParts",
+        {
+            "column": "a",
+            "parts": ["year", "month", "day", "weekday", "hour", "quarter", "week", "day_of_year", "minute"],
+        },
+    ),
     ("parse_dates", "parseDates", {"columns": ["a"]}),
     ("parse_dates_fmt", "parseDates", {"columns": ["a"], "format": "%Y-%m-%d", "errors": "raise"}),
     ("parse_dates_datetime", "parseDates", {"columns": ["d"]}),
