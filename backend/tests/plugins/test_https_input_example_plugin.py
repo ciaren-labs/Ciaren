@@ -120,6 +120,7 @@ def test_reads_json_success(plugin_module, runtime, monkeypatch):
         ("https://reserved.example/users.csv", ["240.0.0.1"]),
         ("https://multicast.example/users.csv", ["224.0.0.1"]),
         ("https://unspecified.example/users.csv", ["0.0.0.0"]),
+        ("https://shared.example/users.csv", ["100.64.0.1"]),
     ],
 )
 def test_rejects_unsafe_urls(plugin_module, runtime, monkeypatch, url, addresses):

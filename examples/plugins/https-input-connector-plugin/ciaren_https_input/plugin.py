@@ -281,6 +281,7 @@ def _validate_https_public_url(url: str) -> _VettedUrl:
             or ip.is_reserved
             or ip.is_multicast
             or ip.is_unspecified
+            or not ip.is_global
         ):
             raise UnsafeUrlError(f"URL resolves to a disallowed address: {ip}")
     return _VettedUrl(parsed=parsed, address=sorted(addresses)[0])
