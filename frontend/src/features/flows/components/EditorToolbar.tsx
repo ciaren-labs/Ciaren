@@ -96,6 +96,7 @@ export function EditorToolbar({
           onClick={onRename}
           className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           title="Rename flow"
+          aria-label="Rename flow"
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>

@@ -131,7 +131,7 @@ export function NodeSidebar() {
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => selectNode(null)}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => selectNode(null)} aria-label="Close node panel">
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -220,6 +220,7 @@ export function NodeSidebar() {
                 type="button"
                 className="shrink-0 text-amber-600 hover:text-amber-800"
                 onClick={() => setSchemaWarning(0)}
+                aria-label="Dismiss schema warning"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

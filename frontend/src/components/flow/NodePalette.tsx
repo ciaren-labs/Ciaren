@@ -143,6 +143,7 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
             <button
               type="button"
               onClick={toggleCollapsed}
+              aria-label="Show nodes panel"
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
@@ -193,6 +194,7 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
             <button
               type="button"
               onClick={toggleCollapsed}
+              aria-label="Collapse panel"
               className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -214,6 +216,7 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
           <button
             type="button"
             onClick={() => setQuery("")}
+            aria-label="Clear node search"
             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />

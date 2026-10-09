@@ -497,6 +497,7 @@ export function TagInput({ value, onChange, placeholder }: TagInputProps) {
             <button
               type="button"
               onClick={() => removeTag(t)}
+              aria-label={`Remove ${t}`}
               className="ml-0.5 text-primary/60 hover:text-primary"
             >
               ×
