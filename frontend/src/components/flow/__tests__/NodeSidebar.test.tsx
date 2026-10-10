@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NodeSidebar } from "../NodeSidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +30,26 @@ function renderSidebar() {
 }
 
 describe("NodeSidebar parameter affordance", () => {
+  it("closes the selected node panel using its named button without deleting the node", () => {
+    useFlowEditorStore.setState({
+      selectedNodeId: "n1",
+      nodes: [{
+        id: "n1",
+        type: "csvOutput",
+        position: { x: 0, y: 0 },
+        data: { label: "Out", config: { dataset_name: "clean" } },
+      }],
+    });
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close node panel" }));
+
+    expect(useFlowEditorStore.getState().selectedNodeId).toBeNull();
+    expect(useFlowEditorStore.getState().nodes).toHaveLength(1);
+    expect(screen.getByText("Select a node on the canvas to configure it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close node panel" })).not.toBeInTheDocument();
+  });
+
   it("lists declared parameters and flags unknown references", () => {
     useFlowEditorStore.setState({
       selectedNodeId: "n1",
