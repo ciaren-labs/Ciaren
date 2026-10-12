@@ -52,11 +52,15 @@ def _dates_str() -> pd.DataFrame:
 
 
 def _dateparts_str() -> pd.DataFrame:
-    return pd.DataFrame({"a": ["2024-12-30 23:45", "2024-01-01 00:05", "not-a-date", None]})
+    return pd.DataFrame(
+        {"a": ["2024-12-30 23:45", "2024-01-01 00:05", "2021-01-01 00:00", "2024-01-08 00:00", "not-a-date", None]}
+    )
 
 
 def _dateparts_dt() -> pd.DataFrame:
-    return pd.DataFrame({"d": pd.to_datetime(["2024-12-30 23:45", "2024-01-01 00:05", None])})
+    return pd.DataFrame(
+        {"d": pd.to_datetime(["2024-12-30 23:45", "2024-01-01 00:05", "2021-01-01 00:00", "2024-01-08 00:00", None])}
+    )
 
 
 def _datetimes() -> pd.DataFrame:
