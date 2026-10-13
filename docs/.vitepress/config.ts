@@ -471,6 +471,7 @@ export default defineConfig({
             { text: 'Clean Messy Text', link: '/recipes/clean-messy-text' },
             { text: 'Combine Fallback Values', link: '/recipes/coalesce-fallback-values' },
             { text: 'Split a Column', link: '/recipes/split-a-column' },
+            { text: 'One Row per Tag', link: '/recipes/one-row-per-tag' },
             { text: 'Pivot a Table', link: '/recipes/pivot-a-table' },
           ],
         },
