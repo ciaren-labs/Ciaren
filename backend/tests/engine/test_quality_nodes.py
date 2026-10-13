@@ -14,6 +14,7 @@ import polars as pl
 import pytest
 
 from app.engine.backends import get_engine
+from app.engine.backends.base import EngineBackend
 from app.engine.executor import FlowExecutor, dataset_ref_key
 from app.engine.registry import get_transformation
 from app.engine.transformations.quality import AssertionViolationError
@@ -621,6 +622,8 @@ def _assert_export_matches_runtime(engine, node_type, pdf, config, expected_coun
         execute_export = _exec_codegen
 
     if expected_count and config["mode"] == "error":
+        with pytest.raises(AssertionViolationError):
+            run_assertion(engine, node_type, pdf, config)
         with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
             execute_export(code, frame)
     else:
@@ -842,6 +845,59 @@ def test_polars_unique_export_rejects_missing_key_on_empty_input():
     frame = pl.DataFrame(schema={"id": pl.Int64})
     with pytest.raises(pl.exceptions.ColumnNotFoundError, match="ghost"):
         _exec_polars_codegen(code, frame)
+
+
+@pytest.mark.parametrize("mode", ["error", "warn"])
+@pytest.mark.parametrize(
+    "pdf,expected_count",
+    [
+        pytest.param(
+            pl.DataFrame({"score": [1.0, float("nan")], "name": ["Alice", "Bob"]}),
+            1,
+            id="native-nan",
+        ),
+        pytest.param(
+            pl.DataFrame(
+                {"score": [1.0, float("nan")], "name": ["Alice", "Bob"]},
+                schema={"score": pl.Float32, "name": pl.String},
+            ),
+            1,
+            id="native-float32-nan",
+        ),
+        pytest.param(
+            pl.DataFrame({"score": [1.0, float("nan"), None, 4.0], "name": ["Alice", None, "Carol", None]}),
+            3,
+            id="mixed-missing-count-rows-once",
+        ),
+        pytest.param(
+            pl.DataFrame({"score": [1.0, None, 3.0], "name": ["Alice", "Bob", None]}),
+            2,
+            id="null-only",
+        ),
+        pytest.param(
+            pl.DataFrame({"score": [1.0, float("inf"), float("-inf")], "name": ["Alice", "NaN", ""]}),
+            0,
+            id="valid-values",
+        ),
+        pytest.param(pl.DataFrame(schema={"score": pl.Float64, "name": pl.String}), 0, id="empty-rows"),
+    ],
+)
+def test_not_null_export_matches_runtime_for_native_nan(
+    engine: EngineBackend, pdf: pl.DataFrame, expected_count: int, mode: str
+) -> None:
+    """Construct Polars frames directly so native NaN is not normalized to null."""
+    columns = ["score", "name"]
+    config = {"mode": mode, "columns": columns}
+    message = f"assertNotNull: {expected_count} row(s) contain nulls in {columns}"
+    _assert_export_matches_runtime(engine, "assertNotNull", pdf, config, expected_count, message)
+
+
+@pytest.mark.parametrize("mode", ["error", "warn"])
+def test_not_null_export_ignores_native_nan_in_unselected_column(engine: EngineBackend, mode: str) -> None:
+    frame = pl.DataFrame({"score": [1.0], "name": ["Alice"], "ignored": [float("nan")]})
+    config = {"columns": ["score", "name"], "mode": mode}
+    message = "assertNotNull: 0 row(s) contain nulls in ['score', 'name']"
+    _assert_export_matches_runtime(engine, "assertNotNull", frame, config, 0, message)
 
 
 def test_polars_codegen_not_null_all_columns(tmp_path):

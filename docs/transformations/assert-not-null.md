@@ -8,6 +8,10 @@ search: assert not null data quality validation missing values contract check
 
 Verify that one or more columns contain no null (missing) values.
 
+Floating-point `NaN` values also count as missing, both in the application and
+in exported pandas or Polars code. A row with multiple missing fields counts as
+one violation. The text `"NaN"` in a string column is not a missing value.
+
 The node is **pass-through**: the dataframe leaves unchanged regardless of the
 outcome. The violation is recorded in the run's per-node result and either fails
 the run (`error` mode) or logs a warning and continues (`warn` mode).
@@ -52,7 +56,12 @@ if _null_mask.any():
 
 ```python
 df_1 = df_1
-_null_count = df_1.select(pl.any_horizontal(pl.col(['user_id', 'email']).is_null())).to_series().sum()
+_null_checks = [
+    pl.col(_col).is_null() | pl.col(_col).is_nan()
+    if df_1.schema[_col].is_float() else pl.col(_col).is_null()
+    for _col in ['user_id', 'email']
+]
+_null_count = df_1.select(pl.any_horizontal(_null_checks)).to_series().sum()
 if _null_count > 0:
     raise ValueError(f"assertNotNull: {_null_count} row(s) contain nulls in ['user_id', 'email']")
 ```
