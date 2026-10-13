@@ -43,11 +43,26 @@ The per-node result in the run detail always includes `assertion_passed`,
 
 ## Generated Python code
 
+### pandas
+
 ```python
 _expr_mask = ~df_1.eval('revenue >= cost').astype(bool)
 if _expr_mask.any():
     raise ValueError(f"assertExpression: {_expr_mask.sum()} row(s) violate 'revenue >= cost'")
 ```
+
+### Polars
+
+```python
+df_1 = df_1
+# the assertion expression uses pandas eval semantics (needs pandas + pyarrow installed)
+_expr_violations = df_1.to_pandas().eval('revenue >= cost').pipe(lambda s: (~s.astype(bool)).sum())
+if _expr_violations > 0:
+    raise ValueError(f"assertExpression: {_expr_violations} row(s) violate 'revenue >= cost'")
+```
+
+The Polars export intentionally evaluates the expression through pandas, so it
+requires pandas and pyarrow in the exported environment.
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution
 continues.

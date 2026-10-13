@@ -41,9 +41,19 @@ or both. The check is inclusive on both bounds.
 
 ## Generated Python code
 
+### pandas
+
 ```python
 if len(df_1) < 1:
     raise ValueError(f"assertRowCount: got {len(df_1)} row(s), expected [1, None]")
+```
+
+### Polars
+
+```python
+df_1 = df_1
+if df_1.height < 1:
+    raise ValueError(f"assertRowCount: got {df_1.height} row(s), expected [1, None]")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution

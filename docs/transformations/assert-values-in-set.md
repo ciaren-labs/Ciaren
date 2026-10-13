@@ -33,11 +33,22 @@ Each value in the column is checked against the allowed set. Violations either
 
 ## Generated Python code
 
+### pandas
+
 ```python
 df_2 = df_1
 _set_mask = df_2["status"].isin(["paid", "pending", "failed"]) | df_2["status"].isna()
 if not _set_mask.all():
     raise ValueError(f"assertValuesInSet: {(~_set_mask).sum()} row(s) in 'status' outside the allowed set")
+```
+
+### Polars
+
+```python
+df_1 = df_1
+_set_violations = df_1.filter(~(pl.col('status').is_in(['paid', 'pending', 'failed']) | pl.col('status').is_null())).height
+if _set_violations > 0:
+    raise ValueError(f"assertValuesInSet: {_set_violations} row(s) in 'status' outside the allowed set")
 ```
 
 ## Tips & common mistakes
