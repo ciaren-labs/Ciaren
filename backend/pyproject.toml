@@ -1,6 +1,6 @@
 [project]
 name = "ciaren"
-version = "0.3.0"
+version = "0.3.1"
 description = "Open-source, local-first visual ETL and data pipeline builder that exports clean pandas and Polars Python code"
 dynamic = ["readme"]
 keywords = [
@@ -74,6 +74,12 @@ dependencies = [
     "scikit-learn>=1.5",
     "mlflow>=3.0",
     "joblib>=1.3",
+    # Security floors for MLflow's existing HTTP and image dependencies.
+    # Publish them in wheel metadata so pip installs receive the same protection.
+    "multidict>=6.9.1",
+    "urllib3>=2.8.0",
+    "werkzeug>=3.1.9",
+    "pillow>=12.3.0",
 ]
 
 [project.optional-dependencies]
@@ -136,6 +142,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
+    "pyyaml>=6.0", # Structured release workflow contract checks.
     "httpx>=0.28.1",
     "ruff>=0.8",
     "mypy>=1.13",
@@ -143,12 +150,6 @@ dev = [
     "types-croniter>=3.0",
     "psycopg[binary]>=3.1",
 ]
-
-[tool.uv]
-# Security floor for a transitive dependency ciaren never imports directly
-# (mlflow -> matplotlib -> pillow). Bumps past PYSEC-2026-2253/2254/2255/
-# 2256/2257, fixed in 12.3.0.
-constraint-dependencies = ["pillow>=12.3.0"]
 
 [build-system]
 requires = ["hatchling"]

@@ -1,7 +1,7 @@
 ---
 title: Rename columns
 search: rename columns mapping old new header
-description: The Rename columns node (renameColumns) renames columns with an old-to-new mapping, e.g. to align headers before a join. Config and pandas code.
+description: Rename Ciaren dataframe columns with an old-to-new mapping while keeping values intact. Includes pandas and Polars exports.
 ---
 
 # Rename columns — `renameColumns`
@@ -38,8 +38,18 @@ Only the listed columns change; all others pass through untouched.
 
 ## Generated Python code
 
+These exports rename only `amt` to `amount` (`mapping: {"amt": "amount"}`). `Cust ID` and `ord_dt` keep their names; the illustration above renames all three.
+
+### pandas
+
 ```python
 df_2 = df_1.rename(columns={'amt': 'amount'})
+```
+
+### Polars
+
+```python
+df_2 = df_1.rename({'amt': 'amount'})
 ```
 
 ## Tips & common mistakes

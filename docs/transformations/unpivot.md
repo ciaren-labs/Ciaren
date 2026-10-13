@@ -1,7 +1,9 @@
 ---
-title: Unpivot
+title: Unpivot Data from Wide to Long
 search: unpivot melt wide long reshape id_vars value_vars var_name value_name
-description: The Unpivot node reshapes a dataframe from wide to long like pandas melt, collapsing several columns into name and value columns. With pandas code.
+description:
+  Unpivot Ciaren data from wide to long, keeping identifiers and selecting value
+  columns. Configure output names and compare pandas and Polars exports.
 ---
 
 # Unpivot — `unpivot`
@@ -15,8 +17,9 @@ Reshape wide → long (pandas `melt`).
 
 ## What it does
 
-Unpivot is the inverse of Pivot: it collapses multiple columns into two columns —
-one naming the original column (`var_name`) and one holding the value (`value_name`).
+Unpivot is the inverse of Pivot: it collapses multiple columns into two columns
+— one naming the original column (`var_name`) and one holding the value
+(`value_name`).
 
 <DataTransform
   transform="Unpivot (id_vars=region, value_vars=[Jan,Feb], var_name=month, value_name=amount)"
@@ -39,17 +42,29 @@ one naming the original column (`var_name`) and one holding the value (`value_na
 
 ## Configuration
 
-| Config key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `id_vars` | string[] | Yes | Columns to keep as identifiers |
-| `value_vars` | string[] | No | Columns to unpivot (defaults to the rest) |
-| `var_name` | string | No | Name for the variable column (default `variable`) |
-| `value_name` | string | No | Name for the value column (default `value`) |
+| Config key   | Type     | Required | Description                                       |
+| ------------ | -------- | -------- | ------------------------------------------------- |
+| `id_vars`    | string[] | Yes      | Columns to keep as identifiers                    |
+| `value_vars` | string[] | No       | Columns to unpivot (defaults to the rest)         |
+| `var_name`   | string   | No       | Name for the variable column (default `variable`) |
+| `value_name` | string   | No       | Name for the value column (default `value`)       |
 
 ## Generated Python code
 
+These exports keep `region` and unpivot every other column using the default
+output names `variable` and `value`. Null values are retained. The illustration
+above instead names these columns `month` and `amount`.
+
+### pandas
+
 ```python
 df_2 = df_1.melt(id_vars=['region'])
+```
+
+### Polars
+
+```python
+df_2 = df_1.unpivot(index=['region'])
 ```
 
 ## Tips & common mistakes

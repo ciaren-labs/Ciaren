@@ -263,3 +263,6 @@ node_modules/
 
 # OS / shell crash dumps (e.g. Cygwin / Git-Bash stack dumps)
 *.stackdump
+
+# Per-module release test receipts and combined coverage.
+backend/.test-results/

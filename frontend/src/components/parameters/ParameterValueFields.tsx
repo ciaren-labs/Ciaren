@@ -34,7 +34,7 @@ export function ParameterValueFields({ specs, texts, onChange, errors }: Paramet
                 value={texts[spec.name] ?? ""}
                 onChange={(e) => onChange(spec.name, e.target.value)}
                 aria-label={`value-${spec.name}`}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {required && <option value="">choose…</option>}
                 <option value="true">true</option>

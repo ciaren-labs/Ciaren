@@ -628,6 +628,7 @@ export function renderReshapeConfig(
                               type="button"
                               onClick={() => removeCondition(i, j)}
                               title="Remove condition"
+                              aria-label="Remove condition"
                               className="mt-1 px-1 text-[11px] text-muted-foreground hover:text-destructive"
                             >
                               ×

@@ -1,7 +1,7 @@
 ---
-title: Join
+title: Join Dataframes with Keys and Matching Rules
 search: join merge left right inner outer semi anti on left_on right_on suffixes key
-description: The Join node combines or filters two dataframes using inner, left, right, outer, semi, or anti joins. Config and pandas code.
+description: Join Ciaren inputs on shared or differently named keys. Understand duplicate and null matches, join modes, and generated pandas and Polars exports.
 ---
 
 # Join — `join`
@@ -63,8 +63,21 @@ Provide either `on` (same key name on both sides) **or** both `left_on` and
 
 ## Generated Python code
 
+These exports left-join `df_1` and `df_2` on `customer_id`, preserving unmatched left
+rows and expanding duplicate right keys. pandas matches null keys in this join; Polars
+leaves them unmatched. Ciaren explicitly enables null matching for Polars semi/anti
+joins. Input names come from the two upstream exports.
+
+### pandas
+
 ```python
 df_3 = df_1.merge(df_2, on='customer_id', how='left')
+```
+
+### Polars
+
+```python
+df_3 = df_1.join(df_2, on='customer_id', how='left', suffix='_y', coalesce=True)
 ```
 
 ## Tips & common mistakes
@@ -78,6 +91,8 @@ df_3 = df_1.merge(df_2, on='customer_id', how='left')
   explicitly in Polars so pandas and Polars produce the same rows.
 - **Overlapping non-key columns get `suffixes`.** Rename or drop them upstream to
   avoid `_x`/`_y` columns.
+- pandas applies both configured suffixes to overlapping columns; Polars keeps
+  left names and applies only the right suffix (`suffixes[1]`).
 - A shared-key (`on=`) outer join produces a **single** key column (the keys are
   coalesced), matching pandas — verified across both engines.
 - Join takes two inputs at a time; chain join nodes to combine three or more.

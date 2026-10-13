@@ -106,7 +106,7 @@ function PreviewTab({ dataset }: { dataset: Dataset }) {
           <select
             value={version ?? ""}
             onChange={(e) => setVersion(e.target.value ? Number(e.target.value) : undefined)}
-            className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-7 rounded border border-input bg-background px-1.5 text-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">Latest (v{dataset.latest_version})</option>
             {(versions ?? []).map((v) => (

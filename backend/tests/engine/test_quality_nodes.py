@@ -5,6 +5,7 @@ on both pandas and polars engines, plus edge cases, executor integration,
 and polars codegen.
 """
 
+import re
 import warnings
 from pathlib import Path
 
@@ -23,8 +24,10 @@ def engine(request):
     return get_engine(request.param)
 
 
-def _native(engine, pdf: pd.DataFrame):
-    return pl.from_pandas(pdf) if engine.name == "polars" else pdf
+def _native(engine, pdf: pd.DataFrame | pl.DataFrame):
+    if engine.name == "polars":
+        return pdf if isinstance(pdf, pl.DataFrame) else pl.from_pandas(pdf)
+    return pdf.to_pandas() if isinstance(pdf, pl.DataFrame) else pdf
 
 
 def run_assertion(engine, node_type, pdf, config):
@@ -601,11 +604,42 @@ def _exec_polars_codegen(code: str, df_in: pl.DataFrame) -> pl.DataFrame:
     return ns["df_2"]
 
 
+def _assert_export_matches_runtime(engine, node_type, pdf, config, expected_count, message):
+    expected_pdf = (pdf.to_pandas() if isinstance(pdf, pl.DataFrame) else pdf).copy(deep=True)
+    runtime_out, metadata = run_assertion(engine, node_type, pdf, {**config, "mode": "warn"})
+    assert metadata.assertion_violation_count == expected_count
+    pd.testing.assert_frame_equal(runtime_out, expected_pdf)
+
+    node = get_transformation(node_type)
+    frame = _native(engine, pdf)
+    original = frame.clone() if engine.name == "polars" else frame.copy(deep=True)
+    if engine.name == "polars":
+        code = node.to_polars_code({"in": "df_1"}, {"out": "df_2"}, config)
+        execute_export = _exec_polars_codegen
+    else:
+        code = node.to_python_code({"in": "df_1"}, {"out": "df_2"}, config)
+        execute_export = _exec_codegen
+
+    if expected_count and config["mode"] == "error":
+        with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
+            execute_export(code, frame)
+    else:
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            output = execute_export(code, frame)
+        assert [str(warning.message) for warning in captured] == ([message] if expected_count else [])
+        pd.testing.assert_frame_equal(engine.to_pandas(output), expected_pdf)
+        if engine.name == "polars":
+            assert output.equals(original)
+    pd.testing.assert_frame_equal(engine.to_pandas(frame), expected_pdf)
+    if engine.name == "polars":
+        assert frame.equals(original)
+
+
 @pytest.mark.parametrize(
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, 2]}), {"columns": ["a"]}),
-        ("assertUnique", pd.DataFrame({"id": [1, 2]}), {"columns": ["id"]}),
         ("assertValueRange", pd.DataFrame({"x": [5, 10]}), {"column": "x", "min": 0, "max": 100}),
         ("assertExpression", pd.DataFrame({"a": [1, 2]}), {"expression": "a > 0"}),
         ("assertRowCount", pd.DataFrame({"a": range(5)}), {"min_rows": 1, "max_rows": 10}),
@@ -622,7 +656,6 @@ def test_pandas_codegen_pass(node_type, pdf, config):
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, None]}), {"columns": ["a"], "mode": "warn"}),
-        ("assertUnique", pd.DataFrame({"id": [1, 1]}), {"columns": ["id"], "mode": "warn"}),
         ("assertValueRange", pd.DataFrame({"x": [-1, 5]}), {"column": "x", "min": 0, "mode": "warn"}),
         ("assertExpression", pd.DataFrame({"a": [-1, 2]}), {"expression": "a > 0", "mode": "warn"}),
         ("assertRowCount", pd.DataFrame({"a": [1]}), {"min_rows": 5, "mode": "warn"}),
@@ -640,7 +673,6 @@ def test_pandas_codegen_warn_does_not_raise(node_type, pdf, config):
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, None]}), {"columns": ["a"]}),
-        ("assertUnique", pd.DataFrame({"id": [1, 1]}), {"columns": ["id"]}),
         ("assertValueRange", pd.DataFrame({"x": [-1, 5]}), {"column": "x", "min": 0}),
         ("assertExpression", pd.DataFrame({"a": [-1, 2]}), {"expression": "a > 0"}),
         ("assertRowCount", pd.DataFrame({"a": [1]}), {"min_rows": 5}),
@@ -662,7 +694,6 @@ def test_pandas_codegen_error_raises(node_type, pdf, config):
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, 2, 3]}), {"columns": ["a"]}),
-        ("assertUnique", pd.DataFrame({"id": [1, 2, 3]}), {"columns": ["id"]}),
         ("assertValueRange", pd.DataFrame({"x": [5, 10, 15]}), {"column": "x", "min": 0, "max": 100}),
         ("assertExpression", pd.DataFrame({"a": [1, 2, 3]}), {"expression": "a > 0"}),
         ("assertRowCount", pd.DataFrame({"a": range(5)}), {"min_rows": 1, "max_rows": 10}),
@@ -681,7 +712,6 @@ def test_polars_codegen_pass(node_type, pdf, config):
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, None]}), {"columns": ["a"], "mode": "warn"}),
-        ("assertUnique", pd.DataFrame({"id": [1, 1]}), {"columns": ["id"], "mode": "warn"}),
         ("assertValueRange", pd.DataFrame({"x": [-1, 5]}), {"column": "x", "min": 0, "mode": "warn"}),
         ("assertExpression", pd.DataFrame({"a": [-1, 2]}), {"expression": "a > 0", "mode": "warn"}),
         ("assertRowCount", pd.DataFrame({"a": [1]}), {"min_rows": 5, "mode": "warn"}),
@@ -700,7 +730,6 @@ def test_polars_codegen_warn_does_not_raise(node_type, pdf, config):
     "node_type,pdf,config",
     [
         ("assertNotNull", pd.DataFrame({"a": [1, None]}), {"columns": ["a"]}),
-        ("assertUnique", pd.DataFrame({"id": [1, 1]}), {"columns": ["id"]}),
         ("assertValueRange", pd.DataFrame({"x": [-1, 5]}), {"column": "x", "min": 0}),
         ("assertExpression", pd.DataFrame({"a": [-1, 2]}), {"expression": "a > 0"}),
         ("assertRowCount", pd.DataFrame({"a": [1]}), {"min_rows": 5}),
@@ -712,6 +741,107 @@ def test_polars_codegen_error_raises(node_type, pdf, config):
     df_in = pl.from_pandas(pdf)
     with pytest.raises((ValueError, Exception)):
         _exec_polars_codegen(code, df_in)
+
+
+@pytest.mark.parametrize("mode", ["error", "warn"])
+@pytest.mark.parametrize(
+    "pdf,columns,expected_count",
+    [
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "payload": ["a", "b", "c", "d"]}),
+            ["id"],
+            3,
+            id="all-key-members",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "version": [1, 1, 2, 1]}),
+            ["id", "version"],
+            2,
+            id="composite-key",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "payload": ["a", "a", "b", "c"]}),
+            None,
+            2,
+            id="all-columns",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "payload": ["a", "a", "b", "c"]}),
+            [],
+            2,
+            id="empty-columns-default",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [None, None, 7], "payload": ["a", "b", "c"]}),
+            ["id"],
+            2,
+            id="null-key",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8, 8, 9]}),
+            ["id"],
+            5,
+            id="multiple-duplicate-groups",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "payload": ["a", "b", "c", "d"]}),
+            ["id", "id"],
+            3,
+            id="repeated-key-column",
+        ),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 7, 8], "payload": ["a", "b", "c", "d"]}),
+            "id",
+            3,
+            id="existing-scalar-key",
+        ),
+        pytest.param(
+            pl.DataFrame({"id": [None, float("nan"), 7.0], "payload": ["a", "b", "c"]}),
+            ["id"],
+            2,
+            id="native-nan-null-key",
+        ),
+        pytest.param(
+            pl.DataFrame({"id": [None, float("nan"), None, 7.0], "version": [1, 1, 2, 1]}),
+            ["id", "version"],
+            2,
+            id="native-nan-null-composite-key",
+        ),
+        pytest.param(
+            pl.DataFrame({"id": [None, float("nan"), 7.0], "payload": [1, 1, 2]}),
+            None,
+            2,
+            id="native-nan-null-whole-row",
+        ),
+        pytest.param(pd.DataFrame({"*": [7, 7, 8], "payload": ["a", "b", "c"]}), ["*"], 2, id="literal-star-key"),
+        pytest.param(pd.DataFrame({"^id$": [7, 7, 8], "id": [1, 2, 3]}), ["^id$"], 2, id="literal-regex-key"),
+        pytest.param(pd.DataFrame({"id": [7, 8]}), ["id"], 0, id="unique-key"),
+        pytest.param(
+            pd.DataFrame({"id": [7, 7, 8], "version": [1, 2, 1]}),
+            ["id", "version"],
+            0,
+            id="unique-composite-key",
+        ),
+        pytest.param(pd.DataFrame({"id": pd.Series([], dtype="int64")}), ["id"], 0, id="empty"),
+        pytest.param(pl.DataFrame(), None, 0, id="empty-without-schema"),
+    ],
+)
+def test_unique_export_counts_all_duplicate_rows(engine, pdf, columns, expected_count, mode):
+    config = {"mode": mode}
+    if columns is not None:
+        config["columns"] = columns
+    message = f"assertUnique: {expected_count} duplicate row(s)"
+    _assert_export_matches_runtime(engine, "assertUnique", pdf, config, expected_count, message)
+
+
+def test_polars_unique_export_rejects_missing_key_on_empty_input():
+    node = get_transformation("assertUnique")
+    config = {"columns": ["ghost"], "mode": "warn"}
+    node.validate_config(config)
+    code = node.to_polars_code({"in": "df_1"}, {"out": "df_2"}, config)
+    frame = pl.DataFrame(schema={"id": pl.Int64})
+    with pytest.raises(pl.exceptions.ColumnNotFoundError, match="ghost"):
+        _exec_polars_codegen(code, frame)
 
 
 def test_polars_codegen_not_null_all_columns(tmp_path):
@@ -750,26 +880,38 @@ def test_polars_codegen_not_null_count_matches_runtime():
     assert ns["_null_count"] == runtime.violation_count == 2
 
 
-def test_polars_codegen_value_range_counts_nulls_as_violations():
-    """Regression: exported polars assertValueRange must count null / non-numeric
-    values as violations, matching the run (pandas coerces them to NaN -> fail)."""
-    t = get_transformation("assertValueRange")
-    pdf = pd.DataFrame({"x": [1, 2, None, 5, 100]})
-    runtime = t._check(pdf.copy(), {"column": "x", "min": 0, "max": 10})
-    code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"column": "x", "min": 0, "max": 10, "mode": "warn"})
-    ns: dict = {"df_1": pl.from_pandas(pdf), "pl": pl, "warnings": warnings}
-    with warnings.catch_warnings(record=True):
-        exec(code, ns)  # noqa: S102
-    assert ns["_range_violations"] == runtime.violation_count == 2
-
-
-def test_polars_codegen_value_range_none_bounds():
-    """assertValueRange with only min generates valid polars code."""
-    t = get_transformation("assertValueRange")
-    code = t.to_polars_code({"in": "df_1"}, {"out": "df_2"}, {"column": "x", "min": 0, "mode": "warn"})
-    df_in = pl.DataFrame({"x": [1, 2, 3]})
-    out = _exec_polars_codegen(code, df_in)
-    assert out.shape == df_in.shape
+@pytest.mark.parametrize("mode", ["error", "warn"])
+@pytest.mark.parametrize(
+    "pdf,bounds,expected_count",
+    [
+        pytest.param(pl.DataFrame({"x": [0.0, 1.0, float("inf")]}), {"min": 0}, 0, id="only-min"),
+        pytest.param(
+            pl.DataFrame({"x": [0.499999999, 0.5, 0.500000001]}),
+            {"min": 0.5},
+            1,
+            id="fractional-boundary",
+        ),
+        pytest.param(pl.DataFrame({"x": [float("-inf"), 0.0, 1.0]}), {"max": 1}, 0, id="only-max"),
+        pytest.param(pl.DataFrame({"x": [0, 1, 2]}), {"min": 0, "max": 2}, 0, id="both-inclusive"),
+        pytest.param(pl.DataFrame({"x": [0.0, 1.0, float("inf")]}), {"min": 0, "inclusive": False}, 1, id="min-strict"),
+        pytest.param(
+            pl.DataFrame({"x": [float("-inf"), 0.0, 1.0]}), {"max": 1, "inclusive": False}, 1, id="max-strict"
+        ),
+        pytest.param(pl.DataFrame({"x": [0, 1, 2]}), {"min": 0, "max": 2, "inclusive": False}, 2, id="both-strict"),
+        pytest.param(pl.DataFrame({"x": ["0", "1", "two", None, "-1"]}), {"min": 0}, 3, id="numeric-text"),
+        pytest.param(pl.DataFrame({"x": [0.0, float("nan"), None, -1.0]}), {"min": 0}, 3, id="min-missing"),
+        pytest.param(pl.DataFrame({"x": [1.0, float("nan"), None, 2.0]}), {"max": 1}, 3, id="max-missing"),
+        pytest.param(pl.DataFrame({"x": [1.0, 2.0, None, 5.0, 100.0]}), {"min": 0, "max": 10}, 2, id="null-outside"),
+        pytest.param(pl.DataFrame({"x": [0.0, float("nan"), None, 5.0]}), {"min": 0, "max": 10}, 2, id="both-missing"),
+        pytest.param(pl.DataFrame({"x": [0, -1, 1]}), {"min": 0, "max": 0}, 2, id="equal-bounds"),
+        pytest.param(pl.DataFrame({"x": [0, -1, 1]}), {"min": 0, "max": 0, "inclusive": False}, 3, id="equal-strict"),
+        pytest.param(pl.DataFrame({"x": []}, schema={"x": pl.Float64}), {"min": 0}, 0, id="empty"),
+    ],
+)
+def test_value_range_export_matches_runtime(engine, pdf, bounds, expected_count, mode):
+    config = {"column": "x", **bounds, "mode": mode}
+    message = f"assertValueRange: {expected_count} row(s) in 'x' outside range"
+    _assert_export_matches_runtime(engine, "assertValueRange", pdf, config, expected_count, message)
 
 
 def test_polars_codegen_row_count_only_min():

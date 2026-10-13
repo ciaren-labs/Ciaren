@@ -270,7 +270,7 @@ function AliasEditor({ model, version }: { model: string; version: MlModelVersio
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setAdding(false); }}
             placeholder="production"
-            className="h-6 w-24 rounded border border-input bg-background px-1.5 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-6 w-24 rounded border border-input bg-background px-1.5 text-[11px] focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
           />
           <button onClick={submit} disabled={setAlias.isPending} className="text-[11px] font-medium text-primary hover:underline">
             Set

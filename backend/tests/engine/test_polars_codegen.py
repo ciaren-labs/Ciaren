@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from app.engine.polars_codegen import PolarsCodeGenerator
 
@@ -80,7 +81,6 @@ def test_polars_codegen_is_valid_and_uses_polars() -> None:
     assert ".rename({'a': 'alpha'})" in code
     assert ".filter(pl.col('alpha') > 1)" in code
     assert "pl.sql_expr('alpha * 2').alias('x2')" in code
-    assert ".group_by('alpha')" in code
     assert ".agg(pl.col('x2').sum())" in code
     assert ".write_csv(" in code
     compile(code, "<generated-polars>", "exec")
@@ -222,7 +222,6 @@ def test_polars_lazy_uses_scan_and_collect() -> None:
     assert "pl.read_csv" not in code
     assert ".collect().write_csv(" in code  # materialize only at the sink
     assert ".drop_nulls()" in code  # transformation bodies are unchanged
-    assert ".group_by('alpha')" in code
     assert ".agg(pl.col('x2').sum())" in code
     compile(code, "<lazy-polars>", "exec")
 
@@ -274,8 +273,12 @@ def test_polars_lazy_materializes_eager_only_sample() -> None:
     compile(code, "<lazy-sample>", "exec")
 
 
-def test_polars_lazy_runs_end_to_end(tmp_path: Path) -> None:
-    (tmp_path / "in.csv").write_text("region,product,amount\nN,x,2\nN,y,3\nS,x,5\n")
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+def test_polars_aggregation_runs_end_to_end(tmp_path: Path, lazy: bool) -> None:
+    regions = [f"region-{index}" for index in reversed(range(64))]
+    (tmp_path / "in.csv").write_text(
+        "region,product,amount\n" + "".join(f"{region},x,2\n{region},y,3\n{region},z,5\n" for region in regions)
+    )
     graph = {
         "nodes": [
             {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
@@ -293,10 +296,9 @@ def test_polars_lazy_runs_end_to_end(tmp_path: Path) -> None:
             {"id": "e3", "source": "grp", "target": "out"},
         ],
     }
-    code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"}, lazy=True)
+    code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"}, lazy=lazy)
     out = _run(code, tmp_path)
-    totals = dict(zip(out["region"], out["amount"]))
-    assert totals == {"N": 3, "S": 5}  # amount>2 keeps N/y=3 and S/x=5
+    pd.testing.assert_frame_equal(out, pd.DataFrame({"region": regions, "amount": [8] * len(regions)}))
 
 
 def test_polars_lazy_pivot_runs_end_to_end(tmp_path: Path) -> None:

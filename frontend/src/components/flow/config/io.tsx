@@ -80,7 +80,7 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
               }
             >
               <textarea
-                className="min-h-[80px] w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-[80px] w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs font-mono focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 value={c.query ?? ""}
                 onChange={(e) => set({ query: e.target.value })}
                 placeholder={

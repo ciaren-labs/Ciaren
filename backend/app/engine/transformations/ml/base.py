@@ -155,9 +155,8 @@ class SklearnPipelineMixin:
 
         Returns ``(lines, steps)`` where ``lines`` define ``_preprocessor`` and
         ``steps`` is the leading Pipeline step list (``[]`` when no preprocessing
-        is needed). When the config pins explicit numeric/categorical columns we
-        emit literals; otherwise we detect them by dtype at runtime, exactly like
-        the executor.
+        is needed). A nonempty preprocessing config uses explicit column lists;
+        otherwise we detect them by dtype at runtime, exactly like the executor.
         """
         pre = config.get("preprocessing") or {}
         impute_numeric = pre.get("impute_numeric", "median")
@@ -165,7 +164,9 @@ class SklearnPipelineMixin:
         num_strategy = pre.get("numeric_strategy", "standard_scaler")
 
         lines: list[str] = []
-        if pre.get("numeric_columns") is not None or pre.get("categorical_columns") is not None:
+        if pre:
+            if not pre.get("numeric_columns") and not pre.get("categorical_columns"):
+                return [], []
             lines.append(f"_numeric = {list(pre.get('numeric_columns') or [])!r}")
             lines.append(f"_categorical = {list(pre.get('categorical_columns') or [])!r}")
         else:

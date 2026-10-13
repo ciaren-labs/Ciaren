@@ -1,7 +1,7 @@
 ---
 title: Recipes
-description: "Short Ciaren recipes for common data tasks: convert Excel to Parquet, remove duplicate rows, fill missing values, and pivot a table in a minute or two."
-search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values
+description: "Short Ciaren recipes for common data tasks: clean text, split columns or rows, choose fallback values, convert Excel to Parquet, remove duplicates, and pivot tables."
+search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values clean text split rows tags coalesce
 ---
 
 # Recipes
@@ -21,10 +21,18 @@ projects, see the [Examples](/examples/sales-analysis).
   key-based duplicates
 - **[Fill missing values](/recipes/fill-missing-values)** — mean / median / mode /
   constant / forward-fill
+- **[Clean messy text](/recipes/clean-messy-text)** — trim spaces and normalize
+  email casing before a join or deduplication
+- **[Combine columns with fallback values](/recipes/coalesce-fallback-values)** —
+  pick the first non-null value in priority order
 
 ## Reshaping
 
 - **[Pivot a table](/recipes/pivot-a-table)** — turn long rows into a wide summary
+- **[Split a column](/recipes/split-a-column)** — separate delimited text into
+  named columns
+- **[One row per tag](/recipes/one-row-per-tag)** — split delimited tags into
+  rows while preserving record IDs
 
 ## Looking for more?
 

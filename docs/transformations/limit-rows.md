@@ -1,7 +1,7 @@
 ---
 title: Limit rows
 search: limit rows head top n offset slice first
-description: The Limit rows node (limitRows) keeps the first N rows, optionally after an offset. Use it after Sort rows for a top-N list. With pandas code.
+description: Keep a positional slice of Ciaren rows using a count and optional offset. Build top-N outputs and compare pandas and Polars exports.
 ---
 
 # Limit rows — `limitRows`
@@ -39,6 +39,16 @@ Returns the first `n` rows from the current row order. Combine with
 | `offset` | int | No | Skip this many rows first (default 0) |
 
 ## Generated Python code
+
+This example keeps the first three rows in the current order (`n: 3`, default `offset: 0`). It does not sort them.
+
+### pandas
+
+```python
+df_2 = df_1.head(3)
+```
+
+### Polars
 
 ```python
 df_2 = df_1.head(3)

@@ -6,22 +6,31 @@ what you write here and what readers see there — follow it and your page
 publishes cleanly; step outside it and the sync fails loudly (which is better
 than shipping broken output).
 
-> **TL;DR** — Write normal Markdown, VitePress containers (`::: tip`), and the
-> documented custom components below. Everything else (raw HTML components,
-> `<script>`, arbitrary Vue) does **not** publish. Preview locally with
-> `npm run dev` for content and structure; the visual styling on ciaren.com is
-> intentionally different (see [Visual parity](#visual-parity)).
+Write normal Markdown, VitePress containers (`::: tip`), and the documented
+custom components below. Scripts and arbitrary Vue components do not publish.
+Preview with `npm run dev`, then check the imported website rendering before
+publishing changes to navigation, components or styles.
 
 ## How publishing works
 
 - `docs/` here is **VitePress source**. The public site is a **separate
-  Next.js project** that pulls this `docs/` tree after a release and transforms
-  it into its own MDX + design system. The sync is **one-way and manual** —
-  this repo never needs to know the website exists.
-- The transform re-renders every page in **ciaren.com's own design system**
-  (its typography, colors, light/dark themes). It does **not** reuse VitePress's
-  CSS or your `.vue` component styling — it maps each custom component to a
-  hand-built React equivalent that matches the site.
+  Next.js project** that imports this tree and transforms it into MDX. The sync
+  is **one-way and manual**: change content here, commit it, then import that
+  Git ref in the website repository. Do not edit generated website docs.
+- The website maps custom Vue components to React equivalents. It has separate
+  CSS, so changes to typography, colors, light/dark themes or component layouts
+  require checks in both renderers to preserve the shared Ciaren identity.
+- From the website repository, import the source and validate it:
+
+  ```powershell
+  pnpm sync:docs --repo=https://github.com/ciaren-labs/Ciaren.git --ref=main --strict
+  pnpm check
+  ```
+
+  Use a release tag instead of `main` for a release import. `latest` follows the
+  selected source ref; published version snapshots stay frozen. Without a
+  configured source, a normal sync uses the committed website content, so use
+  `--strict` when fresh source is required.
 - **Security boundary:** the transform **never executes JavaScript** from these
   docs. Custom-component data is passed as validated JSON *strings* that the
   React components parse themselves. That is why the supported surface is a
@@ -40,8 +49,9 @@ than shipping broken output).
    blocks and `` `inline code` `` are treated as literal text, so you can
    document `<FlowPipeline>` usage without the guard flagging it.
 5. **Reference assets by root-relative path** (`/screenshots/…`, `/samples/…`).
-   Everything under `public/` is mirrored to the site automatically — see
-   [Assets](README.md#assets).
+   Asset directories under `public/` are mirrored automatically. Put doc assets
+   in those directories; loose root files such as site icons are not copied.
+   See [Assets](README.md#assets).
 
 ## Supported components
 
@@ -143,38 +153,40 @@ renderer — coordinate that change with the website repo before merging.
 
 ## Navigation and page order
 
-The ciaren.com sidebar is **not** the VitePress sidebar. The sync deletes
-`.vitepress/` and builds its own navigation from the files:
+The website imports the navigation and sidebar definitions from
+`.vitepress/config.ts` into a generated `_nav.json`. Top navigation, section
+groups, labels, collapsed state and previous/next order therefore come from
+the same source. The website opens the group containing the current page and
+drops sidebar links to pages absent from that version.
+Use section groups with direct page links: the current import supports two
+sidebar levels, not nested subgroups.
 
-- **Groups are folders.** Each top-level folder (`guide/`, `plugins/`, …) is one
-  sidebar group, labeled with the folder name. VitePress group headings
-  (`text: 'Getting Started'`) and sidebars that mix folders do not publish.
-- **Page titles** come from each page's `title` frontmatter (or its first
-  `# Heading`).
-- **Page order inside a folder** is derived from `.vitepress/config.ts`: the
-  first `link: '/<folder>/<page>'` found in the file, top to bottom, sets the
-  position. That is why the sidebar constants are declared above `nav`. Pages
-  with no link sort to the end.
-- **Top-level order** comes from `docs/_meta.json`. Add new top-level folders
-  there too.
-- **No redirects.** The site does not read redirects from these docs, so moving
-  or renaming a page breaks its published URL and every inbound link. Regroup
-  pages through the sidebar order instead of moving files.
+- **Page titles** come from `title` frontmatter or the first `# Heading`.
+- **Older snapshots without `_nav.json`** use folder groups and `_meta.json`
+  ordering as a fallback. Keep `docs/_meta.json` current for new folders.
+- **Body links** can use relative Markdown filenames or root-relative doc
+  paths. The website resolves known pages to clean URLs within their version;
+  external links and file downloads retain their original destination.
+- **URL moves require website redirects.** The website has explicit redirects
+  for historical documentation URLs, but does not infer arbitrary renames.
+  Coordinate a redirect in its deployment configuration when moving a page;
+  regroup pages through navigation when a move is unnecessary.
 
 List each page **once** in the VitePress sidebars, so each topic keeps one
 home in both renderings.
 
 ## Visual parity
 
-The website deliberately **re-styles** these docs rather than mirroring
-VitePress pixel-for-pixel. So:
+Both renderers should feel like the same documentation: the same text,
+navigation, examples, diagrams and Ciaren visual identity. The website's MDX
+transform adapts syntax and components; it does not introduce a second copy
+of the content to maintain.
 
-- **Content and structure parity is exact** — what you write is what publishes,
-  and anything unsupported fails the sync instead of silently degrading.
-- **Visual styling is intentionally different** — `npm run dev` shows the
-  VitePress rendering; ciaren.com applies its own theme. Don't chase
-  pixel-identical output; author for correct content and use the components
-  above, and the site handles the look.
+For content changes, import the committed source and check links and examples.
+For visual changes, compare both renderers in light and dark themes at desktop
+and mobile widths. Check heading hierarchy, code blocks, tables, callouts and
+custom diagrams. Shared source alone does not prove visual equivalence: the
+Vue and React implementations and their CSS must be verified together.
 
 ## What fails the sync (so you can fix it here first)
 
@@ -186,11 +198,19 @@ when it finds:
 - a **component tag it doesn't recognize**, or a leftover Vue `:prop=` bind on
   one it can't map;
 - an **un-rendered `ciaren-*` home grid**;
-- **malformed JSON** in any custom-component bind;
-- a **broken internal link or missing asset**.
+- **malformed JSON** in any custom-component bind.
 
-All of these also fail `npm run build` / `npm run test:links` here, so running
-the [local checks](README.md#deployment) before pushing catches them early.
+The website sync checks supported syntax and components. Its `pnpm check`
+validates the exported rendering and links. Here, `npm test` checks Markdown,
+the VitePress build and source links. Run both repositories' checks; a green
+VitePress build alone does not prove that the MDX import is supported.
+
+VitePress 1.6 uses a scoped Vite 6.4 override in `package.json` to avoid the
+unpatched Vite 5 dependency chain. This deliberately exceeds VitePress's
+declared Vite range. When changing it, run `npm ci`, `npm audit --audit-level=high`
+and `npm test`, then check direct and client-side navigation, search, theme
+switching and custom Vue components in a browser. Vite 8 is not a drop-in
+replacement for VitePress 1's generated lean page chunks.
 
 ---
 

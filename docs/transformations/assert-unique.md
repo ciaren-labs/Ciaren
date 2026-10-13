@@ -1,6 +1,6 @@
 ---
 title: Assert unique
-description: The Assert unique data quality node (assertUnique) fails the run or warns when a column combination has duplicate rows, like a non-unique key.
+description: Check unique keys in Ciaren, count every duplicate row, and choose error or warning mode. Includes generated pandas and Polars exports.
 search: assert unique data quality duplicate rows primary key contract check
 ---
 
@@ -39,10 +39,24 @@ violating rows.
 
 ## Generated Python code
 
+This example checks `order_id` in the default `error` mode.
+
+### pandas
+
 ```python
-_dup_mask = df_1.duplicated(subset=['order_id'], keep=False)
+df_2 = df_1
+_dup_mask = df_2.duplicated(subset=['order_id'], keep=False)
 if _dup_mask.any():
     raise ValueError(f"assertUnique: {_dup_mask.sum()} duplicate row(s)")
+```
+
+### Polars
+
+```python
+df_2 = df_1
+_dup_count = df_2.select([df_2.get_column('order_id')]).fill_nan(None).is_duplicated().sum()
+if _dup_count > 0:
+    raise ValueError(f"assertUnique: {_dup_count} duplicate row(s)")
 ```
 
 In `warn` mode the `raise` is replaced by `warnings.warn(...)` and execution

@@ -1,7 +1,7 @@
 ---
-title: Group by + aggregate
+title: Group Rows and Aggregate Values
 search: group by aggregate sum mean count min max median nunique std var first last
-description: The Group by + aggregate node (groupByAggregate) groups rows by key columns and computes sum, mean, count, min, max, median, or nunique per group.
+description: Group Ciaren rows by keys and compute sums, counts or other aggregates. Understand output fields and order with pandas and Polars exports.
 ---
 
 # Group by + aggregate — `groupByAggregate`
@@ -48,8 +48,18 @@ All non-grouped, non-aggregated columns are dropped from the result.
 
 ## Generated Python code
 
+These exports group by `region` and sum only `amount`; the illustration above also counts `order_id`. pandas sorts the group keys, while the Polars export preserves their first appearance.
+
+### pandas
+
 ```python
 df_2 = df_1.groupby('region').agg({'amount': 'sum'}).reset_index()
+```
+
+### Polars
+
+```python
+df_2 = df_1.group_by('region', maintain_order=True).agg(pl.col('amount').sum())
 ```
 
 ## Tips & common mistakes

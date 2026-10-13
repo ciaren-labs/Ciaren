@@ -1,13 +1,15 @@
 # Ciaren Documentation
 
-User-facing documentation for Ciaren — built with VitePress and deployed to GitHub Pages.
+User-facing documentation for Ciaren — built with VitePress and imported into
+[ciaren.com/docs/latest](https://ciaren.com/docs/latest) by the website repository.
+See [Publishing](PUBLISHING.md) for the shared content and navigation contract.
 
 ## Quick Start
 
 ### Local Development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -71,7 +73,10 @@ npm run lint
 │   ├── convert-excel-to-parquet.md
 │   ├── fill-missing-values.md
 │   ├── pivot-a-table.md
-│   └── remove-duplicate-rows.md
+│   ├── remove-duplicate-rows.md
+│   ├── clean-messy-text.md
+│   ├── split-a-column.md
+│   └── coalesce-fallback-values.md
 ├── api/
 │   ├── rest-api.md
 │   ├── catalog.md
@@ -221,7 +226,7 @@ description: What this example shows
 This repo does not deploy the docs site. `docs-deploy.yml` only lints and
 validates `docs/**` as a PR/push gate:
 
-1. **Lint** — `npm run lint` (markdownlint).
+1. **Tooling & lint** — `npm run test:tooling` and `npm run lint` (markdownlint).
 2. **Build & test** — `npm run build`, then the build output is validated and
    checked for broken internal links (`npm run test:links`).
 
@@ -236,9 +241,7 @@ Run the same checks locally before pushing:
 
 ```bash
 npm ci
-npm run lint
-npm run build
-npm run test:links
+npm test
 ```
 
 ## Assets
@@ -284,7 +287,6 @@ Search is built at build time from page titles, descriptions, and content.
 - No external fonts (uses system fonts)
 - Syntax highlighting at build time
 - No JavaScript animations
-- ~40KB gzipped total
 
 ## Questions?
 
@@ -292,4 +294,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete contribution standards.
 
 ---
 
-**Last Updated:** 2026-07-12
+**Last Updated:** 2026-10-12

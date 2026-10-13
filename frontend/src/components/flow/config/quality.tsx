@@ -129,7 +129,7 @@ function FilterExpressionEditor({
         help="A boolean expression that must be true to keep a row. You can still edit it directly."
       >
         <textarea
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           rows={3}
           value={value}
           placeholder="amount > 100 and status == 'paid'"
@@ -238,7 +238,7 @@ export function renderQualityConfig(
             help="A boolean pandas-eval expression that must be true for every row. Example: price > cost"
           >
             <textarea
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               rows={3}
               value={(c.expression as string) ?? ""}
               placeholder="e.g. amount > 0"

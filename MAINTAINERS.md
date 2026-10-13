@@ -71,8 +71,16 @@ Ciaren is currently alpha software. Releases should include:
   `CHANGELOG.md`, then push a bare `X.Y.Z` tag (e.g. `0.1.0`,
   or a pre-release like `0.1.0-alpha.1`) on `main` — **no `v` prefix**; the
   `Package` workflow's tag trigger only matches the unprefixed pattern. The
-  tag builds both wheels/sdists and publishes both to PyPI via trusted
+  tag runs the complete backend release matrix, builds both wheels/sdists,
+  and publishes only after all three gates succeed. Publication uses trusted
   publishing (OIDC), no API token needed.
+- Before pushing a release candidate, run the installed local preflight. The
+  backend's complete gate is `uv run python tools/run_tests.py` after
+  `uv sync --all-groups --extra ml`. It collects the full suite, runs modules
+  sequentially in separate processes, accounts for every collected test and
+  enforces combined 87% coverage. Receipts live in `.test-results/`; use a fresh
+  directory for each run. OS/Python release matrix checks still run remotely
+  before PyPI publication. A local Windows run does not validate other OSes.
 - PyPI trusted publishing must be configured once per package on pypi.org
   (Owner `ciaren-labs`, Repository `Ciaren`, Workflow `package.yml`,
   Environment `pypi` for `ciaren` / `pypi-client` for `ciaren-client`) before

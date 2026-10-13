@@ -8,8 +8,53 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-12
+
+This release improves Python export parity and the documentation for both
+engines. Existing flows keep their configuration; corrected exports can change
+results that previously differed from a Ciaren run.
+
+### Added
+
+- **Semi and anti joins** select matching or nonmatching left-hand rows without
+  adding right-hand columns (#198).
+- **Cumulative product** is available in Window Function (#208).
+- **Runnable pandas and Polars references** cover input/output formats, SQL,
+  row and column transformations, combining data, windows and ML workflows.
+  The ML guides explain training, model persistence, prediction and evaluation.
+- **Text-cleaning recipes and troubleshooting** show how to split irregular
+  fields, choose fallback values and diagnose missing generated columns.
+
+### Fixed
+
+- **pandas Split Column exports** preserve missing split parts and requested
+  output columns when rows have fewer delimiters (#231).
+- **Polars exports** match runtime duplicate counts for Assert Unique (#235),
+  preserve aggregation group order (#236), and handle optional/fractional
+  Assert Range bounds without truncating them (#238).
+- **ML exports** preserve model definitions and preprocessing (#239), explain
+  the model-definition requirement in Cross Validation errors (#240), and
+  honor prediction batch sizes, including nullable features (#241).
+- **Text input exports** preserve UTF-8, blank lines and boundary whitespace.
+- **Icon-only editor controls** have accessible labels (#230).
+- **Documentation checks on Windows** invoke npm tooling correctly (#232).
+- **Python dependency security floors** apply to pip installs as well as the
+  development lockfile, excluding affected multidict, urllib3, Werkzeug and
+  Pillow releases from the existing MLflow dependency stack.
+
 ### Changed
 
+- **Release validation** runs the complete backend inventory in disposable
+  module processes, combines coverage and blocks PyPI publication until the
+  full OS/Python matrix and both package builds pass.
+- **Frontend tooling** uses Vite 8 with verified vendor chunks; installed
+  packages continue to bundle the editor. Tailwind 4 removes an unpatched
+  dependency chain while retaining the purple theme and keyboard focus styles.
+- **Documentation dependencies** use patched Vite and source-map packages.
+  The docs audit now blocks high-severity advisories, matching the editor.
+- **Documentation navigation and metadata** use specific descriptions,
+  current capability notes and examples that distinguish runtime safeguards
+  from ordinary exported Python. The roadmap describes alpha limitations.
 - **Codespaces opens the editor directly.** The dev container builds from a
   slim image with the expired Yarn apt source removed (the old setup fell back
   to a recovery container without Ciaren), installs the released package from

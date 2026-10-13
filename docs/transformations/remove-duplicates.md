@@ -1,7 +1,7 @@
 ---
 title: Remove duplicates
 search: remove duplicates dedupe drop_duplicates keep first last subset unique
-description: The Remove duplicates node (removeDuplicates) drops duplicate rows, optionally keyed on a subset of columns, keeping the first or last occurrence.
+description: Remove duplicate Ciaren rows by every field or selected keys. Choose which copies to keep and compare pandas and Polars exports.
 ---
 
 # Remove duplicates — `removeDuplicates`
@@ -48,8 +48,18 @@ duplicates and only the first is kept.
 
 ## Generated Python code
 
+These exports remove exact duplicate rows with the default `keep: first` and no `subset`. Rows sharing an email but differing in another field remain; the illustration above instead deduplicates by email.
+
+### pandas
+
 ```python
 df_2 = df_1.drop_duplicates()
+```
+
+### Polars
+
+```python
+df_2 = df_1.unique(keep='first', maintain_order=True)
 ```
 
 ## Tips & common mistakes

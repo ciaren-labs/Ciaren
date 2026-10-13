@@ -29,7 +29,7 @@ export function PluginCard({ plugin }: { plugin: PluginInfo }) {
             setOpen(true);
           }
         }}
-        className="cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex items-center gap-3">
           <div className="shrink-0 rounded-lg p-2.5" style={{ backgroundColor: `${tint}1a` }}>

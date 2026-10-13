@@ -1,7 +1,7 @@
 ---
-title: Calculated column
+title: Calculate Columns from Arithmetic Expressions
 search: calculated column expression eval compute derived arithmetic formula
-description: The Calculated column node (calculatedColumn) adds a column computed from an arithmetic expression over existing columns, e.g. total = price * quantity.
+description: Calculate Ciaren columns from arithmetic expressions such as price times quantity. Preserve input fields and compare pandas and Polars exports.
 ---
 
 # Calculated column — `calculatedColumn`
@@ -47,8 +47,18 @@ column names.
 
 ## Generated Python code
 
+These exports add `total = price * quantity`, preserving the input columns and row order. A missing price produces a missing total.
+
+### pandas
+
 ```python
 df_2 = df_1.eval('total = price * quantity')
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.sql_expr('price * quantity').alias('total'))
 ```
 
 ## Tips & common mistakes

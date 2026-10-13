@@ -421,6 +421,47 @@ def test_pandas_codegen_matches_execute(case_id: str) -> None:
     _assert_frames_match(expected, ns["result"], case_id)
 
 
+@pytest.mark.parametrize("values", [["EU", None], [None, None], []], ids=["missing-part", "all-null", "empty"])
+@pytest.mark.parametrize(
+    "output_columns", [["region", "city"], ["region", "city", "country"]], ids=["two-outputs", "three-outputs"]
+)
+@pytest.mark.parametrize("mode", ["delimiter", "regex"])
+@pytest.mark.parametrize("keep_original", [True, False], ids=["keep-source", "drop-source"])
+@pytest.mark.parametrize("engine_name", ["pandas", "polars"])
+def test_split_column_export_preserves_absent_parts(
+    values: list[str | None], output_columns: list[str], mode: str, keep_original: bool, engine_name: str
+) -> None:
+    node = get_transformation("splitColumn")
+    config = {
+        "column": "location",
+        "into": output_columns,
+        "mode": mode,
+        "delimiter": "|",
+        "pattern": "(EU)",
+        "keep_original": keep_original,
+    }
+    node.validate_config(config)
+    source = pd.DataFrame({"location": pd.Series(values, dtype="string")})
+    expected = pd.DataFrame({"region": values, **{name: [None] * len(values) for name in output_columns[1:]}})
+    if keep_original:
+        expected.insert(0, "location", values)
+
+    if engine_name == "pandas":
+        executed = node.execute(PandasEngine(), {"in": source}, config)["out"]
+        code = node.to_python_code({"in": "source"}, {"out": "result"}, config)
+        scope: dict[str, Any] = {"pd": pd, "source": source}
+    else:
+        frame = pl.from_pandas(source)
+        executed = node.execute(PolarsEngine(), {"in": frame}, config)["out"].to_pandas()
+        code = node.to_polars_code({"in": "source"}, {"out": "result"}, config)
+        scope = {"pl": pl, "source": frame}
+
+    _assert_frames_match(expected, executed, "split_absent_parts")
+    exec(compile(code, "<split_absent_parts>", "exec"), scope)  # noqa: S102 - exercising exported code
+    exported = scope["result"] if engine_name == "pandas" else scope["result"].to_pandas()
+    _assert_frames_match(expected, exported, "split_absent_parts")
+
+
 def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     """Regression: mode() with nulls present can make null itself the mode, and
     fill_null(None) raises. The emitter must drop nulls first and, like the

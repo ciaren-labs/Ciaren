@@ -54,13 +54,14 @@ jobs:
       - name: Audit resolved dependencies
         working-directory: backend
         # Audit the locked dependency set (all groups + ml extra), matching what
-        # the test job installs. --strict fails on any vulnerability that has a
-        # fix available; informational advisories without a fix are reported but
-        # do not fail the build.
+        # the test job installs. The export includes all transitive dependencies,
+        # so audit the pinned entries without creating a pip environment.
+        # Known vulnerabilities (including unfixable ones) fail the job;
+        # --strict also fails on dependency-collection errors or skipped entries.
         run: |
           uv export --frozen --all-groups --extra ml --no-emit-project \
             --no-hashes --format requirements-txt > /tmp/requirements.txt
-          uvx pip-audit --requirement /tmp/requirements.txt --strict --progress-spinner off
+          uvx pip-audit --requirement /tmp/requirements.txt --no-deps --disable-pip --strict --progress-spinner off
 
   frontend:
     name: npm audit (frontend)
@@ -110,18 +111,7 @@ jobs:
 
       - name: Audit dependencies
         working-directory: docs
-        # Gated at critical (not high, like frontend) because of a known,
-        # accepted-risk exception: esbuild's dev-server-only advisory
-        # (GHSA-67mh-4wv8-2f99, any origin can read dev-server responses) has
-        # no fix yet — vitepress pins vite <=6.4.2, which pins the vulnerable
-        # esbuild, and the only newer vitepress is an unreleased 2.0.0-alpha.
-        # The same nested vite also carries a high dev-server advisory
-        # (GHSA-fx2h-pf6j-xcff, server.fs.deny bypass on Windows) with no fix
-        # reachable from vitepress 1.x.
-        # Doesn't affect the built static site actually served in production,
-        # only `npm run dev`. Revisit (restore --audit-level=high) once
-        # vitepress ships a stable release with a patched vite/esbuild.
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high
 
   summary:
     name: Security Audit Summary

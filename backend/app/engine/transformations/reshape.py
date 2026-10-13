@@ -78,7 +78,7 @@ class GroupByAggregateTransformation(BaseTransformation):
         aggs = [
             f"pl.col({col!r}).{self._POLARS_AGG.get(func, f'{func}()')}" for col, func in config["aggregations"].items()
         ]
-        return f"{dst} = {src}.group_by({by!r}).agg({pl_exprs_arg(aggs)})"
+        return f"{dst} = {src}.group_by({by!r}, maintain_order=True).agg({pl_exprs_arg(aggs)})"
 
 
 class ConcatRowsTransformation(BaseTransformation):

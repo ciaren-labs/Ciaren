@@ -166,7 +166,7 @@ function ProjectFlows({ projectId }: { projectId: string }) {
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
           placeholder="New flow name…"
-          className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
+          className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
         />
         <Button onClick={create} disabled={createFlow.isPending}>
           <Plus className="h-4 w-4" /> New flow

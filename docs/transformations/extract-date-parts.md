@@ -1,7 +1,7 @@
 ---
-title: Extract date parts
+title: Extract Date Parts with pandas and Polars
 search: extract date parts year quarter month week day day_of_year weekday hour minute datetime components
-description: The Extract date parts node (extractDateParts) adds calendar and time-part columns from a date or datetime column. With pandas code.
+description: Extract calendar and time-part columns from a date or datetime column in Ciaren. Compare runnable pandas and Polars exports, ISO weeks, null dates and weekday numbering.
 ---
 
 # Extract date parts — `extractDateParts`
@@ -48,9 +48,63 @@ Each part becomes a new column named `<column>_<part>` (e.g. `ordered_at_year`).
 
 ## Generated Python code
 
+Each complete File Input → Extract Date Parts → File Output flow reads `source.csv` and
+writes `result.parquet`. The first example keeps the original configuration `column:
+ordered_at`, `parts: [year, month]`; the illustration above instead uses `occurred_at`.
+The second example requests all nine supported parts. The input dates in these examples
+are ISO text; valid dates and missing or invalid values produce missing date parts, and
+every original field and row is retained. Put your original CSV beside the script; use an
+environment with Ciaren and its file-format dependencies installed. Polars exports here
+use eager frames.
+
+### pandas
+
+#### Year month
+
 ```python
-_dt = pd.to_datetime(df_1['ordered_at'])
-df_2 = df_1.assign(ordered_at_year=_dt.dt.year, ordered_at_month=_dt.dt.month)
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+_dt = pd.to_datetime(df_source['ordered_at'], errors='coerce')
+df_source = df_source.assign(ordered_at_year=_dt.dt.year, ordered_at_month=_dt.dt.month)
+df_source.to_parquet('result.parquet', index=False)
+```
+
+#### All parts
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+_dt = pd.to_datetime(df_source['ordered_at'], errors='coerce')
+df_source = df_source.assign(ordered_at_year=_dt.dt.year, ordered_at_quarter=_dt.dt.quarter, ordered_at_month=_dt.dt.month, ordered_at_week=_dt.dt.isocalendar().week, ordered_at_day=_dt.dt.day, ordered_at_day_of_year=_dt.dt.dayofyear, ordered_at_weekday=_dt.dt.weekday, ordered_at_hour=_dt.dt.hour, ordered_at_minute=_dt.dt.minute)
+df_source.to_parquet('result.parquet', index=False)
+```
+
+### Polars
+
+#### Year month
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+_sch = df_source.collect_schema()
+_dt = (pl.col('ordered_at').str.to_datetime(strict=False) if _sch['ordered_at'] == pl.Utf8 else pl.col('ordered_at').cast(pl.Datetime, strict=False))
+df_source = df_source.with_columns([_dt.dt.year().alias('ordered_at_year'), _dt.dt.month().alias('ordered_at_month')])
+df_source.write_parquet('result.parquet')
+```
+
+#### All parts
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+_sch = df_source.collect_schema()
+_dt = (pl.col('ordered_at').str.to_datetime(strict=False) if _sch['ordered_at'] == pl.Utf8 else pl.col('ordered_at').cast(pl.Datetime, strict=False))
+df_source = df_source.with_columns([_dt.dt.year().alias('ordered_at_year'), _dt.dt.quarter().alias('ordered_at_quarter'), _dt.dt.month().alias('ordered_at_month'), _dt.dt.week().alias('ordered_at_week'), _dt.dt.day().alias('ordered_at_day'), _dt.dt.ordinal_day().alias('ordered_at_day_of_year'), (_dt.dt.weekday() - 1).alias('ordered_at_weekday'), _dt.dt.hour().alias('ordered_at_hour'), _dt.dt.minute().alias('ordered_at_minute')])
+df_source.write_parquet('result.parquet')
 ```
 
 ## Tips & common mistakes
@@ -60,6 +114,8 @@ df_2 = df_1.assign(ordered_at_year=_dt.dt.year, ordered_at_month=_dt.dt.month)
 - **`week` uses ISO-8601 week numbering** in both pandas and Polars. Weeks
   start on Monday, and week 1 is the first week with a Thursday in the calendar
   year, so dates near New Year can belong to the previous or next ISO week-year.
+- The Polars export subtracts one from its native weekday numbering to match
+  pandas. Invalid date text is coerced to a missing value in both exports.
 - If the source is text, [Parse dates](./parse-dates.md) or
   [Change types](./cast-types.md) → `datetime` first; this node also parses on the
   fly but an explicit parse is clearer.

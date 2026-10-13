@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 const FREQUENCIES: CronFrequency[] = ["minutes", "hourly", "daily", "weekly", "monthly", "custom"];
 
 const SELECT_CLASS =
-  "h-9 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "h-9 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Friendly interval builder for a cron schedule. The parent owns the

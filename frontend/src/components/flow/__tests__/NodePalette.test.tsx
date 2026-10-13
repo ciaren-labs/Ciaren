@@ -43,6 +43,40 @@ const search = (value: string) =>
   fireEvent.change(screen.getByPlaceholderText("Search nodes…"), { target: { value } });
 
 describe("NodePalette recently used section", () => {
+  it("collapses the panel using its named button", () => {
+    renderPalette();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse panel" }));
+
+    expect(screen.queryByPlaceholderText("Search nodes…")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show nodes panel" })).toBeInTheDocument();
+    expect(localStorage.getItem("ciaren_palette_collapsed")).toBe("true");
+  });
+
+  it("expands a collapsed panel using its named button", () => {
+    localStorage.setItem("ciaren_palette_collapsed", "true");
+    renderPalette();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show nodes panel" }));
+
+    expect(screen.getByPlaceholderText("Search nodes…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse panel" })).toBeInTheDocument();
+    expect(localStorage.getItem("ciaren_palette_collapsed")).toBe("false");
+  });
+
+  it("clears a search using its named button and restores recent nodes", () => {
+    localStorage.setItem(RECENT_NODES_KEY, JSON.stringify(["fileInput"]));
+    renderPalette();
+    search("sort rows");
+    expect(recentSection()).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear node search" }));
+
+    expect(screen.getByPlaceholderText("Search nodes…")).toHaveValue("");
+    expect(itemNames(recentSection()!)).toEqual(["File Input"]);
+    expect(screen.queryByRole("button", { name: "Clear node search" })).not.toBeInTheDocument();
+  });
+
   it("lists recent catalog nodes with an empty query and hides them while searching", () => {
     localStorage.setItem(
       RECENT_NODES_KEY,

@@ -133,7 +133,7 @@ function ExperimentDetail({ experimentId, flowName }: { experimentId: string; fl
             <select
               value={primaryMetric ?? ""}
               onChange={(e) => setPrimary(e.target.value)}
-              className="rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="rounded-md border border-input bg-background px-2 py-1 text-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
             >
               {metricKeys.map((k) => (
                 <option key={k} value={k}>{k}</option>

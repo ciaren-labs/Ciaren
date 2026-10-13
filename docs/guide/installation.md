@@ -24,10 +24,13 @@ You can run the backend on its own and drive it through the
 | [PyPI package](#recommended-pypi-package) (recommended) | **Python 3.12+** — [Download Python](https://www.python.org/downloads/) |
 | [Docker](#alternative-docker) | **Docker** with Compose, and **Git** to clone the repository |
 | [GitHub Codespaces](#no-install-github-codespaces) | A **GitHub account**; nothing installed locally |
-| [From source](#run-from-source) | **Python 3.12+**, **Node.js 20+** for the frontend — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
+| [From source](#run-from-source) | **Python 3.12+**, **Node.js 22.13+** for the frontend (CI uses Node 22) — [Download Node.js](https://nodejs.org/en/download) — and **Git** — [Download Git](https://git-scm.com/) |
 
 A database is **optional**: SQLite is the zero-setup default. PostgreSQL / MySQL
 are supported via an async driver.
+
+The visual editor needs a modern browser: Chrome 111+, Firefox 128+, or
+Safari 16.4+. Use a current browser for the best experience.
 
 ## Recommended: PyPI Package
 
@@ -51,7 +54,7 @@ For repeatable tutorials, CI jobs, or controlled internal evaluation, pin the
 exact version:
 
 ```bash
-python -m pip install "ciaren==0.3.0"
+python -m pip install "ciaren==0.3.1"
 ```
 
 :::

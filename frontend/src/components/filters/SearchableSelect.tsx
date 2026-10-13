@@ -66,7 +66,7 @@ export function SearchableSelect({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-sm",
-          "transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "transition-colors hover:bg-accent/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
         <span className={cn("flex-1 truncate text-left", !selected && "text-muted-foreground")}>
@@ -94,7 +94,7 @@ export function SearchableSelect({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={placeholder}
-              className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="h-9 flex-1 bg-transparent text-sm outline-hidden placeholder:text-muted-foreground"
             />
           </div>
           <div className="max-h-64 overflow-auto p-1">

@@ -1,7 +1,7 @@
 ---
-title: Storage input (S3 / GCS / Azure Blob / Local)
+title: Read Storage Files and Export Local Scripts
 search: storage input s3 gcs azure blob local folder read file bucket object cloud
-description: The Ciaren Storage Input node reads a file from AWS S3, Google Cloud Storage, Azure Blob Storage, or a local folder through a storage connection.
+description: Read Ciaren storage files and understand portable local-file exports. Compare pandas and Polars CSV reads, explicit dialects and credential handling.
 ---
 
 # Storage input — `storageInput`
@@ -76,19 +76,59 @@ directories in `CIAREN_STORAGE_ALLOWED_ROOTS`.
 
 ## Generated Python code
 
-The exported script is portable, so it never embeds cloud credentials. Instead
-it reads the object by its file name and tells you to download it first:
+These are two separate Storage Input → File Output flows. The default example reads
+`data/sales.csv`; the explicit dialect example reads `data/ventas.csv` with `delimiter:
+;`, `encoding: cp1252` and `decimal: ,`. Download the original object first and put its
+basename beside the script. Both exports read that local file and write
+`readback.parquet`; they do not contact the provider, resolve credentials or create a
+Ciaren snapshot. Unlike runtime auto-detection, the script only carries pinned dialect
+settings. The Polars dialect example decodes Windows-1252 text and parses its decimal
+comma explicitly. These complete exports use eager Polars and the file-format
+dependencies installed with Ciaren.
+
+### pandas
+
+#### CSV
 
 ```python
+import pandas as pd
+
 # storageInput: download 'data/sales.csv' from your storage connection first
 df_sales = pd.read_csv('sales.csv')
+df_sales.to_parquet('readback.parquet', index=False)
 ```
 
-When the node sets a dialect, the read includes it. For polars, the script
-decodes non-UTF-8 files first:
+#### Pinned CSV dialect
 
 ```python
+import pandas as pd
+
+# storageInput: download 'data/ventas.csv' from your storage connection first
 df_ventas = pd.read_csv('ventas.csv', sep=';', encoding='cp1252', decimal=',')
+df_ventas.to_parquet('readback.parquet', index=False)
+```
+
+### Polars
+
+#### CSV
+
+```python
+import polars as pl
+
+# storageInput: download 'data/sales.csv' from your storage connection first
+df_sales = pl.read_csv('sales.csv')
+df_sales.write_parquet('readback.parquet')
+```
+
+#### Pinned CSV dialect
+
+```python
+import polars as pl
+
+# storageInput: download 'data/ventas.csv' from your storage connection first
+with open('ventas.csv', encoding='cp1252') as _f:
+    df_ventas = pl.read_csv(_f.read().encode(), separator=';', decimal_comma=True)
+df_ventas.write_parquet('readback.parquet')
 ```
 
 ## Tips & common mistakes

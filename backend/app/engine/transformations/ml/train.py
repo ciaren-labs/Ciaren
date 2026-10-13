@@ -21,6 +21,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.codegen_params import CodeRef
 from app.engine.preview_context import in_preview
 from app.engine.transformations.base import NodeMetadata
 from app.engine.transformations.ml.base import MetadataMLTransformation, MLSchema, SklearnPipelineMixin
@@ -482,6 +483,36 @@ class BaseModelDefinitionTransformation(BaseTrainTransformation):
             raise ValueError(f"{self.type}: feature columns not found: {missing}.")
         model_ref = pd.DataFrame([self._model_ref(None, None, spec.task, config, features)])
         return {"model": engine.from_pandas(model_ref)}, NodeMetadata(task_type=spec.task)
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        src = input_vars["in"]
+        model_var = output_vars.get("model", "model")
+        spec = get_model_spec(config["model_type"])
+        model_config = {
+            key: config.get(key)
+            for key in ("model_type", "target_column", "feature_columns", "hyperparameters", "preprocessing", "seed")
+        }
+        # Reuse the public row serializer without making the exported definition
+        # depend on Ciaren. CodeRef keeps input-dependent fields as expressions.
+        row = ModelRef(task_type=spec.task, model_type=config["model_type"]).to_row()
+        row.update(
+            target_column=CodeRef("_model_config['target_column']"),
+            feature_columns_json=CodeRef("json.dumps(_model_config['feature_columns'])"),
+            model_config_json=CodeRef("json.dumps(_model_config)"),
+        )
+        return "\n".join(
+            [
+                f"_model_config = {model_config!r}",
+                f"_model_config['feature_columns'] = _model_config['feature_columns'] or "
+                f"[c for c in {src}.columns if c != _model_config['target_column']]",
+                "_model_config['hyperparameters'] = _model_config['hyperparameters'] or {}",
+                "_model_config['preprocessing'] = _model_config['preprocessing'] or {}",
+                f"{model_var} = pd.DataFrame([{row!r}])",
+            ]
+        )
+
+    def imports(self, config: dict[str, Any]) -> list[str]:
+        return ["import json"]
 
 
 class ClassifierModelTransformation(BaseModelDefinitionTransformation):

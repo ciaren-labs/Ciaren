@@ -89,7 +89,7 @@ export function ParametersDialog({ open, onOpenChange, value, onChange }: Parame
                     value={row.type}
                     onChange={(e) => update(i, { type: e.target.value as ParameterType })}
                     aria-label={`parameter-type-${i}`}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {PARAMETER_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -105,7 +105,7 @@ export function ParametersDialog({ open, onOpenChange, value, onChange }: Parame
                       value={row.defaultText}
                       onChange={(e) => update(i, { defaultText: e.target.value })}
                       aria-label={`parameter-default-${i}`}
-                      className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <option value="">required</option>
                       <option value="true">true</option>

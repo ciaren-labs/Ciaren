@@ -1,7 +1,7 @@
 ---
-title: Window function
+title: Compute Window Functions within Ordered Groups
 search: window function row_number rank dense_rank cumsum cumcount cummax cummin cumprod lag lead partition order analytics
-description: The Window function node (windowFunction) adds row_number, rank, cumulative sum, lag, or lead values scoped to a partition and order.
+description: Compute Ciaren window functions within ordered groups while preserving input row order. Configure cumulative sums and compare pandas and Polars exports.
 ---
 
 # Window function — `windowFunction`
@@ -62,9 +62,22 @@ running total without collapsing rows.
 
 ## Generated Python code
 
+These exports add `running_total` with `function: cumsum`, `partition_by: [region]`,
+`order_by: [date]` and `target: amount`. They compute within each region in ascending
+date order and return rows in their original order. Null amount rows get a null running
+total; subsequent values continue the sum. The full export defines the input frame and
+engine alias.
+
+### pandas
+
 ```python
-# function: cumsum, partition_by: ['region'], order_by: ['date'], target: 'amount'
 df_2 = df_1.assign(running_total=lambda _d: _d.sort_values('date', kind='stable').groupby('region', sort=False)['amount'].cumsum())
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('amount').cum_sum().over('region', order_by='date').alias('running_total'))
 ```
 
 ## Tips & common mistakes

@@ -63,7 +63,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-8 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       />
       {value && (
         <button
@@ -101,7 +101,7 @@ export function FilterSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
-        "h-10 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "h-10 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
     >

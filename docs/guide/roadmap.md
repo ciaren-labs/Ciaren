@@ -1,12 +1,12 @@
 ---
-title: Roadmap
+title: Roadmap for data pipelines and ML workflows
 description: "Where alpha-stage Ciaren is heading: plugins, connectors, exporters, data quality, machine learning, AI extension points, scheduling, and security."
 search: roadmap direction future plugins ecosystem status alpha connectors exporters data quality machine learning ai scheduling security
 ---
 
 # Roadmap
 
-Ciaren is **alpha** (currently `0.1.x`). This page describes the direction, not
+Ciaren is **alpha**. This page describes the direction, not
 a dated release schedule. For exactly what's shipped, the code is authoritative and
 releases are tracked on **[GitHub](https://github.com/ciaren-labs/Ciaren/releases)**.
 
@@ -44,11 +44,11 @@ These are roadmap themes, not promises of specific dated features.
 ### Stable foundation
 
 - **Alpha hardening** — stabilize the public API, data model, generated code,
-  and behavior of core nodes before moving beyond `0.1.x`.
+  and behavior of core nodes before a stable `1.0` release.
 - **Portable flow format** — formalize `.flow` files with schema versioning,
   JSON Schema, migrations, and required plugin/capability declarations.
-- **Backend source of truth** — move node metadata into the backend catalog and
-  have the frontend consume a complete `GET /api/catalog/nodes` response.
+- **Backend catalog** — maintain the node and connector metadata consumed by
+  the editor, with clear compatibility rules for plugins and API clients.
 
 ### Plugin ecosystem
 

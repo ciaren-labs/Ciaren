@@ -1,7 +1,7 @@
 ---
-title: Coalesce columns
+title: Coalesce Columns with Ordered Fallbacks
 search: coalesce first non null fallback combine consolidate columns
-description: The Coalesce columns node (coalesceColumns) takes the first non-null value across several columns into a new column, a fallback chain for fields.
+description: Choose the first non-null Ciaren value across columns in priority order. Preserve or drop source fields and compare pandas and Polars exports.
 ---
 
 # Coalesce columns — `coalesceColumns`
@@ -31,8 +31,18 @@ null.
 
 ## Generated Python code
 
+These exports choose `mobile`, then `home`, then `work`, writing `phone` and keeping the source columns. An empty string is a value; a row with all three null stays null.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(phone=lambda _d: _d['mobile'].where(pd.notna, _d['home']).where(pd.notna, _d['work']))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.coalesce([pl.col('mobile'), pl.col('home'), pl.col('work')]).alias('phone'))
 ```
 
 ## Tips & common mistakes

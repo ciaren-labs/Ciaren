@@ -1,5 +1,5 @@
 ---
-title: Docker
+title: Run local data pipelines with Docker
 description: "Run Ciaren in Docker with one command: a single container with the web editor and backend, data persistence, PostgreSQL, and a production checklist."
 search: docker container compose deployment
 layout: doc

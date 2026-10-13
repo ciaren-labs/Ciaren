@@ -244,10 +244,8 @@ class CodeGenerator:
                     kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
                 elif source_type == "text":
-                    body.append(
-                        f'{var} = pd.read_csv({path!r}, sep="\\n", header=None, '
-                        f'names=["text"], engine="python", dtype=str)'
-                    )
+                    body.append(f"with open({path!r}, encoding='utf-8') as _f:")
+                    body.append(f'    {var} = pd.DataFrame({{"text": _f.read().splitlines()}})')
                 else:
                     body.append(f"{var} = pd.read_csv({path!r})  # unsupported input type: {node_type}")
 

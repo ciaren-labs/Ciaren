@@ -338,6 +338,39 @@ def test_codegen_branches_compile(node_type: str, config: dict) -> None:
     compile(pl_code, "<polars>", "exec")
 
 
+@pytest.mark.parametrize("group_by", [["region"], ["region", "category"]])
+def test_polars_groupby_export_preserves_runtime_group_order(group_by: list[str]) -> None:
+    import polars as pl
+    from polars.testing import assert_frame_equal
+
+    from app.engine.backends.polars_engine import PolarsEngine
+
+    # Hash aggregation can reorder groups. Many deliberately unsorted keys
+    # distinguish first appearance from either hash order or sorted output.
+    regions = [f"region-{index}" for index in reversed(range(64))]
+    regions.insert(5, None)
+    categories = [index % 3 for index in range(len(regions))]
+    if len(group_by) > 1:
+        regions = ["shared", *regions, "shared"]
+        categories = [0, *categories, 1]
+    source = pl.DataFrame(
+        {"region": regions * 2, "category": categories * 2, "amount": [1] * len(regions) + [2] * len(regions)}
+    )
+    original = source.clone()
+    config = {"group_by": group_by, "aggregations": {"amount": "sum"}}
+    node = get_transformation("groupByAggregate")
+    node.validate_config(config)
+    runtime = node.execute(PolarsEngine(), {"in": source}, config)["out"]
+    expected = original.head(len(regions)).select(group_by).with_columns(pl.lit(3, dtype=pl.Int64).alias("amount"))
+    assert_frame_equal(runtime, expected)
+
+    input_vars, output_vars = _vars("groupByAggregate")
+    scope = {"pl": pl, "df": source}
+    exec(node.to_polars_code(input_vars, output_vars, config), scope)
+    assert_frame_equal(scope["out_df"], expected)
+    assert_frame_equal(source, original)
+
+
 def test_extract_date_parts_parameterized_column_stays_a_reference() -> None:
     """A CodeRef column must compose into the derived column names as source
     (``datecol + '_' + 'year'``), not freeze the variable's *name* into a

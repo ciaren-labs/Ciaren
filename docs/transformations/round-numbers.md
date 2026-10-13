@@ -1,7 +1,7 @@
 ---
 title: Round numbers
 search: round numbers decimals precision numeric
-description: The Round numbers node (roundNumbers) rounds numeric columns to a set number of decimal places, e.g. currency to 2 decimals. Config and pandas code.
+description: Round selected numeric columns in Ciaren to a chosen decimal precision. Preserve other fields and view pandas and Polars exports.
 ---
 
 # Round numbers — `roundNumbers`
@@ -15,7 +15,7 @@ Round numeric columns to a number of decimals.
 
 ## What it does
 
-Rounds each value in the target columns to `decimals` decimal places in place.
+Rounds each value in the target columns to `decimals` decimal places in the output.
 
 <DataTransform
   transform="Round numbers (columns=[price, tax], decimals=2)"
@@ -39,13 +39,24 @@ Rounds each value in the target columns to `decimals` decimal places in place.
 
 ## Generated Python code
 
+These exports round only `amount` to two decimal places (`columns: ["amount"]`, `decimals: 2`). Other columns remain unchanged; the illustration above rounds `price` and `tax`.
+
+### pandas
+
 ```python
 df_2 = df_1.round({'amount': 2})
 ```
 
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('amount').round(2))
+```
+
 ## Tips & common mistakes
 
-- **`decimals: 0` returns floats**, not integers (e.g. `3.0`). Use
+- **Rounding a floating-point column keeps it floating point** (e.g. `3.0`
+  with `decimals: 0`). Use
   [Change types](./cast-types.md) → `integer` if you need whole numbers.
 - Listing a non-numeric column will error — round only numeric columns.
 

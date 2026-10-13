@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from importlib.metadata import version
 
-_FALLBACK = "0.3.0"
+_FALLBACK = "0.3.1"
 
 
 def ciaren_version() -> str:

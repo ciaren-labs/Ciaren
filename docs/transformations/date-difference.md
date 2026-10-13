@@ -1,7 +1,9 @@
 ---
-title: Date difference
+title: Calculate Elapsed Time between Date Columns
 search: date difference days hours between two dates duration elapsed
-description: The Date difference node (dateDifference) computes the time between two date columns, in days, hours, or another unit, as a new numeric column.
+description:
+  Calculate elapsed time between Ciaren date columns in days, hours, minutes,
+  seconds or weeks. Handle negative and null durations; compare both exports.
 ---
 
 # Date difference — `dateDifference`
@@ -23,17 +25,32 @@ chosen unit and written to a new numeric column. The result is fractional (e.g.
 
 ## Configuration
 
-| Config key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `start_column` | string | Yes | The earlier date column |
-| `end_column` | string | Yes | The later date column (result is end − start) |
-| `unit` | string | No (default `days`) | `days`, `hours`, `minutes`, `seconds`, or `weeks` |
-| `new_column` | string | Yes | Name of the result column |
+| Config key     | Type   | Required            | Description                                       |
+| -------------- | ------ | ------------------- | ------------------------------------------------- |
+| `start_column` | string | Yes                 | The earlier date column                           |
+| `end_column`   | string | Yes                 | The later date column (result is end − start)     |
+| `unit`         | string | No (default `days`) | `days`, `hours`, `minutes`, `seconds`, or `weeks` |
+| `new_column`   | string | Yes                 | Name of the result column                         |
 
 ## Generated Python code
 
+These exports add `days_between` as `ship_date - order_date` in days, preserving
+all input fields. Durations can be fractional or negative; invalid or missing
+dates produce null.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(days_between=lambda _d: (pd.to_datetime(_d['ship_date'], errors='coerce') - pd.to_datetime(_d['order_date'], errors='coerce')).dt.total_seconds() / 86400)
+```
+
+### Polars
+
+```python
+_sch = df_1.collect_schema()
+_start = (pl.col('order_date').str.to_datetime(strict=False) if _sch['order_date'] == pl.Utf8 else pl.col('order_date').cast(pl.Datetime, strict=False))
+_end = (pl.col('ship_date').str.to_datetime(strict=False) if _sch['ship_date'] == pl.Utf8 else pl.col('ship_date').cast(pl.Datetime, strict=False))
+df_2 = df_1.with_columns(((_end - _start).dt.total_seconds() / 86400).alias('days_between'))
 ```
 
 ## Tips & common mistakes
@@ -44,4 +61,5 @@ df_2 = df_1.assign(days_between=lambda _d: (pd.to_datetime(_d['ship_date'], erro
 
 ## See also
 
-- [Parse dates](./parse-dates.md) · [Extract date parts](./extract-date-parts.md)
+- [Parse dates](./parse-dates.md) ·
+  [Extract date parts](./extract-date-parts.md)

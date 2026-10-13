@@ -1,7 +1,10 @@
 ---
-title: Pivot
-search: pivot wide long reshape pivot_table index columns values aggfunc crosstab
-description: The Pivot node reshapes a dataframe from long to wide, spreading one column's unique values into new aggregated columns. Config and pandas code.
+title: Pivot Data from Long to Wide
+search:
+  pivot wide long reshape pivot_table index columns values aggfunc crosstab
+description:
+  Pivot Ciaren data from long to wide with shared aggregation rules for repeated
+  keys. Understand output ordering and compare pandas and eager Polars exports.
 ---
 
 # Pivot — `pivot`
@@ -15,8 +18,8 @@ Reshape long → wide.
 
 ## What it does
 
-Pivot spreads the **unique values** of one column (`columns`) out into new columns,
-filling each cell by aggregating the `values` column for that row key.
+Pivot spreads the **unique values** of one column (`columns`) out into new
+columns, filling each cell by aggregating the `values` column for that row key.
 
 <DataTransform
   transform="Pivot (index=region, columns=month, values=amount, aggfunc=sum)"
@@ -39,17 +42,29 @@ filling each cell by aggregating the `values` column for that row key.
 
 ## Configuration
 
-| Config key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `index` | string \| string[] | Yes | Row key(s) |
-| `columns` | string | Yes | Column whose values become new columns |
-| `values` | string | Yes | Column to aggregate into the cells |
-| `aggfunc` | string | No | Aggregation (default `sum`): one of `sum`, `mean`, `min`, `max`, `median`, `first`, `last`, `count` — restricted to functions both the pandas and polars exports support |
+| Config key | Type               | Required | Description                                                                                                                                                              |
+| ---------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `index`    | string \| string[] | Yes      | Row key(s)                                                                                                                                                               |
+| `columns`  | string             | Yes      | Column whose values become new columns                                                                                                                                   |
+| `values`   | string             | Yes      | Column to aggregate into the cells                                                                                                                                       |
+| `aggfunc`  | string             | No       | Aggregation (default `sum`): one of `sum`, `mean`, `min`, `max`, `median`, `first`, `last`, `count` — restricted to functions both the pandas and polars exports support |
 
 ## Generated Python code
 
+These exports pivot `month` values into columns, grouping by `region` and
+summing `amount` for repeated keys. pandas sorts keys and output columns; Polars
+keeps first-appearance order. The Polars pivot requires an eager DataFrame.
+
+### pandas
+
 ```python
 df_2 = df_1.pivot_table(index='region', columns='month', values='amount', aggfunc='sum').reset_index()
+```
+
+### Polars
+
+```python
+df_2 = df_1.pivot(on='month', index='region', values='amount', aggregate_function='sum')
 ```
 
 ## Tips & common mistakes

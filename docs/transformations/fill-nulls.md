@@ -1,7 +1,7 @@
 ---
 title: Fill nulls
 search: fill nulls missing na fillna mean median mode min max zero ffill bfill strategy
-description: The Fill nulls node (fillNulls) replaces missing values with a constant, mean, median, mode, min, max, or forward or backward fill, keeping every row.
+description: Fill missing values in Ciaren using constants or computed strategies. Keep rows and compare the generated pandas and Polars code.
 ---
 
 # Fill nulls — `fillNulls`
@@ -49,9 +49,18 @@ propagate the previous/next value.
 
 ## Generated Python code
 
+This example fills missing `region` values with `Unknown` (`strategy: constant`, `columns: ["region"]`). Other columns and every row are retained.
+
+### pandas
+
 ```python
-# strategy: "constant", value: "Unknown", columns: ["region"]
 df_2 = df_1.fillna({'region': 'Unknown'})
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('region').fill_null('Unknown'))
 ```
 
 ## Tips & common mistakes

@@ -51,6 +51,51 @@ function renderForm(props: Partial<React.ComponentProps<typeof NodeConfigForm>>)
 }
 
 describe("NodeConfigForm", () => {
+  it("removes only the named tag from a filter's values", () => {
+    const onChange = vi.fn();
+    renderForm({
+      type: "filterRows",
+      config: { column: "status", operator: "in", value: "active, paused" },
+      columns: ["status"],
+      onChange,
+    });
+
+    expect(screen.getByRole("button", { name: "Remove paused" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove active" }));
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith({
+      column: "status", operator: "in", value: "paused",
+    });
+  });
+
+  it("removes a condition using its named button without changing other rules", () => {
+    const onChange = vi.fn();
+    const first = { column: "amount", operator: ">", value: "100" };
+    const second = { column: "status", operator: "==", value: "active" };
+    const otherRule = { match: "all", conditions: [first], result: "standard" };
+    renderForm({
+      type: "conditionalColumn",
+      config: {
+        new_column: "tier",
+        rules: [{ match: "all", conditions: [first, second], result: "premium" }, otherRule],
+        default: "other",
+      },
+      columns: ["amount", "status"],
+      onChange,
+    });
+    const buttons = screen.getAllByRole("button", { name: "Remove condition" });
+    expect(buttons).toHaveLength(2);
+    // Keep the explicit label aligned with the existing tooltip wording.
+    for (const button of buttons) expect(button).toHaveAttribute("aria-label", "Remove condition");
+    fireEvent.click(buttons[0]);
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith({
+      new_column: "tier",
+      rules: [{ match: "all", conditions: [second], result: "premium" }, otherRule],
+      default: "other",
+    });
+  });
+
   it("only offers datasets matching the input node's source type", () => {
     const csv = dataset("sales", "csv");
     const excel = dataset("report", "excel");

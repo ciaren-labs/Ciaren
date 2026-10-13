@@ -1,7 +1,7 @@
 ---
-title: Map values
+title: Map Values with Lookup Rules and Defaults
 search: map values lookup recode case when default mapping
-description: The Map values node (mapValues) recodes column values through a lookup table, CASE WHEN style, with an optional default for unmapped values.
+description: Recode Ciaren values with a lookup mapping and optional default. Keep the original field and compare generated pandas and Polars exports.
 ---
 
 # Map values — `mapValues`
@@ -44,9 +44,18 @@ anything not in the mapping gets the `default` value.
 
 ## Generated Python code
 
+These exports keep `grade` and add `result`, mapping `A` and `B` to `Pass`. Setting `default: Fail` enables the default, so unknown grades and nulls become `Fail`.
+
+### pandas
+
 ```python
-# mapping: {"A": "Pass", "B": "Pass"}, default "Fail"
 df_2 = df_1.assign(result=lambda _d: _d['grade'].map({'A': 'Pass', 'B': 'Pass'}).where(_d['grade'].isin(['A', 'B']), 'Fail'))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('grade').replace_strict({'A': 'Pass', 'B': 'Pass'}, default='Fail').alias('result'))
 ```
 
 ## Tips & common mistakes

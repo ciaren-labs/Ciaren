@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css" layer(components);
+@config "../tailwind.config.js";
 
 /*
  * Ciaren design tokens — a purple-based, minimalist system.
@@ -8,6 +8,21 @@
  * All colours are HSL channels so they compose with Tailwind's `hsl(var(--x))`.
  */
 @layer base {
+  /* Preserve the editor's existing affordances after the Tailwind 4 upgrade. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+
   :root {
     /* Surfaces */
     --background: 270 40% 99%;

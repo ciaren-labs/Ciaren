@@ -95,14 +95,22 @@ between is optional cleaning and transformation.
 | Assert row count in bounds | [Assert row count](./assert-row-count.md) |
 | Save a chart of the results on every run | [Chart nodes](./charts.md) |
 | Run arbitrary Python on a frame | [Python transform](./python-transform.md) |
+| Hold out data for ML evaluation | [Train/Test Split](./train-test-split.md) |
+| Scale numeric features | [Scale Features](./scale-features.md) |
+| Encode categorical fields | [Encode Categories](./encode-categories.md) |
+| Select numeric predictors | [Select Features](./select-features.md) |
+| Explore principal components | [Reduce Dimensions](./reduce-dimensions.md) |
 
 ## Generated code: pandas and polars
 
 Every node implements both `to_python_code` (pandas) and `to_polars_code`
 (polars), so [exporting a flow](/guide/engines#code-export-pandas-polars-and-lazy-polars) gives you a runnable
-script in either dialect. The per-node pages show the **pandas** export; the
-polars export is equivalent and produced from the same config. The two engines
-are kept at parity by a test suite that runs each node on both.
+script in either dialect. Reference pages are being expanded to show both
+**pandas** and **Polars** exports for the same configuration. ML steps use
+pandas/scikit-learn, so the Polars flow exporter inserts conversions around them.
+Sampling algorithms and fraction rounding can differ between engines; see
+[Sample rows](./sample-rows.md). Tests compare each export with its engine's
+runtime behavior.
 
 ## Current limitations
 

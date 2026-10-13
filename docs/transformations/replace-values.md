@@ -1,7 +1,7 @@
 ---
 title: Replace values
 search: replace values substitute regex find to_replace value
-description: The Replace values node (replaceValues) substitutes values in a column by exact match or regex to standardize codes. Config, example, and pandas code.
+description: Replace exact values or regex matches in a Ciaren column. Configure substitutions and see matching pandas and Polars code examples.
 ---
 
 # Replace values — `replaceValues`
@@ -41,8 +41,18 @@ values pass through unchanged.
 
 ## Generated Python code
 
+This example replaces the exact value `N` with `North` in `region` (`regex: false`).
+
+### pandas
+
 ```python
 df_2 = df_1.assign(region=lambda _d: _d['region'].replace('N', 'North'))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('region').replace('N', 'North'))
 ```
 
 ## Tips & common mistakes

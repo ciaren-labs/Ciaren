@@ -14,15 +14,84 @@ alongside them.
    and a lazy fan-out to several sinks collects the plan once, not per sink.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
+from app.engine.backends import get_engine
 from app.engine.codegen import CodeGenerator
 from app.engine.codegen_common import frame_var_name, insert_paragraph_breaks
 from app.engine.polars_codegen import PolarsCodeGenerator
+
+
+def _text_export_script(node_type: str, dialect: str, filename: str) -> str:
+    config = {"dataset_id": "d", "format": "text"}
+    if node_type == "storageInput":
+        config = {"connection_id": "c", "path": f"remote/{filename}", "format": "text"}
+    graph = {
+        "nodes": [
+            {"id": "in", "type": node_type, "data": {"config": config}},
+            {"id": "out", "type": "fileOutput", "data": {"config": {"format": "parquet", "path": "result.parquet"}}},
+        ],
+        "edges": [{"id": "e", "source": "in", "target": "out"}],
+    }
+    if dialect == "pandas":
+        return CodeGenerator().generate(graph, {"d": filename})
+    return PolarsCodeGenerator().generate(graph, {"d": filename}, lazy=dialect == "lazy")
+
+
+def _run_text_export(tmp_path: Path, code: str) -> subprocess.CompletedProcess[str]:
+    script = tmp_path / "export.py"
+    script.write_text(code, encoding="utf-8")
+    # Windows normally defaults to a legacy locale encoding. Do not let the
+    # test runner's UTF-8 mode hide an export that omits its encoding.
+    return subprocess.run(
+        [sys.executable, "-X", "utf8=0", str(script)],
+        cwd=tmp_path,
+        env=os.environ | {"PYTHONUTF8": "0", "PYTHONIOENCODING": "utf-8"},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=20,
+    )
+
+
+@pytest.mark.parametrize("node_type", ["fileInput", "textInput", "storageInput"])
+@pytest.mark.parametrize("dialect", ["pandas", "polars", "lazy"])
+@pytest.mark.parametrize(
+    "payload",
+    [b"", 'alpha,quoted\r\n\r\ncafé\t"中"\nlast'.encode("utf-8"), '\r\n  café\t"中"  \r\n\r\n'.encode("utf-8")],
+)
+def test_text_input_export_reads_utf8_lines(tmp_path: Path, node_type: str, dialect: str, payload: bytes) -> None:
+    source = tmp_path / "café's notes.txt"
+    source.write_bytes(payload)
+    code = _text_export_script(node_type, dialect, source.name)
+    result = _run_text_export(tmp_path, code)
+    assert result.returncode == 0, result.stderr
+    exported = pd.read_parquet(tmp_path / "result.parquet")
+    expected = payload.decode("utf-8").splitlines()
+    engine = get_engine("pandas" if dialect == "pandas" else "polars")
+    runtime = engine.to_pandas(engine.read(str(source), "text"))
+    assert exported.to_dict("list") == runtime.to_dict("list") == {"text": expected}
+    assert source.read_bytes() == payload
+
+
+@pytest.mark.parametrize("node_type", ["fileInput", "textInput", "storageInput"])
+@pytest.mark.parametrize("dialect", ["pandas", "polars", "lazy"])
+@pytest.mark.parametrize("failure", ["missing", "invalid_utf8"])
+def test_text_input_export_preserves_read_failures(tmp_path: Path, node_type: str, dialect: str, failure: str) -> None:
+    source = tmp_path / "source.txt"
+    if failure == "invalid_utf8":
+        source.write_bytes(b"\xff")
+    result = _run_text_export(tmp_path, _text_export_script(node_type, dialect, source.name))
+    expected_error = "UnicodeDecodeError" if failure == "invalid_utf8" else "FileNotFoundError"
+    assert result.returncode != 0 and expected_error in result.stderr, result.stderr
+    assert not (tmp_path / "result.parquet").exists()
+
 
 # --- unit: frame_var_name ------------------------------------------------------
 

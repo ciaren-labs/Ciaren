@@ -364,7 +364,6 @@ def test_polars_generator_emits_fluent_chain(tmp_path: Path) -> None:
     for lazy in (False, True):
         code = PolarsCodeGenerator().generate(_sales_graph(), paths, lazy=lazy)
         assert "df_in = (" in code
-        assert "\n    .group_by('region')\n" in code
         assert "\n    .agg(pl.col('amount').sum())\n" in code
         assert "\n    .rename({'amount': 'total_sales'})\n" in code
         out = _run(code, tmp_path)

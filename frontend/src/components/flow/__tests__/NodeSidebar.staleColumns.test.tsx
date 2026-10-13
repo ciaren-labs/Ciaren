@@ -35,6 +35,7 @@ const DATASETS = [
   ds("ds1", "Sales", ["a", "b"]),
   ds("ds2", "Sales v2", ["a", "b"]), // identical schema to ds1!
   ds("dsB", "Lookup", ["k", "v"]),
+  ds("ds3", "Sales without b", ["a"]),
 ];
 
 beforeEach(() => {
@@ -85,6 +86,30 @@ const node = (id: string, type: string, config: Record<string, unknown>) => ({
 });
 
 describe("NodeSidebar dataset-change stale-column cleanup (BUG repro)", () => {
+  it("dismisses a schema warning using its named button while retaining the cleaned config", async () => {
+    useFlowEditorStore.setState({
+      selectedNodeId: "n1",
+      flowProjectId: "p1",
+      nodes: [
+        node("n1", "fileInput", { dataset_id: "ds1", dataset_version: 1, format: "csv" }),
+        node("n2", "filterRows", { column: "b", operator: "==", value: "yes" }),
+      ],
+      edges: [{ id: "e1", source: "n1", target: "n2" }],
+    });
+    renderSidebar();
+    fireEvent.change(await datasetSelect(), { target: { value: "ds3" } });
+    expect(screen.getByText(/Column settings in 1 downstream node were reset/)).toBeInTheDocument();
+    const config = () => useFlowEditorStore.getState().nodes.find((n) => n.id === "n2")!.data.config;
+    expect(config().column).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss schema warning" }));
+
+    expect(screen.queryByText(/Column settings in/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dismiss schema warning" })).not.toBeInTheDocument();
+    expect(config().column).toBe("");
+    expect(useFlowEditorStore.getState().selectedNodeId).toBe("n1");
+  });
+
   it(
     "keeps a downstream ref to a column created by calculatedColumn",
     async () => {

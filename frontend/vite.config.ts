@@ -6,18 +6,29 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Split heavy, rarely-changing vendor code so the main bundle stays
         // small and these chunks cache across deploys.
-        manualChunks: {
-          react: ["react", "react-dom", "react-router-dom"],
-          flow: ["@xyflow/react"],
-          query: ["@tanstack/react-query"],
+        codeSplitting: {
+          groups: [
+            {
+              name: "react",
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/,
+            },
+            {
+              name: "flow",
+              test: /[\\/]node_modules[\\/]@xyflow[\\/]react[\\/]/,
+            },
+            {
+              name: "query",
+              test: /[\\/]node_modules[\\/]@tanstack[\\/]react-query[\\/]/,
+            },
+          ],
         },
       },
     },

@@ -1,7 +1,7 @@
 ---
-title: Row difference
+title: Calculate Row Differences within Groups
 search: difference delta pct change growth rate diff consecutive rows
-description: The Row difference node (rowDifference) computes the difference or percent change between consecutive rows, per partition, for growth rates.
+description: Calculate Ciaren row differences or growth rates within ordered groups. Preserve original row order and compare pandas and Polars exports.
 ---
 
 # Row difference — `rowDifference`
@@ -36,8 +36,18 @@ group boundary. The original row order is preserved.
 
 ## Generated Python code
 
+These exports add `delta` from consecutive `amount` values within each `customer`, ordered by ascending `date` (`method: diff`, `periods: 1`). The output retains the original row order; a missing current or previous amount gives a null delta.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(delta=lambda _d: _d.sort_values('date', kind='stable').groupby('customer', sort=False)['amount'].diff())
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('amount').diff().over('customer', order_by='date').alias('delta'))
 ```
 
 ## Tips & common mistakes

@@ -1,7 +1,7 @@
 ---
-title: Concat Rows
+title: Stack Rows with Concat and Schema Alignment
 search: union concat stack append rows combine multiple inputs variadic concat rows
-description: The Concat Rows node (concatRows) stacks two or more inputs row-wise into one dataframe, aligning columns by name, like a SQL union or pandas concat.
+description: Stack Ciaren inputs in connection order with Concat Rows. Align different schemas, preserve duplicate rows, and compare pandas and Polars exports.
 ---
 
 # Concat Rows (Union / Concat) — `concatRows`
@@ -43,8 +43,21 @@ This node has **no configuration** — it stacks whatever inputs are connected.
 
 ## Generated Python code
 
+These exports stack `df_1` then `df_2` with no configuration. Columns align by name;
+missing fields become null and numeric types can be relaxed. Both duplicate rows and
+source connection order are retained. The upstream inputs and the engine alias must
+already be defined.
+
+### pandas
+
 ```python
 df_3 = pd.concat([df_1, df_2], ignore_index=True)
+```
+
+### Polars
+
+```python
+df_3 = pl.concat([df_1, df_2], how='diagonal_relaxed')
 ```
 
 ## Tips & common mistakes

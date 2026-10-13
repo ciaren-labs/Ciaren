@@ -65,7 +65,7 @@ export function LicenseDialog({
           rows={7}
           spellCheck={false}
           placeholder='{"userId": "...", "pluginId": "...", "signature": "..."}'
-          className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         />
         {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">

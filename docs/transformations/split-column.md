@@ -1,7 +1,7 @@
 ---
 title: Split column
 search: split column delimiter regex into capture groups expand
-description: The Split column node (splitColumn) splits one text column into several by a delimiter or regex capture groups, e.g. a full name into first and last.
+description: Split a text column by a delimiter or regex capture groups in Ciaren. Configure output names, handle missing parts, and export pandas or Polars code.
 ---
 
 # Split column — `splitColumn`
@@ -49,16 +49,26 @@ one new column per name in `into`. Rows with fewer parts leave trailing columns 
 
 ## Generated Python code
 
+### pandas
+
 ```python
-_parts = df_1['name'].astype('string').str.split(' ', expand=True)
-df_2 = df_1.assign(first=_parts[0], last=_parts[1])
+_parts = df_1['full_name'].astype('string').str.split(' ', expand=True)
+df_2 = df_1.assign(first=(_parts[0] if 0 in _parts.columns else pd.NA), last=(_parts[1] if 1 in _parts.columns else pd.NA))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns([pl.col('full_name').cast(pl.Utf8).str.split(' ').list.get(0, null_on_oob=True).alias('first'), pl.col('full_name').cast(pl.Utf8).str.split(' ').list.get(1, null_on_oob=True).alias('last')])
 ```
 
 ## Tips & common mistakes
 
 - **`into` names the outputs in order.** In regex mode, capture group 1 fills the
   first name, group 2 the second, and so on.
-- **Uneven splits** leave trailing columns null when a row has fewer parts.
+- **Uneven splits** leave trailing columns null when a row has fewer parts,
+  including when no row has enough parts. The exported script preserves this
+  behavior for empty inputs as well.
 - Set `keep_original: false` to drop the source column after splitting.
 
 ## See also

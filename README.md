@@ -109,7 +109,7 @@ export something real before uploading your own data.
 For repeatable evaluation, pin the release version:
 
 ```bash
-python -m pip install "ciaren==0.3.0"
+python -m pip install "ciaren==0.3.1"
 ```
 
 ### Run With Docker
@@ -126,7 +126,7 @@ Open `http://localhost:8055`.
 
 Use this path when contributing to the backend, frontend, docs, or plugin SDK.
 
-Requirements: Python 3.12+, Node.js 20+, and Git.
+Requirements: Python 3.12+, Node.js 22.13+ (CI uses Node 22), and Git.
 
 ```bash
 git clone https://github.com/ciaren-labs/Ciaren.git
@@ -337,8 +337,8 @@ file):
   title   = {Ciaren},
   url     = {https://github.com/ciaren-labs/Ciaren},
   license = {AGPL-3.0-only},
-  version = {0.3.0},
-  date    = {2026-09-25}
+  version = {0.3.1},
+  date    = {2026-10-12}
 }
 ```
 
@@ -346,7 +346,7 @@ file):
 
 - Current stage: **Alpha** (pre-1.0) — the API and data model may change
   before `1.0.0`. Pin a version for production use.
-- Latest release: `0.3.0` (first public release was `0.1.0`) — see the
+- Latest release: `0.3.1` (first public release was `0.1.0`) — see the
   [CHANGELOG](CHANGELOG.md) for what's included and for breaking changes.
 - Breaking changes are expected before `1.0.0`
 

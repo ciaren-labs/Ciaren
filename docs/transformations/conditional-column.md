@@ -1,7 +1,7 @@
 ---
-title: Conditional column
+title: Build Conditional Columns with Ordered Rules
 search: conditional column case when if elif else rules match all any and or default
-description: The Conditional column node (conditionalColumn) builds a column from ordered if/elif/else rules with AND/OR conditions, like SQL CASE WHEN.
+description: Build Ciaren conditional columns with ordered rules, AND or OR conditions and a default. Compare the generated pandas and Polars exports.
 ---
 
 # Conditional column — `conditionalColumn`
@@ -58,9 +58,20 @@ written flat as `{ column, operator, value, result }`.
 
 ## Generated Python code
 
+This example adds `segment` with one ALL rule: `age >= 18` and `country == "US"` gives `us_adult`; every other row gets `other`. The pandas export requires NumPy.
+
+### pandas
+
 ```python
-# rule: age >= 18 AND country == "US" → "us_adult"; default "other"
+import numpy as np
+
 df_2 = df_1.assign(segment=lambda _d: np.select([(_d['age'] >= 18) & (_d['country'] == 'US')], ['us_adult'], default='other'))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.when((pl.col('age') >= 18) & (pl.col('country') == 'US')).then(pl.lit('us_adult')).otherwise(pl.lit('other')).alias('segment'))
 ```
 
 ## Tips & common mistakes

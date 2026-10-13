@@ -1,6 +1,8 @@
 """Coverage for low-level infra: the database helpers and logging setup."""
 
 import logging
+import tomllib
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -241,7 +243,8 @@ def test_ciaren_version_falls_back_when_metadata_lookup_fails(monkeypatch: pytes
         raise MetadataNotFound(name)
 
     monkeypatch.setattr(version_mod, "version", _raise)
-    assert version_mod.ciaren_version() == version_mod._FALLBACK
+    metadata = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())
+    assert version_mod.ciaren_version() == metadata["project"]["version"]
 
 
 @pytest.mark.parametrize("bogus", [None, ""])

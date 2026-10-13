@@ -328,7 +328,7 @@ export function NodeConfigForm({
           help="Write the body of def transform(df): … — must return a DataFrame. Use 'pd' (pandas engine) or 'pl' (polars engine) without importing them."
         >
           <textarea
-            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             rows={10}
             spellCheck={false}
             value={(c.script as string) ?? ""}

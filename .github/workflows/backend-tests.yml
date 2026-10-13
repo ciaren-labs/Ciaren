@@ -3,12 +3,6 @@ name: Backend Tests
 on:
   push:
     branches: [main]
-    # `paths` is NOT evaluated for tag pushes (GitHub applies it to branch
-    # pushes only), so the release tags below always trigger the full matrix
-    # regardless of which files the tagged commit touched.
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]+-*"
     paths:
       - backend/**
       - .github/workflows/backend-tests.yml
@@ -22,12 +16,15 @@ on:
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
+  # Package publication calls the full matrix and waits for it. Do not also
+  # trigger this workflow independently on the tag and duplicate its cost.
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: backend-tests-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -64,7 +61,7 @@ jobs:
     name: Test | ${{ matrix.os }} · Python ${{ matrix.python-version }}
     needs: setup
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
@@ -99,7 +96,7 @@ jobs:
 
       - name: Lint with Ruff
         working-directory: backend
-        run: uv run ruff check app tests
+        run: uv run ruff check app tests tools
 
       - name: Type check with mypy
         working-directory: backend
@@ -114,7 +111,7 @@ jobs:
         # workflow). That suite measures ~88%, so the gate is 87% — a ~1pt buffer
         # for cross-platform/Python fluctuation. The connector I/O paths are gated
         # separately on the *merged* Codecov report (see codecov.yml).
-        run: uv run pytest tests --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=87
+        run: uv run python tools/run_tests.py
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7

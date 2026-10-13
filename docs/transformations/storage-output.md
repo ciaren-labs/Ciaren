@@ -1,7 +1,7 @@
 ---
-title: Storage output (S3 / GCS / Azure Blob / Local)
+title: Write Storage Results and Understand Export Markers
 search: storage output s3 gcs azure blob local folder write file bucket object cloud
-description: The Ciaren Storage Output node writes a flow's result as a file to AWS S3, Google Cloud Storage, Azure Blob Storage, or a local folder.
+description: Write Ciaren results through storage connections and understand exported script markers. Compare pandas and Polars examples and runtime write behavior.
 ---
 
 # Storage output — `storageOutput`
@@ -37,12 +37,35 @@ after the rest of the flow succeeds — a write failure marks the run failed.
 
 ## Generated Python code
 
-The exported script is portable, so it never embeds cloud credentials or an
-upload call tied to one provider's SDK. Instead it leaves a marker for the
-write:
+This complete File Input → Storage Output flow reads local `source.csv`. The storage
+node can have `connection_id: storage`, `path: reports/summary.parquet`, `format:
+parquet` and `if_exists: overwrite`; those settings do not turn the exported comment
+into an upload. Both current generators leave only a marker after reading the input. The
+script creates no output file, serializes no storage artifact and does not enforce the
+destination overwrite policy. To write from an exported script, add an explicit writer
+suited to your destination; use the Ciaren run when you want the configured storage
+connection to perform the write. No credentials or provider SDK calls are embedded.
+
+### pandas
+
+#### MARKER
 
 ```python
-# storageOutput: write df_4 to your configured storage target
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+# storageOutput: write df_source to your configured storage target
+```
+
+### Polars
+
+#### MARKER
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+# storageOutput: write df_source to your configured storage target
 ```
 
 ## Tips & common mistakes
@@ -53,8 +76,9 @@ write:
 - **`overwrite` replaces the object silently.** Set `if_exists: error` to abort
   rather than overwrite an existing file, which is useful in append-style
   workflows where you'd rather fail loud than silently clobber old data.
-- **The run is marked failed if the upload fails.** No partial writes are left
-  behind — Ciaren pushes the output only after every upstream node succeeds.
+- **The run is marked failed if the write fails.** Storage providers do not
+  share an atomic-write guarantee. Inspect the destination before retrying a
+  failed write; a local file or remote object may already exist.
 
 ## See also
 

@@ -1,5 +1,5 @@
 """mlCrossValidate: CV strategies, scoring, validation guardrails, codegen,
-and executor integration. The node consumes a model reference from a Train node."""
+and executor integration. The node consumes an unfitted model definition."""
 
 import json
 
@@ -148,6 +148,25 @@ def test_runs_on_both_engines(engine_name):
 def test_seed_required():
     with pytest.raises(ValueError, match="seed"):
         NODE.validate_config({"model_type": "logistic_regression", "target_column": "target", "cv_strategy": "kfold"})
+
+
+@pytest.mark.parametrize("engine_name", ["pandas", "polars"])
+@pytest.mark.parametrize(
+    "malformed_reference,action,detail", [(False, "connect", "'model' input"), (True, "Re-run", "model_config_json")]
+)
+def test_model_input_errors_recommend_definition_nodes(engine_name, malformed_reference, action, detail):
+    engine = get_engine(engine_name)
+    inputs = {"in": engine.from_pandas(_classification_df())}
+    if malformed_reference:
+        inputs["model"] = engine.from_pandas(pd.DataFrame([{"model_type": "logistic_regression"}]))
+    with pytest.raises(ValueError) as error:
+        NODE.execute(engine, inputs, {"cv_strategy": "kfold", "n_splits": 3, "seed": 42})
+    hint = str(error.value)
+    assert "Classifier Model" in hint
+    assert "Regressor Model" in hint
+    assert detail in hint
+    assert action in hint
+    assert "Train" not in hint
 
 
 def test_target_required():

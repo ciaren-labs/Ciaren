@@ -1,7 +1,7 @@
 ---
 title: Drop columns
 search: drop columns remove delete column field
-description: The Drop columns node (dropColumns) removes one or more columns from a dataframe, such as internal IDs or PII. Config, example, and pandas code.
+description: Remove unwanted columns from a Ciaren dataframe while preserving the remaining fields. Includes configuration and pandas and Polars exports.
 ---
 
 # Drop columns — `dropColumns`
@@ -37,8 +37,18 @@ Removes the listed columns; all other columns pass through unchanged.
 
 ## Generated Python code
 
+This example removes `internal_id` and `temp_notes` and keeps every other column.
+
+### pandas
+
 ```python
 df_2 = df_1.drop(columns=['internal_id', 'temp_notes'])
+```
+
+### Polars
+
+```python
+df_2 = df_1.drop(['internal_id', 'temp_notes'])
 ```
 
 ## Tips & common mistakes

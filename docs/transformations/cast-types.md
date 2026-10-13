@@ -1,7 +1,7 @@
 ---
 title: Change types
 search: cast types change types dtype convert integer float boolean string datetime coerce
-description: The Change types node (castDtypes) converts column data types to integer, float, boolean, string, or datetime, optionally coercing bad values to null.
+description: Convert columns to numbers, booleans, text or dates in Ciaren. Choose strict or invalid-to-null casts; view pandas and Polars exports.
 ---
 
 # Change types — `castDtypes`
@@ -46,8 +46,19 @@ unparseable values become null rather than crashing the run.
 
 ## Generated Python code
 
+These exports convert `amount` to float and `ordered_at` to datetime with the default `errors: raise`. To turn invalid values into nulls, choose `errors: coerce`, as in the illustration above.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
+```
+
+### Polars
+
+```python
+_sch = df_1.collect_schema()
+df_2 = df_1.with_columns(pl.col('amount').cast(pl.Float64), (pl.col('ordered_at').str.to_datetime(strict=True) if _sch['ordered_at'] == pl.Utf8 else pl.col('ordered_at').cast(pl.Datetime, strict=True)))
 ```
 
 ## Tips & common mistakes

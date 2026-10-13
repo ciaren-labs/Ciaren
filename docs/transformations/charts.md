@@ -1,6 +1,6 @@
 ---
-title: Chart Nodes
-description: "Reference for Ciaren's eight chart nodes: bar, line, area, scatter, pie, histogram, box plot, and correlation heatmap charts saved with every run."
+title: Configure Charts and Understand Run Artifacts
+description: Explore Ciaren chart nodes and their stored run artifacts. Configure aggregated charts and compare the exact pandas and Polars pass-through exports.
 search:
   chart nodes bar line area scatter pie histogram box plot heatmap visualization
   run artifact export png title
@@ -166,8 +166,20 @@ and `rows_seen` records how many rows went in.
 
 ## Generated Python code
 
-Chart artifacts are rendered by the Ciaren run view, so the exported script
-treats the node as a pass-through and your data logic is unaffected:
+Both exact exports pass the input frame through unchanged. The `chartBar` example can
+use `x: region`, `y: amount`, `aggregate: sum` in Ciaren, but this configuration does
+not change the emitted pass-through. Runtime stores aggregated chart metadata for the
+run view; the exported script does not create chart metadata, plots or images. The full
+export defines the input frame.
+
+### pandas
+
+```python
+# chartBar: chart is rendered in the Ciaren run view (no code equivalent)
+df_2 = df_1
+```
+
+### Polars
 
 ```python
 # chartBar: chart is rendered in the Ciaren run view (no code equivalent)

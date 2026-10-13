@@ -188,8 +188,23 @@ class MLPredictTransformation(MetadataMLTransformation):
         lines = [
             f"{load}{dst} = {src}.copy()",
             f"_model_features = list(getattr({model_ref}, 'feature_names_in_', {src}.columns))",
-            f"{dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])",
         ]
+        batch_size = config.get("batch_size")
+        if batch_size is None:
+            lines.append(f"{dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])")
+        else:
+            lines.extend(
+                [
+                    f"_batch_size = {batch_size!r}",
+                    f"if _batch_size is None or len({src}) <= _batch_size:",
+                    f"    {dst}[{output_column!r}] = {model_ref}.predict({src}[_model_features])",
+                    "else:",
+                    f"    {dst}[{output_column!r}] = np.concatenate([",
+                    f"        {model_ref}.predict({src}.iloc[_i : _i + _batch_size][_model_features])",
+                    f"        for _i in range(0, len({src}), _batch_size)",
+                    "    ])",
+                ]
+            )
         proba_columns = config.get("output_proba_columns")
         if proba_columns:
             lines.append(f"_proba = {model_ref}.predict_proba({src}[_model_features])")
@@ -199,4 +214,4 @@ class MLPredictTransformation(MetadataMLTransformation):
 
     def imports(self, config: dict[str, Any]) -> list[str]:
         # Only need the MLflow loader when there's no upstream model variable.
-        return ["import mlflow.sklearn"]
+        return ["import mlflow.sklearn", *(["import numpy as np"] if config.get("batch_size") is not None else [])]

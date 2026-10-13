@@ -1,7 +1,7 @@
 ---
 title: Select columns
 search: select columns keep reorder subset project
-description: The Select columns node (selectColumns) keeps only the listed columns of a dataframe and reorders them. Config, example, and generated pandas code.
+description: Keep and reorder selected columns in a Ciaren dataframe. Configure the output fields and view generated pandas and Polars exports.
 ---
 
 # Select columns — `selectColumns`
@@ -37,8 +37,18 @@ Drops every column not listed and reorders the survivors to match your list.
 
 ## Generated Python code
 
+These exports keep only `region` and `amount`, in that order (`columns: ["region", "amount"]`). The illustration above shows a different selection.
+
+### pandas
+
 ```python
 df_2 = df_1[['region', 'amount']]
+```
+
+### Polars
+
+```python
+df_2 = df_1.select(['region', 'amount'])
 ```
 
 ## Tips & common mistakes

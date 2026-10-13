@@ -1,7 +1,7 @@
 ---
-title: Remove outliers
+title: Remove or Clip Numeric Outliers
 search: remove outliers iqr zscore percentile drop clip threshold factor
-description: The Remove outliers node (removeOutliers) drops or clips outliers in numeric columns using IQR, z-score, or percentile bounds. With pandas code.
+description: Remove or clip Ciaren numeric outliers with IQR, z-score or percentile bounds. Configure the method and compare pandas and Polars exports.
 ---
 
 # Remove outliers — `removeOutliers`
@@ -46,13 +46,25 @@ Each method has its own parameter: `iqr` uses `factor`, `zscore` uses
 
 ## Generated Python code
 
+These exports drop `amount` values outside the IQR bounds (`factor: 1.5`) and keep nulls. The illustration above scans `age` instead. Each engine uses its own quantile calculation, so bounds can differ on other datasets.
+
+### pandas
+
 ```python
-# method: iqr, action: drop
 _s = df_1['amount']
 _q1, _q3 = _s.quantile(0.25), _s.quantile(0.75)
 _iqr = _q3 - _q1
 _lo, _hi = _q1 - 1.5 * _iqr, _q3 + 1.5 * _iqr
 df_2 = df_1[_s.between(_lo, _hi) | _s.isna()]
+```
+
+### Polars
+
+```python
+_q1, _q3 = df_1['amount'].quantile(0.25), df_1['amount'].quantile(0.75)
+_iqr = _q3 - _q1
+_lo, _hi = _q1 - 1.5 * _iqr, _q3 + 1.5 * _iqr
+df_2 = df_1.filter(pl.col('amount').is_between(_lo, _hi) | pl.col('amount').is_null())
 ```
 
 ## Tips & common mistakes

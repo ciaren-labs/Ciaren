@@ -1,6 +1,6 @@
 {
   "name": "ciaren-docs",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "User-facing documentation for Ciaren data and ML workflow builder",
   "type": "module",
   "private": true,
@@ -11,22 +11,26 @@
     "prebuild": "npm run sync-changelog",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
-    "test": "npm run lint && npm run build && npm run test:build && npm run test:links",
+    "test": "npm run test:tooling && npm run lint && npm run build && npm run test:build && npm run test:links",
+    "test:tooling": "node --test ./scripts/test-tooling.js",
     "test:build": "node ./scripts/test-build.js",
     "test:links": "node ./scripts/check-links.js",
     "search:build": "node ./scripts/build-search.js",
-    "lint": "markdownlint '**/*.md' --ignore node_modules --ignore '.vitepress' --ignore agent-runs",
-    "format": "prettier --write '**/*.md' --prose-wrap always"
+    "lint": "markdownlint \"**/*.md\" --ignore node_modules --ignore .vitepress --ignore agent-runs",
+    "format": "prettier --write \"**/*.md\" --prose-wrap always"
   },
   "dependencies": {
     "vue": "^3.5.43"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.9",
     "vitepress": "^1.1.4",
     "typescript": "^6.0.3",
     "markdownlint-cli": "^0.49.1",
-    "prettier": "^3.9.8",
-    "vite": "^8.3.0"
+    "prettier": "^3.9.8"
+  },
+  "overrides": {
+    "vitepress": {
+      "vite": "^6.4.4"
+    }
   }
 }

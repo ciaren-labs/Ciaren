@@ -6,6 +6,7 @@ Uses respx to mock HTTP calls — no running server required.
 from __future__ import annotations
 
 import json
+from importlib.metadata import version
 
 import httpx
 import pytest
@@ -27,7 +28,7 @@ MOCK_SCHEDULE = {"id": "sched-1", "flow_id": FLOW_ID, "cron": "0 9 * * *"}
 
 
 def test_package_version():
-    assert __version__ == "0.3.0"
+    assert __version__ == version("ciaren-client")
 
 
 # ---------------------------------------------------------------------------

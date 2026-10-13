@@ -43,6 +43,10 @@ jobs:
         working-directory: docs
         run: npm ci
 
+      - name: Validate documentation tooling
+        working-directory: docs
+        run: npm run test:tooling
+
       - name: Lint markdown
         working-directory: docs
         run: npm run lint

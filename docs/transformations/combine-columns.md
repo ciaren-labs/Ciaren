@@ -1,7 +1,7 @@
 ---
-title: Combine columns
+title: Combine Columns into Text with Separators
 search: combine concatenate columns join merge text separator full name
-description: The Combine columns node (combineColumns) joins several columns into one text column with a separator, e.g. a full name. Config and pandas code.
+description: Join Ciaren columns into text with an ordered separator, keeping or dropping source fields. Compare generated pandas and Polars exports.
 ---
 
 # Combine columns — `combineColumns`
@@ -32,8 +32,18 @@ Null cells become empty strings, so the separator's position is preserved
 
 ## Generated Python code
 
+These exports combine `first` and `last` into `full_name`, with the default space separator and `keep_original: true`. Null parts become empty text without removing the separator.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(full_name=lambda _d: _d['first'].astype('string').fillna('') + ' ' + _d['last'].astype('string').fillna(''))
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.concat_str([pl.col('first').cast(pl.Utf8).fill_null(''), pl.col('last').cast(pl.Utf8).fill_null('')], separator=' ').alias('full_name'))
 ```
 
 ## Tips & common mistakes

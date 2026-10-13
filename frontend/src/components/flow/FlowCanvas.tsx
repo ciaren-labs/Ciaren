@@ -15,7 +15,6 @@ import {
   type Node,
   type OnConnectStart,
 } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import { nodeTypes } from "./nodeTypes";
 import { edgeTypes } from "./edgeTypes";

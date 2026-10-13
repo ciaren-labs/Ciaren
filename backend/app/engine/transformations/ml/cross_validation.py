@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """mlCrossValidate — estimate how well a connected model generalizes with cross-validation.
 
-This dedicated node consumes a model reference from a train node and supports
+This node consumes an unfitted Classifier Model or Regressor Model definition and supports
 several resampling strategies — k-fold,
 stratified k-fold, shuffle-split, time-series split, group k-fold, repeated
 k-fold, and leave-one-out — so the right scheme can be picked per problem
 (stratify imbalanced classes, respect time order, keep groups intact, …).
 
-It does **not** persist another model: it reconstructs the connected train node's
+It does **not** persist a final model: it reconstructs the connected model node's
 estimator definition, fits/scores it on each fold
 and returns a tidy ``fold | <metric> …`` frame (one row per fold) so the scores
 feed an output node or show in the inspector. The per-fold scores for the primary
@@ -232,7 +232,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         import pandas as pd
 
         if "model" not in inputs:
-            raise ValueError(f"{self.type}: connect a Train Model node to the 'model' input.")
+            raise ValueError(f"{self.type}: connect Classifier Model or Regressor Model to the 'model' input.")
         ref = engine.to_pandas(inputs["model"])
         if ref.empty:
             raise ValueError(f"{self.type}: model input is empty.")
@@ -241,7 +241,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
         if not isinstance(raw, str) or not raw.strip():
             raise ValueError(
                 f"{self.type}: connected model reference has no model_config_json. "
-                "Re-run the upstream Train node with the current Ciaren version."
+                "Re-run the upstream Classifier Model or Regressor Model node with the current Ciaren version."
             )
         try:
             cfg = json.loads(raw)
@@ -348,13 +348,11 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             f"_X = {src}[_features]",
             f"_y = {src}[_target]",
             "_pre = _model_config.get('preprocessing') or {}",
-            "if 'numeric_columns' in _pre:",
-            "    _numeric = _pre.get('numeric_columns')",
+            "if _pre:",
+            "    _numeric = _pre.get('numeric_columns', [])",
+            "    _categorical = _pre.get('categorical_columns', [])",
             "else:",
             "    _numeric = [c for c in _features if pd.api.types.is_numeric_dtype(_X[c])]",
-            "if 'categorical_columns' in _pre:",
-            "    _categorical = _pre.get('categorical_columns')",
-            "else:",
             "    _categorical = [c for c in _features if c not in _numeric]",
             "_num_strategy = _pre.get('numeric_strategy', 'standard_scaler')",
             "_scalers = {",
@@ -409,6 +407,7 @@ class CrossValidateTransformation(SklearnPipelineMixin, MetadataMLTransformation
             "    for _m in _scoring:",
             "        _v = _scores['test_' + _m][_i]",
             "        _row[_m[4:] if _m.startswith('neg_') else _m] = -_v if _m.startswith('neg_') else _v",
+            "    _row['fit_time_s'] = _scores['fit_time'][_i]",
             "    _rows.append(_row)",
             f"{dst} = pd.DataFrame(_rows)",
         ]

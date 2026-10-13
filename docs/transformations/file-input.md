@@ -1,6 +1,6 @@
 ---
-title: File input (CSV / Excel / Parquet / JSON / Text)
-description: The Ciaren File Input node reads an uploaded CSV, Excel, Parquet, JSON, or text dataset version into a flow. Config, tips, and generated pandas code.
+title: Read Files with File Input in Both Engines
+description: Read Ciaren datasets in CSV, TSV, Excel, Parquet, JSON, JSONL or text format. Compare exact pandas and Polars exports and original-file handling.
 search: input csv excel parquet json text read dataset version source
 ---
 
@@ -75,21 +75,144 @@ dialect when you pick the file and has its own override fields.
 
 ## Generated Python code
 
+Each example is a separate File Input → File Output flow. Put the original named file
+beside the script; exporting code does not download a dataset version or create a Ciaren
+run. The output `readback.parquet` makes the loaded rows inspectable. The seven examples
+use each listed input format and its named local file. Text is UTF-8, one row per line:
+spaces and empty lines are retained. These are complete current exports, with imports
+and actual input variable names. Use an environment with Ciaren and its file-format
+dependencies installed; Polars examples are eager.
+
+### pandas
+
+#### CSV
+
 ```python
-# fileInput with format="csv"
-df_1 = pd.read_csv("sales.csv")
+import pandas as pd
 
-# fileInput with format="excel"
-df_1 = pd.read_excel("report.xlsx")
+df_sales = pd.read_csv('sales.csv')
+df_sales.to_parquet('readback.parquet', index=False)
+```
 
-# fileInput with format="parquet"
-df_1 = pd.read_parquet("data.parquet")
+#### TSV
 
-# fileInput with format="json"
-df_1 = pd.read_json("records.json")
+```python
+import pandas as pd
 
-# fileInput with format="text" — one row per line, column named "text"
-df_1 = pd.read_csv("log.txt", sep="\n", header=None, names=["text"], engine="python", dtype=str)
+df_sales = pd.read_csv('sales.tsv', sep='\t')
+df_sales.to_parquet('readback.parquet', index=False)
+```
+
+#### EXCEL
+
+```python
+import pandas as pd
+
+df_report = pd.read_excel('report.xlsx')
+df_report.to_parquet('readback.parquet', index=False)
+```
+
+#### PARQUET
+
+```python
+import pandas as pd
+
+df_data = pd.read_parquet('data.parquet')
+df_data.to_parquet('readback.parquet', index=False)
+```
+
+#### JSON
+
+```python
+import pandas as pd
+
+df_records = pd.read_json('records.json')
+df_records.to_parquet('readback.parquet', index=False)
+```
+
+#### JSONL
+
+```python
+import pandas as pd
+
+df_records = pd.read_json('records.jsonl', lines=True)
+df_records.to_parquet('readback.parquet', index=False)
+```
+
+#### TEXT
+
+```python
+import pandas as pd
+
+with open('log.txt', encoding='utf-8') as _f:
+    df_log = pd.DataFrame({"text": _f.read().splitlines()})
+df_log.to_parquet('readback.parquet', index=False)
+```
+
+### Polars
+
+#### CSV
+
+```python
+import polars as pl
+
+df_sales = pl.read_csv('sales.csv')
+df_sales.write_parquet('readback.parquet')
+```
+
+#### TSV
+
+```python
+import polars as pl
+
+df_sales = pl.read_csv('sales.tsv', separator="\t")
+df_sales.write_parquet('readback.parquet')
+```
+
+#### EXCEL
+
+```python
+import polars as pl
+
+df_report = pl.read_excel('report.xlsx', engine="openpyxl")
+df_report.write_parquet('readback.parquet')
+```
+
+#### PARQUET
+
+```python
+import polars as pl
+
+df_data = pl.read_parquet('data.parquet')
+df_data.write_parquet('readback.parquet')
+```
+
+#### JSON
+
+```python
+import polars as pl
+
+df_records = pl.read_json('records.json')
+df_records.write_parquet('readback.parquet')
+```
+
+#### JSONL
+
+```python
+import polars as pl
+
+df_records = pl.read_ndjson('records.jsonl')
+df_records.write_parquet('readback.parquet')
+```
+
+#### TEXT
+
+```python
+import polars as pl
+
+with open('log.txt', encoding='utf-8') as _f:
+    df_log = pl.DataFrame({"text": _f.read().splitlines()})
+df_log.write_parquet('readback.parquet')
 ```
 
 ## Tips & common mistakes

@@ -1,7 +1,9 @@
 ---
-title: Split to rows
+title: Split Delimited Text or Lists into Rows
 search: explode split rows delimited list one row per value unnest
-description: The Split to rows node (explodeRows) expands a delimited text or list column into one row per value, repeating the other columns. With pandas code.
+description:
+  Split Ciaren delimited text or list columns into rows while repeating other
+  fields. Preserve empty and null values; compare pandas and Polars exports.
 ---
 
 # Split to rows — `explodeRows`
@@ -17,26 +19,39 @@ repeated on each new row.
 
 ## What it does
 
-With a **delimiter**, the text is split on it first and then exploded
-(`"a;b"` → two rows). Without a delimiter, an existing list column is exploded
-directly. Row count grows; all other columns are duplicated per value.
+With a **delimiter**, the text is split on it first and then exploded (`"a;b"` →
+two rows). Without a delimiter, an existing list column is exploded directly.
+Row count grows; all other columns are duplicated per value.
 
 ## Configuration
 
-| Config key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `column` | string | Yes | The column to expand |
-| `delimiter` | string | No | Split text on this delimiter first; empty = explode a list column |
+| Config key  | Type   | Required | Description                                                       |
+| ----------- | ------ | -------- | ----------------------------------------------------------------- |
+| `column`    | string | Yes      | The column to expand                                              |
+| `delimiter` | string | No       | Split text on this delimiter first; empty = explode a list column |
 
 ## Generated Python code
+
+These exports split `tags` on `;` and expand one row per token, repeating every
+other field. Empty text and trailing delimiters produce empty tokens; null stays
+null.
+
+### pandas
 
 ```python
 df_2 = df_1.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';')).explode('tags').reset_index(drop=True)
 ```
 
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('tags').cast(pl.Utf8).str.split(';')).explode('tags')
+```
+
 ## Tips & common mistakes
 
-- A cell with **no delimiter present** yields a single row (count unchanged for it).
+- A cell with **no delimiter present** yields a single row (count unchanged for
+  it).
 - A **trailing delimiter** (`"a;"`) produces an empty-string row — clean up with
   [Filter by expression](./filter-expression.md) if needed.
 

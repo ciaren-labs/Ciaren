@@ -1,14 +1,16 @@
 ---
-title: Parse dates
+title: Parse Text Columns into Datetimes
 search: parse dates to_datetime format errors coerce strptime text datetime
-description: The Parse dates node (parseDates) converts text columns into real datetimes, with an optional format and unparseable values sent to null.
+description:
+  Parse Ciaren text columns into datetimes with an optional format and
+  invalid-to-null handling. Compare the generated pandas and Polars code.
 ---
 
 # Parse dates — `parseDates`
 
 Parse text columns into real datetimes so date operations (sorting, Extract date
-parts) work. Complements [Extract date parts](./extract-date-parts.md) (which goes
-the other way: datetime → parts).
+parts) work. Complements [Extract date parts](./extract-date-parts.md) (which
+goes the other way: datetime → parts).
 
 ## Use cases
 
@@ -18,8 +20,8 @@ the other way: datetime → parts).
 
 ## What it does
 
-Converts each matching text value to a `datetime`. Unparseable strings become `null`
-when `errors=coerce` (the default).
+Converts each matching text value to a `datetime`. Unparseable strings become
+`null` when `errors=coerce` (the default).
 
 <DataTransform
   transform="Parse dates (columns=[ordered_at], errors=coerce)"
@@ -36,16 +38,29 @@ when `errors=coerce` (the default).
 
 ## Configuration
 
-| Config key | Type | Required | Description |
-| --- | --- | --- | --- |
-| `columns` | string[] | Yes | Text columns to parse |
-| `format` | string | No | strptime format (e.g. `%d-%m-%Y`); empty = auto-detect |
-| `errors` | string | No | `coerce` (default, bad values → null) or `raise` |
+| Config key | Type     | Required | Description                                            |
+| ---------- | -------- | -------- | ------------------------------------------------------ |
+| `columns`  | string[] | Yes      | Text columns to parse                                  |
+| `format`   | string   | No       | strptime format (e.g. `%d-%m-%Y`); empty = auto-detect |
+| `errors`   | string   | No       | `coerce` (default, bad values → null) or `raise`       |
 
 ## Generated Python code
 
+These exports parse only `ordered_at` with `errors: coerce` and no explicit
+format. Invalid and missing dates become null; other fields and row order stay
+unchanged.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(ordered_at=lambda _d: pd.to_datetime(_d['ordered_at'], errors='coerce'))
+```
+
+### Polars
+
+```python
+_sch = df_1.collect_schema()
+df_2 = df_1.with_columns((pl.col('ordered_at').str.to_datetime(strict=False) if _sch['ordered_at'] == pl.Utf8 else pl.col('ordered_at').cast(pl.Datetime, strict=False)))
 ```
 
 ## Tips & common mistakes
@@ -57,4 +72,5 @@ df_2 = df_1.assign(ordered_at=lambda _d: pd.to_datetime(_d['ordered_at'], errors
 
 ## See also
 
-- [Extract date parts](./extract-date-parts.md) · [Change types](./cast-types.md) · [Sort rows](./sort-rows.md)
+- [Extract date parts](./extract-date-parts.md) ·
+  [Change types](./cast-types.md) · [Sort rows](./sort-rows.md)

@@ -1,7 +1,7 @@
 ---
 title: Filter rows
 search: filter rows where condition operator between in contains isnull keep
-description: "The Filter rows node (filterRows) keeps rows matching one condition: comparisons, between, in, contains, or null checks. Config and pandas code."
+description: Filter Ciaren dataframe rows with comparisons, text or null checks. Configure a condition and compare pandas and Polars exports.
 ---
 
 # Filter rows — `filterRows`
@@ -53,8 +53,18 @@ keeps the value type aligned to the column.
 
 ## Generated Python code
 
+This example keeps rows where `amount > 0` (`column: amount`, `operator: >`, `value: 0`). Zero, negative and missing amounts are excluded.
+
+### pandas
+
 ```python
 df_2 = df_1.loc[lambda _d: _d['amount'] > 0]
+```
+
+### Polars
+
+```python
+df_2 = df_1.filter(pl.col('amount') > 0)
 ```
 
 ## Tips & common mistakes

@@ -59,6 +59,18 @@ function renderToolbar(overrides: Partial<React.ComponentProps<typeof EditorTool
 }
 
 describe("EditorToolbar", () => {
+  it("calls onRename using the explicitly labelled rename button", async () => {
+    const onRename = vi.fn();
+    renderToolbar({ onRename });
+    const button = screen.getByRole("button", { name: "Rename flow" });
+    // Keep the label even though title also supplies a fallback accessible name.
+    expect(button).toHaveAttribute("aria-label", "Rename flow");
+
+    await userEvent.setup().click(button);
+
+    expect(onRename).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the flow name, project, and a 'Ready to run' pill when validation passes", () => {
     renderToolbar();
     expect(screen.getByText("My Flow")).toBeInTheDocument();

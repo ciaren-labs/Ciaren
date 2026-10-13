@@ -1,6 +1,6 @@
 ---
-title: File output (CSV / TSV / Excel / Parquet / JSON / JSONL / text)
-description: The Ciaren File Output node writes a flow's result to CSV, TSV, Excel, Parquet, JSON, JSONL, or text as a downloadable dataset. Config and code.
+title: Write Files with File Output in Both Engines
+description: Write Ciaren results as CSV, TSV, Excel, Parquet, JSON, JSONL or text. Compare exact pandas and Polars exports, filenames and local output behavior.
 search: output csv tsv excel parquet json jsonl text write save result dataset file
 ---
 
@@ -46,13 +46,144 @@ unified **File Output** node (the old ones are hidden from the palette).
 
 ## Generated Python code
 
+These separate flows read `source.csv` and write `result` with the selected format
+extension (`dataset_name: result`). Put your original CSV beside the script and choose
+one example. The seven examples use the same source, each with its own destination
+format. The exported script creates a local file, not a registered Ciaren dataset or
+run. JSON stores records and JSONL stores one record per line; indentation may differ
+between engines. Text writes headerless, tab-separated rows without column types; use
+Parquet to read a table back with its types. These are complete eager exports with
+imports; use an environment with Ciaren and its file-format dependencies installed.
+
+### pandas
+
+#### CSV
+
 ```python
-df_5.to_csv("result.csv", index=False)   # format: csv
-df_5.to_json("result.json", orient="records", indent=2)   # format: json
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_csv('result.csv', index=False)
 ```
 
-Excel/Parquet/text emit `to_excel(...)` / `to_parquet(...)` / a tab-separated
-`to_csv(..., header=False)`.
+#### TSV
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_csv('result.tsv', index=False, sep='\t')
+```
+
+#### EXCEL
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_excel('result.xlsx', index=False)
+```
+
+#### PARQUET
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_parquet('result.parquet', index=False)
+```
+
+#### JSON
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_json('result.json', orient='records', indent=2)
+```
+
+#### JSONL
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_json('result.jsonl', orient='records', lines=True)
+```
+
+#### TEXT
+
+```python
+import pandas as pd
+
+df_source = pd.read_csv('source.csv')
+df_source.to_csv('result.txt', index=False, header=False, sep='\t')
+```
+
+### Polars
+
+#### CSV
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_csv('result.csv')
+```
+
+#### TSV
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_csv('result.tsv', separator='\t')
+```
+
+#### EXCEL
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_excel('result.xlsx')
+```
+
+#### PARQUET
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_parquet('result.parquet')
+```
+
+#### JSON
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_json('result.json')
+```
+
+#### JSONL
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_ndjson('result.jsonl')
+```
+
+#### TEXT
+
+```python
+import polars as pl
+
+df_source = pl.read_csv('source.csv')
+df_source.write_csv('result.txt', include_header=False, separator='\t')
+```
 
 ## Tips & common mistakes
 
@@ -60,8 +191,10 @@ Excel/Parquet/text emit `to_excel(...)` / `to_parquet(...)` / a tab-separated
   use multiple output nodes to materialize intermediate branches.
 - **Parquet preserves dtypes.** Prefer it over CSV when types (datetimes,
   integers, categoricals) matter downstream.
-- **Text output** writes one row per line (tab-separated for multiple columns) —
-  the mirror of the text input reader.
+- **Text output** writes headerless, tab-separated records with CSV-style
+  quoting. Values containing tabs or newlines are escaped, so a record may span
+  physical lines. Text Input reads raw lines and does not reverse this encoding;
+  use TSV or Parquet when you need to read the table back.
 
 ## See also
 

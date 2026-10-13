@@ -170,7 +170,7 @@ class SplitColumnTransformation(BaseTransformation):
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
         col, into = config["column"], config["into"]
-        items = {name: f"_parts[{i}]" for i, name in enumerate(into)}
+        items = {name: f"(_parts[{i}] if {i} in _parts.columns else pd.NA)" for i, name in enumerate(into)}
         lines = [
             f"_parts = {self._parts_expr(src, col, config)}",
             f"{dst} = {src}.assign({pd_assign_args(items)})",

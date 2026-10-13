@@ -14,7 +14,7 @@ export function ImportOptionsRow({
 }) {
   const set = (patch: Partial<typeof options>) => onChange({ ...options, ...patch });
   const selectCls =
-    "h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring";
+    "h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring";
   return (
     <details className="rounded-lg border border-border bg-muted/30 px-3 py-2">
       <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">

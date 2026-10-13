@@ -497,6 +497,7 @@ export function TagInput({ value, onChange, placeholder }: TagInputProps) {
             <button
               type="button"
               onClick={() => removeTag(t)}
+              aria-label={`Remove ${t}`}
               className="ml-0.5 text-primary/60 hover:text-primary"
             >
               ×
@@ -504,7 +505,7 @@ export function TagInput({ value, onChange, placeholder }: TagInputProps) {
           </span>
         ))}
         <input
-          className="min-w-[80px] flex-1 bg-transparent text-xs outline-none"
+          className="min-w-[80px] flex-1 bg-transparent text-xs outline-hidden"
           value={draft}
           placeholder={tags.length === 0 ? (placeholder ?? "type and press Enter…") : "add more…"}
           onChange={(e) => setDraft(e.target.value)}

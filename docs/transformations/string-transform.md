@@ -1,7 +1,7 @@
 ---
-title: String transform
+title: Clean Text with String Transform
 search: string transform lower upper strip lstrip rstrip title capitalize len replace pad text
-description: The String transform node (stringTransform) applies lower, upper, title, strip, replace, length, or pad to a text column. Config and pandas code.
+description: Clean Ciaren text columns with casing, trimming, replacement or padding operations. Configure a step and compare pandas and Polars exports.
 ---
 
 # String transform — `stringTransform`
@@ -16,7 +16,7 @@ Apply a string operation to a column.
 
 ## What it does
 
-Applies the chosen operation to every value in the target column in place.
+Applies the chosen operation to every value in the target column of the output.
 Chain multiple String transform nodes (one per operation) for multi-step cleaning.
 
 <DataTransform
@@ -45,8 +45,18 @@ Chain multiple String transform nodes (one per operation) for multi-step cleanin
 
 ## Generated Python code
 
+These exports trim whitespace from `region` (`operation: strip`), keeping empty strings and nulls. The illustration above applies different operations to `email` and `name`.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(region=lambda _d: _d['region'].astype('string').str.strip())
+```
+
+### Polars
+
+```python
+df_2 = df_1.with_columns(pl.col('region').cast(pl.Utf8).str.strip_chars())
 ```
 
 ## Tips & common mistakes

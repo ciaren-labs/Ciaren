@@ -143,6 +143,7 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
             <button
               type="button"
               onClick={toggleCollapsed}
+              aria-label="Show nodes panel"
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronRight className="h-4 w-4" />
@@ -193,6 +194,7 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
             <button
               type="button"
               onClick={toggleCollapsed}
+              aria-label="Collapse panel"
               className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -208,12 +210,13 @@ export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search nodes…"
-          className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-7 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-7 text-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         />
         {query && (
           <button
             type="button"
             onClick={() => setQuery("")}
+            aria-label="Clear node search"
             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
@@ -400,7 +403,7 @@ function PaletteItem({
           disabled={disabled}
           className={cn(
             "group flex items-center gap-2.5 rounded-lg border border-transparent bg-card/60 px-2.5 py-2 text-left text-sm font-medium text-slate-700 shadow-sm",
-            "transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "transition-all duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
             disabled
               ? "cursor-not-allowed opacity-50"
               : "cursor-grab hover:-translate-y-px hover:border-brand-200 hover:bg-card hover:shadow active:cursor-grabbing",

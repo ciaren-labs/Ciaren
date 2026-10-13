@@ -1,7 +1,7 @@
 ---
 title: Sort rows
 search: sort rows order ascending descending na_position multi-column
-description: The Sort rows node (sortRows) sorts a dataframe by one or more columns with per-column ascending or descending order and null placement.
+description: Sort Ciaren rows by one or more keys, choose ascending or descending order and null placement, and view pandas and Polars exports.
 ---
 
 # Sort rows — `sortRows`
@@ -41,8 +41,18 @@ is primary, subsequent ones are tie-breakers.
 
 ## Generated Python code
 
+This example sorts `amount` in descending order (`columns: ["amount"]`, `ascending: false`). Missing amounts go last under the default `na_position: last`.
+
+### pandas
+
 ```python
 df_2 = df_1.sort_values('amount', ascending=False)
+```
+
+### Polars
+
+```python
+df_2 = df_1.sort('amount', descending=True, nulls_last=True)
 ```
 
 ## Tips & common mistakes

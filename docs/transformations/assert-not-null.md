@@ -40,10 +40,21 @@ The per-node result in the run detail always includes `assertion_passed`,
 
 ## Generated Python code
 
+### pandas
+
 ```python
 _null_mask = df_1[['user_id', 'email']].isnull().any(axis=1)
 if _null_mask.any():
     raise ValueError(f"assertNotNull: {_null_mask.sum()} row(s) contain nulls in ['user_id', 'email']")
+```
+
+### Polars
+
+```python
+df_1 = df_1
+_null_count = df_1.select(pl.any_horizontal(pl.col(['user_id', 'email']).is_null())).to_series().sum()
+if _null_count > 0:
+    raise ValueError(f"assertNotNull: {_null_count} row(s) contain nulls in ['user_id', 'email']")
 ```
 
 In `warn` mode the `raise` is replaced by a `warnings.warn(...)` call and

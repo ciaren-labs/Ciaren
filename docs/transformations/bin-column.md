@@ -1,7 +1,7 @@
 ---
 title: Bin column
 search: bin column bucket cut quantile equalwidth bands labels histogram
-description: The Bin column node (binColumn) buckets a numeric column into labeled equal-width or quantile bins as a new column. Config, example, and pandas code.
+description: Bucket a numeric column into equal-width or quantile bins in Ciaren. Configure labels and compare the generated pandas and Polars code.
 ---
 
 # Bin column — `binColumn`
@@ -49,8 +49,20 @@ equal row counts.
 
 ## Generated Python code
 
+This example bins `amount` into four equal-width bands named `amount_band`, using the default method and labels.
+
+### pandas
+
 ```python
 df_2 = df_1.assign(amount_band=pd.cut(df_1['amount'], bins=4).astype('string'))
+```
+
+### Polars
+
+```python
+_lo, _hi = df_1['amount'].min(), df_1['amount'].max()
+_breaks = [_lo + (_hi - _lo) / 4 * i for i in range(1, 4)]
+df_2 = df_1.with_columns(pl.col('amount').cut(_breaks).cast(pl.Utf8).alias('amount_band'))
 ```
 
 ## Tips & common mistakes

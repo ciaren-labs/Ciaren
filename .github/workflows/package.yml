@@ -32,6 +32,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  release-tests:
+    name: Release backend matrix
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/backend-tests.yml
+    secrets: inherit
+
   build-server:
     name: Build server wheel (ciaren)
     runs-on: ubuntu-latest
@@ -186,10 +192,10 @@ jobs:
     # lockstep, so if build-client fails its tag-vs-version check, this job
     # must not publish either (otherwise ciaren ships while ciaren-client
     # doesn't, breaking the lockstep guarantee).
-    needs: [build-server, build-client]
+    needs: [build-server, build-client, release-tests]
     # Only publish on an actual version tag push (not workflow_dispatch), so
     # maintainers can still use workflow_dispatch to sanity-check the build.
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -214,8 +220,8 @@ jobs:
   publish-client:
     name: Publish ciaren-client to PyPI
     # Needs both builds — see the note on publish-server above.
-    needs: [build-server, build-client]
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-server, build-client, release-tests]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

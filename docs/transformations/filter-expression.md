@@ -1,7 +1,7 @@
 ---
-title: Filter by expression
+title: Filter Rows with Boolean Expressions
 search: filter expression query boolean multi condition and or keep rows
-description: The Filter by expression node (filterExpression) keeps rows where a boolean expression over several columns with and/or is true. With pandas code.
+description: Filter Ciaren rows with boolean expressions combining columns, comparisons and arithmetic. Compare exact pandas and eager Polars exports.
 ---
 
 # Filter by expression — `filterExpression`
@@ -43,8 +43,19 @@ and you can ignore it and type the expression by hand instead.
 
 ## Generated Python code
 
+These exports keep only rows with `amount > 100` and `status == "paid"`. The Polars export uses eager frames and evaluates the mask through pandas, so it also requires pandas and PyArrow.
+
+### pandas
+
 ```python
 df_2 = df_1.query("amount > 100 and status == 'paid'").reset_index(drop=True)
+```
+
+### Polars
+
+```python
+# the filter expression uses pandas eval semantics (needs pandas + pyarrow installed)
+df_2 = df_1.filter(pl.Series(df_1.to_pandas().eval("amount > 100 and status == 'paid'")).cast(pl.Boolean))
 ```
 
 ## Tips & common mistakes

@@ -1,7 +1,7 @@
 ---
 title: Drop nulls
 search: drop nulls missing na dropna how any all subset
-description: The Drop nulls node (dropNulls) removes rows with missing values, in any column or only in the columns you choose. Config, example, and pandas code.
+description: Drop rows with missing values in Ciaren. Choose columns and any/all rules, and compare generated pandas and Polars exports.
 ---
 
 # Drop nulls — `dropNulls`
@@ -43,8 +43,18 @@ rows missing an `amount` are removed — rows with other nulls (like `region`) s
 
 ## Generated Python code
 
+This example drops rows missing `amount` (`subset: ["amount"]`, default `how: any`). A missing value in another column does not remove the row.
+
+### pandas
+
 ```python
 df_2 = df_1.dropna(subset='amount')
+```
+
+### Polars
+
+```python
+df_2 = df_1.drop_nulls(subset='amount')
 ```
 
 ## Tips & common mistakes

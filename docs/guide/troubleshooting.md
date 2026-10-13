@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting Guide
-description: "Fix common Ciaren problems: async database URLs, port 8055 already in use, CORS errors, upload size limits, Windows long-path installs, and MLflow."
-search: troubleshooting help issues database cors port
+description: "Fix Ciaren setup and runtime errors: database URLs, occupied ports, CORS, missing modules, pandas exports, Windows paths and MLflow tracking."
+search: troubleshooting help issues database cors port modules pandas export split
 ---
 
 # Troubleshooting Guide
@@ -73,18 +73,56 @@ The default upload limit is 100 MB. Raise it with
 
 ## Module not found errors
 
-Reinstall the backend in editable mode from a clean virtual environment:
+Activate the environment you use to run Ciaren, then check whether the package
+is installed in that interpreter:
 
 ```bash
-cd backend
-rm -rf .venv
-python -m venv .venv
-source .venv/bin/activate   # or .venv\Scripts\activate on Windows
-python -m pip install ciaren
+python -m pip show ciaren
 ```
 
-If you are working from a source checkout, reinstall the local package instead:
-`pip install -e .` from the `backend/` directory.
+For a PyPI installation, run `python -m pip install ciaren` in that environment.
+For a source checkout, run `python -m pip install -e .` from the `backend/`
+directory instead. Using `python -m pip` keeps installation tied to the selected
+interpreter; a bare `pip` command can belong to a different environment.
+
+For optional connector drivers, check the extras listed in
+[Installation](./installation.md#recommended-pypi-package) and
+[Connections](./connections.md). For an async database driver such as `aiomysql`,
+follow [Database connection fails](#database-connection-fails) above instead;
+the `mysql` connector extra installs `pymysql`, not `aiomysql`. Reinstalling the
+base package does not add every optional driver. You do not need to delete your
+existing virtual environment.
+
+## Exported pandas code fails after Split column
+
+**Symptom:** the flow runs in Ciaren, but an older exported pandas script fails
+with `KeyError: 1` at `_parts[1]`. For example, splitting `['EU', None]` on `|`
+into `region` and `city` produces no second field in any row.
+
+**Cause:** pandas only creates split columns that exist in the data. An older
+export can index a column that was never created, while Ciaren's runtime leaves
+missing fields null.
+
+**Workaround:** check each split column before assigning it and use `pd.NA` for
+a missing output. For the example above:
+
+```python
+import pandas as pd
+
+df_1 = pd.DataFrame({"location": ["EU", None]})
+_parts = df_1['location'].astype('string').str.split('|', expand=True)
+df_2 = df_1.assign(
+    region=(_parts[0] if 0 in _parts.columns else pd.NA),
+    city=(_parts[1] if 1 in _parts.columns else pd.NA),
+)
+```
+
+The result keeps `region` as `['EU', null]` and `city` as `[null, null]`. Apply
+the same check to each additional output; do not drop rows to avoid the error.
+If your export already includes these checks, missing trailing fields are
+expected nulls rather than an error. See the
+[Split column reference](../transformations/split-column.md) and the
+[split-column recipe](../recipes/split-a-column.md) for configuration and examples.
 
 ## Install fails on Windows with a long-path error
 

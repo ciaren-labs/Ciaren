@@ -1,7 +1,7 @@
 ---
 title: Sample rows
 search: sample rows random subset frac fraction seed reproducible
-description: The Sample rows node (sampleRows) takes a reproducible random sample of rows by count or fraction with a required seed. Config and pandas code.
+description: Sample Ciaren rows by count or fraction with a required seed. Compare pandas and Polars exports and understand engine-specific results.
 ---
 
 # Sample rows — `sampleRows`
@@ -10,15 +10,12 @@ Take a reproducible random sample. A `seed` is **required** so the same rows are
 selected on every run — important for pipelines you preview, schedule, or export.
 
 <DataTransform
-  transform="Sample rows (frac=0.4, seed=42)"
+  transform="Sample rows (pandas, frac=0.4, seed=42)"
   :before='{
     "columns":["id","name","score"],
     "rows":[[1,"Alice",88],[2,"Bob",72],[3,"Carol",95],[4,"Dave",61],[5,"Eve",79],[6,"Frank",84],[7,"Grace",91]]
   }'
-  :after='{
-    "columns":["id","name","score"],
-    "rows":[[3,"Carol",95],[6,"Frank",84],[1,"Alice",88]]
-  }'
+  :after='{"columns":["id","name","score"],"rows":[[1,"Alice",88],[2,"Bob",72],[6,"Frank",84]]}'
 />
 
 ## Use cases
@@ -39,8 +36,18 @@ without one is rejected so runs stay reproducible.
 
 ## Generated Python code
 
+These exports sample a fraction of `0.4` with `seed: 42`. The illustration shows the pandas result. Each engine repeats its own sample, but pandas and Polars use different random generators and fraction rounding: these seven rows yield three pandas rows and two Polars rows.
+
+### pandas
+
 ```python
 df_2 = df_1.sample(frac=0.4, random_state=42)
+```
+
+### Polars
+
+```python
+df_2 = df_1.sample(fraction=0.4, seed=42)
 ```
 
 ## Tips & common mistakes
