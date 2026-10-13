@@ -150,6 +150,23 @@ def test_rejects_redirect_and_validates_location(plugin_module, runtime, monkeyp
         runtime.read({"options": {"url": "https://data.example/users.csv", "format": "csv"}}, {})
 
 
+@pytest.mark.parametrize(
+    ("fmt", "body"),
+    [
+        ("csv", b"name\nAda\n"),
+        ("json", b'[{"name":"Ada"}]'),
+    ],
+)
+@pytest.mark.parametrize("status", [404, 500])
+def test_rejects_http_error_statuses_before_parsing(plugin_module, runtime, monkeypatch, fmt, body, status):
+    capture = _mock_response(plugin_module, monkeypatch, _Response(body, status=status))
+
+    with pytest.raises(ValueError, match=f"HTTP request failed with status {status}"):
+        runtime.read({"options": {"url": f"https://data.example/users.{fmt}", "format": fmt}}, {})
+
+    assert capture.connection.closed is True
+
+
 def test_connection_uses_vetted_ip_when_dns_rebinding_changes_later_answer(plugin_module, monkeypatch):
     lookups = 0
 

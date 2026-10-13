@@ -208,6 +208,8 @@ def _download(url: str, *, max_bytes: int, timeout: int) -> bytes:
                 redirected = urllib.parse.urljoin(url, location)
                 _validate_https_public_url(redirected)
             raise UnsafeUrlError("redirect responses are not followed")
+        if status >= 400:
+            raise ValueError(f"HTTP request failed with status {status}")
 
         content_length = _response_header(response, "Content-Length")
         if content_length and int(content_length) > max_bytes:
