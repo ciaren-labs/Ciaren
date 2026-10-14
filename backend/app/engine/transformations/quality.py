@@ -147,7 +147,12 @@ class AssertNotNullTransformation(_BaseAssertion):
         action = self._violation_action(mode, msg)
         return (
             f"{dst} = {src}\n"
-            f"_null_count = {dst}.select(pl.any_horizontal(pl.col({cols_expr}).is_null())).to_series().sum()\n"
+            f"_null_checks = [\n"
+            f"    pl.col(_col).is_null() | pl.col(_col).is_nan()\n"
+            f"    if {dst}.schema[_col].is_float() else pl.col(_col).is_null()\n"
+            f"    for _col in {cols_expr}\n"
+            f"]\n"
+            f"_null_count = {dst}.select(pl.any_horizontal(_null_checks)).to_series().sum()\n"
             f"if _null_count > 0:\n"
             f"    {action}"
         )
