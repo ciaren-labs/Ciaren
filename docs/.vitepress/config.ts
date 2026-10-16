@@ -470,6 +470,7 @@ export default defineConfig({
             { text: 'Fill Missing Values', link: '/recipes/fill-missing-values' },
             { text: 'Clean Messy Text', link: '/recipes/clean-messy-text' },
             { text: 'Combine Fallback Values', link: '/recipes/coalesce-fallback-values' },
+            { text: 'Filter Paid Orders', link: '/recipes/filter-paid-orders' },
             { text: 'Split a Column', link: '/recipes/split-a-column' },
             { text: 'One Row per Tag', link: '/recipes/one-row-per-tag' },
             { text: 'Pivot a Table', link: '/recipes/pivot-a-table' },
