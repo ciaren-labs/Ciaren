@@ -26,6 +26,8 @@ class _Response:
         self.status = status
         self.headers = headers or {}
         self._chunk_size = chunk_size
+        self.read_calls = 0
+        self.close_calls = 0
 
     def getcode(self) -> int:
         return self.status
@@ -34,9 +36,14 @@ class _Response:
         return self.headers.get(name)
 
     def read(self, size: int = -1) -> bytes:
+        self.read_calls += 1
         if self._chunk_size is not None and size > self._chunk_size:
             size = self._chunk_size
         return self._body.read(size)
+
+    def close(self) -> None:
+        self.close_calls += 1
+        self._body.close()
 
     def __enter__(self):
         return self
@@ -159,11 +166,31 @@ def test_rejects_redirect_and_validates_location(plugin_module, runtime, monkeyp
 )
 @pytest.mark.parametrize("status", [404, 500])
 def test_rejects_http_error_statuses_before_parsing(plugin_module, runtime, monkeypatch, fmt, body, status):
-    capture = _mock_response(plugin_module, monkeypatch, _Response(body, status=status))
+    response = _Response(body, status=status)
+    capture = _mock_response(plugin_module, monkeypatch, response)
 
     with pytest.raises(ValueError, match=f"HTTP request failed with status {status}"):
         runtime.read({"options": {"url": f"https://data.example/users.{fmt}", "format": fmt}}, {})
 
+    assert response.close_calls == 1
+    assert response._body.closed is True
+    assert response.read_calls == 0
+    assert capture.connection.closed is True
+
+
+def test_connection_closes_when_response_close_raises(plugin_module, runtime, monkeypatch):
+    class _FailingCloseResponse(_Response):
+        def close(self) -> None:
+            self.close_calls += 1
+            raise RuntimeError("response close failed")
+
+    response = _FailingCloseResponse(b"name\nAda\n")
+    capture = _mock_response(plugin_module, monkeypatch, response)
+
+    with pytest.raises(RuntimeError, match="response close failed"):
+        runtime.read({"options": {"url": "https://data.example/users.csv", "format": "csv"}}, {})
+
+    assert response.close_calls == 1
     assert capture.connection.closed is True
 
 

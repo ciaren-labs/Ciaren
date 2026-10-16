@@ -199,6 +199,7 @@ def _positive_int(value: Any, default: int, label: str) -> int:
 def _download(url: str, *, max_bytes: int, timeout: int) -> bytes:
     vetted = _validate_https_public_url(url)
     connection: http.client.HTTPSConnection | None = None
+    response: Any | None = None
     try:
         connection, response = _request_pinned(vetted, timeout)
         status = int(getattr(response, "status", response.getcode()))
@@ -217,8 +218,12 @@ def _download(url: str, *, max_bytes: int, timeout: int) -> bytes:
 
         return _read_limited(response, max_bytes)
     finally:
-        if connection is not None:
-            connection.close()
+        try:
+            if response is not None:
+                response.close()
+        finally:
+            if connection is not None:
+                connection.close()
 
 
 def _request_pinned(vetted: _VettedUrl, timeout: int) -> tuple[http.client.HTTPSConnection, Any]:
