@@ -1,7 +1,7 @@
 ---
 title: Recipes
-description: "Short Ciaren recipes for common data tasks: clean text, split columns or rows, choose fallback values, convert Excel to Parquet, remove duplicates, and pivot tables."
-search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values clean text split rows tags coalesce
+description: "Short Ciaren recipes for common data tasks: clean text, split columns or rows, choose fallback values, filter rows by two conditions, convert Excel to Parquet, remove duplicates, and pivot tables."
+search: recipes how to tasks convert excel parquet remove duplicates pivot fill missing values clean text split rows tags coalesce filter paid orders conditions
 ---
 
 # Recipes
@@ -25,6 +25,11 @@ projects, see the [Examples](/examples/sales-analysis).
   email casing before a join or deduplication
 - **[Combine columns with fallback values](/recipes/coalesce-fallback-values)** —
   pick the first non-null value in priority order
+
+## Filtering
+
+- **[Filter paid orders](/recipes/filter-paid-orders)** — keep paid orders of
+  100 or more by combining two conditions
 
 ## Reshaping
 
