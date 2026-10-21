@@ -20,7 +20,7 @@
     "format": "prettier --write \"**/*.md\" --prose-wrap always"
   },
   "dependencies": {
-    "vue": "^3.5.43"
+    "vue": "^3.5.44"
   },
   "devDependencies": {
     "vitepress": "^1.1.4",
