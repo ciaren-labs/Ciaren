@@ -58,4 +58,3 @@ ciaren-plugin install examples/plugins/dist/community.https-input-0.1.0-alpha.1.
 
 The demo signing key is committed only so contributors can reproduce the example
 package. Real publishers should generate and protect their own key.
-

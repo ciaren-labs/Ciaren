@@ -54,4 +54,3 @@ def read_manifest_from_dir(src: Path):  # noqa: ANN201
 
 if __name__ == "__main__":
     main()
-

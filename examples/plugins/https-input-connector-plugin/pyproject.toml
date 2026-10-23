@@ -23,4 +23,3 @@ https_input = "ciaren_https_input.plugin:HttpsInputPlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ciaren_https_input"]
-
