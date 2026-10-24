@@ -147,6 +147,10 @@ and bundled into the Explore catalog so a fresh install lists them ready to inst
   set and adds a boolean pass/fail column. Shows `config_schema` with `column`,
   `select`, `string`, and `string_list` fields — the editor renders the form
   automatically.
+- **[HTTPS Input Connector plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/https-input-connector-plugin)** —
+  a read-only connector for HTTPS CSV/JSON documents that demonstrates the
+  connector runtime, `network` permission, URL safety checks, redirect refusal,
+  timeout, and streamed download limit.
 - **[MLP Classifier plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/mlp-classifier-plugin)** —
   neural-network classification both ways: a **model type** inside the core Train
   Classifier picker, and a standalone **train node** that persists to MLflow and
