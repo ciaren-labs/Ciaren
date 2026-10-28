@@ -2,10 +2,13 @@
 
 import logging
 import tomllib
+from importlib.metadata import requires
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 from sqlalchemy import Boolean, Column, Float, Integer, String, create_engine, inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -13,6 +16,36 @@ from sqlalchemy.pool import StaticPool
 from app.core import database as db_mod
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+
+
+@pytest.mark.parametrize(
+    "name, patched",
+    [
+        ("aiohttp", "3.14.4"),
+        ("certifi", "2026.10.19"),
+        ("gitpython", "3.2.1"),
+        ("graphql-core", "3.2.12"),
+        ("mlflow", "3.17.2"),
+        ("opentelemetry-api", "1.45.1"),
+        ("pillow", "13.0.0"),
+    ],
+)
+def test_distribution_and_lock_exclude_vulnerable_dependencies(name: str, patched: str) -> None:
+    requirements = [Requirement(value) for value in requires("ciaren") or []]
+    dependencies = {requirement.name.lower(): requirement for requirement in requirements}
+    assert name in dependencies, f"Fresh pip installs need an explicit security floor for {name}"
+    requirement = dependencies[name]
+    assert requirement.marker is None, "Security floors must apply to every supported installation"
+    assert any(
+        specifier.operator == ">=" and Version(specifier.version) >= Version(patched)
+        for specifier in requirement.specifier
+    ), f"The installer must reject the entire affected range below {patched}"
+    assert patched in requirement.specifier
+    lock = tomllib.loads((Path(__file__).resolve().parents[1] / "uv.lock").read_text(encoding="utf-8"))
+    locked = next(package["version"] for package in lock["package"] if package["name"] == name)
+    assert Version(locked) >= Version(patched)
+    assert locked in requirement.specifier
+
 
 # -- logging ------------------------------------------------------------
 
