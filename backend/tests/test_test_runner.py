@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
@@ -152,6 +153,28 @@ def test_release_publication_waits_for_full_matrix_and_both_builds() -> None:
         ("macos-latest", "3.12"),
         ("macos-latest", "3.14"),
     }
+
+
+def test_codeql_steps_share_a_version_and_dependabot_update_group() -> None:
+    github = RUNNER.parents[2] / ".github"
+    workflow = yaml.load((github / "workflows/codeql.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    actions = [
+        step["uses"].split("@")
+        for step in workflow["jobs"]["analyze"]["steps"]
+        if step.get("uses", "").startswith("github/codeql-action/")
+    ]
+    assert sorted(action for action, _ in actions) == ["github/codeql-action/analyze", "github/codeql-action/init"]
+    assert len({version for _, version in actions}) == 1
+    dependabot = yaml.load((github / "dependabot.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    updates = next(update for update in dependabot["updates"] if update["package-ecosystem"] == "github-actions")
+    # Dependabot assigns updates to the first matching group.
+    groups = list(updates.get("groups", {}).values())
+    assert groups, "Dependabot must update all CodeQL steps together"
+    group = groups[0]
+    assert group.get("applies-to", "version-updates") == "version-updates"
+    assert not group.get("exclude-patterns")
+    assert not group.get("update-types")
+    assert all(any(fnmatchcase(action, pattern) for pattern in group["patterns"]) for action, _ in actions)
 
 
 @pytest.mark.parametrize(
