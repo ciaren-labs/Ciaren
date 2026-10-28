@@ -52,9 +52,11 @@ Each complete File Input → Extract Date Parts → File Output flow reads `sour
 writes `result.parquet`. The first example keeps the original configuration `column:
 ordered_at`, `parts: [year, month]`; the illustration above instead uses `occurred_at`.
 The second example requests all nine supported parts. The input dates in these examples
-are ISO text; valid dates and missing or invalid values produce missing date parts, and
-every original field and row is retained. Put your original CSV beside the script; use an
-environment with Ciaren and its file-format dependencies installed. Polars exports here
+are ISO text; missing values produce missing date parts, and every original field and row
+is retained. Pandas coerces invalid text to missing values. Polars can do the same when it
+can infer a datetime format from the other rows; if every non-null string is invalid, parse
+the column upstream with an explicit format. Put your original CSV beside the script; use
+an environment with Ciaren and its file-format dependencies installed. Polars exports here
 use eager frames.
 
 ### pandas
@@ -115,10 +117,11 @@ df_source.write_parquet('result.parquet')
   start on Monday, and week 1 is the first week with a Thursday in the calendar
   year, so dates near New Year can belong to the previous or next ISO week-year.
 - The Polars export subtracts one from its native weekday numbering to match
-  pandas. Invalid date text is coerced to a missing value in both exports.
+  pandas. For string input, Polars needs to infer a datetime format; if every
+  non-null value is invalid, parse the column upstream with an explicit format.
 - If the source is text, [Parse dates](./parse-dates.md) or
-  [Change types](./cast-types.md) → `datetime` first; this node also parses on the
-  fly but an explicit parse is clearer.
+  [Change types](./cast-types.md) → `datetime` first when you need a chosen
+  format or error policy.
 
 ## See also
 
