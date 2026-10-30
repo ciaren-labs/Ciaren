@@ -29,6 +29,9 @@
     "prettier": "^3.9.8"
   },
   "overrides": {
+    "markdownlint": {
+      "re2js": "2.8.7"
+    },
     "vitepress": {
       "vite": "^6.4.4"
     }
