@@ -53,11 +53,11 @@ install() {
   # editor from this checkout.
   echo "ciaren==$version is not on PyPI yet; building it from this checkout."
   if ! command -v npm >/dev/null 2>&1; then
-    echo "Building an unreleased version needs Node.js 20+, which this image does not include." >&2
+    echo "Building an unreleased version needs Node.js 22.22.2+ (22.x), 24.15.0+ (24.x), or 26+." >&2
     echo "Install Node.js, then run: bash .devcontainer/ciaren.sh install" >&2
     return 1
   fi
-  npm ci --prefix "$REPO/frontend" --no-audit --no-fund
+  npm ci --prefix "$REPO/frontend" --engine-strict --no-audit --no-fund
   npm run build --prefix "$REPO/frontend"
   "$VENV/bin/python" -m pip install --quiet --no-cache-dir --editable "$REPO/backend"
 }

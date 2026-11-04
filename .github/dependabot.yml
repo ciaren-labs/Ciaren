@@ -10,6 +10,13 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     labels: [dependencies, javascript]
 
   - package-ecosystem: npm

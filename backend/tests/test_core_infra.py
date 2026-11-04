@@ -28,6 +28,7 @@ from app.core.logging import setup_logging
         ("mlflow", "3.17.2"),
         ("opentelemetry-api", "1.45.1"),
         ("pillow", "13.0.0"),
+        ("pyasn1", "0.6.5"),
     ],
 )
 def test_distribution_and_lock_exclude_vulnerable_dependencies(name: str, patched: str) -> None:
