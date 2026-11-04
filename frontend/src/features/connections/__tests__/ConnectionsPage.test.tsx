@@ -137,6 +137,9 @@ function openDialog() {
 describe("ConnectionsPage plugin connectors", () => {
   it("lists plugin connectors in their own picker section with a badge", () => {
     openDialog();
+    expect(screen.getByRole("dialog", { name: "Add connection" })).toHaveAccessibleDescription(
+      "Choose the type of database or storage you want to connect to.",
+    );
     expect(screen.getByText("From plugins")).toBeInTheDocument();
     expect(screen.getByText("REST API")).toBeInTheDocument();
     expect(screen.getByText("Plugin")).toBeInTheDocument();

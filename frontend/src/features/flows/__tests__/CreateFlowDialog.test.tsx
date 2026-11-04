@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateFlowDialog } from "../components/CreateFlowDialog";
 import type { Project } from "@/features/projects/types";
@@ -128,39 +128,49 @@ describe("CreateFlowDialog", () => {
     );
   });
 
-  it("resets the selected template once the dialog is closed via Escape and reopened", async () => {
+  it("contains keyboard focus and returns it on Escape before reopening with a reset template", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();
 
     function Wrapper() {
-      const [open, setOpen] = useState(true);
+      const [open, setOpen] = useState(false);
       return (
-        <>
-          <button onClick={() => setOpen(true)}>Reopen</button>
-          <CreateFlowDialog
-            open={open}
-            onOpenChange={setOpen}
-            projects={[PROJECT]}
-            defaultProjectId=""
-            isPending={false}
-            trigger={<button>New flow trigger</button>}
-            onCreate={onCreate}
-          />
-        </>
+        <CreateFlowDialog
+          open={open}
+          onOpenChange={setOpen}
+          projects={[PROJECT]}
+          defaultProjectId=""
+          isPending={false}
+          trigger={<button>New flow trigger</button>}
+          onCreate={onCreate}
+        />
       );
     }
     render(<Wrapper />);
 
+    const trigger = screen.getByRole("button", { name: "New flow trigger" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Create flow" });
+    expect(dialog.contains(document.activeElement)).toBe(true);
     const templateButton = () => screen.getByText("Clean & Deduplicate").closest("button")!;
 
     await user.click(templateButton());
     expect(templateButton().className).toContain("border-primary");
 
+    const firstButton = screen.getByRole("button", { name: /Blank flow/ });
+    firstButton.focus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Create" })).toHaveFocus();
+    await user.tab();
+    expect(firstButton).toHaveFocus();
+
     // Radix's onOpenChange fires for an Escape-driven close (unlike an
     // externally forced `open` prop flip), which is what actually resets
     // selectedTemplateId in the component.
     await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("button", { name: "Reopen" }));
+    expect(screen.queryByRole("dialog", { name: "Create flow" })).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await user.click(trigger);
 
     await user.type(screen.getByPlaceholderText("My ETL flow"), "Fresh flow");
     await user.click(screen.getByRole("button", { name: "Create" }));
