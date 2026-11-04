@@ -61,18 +61,52 @@ describe("ExportCodeDialog", () => {
     expect(screen.getByRole("tab", { name: "polars (lazy)" })).toBeInTheDocument();
   });
 
-  it("reveals the lazy scan_csv script on the lazy tab", async () => {
+  it("does not announce a missing description for the generated-code dialog", async () => {
+    renderDialog();
+
+    const dialog = await screen.findByRole("dialog", { name: "Generated code" });
+    expect(dialog).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("keeps keyboard focus, selection and the exported script aligned", async () => {
     const user = userEvent.setup();
     renderDialog();
     await screen.findByText(/pd\.read_csv/, { selector: "code" });
 
-    // Radix Tabs activate on focus, so use userEvent (full pointer+focus
-    // sequence) rather than a bare fireEvent.click.
-    await user.click(screen.getByRole("tab", { name: "polars (lazy)" }));
+    await user.click(screen.getByRole("tab", { name: "pandas" }));
+    await user.keyboard("{ArrowRight}");
 
+    const polars = screen.getByRole("tab", { name: "polars" });
+    await waitFor(() => expect(polars).toHaveFocus());
+    expect(polars).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText(/pl\.read_csv/, { selector: "code" })).toBeInTheDocument();
+
+    await user.keyboard("{ArrowRight}");
+
+    const lazy = screen.getByRole("tab", { name: "polars (lazy)" });
+    await waitFor(() => expect(lazy).toHaveFocus());
+    expect(lazy).toHaveAttribute("aria-selected", "true");
     expect(
       await screen.findByText(/scan_csv/, { selector: "code" }),
     ).toBeInTheDocument();
+  });
+
+  it("moves focus to the selected tab before removing the previous code", async () => {
+    renderDialog();
+    const previousCode = await screen.findByText(/pd\.read_csv/, { selector: "code" });
+    screen.getByRole("button", { name: "Copy" }).focus();
+
+    const lazy = screen.getByRole("tab", { name: "polars (lazy)" });
+    let previousCodePresentOnFocus = false;
+    lazy.addEventListener("focus", () => {
+      previousCodePresentOnFocus = previousCode.isConnected;
+    }, { once: true });
+    fireEvent.mouseDown(lazy, { button: 0 });
+
+    expect(previousCodePresentOnFocus).toBe(true);
+    expect(lazy).toHaveFocus();
+    expect(previousCode).not.toBeInTheDocument();
+    expect(await screen.findByText(/scan_csv/, { selector: "code" })).toBeInTheDocument();
   });
 
   it("shows the importable Flow JSON document on its tab", async () => {
