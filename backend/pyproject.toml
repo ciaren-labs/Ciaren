@@ -85,6 +85,7 @@ dependencies = [
     "gitpython>=3.2.1",
     "graphql-core>=3.2.12",
     "opentelemetry-api>=1.45.1",
+    "pyasn1>=0.6.5",
 ]
 
 [project.optional-dependencies]

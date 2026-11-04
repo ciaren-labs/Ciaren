@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -155,7 +156,7 @@ def test_release_publication_waits_for_full_matrix_and_both_builds() -> None:
     }
 
 
-def test_codeql_steps_share_a_version_and_dependabot_update_group() -> None:
+def test_codeql_steps_share_a_version() -> None:
     github = RUNNER.parents[2] / ".github"
     workflow = yaml.load((github / "workflows/codeql.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
     actions = [
@@ -165,16 +166,52 @@ def test_codeql_steps_share_a_version_and_dependabot_update_group() -> None:
     ]
     assert sorted(action for action, _ in actions) == ["github/codeql-action/analyze", "github/codeql-action/init"]
     assert len({version for _, version in actions}) == 1
+
+
+@pytest.mark.parametrize(
+    "ecosystem, directory, packages",
+    [
+        ("github-actions", "/", ["github/codeql-action/init", "github/codeql-action/analyze"]),
+        ("npm", "/frontend", ["react", "react-dom", "@types/react", "@types/react-dom"]),
+    ],
+)
+def test_dependabot_groups_keep_coupled_updates_together(ecosystem: str, directory: str, packages: list[str]) -> None:
+    github = RUNNER.parents[2] / ".github"
     dependabot = yaml.load((github / "dependabot.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
-    updates = next(update for update in dependabot["updates"] if update["package-ecosystem"] == "github-actions")
+    updates = next(
+        update
+        for update in dependabot["updates"]
+        if update["package-ecosystem"] == ecosystem and update["directory"] == directory
+    )
     # Dependabot assigns updates to the first matching group.
     groups = list(updates.get("groups", {}).values())
-    assert groups, "Dependabot must update all CodeQL steps together"
+    assert groups, f"Dependabot must update {packages} together"
     group = groups[0]
     assert group.get("applies-to", "version-updates") == "version-updates"
     assert not group.get("exclude-patterns")
     assert not group.get("update-types")
-    assert all(any(fnmatchcase(action, pattern) for pattern in group["patterns"]) for action, _ in actions)
+    assert not group.get("dependency-type")
+    assert all(any(fnmatchcase(package, pattern) for pattern in group["patterns"]) for package in packages)
+
+
+def test_frontend_ci_exercises_each_declared_node_minimum() -> None:
+    repo = RUNNER.parents[2]
+    frontend = json.loads((repo / "frontend/package.json").read_text(encoding="utf-8"))
+    minimums = set()
+    for supported in frontend["engines"]["node"].split("||"):
+        version = re.fullmatch(r"(?:\^|>=)(\d+\.\d+\.\d+)", supported.strip())
+        assert version is not None, "Declare explicit minimum Node versions so CI can verify every supported line"
+        minimums.add(version.group(1))
+    workflow = yaml.load(
+        (repo / ".github/workflows/frontend-tests.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader
+    )
+    job = workflow["jobs"]["check"]
+    tested = set(job["strategy"]["matrix"]["node-version"])
+    assert minimums <= tested
+    assert "22.x" in tested, "Preserve the existing current-Node check alongside minimum-version coverage"
+    setup = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-node@"))
+    assert setup["with"]["node-version"] == "${{ matrix.node-version }}"
+    assert any(step.get("run") == "npm ci --engine-strict" for step in job["steps"])
 
 
 @pytest.mark.parametrize(

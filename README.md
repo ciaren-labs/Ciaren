@@ -126,7 +126,8 @@ Open `http://localhost:8055`.
 
 Use this path when contributing to the backend, frontend, docs, or plugin SDK.
 
-Requirements: Python 3.12+, Node.js 22.13+ (CI uses Node 22), and Git.
+Requirements: Python 3.12+, Git, and Node.js 22.22.2+ (22.x), 24.15.0+ (24.x), or 26+.
+CI checks each supported minimum and the current Node 22 release.
 
 ```bash
 git clone https://github.com/ciaren-labs/Ciaren.git
