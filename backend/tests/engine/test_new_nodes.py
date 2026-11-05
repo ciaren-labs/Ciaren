@@ -623,6 +623,22 @@ def test_extract_date_parts_weekday_and_hour(engine):
     assert out["d_hour"].tolist() == [13, 9]
 
 
+def test_extract_date_parts_extended_parts_and_invalid_dates(engine):
+    pdf = pd.DataFrame(
+        {"d": ["2024-12-30 23:45", "2024-01-01 00:05", "2021-01-01 00:00", "2024-01-08 00:00", "not-a-date", None]}
+    )
+    parts = ["quarter", "week", "day_of_year", "minute"]
+    out = run(engine, "extractDateParts", pdf, {"column": "d", "parts": parts})
+
+    assert out["d_quarter"].tolist()[:4] == [4, 1, 1, 1]
+    assert out["d_week"].tolist()[:4] == [1, 1, 53, 2]
+    assert out["d_day_of_year"].tolist()[:4] == [365, 1, 1, 8]
+    assert out["d_minute"].tolist()[:4] == [45, 5, 0, 0]
+    for part in parts:
+        assert pd.isna(out.loc[4, f"d_{part}"])
+        assert pd.isna(out.loc[5, f"d_{part}"])
+
+
 def test_map_values_in_place(engine):
     pdf = pd.DataFrame({"g": ["A", "B", "C"]})
     out = run(engine, "mapValues", pdf, {"column": "g", "mapping": {"A": "1", "B": "2"}})
