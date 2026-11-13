@@ -87,6 +87,18 @@ Building a pipeline is drag, configure, connect — no code required to start:
 
 ![Building a flow from scratch — dropping a File Input, two cleaning nodes, a Train/Test Split and a classifier onto the canvas, then connecting and auto-arranging them](/screenshots/build-flow-from-scratch.gif)
 
+### Canvas shortcuts
+
+Open **Keyboard shortcuts** in the editor toolbar for the current controls.
+Use **Backspace** to delete selected nodes or edges, **Shift + drag** to select
+nodes in a box, and **Ctrl/Cmd + click** to toggle a node's selection. Hold
+**Space** while dragging to pan; scroll or pinch to zoom. Arrow keys move the
+selection when a selected node has keyboard focus. **Escape** closes the
+shortcut help or a node's context menu.
+
+Copy, paste, duplicate, undo and redo apply outside editable form fields.
+Redo accepts **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**.
+
 ## Node handles
 
 Most nodes have a single input handle (`in`) and a single output handle (`out`).
