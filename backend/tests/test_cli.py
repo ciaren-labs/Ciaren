@@ -228,18 +228,44 @@ def test_load_env_file_missing_path_exits() -> None:
 # -- info ---------------------------------------------------------------
 
 
-def test_info_prints_and_redacts_password(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setenv("CIAREN_DATABASE_URL", "postgresql+asyncpg://user:s3cret@host/db")
+@pytest.mark.parametrize("output", ["table", "json"])
+@pytest.mark.parametrize(
+    ("database_url", "expected"),
+    [
+        ("postgresql+asyncpg://user:s3cret@host/db", "postgresql+asyncpg://user:***@host/db"),
+        ("postgresql+asyncpg://user:p%40ss%2Fword@host:5432/db", "postgresql+asyncpg://user:***@host:5432/db"),
+        ("sqlite+aiosqlite:///:memory:", "sqlite+aiosqlite:///:memory:"),
+        ("postgresql+asyncpg://host/db", "postgresql+asyncpg://host/db"),
+        ("postgresql+asyncpg://user@host/db", "postgresql+asyncpg://user@host/db"),
+        ("not a database URL", "not a database URL"),
+        ("postgresql://[broken", "postgresql://[broken"),
+    ],
+)
+def test_info_redacts_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    output: str,
+    database_url: str,
+    expected: str,
+) -> None:
+    monkeypatch.setenv("CIAREN_DATABASE_URL", database_url)
     _clear_settings_cache()
     try:
-        cli.main(["info"])
+        cli.main(["info"] if output == "table" else ["info", "--output", "json"])
     finally:
         _clear_settings_cache()
-    out = capsys.readouterr().out
+    captured = capsys.readouterr()
+    out = captured.out
     assert "default_engine" in out
     assert "data_dir" in out
-    assert "user:***@host" in out
-    assert "s3cret" not in out
+    if output == "json":
+        assert json.loads(out)["database_url"] == expected
+    else:
+        line = next(line for line in out.splitlines() if line.strip().startswith("database_url"))
+        assert line.split(maxsplit=1)[1] == expected
+    if database_url != expected:
+        password = database_url.split("://", 1)[1].split(":", 1)[1].split("@", 1)[0]
+        assert password not in out + captured.err
 
 
 def test_info_json_output(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
