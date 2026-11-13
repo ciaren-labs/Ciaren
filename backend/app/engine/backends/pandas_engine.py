@@ -393,13 +393,17 @@ class PandasEngine:
         return df.assign(**{new_column: binned.astype("string")})
 
     def extract_date_parts(self, df: pd.DataFrame, column: str, parts: list[str]) -> pd.DataFrame:
-        ts = pd.to_datetime(df[column])
+        ts = pd.to_datetime(df[column], errors="coerce")
         accessors = {
             "year": ts.dt.year,
             "month": ts.dt.month,
             "day": ts.dt.day,
             "weekday": ts.dt.weekday,
             "hour": ts.dt.hour,
+            "quarter": ts.dt.quarter,
+            "week": ts.dt.isocalendar().week,
+            "day_of_year": ts.dt.dayofyear,
+            "minute": ts.dt.minute,
         }
         return df.assign(**{f"{column}_{p}": accessors[p] for p in parts})
 

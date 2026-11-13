@@ -370,6 +370,22 @@ describe("NodeConfigForm", () => {
     expect(screen.getByRole("button", { name: "month" })).toBeInTheDocument();
   });
 
+  it.each(["quarter", "week", "day_of_year", "minute"])(
+    "selecting the %s date-part chip reports it in the config",
+    (part) => {
+      const onChange = vi.fn();
+      renderForm({
+        type: "extractDateParts",
+        config: { column: "d", parts: ["year"] },
+        columns: ["d"],
+        onChange,
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: part }));
+      expect(onChange).toHaveBeenCalledWith({ column: "d", parts: ["year", part] });
+    },
+  );
+
   it("selecting a chip reports the chosen column", () => {
     const onChange = vi.fn();
     renderForm({

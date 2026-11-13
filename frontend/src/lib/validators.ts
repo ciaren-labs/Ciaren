@@ -130,7 +130,17 @@ export const outlierMethods = ["iqr", "zscore", "percentile"] as const;
 export const outlierActions = ["drop", "clip"] as const;
 export const binMethods = ["equalwidth", "quantile"] as const;
 export const splitModes = ["delimiter", "regex"] as const;
-export const dateParts = ["year", "month", "day", "weekday", "hour"] as const;
+export const dateParts = [
+  "year",
+  "month",
+  "day",
+  "weekday",
+  "hour",
+  "quarter",
+  "week",
+  "day_of_year",
+  "minute",
+] as const;
 
 export const windowFunctions = [
   "row_number",
