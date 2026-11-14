@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ProviderInfo } from "@/features/connections/types";
 import { ProviderSection } from "../ConnectionProviderPicker";
 
@@ -48,6 +49,7 @@ describe("ProviderSection", () => {
     fireEvent.click(screen.getByText("Snowflake"));
     expect(onSelect).not.toHaveBeenCalled();
     expect(screen.getByText("pip install ciaren[snowflake]")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Snowflake/ })).toBeDisabled();
   });
 
   it("copies the install command to the clipboard without triggering onSelect", async () => {
@@ -71,5 +73,29 @@ describe("ProviderSection", () => {
       />,
     );
     expect(screen.queryByTitle("Copy install command")).not.toBeInTheDocument();
+  });
+
+  it("keeps the available provider button enabled and skips the unavailable one when tabbing", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <ProviderSection
+        label="Databases"
+        providers={[AVAILABLE, UNAVAILABLE]}
+        onSelect={onSelect}
+      />,
+    );
+
+    // The first Tab lands on the available provider button.
+    await user.tab();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /PostgreSQL/ }),
+    );
+
+    // The next Tab skips the natively disabled unavailable provider button
+    // in between and reaches the install-command copy button, which stays
+    // usable without selecting the provider.
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByTitle("Copy install command"));
   });
 });
