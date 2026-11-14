@@ -57,13 +57,16 @@ release/x.y     ← cut from a released tag to backport fixes once main has
 
 | Branch | Purpose | Who pushes | Lives on GitHub as |
 |---|---|---|---|
-| `main` | What users install; every merge runs the full CI suite | Merged via PR only, from `feature/*`/`fix/*`/etc. | Protected |
+| `main` | Integration branch; CI runs according to workflow triggers and changed paths | Merged via PR only, from `feature/*`/`fix/*`/etc. | Protected |
 | `release/x.y` | Backport bugfixes to an already-shipped minor version after `main` has moved on | Maintainers, via PR | Protected, long-lived per supported version |
 | `feature/*`, `fix/*`, `docs/*`, `chore/*` | Your daily work | You (freely, usually from your fork) | Unprotected |
 
 **The flow for most contributions:**
+
 1. Branch off `main`
-2. Open a PR targeting `main` — the full CI suite runs (cross-platform matrix, Docker, connector integration tests)
+2. Open a PR targeting `main` — CI selects checks by changed paths and event.
+   Backend, frontend, Docker and connector jobs have separate triggers; see
+   `.github/workflows/` for the current matrices.
 3. Once it's green and reviewed, it merges straight into `main`. `main` is
    tagged directly for releases — there's no separate integration branch to
    promote through first.
@@ -94,42 +97,44 @@ cd Ciaren
 
 ### 2. Set Up Development Environment
 
+Use Python 3.12+ and `uv`. For the frontend, use a Node version allowed by
+`frontend/package.json` and tested in `.github/workflows/frontend-tests.yml`.
+Run each setup block from the repository root, in a separate terminal.
+
 #### Backend
 
-```bash
+```powershell
 cd backend
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Create/sync the environment with the CI test dependencies
+uv sync --all-groups --extra ml
 
-# Install dev dependencies
-pip install -e ".[dev]"
+# Run one existing test module; select the module relevant to your change
+uv run --no-sync pytest tests/api/test_flows.py
 
-# Run tests
-pytest
-
-# Start server
-uvicorn app.main:app --reload
+# Start the source-development API (port 8055)
+uv run --no-sync ciaren serve --reload
 ```
+
+`uv` manages the virtual environment; manual activation is not required.
+On macOS, the ML dependencies also need the OpenMP runtime (`libomp`), as
+configured in `.github/workflows/backend-tests.yml`.
 
 #### Frontend
 
-```bash
+```powershell
 cd frontend
 
-# Install dependencies
-npm install
+# Install the locked dependencies and enforce supported Node versions
+npm ci --engine-strict
 
-# Start dev server (runs on port 5173)
+# Start dev server (port 5173)
 npm run dev
-
-# Run linting
-npm run lint
-
-# Build for production
-npm run build
 ```
+
+Keep development servers in dedicated terminals and stop them, including child
+processes, when finished. Agents must follow the process ownership rules in
+[AGENTS.md](AGENTS.md); local Windows lifecycle helpers are not shipped in clones.
 
 ### 3. Create a Branch
 
@@ -137,11 +142,12 @@ Branch from `main`:
 
 ```bash
 git checkout main
-git pull origin main
+git pull --ff-only origin main
 git checkout -b feature/your-feature-name
 ```
 
 Use descriptive branch names:
+
 - `feature/add-pivot-transformation`
 - `fix/null-handling-bug`
 - `docs/setup-guide`
@@ -176,15 +182,16 @@ Authoritative places to check:
 ### Backend (Python)
 
 - **Type hints required** — use them everywhere (`def transform(data: pd.DataFrame) -> pd.DataFrame`)
-- **Follow PEP 8** — we use [Black](https://github.com/psf/black) for formatting
+- **Lint and format with Ruff** — use the configuration in `backend/pyproject.toml`
 - **Tests for new code** — especially transformations and services
 - **Pydantic schemas for API inputs/outputs** — no raw dicts
 - **Keep route handlers thin** — put logic in services
 - **No pandas directly in routes** — encapsulate in `app/engine`
 
-#### Example:
+#### Example
 
 ```python
+import pandas as pd
 from pydantic import BaseModel, Field
 
 class RenameColumnsConfig(BaseModel):
@@ -213,51 +220,48 @@ def rename_columns(df: pd.DataFrame, config: RenameColumnsConfig) -> pd.DataFram
 - Every new transformation should include or update its docs page under `docs/transformations/`.
 - Do not copy internal notes or tool-specific agent instructions into public docs.
 
-#### Example:
-
-```typescript
-// features/flows/hooks/useFlowQuery.ts
-import { useQuery } from '@tanstack/react-query';
-import { getFlow } from '@/lib/api';
-
-export function useFlowQuery(flowId: string) {
-  return useQuery({
-    queryKey: ['flows', flowId],
-    queryFn: () => getFlow(flowId),
-  });
-}
-```
-
 ---
 
 ## ✅ Testing
 
 ### Backend Tests
 
-```bash
+Run focused checks for the changed behavior and adjacent flows:
+
+```powershell
 cd backend
-
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_flows.py
-
-# Run with coverage
-pytest --cov=app
+uv run --no-sync pytest tests/api/test_flows.py
+uv run --no-sync ruff check app tests tools
+uv run --no-sync ruff format --check app tests tools
+uv run --no-sync mypy app
 ```
 
+Replace the test path with the affected existing module. For a release, merge or
+explicitly requested full run, use the sequential runner from `backend/`:
+
+```powershell
+uv run --no-sync python tools/run_tests.py --output .test-results/contribution-check
+```
+
+Choose a new, empty output directory for each run. The runner records the complete
+test inventory, runs one module per process and enforces **87% combined coverage**.
+Do not substitute selected modules for the full gate or run the entire backend
+suite in one pytest process. Run one heavy test/build process at a time.
+
 **Guidelines:**
-- Test new transformations with real data edge cases
-- Test API endpoints with integration tests (use SQLite for speed)
-- Test graph validation and topological sorting
-- Aim for >80% coverage on critical paths
+
+- For a bug fix, demonstrate a failing regression test before applying the fix.
+- Test observable behavior and relevant data edge cases using synthetic fixtures.
+- Test API endpoints with isolated SQLite storage, graph validation and execution.
+- For transformations, verify pandas/Polars execution and runnable code exports.
+- Report commands, results and skipped checks; skips do not verify behavior.
 
 ### Connector Integration Tests
 
-The default `pytest` run is **infra-free**: the cloud/database connector tests
-self-skip unless their service is reachable, so a normal test run never needs
-Docker. They live in `backend/tests/integration/` under the `connectors` marker
+The default backend suite is **infra-free**: live connector tests self-skip
+when their activating environment variables or optional drivers are absent.
+Once enabled, the configured service must be available; an unreachable service
+is a test failure, not a reason to assume a skip. They live in `backend/tests/integration/` under the `connectors` marker
 and exercise the real driver I/O paths against local emulators. CI runs them in
 the **Connectors Integration** workflow
 (`.github/workflows/connectors-integration.yml`).
@@ -267,75 +271,99 @@ service's env var(s), then run the marked tests.
 
 | Connector  | Emulator        | Extra   | Activating env var             |
 |------------|-----------------|---------|--------------------------------|
-| S3         | MinIO           | `s3`    | `CIAREN_TEST_S3_ENDPOINT`   |
+| S3         | Moto server     | `s3`    | `CIAREN_TEST_S3_ENDPOINT`   |
 | MongoDB    | `mongo`         | `mongo` | `CIAREN_TEST_MONGO_HOST`    |
 | Azure Blob | Azurite         | `azure` | `CIAREN_TEST_AZURE_ENDPOINT`|
 | GCS        | fake-gcs-server | `gcs`   | `STORAGE_EMULATOR_HOST`        |
 
-```bash
-cd backend
-pip install -e ".[dev,s3,mongo,azure,gcs]"   # or just the extra you need
+Install only the extra for the connector you are checking, for example from
+`backend/`:
+
+```powershell
+uv sync --all-groups --extra s3
 ```
 
-**S3 (MinIO):**
+Connector extras are intentionally absent from the standard backend CI setup:
+some tests cover missing-driver behavior. Restore the standard environment with
+`uv sync --all-groups --extra ml` before running that suite.
 
-```bash
-docker run -d -p 9000:9000 -e MINIO_ROOT_USER=minioadmin \
-  -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
-CIAREN_TEST_S3_ENDPOINT=http://127.0.0.1:9000 \
-CIAREN_TEST_S3_ACCESS_KEY=minioadmin \
-CIAREN_TEST_S3_SECRET_KEY=minioadmin \
-  pytest tests/integration/test_s3_connector.py -m connectors
+The following examples use PowerShell and local disposable services. Run one
+connector at a time from `backend/`, installing its matching extra first. Choose
+an unused container name and port; do not stop another contributor's container.
+Wait for the emulator to be ready before testing. Use `docker logs <name>` to
+inspect startup if necessary. Remove your container and unset its test environment
+variables after the check, including when a test fails.
+
+**S3 (Moto, matching CI):**
+
+```powershell
+docker run -d --name ciaren-test-s3 -p 9000:5000 motoserver/moto:5.2.3
+$env:CIAREN_TEST_S3_ENDPOINT = "http://127.0.0.1:9000"
+$env:CIAREN_TEST_S3_ACCESS_KEY = "testing"
+$env:CIAREN_TEST_S3_SECRET_KEY = "testing"
+uv run --no-sync pytest tests/integration/test_s3_connector.py -m connectors
+docker rm -f ciaren-test-s3
+Remove-Item Env:CIAREN_TEST_S3_ENDPOINT, Env:CIAREN_TEST_S3_ACCESS_KEY, Env:CIAREN_TEST_S3_SECRET_KEY
 ```
 
-**MongoDB:**
+**MongoDB (`uv sync --all-groups --extra mongo`):**
 
-```bash
-docker run -d -p 27017:27017 mongo:7
-CIAREN_TEST_MONGO_HOST=127.0.0.1 \
-  pytest tests/integration/test_mongo_connector.py -m connectors
+```powershell
+docker run -d --name ciaren-test-mongo -p 27017:27017 mongo:7
+$env:CIAREN_TEST_MONGO_HOST = "127.0.0.1"
+uv run --no-sync pytest tests/integration/test_mongo_connector.py -m connectors
+docker rm -f ciaren-test-mongo
+Remove-Item Env:CIAREN_TEST_MONGO_HOST
 ```
 
-**Azure Blob (Azurite):**
+**Azure Blob (`uv sync --all-groups --extra azure`):**
 
-```bash
-docker run -d -p 10000:10000 mcr.microsoft.com/azure-storage/azurite \
-  azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
-CIAREN_TEST_AZURE_ENDPOINT=http://127.0.0.1:10000/devstoreaccount1 \
-  pytest tests/integration/test_azure_connector.py -m connectors
+```powershell
+docker run -d --name ciaren-test-azure -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+$env:CIAREN_TEST_AZURE_ENDPOINT = "http://127.0.0.1:10000/devstoreaccount1"
+uv run --no-sync pytest tests/integration/test_azure_connector.py -m connectors
+docker rm -f ciaren-test-azure
+Remove-Item Env:CIAREN_TEST_AZURE_ENDPOINT
 ```
 
-**GCS (fake-gcs-server):**
+**GCS (`uv sync --all-groups --extra gcs`):**
 
-```bash
-docker run -d -p 4443:4443 fsouza/fake-gcs-server \
-  -scheme http -port 4443 -public-host 127.0.0.1:4443
-STORAGE_EMULATOR_HOST=http://127.0.0.1:4443 \
-  pytest tests/integration/test_gcs_connector.py -m connectors
+```powershell
+docker run -d --name ciaren-test-gcs -p 4443:4443 fsouza/fake-gcs-server -scheme http -port 4443 -public-host 127.0.0.1:4443
+$env:STORAGE_EMULATOR_HOST = "http://127.0.0.1:4443"
+uv run --no-sync pytest tests/integration/test_gcs_connector.py -m connectors
+docker rm -f ciaren-test-gcs
+Remove-Item Env:STORAGE_EMULATOR_HOST
 ```
-
-To run every suite at once, start all four emulators, export all the env vars,
-then `pytest -m connectors`.
 
 **Notes:**
-- Azurite needs `--skipApiVersionCheck` — the SDK speaks a newer API version than the emulator pins.
-- The endpoints and Azurite credentials shown are the emulators' well-known defaults, not secrets.
-- On **Windows PowerShell**, the inline `VAR=value cmd` prefix doesn't work — set each variable first with `$env:VAR = "value"`, then run `pytest`.
-- Coverage from these tests lands in the merged Codecov report (the `connectors-integration` flag), not the infra-free `--cov-fail-under` gate.
+
+- Bash equivalents and CI readiness checks are in `.github/workflows/connectors-integration.yml`.
+- Azurite needs `--skipApiVersionCheck` for the SDK's newer API version.
+- The example credentials are for local emulators, never production services.
+- Connector coverage is uploaded separately to Codecov; this subset does not enforce the full backend coverage gate.
 
 ### Frontend Tests
 
-```bash
+```powershell
 cd frontend
 
-# Vitest (component/hook tests)
-npm run test
+# Focused Vitest run; replace with the affected test file
+npm test -- src/lib/__tests__/catalogMerge.test.ts
 
-# E2E tests (Playwright)
-npm run test:e2e
+# Static checks and production build
+npm run lint
+npm run type-check
+npm run build
 ```
 
+`npm test` runs the complete frontend Vitest suite when required. There is no
+`test:e2e` script in the current package. For UI changes, also verify the affected
+flow in a browser, including keyboard interactions, mobile states, links and
+console errors; report what you checked.
+
 **Guidelines:**
+
 - Test form validation and error states
 - Test flow editor interactions
 - Test API error handling and retries
@@ -367,6 +395,7 @@ feat: add pivot table transformation
 ```
 
 Format:
+
 - `feat:` — new feature
 - `fix:` — bug fix
 - `refactor:` — code restructuring (no behavior change)
@@ -390,6 +419,7 @@ contribute. No sign-off or CLA is required.
 4. Reference any related issues
 
 **Good PR description:**
+
 ```
 ## Summary
 Add pivot table transformation to enable reshaping data by column values.
@@ -441,6 +471,7 @@ New to the project? Check out [issues labeled `good-first-issue`](https://github
 5. **Expected vs actual behavior** — what should happen vs what did
 
 **Example:**
+
 ```
 ## Description
 Null values not properly filled when using the "Fill Nulls" node with mean strategy.
@@ -469,12 +500,14 @@ Nulls remain unchanged.
 ## ✍️ Improving Documentation
 
 Documentation lives in:
+
 - **[backend/app/README.md](backend/app/README.md)** — backend architecture and layering rules
 - **[README.md](README.md)** — project overview and quick start
 - **[docs/](docs/)** — user guides, API reference, examples, and plugin docs
 - **Code comments** — explain the "why", not the "what"
 
 Help by:
+
 - Writing tutorials for new transformations
 - Clarifying ambiguous explanations
 - Adding examples to docstrings
@@ -487,7 +520,9 @@ Help by:
 
 ### About AI-Generated Code
 
-This project includes code generated or assisted by AI. When contributing:
+For AI-assisted contributions, load [AGENTS.md](AGENTS.md) in your agent.
+The contributor remains responsible for understanding and verifying the result.
+When contributing:
 
 1. **Review all code carefully** — even AI-generated code needs human verification
 2. **Test edge cases** — AI tools can miss subtle bugs
@@ -497,7 +532,7 @@ This project includes code generated or assisted by AI. When contributing:
 ### Security & Performance
 
 - **Security first** — validate all user inputs at system boundaries
-- **Test with real data** — sample data doesn't catch edge cases
+- **Test representative data shapes** — use synthetic fixtures covering realistic edge cases; never use private or production datasets without authorization
 - **Consider performance** — test with larger datasets before merging
 - **No secrets in code** — use environment variables for credentials
 
@@ -527,4 +562,4 @@ This project includes code generated or assisted by AI. When contributing:
 
 Whether it's a one-line docs fix or a major feature, every contribution matters. You're helping build a tool that makes data work simpler for thousands of people.
 
-**Welcome to Ciaren! 🚀**
+Welcome to Ciaren! 🚀
