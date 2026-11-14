@@ -4,17 +4,23 @@ import { Keyboard } from "lucide-react";
 
 /** Static reference list — kept next to the handlers it documents so the two
  *  are easy to keep in sync: copy/paste/duplicate in FlowCanvas.tsx, undo/redo
- *  in FlowEditorPage.tsx, delete via React Flow's default deleteKeyCode, and
- *  the right-click menu in NodeContextMenu.tsx. */
+ *  in FlowEditorPage.tsx, selection/navigation/delete via React Flow defaults,
+ *  and the right-click menu in NodeContextMenu.tsx. */
 const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: "Ctrl/Cmd+Z", action: "Undo" },
   { keys: "Ctrl/Cmd+Shift+Z", action: "Redo" },
-  { keys: "Ctrl+Y", action: "Redo" },
-  { keys: "Delete / Backspace", action: "Delete selected node or edge" },
+  { keys: "Ctrl/Cmd+Y", action: "Redo" },
+  { keys: "Backspace", action: "Delete selected node or edge" },
   { keys: "Ctrl/Cmd+C", action: "Copy selected nodes" },
   { keys: "Ctrl/Cmd+V", action: "Paste" },
   { keys: "Ctrl/Cmd+D", action: "Duplicate selection" },
+  { keys: "Shift+drag", action: "Select nodes in a box" },
+  { keys: "Ctrl/Cmd+click", action: "Toggle node selection" },
+  { keys: "Space+drag", action: "Pan the canvas" },
+  { keys: "Scroll / pinch", action: "Zoom the canvas" },
+  { keys: "Arrow keys", action: "Move focused selection" },
   { keys: "Right-click a node", action: "Open its context menu" },
+  { keys: "Escape", action: "Close shortcut help or node menu" },
 ];
 
 /**
@@ -90,8 +96,8 @@ export function KeyboardShortcutsHelp() {
                 swallow a click meant for a toast's action underneath it. */}
             <div className="fixed inset-0 z-[110]" onClick={close} />
             <div
-              className="fixed z-[111] w-72 overflow-hidden rounded-lg border border-border bg-background py-2 shadow-md"
-              style={{ top: position.top, right: position.right }}
+              className="fixed z-[111] w-72 overflow-y-auto rounded-lg border border-border bg-background py-2 shadow-md"
+              style={{ top: position.top, right: position.right, maxHeight: `calc(100dvh - ${position.top + 8}px)` }}
             >
               <p className="px-3 pb-1.5 text-xs font-semibold text-foreground">Keyboard shortcuts</p>
               <ul>

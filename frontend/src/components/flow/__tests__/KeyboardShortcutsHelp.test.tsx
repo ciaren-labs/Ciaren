@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KeyboardShortcutsHelp } from "../KeyboardShortcutsHelp";
 
@@ -26,8 +26,22 @@ describe("KeyboardShortcutsHelp", () => {
 
     expect(screen.getByText("Undo")).toBeInTheDocument();
     expect(screen.getByText("Ctrl/Cmd+Z")).toBeInTheDocument();
-    expect(screen.getByText("Delete selected node or edge")).toBeInTheDocument();
     expect(screen.getByText("Open its context menu")).toBeInTheDocument();
+    for (const [keys, action] of [
+      ["Backspace", "Delete selected node or edge"],
+      ["Ctrl/Cmd+Y", "Redo"],
+      ["Shift+drag", "Select nodes in a box"],
+      ["Ctrl/Cmd+click", "Toggle node selection"],
+      ["Space+drag", "Pan the canvas"],
+      ["Scroll / pinch", "Zoom the canvas"],
+      ["Arrow keys", "Move focused selection"],
+      ["Escape", "Close shortcut help or node menu"],
+    ]) {
+      const row = screen.getByText(keys).closest("li")!;
+      expect(within(row).getByText(action)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Delete / Backspace")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete", { exact: true })).not.toBeInTheDocument();
   });
 
   it("toggles closed when the trigger is clicked again", async () => {
@@ -120,6 +134,7 @@ describe("KeyboardShortcutsHelp", () => {
     // top = rect.bottom (40) + 4; right = innerWidth (1000) - rect.right (940)
     expect(panel.style.top).toBe("44px");
     expect(panel.style.right).toBe("60px");
+    expect(panel.style.maxHeight).toBe("calc(100dvh - 52px)");
 
     Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
   });
