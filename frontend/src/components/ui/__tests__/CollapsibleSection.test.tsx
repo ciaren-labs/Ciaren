@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CollapsibleSection } from "../CollapsibleSection";
 
 describe("CollapsibleSection", () => {
@@ -12,6 +13,7 @@ describe("CollapsibleSection", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("body content")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sales/ })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("toggles its children when the header is clicked", () => {
@@ -20,10 +22,31 @@ describe("CollapsibleSection", () => {
         <p>body content</p>
       </CollapsibleSection>,
     );
-    fireEvent.click(screen.getByRole("button"));
+    const header = screen.getByRole("button");
+    fireEvent.click(header);
     expect(screen.queryByText("body content")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button"));
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(header);
     expect(screen.getByText("body content")).toBeInTheDocument();
+    expect(header).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("toggles with Enter and Space and keeps aria-expanded in sync", async () => {
+    const user = userEvent.setup();
+    render(
+      <CollapsibleSection title="Sales">
+        <p>body content</p>
+      </CollapsibleSection>,
+    );
+    const header = screen.getByRole("button");
+    await user.tab();
+    expect(header).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText("body content")).not.toBeInTheDocument();
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    await user.keyboard(" ");
+    expect(screen.getByText("body content")).toBeInTheDocument();
+    expect(header).toHaveAttribute("aria-expanded", "true");
   });
 
   it("can start collapsed", () => {
@@ -33,5 +56,6 @@ describe("CollapsibleSection", () => {
       </CollapsibleSection>,
     );
     expect(screen.queryByText("body content")).not.toBeInTheDocument();
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
   });
 });
