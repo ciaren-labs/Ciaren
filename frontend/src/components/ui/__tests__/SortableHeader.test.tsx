@@ -57,4 +57,34 @@ describe("SortableTh", () => {
     screen.getByText("Name").click();
     expect(onSort).toHaveBeenCalledWith("name");
   });
+
+  it("exposes the active column's sort direction with aria-sort, and omits it elsewhere", () => {
+    const table = (sort: SortState<"name" | "size">) => (
+      <table><thead><tr>
+        <SortableTh label="Name" sortKey="name" sort={sort} onSort={() => {}} />
+        <SortableTh label="Size" sortKey="size" sort={sort} onSort={() => {}} />
+      </tr></thead></table>
+    );
+    const { rerender } = render(table({ key: "name", dir: "asc" }));
+    const [name, size] = screen.getAllByRole("columnheader");
+    expect(name).toHaveAttribute("aria-sort", "ascending");
+    expect(size).not.toHaveAttribute("aria-sort");
+
+    rerender(table({ key: "name", dir: "desc" }));
+    expect(name).toHaveAttribute("aria-sort", "descending");
+    expect(size).not.toHaveAttribute("aria-sort");
+
+    rerender(table({ key: "size", dir: "asc" }));
+    expect(name).not.toHaveAttribute("aria-sort");
+    expect(size).toHaveAttribute("aria-sort", "ascending");
+  });
+
+  it("keeps the header's button named by its visible label", () => {
+    render(
+      <table><thead><tr>
+        <SortableTh label="Name" sortKey="name" sort={{ key: "name", dir: "asc" }} onSort={() => {}} />
+      </tr></thead></table>,
+    );
+    expect(screen.getByRole("button", { name: "Name" })).toBeInTheDocument();
+  });
 });

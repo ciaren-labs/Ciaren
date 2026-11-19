@@ -32,7 +32,7 @@ export function SortableTh<K extends string>({
 }) {
   const active = sort.key === sortKey;
   return (
-    <th className={className}>
+    <th className={className} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
