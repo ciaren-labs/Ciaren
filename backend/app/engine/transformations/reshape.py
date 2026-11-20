@@ -147,7 +147,17 @@ class CreateCalculatedColumnTransformation(BaseTransformation):
 class ExtractDatePartsTransformation(BaseTransformation):
     type = "extractDateParts"
 
-    _VALID_PARTS = {"year", "month", "day", "weekday", "hour"}
+    _VALID_PARTS = {
+        "year",
+        "month",
+        "day",
+        "weekday",
+        "hour",
+        "quarter",
+        "week",
+        "day_of_year",
+        "minute",
+    }
 
     def validate_config(self, config: dict[str, Any]) -> None:
         if not config.get("column"):
@@ -170,8 +180,17 @@ class ExtractDatePartsTransformation(BaseTransformation):
         # col + "_" + p, not an f-string: a parameterized column arrives as a
         # CodeRef whose + composes source; f-string interpolation would freeze
         # the variable's *name* into the emitted column names.
-        items = {col + "_" + p: f"_dt.dt.{p}" for p in parts}
-        return f"_dt = pd.to_datetime({src}[{col!r}])\n{dst} = {src}.assign({pd_assign_args(items)})"
+        items = {
+            col + "_" + p: (
+                "_dt.dt.isocalendar().week"
+                if p == "week"
+                else "_dt.dt.dayofyear"
+                if p == "day_of_year"
+                else f"_dt.dt.{p}"
+            )
+            for p in parts
+        }
+        return f"_dt = pd.to_datetime({src}[{col!r}], errors='coerce')\n{dst} = {src}.assign({pd_assign_args(items)})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]
@@ -180,6 +199,8 @@ class ExtractDatePartsTransformation(BaseTransformation):
         exprs = ", ".join(
             f"(_dt.dt.weekday() - 1).alias({(col + '_' + p)!r})"
             if p == "weekday"
+            else f"_dt.dt.ordinal_day().alias({(col + '_' + p)!r})"
+            if p == "day_of_year"
             else f"_dt.dt.{p}().alias({(col + '_' + p)!r})"
             for p in parts
         )

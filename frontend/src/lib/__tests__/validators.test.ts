@@ -476,6 +476,10 @@ describe("binColumn", () => {
 describe("extractDateParts", () => {
   it("accepts a column + parts", () =>
     accepts("extractDateParts", { column: "d", parts: ["year", "month"] }));
+  it.each(["quarter", "week", "day_of_year", "minute"])(
+    "accepts the %s date part",
+    (part) => accepts("extractDateParts", { column: "d", parts: [part] }),
+  );
   it("rejects an empty parts list", () =>
     rejects("extractDateParts", { column: "d", parts: [] }, "parts"));
   it("rejects a bad part", () =>
