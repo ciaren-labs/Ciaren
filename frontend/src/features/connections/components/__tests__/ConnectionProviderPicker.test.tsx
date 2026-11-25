@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ProviderInfo } from "@/features/connections/types";
@@ -29,6 +29,16 @@ const UNAVAILABLE: ProviderInfo = {
 };
 
 describe("ProviderSection", () => {
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+
+  afterEach(() => {
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      delete (navigator as { clipboard?: Clipboard }).clipboard;
+    }
+  });
+
   it("renders nothing when the provider list is empty", () => {
     const { container } = render(
       <ProviderSection label="Databases" providers={[]} onSelect={vi.fn()} />,
@@ -54,7 +64,12 @@ describe("ProviderSection", () => {
 
   it("copies the install command to the clipboard without triggering onSelect", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    // defineProperty also replaces the getter-only stub that userEvent.setup()
+    // installs, so this test does not depend on test execution order.
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     const onSelect = vi.fn();
 
     render(<ProviderSection label="Databases" providers={[UNAVAILABLE]} onSelect={onSelect} />);
@@ -64,9 +79,6 @@ describe("ProviderSection", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  // Placed after the clipboard test on purpose: userEvent.setup() installs a
-  // getter-only navigator.clipboard stub, which would break that test's
-  // Object.assign(navigator, { clipboard }) mock if this test ran first.
   it("skips the unavailable provider button when tabbing, but reaches the copy button", async () => {
     const user = userEvent.setup();
     render(<ProviderSection label="Databases" providers={[UNAVAILABLE]} onSelect={vi.fn()} />);
