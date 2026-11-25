@@ -22,6 +22,7 @@ function ProviderCard({
     >
       <button
         type="button"
+        disabled={!provider.available}
         onClick={provider.available ? onSelect : undefined}
         className={cn(
           "flex w-full flex-col items-center gap-3 px-3 pb-4 pt-5 text-center transition-colors",
