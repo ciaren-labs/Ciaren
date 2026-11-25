@@ -51,6 +51,8 @@
 
 ![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
 
+**Try an exported pipeline without installing Ciaren:** [Audit five orders against a product catalog](examples/orders-audit/README.md) in pandas or Polars, then import the same flow on the canvas.
+
 ## What Is Ciaren?
 
 Ciaren is an open-source, local-first **visual ETL tool** and **low-code data

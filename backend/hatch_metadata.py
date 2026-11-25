@@ -50,6 +50,7 @@ def _rewrite_repo_relative_links(text: str) -> str:
     replacements = {
         'src="brand-assets/': f'src="{_REPO_RAW}/brand-assets/',
         "(docs/public/": f"({_REPO_RAW}/docs/public/",
+        "(examples/orders-audit/README.md)": f"({_REPO_BLOB}/examples/orders-audit/README.md)",
         "(backend/app/plugin_api/)": f"({_REPO_BLOB}/backend/app/plugin_api/)",
         "(SECURITY.md)": f"({_REPO_BLOB}/SECURITY.md)",
         "(CONTRIBUTING.md)": f"({_REPO_BLOB}/CONTRIBUTING.md)",

@@ -1,0 +1,143 @@
+{
+  "format": "ciaren.flow/v1",
+  "name": "Fulfillment audit",
+  "description": "Which orders can we fulfill? Keep missing SKUs visible and flag unavailable products.",
+  "graph_json": {
+    "engine": "pandas",
+    "nodes": [
+      {
+        "id": "orders",
+        "type": "fileInput",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "label": "Order lines",
+          "config": {
+            "format": "csv"
+          }
+        }
+      },
+      {
+        "id": "catalog",
+        "type": "fileInput",
+        "position": {
+          "x": 0,
+          "y": 180
+        },
+        "data": {
+          "label": "Product catalog",
+          "config": {
+            "format": "csv"
+          }
+        }
+      },
+      {
+        "id": "enrich",
+        "type": "join",
+        "position": {
+          "x": 260,
+          "y": 85
+        },
+        "data": {
+          "label": "Keep every order",
+          "config": {
+            "on": [
+              "sku"
+            ],
+            "how": "left"
+          }
+        }
+      },
+      {
+        "id": "check",
+        "type": "validator.checkColumn",
+        "position": {
+          "x": 520,
+          "y": 85
+        },
+        "data": {
+          "label": "Check catalog status",
+          "config": {
+            "column": "catalog_status",
+            "rule": "allowed_set",
+            "allowed_values": [
+              "active"
+            ],
+            "output_column": "ready_to_fulfill"
+          }
+        }
+      },
+      {
+        "id": "sort",
+        "type": "sortRows",
+        "position": {
+          "x": 785,
+          "y": 85
+        },
+        "data": {
+          "label": "Sort by order ID",
+          "config": {
+            "columns": [
+              "order_id"
+            ],
+            "ascending": true
+          }
+        }
+      },
+      {
+        "id": "audit",
+        "type": "fileOutput",
+        "position": {
+          "x": 1050,
+          "y": 85
+        },
+        "data": {
+          "label": "Fulfillment audit",
+          "config": {
+            "format": "csv",
+            "dataset_name": "audit"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "orders-enrich",
+        "source": "orders",
+        "target": "enrich",
+        "sourceHandle": "out",
+        "targetHandle": "left"
+      },
+      {
+        "id": "catalog-enrich",
+        "source": "catalog",
+        "target": "enrich",
+        "sourceHandle": "out",
+        "targetHandle": "right"
+      },
+      {
+        "id": "enrich-check",
+        "source": "enrich",
+        "target": "check",
+        "sourceHandle": "out",
+        "targetHandle": "in"
+      },
+      {
+        "id": "check-sort",
+        "source": "check",
+        "target": "sort",
+        "sourceHandle": "out",
+        "targetHandle": "in"
+      },
+      {
+        "id": "sort-audit",
+        "source": "sort",
+        "target": "audit",
+        "sourceHandle": "out",
+        "targetHandle": "in"
+      }
+    ]
+  }
+}

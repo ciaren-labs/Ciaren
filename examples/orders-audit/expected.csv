@@ -1,0 +1,6 @@
+order_id,sku,quantity,product,catalog_status,ready_to_fulfill
+101,STAND,1,Laptop stand,active,True
+102,CABLE,1,USB-C cable,active,True
+103,SLEEVE,1,Laptop sleeve,retired,False
+104,MISSING,3,,,False
+105,CABLE,2,USB-C cable,active,True

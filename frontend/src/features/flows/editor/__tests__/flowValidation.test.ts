@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { clearRuntimeNodeDefs, setRuntimeNodeDefs } from "../nodeCatalog";
 import { validateFlow } from "../flowValidation";
 import type { GraphEdgeLike, GraphNodeLike } from "../flowGraph";
 import type { Dataset } from "@/features/datasets/types";
@@ -41,6 +44,31 @@ function codes(issues: { code: string }[]): string[] {
 }
 
 describe("validateFlow", () => {
+  it("enables Run and Export for the fulfillment audit after both inputs are rebound", () => {
+    // The example validator is runtime-discovered; the API parity test loads the real plugin.
+    setRuntimeNodeDefs([{
+      type: "validator.checkColumn", label: "Check Column", category: "quality",
+      description: "Flag invalid column values.",
+      provider: "community.validator", defaultConfig: {}, inputHandles: ["in"], hasOutput: true,
+    }]);
+    try {
+      const fixture = resolve(import.meta.dirname, "../../../../../../examples/orders-audit/orders-audit.flow.json");
+      const { graph_json: { nodes, edges } } = JSON.parse(readFileSync(fixture, "utf8")) as {
+        graph_json: { nodes: GraphNodeLike[]; edges: GraphEdgeLike[] };
+      };
+      expect(validateFlow(nodes, edges, []).canRun).toBe(false);
+      const bound = nodes.map((n) => n.type === "fileInput"
+        ? { ...n, data: { ...n.data, config: { ...n.data.config, dataset_id: n.id } } }
+        : n);
+      const result = validateFlow(bound, edges, [dataset("orders"), dataset("catalog")]);
+      expect(result.errors).toEqual([]);
+      expect(result.canRun).toBe(true);
+      expect(result.canExport).toBe(true);
+    } finally {
+      clearRuntimeNodeDefs();
+    }
+  });
+
   it("flags an empty flow and blocks running", () => {
     const v = validateFlow([], [], []);
     expect(codes(v.errors)).toContain("EMPTY");
