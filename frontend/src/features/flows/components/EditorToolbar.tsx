@@ -25,6 +25,7 @@ import type { FlowValidation } from "@/features/flows/editor/flowValidation";
 import { GatedButton } from "./GatedButton";
 
 export function EditorToolbar({
+  assistant,
   flowName,
   onBack,
   onRename,
@@ -55,6 +56,7 @@ export function EditorToolbar({
   onSave,
   savePending,
 }: {
+  assistant?: React.ReactNode;
   flowName: string;
   onBack: () => void;
   onRename: () => void;
@@ -86,7 +88,7 @@ export function EditorToolbar({
   savePending: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-border bg-background/80 px-4 py-2 backdrop-blur">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" /> Flows
@@ -117,7 +119,8 @@ export function EditorToolbar({
         )}
         {!isDisabled && <ValidationSummary validation={validation} />}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 max-w-full items-center gap-2 overflow-x-auto py-1">
+        {assistant}
         {isDisabled ? (
           <Button
             size="sm"

@@ -13,6 +13,7 @@ class FlowCreate(BaseModel):
 
 
 class FlowUpdate(BaseModel):
+    expected_revision: datetime | None = Field(None, description="Require this saved flow revision before proceeding.")
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     project_id: str | None = None

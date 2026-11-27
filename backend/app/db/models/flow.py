@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.mysql import DATETIME as MySQLDateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -47,10 +48,31 @@ class Flow(Base):
     disabled_by_project_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime().with_variant(MySQLDateTime(fsp=6), "mysql", "mariadb"),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
     )
 
     # Deleting a flow deletes its run history and schedules with it — there is no
     # meaningful "flow_run without a flow" or "schedule without a flow" state.
     runs: Mapped[list["FlowRun"]] = relationship(cascade="all, delete-orphan")
     schedules: Mapped[list["Schedule"]] = relationship(cascade="all, delete-orphan")
+
+
+class AssistantActivity(Base):
+    """One committed assistant edit or explicit user reversal, scoped at save time."""
+
+    __tablename__ = "assistant_activity"
+    __table_args__ = (Index("ix_assistant_activity_timeline", "flow_id", "project_id", "created_at", "id"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    flow_id: Mapped[str] = mapped_column(String(36), ForeignKey("flows.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime().with_variant(MySQLDateTime(fsp=6), "mysql", "mariadb"), nullable=False
+    )
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    reverses: Mapped[str | None] = mapped_column(String(32), unique=True)
+    details: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    inverse: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

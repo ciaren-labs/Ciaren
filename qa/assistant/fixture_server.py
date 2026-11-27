@@ -3,6 +3,7 @@
 import asyncio
 from json import dumps, loads
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ import uvicorn
 
 from app.core import assistant_keys
 from app.main import app
+from app.engine.executor import FlowExecutor
 from app.services import assistant_provider
 
 
@@ -50,11 +52,7 @@ class ProviderResponse:
         if "passages" in self.data:
             answer = {
                 "passage": next(
-                    (
-                        i
-                        for i, p in enumerate(self.data["passages"])
-                        if "left** handle" in p and "right** handle" in p
-                    ),
+                    (i for i, p in enumerate(self.data["passages"]) if "left** handle" in p and "right** handle" in p),
                     None,
                 )
             }
@@ -67,10 +65,7 @@ class ProviderResponse:
 
             lk, rk = col(left, "sku"), col(right, "sku")
             assert [lk, rk] in self.data["shared_keys"]
-            assert all(
-                s not in dumps(self.data)
-                for s in ("MISSING", "CABLE", "SLEEVE", "orders.csv", "catalog.csv")
-            )
+            assert all(s not in dumps(self.data) for s in ("MISSING", "CABLE", "SLEEVE", "orders.csv", "catalog.csv"))
             answer = {
                 "left": {"source": left["source"], "port": left["port"], "column": lk},
                 "right": {
@@ -88,16 +83,11 @@ class ProviderResponse:
                 "sort": {"source": left["source"], "column": col(left, "order_id")},
             }
         elif "join" in self.data:
-            assert (
-                set(self.data) == {"question", "join", "how", "failure"}
-                and self.data["how"] == "inner"
-            )
+            assert set(self.data) == {"question", "join", "how", "failure"} and self.data["how"] == "inner"
             answer = {"join": self.data["join"], "how": "left"}
         elif self.data["mode"] == "diagnose":
             assert "column" in self.data["last_failure"].lower()
-            index = next(
-                i for i, n in enumerate(self.data["nodes"]) if n["type"] == "sortRows"
-            )
+            index = next(i for i, n in enumerate(self.data["nodes"]) if n["type"] == "sortRows")
             answer = {
                 "replace": index,
                 "steps": [{"kind": "sortRows", "columns": [0], "ascending": True}],
@@ -121,9 +111,26 @@ class ProviderResponse:
         yield dumps(result).encode()
 
 
+# An E2E synchronisation point in the actual compute thread. Tests can edit the
+# canvas while the real executor is in flight, then release it to process the CSVs.
+execute = FlowExecutor.run_with_results
+
+
+def controlled_compute(self, *args, **kwargs):
+    if Path("hold-compute").is_file():
+        Path("computing").touch()
+        stop = time.monotonic() + 20
+        while not Path("release-compute").is_file() and time.monotonic() < stop:
+            time.sleep(0.03)
+        if not Path("release-compute").is_file():
+            raise TimeoutError("Editor did not release the test run")
+    return execute(self, *args, **kwargs)
+
+
 if __name__ == "__main__":
     keychain = Keychain()
     with (
+        patch.object(FlowExecutor, "run_with_results", controlled_compute),
         patch.object(assistant_keys, "_backend", return_value=keychain),
         patch.object(
             assistant_provider.aiohttp.ClientSession,

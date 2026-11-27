@@ -410,7 +410,7 @@ export function FlowListPage() {
         onRun={({ engine, parameters }) => {
           if (!runFlow) return;
           runMutation.mutate(
-            { flowId: runFlow.id, engine, parameters },
+            { flowId: runFlow.id, expectedRevision: runFlow.updated_at, engine, parameters },
             {
               onSuccess: (run) => {
                 setRunFlow(null);

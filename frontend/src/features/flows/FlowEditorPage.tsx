@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
+import { ApiError } from "@/lib/api/client";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import type { Flow, GraphJson } from "./types";
 import { FlowEditDialog } from "./FlowEditDialog";
@@ -61,9 +62,12 @@ export function FlowEditorPage() {
   const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
   const projectName = (projects ?? []).find((p) => p.id === flowProjectId)?.name ?? null;
 
+  const [completedRun, setCompletedRun] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [revision, setRevision] = useState("");
   const persistedGraph = useRef<GraphJson | null>(null);
   const rememberSave = (updatedAt: string, graph: GraphJson | null) => {
+    setConflict(false);
     persistedGraph.current = graph;
     setRevision(updatedAt);
   };
@@ -151,6 +155,7 @@ export function FlowEditorPage() {
     rememberSave(flow?.updated_at ?? "", flow?.graph_json ?? null);
     setFlowProjectId(flow?.project_id ?? null);
     setGraphReadyForFlowId(flow?.id ?? null);
+    setCompletedRun(null);
     return () => reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow?.id]);
@@ -215,19 +220,52 @@ export function FlowEditorPage() {
       }),
       edges: current.edges.map((edge) => ({ ...edgesById.get(edge.id), ...edge })),
     };
-    if (!current.parameters) delete merged.parameters;
+    if (!current.parameters) {
+      if (previous.parameters?.length === 0) merged.parameters = [];
+      else delete merged.parameters;
+    }
     return merged;
   };
 
-  const handleSave = () => {
-    if (!flowId) return;
+  const latestCanvas = useRef(assistantCanvas);
+  useLayoutEffect(() => {
+    latestCanvas.current = assistantCanvas;
+  });
+  const saveCanvas = (run: boolean, paramValues?: Record<string, unknown>) => {
+    if (!flowId || !revision) return;
+    const graph = assistantCanvas();
+    const snapshot = JSON.stringify(graph);
+    const session = useFlowEditorStore.getState().sessionId;
+    const inSession = () => session === useFlowEditorStore.getState().sessionId;
+    const onError = (error: Error) => {
+      if (inSession() && error instanceof ApiError && error.status === 409) setConflict(true);
+    };
     updateFlow.mutate(
-      { id: flowId, body: { graph_json: buildGraph() } },
+      { id: flowId, body: { graph_json: graph, expected_revision: revision } },
       {
+        onError,
         onSuccess: (result) => {
+          if (!inSession()) return;
+          const unchanged = JSON.stringify(latestCanvas.current()) === snapshot;
           rememberSave(result.updated_at, result.graph_json);
+          if (!unchanged) {
+            toast.success("Saved the reviewed version. Later canvas edits remain pending.");
+            return;
+          }
           markClean();
-          toast.success("Flow saved");
+          if (run) {
+            createRun.mutate(
+              { engine, parameters: paramValues, expectedRevision: result.updated_at },
+              {
+                onError,
+                onSuccess: (savedRun) => {
+                  if (!inSession()) return;
+                  if (useFlowEditorStore.getState().dirty) setCompletedRun(savedRun.id);
+                  else navigate(`/runs/${savedRun.id}`);
+                },
+              },
+            );
+          } else toast.success("Flow saved");
         },
       },
     );
@@ -268,29 +306,39 @@ export function FlowEditorPage() {
     ? "This flow is disabled."
     : validation.errors.find((e) => e.code !== "NO_OUTPUT")?.message;
 
-  // Inputs already pin their datasets, so running just executes the saved graph
-  // (on the chosen engine) and takes you to the run's results.
-  const handleRun = (paramValues?: Record<string, unknown>) => {
-    if (!flowId) return;
-    updateFlow.mutate(
-      { id: flowId, body: { graph_json: buildGraph() } },
-      {
-        onSuccess: (result) => {
-          rememberSave(result.updated_at, result.graph_json);
-          markClean();
-          createRun.mutate(
-            { engine, parameters: paramValues },
-            { onSuccess: (run) => navigate(`/runs/${run.id}`) },
-          );
-        },
-      },
-    );
-  };
-
   return (
     <ReactFlowProvider>
       <div className="flex h-full flex-col">
         <EditorToolbar
+          assistant={
+            <AssistantPanel
+              key={`${flow.project_id}/${flow.id}`}
+              projectId={flow.project_id}
+              flowId={flow.id}
+              flowName={flow.name}
+              revision={revision}
+              disabled={isDisabled}
+              validation={validation}
+              restored={(updated) => {
+                const graph = updated.graph_json;
+                if (!graph) return;
+                const next = graphToStore(graph);
+                setGraph(next.nodes, next.edges);
+                setParameters(graph.parameters ?? []);
+                setEngine(graph.engine ?? "pandas");
+                rememberSave(updated.updated_at, graph);
+                void refetch();
+                void refetchDatasets();
+              }}
+              datasets={datasets ?? []}
+              current={assistantCanvas}
+              saved={(value, graph) => {
+                rememberSave(value, graph);
+                void refetch();
+                void refetchDatasets();
+              }}
+            />
+          }
           flowName={flow.name}
           onBack={() => confirmNavigation(() => navigate("/flows"))}
           onRename={() => setEditOpen(true)}
@@ -315,28 +363,32 @@ export function FlowEditorPage() {
           canRun={validation.canRun}
           createRunPending={createRun.isPending}
           runReason={runReason}
-          onRun={() => (parameters.length > 0 ? setRunParamsOpen(true) : handleRun())}
+          onRun={() => (parameters.length > 0 ? setRunParamsOpen(true) : saveCanvas(true))}
           canExport={validation.canExport}
           onExport={() => setExportOpen(true)}
           parametersCount={parameters.length}
           onOpenParameters={() => setParamsOpen(true)}
           onOpenSchedule={() => setScheduleOpen(true)}
-          onSave={handleSave}
+          onSave={() => saveCanvas(false)}
           savePending={updateFlow.isPending}
         />
 
-        <div className="flex justify-start border-b border-border px-3 py-1">
-          <AssistantPanel key={flow.id} flowId={flow.id} revision={revision} disabled={isDisabled}
-            datasets={datasets ?? []}
-            current={assistantCanvas}
-            saved={(value, graph) => {
-              rememberSave(value, graph);
-              void refetch();
-              // A newly pinned input can be newer than the project list cached by this editor.
-              void refetchDatasets();
-            }}
-          />
-        </div>
+        {completedRun && (
+          <p role="status" className="border-b border-border bg-card px-4 py-2 text-sm">
+            Run finished. Your recent edits are still on the canvas.{" "}
+            <a href={`/runs/${completedRun}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+              View run in a new tab
+            </a>
+          </p>
+        )}
+        {conflict && (
+          <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-border bg-accent px-4 py-2 text-sm">
+            <strong>The saved flow changed.</strong> Your canvas is still open.
+            <a href={`/flows/${flow.id}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+              Compare saved flow in a new tab
+            </a>
+          </div>
+        )}
         {isDisabled && (
           <DisabledFlowBanner
             onReEnable={reEnable}
@@ -397,7 +449,7 @@ export function FlowEditorPage() {
         submitting={updateFlow.isPending || createRun.isPending}
         onSubmit={(values) => {
           setRunParamsOpen(false);
-          handleRun(values);
+          saveCanvas(true, values);
         }}
       />
 
@@ -424,7 +476,7 @@ export function FlowEditorPage() {
         error={updateFlow.error}
         onSubmit={(values) =>
           updateFlow.mutate(
-            { id: flow.id, body: { name: values.name, description: values.description } },
+            { id: flow.id, body: { expected_revision: revision, name: values.name, description: values.description } },
             { onSuccess: (result) => {acknowledgeMetadata(result); setEditOpen(false);} },
           )
         }

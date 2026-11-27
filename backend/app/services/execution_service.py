@@ -41,6 +41,7 @@ from app.plugin_api.events import EventBus, Hook
 from app.schemas.run import FlowRunCreate, FlowRunRead, FlowRunSummary, NodeDrift, RunDrift
 from app.services.dataset_resolver import build_dataset_paths
 from app.services.dataset_service import DatasetService
+from app.services.flow_revision import claim_revision
 from app.services.sql_resolver import materialize_sql_inputs, push_sql_outputs
 from app.services.storage_resolver import materialize_storage_inputs, push_storage_outputs
 
@@ -135,6 +136,7 @@ class ExecutionService:
         trigger: str = "manual",
         webhook_idempotency_key: str | None = None,
     ) -> FlowRunRead:
+        await claim_revision(self.db, flow_id, data.expected_revision)
         flow = await self._get_flow(flow_id)
 
         if flow.is_disabled:
@@ -207,6 +209,10 @@ class ExecutionService:
         await self.db.flush()  # assign run.id without committing
 
         timeout = await self._effective_timeout(data, schedule_id)
+        if data.expected_revision is not None:
+            # Complete admission with the exact checked graph. Release the flow's
+            # write lock before any input materialization or pipeline execution.
+            await self.db.commit()
         # Registered before any awaitable work so the exception handlers below
         # can always consult it, and so a cancel arriving during input
         # materialization is honored rather than racing the registration.
@@ -219,16 +225,10 @@ class ExecutionService:
         # timeout/cancel paths use it to tell a queued task (safely cancellable,
         # no pool recycle needed) from one already hogging a worker.
         cf_future: Any = None
+        resolved_versions: list[dict[str, Any]] | None = None
 
         try:
             dataset_paths, resolved_versions = await build_dataset_paths(self.db, graph)
-            # Record every resolved input so the run view can list them all.
-            run.input_datasets_json = resolved_versions
-            # Default the run's dataset to the first input so runs are filterable
-            # by dataset even when the caller didn't pass one explicitly.
-            if run.input_dataset_id is None and resolved_versions:
-                run.input_dataset_id = resolved_versions[0]["dataset_id"]
-
             output_dir = Path(self.settings.DATA_DIR) / "outputs" / run.id
             output_dir.mkdir(parents=True, exist_ok=True)
             # Read any SQL inputs live (in this async parent, which holds the DB
@@ -245,6 +245,10 @@ class ExecutionService:
             # The MLflow connection is the source of truth for the tracking URI;
             # resolve it here (DB available) and carry it into the off-loop worker.
             tracking_uri = await self._resolve_tracking_uri()
+            if data.expected_revision is not None:
+                # Release metadata reads before off-loop work. In particular,
+                # autoflush must not hold a SQLite writer lock during compute.
+                await self.db.commit()
             ctx_data: dict[str, Any] = {
                 "flow_id": flow_id,
                 "run_id": run.id,
@@ -507,6 +511,10 @@ class ExecutionService:
             # Unconditional (not gated on execution_mode) so a runtime switch
             # to thread mode can't strand a pending recycle; no-op when clear.
             recycle_pool_if_pending()
+            if resolved_versions is not None:
+                run.input_datasets_json = resolved_versions
+                if run.input_dataset_id is None and resolved_versions:
+                    run.input_dataset_id = resolved_versions[0]["dataset_id"]
             run.finished_at = datetime.now(UTC).replace(tzinfo=None)
             events = self._event_bus()
             if events is not None:

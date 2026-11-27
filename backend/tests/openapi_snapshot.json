@@ -242,6 +242,31 @@
         }
       }
     },
+    "GET /api/assistant/flows/{flow_id}/activity": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "query",
+          "name": "cursor",
+          "required": false,
+          "type": "anyOf(null|string)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "GET /api/assistant/status": {
       "parameters": [],
       "request": null,
@@ -1175,6 +1200,60 @@
       "responses": {
         "200": {
           "application/json": "#ScheduleRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/flows/{flow_id}/activity/{event_id}/preview": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "event_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#RevertPreview"
+      },
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/flows/{flow_id}/activity/{event_id}/revert": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "event_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#Confirmation"
+      },
+      "responses": {
+        "200": {
+          "application/json": "any"
         },
         "422": {
           "application/json": "#HTTPValidationError"
@@ -2251,6 +2330,7 @@
     "FlowRunCreate": {
       "properties": {
         "engine": "anyOf(null|string)",
+        "expected_revision": "anyOf(null|string(date-time))",
         "input_dataset_id": "anyOf(null|string)",
         "parameters": "anyOf(null|object)",
         "timeout_seconds": "anyOf(integer|null)"
@@ -2326,6 +2406,7 @@
     "FlowUpdate": {
       "properties": {
         "description": "anyOf(null|string)",
+        "expected_revision": "anyOf(null|string(date-time))",
         "graph_json": "anyOf(null|object)",
         "is_disabled": "anyOf(boolean|null)",
         "name": "anyOf(null|string)",
@@ -2714,6 +2795,14 @@
         "name": "anyOf(null|string)"
       },
       "required": []
+    },
+    "RevertPreview": {
+      "properties": {
+        "revision": "string(date-time)"
+      },
+      "required": [
+        "revision"
+      ]
     },
     "RevokeRequest": {
       "properties": {

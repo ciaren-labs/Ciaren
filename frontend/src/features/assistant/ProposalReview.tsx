@@ -2,6 +2,9 @@ import type { Dataset } from "@/features/datasets/types";
 import type { GraphJson, GraphNode } from "@/features/flows/types";
 import type { Delta } from "./api";
 
+import { FlowMap } from "./FlowMap";
+import { nodeMark } from "./nodePresentation";
+
 function settings(node: GraphNode, datasets: Dataset[]) {
   const c = node.data.config;
   const columns = (field: unknown) =>
@@ -46,7 +49,9 @@ export function ProposalReview({
   delta,
   base,
   datasets,
+  inspectNode,
 }: {
+  inspectNode: (id: string) => void;
   delta: Delta;
   base: GraphJson;
   datasets: Dataset[];
@@ -60,70 +65,109 @@ export function ProposalReview({
     return n?.type === "fileInput" ? settings(n, datasets) : byId.get(id);
   }
   return (
-    <section
-      aria-label="Proposed changes"
-      className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm"
-    >
-      <h3 className="font-semibold">Proposed changes</h3>
-      <ul className="divide-y divide-border">
+    <section aria-label="Proposed changes" className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-1">
+        <h3 className="text-lg font-semibold tracking-tight">
+          Proposed changes
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {[
+            delta.added.length && `${delta.added.length} new`,
+            delta.changed.length && `${delta.changed.length} updated`,
+            delta.connected.length + delta.disconnected.length &&
+              `${delta.connected.length + delta.disconnected.length} connections`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+      <FlowMap delta={delta} base={base} />
+      <ul className="divide-y divide-border rounded-xl border border-border bg-card px-3">
         {[...delta.added, ...delta.changed].map((n) => {
           const old = base.nodes.find((existing) => existing.id === n.id);
+          const { Icon, color } = nodeMark(n.type);
           return (
-            <li key={n.id} className="py-2">
-              <span className="font-medium">
-                {old ? "Update" : "Add"} {n.data.label}
+            <li key={n.id} className="flex gap-3 py-2.5">
+              <span
+                className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-muted ${color}`}
+              >
+                <Icon aria-hidden className="size-4" />
               </span>
-              <p className="break-words text-xs text-muted-foreground">
-                {old && <>{settings(old, datasets)} → </>}
-                {settings(n, datasets)}
-              </p>
-              {old && (
-                <details className="mt-1 text-xs">
-                  <summary className="cursor-pointer">
-                    Compare all settings
-                  </summary>
-                  <p className="mt-2 font-medium">Before</p>
-                  <pre className="whitespace-pre-wrap break-all">
-                    {JSON.stringify(old.data.config, null, 2)}
-                  </pre>
-                  <p className="mt-2 font-medium">After</p>
-                  <pre className="whitespace-pre-wrap break-all">
-                    {JSON.stringify(n.data.config, null, 2)}
-                  </pre>
-                </details>
-              )}
+              <div className="min-w-0">
+                <span className="font-medium">
+                  {old ? "Update" : "Add"} {n.data.label}
+                </span>
+                <p className="break-words text-xs text-muted-foreground">
+                  {old && <>{settings(old, datasets)} → </>}
+                  {settings(n, datasets)}
+                </p>
+                {old && (
+                  <button
+                    className="mt-2 text-xs font-medium text-primary underline"
+                    onClick={() => inspectNode(n.id)}
+                  >
+                    Inspect on canvas
+                  </button>
+                )}
+                {old && (
+                  <details className="mt-1 text-xs">
+                    <summary className="cursor-pointer">
+                      Compare all settings
+                    </summary>
+                    <p className="mt-2 font-medium">Before</p>
+                    <pre className="whitespace-pre-wrap break-all">
+                      {JSON.stringify(old.data.config, null, 2)}
+                    </pre>
+                    <p className="mt-2 font-medium">After</p>
+                    <pre className="whitespace-pre-wrap break-all">
+                      {JSON.stringify(n.data.config, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
             </li>
           );
         })}
       </ul>
-      <ul className="space-y-1 text-xs">
-        {delta.disconnected.map((id) => {
-          const e = base.edges.find((edge) => edge.id === id);
-          return (
-            e && (
-              <li key={id}>
-                Disconnect {byId.get(e.source)} → {byId.get(e.target)}
+      {delta.connected.length + delta.disconnected.length > 0 && (
+        <details className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <summary className="cursor-pointer text-xs font-semibold">
+            Connections ({delta.connected.length + delta.disconnected.length})
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs">
+            {delta.disconnected.map((id) => {
+              const e = base.edges.find((edge) => edge.id === id);
+              return (
+                e && (
+                  <li key={id}>
+                    Disconnect {byId.get(e.source)} → {byId.get(e.target)}
+                  </li>
+                )
+              );
+            })}
+            {delta.connected.map((e) => (
+              <li key={e.id}>
+                Connect {endpoint(e.source)} → {byId.get(e.target)}
+                {["left", "right"].includes(e.targetHandle ?? "") &&
+                  ` · ${e.targetHandle} input`}
               </li>
-            )
-          );
-        })}
-        {delta.connected.map((e) => (
-          <li key={e.id}>
-            Connect {endpoint(e.source)} → {byId.get(e.target)}
-            {["left", "right"].includes(e.targetHandle ?? "") &&
-              ` · ${e.targetHandle} input`}
-          </li>
-        ))}
-      </ul>
+            ))}
+          </ul>
+        </details>
+      )}
       {[...delta.added, ...delta.changed].some((n) => n.type === "join") && (
-        <p className="text-xs text-muted-foreground">
-          Duplicate keys can produce multiple rows. Empty keys can match in
-          pandas and stay unmatched in Polars.
-        </p>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer font-medium">
+            Join behavior
+          </summary>
+          <p className="mt-1">
+            Duplicate keys can produce multiple rows. Empty keys can match in
+            pandas and stay unmatched in Polars.
+          </p>
+        </details>
       )}
       <p className="text-xs text-muted-foreground">
-        Applying also saves your current canvas edits. Undo restores the
-        previous canvas.
+        Saves this proposal with your current canvas edits.
       </p>
     </section>
   );

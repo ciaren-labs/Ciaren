@@ -74,3 +74,7 @@ class BuildJoin(ClosedModel):
 class RepairJoin(ClosedModel):
     join: str = Field(pattern=r"^[0-9a-f]{12}$")
     how: Literal["left"]
+
+
+class RevertPreview(ClosedModel):
+    revision: datetime

@@ -59,6 +59,7 @@ export const flowsApi = {
   createRun: (
     id: string,
     options: {
+      expectedRevision?: string;
       inputDatasetId?: string;
       engine?: string;
       parameters?: Record<string, unknown> | null;
@@ -67,6 +68,7 @@ export const flowsApi = {
     request<FlowRun>(`/flows/${id}/runs`, {
       method: "POST",
       body: JSON.stringify({
+        expected_revision: options.expectedRevision,
         input_dataset_id: options.inputDatasetId,
         engine: options.engine ?? "pandas",
         // Only send when there are overrides, so flows without parameters keep

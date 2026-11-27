@@ -2,7 +2,7 @@
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from time import monotonic
 from uuid import uuid4
 
@@ -12,14 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.db.models.flow import Flow
+from app.db.models.flow import AssistantActivity, Flow
 from app.db.models.run import FlowRun
 from app.engine.node_metadata import BUILTIN_NODE_META
 from app.plugins import get_registry
 from app.schemas.assistant import Plan, Turn
-from app.services import assistant_docs, assistant_join, assistant_provider
+from app.services import assistant_activity, assistant_docs, assistant_join, assistant_provider
 from app.services.assistant_graph import INPUTS, SAFE, STEPS, Graph, compile_plan, inspect
 from app.services.assistant_inputs import InputVersion, resolve_input
+from app.services.flow_revision import next_revision, update_one
 
 STALE = "The flow or one of its inputs changed or became unavailable. Reopen the editor and review a fresh proposal."
 INSTRUCTION = (
@@ -42,6 +43,7 @@ class Pending:
     expires: float
     project: str
     inputs: list[InputVersion]
+    activity: AssistantActivity
 
 
 _pending: dict[str, Pending] = {}
@@ -187,17 +189,28 @@ class AssistantService:
         except SchemaError:
             raise ValidationError("The provider did not return a supported proposal.") from None
         graph, delta = compile_plan(body.graph, plan, column_types, source.binding(), source.version.fmt)
-        return self._remember(flow, body, graph, delta, [source.version], message)
+        return self._remember(flow, body, graph, delta, [source.version], message, set(column_types))
 
     @staticmethod
     def _remember(
-        flow: Flow, body: Turn, graph: Graph, delta: Graph, versions: list[InputVersion], message: str
+        flow: Flow,
+        body: Turn,
+        graph: Graph,
+        delta: Graph,
+        versions: list[InputVersion],
+        message: str,
+        known_columns: set[str] | None = None,
     ) -> Graph:
         _expire()
         if len(_pending) >= 64:
             raise ValidationError("Too many open proposals. Retry after existing proposals expire.")
         token = uuid4().hex
-        _pending[token] = Pending(flow.id, body.revision, graph, monotonic() + 180, flow.project_id, versions)
+        activity = assistant_activity.receipt(
+            flow.id, flow.project_id, body.graph, graph, delta, versions, body.mode, known_columns
+        )
+        if not activity.details:
+            return {"message": "The proposed settings already match this canvas."}
+        _pending[token] = Pending(flow.id, body.revision, graph, monotonic() + 180, flow.project_id, versions, activity)
         asyncio.get_running_loop().call_later(180, _pending.pop, token, None)
         return {"message": message or "Review the proposed canvas changes.", "proposal": token, "delta": delta}
 
@@ -211,8 +224,9 @@ class AssistantService:
             or get_settings().ASSISTANT_PROVIDER == "off"
         ):
             raise ConflictError("Proposal expired or unavailable. Generate a new one.")
-        revision = datetime.now(UTC).replace(tzinfo=None)
-        saved = await self.db.scalar(
+        revision = next_revision(p.revision)
+        saved = await update_one(
+            self.db,
             update(Flow)
             .where(
                 Flow.id == flow_id,
@@ -221,12 +235,13 @@ class AssistantService:
                 Flow.is_disabled.is_(False),
                 *(version.available(p.project) for version in p.inputs),
             )
-            .values(graph_json=p.graph, updated_at=revision)
-            .returning(Flow.id)
+            .values(graph_json=p.graph, updated_at=revision),
         )
-        if saved is None:
+        if not saved:
             await self.db.rollback()
             raise ConflictError(STALE)
+        p.activity.created_at = revision
+        self.db.add(p.activity)
         await self.db.commit()
         _pending.pop(token, None)
         return {"revision": revision}

@@ -84,10 +84,9 @@ def upgrade(revision: str = "head") -> bool:
 
     If the database already has the application tables but no ``alembic_version``
     row, it was bootstrapped by the startup ``create_all`` path before migrations
-    were managed. We *adopt* it by stamping the current head instead of letting
-    Alembic try to re-create tables that already exist. ``create_all`` always
-    builds the latest schema on startup, so stamping head matches what is on
-    disk. Returns ``True`` when an existing schema was adopted this way.
+    were managed. We *adopt* it by stamping the pre-activity revision instead of letting
+    Alembic try to re-create tables that already exist. The later additive migration also
+    accepts schemas that already contain its table. Returns ``True`` when an existing schema was adopted this way.
     """
     from alembic import command
 
@@ -98,7 +97,9 @@ def upgrade(revision: str = "head") -> bool:
 
     adopted = False
     if not has_version and has_tables:
-        command.stamp(cfg, "head")
+        # Legacy create_all installations can predate the activity table.
+        # Replay the idempotent additive migrations after the last legacy head.
+        command.stamp(cfg, "c9d0e1f2a3b4")
         adopted = True
 
     command.upgrade(cfg, revision)

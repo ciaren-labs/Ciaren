@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,14 +39,23 @@ export function CredentialSettings({ provider }: { provider: string }) {
     }
   }
   return (
-    <div className="space-y-2 p-4 text-sm">
-      <h3 className="font-medium">Provider API credential</h3>
+    <div className="space-y-3 rounded-b-xl bg-muted/45 p-4 text-sm">
+      <h3 className="flex items-center gap-2 font-semibold">
+        <KeyRound aria-hidden className="size-4 text-primary" />
+        Provider API credential
+      </h3>
       <p className="text-xs text-muted-foreground">
-        Use a billed API key. ChatGPT and Claude chat subscriptions have
-        separate billing. Everyone with access to this Ciaren instance shares
-        these settings.
+        Shared by this server. Use a provider API key with API billing. Chat
+        subscriptions have separate billing.
       </p>
-      <div role="status">
+      <div
+        role="status"
+        className="flex items-center gap-2 text-xs font-medium"
+      >
+        <span
+          aria-hidden
+          className={`size-2 rounded-full ${data?.state === "configured" ? "bg-success" : "bg-muted-foreground"}`}
+        />
         {query.isError
           ? "Credential status unavailable."
           : !data

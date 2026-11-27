@@ -209,3 +209,44 @@
 .react-flow__attribution {
   display: none;
 }
+
+.assistant-mast {
+  background: radial-gradient(ellipse at 90% 0%, rgb(255 255 255 / 17%), transparent 60%),
+    linear-gradient(112deg, #36206c, #6030ac 72%, #7142bb);
+}
+.assistant-map {
+  background-color: hsl(var(--accent) / .5);
+  background-image: radial-gradient(hsl(var(--primary) / .19) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+.assistant-mode[aria-pressed="true"] {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary) / .7);
+  color: hsl(var(--accent-foreground));
+  box-shadow: inset 0 -2px hsl(var(--primary) / .65);
+}
+.assistant-event::before {
+  content: "";
+  position: absolute;
+  top: 1.4rem;
+  left: -1.4rem;
+  width: .65rem;
+  height: .65rem;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  border: 2px solid hsl(var(--background));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel * {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+.react-flow__node.assistant-review-node {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 4px;
+  border-radius: .7rem;
+  box-shadow: 0 0 0 9px hsl(var(--primary) / .14);
+}
