@@ -436,9 +436,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument(
-        "--paid-deepseek", action="store_true", help="Use a direct DeepSeek API key and at most four turns"
+        "--paid-deepseek",
+        action="store_true",
+        help="Use a direct DeepSeek API key and at most four turns",
     )
-    modes.add_argument("--demo-gif", type=Path, metavar="FILE", help="Record the packaged UI with simulated inference")
+    modes.add_argument(
+        "--demo-gif",
+        type=Path,
+        metavar="FILE",
+        help="Record the packaged UI with simulated inference",
+    )
+    modes.add_argument(
+        "--build-gif",
+        type=Path,
+        metavar="FILE",
+        help="Record the first CSV tutorial with simulated inference",
+    )
     args = parser.parse_args()
     import app
 
@@ -477,12 +490,21 @@ def main():
             del os.environ[name]
     frames, durations = [], []
 
-    def capture(page, duration):
-        if args.demo_gif:
+    def capture(page, duration, caption=None, target=None, left=0):
+        if args.demo_gif or args.build_gif:
             from PIL import Image
 
-            png = page.screenshot(clip={"x": 236, "y": 6, "width": 1040, "height": 814}, animations="disabled")
-            frames.append(Image.open(io.BytesIO(png)).convert("RGB").quantize(colors=192))
+            if caption:
+                from build_recording import captioned_frame
+
+                frame = captioned_frame(page, caption, target, left)
+            else:
+                png = page.screenshot(
+                    clip={"x": 236, "y": 6, "width": 1040, "height": 814},
+                    animations="disabled",
+                )
+                frame = Image.open(io.BytesIO(png)).convert("RGB")
+            frames.append(frame.quantize(colors=192))
             durations.append(duration)
 
     token = secrets.token_urlsafe(32)
@@ -494,7 +516,10 @@ def main():
         stage("Playwright startup")
         pw = sync_playwright().start()
         defer("Playwright", pw.stop)
-        print(f"{'PAID' if args.paid_deepseek else 'SIMULATED'} {provider} / {model}", flush=True)
+        print(
+            f"{'PAID' if args.paid_deepseek else 'SIMULATED'} {provider} / {model}",
+            flush=True,
+        )
         stage("browser startup")
         browser = pw.chromium.launch(executable_path=os.environ.get("CIAREN_TEST_CHROMIUM"))
         defer("browser", browser.close)
@@ -505,12 +530,20 @@ def main():
             service_workers="block",
         )
         defer("browser context", context.close)
-        context.route("**/*", lambda r: r.continue_() if r.request.url.startswith(base + "/") else r.abort())
-        walkthrough(context, base, provider, model, capture, stage)
-        if args.demo_gif:
+        context.route(
+            "**/*",
+            lambda r: r.continue_() if r.request.url.startswith(base + "/") else r.abort(),
+        )
+        if args.build_gif:
+            from build_recording import record_build
+
+            record_build(context, base, capture, stage)
+        else:
+            walkthrough(context, base, provider, model, capture, stage)
+        if args.demo_gif or args.build_gif:
             stage("save recording")
             frames[0].save(
-                args.demo_gif,
+                args.demo_gif or args.build_gif,
                 format="GIF",
                 save_all=True,
                 append_images=frames[1:],

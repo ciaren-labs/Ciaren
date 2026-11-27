@@ -3,13 +3,12 @@
 </p>
 
 <h3 align="center">
-  Open-source visual ETL and data pipeline builder that exports the pandas and Polars code you'd write by hand.
+  Open-source, AI-native visual ETL for Python. Build data pipelines on a canvas and export readable pandas or Polars code.
 </h3>
 
 <p align="center">
-  Build data and ML pipelines on a canvas, preview every step, then export
-  readable pandas, Polars, or lazy Polars code with no proprietary runtime.
-  What you keep is real, reviewable Python you can run and version anywhere.
+  Build a complete workflow by hand without a model API key, or bring your own key and describe a supported CSV flow.<br>
+  Both routes give you editable nodes, local execution and Python you can take with you.
 </p>
 
 <h3 align="center">Try it in your browser, nothing to install</h3>
@@ -25,7 +24,8 @@
 
 <p align="center">
   <a href="https://ciaren.com/docs/latest">Docs</a>
-  · <a href="https://ciaren.com/docs/latest/guide/quick-start">Quick Start</a>
+  · <a href="https://ciaren.com/docs/latest/guide/quick-start">Manual quick start</a>
+  · <a href="docs/guide/flow-assistant-quick-start.md">AI quick start</a>
   · <a href="https://ciaren.com/docs/latest/plugins/overview">Plugins</a>
   · <a href="https://github.com/ciaren-labs/Ciaren/discussions">Discussions</a>
   · <a href="CONTRIBUTING.md">Contributing</a>
@@ -79,6 +79,19 @@ scheduler, and web UI.
 > change before `1.0.0`. Use it for learning, prototypes, and controlled
 > internal workflows before relying on it for critical production jobs.
 
+## Build a CSV flow with the AI assistant
+
+**Can Ciaren build a pipeline from a prompt?** Yes. For supported CSV flows, the assistant generates a connected proposal with installed nodes. Choose **Apply and save** after review and **Run** when you want the output. [AI quick start](docs/guide/flow-assistant-quick-start.md).
+
+**Do I need an API key to use Ciaren?** No. Build the entire flow manually, run it locally and export Python. Connectors that access external services may require their own credentials. [Manual quick start](docs/guide/quick-start.md).
+
+![From an empty Ciaren canvas, a request to limit and deduplicate a CSV becomes a four-node proposal. After approval the connected flow runs and returns three distinct amounts.](docs/public/screenshots/flow-assistant-build.gif)
+
+The recording uses the packaged editor, synthetic data and simulated inference.
+The main branch includes the assistant. The 0.3.1 release predates it.
+[Walk through a Join diagnosis and reversal](docs/guide/flow-assistant.md).
+For an external agent, try the [read-only SDK example](docs/guide/external-agent.md).
+
 ## Why It Feels Different
 
 | You get | Why it matters |
@@ -93,19 +106,6 @@ scheduler, and web UI.
 Ciaren is not a hosted no-code black box. Every node maps to understandable
 dataframe behavior, every run leaves inspectable results, and every flow can
 become code.
-
-## Flow assistant for visual ETL
-
-Bring your own API key to build a CSV flow, ask a question about Ciaren with a
-source link, or diagnose a missing row. The editor highlights the affected node
-and shows each proposed change before you save. Each flow has an activity
-history where you can preview and revert a saved change.
-
-![Ciaren highlights a Join, previews an inner-to-left repair, and shows the saved change and its reversal in Activity](docs/public/screenshots/flow-assistant-join.gif)
-
-In this recording, order 104 has no catalog match. A left Join keeps it.
-The editor and its history are real. The example data and provider response
-are synthetic. [Read the walkthrough and configure a provider](docs/guide/flow-assistant.md).
 
 ## Quickstart
 

@@ -48,6 +48,14 @@ const guideSidebar = [
     ],
   },
   {
+    text: 'AI Flow Assistant',
+    items: [
+      { text: 'Set Up and Build a CSV Flow', link: '/guide/flow-assistant-quick-start' },
+      { text: 'Providers, Privacy & Activity', link: '/guide/flow-assistant' },
+      { text: 'Connect Your Own Agent', link: '/guide/external-agent' },
+    ],
+  },
+  {
     text: 'Data Engineering',
     items: [
       { text: 'Projects & Runs', link: '/guide/projects-and-runs' },
@@ -72,7 +80,6 @@ const guideSidebar = [
     collapsed: true,
     items: [
       { text: 'Docker', link: '/guide/docker' },
-      { text: 'Flow Assistant', link: '/guide/flow-assistant' },
       { text: 'Advanced Setup', link: '/guide/advanced-setup' },
     ],
   },

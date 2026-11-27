@@ -8,6 +8,8 @@ search: flow assistant BYOK CSV ETL Join diagnose activity history revert
 
 Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, choose a provider under **Settings → Assistant** and save the setting. Select a supported model, choose a reasoning effort if offered, and configure its API key. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
 
+Follow [Set up the AI assistant and build a CSV flow](flow-assistant-quick-start.md) for a first run. To give an external agent a read-only catalog tool, see [Connect your own agent](external-agent.md).
+
 ## Walkthrough: recover a missing order
 
 ![The flow assistant highlights a Join and previews its repair, then shows the saved change and its reversal in Activity](/screenshots/flow-assistant-join.gif)
@@ -60,7 +62,9 @@ Files, samples, filenames, dataset IDs, connection details, node labels, scripts
 
 Ciaren settings and provider credentials belong to one server instance. Anyone with access to its API can manage the assistant within the installation's token and browser-origin rules. Deploy separate instances, data directories and secret sources for separate trust boundaries. Use TLS and the Ciaren API token for a networked installation. Configure reverse proxies and monitoring to omit request bodies and authorization headers. Restrict process and diagnostic dump access at the operating-system level.
 
-The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. The same suffixes apply to the other providers in the table. The Settings page shows the effective value and its source. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. Use the provider name in capitals for its model variable. Only OpenAI, Anthropic and DeepSeek expose an `_EFFORT` variable. OpenCode uses the provider default. The Settings page labels the effective value **Custom**, **From environment** or **Default**. For `CIAREN_ASSISTANT_PROVIDER` use `openai`, `anthropic`, `deepseek`, `opencode` or `off`. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+
+To rotate a key stored in the native keyring, enter the replacement in **New API key** and choose **Save key**. **Remove key** deletes the stored credential. An environment or file source is administered on the server. Ciaren uses the configured source exclusively.
 
 Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE`.
 
@@ -73,14 +77,18 @@ Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVID
 For Docker or a headless install, set the non-secret variables below and mount the selected secret file. Keep the source file outside the repository, build context, data directory and connector roots. Set `CIAREN_STORAGE_ALLOWED_ROOTS` to dedicated dataset folders on shared installations.
 
 ```yaml
-environment:
-  CIAREN_ASSISTANT_PROVIDER: openai
-  CIAREN_ASSISTANT_OPENAI_MODEL: gpt-5-mini
-  CIAREN_ASSISTANT_OPENAI_EFFORT: low
-  CIAREN_ASSISTANT_OPENAI_KEY_SOURCE: file
-volumes:
-  - /srv/private/ciaren/openai:/run/ciaren-assistant-secrets/openai:ro
+services:
+  ciaren:
+    environment:
+      CIAREN_ASSISTANT_PROVIDER: openai
+      CIAREN_ASSISTANT_OPENAI_MODEL: gpt-5-mini
+      CIAREN_ASSISTANT_OPENAI_EFFORT: low
+      CIAREN_ASSISTANT_OPENAI_KEY_SOURCE: file
+    volumes:
+      - /srv/private/ciaren/openai:/run/ciaren-assistant-secrets/openai:ro
 ```
+
+For the repository Compose setup, save the fragment as `docker-compose.override.yml` alongside `docker-compose.yml`. Set the host path to an existing secret file and recreate the service with `docker compose up -d --build ciaren`. For process injection, set `CIAREN_ASSISTANT_DEEPSEEK_KEY_SOURCE=env` and have your secret manager supply `CIAREN_ASSISTANT_DEEPSEEK_API_KEY` to the server process when using DeepSeek. Keep secrets out of shell history and committed environment files.
 
 Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status indicates a local credential exists.
 

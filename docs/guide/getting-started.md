@@ -9,10 +9,12 @@ search: getting started introduction what is ciaren beginner technical overview
 **For:** anyone new to Ciaren. **You get:** the mental model in a few minutes,
 then a four-step path from installation to your first working flows.
 
-Ciaren is a visual workflow builder for local data engineering and lightweight
+Ciaren is an AI-native visual workflow builder for local data engineering and lightweight
 machine-learning work. You build **flows** — Ciaren's word for a saved
 pipeline — on a canvas, preview real data at each step, run them locally, and
 export readable pandas, polars, or lazy polars Python.
+
+Choose the [manual quick start](quick-start.md) to build without a provider API key, or the [AI quick start](flow-assistant-quick-start.md) to review a CSV pipeline generated from a prompt.
 
 :::warning Alpha software
 Ciaren is in early development. APIs, generated code, workflow files, and plugin

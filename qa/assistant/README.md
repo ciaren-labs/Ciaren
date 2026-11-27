@@ -62,7 +62,15 @@ The run asks the packaged editor to build a two-input flow, cite the Join guide,
 
 The smoke prints a fixed stage name before each check. A `FAIL` line identifies the first failed acceptance stage. Separate `CLEANUP` lines identify teardown failures. Either produces a nonzero exit. On Windows the server starts in its own process group and teardown waits for it before retrying transient file locks. A cleanup failure after the checks does not establish a provider failure. Use the simulated recording to investigate teardown without spending another API call.
 
-### Reproduce the README recording without an account
+### Record the first CSV tutorial without an account
+
+The simulated build recording uses the packaged editor. It uploads four synthetic amounts, requests a four-node flow, confirms it and checks the downloaded CSV contains three distinct values. It also checks local validation, a guide citation and the persisted reversal after the last frame.
+
+```powershell
+& $python qa/assistant/provider_walkthrough.py --build-gif docs/public/screenshots/flow-assistant-build.gif
+```
+
+### Reproduce the Join repair recording without an account
 
 Use the same test environment as above. The following command uses a simulated provider, the packaged editor and the same synthetic CSVs and assertions. It records selected moments from Chromium starting at the repair request and ending at the confirmed reversal. The output omits browser chrome and credential settings.
 
