@@ -1,27 +1,37 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import asyncio
+import re
 import tempfile
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from itertools import islice
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
-from app.engine.backends import AnyFrame, get_engine
+from app.engine.backends import AnyFrame, EngineBackend, get_engine
+from app.engine.backends.pandas_engine import PandasEngine
 from app.engine.executor import FlowExecutor, NodeExecutionError
 from app.engine.graph import GraphValidationError, ancestor_subgraph, topological_sort
+from app.engine.node_kinds import INPUT_TYPES
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
-from app.engine.registry import get_transformation
+from app.engine.registry import get_transformation, ml_node_types
 from app.engine.transformations.base import BaseTransformation
 from app.schemas.preview import (
     FlowPreviewRequest,
     PreviewResponse,
     TransformationPreviewRequest,
 )
+from app.services.assistant_inputs import resolve_input
 from app.services.dataset_resolver import build_dataset_paths, resolve_version
 from app.services.sql_resolver import has_sql_inputs, materialize_sql_inputs
 from app.services.storage_resolver import has_storage_inputs, materialize_storage_inputs
@@ -82,10 +92,7 @@ class PreviewService:
         # branches cost time, and a failing node elsewhere (violated assertion,
         # typo'd column) must not break this node's preview.
         try:
-            node_id = req.node_id or self._default_node(graph)
-            if not any(n.get("id") == node_id for n in graph.get("nodes", [])):
-                raise NotFoundError("Node", node_id)
-            graph = ancestor_subgraph(graph, node_id)
+            node_id, graph = _slice(graph, req.node_id)
         except GraphValidationError as exc:
             # A malformed graph (no nodes, dangling edge, cycle) is a bad
             # request, not a server error.
@@ -116,16 +123,7 @@ class PreviewService:
             # thread so a heavy preview can't stall the event loop (and with it
             # every other request and the scheduler).
             def _compute() -> PreviewResponse:
-                # preview_mode keeps ML nodes from fitting/logging in a preview.
-                with preview_mode():
-                    frames = FlowExecutor().compute_frames(
-                        graph,
-                        dataset_paths,
-                        self.engine,
-                        require_output=False,
-                        sql_input_paths=sql_input_paths,
-                        storage_input_paths=storage_input_paths,
-                    )
+                frames = _compute_frames(graph, dataset_paths, self.engine, sql_input_paths, storage_input_paths)
                 return self._to_response(frames[node_id], req.limit, req.profile)
 
             try:
@@ -147,16 +145,8 @@ class PreviewService:
 
         Non-ML transformations don't have this hook, so this is a no-op for them.
         """
-        from app.engine.transformations.ml.base import MLSchema, MLTransformation
-
-        if not isinstance(transformation, MLTransformation):
-            return
-        schema = MLSchema(
-            columns=[str(c) for c in df.columns],
-            row_count=int(self.engine.row_count(df)),
-        )
         try:
-            transformation.validate_with_schema(config, schema)
+            _check_ml_schema(transformation, config, [str(c) for c in df.columns], int(self.engine.row_count(df)))
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
@@ -167,21 +157,7 @@ class PreviewService:
             raise NotFoundError("Transformation", node_type) from exc
 
     def _to_response(self, df: AnyFrame, limit: int, profile: bool = False) -> PreviewResponse:
-        total = self.engine.row_count(df)
-        return PreviewResponse(
-            columns=list(df.columns),
-            rows=self.engine.to_records(df, limit),
-            row_count=total,
-            truncated=total > limit,
-            profile=profile_frame(self.engine, df) if profile else None,
-        )
-
-    def _default_node(self, graph: dict[str, Any]) -> str:
-        # The deepest node in topological order is the natural preview target.
-        order = topological_sort(graph)
-        if not order:
-            raise ValidationError("The flow has no nodes to preview.")
-        return order[-1]
+        return _response(self.engine, df, limit, profile)
 
     async def _get_flow(self, flow_id: str) -> Flow:
         result = await self.db.execute(select(Flow).where(Flow.id == flow_id))
@@ -189,3 +165,246 @@ class PreviewService:
         if flow is None:
             raise NotFoundError("Flow", flow_id)
         return flow
+
+
+def _response(engine: EngineBackend, df: AnyFrame, limit: int, profile: bool) -> PreviewResponse:
+    total = engine.row_count(df)
+    return PreviewResponse(
+        columns=list(df.columns),
+        rows=engine.to_records(df, limit),
+        row_count=total,
+        truncated=total > limit,
+        profile=profile_frame(engine, df) if profile else None,
+    )
+
+
+def _default_node(graph: dict[str, Any]) -> str:
+    # The deepest node in topological order is the natural preview target.
+    order = topological_sort(graph)
+    if not order:
+        raise ValidationError("The flow has no nodes to preview.")
+    return order[-1]
+
+
+def _slice(graph: dict[str, Any], node_id: str | None) -> tuple[str, dict[str, Any]]:
+    """Return the preview target and the upstream slice that computes it."""
+    target = node_id or _default_node(graph)
+    if not any(n.get("id") == target for n in graph.get("nodes", [])):
+        raise NotFoundError("Node", target)
+    return target, ancestor_subgraph(graph, target)
+
+
+def _compute_frames(
+    graph: dict[str, Any],
+    dataset_paths: dict[str, Path],
+    engine: EngineBackend,
+    sql_input_paths: dict[str, Path] | None = None,
+    storage_input_paths: dict[str, Path] | None = None,
+) -> dict[str, AnyFrame]:
+    # preview_mode keeps ML nodes from fitting/logging in a preview.
+    with preview_mode():
+        return FlowExecutor().compute_frames(
+            graph,
+            dataset_paths,
+            engine,
+            require_output=False,
+            sql_input_paths=sql_input_paths,
+            storage_input_paths=storage_input_paths,
+        )
+
+
+def _check_ml_schema(
+    transformation: BaseTransformation, config: dict[str, Any], columns: list[str], row_count: int | None
+) -> None:
+    """Run an ML node's data-aware validation; a no-op for every other node.
+
+    Raises the node's ``ValueError`` unchanged so each caller chooses how to report it.
+    """
+    from app.engine.transformations.ml.base import MLSchema, MLTransformation
+
+    if isinstance(transformation, MLTransformation):
+        transformation.validate_with_schema(config, MLSchema(columns=columns, row_count=row_count))
+
+
+# -- Unsaved-graph preview (assistant) ------------------------------------
+
+IssueCode = Literal["missing_column", "bad_type", "bad_port", "cycle", "policy", "limit", "config"]
+ISSUE_CODES: frozenset[str] = frozenset(get_args(IssueCode))
+
+
+@dataclass(frozen=True)
+class Issue:
+    """A problem found while previewing. ``message`` is raw server-side text that
+    may name columns and data values: pass it through :func:`redact_issue` before
+    it leaves the server."""
+
+    node: str | None
+    code: IssueCode
+    message: str
+
+
+@dataclass
+class GraphPreview:
+    node: str
+    # The target node's rows; None when the graph failed to compute.
+    preview: PreviewResponse | None
+    # (column, dtype) per computed node, in column order.
+    schemas: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    issues: list[Issue] = field(default_factory=list)
+    # True when at least one input had more rows than the sample.
+    sampled: bool = False
+
+
+class _SampleEngine(PandasEngine):
+    """Pandas engine whose reads stop after ``rows`` rows.
+
+    It reads ``rows + 1`` rows so truncation is observable. JSON documents have no
+    row stream and are parsed whole before slicing.
+    """
+
+    def __init__(self, rows: int) -> None:
+        self.rows = rows
+        self.truncated = False
+
+    def read(self, path: str, source_type: str) -> pd.DataFrame:
+        n = self.rows + 1
+        if source_type in ("csv", "tsv"):
+            df = pd.read_csv(path, nrows=n, sep="\t" if source_type == "tsv" else ",")
+        elif source_type == "excel":
+            df = pd.read_excel(path, nrows=n)
+        elif source_type == "jsonl":
+            df = pd.read_json(path, lines=True, nrows=n)
+        elif source_type == "parquet":
+            pf = pq.ParquetFile(path)  # type: ignore[no-untyped-call, unused-ignore]
+            batches, seen = [], 0
+            for batch in pf.iter_batches(batch_size=n):  # type: ignore[no-untyped-call, unused-ignore]
+                batches.append(batch)
+                seen += batch.num_rows
+                if seen >= n:
+                    break
+            df = pa.Table.from_batches(batches, schema=pf.schema_arrow).to_pandas()
+        elif source_type == "text":
+            with open(path, encoding="utf-8") as fh:
+                df = pd.DataFrame({"text": [line.rstrip("\r\n") for line in islice(fh, n)]})
+        else:
+            df = super().read(path, source_type)
+        if len(df) > self.rows:
+            self.truncated = True
+            df = df.head(self.rows)
+        return df
+
+
+def classify_issue(exc: BaseException) -> IssueCode:
+    """Map a preview failure onto the stable issue code the assistant sees."""
+    text = str(exc).lower()
+    if isinstance(exc, GraphValidationError):
+        if "cycle" in text:
+            return "cycle"
+        if any(w in text for w in ("input", "output", "connection", "edge")):
+            return "bad_port"
+        return "config"
+    if isinstance(exc, KeyError) or (
+        "column" in text and any(w in text for w in ("not found", "not in", "missing", "unknown", "not exist"))
+    ):
+        return "missing_column"
+    if isinstance(exc, TypeError) or any(w in text for w in ("dtype", "could not convert", "not numeric")):
+        return "bad_type"
+    if any(w in text for w in ("at least", "at most", "too many", "too few", "exceed")):
+        return "limit"
+    return "config"
+
+
+_QUOTED = r"'([^']*)'|\"([^\"]*)\"|`([^`]*)`"
+
+
+def redact_issue(message: str, code: str, refs: Mapping[str, str]) -> dict[str, str]:
+    """Make an issue safe to show the model: real names become refs, every other
+    quoted literal is dropped, and the text is capped at 200 characters."""
+    if code not in ISSUE_CODES:
+        raise ValueError(f"Unknown issue code {code!r}")
+    bare = "|".join(re.escape(n) for n in sorted((n for n in refs if n), key=len, reverse=True))
+    pattern = re.compile(_QUOTED + (rf"|(?<!\w)({bare})(?!\w)" if bare else ""))
+
+    def swap(m: re.Match[str]) -> str:
+        if m.lastindex == 4:
+            return refs[m.group(4)]
+        inner = next(g for g in m.groups()[:3] if g is not None)
+        return f"'{refs[inner]}'" if inner in refs else "'…'"
+
+    return {"code": code, "message": pattern.sub(swap, message)[:200]}
+
+
+async def preview_graph(
+    db: AsyncSession,
+    project_id: str,
+    graph: dict[str, Any],
+    node_id: str | None,
+    limit: int,
+    profile: bool,
+    sample_rows: int = 2000,
+) -> GraphPreview:
+    """Preview an unsaved graph on the first ``sample_rows`` rows of each input.
+
+    With ``node_id`` only that node's upstream slice is computed; without it the
+    whole graph is computed and the deepest node is the target. Every input must
+    be an available file dataset of ``project_id``, otherwise ``ValidationError``.
+    Graph and node failures come back as ``issues`` so the caller can repair them.
+    ML nodes are validated against their upstream schema and never fit.
+    """
+    try:
+        graph, _ = apply_parameters(graph, {})
+        target, graph = _slice(graph, node_id) if node_id else (_default_node(graph), graph)
+    except (GraphValidationError, ParameterError) as exc:
+        return GraphPreview(node_id or "", None, issues=[Issue(None, classify_issue(exc), str(exc))])
+    # build_dataset_paths is not project-scoped, so every input is checked first.
+    for node in graph.get("nodes", []):
+        if node.get("type") in INPUT_TYPES:
+            await resolve_input(db, project_id, None, node)
+    from app.ml.availability import guard_graph_ml_enabled
+
+    guard_graph_ml_enabled(graph)
+    dataset_paths, _ = await build_dataset_paths(db, graph)
+    engine = _SampleEngine(sample_rows)
+
+    def _compute() -> GraphPreview:
+        try:
+            frames = _compute_frames(graph, dataset_paths, engine)
+        except GraphValidationError as exc:
+            return GraphPreview(target, None, issues=[Issue(None, classify_issue(exc), str(exc))])
+        except NodeExecutionError as exc:
+            issue = Issue(exc.node_id, classify_issue(exc.original), str(exc.original))
+            return GraphPreview(target, None, issues=[issue], sampled=engine.truncated)
+        result = GraphPreview(
+            target,
+            _response(engine, frames[target], limit, profile),
+            {nid: [(str(c), str(t)) for c, t in df.dtypes.items()] for nid, df in frames.items()},
+            sampled=engine.truncated,
+        )
+        ml_types = ml_node_types()
+        for node in graph["nodes"]:
+            if node["type"] not in ml_types:
+                continue
+            source = next(
+                (
+                    e["source"]
+                    for e in graph["edges"]
+                    if e["target"] == node["id"] and e.get("targetHandle") in (None, "in")
+                ),
+                None,
+            )
+            if source is None:
+                continue
+            upstream = frames[source]
+            try:
+                _check_ml_schema(
+                    get_transformation(node["type"]),
+                    node["data"]["config"],
+                    [str(c) for c in upstream.columns],
+                    # A truncated sample would make row-count rules judge the sample.
+                    None if engine.truncated else len(upstream),
+                )
+            except ValueError as exc:
+                result.issues.append(Issue(node["id"], classify_issue(exc), str(exc)))
+        return result
+
+    return await asyncio.to_thread(_compute)

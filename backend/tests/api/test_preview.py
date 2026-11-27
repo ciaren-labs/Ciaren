@@ -10,7 +10,11 @@ import io
 from typing import Any
 
 import pandas as pd
+import pytest
 from httpx import AsyncClient
+
+from app.core.exceptions import ValidationError
+from app.services.preview_service import preview_graph, redact_issue
 
 ROWS: list[dict[str, Any]] = [
     {"name": "Alice", "age": 30, "city": "NYC"},
@@ -259,3 +263,116 @@ async def test_preview_only_computes_the_upstream_slice(client: AsyncClient) -> 
     assert r.status_code == 400, r.text
     detail = r.json()["detail"]
     assert "boom" in detail and "assertRowCount" in detail
+
+
+# -- preview_graph (unsaved assistant graphs) ----------------------------
+
+WIDE = [{"name": f"p{i}", "age": i, "city": "NYC" if i % 2 else "LA"} for i in range(12)]
+
+
+def _encoded(fmt: str) -> tuple[str, bytes]:
+    frame = pd.DataFrame(WIDE)
+    buf = io.BytesIO()
+    if fmt == "parquet":
+        frame.to_parquet(buf, index=False)
+    elif fmt == "jsonl":
+        frame.to_json(buf, orient="records", lines=True)
+    else:
+        frame.to_csv(buf, index=False)
+    return f"wide.{fmt}", buf.getvalue()
+
+
+def _graph(dataset: dict, *steps: dict) -> dict:
+    nodes = [
+        {
+            "id": "in1",
+            "type": "fileInput",
+            "data": {"config": {"dataset_id": dataset["id"], "format": dataset["source_type"]}},
+        },
+        *steps,
+    ]
+    chain = [n["id"] for n in nodes]
+    edges = [{"id": f"e{i}", "source": a, "target": b} for i, (a, b) in enumerate(zip(chain, chain[1:], strict=False))]
+    return {"nodes": nodes, "edges": edges}
+
+
+@pytest.mark.parametrize("fmt", ["csv", "parquet", "jsonl"])
+async def test_preview_graph_samples_inputs_and_types_every_node(client: AsyncClient, db_session, fmt) -> None:
+    ds = await _upload(client, *reversed(_encoded(fmt)))
+    graph = _graph(ds, {"id": "pick", "type": "selectColumns", "data": {"config": {"columns": ["age", "city"]}}})
+
+    result = await preview_graph(db_session, ds["project_id"], graph, None, limit=2, profile=True, sample_rows=5)
+
+    assert result.issues == [] and result.node == "pick" and result.sampled
+    assert result.preview is not None
+    assert result.preview.row_count == 5 and len(result.preview.rows) == 2 and result.preview.profile
+    assert [c for c, _ in result.schemas["in1"]] == ["name", "age", "city"]
+    assert dict(result.schemas["pick"]) == {"age": "int64", "city": "object"}
+
+
+async def test_preview_graph_rejects_inputs_outside_the_project(client: AsyncClient, db_session) -> None:
+    project = (await client.post("/api/projects", json={"name": "Elsewhere"})).json()
+    ds = await _upload(client)
+    with pytest.raises(ValidationError):
+        await preview_graph(db_session, project["id"], _graph(ds), "in1", limit=5, profile=False)
+
+
+async def test_preview_graph_reports_failures_as_issues(client: AsyncClient, db_session) -> None:
+    ds = await _upload(client)
+    graph = _graph(ds, {"id": "pick", "type": "selectColumns", "data": {"config": {"columns": ["ghost"]}}})
+
+    result = await preview_graph(db_session, ds["project_id"], graph, "pick", limit=5, profile=False)
+
+    assert result.preview is None and [(i.node, i.code) for i in result.issues] == [("pick", "missing_column")]
+
+
+@pytest.mark.parametrize(
+    ("node", "code", "computed"),
+    [
+        # Preview never fits, so a train node's column checks come from validate_with_schema.
+        (
+            {
+                "type": "mlTrainRegressor",
+                "config": {
+                    "seed": 1,
+                    "model_type": "linear_regression",
+                    "target_column": "age",
+                    "feature_columns": ["ghost"],
+                },
+            },
+            "missing_column",
+            True,
+        ),
+        ({"type": "trainTestSplit", "config": {"seed": 1, "test_size": 0.5}}, "limit", False),
+    ],
+)
+async def test_preview_graph_reports_ml_schema_issues(
+    client: AsyncClient, db_session, monkeypatch, node, code, computed
+) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    ds = await _upload(client, *reversed(_encoded("csv")))
+    step = {"id": "ml", "type": node["type"], "data": {"config": node["config"]}}
+
+    result = await preview_graph(db_session, ds["project_id"], _graph(ds, step), None, limit=5, profile=False)
+
+    assert [(i.node, i.code) for i in result.issues] == [("ml", code)]
+    assert ("ml" in result.schemas) is computed
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Column 'salary' not found", "Column 'c0' not found"),
+        ('value "Alice" is not a number in salary', "value '…' is not a number in c0"),
+        ("x" * 300, "x" * 200),
+    ],
+)
+def test_redact_maps_names_strips_literals_and_caps(message: str, expected: str) -> None:
+    assert redact_issue(message, "config", {"salary": "c0"}) == {"code": "config", "message": expected}
+
+
+def test_redact_rejects_unknown_codes() -> None:
+    with pytest.raises(ValueError):
+        redact_issue("boom", "surprise", {})
