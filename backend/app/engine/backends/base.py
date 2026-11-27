@@ -233,12 +233,15 @@ def numeric_filter_value(value: Any, column: str) -> Any:
     The editor saves the value as text ("100"), and comparing text with a
     number raises or matches nothing. Text is parsed as an int when it is
     integral, else as a float; text that is neither raises. Lists (``between``
-    bounds, ``in`` items) are parsed per item; non-text values pass through.
+    bounds, ``in`` items) are parsed per item, and all become floats once one
+    is: polars infers a list's dtype from its first item, so ``[50, 99.5]``
+    fails as Int64. Non-text values pass through.
     The exported scripts' ``_filter_value`` helper (transformations/base.py)
     applies the same rule.
     """
     if isinstance(value, (list, tuple)):
-        return [numeric_filter_value(v, column) for v in value]
+        items = [numeric_filter_value(v, column) for v in value]
+        return [float(v) for v in items] if any(isinstance(v, float) for v in items) else items
     if not isinstance(value, str):
         return value
     try:

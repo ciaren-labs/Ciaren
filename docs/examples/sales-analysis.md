@@ -145,7 +145,9 @@ import pandas as pd
 def _filter_value(df, column, value):
     """Type a comparison value like its column: text becomes a number on a numeric column."""
     if isinstance(value, list):
-        return [_filter_value(df, column, v) for v in value]
+        items = [_filter_value(df, column, v) for v in value]
+        # One float makes every item a float: polars types a list by its first item.
+        return [float(v) for v in items] if any(isinstance(v, float) for v in items) else items
     numeric = pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])
     if not isinstance(value, str) or not numeric:
         return value

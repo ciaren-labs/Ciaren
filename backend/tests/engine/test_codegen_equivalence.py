@@ -670,9 +670,18 @@ _FILTER_TEXT_VALUE_CASES = [
     ("amount", "<=", {"value": "99.5"}, [1, 4]),
     ("amount", "between", {"value": "50", "value2": "150"}, [1, 2, 4]),
     ("amount", "in", {"value": "50, 150"}, [1, 2]),
+    # Mixed int/float items in either order: polars builds the list's dtype from
+    # its first item, so every item must be a float once one is.
+    ("amount", "in", {"value": "50, 99.5"}, [1, 4]),
+    ("amount", "in", {"value": "99.5, 50"}, [1, 4]),
+    ("amount", "between", {"value": "50", "value2": "99.5"}, [1, 4]),
+    ("amount", "between", {"value": "99.5", "value2": "1000"}, [2, 4]),
     ("qty", "==", {"value": "15"}, [2]),
     ("qty", ">", {"value": "19.5"}, [3, 4]),
     ("qty", "in", {"value": "5, 20"}, [1, 4]),
+    ("qty", "in", {"value": "5, 19.5"}, [1]),
+    ("qty", "in", {"value": "19.5, 20"}, [4]),
+    ("qty", "between", {"value": "5", "value2": "15.5"}, [1, 2]),
     ("zip", "==", {"value": "02134"}, [1]),
     ("zip", "in", {"value": "02134, x"}, [1, 3]),
     ("zip", "between", {"value": "02134", "value2": "2134"}, [1, 2, 4]),
