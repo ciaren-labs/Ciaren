@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.services.app_setting_service import AppSettingService
+from app.services.assistant_service import AssistantService
 from app.services.codegen_service import CodegenService
 from app.services.connection_service import ConnectionService
 from app.services.dataset_service import DatasetService
@@ -60,6 +61,11 @@ def _app_setting_service(db: _DbSession) -> AppSettingService:
     return AppSettingService(db)
 
 
+def _assistant_service(db: _DbSession) -> AssistantService:
+    return AssistantService(db)
+
+
+AssistantServiceDep = Annotated[AssistantService, Depends(_assistant_service)]
 DatasetServiceDep = Annotated[DatasetService, Depends(_dataset_service)]
 FlowServiceDep = Annotated[FlowService, Depends(_flow_service)]
 ExecutionServiceDep = Annotated[ExecutionService, Depends(_execution_service)]

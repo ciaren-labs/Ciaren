@@ -8,6 +8,7 @@ from app.core.enums import Engine, MLTask, NodeStatus, RunStatus, RunTrigger
 
 
 class FlowRunCreate(BaseModel):
+    expected_revision: datetime | None = Field(None, description="Require this saved flow revision before proceeding.")
     input_dataset_id: str | None = None
     # Permissive str (not the Engine enum) so an unknown engine yields a friendly
     # 400 from ExecutionService (with the available engines) rather than a raw 422.

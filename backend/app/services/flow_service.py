@@ -2,7 +2,7 @@
 import copy
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -34,6 +34,7 @@ from app.schemas.flow import (
     FlowRead,
     FlowUpdate,
 )
+from app.services.flow_revision import claim_revision, next_revision
 from app.services.project_service import ProjectService
 
 # Config keys that bind a node to *this* environment (a specific uploaded dataset,
@@ -319,8 +320,9 @@ class FlowService:
         return FlowRead.model_validate(flow)
 
     async def update(self, flow_id: str, data: FlowUpdate) -> FlowRead:
+        await claim_revision(self.db, flow_id, data.expected_revision)
         flow = await self._get_or_raise(flow_id)
-        updates = data.model_dump(exclude_unset=True)
+        updates = data.model_dump(exclude_unset=True, exclude={"expected_revision"})
         if "graph_json" in updates:
             self._validate_parameters(updates["graph_json"])
         # A move to another project must point at a real one — with SQLite FK
@@ -363,10 +365,13 @@ class FlowService:
                 flow.disabled_by_project_id = moved_to_project_id
         # Explicit timestamp: SQLite's onupdate fires but doesn't reflect until refresh,
         # and SQLite's second-level resolution means tests may see the same value.
-        flow.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        flow.updated_at = next_revision(flow.updated_at)
+        # Return this writer's snapshot. Refreshing after commit could return the
+        # *next* writer's revision and let a pre-run save authorize the wrong graph.
+        await self.db.flush()
+        saved = FlowRead.model_validate(flow)
         await self.db.commit()
-        await self.db.refresh(flow)
-        return FlowRead.model_validate(flow)
+        return saved
 
     async def delete(self, flow_id: str) -> None:
         """Delete a flow along with its run history and schedules.

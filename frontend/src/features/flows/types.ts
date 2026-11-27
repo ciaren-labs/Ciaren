@@ -52,6 +52,7 @@ export interface FlowCreate {
 }
 
 export interface FlowUpdate {
+  expected_revision?: string;
   name?: string;
   description?: string;
   project_id?: string;

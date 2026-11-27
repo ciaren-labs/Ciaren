@@ -48,6 +48,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         # carrying a plaintext secret (e.g. POST /api/connections/keyring) that would
         # leak the secret into a response. Keep loc/msg/type so clients still see
         # what failed, but never the submitted value.
+        if request.url.path.startswith("/api/assistant/"):
+            return JSONResponse(status_code=422, content={"detail": "Invalid assistant request."})
         safe = [
             {"loc": list(err.get("loc", [])), "msg": str(err.get("msg", "")), "type": str(err.get("type", ""))}
             for err in exc.errors()

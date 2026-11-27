@@ -65,7 +65,9 @@ class LocalStorageConnector:
             raise ConnectorError(
                 f"Path {path!r} escapes the storage root — directory traversal is not allowed."
             ) from None
-        return full
+        from app.connectors.confinement import ensure_allowed_path
+
+        return ensure_allowed_path(full, "Storage object")
 
     def test_connection(self, spec: StorageSpec) -> None:
         root = self._root(spec)

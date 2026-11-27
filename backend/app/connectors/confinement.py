@@ -45,6 +45,10 @@ def ensure_allowed_path(path: Path, what: str, hint: str = "the connection folde
     resolved path so callers can keep using the canonical form.
     """
     resolved = path.expanduser().resolve()
+    from app.core.config import get_settings
+
+    if resolved.is_relative_to(Path(get_settings().ASSISTANT_SECRET_DIR).resolve()):
+        raise ConnectorError("Assistant credential storage is private.")
     roots = allowed_roots()
     if roots and not any(resolved == base or _is_within(resolved, base) for base in roots):
         raise ConnectorError(

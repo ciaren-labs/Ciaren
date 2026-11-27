@@ -165,15 +165,17 @@ export function useRunFlow() {
   return useMutation({
     mutationFn: ({
       flowId,
+      expectedRevision,
       engine = "pandas",
       inputDatasetId,
       parameters,
     }: {
       flowId: string;
+      expectedRevision?: string;
       engine?: string;
       inputDatasetId?: string;
       parameters?: Record<string, unknown> | null;
-    }) => flowsApi.createRun(flowId, { engine, inputDatasetId, parameters }),
+    }) => flowsApi.createRun(flowId, { expectedRevision, engine, inputDatasetId, parameters }),
     // The quick-run dialog shows failures inline, next to the Run button.
     meta: { suppressErrorToast: true },
     onSuccess: () => {
@@ -187,6 +189,7 @@ export function useCreateRun(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (options?: {
+      expectedRevision?: string;
       inputDatasetId?: string;
       engine?: string;
       parameters?: Record<string, unknown> | null;

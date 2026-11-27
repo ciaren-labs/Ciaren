@@ -582,6 +582,14 @@ describe("windowFunction", () => {
 describe("conditionalColumn", () => {
   const schema = nodeConfigSchemas.conditionalColumn;
 
+  it("preserves boolean results and defaults for an equality flag", () => {
+    const config = {
+      new_column: "ready", default: false,
+      rules: [{ column: "status", operator: "==", value: "active", result: true }],
+    };
+    expect(schema.parse(config)).toEqual(config);
+  });
+
   it("accepts a numeric rule value (e.g. line_total >= 5000)", () => {
     const result = schema.safeParse({
       new_column: "revenue_tier",

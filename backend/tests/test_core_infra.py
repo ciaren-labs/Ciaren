@@ -26,7 +26,7 @@ from app.core.logging import setup_logging
         ("gitpython", "3.2.1"),
         ("graphql-core", "3.2.12"),
         ("mlflow", "3.17.2"),
-        ("opentelemetry-api", "1.45.1"),
+        ("opentelemetry-api", "1.45.2"),
         ("pillow", "13.0.0"),
         ("pyasn1", "0.6.5"),
     ],

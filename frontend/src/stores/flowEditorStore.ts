@@ -70,6 +70,7 @@ interface FlowEditorState {
   historyGroupAt: number;
 
   setPendingConnection: (pending: PendingConnection | null) => void;
+  acceptProposal: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   setGraph: (nodes: FlowNodeType[], edges: FlowEdgeType[]) => void;
   setParameters: (parameters: ParameterSpec[]) => void;
   setInvalidNodeIds: (ids: string[]) => void;
@@ -162,6 +163,9 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
       pendingConnection: null,
       ...HISTORY_RESET,
     })),
+
+  acceptProposal: (nodes, edges) => set(state => ({ ...checkpoint(state, "assistant:" + state.structureVersion),
+    nodes, edges, dirty: false, selectedNodeId: null, structureVersion: state.structureVersion + 1 })),
 
   setParameters: (parameters) => set({ parameters }),
 
