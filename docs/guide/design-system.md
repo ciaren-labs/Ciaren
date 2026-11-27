@@ -68,9 +68,10 @@ same token names, so components need no changes to support it.
 
 Nodes stay distinguishable on the canvas while harmonising with the brand. Each
 category has a badge / card / ring / text / dot theme in
-`frontend/src/lib/nodeVisuals.ts`. There are 9 categories, 80 nodes total (66
-transformation nodes, including the 8 chart nodes, plus 8 input and 6 output
-file/SQL/storage nodes):
+`frontend/src/lib/nodeVisuals.ts`. There are 9 categories and 72 palette nodes (66
+transformation nodes, including the 8 chart nodes, plus 3 input and 3 output
+file/SQL/storage nodes). Eight legacy single-format file nodes stay registered
+so older flows open, but the palette hides them:
 
 | Category | Hue | Example nodes |
 | --- | --- | --- |
