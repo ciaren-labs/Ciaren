@@ -625,6 +625,7 @@ all = [
     { name = "azure-storage-blob" },
     { name = "boto3" },
     { name = "duckdb" },
+    { name = "duckdb-engine" },
     { name = "google-cloud-storage" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pymongo" },
@@ -637,6 +638,7 @@ all-connectors = [
     { name = "azure-storage-blob" },
     { name = "boto3" },
     { name = "duckdb" },
+    { name = "duckdb-engine" },
     { name = "google-cloud-storage" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pymongo" },
@@ -649,6 +651,7 @@ azure = [
 ]
 duckdb = [
     { name = "duckdb" },
+    { name = "duckdb-engine" },
 ]
 gcs = [
     { name = "google-cloud-storage" },
@@ -718,6 +721,9 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'all'", specifier = ">=0.10" },
     { name = "duckdb", marker = "extra == 'all-connectors'", specifier = ">=0.10" },
     { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=0.10" },
+    { name = "duckdb-engine", marker = "extra == 'all'", specifier = ">=0.17" },
+    { name = "duckdb-engine", marker = "extra == 'all-connectors'", specifier = ">=0.17" },
+    { name = "duckdb-engine", marker = "extra == 'duckdb'", specifier = ">=0.17" },
     { name = "fastapi", specifier = ">=0.138.0" },
     { name = "gitpython", specifier = ">=3.2.1" },
     { name = "google-cloud-storage", marker = "extra == 'all'", specifier = ">=2.16" },
@@ -1081,6 +1087,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b0/f4/d5d633dd7c5138d8f7c434e6ac2553c831b7fb658494efa8d0bc73df8623/duckdb-1.5.4-cp314-cp314-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4d2307a76d199077b0055b354e90e857479461a0d875437535dd4833172c8b6d", size = 21487202, upload-time = "2026-06-17T10:48:45.407Z" },
     { url = "https://files.pythonhosted.org/packages/c0/26/5be13bbd5c3421dccfc1ad4ca9da4b97c5a3ddd73f66542092f3167ec52c/duckdb-1.5.4-cp314-cp314-win_amd64.whl", hash = "sha256:6dcbb81a1276bc48deb4d562bce4f8895e4fc6348750a096e30052345c6d6552", size = 13666989, upload-time = "2026-06-17T10:48:47.764Z" },
     { url = "https://files.pythonhosted.org/packages/dc/82/4d52f3f9f9703a226b26b80bdae3f6905aeefe5221bf1815fc93ff02ca25/duckdb-1.5.4-cp314-cp314-win_arm64.whl", hash = "sha256:0f8722346024e5d9f02b58bf7b0491a629f97fdc8a04a10e432940f471ee387a", size = 14449863, upload-time = "2026-06-17T10:48:50.18Z" },
+]
+
+[[package]]
+name = "duckdb-engine"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "duckdb" },
+    { name = "packaging" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/d5/c0d8d0a4ca3ffea92266f33d92a375e2794820ad89f9be97cf0c9a9697d0/duckdb_engine-0.17.0.tar.gz", hash = "sha256:396b23869754e536aa80881a92622b8b488015cf711c5a40032d05d2cf08f3cf", size = 48054, upload-time = "2025-03-29T09:49:17.663Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/a2/e90242f53f7ae41554419b1695b4820b364df87c8350aa420b60b20cab92/duckdb_engine-0.17.0-py3-none-any.whl", hash = "sha256:3aa72085e536b43faab635f487baf77ddc5750069c16a2f8d9c6c3cb6083e979", size = 49676, upload-time = "2025-03-29T09:49:15.564Z" },
 ]
 
 [[package]]

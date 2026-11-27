@@ -34,14 +34,12 @@ Group By Aggregate → SQL Output.
 ## 1. Install the driver
 
 DuckDB connections need the `duckdb` package and its SQLAlchemy dialect,
-`duckdb-engine`, in the environment Ciaren runs in:
+`duckdb-engine`, in the environment Ciaren runs in. The `duckdb` extra
+installs both:
 
 ```bash
-pip install "ciaren[duckdb]" duckdb-engine
+pip install "ciaren[duckdb]"
 ```
-
-The `duckdb` extra installs `duckdb` only. Without `duckdb-engine`, opening the
-connection fails with `Can't load plugin: sqlalchemy.dialects:duckdb`.
 
 ## 2. Create the database file
 
