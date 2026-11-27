@@ -19,7 +19,7 @@ import pandas as pd
 
 from app.connectors.base import ConnectorError
 from app.connectors.storage_base import FILE_FORMATS, StorageSpec
-from app.engine.ingest import read_delimited
+from app.engine.ingest import read_delimited, read_excel
 
 
 def _read_text(path: Path) -> pd.DataFrame:
@@ -39,7 +39,7 @@ def _read_jsonl(path: Path) -> pd.DataFrame:
 # Readers for the dialect-free formats; CSV/TSV go through ``pd.read_csv`` with
 # their parse options (see ``read_file``).
 _READERS: dict[str, Callable[..., pd.DataFrame]] = {
-    "excel": pd.read_excel,
+    "excel": read_excel,
     "parquet": pd.read_parquet,
     "json": _read_json,
     "jsonl": _read_jsonl,

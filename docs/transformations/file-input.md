@@ -108,7 +108,9 @@ df_sales.to_parquet('readback.parquet', index=False)
 ```python
 import pandas as pd
 
-df_report = pd.read_excel('report.xlsx')
+df_report = pd.read_excel('report.xlsx', dtype=object)
+# Columns with any text cell stay text (zip codes, IDs keep leading zeros).
+df_report = df_report.apply(lambda col: col.where(col.isna(), col.astype(str)) if col.apply(isinstance, args=(str,)).any() else col.infer_objects())
 df_report.to_parquet('readback.parquet', index=False)
 ```
 

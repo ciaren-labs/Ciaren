@@ -54,7 +54,7 @@ from app.engine.codegen_common import (
     strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.ingest import config_parse_options
+from app.engine.ingest import PANDAS_EXCEL_KEEP_TEXT, config_parse_options
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
@@ -242,8 +242,13 @@ class CodeGenerator:
                         kwargs = ", sep='\\t'"
                     elif source_type == "jsonl":
                         kwargs = ", lines=True"
+                    elif source_type == "excel":
+                        kwargs = ", dtype=object"
                     kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
+                    if source_type == "excel":
+                        body.append("# Columns with any text cell stay text (zip codes, IDs keep leading zeros).")
+                        body.append(f"{var} = {var}.apply({PANDAS_EXCEL_KEEP_TEXT})")
                 elif source_type == "text":
                     body.append(f"with open({path!r}, encoding='utf-8') as _f:")
                     body.append(f'    {var} = pd.DataFrame({{"text": _f.read().splitlines()}})')

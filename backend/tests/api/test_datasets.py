@@ -81,6 +81,22 @@ async def test_upload_excel(client: AsyncClient) -> None:
     assert body["name"] == "data.xlsx"
 
 
+async def test_upload_excel_keeps_text_cells_as_text(client: AsyncClient) -> None:
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    assert sheet is not None
+    sheet.append(["zip", "code"])
+    sheet.append(["02134", 2134])
+    sheet["B2"].number_format = "00000"  # displays 02134, stays a number
+    buf = io.BytesIO()
+    book.save(buf)
+    body = await _upload(client, buf.getvalue(), "codes.xlsx", "application/vnd.ms-excel")
+    assert {c["name"]: c["type"] for c in body["column_schema"]} == {"zip": "string", "code": "integer"}
+    assert body["data_sample"] == [{"zip": "02134", "code": 2134}]
+
+
 async def test_upload_parquet(client: AsyncClient) -> None:
     body = await _upload(client, _parquet(), "data.parquet", "application/octet-stream")
     assert body["source_type"] == "parquet"

@@ -7,6 +7,8 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 
+from app.engine.ingest import read_excel
+
 from .base import (
     DATE_UNIT_SECONDS,
     TEXT_FILTER_OPERATORS,
@@ -29,7 +31,7 @@ class PandasEngine:
         if source_type == "tsv":
             return pd.read_csv(path, sep="\t")
         if source_type == "excel":
-            return pd.read_excel(path)
+            return read_excel(path)
         if source_type == "parquet":
             return pd.read_parquet(path)
         if source_type == "json":
