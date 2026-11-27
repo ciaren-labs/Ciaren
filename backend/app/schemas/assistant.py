@@ -135,6 +135,7 @@ class Delta(ClosedModel):
     changed: list[dict[str, Any]]
     connected: list[dict[str, Any]]
     disconnected: list[str]
+    removed: list[str] | None = None
 
 
 class Citation(ClosedModel):

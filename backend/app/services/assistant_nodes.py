@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, GetJson
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, PydanticCustomError, core_schema
 
+from app.engine import node_kinds
 from app.engine.transformations import charts, conditional, join, quality
 from app.engine.transformations import window as windows
 from app.engine.transformations.ml import cross_validation, evaluate, feature_engineering
@@ -68,11 +69,11 @@ class DatasetInput(NodeConfig):
 
 
 class FileInput(DatasetInput):
-    format: Literal["csv", "tsv", "excel", "parquet", "json", "jsonl", "text"] = "csv"
+    format: Annotated[str, OneOf(node_kinds.FILE_INPUT_FORMATS)] = "csv"
 
 
 class FileOutput(NodeConfig):
-    format: Literal["csv", "parquet", "excel", "json"] = "csv"
+    format: Annotated[str, OneOf(node_kinds.FILE_OUTPUT_FORMATS)] = "csv"
     dataset_name: Name
 
 

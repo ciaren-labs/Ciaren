@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Two CSVs with one shared key. The model only receives turn-local references."""
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from json import dumps
 from uuid import uuid4
@@ -18,6 +17,8 @@ from app.schemas.assistant import BuildJoin, ColumnRef, RepairJoin, Turn
 from app.services import assistant_provider
 from app.services.assistant_graph import Graph, inspect
 from app.services.assistant_inputs import InputSchema, InputVersion, resolve_input
+from app.services.assistant_tools import gates
+from app.services.assistant_tools.ops import AddNode, AnyOp, Connect, EditRejected, UpdateConfig
 
 CSV_INPUTS = {"fileInput", "csvInput"}
 CSV_OUTPUTS = {"fileOutput", "csvOutput"}
@@ -178,64 +179,44 @@ def build_graph(graph: Graph, plan: BuildJoin, left: Side, right: Side) -> tuple
         or [plan.left.column, plan.right.column] not in shared_keys(left.schema, right.schema)
     ):
         raise ValidationError("The Join inputs, ports or key types do not match the selected CSVs.")
-    labels = {s.id: s.label for s in get_registry().node_specs() if s.id in JOIN_NODES}
-    nodes: list[Graph] = []
-    edges: list[Graph] = []
-
-    def add(kind: str, cfg: Graph, x: int, y: int = 140) -> Graph:
-        if kind not in labels:
-            raise ValidationError("A requested built-in node is unavailable.")
-        n = {
-            "id": uuid4().hex,
-            "type": kind,
-            "position": {"x": x, "y": y},
-            "data": {"label": labels[kind], "config": cfg},
-        }
-        nodes.append(n)
-        return n
-
-    def wire(a: Graph, b: Graph, handle: str = "in") -> None:
-        edges.append(
-            {"id": uuid4().hex, "source": a["id"], "target": b["id"], "sourceHandle": "out", "targetHandle": handle}
-        )
+    if any(kind not in {s.id for s in get_registry().node_specs()} for kind in JOIN_NODES):
+        raise ValidationError("A requested built-in node is unavailable.")
 
     def name(ref: ColumnRef) -> str:
         return (left if ref.source == left.ref else right).column(ref)
 
-    a = add("fileInput", {**left.schema.binding(), "format": "csv"}, 60, 50)
-    b = add("fileInput", {**right.schema.binding(), "format": "csv"}, 60, 240)
-    last = add("join", {"on": [left_key], "how": plan.how}, 320)
-    wire(a, last, "left")
-    wire(b, last, "right")
+    ops: list[AnyOp] = [
+        AddNode(ref="left", type="fileInput", config={**left.schema.binding(), "format": "csv"}),
+        AddNode(ref="right", type="fileInput", config={**right.schema.binding(), "format": "csv"}),
+        AddNode(ref="join", type="join", config={"on": [left_key], "how": plan.how}),
+        Connect(source="left", target="join", target_port="left"),
+        Connect(source="right", target="join", target_port="right"),
+    ]
+    last = "join"
     if plan.flag:
         flag = plan.flag
         if "{{" in flag.equals:
             raise ValidationError("Flag comparisons require a literal string.")
-        new = add(
-            "conditionalColumn",
-            {
-                "new_column": flag.name,
-                "rules": [{"column": name(flag), "operator": "==", "value": flag.equals, "result": True}],
-                "default": False,
-            },
-            560,
-        )
-        wire(last, new)
-        last = new
+        rule = {"column": name(flag), "operator": "==", "value": flag.equals, "result": True}
+        cfg = {"new_column": flag.name, "rules": [rule], "default": False}
+        ops += [AddNode(ref="flag", type="conditionalColumn", config=cfg), Connect(source=last, target="flag")]
+        last = "flag"
     if plan.sort:
-        new = add("sortRows", {"columns": [name(plan.sort)], "ascending": True}, last["position"]["x"] + 240)
-        wire(last, new)
-        last = new
-    output = add(
-        "fileOutput", {"format": "csv", "dataset_name": f"Join result {uuid4().hex[:12]}"}, last["position"]["x"] + 240
-    )
-    wire(last, output)
-    return {**graph, "nodes": nodes, "edges": edges}, {
-        "added": nodes,
-        "changed": [],
-        "connected": edges,
-        "disconnected": [],
-    }
+        cfg = {"columns": [name(plan.sort)], "ascending": True}
+        ops += [AddNode(ref="sort", type="sortRows", config=cfg), Connect(source=last, target="sort")]
+        last = "sort"
+    output = {"format": "csv", "dataset_name": f"Join result {uuid4().hex[:12]}"}
+    ops += [AddNode(ref="result", type="fileOutput", config=output), Connect(source=last, target="result")]
+    return _build(graph, ops)
+
+
+def _build(base: Graph, ops: list[AnyOp]) -> tuple[Graph, Graph]:
+    try:
+        return gates.build(base, ops)
+    except EditRejected:
+        raise ManualJoin(
+            "Join needs two compatible CSVs with one common key and a supported path to a CSV output."
+        ) from None
 
 
 async def propose(
@@ -277,10 +258,8 @@ async def propose(
             repair = RepairJoin.model_validate(answer, strict=True)
             if repair.join != token:
                 raise ValidationError("The repair references an unavailable Join.")
-            updated = deepcopy(join)
-            updated["data"]["config"]["how"] = repair.how
-            result = {**base, "nodes": [updated if n["id"] == join["id"] else n for n in nodes]}
-            delta = {"added": [], "changed": [updated], "connected": [], "disconnected": []}
+            ref = f"n{nodes.index(join)}"
+            result, delta = _build(base, [UpdateConfig(node=ref, set={"how": repair.how})])
         else:
             keys = shared_keys(left.schema, right.schema)
             if not keys or len(left.schema.columns.keys() & right.schema.columns.keys()) != 1:

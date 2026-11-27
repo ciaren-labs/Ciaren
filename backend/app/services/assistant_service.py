@@ -25,6 +25,8 @@ from app.services import (
 )
 from app.services.assistant_graph import INPUTS, STEPS, Graph, compile_plan
 from app.services.assistant_inputs import InputVersion, resolve_input
+from app.services.assistant_tools import gates
+from app.services.assistant_tools.ops import EditRejected
 from app.services.flow_revision import next_revision, update_one
 
 TTL = 180
@@ -44,6 +46,7 @@ INSTRUCTION = (
 class Pending:
     flow: str
     revision: datetime
+    base: Graph
     graph: Graph
     expires: float
     project: str
@@ -189,7 +192,7 @@ class AssistantService:
         if not activity.details:
             return {"message": "The proposed settings already match this canvas."}
         _pending[token] = Pending(
-            flow.id, flow.updated_at, graph, monotonic() + TTL, flow.project_id, versions, activity
+            flow.id, flow.updated_at, base, graph, monotonic() + TTL, flow.project_id, versions, activity
         )
         asyncio.get_running_loop().call_later(TTL, _pending.pop, token, None)
         return {
@@ -211,6 +214,11 @@ class AssistantService:
             raise ConflictError("Proposal expired or unavailable. Generate a new one.")
         if any(n["type"] == "mlTrainRegressor" for n in p.graph["nodes"]):
             assistant_training.catalog()
+        try:
+            # Policy, settings or installed plugins may have changed since the review.
+            gates.recheck(p.base, p.graph)
+        except EditRejected:
+            raise ConflictError("Proposal expired or unavailable. Generate a new one.") from None
         revision = next_revision(p.revision)
         saved = await update_one(
             self.db,

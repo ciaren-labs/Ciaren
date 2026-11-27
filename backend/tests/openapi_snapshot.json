@@ -2228,7 +2228,8 @@
         "added": "array<object>",
         "changed": "array<object>",
         "connected": "array<object>",
-        "disconnected": "array<string>"
+        "disconnected": "array<string>",
+        "removed": "anyOf(array<string>|null)"
       },
       "required": [
         "added",
