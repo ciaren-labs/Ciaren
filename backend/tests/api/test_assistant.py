@@ -1,5 +1,5 @@
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from opentelemetry import context as otel
@@ -82,6 +82,7 @@ async def test_wire_contract(provider, enabled, monkeypatch, caplog):
                 assert json["thinking"]["type"] == "adaptive" and json["output_config"]["effort"] == "low"
                 assert headers["anthropic-version"] == "2023-06-01"
             elif provider == "deepseek":
+                assert json["response_format"] == {"type": "json_object"}
                 assert json["reasoning_effort"] == "low"
             else:
                 assert "reasoning_effort" not in json
@@ -101,6 +102,11 @@ async def test_wire_contract(provider, enabled, monkeypatch, caplog):
         wire["choices"][0]["message"] = None
         with pytest.raises(ValidationError, match="structured answer"):
             await assistant_provider.complete(provider, "instructions", {})
+    if provider == "deepseek":
+        for malformed in ("   ", "```json\n{}\n```", json.dumps([ROW])):
+            wire["choices"][0]["message"] = {"content": malformed}
+            with pytest.raises(ValidationError, match="incomplete structured answer"):
+                await assistant_provider.complete(provider, "Return JSON.", {})
     assert KEY not in caplog.text and ROW not in caplog.text
 
 
@@ -391,6 +397,78 @@ async def test_join_rejects_unavailable_inputs_and_plan(client, join_case, monke
     assert complete.await_count == int(fault not in {"same", "project", "type"})
 
 
+@pytest.mark.parametrize("outcome", ["valid", "abstain", "wrong_ref", "wrong_mode", "extra_field", "malformed"])
+async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeypatch, outcome):
+    from pydantic import SecretStr
+
+    flow, url, body, _ = join_case
+    with monkeypatch.context() as setup:
+        setup.setattr(assistant_provider, "complete", AsyncMock(side_effect=join_answer))
+        created = (await client.post(url + "/turn", json=body)).json()
+    assert (await client.post(url + "/apply", json={"proposal": created["proposal"]})).status_code == 200
+    path = "/api/flows/" + flow["id"]
+    current = (await client.get(path)).json()
+    activity = (await client.get(url + "/activity")).json()
+    body.update(
+        mode="diagnose",
+        provider="deepseek",
+        graph=current["graph_json"],
+        revision=current["updated_at"],
+        second_dataset_id=None,
+    )
+    monkeypatch.setattr(enabled, "ASSISTANT_PROVIDER", "deepseek")
+    monkeypatch.setattr(enabled, "ASSISTANT_DEEPSEEK_KEY_SOURCE", "env")
+    monkeypatch.setattr(enabled, "ASSISTANT_DEEPSEEK_API_KEY", SecretStr(KEY))
+
+    def post(session, destination, **kwargs):
+        assert destination == PROFILES["deepseek"].url
+        payload = kwargs["json"]
+        assert payload["response_format"] == {"type": "json_object"}
+        system, user = payload["messages"]
+        context = json.loads(user["content"])
+        assert set(context) == {"question", "join", "how", "failure"}
+        permitted = json.loads(system["content"].splitlines()[-1])
+        assert permitted == {"join": context["join"], "how": "left"}
+        answer = permitted.copy()
+        if outcome == "abstain":
+            answer = {}
+        elif outcome == "wrong_ref":
+            answer["join"] = ("0" if context["join"][0] != "0" else "1") + context["join"][1:]
+        elif outcome == "wrong_mode":
+            answer["how"] = context["how"]
+        elif outcome == "extra_field":
+            answer["explanation"] = ROW
+        content = ROW if outcome == "malformed" else json.dumps(answer)
+
+        async def chunks(size):
+            yield json.dumps({"choices": [{"finish_reason": "stop", "message": {"content": content}}]}).encode()
+
+        result = MagicMock()
+        result.__aenter__.return_value.status = 200
+        result.__aenter__.return_value.content.iter_chunked = chunks
+        return result
+
+    monkeypatch.setattr(assistant_provider.aiohttp.ClientSession, "post", post)
+    response = await client.post(url + "/turn", json=body)
+    if outcome == "valid":
+        assert response.status_code == 200 and response.json()["proposal"]
+        original_join = next(n for n in current["graph_json"]["nodes"] if n["type"] == "join")
+        (changed,) = response.json()["delta"]["changed"]
+        assert changed["id"] == original_join["id"] and changed["data"]["config"]["how"] == "left"
+    elif outcome == "abstain":
+        assert response.status_code == 200 and "proposal" not in response.json()
+    else:
+        assert response.status_code == 400
+        expected = {
+            "wrong_ref": "The repair references an unavailable Join.",
+            "malformed": "The provider returned an incomplete structured answer.",
+        }.get(outcome, "The provider returned an unsupported Join proposal.")
+        assert response.json() == {"detail": expected}
+    assert (await client.get(path)).json() == current
+    assert (await client.get(url + "/activity")).json() == activity
+    assert (await client.get("/api/runs")).json() == []
+
+
 @pytest.mark.parametrize("side", [0, 1])
 async def test_join_repair_preserves_graph_and_checks_pinned_versions(client, join_case, monkeypatch, db_session, side):
     from copy import deepcopy
@@ -413,7 +491,9 @@ async def test_join_repair_preserves_graph_and_checks_pinned_versions(client, jo
 
     def repair(provider, instruction, context):
         assert set(context) == {"question", "join", "how", "failure"} and context["how"] == "inner"
-        return {"join": context["join"], "how": "left"}
+        permitted = {"join": context["join"], "how": "left"}
+        assert json.loads(instruction.splitlines()[-1]) == permitted
+        return permitted
 
     complete.side_effect = repair
     proposal = (await client.post(url + "/turn", json=body)).json()

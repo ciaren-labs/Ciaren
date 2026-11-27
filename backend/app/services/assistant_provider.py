@@ -48,10 +48,11 @@ def payload(provider: Provider, model: str, effort: str, instruction: str, conte
             body.update(thinking={"type": "adaptive"}, output_config={"effort": effort})
     else:
         body["messages"].insert(0, {"role": "system", "content": instruction})
-        if provider == "deepseek" and effort != "default":
+        if provider == "deepseek":
+            body["response_format"] = {"type": "json_object"}
             if effort == "none":
                 body["thinking"] = {"type": "disabled"}
-            else:
+            elif effort != "default":
                 body["reasoning_effort"] = effort
     return body
 
@@ -132,7 +133,11 @@ async def complete(provider: Provider, instruction: str, data: dict[str, Any]) -
         return decoded
     except ValidationError:
         raise
-    except (aiohttp.ClientError, TimeoutError, ValueError, TypeError, KeyError, IndexError, RecursionError):
-        raise ValidationError("Provider request failed or returned an incomplete structured answer.") from None
+    except TimeoutError:
+        raise ValidationError("The provider request timed out.") from None
+    except aiohttp.ClientError:
+        raise ValidationError("The provider request or response transfer failed.") from None
+    except (ValueError, TypeError, KeyError, IndexError, RecursionError):
+        raise ValidationError("The provider returned an incomplete structured answer.") from None
     finally:
         otel_context.detach(token)
