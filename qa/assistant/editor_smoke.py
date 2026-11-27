@@ -6,20 +6,21 @@ python qa/assistant/editor_smoke.py --screenshots /tmp/ciaren-assistant-shots
 import argparse
 import csv
 import json
-import sqlite3
-import threading
-from concurrent.futures import ThreadPoolExecutor
-from urllib.error import HTTPError
-from copy import deepcopy
 import os
 import re
 import shutil
 import socket
+import sqlite3
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from copy import deepcopy
 from pathlib import Path
+from urllib.error import HTTPError
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -55,7 +56,8 @@ def check_contrast(locator):
         const rgba=color(getComputedStyle(node).backgroundColor);
         layers.push(rgba);
         if(rgba[3]===255) {
-          const rgb=layers.reverse().reduce((base,layer)=>base.map((v,i)=>layer[i]*(layer[3]/255)+v*(1-layer[3]/255)),[255,255,255]);
+          const rgb=layers.reverse().reduce((base,layer)=>
+            base.map((v,i)=>layer[i]*(layer[3]/255)+v*(1-layer[3]/255)),[255,255,255]);
           const bg=luminance(rgb);
           return (Math.max(ink,bg)+0.05)/(Math.min(ink,bg)+0.05);
         }
@@ -66,7 +68,16 @@ def check_contrast(locator):
     return round(ratio, 2)
 
 
-def run(base, shots, work):
+DEFAULT_PYTHON = ROOT / "backend/.venv/bin/python"
+
+
+def assert_private_audit(audit):
+    assert all(
+        value not in audit for value in (KEY, "Conserva todos", "Local annotation", "ready_to_fulfill", "catalog.csv")
+    )
+
+
+def run(base, shots, work, *, python=DEFAULT_PYTHON, legacy=None):
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=os.environ.get("CIAREN_TEST_CHROMIUM"))
         context = browser.new_context(viewport={"width": 1280, "height": 840})
@@ -79,6 +90,21 @@ def run(base, shots, work):
             res = api.get(base + "/api" + path)
             assert res.ok, res.status
             return res.json()
+
+        if legacy:
+            flow = get("/flows/" + legacy["flow"])
+            assert flow["graph_json"] == legacy["graph"]
+            page.goto(base + "/flows/" + legacy["flow"])
+            with page.expect_response(lambda r: r.request.method == "POST" and r.url.endswith("/runs")) as admitted:
+                page.get_by_role("button", name="Run", exact=True).click()
+            result = admitted.value.json()
+            assert result["status"] == "success"
+            page.wait_for_url(base + "/runs/" + result["id"])
+            page.locator('.react-flow__node[data-id="legacy-output"]').click()
+            with page.expect_download() as download:
+                page.get_by_role("button", name="Download output").click()
+            check_csv(download.value.path(), [{"amount": "17"}])
+            print("Pre-migration flow kept its graph and produced its original CSV from the editor.")
 
         page.emulate_media(reduced_motion="reduce")
         empty = api.post(base + "/api/flows", data={"name": "New flow"}).json()
@@ -315,7 +341,8 @@ def run(base, shots, work):
             page.get_by_text("Data shared with provider", exact=True).click()
         page.get_by_label("Include column names in this request").check()
         request.fill(
-            "Conserva todos los pedidos, une el catálogo por SKU, marca ready_to_fulfill si el estado es active, ordena por order_id y escribe un CSV."
+            "Conserva todos los pedidos, une el catálogo por SKU, marca ready_to_fulfill si el estado es active, "
+            "ordena por order_id y escribe un CSV."
         )
         send.click()
         expect(apply).to_be_visible()
@@ -379,7 +406,7 @@ def run(base, shots, work):
                 script = standalone / "audit.py"
                 script.write_text(exports.json()[field], encoding="utf-8")
                 subprocess.run(
-                    [str(ROOT / "backend/.venv/bin/python"), "-I", str(script)],
+                    [str(python), "-I", str(script)],
                     cwd=standalone,
                     env={k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "SYSTEMROOT", "TMPDIR"}},
                     check=True,
@@ -475,7 +502,8 @@ def run(base, shots, work):
             stale.screenshot(path=shots / ("stale-" + action.lower() + ".png"))
             stale.close()
         print(
-            "Two stale drafts, one using Save and one using Run: 409 each; local Join edits preserved, database unchanged, zero runs."
+            "Two stale drafts, one using Save and one using Run: 409 each; local Join edits preserved, database "
+            "unchanged, zero runs."
         )
 
         page.reload()
@@ -588,7 +616,8 @@ def run(base, shots, work):
         page.unroute(run_url, gate_creation)
         page.reload()
         print(
-            "A second tab saved between pre-run save and execution admission. Stale POST /runs returned 409 without creating a run."
+            "A second tab saved between pre-run save and execution admission. Stale POST /runs returned 409 "
+            "without creating a run."
         )
         # While a real compute thread is paused, a second tab can still commit.
         (work / "hold-compute").touch()
@@ -618,22 +647,12 @@ def run(base, shots, work):
         assert next(n for n in current["nodes"] if n["id"] == sort_id)["data"]["config"]["ascending"] is False
         assert next(n for n in current["nodes"] if n["id"] == join_id)["data"]["config"]["how"] == "inner"
         print(
-            "While a real run was computing a second tab saved; only the admitted snapshot ran. The first retained its newer unsaved Join edit and linked to the result."
-        )
-        with sqlite3.connect(work / "ciaren.db") as conn:
-            audit = repr(conn.execute("select details,inverse from assistant_activity").fetchall())
-        assert all(
-            secret not in audit
-            for secret in [
-                KEY,
-                "Conserva todos",
-                "Local annotation",
-                "ready_to_fulfill",
-                "catalog.csv",
-            ]
+            "While a real run was computing a second tab saved; only the admitted snapshot ran. The first "
+            "retained its newer unsaved Join edit and linked to the result."
         )
         print(
-            "Activity survived reload. Confirmed reversal preserved manual sort, recorded one event, and made zero runs. Keyboard, dirty canvas, cancellation, stale preview and local node help passed."
+            "Activity survived reload. Confirmed reversal preserved manual sort, recorded one event, and made "
+            "zero runs. Keyboard, dirty canvas, cancellation, stale preview and local node help passed."
         )
         # Independent HTTP connections compete for the same database revision.
         race = api.post(base + "/api/flows", data={"name": "Race", "project_id": ds["project_id"]}).json()
@@ -646,42 +665,102 @@ def run(base, shots, work):
             graph={"nodes": [], "edges": [], "engine": "pandas"},
             dataset_id=ds["id"],
         )
-        plans = [api.post(base + "/api" + url + "/turn", data=body).json()["proposal"] for _ in range(2)]
+        plans = [api.post(base + "/api" + url + "/turn", data=body).json() for _ in range(2)]
 
-        def race_posts(endpoint, tokens):
+        def compete(method, endpoint, payloads):
             gate = threading.Barrier(2)
 
-            def post(token):
+            def write(payload):
                 req = urllib.request.Request(
                     base + "/api" + endpoint,
-                    data=json.dumps({"proposal": token}).encode(),
+                    method=method,
+                    data=json.dumps(payload).encode(),
                     headers={"Content-Type": "application/json"},
                 )
                 gate.wait(timeout=10)
                 try:
                     with urllib.request.urlopen(req, timeout=15) as response:
-                        return response.status
+                        return response.status, json.load(response)
                 except HTTPError as error:
-                    return error.code
+                    return error.code, {}
 
             with ThreadPoolExecutor(max_workers=2) as pool:
-                return sorted(pool.map(post, tokens))
+                results = list(pool.map(write, payloads))
+            statuses = [r[0] for r in results]
+            assert sorted(statuses) == [200, 409], statuses
+            winner = statuses.index(200)
+            return winner, results[winner][1]
 
-        assert race_posts(url + "/apply", plans) == [200, 409]
+        winner, commit = compete("POST", url + "/apply", [{"proposal": p["proposal"]} for p in plans])
+        race_path = "/flows/" + race["id"]
+        stored = get(race_path)
+        assert stored["updated_at"] == commit["revision"]
+        assert stored["graph_json"]["nodes"] == plans[winner]["delta"]["added"]
+        assert stored["graph_json"]["edges"] == plans[winner]["delta"]["connected"]
         (entry,) = get(url + "/activity")["entries"]
         endpoint = url + "/activity/" + entry["id"]
-        rev = {"revision": get("/flows/" + race["id"])["updated_at"]}
+        rev = {"revision": stored["updated_at"]}
         previews = [api.post(base + "/api" + endpoint + "/preview", data=rev).json()["confirmation"] for _ in range(2)]
-        assert race_posts(endpoint + "/revert", previews) == [200, 409]
-        assert len(get(url + "/activity")["entries"]) == 2
-        print("Two simultaneous saves and two simultaneous reversals each committed exactly once.")
+        _, undo = compete("POST", endpoint + "/revert", [{"proposal": p} for p in previews])
+        reverted, original = get(url + "/activity")["entries"]
+        restored = get(race_path)["graph_json"]
+        assert restored["nodes"] == [] and restored["edges"] == []
+        assert reverted["id"] == undo["activity"] and reverted["reverses"] == original["id"] == entry["id"]
+        changes = [
+            {"expected_revision": undo["revision"], "graph_json": {"nodes": [], "edges": [], "engine": engine}}
+            for engine in ("pandas", "polars")
+        ]
+        winner, latest = compete("PUT", race_path, changes)
+        assert get(race_path)["graph_json"] == latest["graph_json"] == changes[winner]["graph_json"]
+        assert [e["id"] for e in get(url + "/activity")["entries"]] == [reverted["id"], entry["id"]]
         print(
-            "orders-audit CSV matched all six columns and five rows on both engines; all three standalone exports matched before and after reversal; inner lost 104; repair changed only how."
+            "Racing two ordinary saves, two applies and two reversals: HTTP 200/409 each time; persisted graph "
+            "and audit matched the winners."
+        )
+        print(
+            "orders-audit CSV matched all six columns and five rows on both engines; all three standalone exports "
+            "matched before and after reversal; inner lost 104; repair changed only how."
         )
         assert KEY not in repr(page.evaluate("() => [Object.entries(localStorage), Object.entries(sessionStorage)]"))
-        assert KEY not in (work / "ciaren.db").read_bytes().decode("latin1")
         assert not errors, errors
         browser.close()
+        return race["id"], entry["id"], reverted["id"], latest["graph_json"]
+
+
+@contextmanager
+def serve(work, env, python):
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    base = f"http://127.0.0.1:{port}"
+    proc = subprocess.Popen(
+        [str(python), str(Path(__file__).with_name("fixture_server.py").resolve()), str(port)], cwd=work, env=env
+    )
+    try:
+        for _ in range(200):
+            if proc.poll() is not None:
+                raise RuntimeError("fixture server stopped")
+            try:
+                with urllib.request.urlopen(base + "/ready", timeout=1):
+                    break
+            except OSError:
+                time.sleep(0.1)
+        else:
+            raise TimeoutError("Ciaren did not become ready")
+        yield base
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+
+
+def fixture_env(work):
+    env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "SYSTEMROOT", "TMPDIR"}}
+    env.update(HOME=str(work), CIAREN_SEED_DEMO="false", CIAREN_SCHEDULER_ENABLED="false", CIAREN_ML_ENABLED="false")
+    return env
 
 
 def main():
@@ -689,46 +768,15 @@ def main():
     parser.add_argument("--screenshots", required=True, type=Path)
     args = parser.parse_args()
     args.screenshots.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory() as temp, socket.socket() as sock:
+    with tempfile.TemporaryDirectory() as temp:
         work = Path(temp)
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-        sock.close()
-        base = f"http://127.0.0.1:{port}"
-        env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "SYSTEMROOT", "TMPDIR"}}
-        env.update(
-            HOME=temp,
-            CIAREN_SEED_DEMO="false",
-            CIAREN_SCHEDULER_ENABLED="false",
-            CIAREN_ML_ENABLED="false",
-            CIAREN_FRONTEND_DIST=str(ROOT / "frontend/dist"),
-        )
-        proc = subprocess.Popen(
-            [
-                str(ROOT / "backend/.venv/bin/python"),
-                str(Path(__file__).with_name("fixture_server.py").resolve()),
-                str(port),
-            ],
-            cwd=temp,
-            env=env,
-        )
-        try:
-            for _ in range(160):
-                if proc.poll() is not None:
-                    raise RuntimeError("fixture server stopped")
-                try:
-                    with urllib.request.urlopen(base + "/ready", timeout=1):
-                        break
-                except OSError:
-                    time.sleep(0.1)
+        env = fixture_env(work)
+        env["CIAREN_FRONTEND_DIST"] = str(ROOT / "frontend/dist")
+        with serve(work, env, DEFAULT_PYTHON) as base:
             run(base, args.screenshots.resolve(), work)
-        finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=5)
+        with sqlite3.connect(work / "ciaren.db") as conn:
+            assert_private_audit(repr(conn.execute("select details,inverse from assistant_activity").fetchall()))
+        assert KEY not in (work / "ciaren.db").read_bytes().decode("latin1")
     print("Desktop and mobile editor smoke passed (mock provider and keychain).")
 
 
