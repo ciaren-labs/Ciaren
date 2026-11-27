@@ -49,9 +49,9 @@
   If Ciaren is useful to you, a star on GitHub helps other people find it.
 </p>
 
-![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
+![Ciaren builds two joins, splits orders into training and test sets and proposes a shipping cost regressor. After approval and a separate Run, the editor shows held-out error.](docs/public/screenshots/flow-assistant-regression.gif)
 
-**Try an exported pipeline without installing Ciaren:** [Audit five orders against a product catalog](examples/orders-audit/README.md) in pandas or Polars, then import the same flow on the canvas.
+The assistant proposes a flow that joins 80 synthetic orders to customers and products. After you approve and run it, Ciaren trains a shipping cost model and scores 16 held-out orders. The recording uses simulated AI inference and real model training and evaluation. [Try the shipping cost example](examples/shipping-regression/README.md).
 
 ## What Is Ciaren?
 
@@ -84,10 +84,6 @@ scheduler, and web UI.
 **Can Ciaren build a pipeline from a prompt?** Yes. For supported CSV flows, the assistant generates a connected proposal with installed nodes. Choose **Apply and save** after review and **Run** when you want the output. [AI quick start](docs/guide/flow-assistant-quick-start.md).
 
 **Do I need an API key to use Ciaren?** No. Build the entire flow manually, run it locally and export Python. Connectors that access external services may require their own credentials. [Manual quick start](docs/guide/quick-start.md).
-
-![Ciaren builds two joins, splits orders into training and test sets and proposes a shipping cost regressor. After approval and a separate Run, the editor shows held-out error.](docs/public/screenshots/flow-assistant-regression.gif)
-
-The recorded editor joins 80 synthetic orders to customers and products, learns shipping cost from distance and weight, and evaluates 16 held-out orders. The provider response is simulated. The joins, model fit and metrics run in the packaged application. [Try the shipping cost example](examples/shipping-regression/README.md).
 
 Use a source build containing this example. The 0.3.1 release predates the assistant.
 [Walk through a Join diagnosis and reversal](docs/guide/flow-assistant.md).
@@ -189,6 +185,8 @@ and Swagger docs stay on `http://localhost:8055`.
 Every flow exports to a standalone Python script — pandas, eager Polars, or
 lazy Polars — so the visual pipeline never traps your logic.
 
+[Watch a CSV and SQL workflow export to Polars](docs/public/screenshots/hero-ml-pipeline.gif).
+
 A simple read -> clean -> aggregate -> write flow can export to code like this:
 
 ```python
@@ -203,6 +201,8 @@ df_1.write_csv("summary.csv")
 The same flow can also export pandas or lazy Polars variants where supported,
 and each variant can be downloaded as a Jupyter notebook (`.ipynb`). That makes Ciaren useful for prototyping, teaching, code review, and migration
 from visual exploration into normal Python projects.
+
+**Try an exported pipeline without installing Ciaren:** [Audit five orders against a product catalog](examples/orders-audit/README.md) in pandas or Polars, then import the same flow on the canvas.
 
 ## How It Compares
 
