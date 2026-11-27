@@ -225,10 +225,10 @@ class PolarsEngine:
         exprs = []
         for col_name in targets:
             col = pl.col(col_name)
-            if columns is None and strategy in ("mean", "median") and df[col_name].null_count() == 0:
+            if strategy in ("mean", "median") and df[col_name].null_count() == 0:
                 # A float fill makes an integer column Float64 even with no
-                # nulls; across all columns, leave null-free ones (e.g. an id)
-                # as is, the way pandas keeps them int64.
+                # nulls; leave null-free columns (e.g. an id) as is, the way
+                # pandas keeps them int64.
                 exprs.append(col)
             elif strategy == "constant":
                 # A column whose type the value does not convert to is left

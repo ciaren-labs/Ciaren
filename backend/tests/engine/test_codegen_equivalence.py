@@ -590,12 +590,24 @@ _SURVEY_REGION = ["North", "South", None, "East", "North"]
         # median of an even count is the midpoint 35.5
         ({"strategy": "median", "columns": ["age"]}, 35.5, None),
         ({"strategy": "median"}, 35.5, None),
+        # a selected null-free integer column (the id) is left as is
+        ({"strategy": "mean", "columns": ["respondent_id", "age"]}, 47.75, None),
+        ({"strategy": "median", "columns": ["respondent_id", "age"]}, 35.5, None),
         # all columns: a text constant skips the numeric column ...
         ({"strategy": "constant", "value": "Unknown"}, None, "Unknown"),
         # ... and a number-like constant (the editor sends text) fills both
         ({"strategy": "constant", "value": "0"}, 0, "0"),
     ],
-    ids=["mean-cols", "mean-all", "median-cols", "median-all", "const-text-all", "const-number-all"],
+    ids=[
+        "mean-cols",
+        "mean-all",
+        "median-cols",
+        "median-all",
+        "mean-cols-with-id",
+        "median-cols-with-id",
+        "const-text-all",
+        "const-number-all",
+    ],
 )
 def test_fill_nulls_every_path_fills_the_same_values(config: dict[str, Any], age: Any, region: Any) -> None:
     """Both engines, both exports and the lazy Polars export fill identically."""

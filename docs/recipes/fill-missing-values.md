@@ -122,12 +122,9 @@ df_survey.to_csv('survey_filled.csv', index=False)
 import polars as pl
 
 df_survey = pl.read_csv('survey.csv')
-
-df_survey = (
-    df_survey.with_columns(pl.col('age').fill_null(pl.col('age').median()))
-    .with_columns(pl.col('region').fill_null('Unknown'))
-)
-
+_nulls = df_survey.lazy().null_count().collect()
+df_survey = df_survey.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in ['age'] if _nulls[c][0]])
+df_survey = df_survey.with_columns(pl.col('region').fill_null('Unknown'))
 df_survey.write_csv('survey_filled.csv')
 ```
 

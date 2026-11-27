@@ -194,6 +194,14 @@ class FillNullsTransformation(BaseTransformation):
                 f"{dst} = {src}.with_columns(_fills)"
             )
 
+        # mean / median fill a float, which makes an integer column Float64
+        # even without nulls; like PolarsEngine.fill_nulls, skip null-free
+        # columns (``_nulls``, one row of null counts) so an id column stays
+        # an integer. On a LazyFrame this evaluates the input plan once more.
+        nulls = f"_nulls = {src}.lazy().null_count().collect()\n"
+        if columns and strategy in ("mean", "median"):
+            fill = self._POLARS_FILL[strategy].format(c="c")
+            return f"{nulls}{dst} = {src}.with_columns([{fill} for c in {list(columns)!r} if _nulls[c][0]])"
         if columns:
             # Explicit user-selected columns: one expression per column, no
             # schema guard — same loud-failure trade-off as the pandas emitter.
@@ -208,11 +216,6 @@ class FillNullsTransformation(BaseTransformation):
         # collect_schema().names(), not .columns: it works identically on a
         # DataFrame and a LazyFrame (where .columns raises PerformanceWarning
         # and is slated for removal), so one emitted form serves both modes.
-        # mean / median fill a float, which makes an integer column Float64
-        # even without nulls; like PolarsEngine.fill_nulls, skip null-free
-        # columns (``_nulls``, one row of null counts) so an id column stays
-        # an integer. On a LazyFrame this evaluates the input plan once more.
-        nulls = f"_nulls = {src}.lazy().null_count().collect()\n"
         if strategy == "mean":
             # Mean only exists for numbers — mirror the engine's skip of other
             # columns (see PolarsEngine.fill_nulls) with a schema guard.
