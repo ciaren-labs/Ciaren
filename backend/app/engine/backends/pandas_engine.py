@@ -395,7 +395,24 @@ class PandasEngine:
         labels: list[str] | None,
     ) -> pd.DataFrame:
         if method == "quantile":
-            binned = pd.qcut(df[column], q=bins, labels=labels, duplicates="drop")
+            # Bins are (-inf, q1], ..., (qk, inf] over the interior quantiles,
+            # computed with the arithmetic of Polars' qcut (linear interpolation,
+            # nulls counted first) so both engines agree on a value at an edge.
+            # pd.qcut differs: its percent-based quantiles land an ulp below an
+            # exact edge, and tied edges merge bins or fail with labels.
+            values = df[column].dropna().astype(float).sort_values().tolist()
+            nulls = len(df) - len(values)
+            edges: list[float] = []
+            for k in range(1, bins if values else 1):
+                f = (len(values) - 1) * (k / bins) + nulls
+                i = int(f) - nulls
+                lo, hi = values[i], values[min(i + 1, len(values) - 1)]
+                edges.append(lo if lo == hi else (f - int(f)) * (hi - lo) + lo)
+            unique = sorted(set(edges))
+            # A tied edge leaves an empty bin; each remaining bin keeps the label
+            # of its own position, so the top bin keeps the last label.
+            bin_labels = [labels[edges.index(e)] for e in unique] + [labels[-1]] if labels else None
+            binned = pd.cut(df[column], [-np.inf, *unique, np.inf], labels=bin_labels, ordered=bin_labels is None)
         else:
             binned = pd.cut(df[column], bins=bins, labels=labels)
         return df.assign(**{new_column: binned.astype("string")})

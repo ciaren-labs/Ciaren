@@ -498,6 +498,62 @@ def test_pivot_cell_without_rows_is_null_on_runtime_and_export(
     _assert_frames_match(expected, exported, "pivot_str_index")
 
 
+_BIN_LABELS = ["low", "mid", "high"]
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        # The 1/3 and 2/3 quantiles are exactly 100 and 250: a value on an edge
+        # belongs to the lower bin.
+        ([15.0, 100.0, 250.0, 500.0], ["low", "low", "mid", "high"]),
+        # The first edge equals the minimum: the tied minimum is its own bin.
+        ([1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0], ["low"] * 4 + ["mid"] + ["high"] * 3),
+        # Both edges are 2, so the middle bin is empty; the top keeps its label.
+        ([1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0], ["low"] * 6 + ["high"]),
+        ([5.0, 5.0, 5.0, 5.0], ["low"] * 4),
+        # Nulls stay null and do not shift the edges of the other values.
+        ([1.0, None, 3.0, 4.0, 5.0, 6.0, None, 8.0], ["low", None, "low", "mid", "mid", "high", None, "high"]),
+        ([None, None], [None, None]),
+    ],
+    ids=["value-on-edge", "tie-at-minimum", "tied-edges", "constant", "nulls", "all-null"],
+)
+@pytest.mark.parametrize("engine_name", ["pandas", "polars", "polars-lazy"])
+def test_bin_quantile_edge_cases_agree_on_runtime_and_export(
+    values: list[float | None], expected: list[str | None], engine_name: str
+) -> None:
+    """Quantile bins are (-inf, q1], (q1, q2], ..., (qk, inf] over the interior
+    quantiles, on both engines and in every export. Default interval labels are
+    formatted per engine, so they must partition the rows like the labels do."""
+    node = get_transformation("binColumn")
+    source = pd.DataFrame({"x": pd.Series(values, dtype="float64")})
+    results = []
+    for labels in (_BIN_LABELS, None):
+        config = {"column": "x", "new_column": "tier", "method": "quantile", "bins": 3, "labels": labels}
+        node.validate_config(config)
+        if engine_name == "pandas":
+            executed = node.execute(PandasEngine(), {"in": source.copy()}, config)["out"]
+            code = node.to_python_code({"in": "source"}, {"out": "result"}, config)
+            scope: dict[str, Any] = {"pd": pd, "source": source.copy()}
+        else:
+            frame = pl.from_pandas(source)
+            executed = node.execute(PolarsEngine(), {"in": frame}, config)["out"].to_pandas()
+            code = node.to_polars_code({"in": "source"}, {"out": "result"}, config)
+            scope = {"pl": pl, "source": frame.lazy() if engine_name == "polars-lazy" else frame}
+        exec(compile(code, "<bin_quantile_edges>", "exec"), scope)  # noqa: S102 - exercising exported code
+        exported = scope["result"]
+        if engine_name != "pandas":
+            exported = (exported.collect() if engine_name == "polars-lazy" else exported).to_pandas()
+        _assert_frames_match(executed, exported, "bin_quantile_edges")
+        results.append([None if pd.isna(v) else v for v in executed["tier"]])
+
+    labelled, default = results
+    assert labelled == expected
+    pairs = {(a, b) for a, b in zip(labelled, default, strict=True)}
+    assert all((a is None) == (b is None) for a, b in pairs)
+    assert len({a for a, _ in pairs}) == len({b for _, b in pairs}) == len(pairs)
+
+
 def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     """Regression: mode() with nulls present can make null itself the mode, and
     fill_null(None) raises. The emitter must drop nulls first and, like the

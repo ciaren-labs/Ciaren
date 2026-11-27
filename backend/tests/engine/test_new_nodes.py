@@ -726,6 +726,14 @@ def test_bin_column_with_labels(engine):
     assert set(out["bucket"].dropna().tolist()) <= {"low", "high"}
 
 
+def test_bin_quantile_pandas_export_rejects_label_count_mismatch():
+    # The quantile export maps labels by position, so pd.cut can no longer catch
+    # a wrong label count; the emitter must refuse it like validate_config does.
+    config = {"column": "x", "new_column": "b", "method": "quantile", "bins": 3, "labels": ["lo", "mid", "hi", "top"]}
+    with pytest.raises(ValueError, match="one label per bin"):
+        get_transformation("binColumn").to_python_code({"in": "df"}, {"out": "out"}, config)
+
+
 def test_remove_outliers_iqr_clip(engine):
     pdf = pd.DataFrame({"v": [1.0, 2.0, 3.0, 100.0]})
     out = run(engine, "removeOutliers", pdf, {"columns": ["v"], "method": "iqr", "action": "clip"})
@@ -1079,6 +1087,7 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("sampleRows", {"n": -1, "seed": 1}),  # negative n
         ("sampleRows", {"n": 3}),  # missing required seed
         ("binColumn", {"column": "x", "bins": 3}),  # missing new_column
+        ("binColumn", {"column": "x", "new_column": "b", "bins": 3, "labels": ["lo", "hi"]}),  # one label per bin
     ],
 )
 def test_validate_rejects_bad_config(node_type, config):
