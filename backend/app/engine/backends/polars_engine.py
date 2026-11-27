@@ -213,7 +213,6 @@ class PolarsEngine:
 
     # Strategies polars' fill_null accepts directly (rest are computed manually).
     _FILL_STRATEGY = {
-        "mean": "mean",
         "min": "min",
         "max": "max",
         "zero": "zero",
@@ -226,17 +225,27 @@ class PolarsEngine:
         exprs = []
         for col_name in targets:
             col = pl.col(col_name)
-            if strategy == "constant":
+            if columns is None and strategy in ("mean", "median") and df[col_name].null_count() == 0:
+                # A float fill makes an integer column Float64 even with no
+                # nulls; across all columns, leave null-free ones (e.g. an id)
+                # as is, the way pandas keeps them int64.
+                exprs.append(col)
+            elif strategy == "constant":
+                # A column whose type the value does not convert to is left
+                # as is (a text constant skips numeric columns).
                 col_dtype = df[col_name].dtype
                 try:
                     typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
                     exprs.append(col.fill_null(typed_value))
-                except Exception:
+                except pl.exceptions.PolarsError:
                     exprs.append(col)
-            elif strategy == "mean" and not df.schema[col_name].is_numeric():
+            elif strategy == "mean":
                 # Mean only exists for numbers: skip other columns like the
-                # pandas engine instead of raising mid-run.
-                exprs.append(col)
+                # pandas engine instead of raising mid-run. Fill with the mean
+                # itself: fill_null(strategy="mean") casts it to an integer
+                # column's type (47.75 -> 47); a float fill makes the column
+                # Float64, as median does.
+                exprs.append(col.fill_null(col.mean()) if df.schema[col_name].is_numeric() else col)
             elif strategy in self._FILL_STRATEGY:
                 exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":

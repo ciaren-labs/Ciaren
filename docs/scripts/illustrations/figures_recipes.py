@@ -133,8 +133,7 @@ def fill_nulls_mean_median() -> Figure:
         980,
         420,
         "The age column has one null and one outlier, 95. Filling with the mean writes "
-        "47.75 because the outlier pulls the average up; filling with the median writes 35.5. "
-        "The exported Polars script reads age as integers and writes 47 instead.",
+        "47.75 because the outlier pulls the average up; filling with the median writes 35.5.",
     )
     fig.heading(44, 56, "one outlier moves the mean, not the median")
     cols = ["respondent_id", "age"]
@@ -162,7 +161,6 @@ def fill_nulls_mean_median() -> Figure:
         fig.arrow([(nx + w + 16, y + h / 2), (nx + w + 70, y + h / 2)], stroke=INK_SOFT)
         fig.text(nx + w + 86, y + h / 2 + 9, value, role="mono", size=26, weight=600, fill=color)
         fig.note(nx + w + 86, y + h / 2 + 40, how, size=20, fill=INK_SOFT)
-    fig.note(nx + 210 + 86, 110 + 31 + 64, "Polars export: 47 (age read as integers)", size=20, fill=INK_SOFT)
     fig.check(nx + 210 + 190, 240 + 18, color=GREEN)
     return fig
 

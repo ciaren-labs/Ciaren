@@ -79,7 +79,6 @@ class FillNullsTransformation(BaseTransformation):
     }
     # Strategies polars' fill_null accepts directly via strategy=...
     _POLARS_STRATEGY = {
-        "mean": "mean",
         "min": "min",
         "max": "max",
         "zero": "zero",
@@ -114,7 +113,18 @@ class FillNullsTransformation(BaseTransformation):
                 # strategies below still raise via their {src}[col] reads.
                 fills = ", ".join(f"{c!r}: {value!r}" for c in columns)
                 return f"{dst} = {src}.fillna({{{fills}}})"
-            return f"{dst} = {src}.fillna({value!r})"
+            # All columns: mirror PandasEngine.fill_nulls, which fills only the
+            # columns whose dtype the value converts to (a plain fillna would
+            # also write a text constant into numeric columns).
+            return (
+                f"{dst} = {src}.copy()\n"
+                f"for _col in {dst}.columns:\n"
+                f"    try:\n"
+                f"        _fill = pd.array([{value!r}], dtype={dst}[_col].dtype)[0]\n"
+                f"    except (ValueError, TypeError):\n"
+                f"        continue  # the value does not fit this column's type\n"
+                f"    {dst}[_col] = {dst}[_col].fillna(_fill)"
+            )
 
         if strategy in ("ffill", "bfill"):
             if columns:
@@ -148,7 +158,9 @@ class FillNullsTransformation(BaseTransformation):
     # the mode) and takes min() so multi-modal ties are reproducible and match
     # pandas' sorted mode.
     _POLARS_FILL = {
-        "mean": "pl.col({c}).fill_null(strategy='mean')",
+        # The mean itself, not strategy='mean': that casts it to an integer
+        # column's type (47.75 -> 47), unlike PolarsEngine.fill_nulls.
+        "mean": "pl.col({c}).fill_null(pl.col({c}).mean())",
         "min": "pl.col({c}).fill_null(strategy='min')",
         "max": "pl.col({c}).fill_null(strategy='max')",
         "zero": "pl.col({c}).fill_null(strategy='zero')",
@@ -168,7 +180,19 @@ class FillNullsTransformation(BaseTransformation):
             if columns:
                 exprs = [f"pl.col({c!r}).fill_null({value!r})" for c in columns]
                 return f"{dst} = {src}.with_columns({pl_exprs_arg(exprs)})"
-            return f"{dst} = {src}.fill_null({value!r})"
+            # All columns: mirror PolarsEngine.fill_nulls, which fills only the
+            # columns whose dtype the value casts to. Frame-level fill_null
+            # differs: it skips a text column for a numeric value.
+            return (
+                f"_sch = {src}.collect_schema()\n"
+                f"_fills = []\n"
+                f"for _col in _sch.names():\n"
+                f"    try:\n"
+                f"        _fills.append(pl.col(_col).fill_null(pl.Series([{value!r}]).cast(_sch[_col])[0]))\n"
+                f"    except pl.exceptions.PolarsError:\n"
+                f"        continue  # the value does not fit this column's type\n"
+                f"{dst} = {src}.with_columns(_fills)"
+            )
 
         if columns:
             # Explicit user-selected columns: one expression per column, no
@@ -184,16 +208,21 @@ class FillNullsTransformation(BaseTransformation):
         # collect_schema().names(), not .columns: it works identically on a
         # DataFrame and a LazyFrame (where .columns raises PerformanceWarning
         # and is slated for removal), so one emitted form serves both modes.
-        if strategy in self._POLARS_STRATEGY:
-            strat = self._POLARS_STRATEGY[strategy]
+        # mean / median fill a float, which makes an integer column Float64
+        # even without nulls; like PolarsEngine.fill_nulls, skip null-free
+        # columns (``_nulls``, one row of null counts) so an id column stays
+        # an integer. On a LazyFrame this evaluates the input plan once more.
+        nulls = f"_nulls = {src}.lazy().null_count().collect()\n"
+        if strategy == "mean":
             # Mean only exists for numbers — mirror the engine's skip of other
             # columns (see PolarsEngine.fill_nulls) with a schema guard.
-            if strategy == "mean":
-                return (
-                    f"_sch = {src}.collect_schema()\n"
-                    f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) "
-                    f"for c in _sch.names() if _sch[c].is_numeric()])"
-                )
+            return (
+                f"_sch = {src}.collect_schema()\n{nulls}"
+                f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).mean()) "
+                f"for c in _sch.names() if _nulls[c][0] and _sch[c].is_numeric()])"
+            )
+        if strategy in self._POLARS_STRATEGY:
+            strat = self._POLARS_STRATEGY[strategy]
             return (
                 f"{dst} = {src}.with_columns([pl.col(c).fill_null(strategy={strat!r}) "
                 f"for c in {src}.collect_schema().names()])"
@@ -206,9 +235,10 @@ class FillNullsTransformation(BaseTransformation):
             # mirror the skip with a schema guard. Boolean/Null stay included:
             # there the expression behaves like the engine (raise / no-op).
             return (
-                f"_sch = {src}.collect_schema()\n"
+                f"_sch = {src}.collect_schema()\n{nulls}"
                 f"{dst} = {src}.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in _sch.names() "
-                f"if _sch[c].is_numeric() or _sch[c].is_temporal() or _sch[c] in (pl.Boolean, pl.Null)])"
+                f"if _nulls[c][0] and (_sch[c].is_numeric() or _sch[c].is_temporal() "
+                f"or _sch[c] in (pl.Boolean, pl.Null))])"
             )
         # mode across all columns: null-mode/tie handling as in _POLARS_FILL;
         # an all-null column's mode().min() is null and filling nulls with null

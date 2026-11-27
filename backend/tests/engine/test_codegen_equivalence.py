@@ -14,6 +14,7 @@ branch cannot land without equivalence coverage (enforced by
 ``test_every_codegen_case_has_equivalence_data``).
 """
 
+import io
 from typing import Any
 
 import pandas as pd
@@ -261,6 +262,8 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "fill_median_mixed": {"in": _mixed_dtypes},
     "fill_mean_mixed": {"in": _mixed_dtypes},
     "fill_mode_with_empty": {"in": _with_empty_col},
+    "fill_const_text_mixed": {"in": _mixed_dtypes},
+    "fill_const_num_mixed": {"in": _mixed_dtypes},
     "fill_mode": {"in": _num},
     "fill_mode_multimodal": {"in": _multimodal},
     "groupby": {"in": _num},
@@ -479,6 +482,68 @@ def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     _assert_frames_match(expected.to_pandas(), ns["result"].to_pandas(), "fill_mode_all_null")
     assert ns["result"]["a"].null_count() == 0
     assert ns["result"]["empty"].null_count() == 3
+
+
+# Integer ids, an integer 'age' with one null and an outlier, and a text
+# 'region' with one null — read from CSV the way each exported script reads it
+# (pandas: float64 age, polars: Int64 age).
+_SURVEY_CSV = "respondent_id,age,region\n1,25,North\n2,,South\n3,40,\n4,31,East\n5,95,North\n"
+_SURVEY_AGE = [25, None, 40, 31, 95]
+_SURVEY_REGION = ["North", "South", None, "East", "North"]
+
+
+@pytest.mark.parametrize(
+    ("config", "age", "region"),
+    [
+        # mean of 25, 40, 31, 95 is 47.75, not the integer 47
+        ({"strategy": "mean", "columns": ["age"]}, 47.75, None),
+        ({"strategy": "mean"}, 47.75, None),
+        # median of an even count is the midpoint 35.5
+        ({"strategy": "median", "columns": ["age"]}, 35.5, None),
+        ({"strategy": "median"}, 35.5, None),
+        # all columns: a text constant skips the numeric column ...
+        ({"strategy": "constant", "value": "Unknown"}, None, "Unknown"),
+        # ... and a number-like constant (the editor sends text) fills both
+        ({"strategy": "constant", "value": "0"}, 0, "0"),
+    ],
+    ids=["mean-cols", "mean-all", "median-cols", "median-all", "const-text-all", "const-number-all"],
+)
+def test_fill_nulls_every_path_fills_the_same_values(config: dict[str, Any], age: Any, region: Any) -> None:
+    """Both engines, both exports and the lazy Polars export fill identically."""
+    t = get_transformation("fillNulls")
+    expected = pd.DataFrame(
+        {
+            "respondent_id": [1, 2, 3, 4, 5],
+            "age": [age if v is None else v for v in _SURVEY_AGE],
+            "region": [region if v is None else v for v in _SURVEY_REGION],
+        }
+    )
+
+    def pandas_frame() -> pd.DataFrame:
+        return pd.read_csv(io.StringIO(_SURVEY_CSV))
+
+    def polars_frame() -> pl.DataFrame:
+        return pl.read_csv(io.StringIO(_SURVEY_CSV))
+
+    pandas_ns: dict[str, Any] = {"pd": pd, "src": pandas_frame()}
+    exec(compile(t.to_python_code({"in": "src"}, {"out": "result"}, config), "<pandas>", "exec"), pandas_ns)  # noqa: S102
+    polars_code = compile(t.to_polars_code({"in": "src"}, {"out": "result"}, config), "<polars>", "exec")
+    polars_ns: dict[str, Any] = {"pl": pl, "src": polars_frame()}
+    exec(polars_code, polars_ns)  # noqa: S102 - exercising exported code
+    lazy_ns: dict[str, Any] = {"pl": pl, "src": polars_frame().lazy()}
+    exec(polars_code, lazy_ns)  # noqa: S102 - exercising exported code
+
+    results = {
+        "pandas run": t.execute(PandasEngine(), {"in": pandas_frame()}, config)["out"],
+        "pandas export": pandas_ns["result"],
+        "polars run": t.execute(PolarsEngine(), {"in": polars_frame()}, config)["out"].to_pandas(),
+        "polars export": polars_ns["result"].to_pandas(),
+        "polars lazy export": lazy_ns["result"].collect().to_pandas(),
+    }
+    for path, got in results.items():
+        _assert_frames_match(expected, got, f"{config} via {path}")
+        # The null-free id column keeps its integer type (no 1.0 in a CSV).
+        assert pd.api.types.is_integer_dtype(got["respondent_id"]), f"{config} via {path}"
 
 
 @pytest.mark.parametrize("case_id", sorted(_CASE_INPUTS), ids=sorted(_CASE_INPUTS))

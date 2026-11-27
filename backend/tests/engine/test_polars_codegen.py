@@ -115,7 +115,7 @@ def test_polars_codegen_fill_strategy_and_filter_ops() -> None:
         ],
     }
     code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"})
-    assert "fill_null(strategy='mean')" in code
+    assert "pl.col('a').fill_null(pl.col('a').mean())" in code
     assert ".is_between(1, 9)" in code
     assert ".is_in(['x', 'y'])" in code
     assert "_filter_value" not in code  # non-numeric text needs no runtime typing

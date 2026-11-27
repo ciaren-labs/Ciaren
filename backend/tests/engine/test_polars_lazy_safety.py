@@ -35,6 +35,7 @@ CASES: dict[str, tuple[str, dict, str]] = {
     "fill_median_all_cols": ("fillNulls", {"strategy": "median"}, _CSV_NUMERIC),
     "fill_mode": ("fillNulls", {"strategy": "mode", "columns": ["v"]}, _CSV_WITH_NULL),
     "fill_mean": ("fillNulls", {"strategy": "mean", "columns": ["v"]}, _CSV_WITH_NULL),
+    "fill_const_all_cols": ("fillNulls", {"value": "z"}, _CSV_WITH_NULL),
     "remove_outliers_iqr": ("removeOutliers", {"columns": ["v"], "method": "iqr", "action": "drop"}, _CSV_WITH_NULL),
     "remove_outliers_clip": (
         "removeOutliers",
@@ -97,7 +98,7 @@ def test_lazy_script_runs_and_matches_eager(case: str, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "case",
-    ["fill_median_all_cols", "fill_mean", "drop_nulls_all"],
+    ["fill_median_all_cols", "fill_mean", "fill_const_all_cols", "drop_nulls_all"],
 )
 def test_lazy_scripts_emit_no_performance_warnings(case: str, tmp_path: Path) -> None:
     # LazyFrame.columns raises PerformanceWarning (and is slated for removal);
