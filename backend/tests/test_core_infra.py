@@ -1,6 +1,9 @@
 """Coverage for low-level infra: the database helpers and logging setup."""
 
+import json
 import logging
+import subprocess
+import sys
 import tomllib
 from importlib.metadata import requires
 from pathlib import Path
@@ -292,3 +295,31 @@ def test_ciaren_version_falls_back_when_metadata_returns_no_version(
 
     monkeypatch.setattr(version_mod, "version", lambda name: bogus)
     assert version_mod.ciaren_version() == version_mod._FALLBACK
+
+
+ASSISTANT_KEY = "synthetic-assistant-credential-30961"
+
+
+def test_api_key_env_is_scrubbed_before_workers_spawn(monkeypatch):
+    monkeypatch.setenv("CIAREN_ASSISTANT_OPENAI_API_KEY", ASSISTANT_KEY)
+    monkeypatch.setenv("ciaren_assistant_deepseek_api_key", ASSISTANT_KEY + "-lower")
+    monkeypatch.setenv("CIAREN_ASSISTANT_OPENAI_MODEL", "gpt-5")
+    get_settings.cache_clear()
+    try:
+        cfg = get_settings()
+        child = subprocess.run(
+            [sys.executable, "-c", "import json, os; print(json.dumps(dict(os.environ)))"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+    finally:
+        get_settings.cache_clear()
+    assert cfg.ASSISTANT_OPENAI_API_KEY is not None and cfg.ASSISTANT_OPENAI_API_KEY.get_secret_value() == ASSISTANT_KEY
+    assert cfg.ASSISTANT_DEEPSEEK_API_KEY is not None
+    inherited = json.loads(child.stdout)
+    assert ASSISTANT_KEY not in child.stdout and not any(
+        "API_KEY" in name.upper() and "ASSISTANT" in name.upper() for name in inherited
+    )
+    assert inherited["CIAREN_ASSISTANT_OPENAI_MODEL"] == "gpt-5"

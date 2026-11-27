@@ -276,3 +276,85 @@ def test_revision_precision_across_metadata_dialects():
             assert "created_at DATETIME(6)" in str(CreateTable(AssistantActivity.__table__).compile(dialect=dialect))
     future = datetime(2099, 1, 1)
     assert next_revision(future) > future
+
+
+@pytest.mark.parametrize(
+    ("edit", "conflict"),
+    [({"position": {"x": 999, "y": 1}}, False), ({"data": {"config": {"n": 1}, "label": "Renamed"}}, True)],
+    ids=["moved", "relabelled"],
+)
+async def test_added_node_guard_ignores_position_only(db_session, edit, conflict):
+    a, b = node("a", "fileInput"), node("b", "fileOutput")
+    added = {**node("c", "limitRows", n=1), "position": {"x": 0, "y": 0}}
+    before = {"nodes": [a, b], "edges": [edge("a", "b")]}
+    after = {"nodes": [a, b, added], "edges": [edge("a", "c"), edge("c", "b")]}
+    delta = {"added": [added], "changed": [], "connected": after["edges"], "disconnected": [before["edges"][0]["id"]]}
+    receipt = audit.receipt("flow", "project", before, after, delta, [], "build")
+    later = deepcopy(after)
+    later["nodes"][2].update(deepcopy(edit))
+    if conflict:
+        with pytest.raises(ConflictError):
+            await audit.inverse_graph(db_session, receipt, later)
+    else:
+        assert (await audit.inverse_graph(db_session, receipt, later))["nodes"] == [a, b]
+
+
+def test_removed_nodes_are_recorded_and_not_reversible():
+    a, gone, b = node("a", "fileInput"), node("gone", "dropNulls"), node("b", "fileOutput")
+    before = {"nodes": [a, gone, b], "edges": [edge("a", "gone"), edge("gone", "b")]}
+    after = {"nodes": [a, b], "edges": [edge("a", "b")]}
+    delta = {
+        "added": [],
+        "changed": [],
+        "connected": after["edges"],
+        "disconnected": [e["id"] for e in before["edges"]],
+        "removed": ["gone"],
+    }
+    receipt = audit.receipt("flow", "project", before, after, delta, [], "build")
+    assert {"action": "remove_node", "kind": "dropNulls"} in receipt.details
+    assert {"action": "disconnect", "from": "dropNulls", "to": "fileOutput", "port": "in"} in receipt.details
+    assert receipt.inverse["usable"] is False
+
+
+async def test_reversal_survives_a_new_version_of_a_pinned_input(client, proposal):
+    flow, url, token = proposal
+    saved = (await client.post(url + "/apply", json=token)).json()["revision"]
+    (entry,) = (await client.get(url + "/activity")).json()["entries"]
+    graph = (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"]
+    assert graph["nodes"][0]["data"]["config"]["dataset_version"] == 1
+    upload = await client.post("/api/datasets/upload", files={"file": (PRIVATE + ".csv", "other\n1\n")})
+    assert upload.json()["latest_version"] == 2
+    target = url + "/activity/" + entry["id"]
+    preview = await client.post(target + "/preview", json={"revision": saved})
+    assert preview.status_code == 200, preview.text
+
+
+@pytest.mark.parametrize(("pinned", "follows"), [(None, True), (1, False)], ids=["unpinned", "pinned"])
+def test_receipt_inputs_follow_latest_only_through_unpinned_nodes(pinned, follows):
+    from app.services.assistant_inputs import InputVersion
+
+    source = node("in", "fileInput", dataset_id="d", **({"dataset_version": pinned} if pinned else {}))
+    after = {"nodes": [source, node("c", "limitRows", n=1)], "edges": [edge("in", "c")]}
+    delta = {"added": [after["nodes"][1]], "changed": [], "connected": after["edges"], "disconnected": []}
+    version = InputVersion("d", "v1", 1, "csv", True)
+    change = audit.receipt("flow", "project", {"nodes": [source], "edges": []}, after, delta, [version], "build")
+    assert change.inverse["inputs"][0]["follows_latest"] is follows
+
+
+@pytest.mark.parametrize("suffix", ["Z", "+00:00", "+02:00"])
+async def test_reversal_accepts_timezone_aware_revisions(client, proposal, suffix):
+    flow, url, token = proposal
+    saved = (await client.post(url + "/apply", json=token)).json()["revision"]
+    (entry,) = (await client.get(url + "/activity")).json()["entries"]
+    target = url + "/activity/" + entry["id"]
+    stamp = datetime.fromisoformat(saved.removesuffix("Z"))
+    if suffix == "+02:00":
+        from datetime import UTC, timedelta, timezone
+
+        revision = stamp.replace(tzinfo=UTC).astimezone(timezone(timedelta(hours=2))).isoformat()
+    else:
+        revision = stamp.isoformat() + suffix
+    preview = await client.post(target + "/preview", json={"revision": revision})
+    assert preview.status_code == 200, preview.text
+    res = await client.post(target + "/revert", json={"proposal": preview.json()["confirmation"]})
+    assert res.status_code == 200, res.text

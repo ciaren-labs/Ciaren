@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, NotFoundError
 from app.db.models.dataset_version import DatasetVersion
 from app.db.models.flow import AssistantActivity, Flow
-from app.services.assistant_graph import Graph, inspect
+from app.services.assistant_graph import INPUTS, Graph, inspect
 from app.services.assistant_inputs import InputVersion
 from app.services.flow_revision import next_revision, update_one
 
@@ -78,7 +78,11 @@ def guard(
         fields = {u["field"] for u in updates if u["node"] == ref}
         if upstream_only and node["type"] == "limitRows" and fields:
             config = {k: v for k, v in config.items() if k in fields or k not in {"n", "offset"}}
-        state.append((node["id"], node if ref in added else [node["type"], config]))
+        # Added nodes are removed whole on reversal, so their label matters too; a
+        # moved node is a presentation edit and does not block the reversal.
+        state.append(
+            (node["id"], [node["type"], config, node["data"].get("label")] if ref in added else [node["type"], config])
+        )
     wiring = [(e["id"], e) for e in edges if e["target"] in component]
     # A later unrelated flow parameter is independent of this edit.
     references = set(re.findall(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", json.dumps(state)))
@@ -86,8 +90,27 @@ def guard(
     return digest(salt, [sorted(state), sorted(wiring), graph.get("engine"), params])
 
 
+def _utc(revision: datetime) -> datetime:
+    """Saved revisions are naive UTC; clients may send any offset."""
+    return revision.astimezone(UTC).replace(tzinfo=None) if revision.tzinfo else revision
+
+
 def editor_edge_id(edge: Graph) -> str:
     return f"e_{edge['source']}_{edge.get('sourceHandle') or 'out'}_{edge['target']}_{edge.get('targetHandle') or 'in'}"
+
+
+def _receipt_inputs(graph: Graph, inputs: list[InputVersion]) -> list[InputVersion]:
+    """A reversal needs the latest version only while an input node still follows it.
+
+    Inputs bound by the assistant pin their version, so a later upload must not
+    make the receipt stale.
+    """
+    following = {
+        n["data"]["config"].get("dataset_id")
+        for n in graph["nodes"]
+        if n["type"] in INPUTS and n["data"]["config"].get("dataset_version") is None
+    }
+    return [replace(v, follows_latest=v.follows_latest and v.dataset in following) for v in inputs]
 
 
 def receipt(
@@ -102,7 +125,8 @@ def receipt(
 ) -> AssistantActivity:
     event = uuid4().hex
     old_nodes = {n["id"]: n for n in before.get("nodes", [])}
-    kinds = {n["id"]: n["type"] for n in after["nodes"]}
+    # Disconnected edges may touch nodes this change removed.
+    kinds = {n["id"]: n["type"] for n in [*before.get("nodes", []), *after["nodes"]]}
     old_edges = {e["id"]: e for e in before.get("edges", [])}
     details: list[Graph] = []
     added = [digest(event, n["id"]) for n in delta["added"]]
@@ -112,6 +136,10 @@ def receipt(
     reversible = True
     for n in delta["added"]:
         details.append({"action": "add_node", "kind": n["type"]})
+    # A removed node's full configuration is not stored, so it cannot be restored.
+    for node_id in delta.get("removed", []):
+        details.append({"action": "remove_node", "kind": old_nodes[node_id]["type"]})
+        reversible = False
     for n in delta["changed"]:
         ref = digest(event, n["id"])
         previous = old_nodes[n["id"]]["data"]["config"]
@@ -208,7 +236,7 @@ def receipt(
             "connections": [digest(event, e["id"]) for e in delta["connected"]],
             "upstream_only": upstream_only,
             "guard": guard(after, event, roots, added, upstream_only, updates),
-            "inputs": [asdict(v) for v in inputs],
+            "inputs": [asdict(v) for v in _receipt_inputs(after, inputs)],
         },
     )
 
@@ -326,7 +354,7 @@ async def load_target(
     )
     if not flow or not event:
         raise NotFoundError("Activity", event_id)
-    if flow.updated_at != revision or flow.is_disabled:
+    if _utc(flow.updated_at) != _utc(revision) or flow.is_disabled:
         raise ConflictError(STALE)
     if event.reverses or await db.scalar(select(AssistantActivity.id).where(AssistantActivity.reverses == event.id)):
         raise ConflictError("This saved change has already been reversed or is itself a reversal.")
@@ -334,6 +362,7 @@ async def load_target(
 
 
 async def save_reversal(db: AsyncSession, flow_id: str, event_id: str, revision: datetime) -> Graph:
+    revision = _utc(revision)
     flow, event = await load_target(db, flow_id, event_id, revision)
     graph = await inverse_graph(db, event, flow.graph_json)
     now = next_revision(revision)

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import os
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -261,6 +263,15 @@ class Settings(BaseSettings):
         return str(p.resolve())
 
 
+_ASSISTANT_KEY_ENV = re.compile(r"CIAREN_ASSISTANT_[A-Z0-9]+_API_KEY")
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    # Spawned code workers inherit os.environ. Once loaded, assistant API keys
+    # live only in these settings, so the variables are removed from the process
+    # environment. Clearing this cache afterwards drops env-sourced keys.
+    for name in [n for n in os.environ if _ASSISTANT_KEY_ENV.fullmatch(n.upper())]:
+        del os.environ[name]
+    return settings
