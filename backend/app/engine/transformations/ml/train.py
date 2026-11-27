@@ -434,8 +434,7 @@ class BaseTrainTransformation(SklearnPipelineMixin, MetadataMLTransformation):
         return "\n".join(lines)
 
     def imports(self, config: dict[str, Any]) -> list[str]:
-        # joblib lets the exported training script persist the fitted pipeline.
-        return ["import joblib", *self._pipeline_imports(config)]
+        return self._pipeline_imports(config)
 
 
 class BaseModelDefinitionTransformation(BaseTrainTransformation):

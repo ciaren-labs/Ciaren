@@ -163,8 +163,6 @@ generated script covers the whole flow:
 
 ```python
 import pandas as pd
-import joblib
-import mlflow.sklearn
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -206,8 +204,8 @@ df_5.to_csv('metrics.csv', index=False)
 ```
 
 Run it next to `customers.csv` and both output files match the tables above.
-The script does not need Ciaren, but its imports need pandas, scikit-learn,
-joblib and MLflow installed. The preprocessing (median imputation and standard
+The script does not need Ciaren, but it needs pandas and scikit-learn
+installed. The preprocessing (median imputation and standard
 scaling) is part of the `Pipeline`, so it is reapplied with the training values
 when `predict` runs. Variables follow Ciaren's naming: the input frame is named
 after the dataset, node outputs are `df_1`, `df_2`, … and `_`-prefixed names

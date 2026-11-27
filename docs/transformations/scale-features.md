@@ -75,7 +75,6 @@ df_customers.to_csv('scale-features.csv', index=False)
 
 ```python
 import polars as pl
-import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 df_customers = pl.read_csv('customers.csv')

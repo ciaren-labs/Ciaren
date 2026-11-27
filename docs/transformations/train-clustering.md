@@ -114,8 +114,6 @@ The Train configuration is:
 
 ```python
 import pandas as pd
-import joblib
-import mlflow.sklearn
 from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -150,8 +148,6 @@ df_4.to_csv('train-clustering.csv', index=False)
 
 ```python
 import polars as pl
-import joblib
-import mlflow.sklearn
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer

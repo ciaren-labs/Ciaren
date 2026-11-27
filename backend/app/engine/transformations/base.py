@@ -215,6 +215,13 @@ class BaseTransformation(ABC):
         chosen scaler/imputer)."""
         return []
 
+    def imports_for_inputs(self, config: dict[str, Any], input_vars: dict[str, str]) -> list[str]:
+        """The pandas-code imports for this node given its connected input handles
+        (``input_vars``, as passed to :meth:`to_python_code`). Defaults to
+        :meth:`imports`; a node whose code depends on an optional input overrides
+        it (mlPredict loads a model by URI only when no upstream model is wired)."""
+        return self.imports(config)
+
     def polars_imports(self, config: dict[str, Any]) -> list[str]:
         """Extra imports for the generated **polars** script. Defaults to
         :meth:`imports` since most nodes need the same header in both dialects;

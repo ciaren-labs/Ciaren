@@ -101,8 +101,6 @@ The Train configuration is:
 
 ```python
 import pandas as pd
-import joblib
-import mlflow.sklearn
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
@@ -149,8 +147,6 @@ df_4.to_csv('predict.csv', index=False)
 
 ```python
 import polars as pl
-import joblib
-import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer

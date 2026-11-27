@@ -285,7 +285,7 @@ class CodeGenerator:
                 else:
                     output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
-                add_imports(transformation.imports(config))
+                add_imports(transformation.imports_for_inputs(config, input_vars))
                 helpers.update(dict.fromkeys(transformation.helpers(config)))
                 body.append(strip_self_assign(transformation.to_python_code(input_vars, output_vars, config)))
 
