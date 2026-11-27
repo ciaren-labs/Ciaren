@@ -39,15 +39,13 @@ def database(args, work):
         available.bind(("127.0.0.1", 0))
         port = available.getsockname()[1]
     password = secrets.token_hex(24)
-    bootstrap = work / "bootstrap"
-    bootstrap.touch(mode=0o600)
     env = fixture_env(work)
     # Extracted distribution packages can require non-system shared libraries.
     if "LD_LIBRARY_PATH" in os.environ:
         env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"]
     if args.engine == "postgresql":
         bindir = args.pg_bindir
-        bootstrap.write_text(password + "\n")
+        init_input = (password + "\n").encode()
         init = [
             str(bindir / "initdb"),
             "-D",
@@ -58,7 +56,7 @@ def database(args, work):
             "--encoding=UTF8",
             "--auth-local=reject",
             "--auth-host=scram-sha-256",
-            f"--pwfile={bootstrap}",
+            "--pwfile=/dev/stdin",
         ]
         if args.pg_share:
             init.extend(["-L", str(args.pg_share)])
@@ -75,12 +73,12 @@ def database(args, work):
         ]
         url = f"postgresql+asyncpg://ciaren:{password}@127.0.0.1:{port}/postgres"
     else:
-        bootstrap.write_text(
-            f"ALTER USER 'root'@'localhost' IDENTIFIED BY '{secrets.token_hex(32)}';\n"
+        init_input = (
+            "ALTER USER 'root'@'localhost' ACCOUNT LOCK;\n"
             "CREATE DATABASE ciaren_audit CHARACTER SET utf8mb4;\n"
             f"CREATE USER 'ciaren'@'127.0.0.1' IDENTIFIED BY '{password}';\n"
             "GRANT ALL ON ciaren_audit.* TO 'ciaren'@'127.0.0.1';\n"
-        )
+        ).encode()
         common = [
             str(args.mysqld),
             "--no-defaults",
@@ -89,6 +87,7 @@ def database(args, work):
             f"--pid-file={work}/mysql.pid",
             "--secure-file-priv=NULL",
             "--mysqlx=OFF",
+            "--skip-log-bin",
             "--bind-address=127.0.0.1",
             f"--port={port}",
             "--skip-name-resolve",
@@ -98,19 +97,21 @@ def database(args, work):
             common.append(f"--basedir={args.mysql_basedir}")
         if args.mysql_messages:
             common.append(f"--lc-messages-dir={args.mysql_messages}")
-        init = [*common, "--initialize-insecure"]
-        start = [*common, f"--init-file={bootstrap}"]
+        init = [*common, "--initialize-insecure", "--init-file=/dev/stdin"]
+        start = common
         url = f"mysql+aiomysql://ciaren:{password}@127.0.0.1:{port}/ciaren_audit"
 
+    # Provision offline through an anonymous pipe. Initializer errors can echo input SQL.
+    launched = subprocess.run(
+        init, cwd=work, env=env, input=init_input, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120
+    )
+    if launched.returncode:
+        raise RuntimeError(f"Private database initialization failed with status {launched.returncode}")
     log = work / "database.log"
     with log.open("wb") as output:
-        launched = subprocess.run(init, cwd=work, env=env, stdout=output, stderr=subprocess.STDOUT, timeout=120)
-        if launched.returncode:
-            raise RuntimeError(f"Private database initialization failed with status {launched.returncode}")
         proc = subprocess.Popen(start, cwd=work, env=env, stdout=output, stderr=subprocess.STDOUT)
         try:
             asyncio.run(wait_for_server(proc, url, data, args.engine, log))
-            bootstrap.unlink()
             yield url
         finally:
             if proc.poll() is None:
