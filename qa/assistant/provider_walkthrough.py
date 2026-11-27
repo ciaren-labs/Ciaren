@@ -21,65 +21,13 @@ from editor_smoke import KEY, ROOT, fixture_env
 from playwright.sync_api import Error as BrowserError
 from playwright.sync_api import TimeoutError as BrowserTimeout
 from playwright.sync_api import expect, sync_playwright
+from walkthrough_checks import Failed, check_profile, check_turn, require
 
 DIRECT_KEY = "CIAREN_ASSISTANT_DEEPSEEK_API_KEY"
 BUILD = "Keep all orders by sku. Flag ready_to_fulfill when catalog_status equals active. Sort by order_id."
 GUIDE = "How do I connect the two inputs of a Join?"
 REPAIR = "Order 104 is missing. Keep every order, including orders without a catalog match."
 UNSUPPORTED = "Schedule a nightly refresh. Leave the Join unchanged."
-
-
-class Failed(Exception):
-    """A fixed diagnostic suitable for printing; never embed request or exception contents."""
-
-
-# Match only fixed Ciaren diagnostics. Never echo arbitrary server detail, nested validation input or provider text.
-TURN_ERRORS = {
-    "The provider returned an unsupported Join proposal.": "JOIN_PLAN_SCHEMA",
-    "The repair references an unavailable Join.": "JOIN_REFERENCE_MISMATCH",
-    "The provider returned an incomplete structured answer.": "PROVIDER_OUTPUT_INVALID",
-    "The provider request timed out.": "PROVIDER_TIMEOUT",
-    "The provider request or response transfer failed.": "PROVIDER_TRANSPORT",
-    "Provider request failed or returned an incomplete structured answer.": "PROVIDER_TRANSPORT_OR_OUTPUT",
-    "Assistant hourly turn budget reached.": "LOCAL_TURN_BUDGET",
-    "Choose an available dataset in this flow's project.": "INPUT_UNAVAILABLE",
-    "Invalid input version.": "INPUT_VERSION",
-    "Assistant request cancelled.": "TURN_CANCELLED",
-    "Too many open proposals. Retry after existing proposals expire.": "PROPOSAL_CAPACITY",
-}
-
-
-def turn_error_code(response):
-    try:
-        body = response.json()
-    except (ValueError, BrowserError):
-        return "UNCLASSIFIED"
-    detail = body.get("detail") if isinstance(body, dict) else None
-    if not isinstance(detail, str):
-        return "UNCLASSIFIED"
-    if detail in TURN_ERRORS:
-        return TURN_ERRORS[detail]
-    for status in (400, 401, 402, 403, 404, 422, 429, 500, 502, 503, 504):
-        if detail == f"Provider returned HTTP {status}. Check credentials, model and quota.":
-            return f"UPSTREAM_HTTP_{status}"
-    return "UNCLASSIFIED"
-
-
-def check_turn(response, before, snapshot):
-    failure = "" if response.ok else f"HTTP {response.status} [{turn_error_code(response)}]. "
-    try:
-        after = snapshot()
-    except Exception:
-        raise Failed(failure + "Saved state could not be verified.") from None
-    if after != before:
-        raise Failed(failure + "A proposal changed server state before approval.")
-    if failure:
-        raise Failed(failure.rstrip(". "))
-
-
-def require(condition, message):
-    if not condition:
-        raise Failed(message)
 
 
 def reason(exc):
@@ -174,14 +122,18 @@ def stop_server(proc):
         proc.wait(timeout=5)
 
 
-def server(work, paid, key, token, defer):
+def server(work, paid, key, token, defer, *, regression=False):
     provider, model = ("deepseek", "deepseek-flash") if paid else ("openai", "gpt-5-mini")
     env = fixture_env(work)
     env.update(
         CIAREN_API_TOKEN=token,
         CIAREN_DATA_DIR=str(work / "data"),
         CIAREN_ASSISTANT_PROVIDER=provider,
-        CIAREN_ASSISTANT_TURNS_PER_HOUR="4",
+        CIAREN_ASSISTANT_TURNS_PER_HOUR="1" if regression else "4",
+        CIAREN_ML_ENABLED="true" if regression else "false",
+        CIAREN_MLFLOW_TRACKING_URI=str(work / "mlruns"),
+        MLFLOW_ENABLE_ASYNC_LOGGING="false",
+        MLFLOW_ENABLE_TELEMETRY="false",
         OTEL_SDK_DISABLED="true",
         USERPROFILE=str(work),
         TEMP=str(work),
@@ -231,12 +183,7 @@ def walkthrough(context, base, provider, model, capture, stage):
         return response.json()
 
     stage("configuration")
-    status = get("/assistant/status")
-    require(
-        (status.get("provider"), status.get("model"), status.get("state"), status.get("source"))
-        == (provider, model, "configured", "env"),
-        "Configured adapter, model or credential source did not match.",
-    )
+    check_profile(get, provider, model)
     stage("synthetic fixtures")
     datasets = []
     for name in ("orders.csv", "catalog.csv"):
@@ -436,10 +383,36 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument(
-        "--paid-deepseek", action="store_true", help="Use a direct DeepSeek API key and at most four turns"
+        "--paid-deepseek",
+        action="store_true",
+        help="Use a direct DeepSeek API key and at most four turns",
     )
-    modes.add_argument("--demo-gif", type=Path, metavar="FILE", help="Record the packaged UI with simulated inference")
+    modes.add_argument(
+        "--demo-gif",
+        type=Path,
+        metavar="FILE",
+        help="Record the packaged UI with simulated inference",
+    )
+    modes.add_argument(
+        "--build-gif",
+        type=Path,
+        metavar="FILE",
+        help="Record the first CSV tutorial with simulated inference",
+    )
+    modes.add_argument(
+        "--regression-gif",
+        type=Path,
+        metavar="FILE",
+        help="Record the three-input ML tutorial with simulated inference",
+    )
+    modes.add_argument(
+        "--paid-deepseek-regression",
+        action="store_true",
+        help="Verify the ML tutorial with at most one paid direct DeepSeek call",
+    )
     args = parser.parse_args()
+    regression = bool(args.regression_gif or args.paid_deepseek_regression)
+    paid = args.paid_deepseek or args.paid_deepseek_regression
     import app
 
     require(
@@ -447,7 +420,7 @@ def main():
         "Install the Ciaren wheel in a dedicated venv.",
     )
     # Remove the paid key from the parent environment before starting Playwright or Chromium.
-    key = os.environ.pop(DIRECT_KEY, None) if args.paid_deepseek else KEY
+    key = os.environ.pop(DIRECT_KEY, None) if paid else KEY
     require(key, "Direct DeepSeek credential missing from the process environment.")
     # Browser processes need OS paths, not provider credentials, proxy settings or debugging hooks.
     browser_env = {
@@ -477,12 +450,21 @@ def main():
             del os.environ[name]
     frames, durations = [], []
 
-    def capture(page, duration):
-        if args.demo_gif:
+    def capture(page, duration, caption=None, target=None, left=0):
+        if args.demo_gif or args.build_gif:
             from PIL import Image
 
-            png = page.screenshot(clip={"x": 236, "y": 6, "width": 1040, "height": 814}, animations="disabled")
-            frames.append(Image.open(io.BytesIO(png)).convert("RGB").quantize(colors=192))
+            if caption:
+                from build_recording import captioned_frame
+
+                frame = captioned_frame(page, caption, target, left)
+            else:
+                png = page.screenshot(
+                    clip={"x": 236, "y": 6, "width": 1040, "height": 814},
+                    animations="disabled",
+                )
+                frame = Image.open(io.BytesIO(png)).convert("RGB")
+            frames.append(frame.quantize(colors=192))
             durations.append(duration)
 
     token = secrets.token_urlsafe(32)
@@ -490,11 +472,14 @@ def main():
         directory = tempfile.TemporaryDirectory(prefix="ciaren-walkthrough-")
         defer("temporary workspace", lambda: remove_workspace(directory))
         stage("server startup")
-        base, provider, model = server(Path(directory.name), args.paid_deepseek, key, token, defer)
+        base, provider, model = server(Path(directory.name), paid, key, token, defer, regression=regression)
         stage("Playwright startup")
         pw = sync_playwright().start()
         defer("Playwright", pw.stop)
-        print(f"{'PAID' if args.paid_deepseek else 'SIMULATED'} {provider} / {model}", flush=True)
+        print(
+            f"{'PAID' if paid else 'SIMULATED'} {provider} / {model}",
+            flush=True,
+        )
         stage("browser startup")
         browser = pw.chromium.launch(executable_path=os.environ.get("CIAREN_TEST_CHROMIUM"))
         defer("browser", browser.close)
@@ -505,12 +490,24 @@ def main():
             service_workers="block",
         )
         defer("browser context", context.close)
-        context.route("**/*", lambda r: r.continue_() if r.request.url.startswith(base + "/") else r.abort())
-        walkthrough(context, base, provider, model, capture, stage)
-        if args.demo_gif:
+        context.route(
+            "**/*",
+            lambda r: r.continue_() if r.request.url.startswith(base + "/") else r.abort(),
+        )
+        if regression:
+            from regression_walkthrough import walkthrough as regression_walkthrough
+
+            regression_walkthrough(context, base, provider, model, args.regression_gif, Path(directory.name), stage)
+        elif args.build_gif:
+            from build_recording import record_build
+
+            record_build(context, base, capture, stage)
+        else:
+            walkthrough(context, base, provider, model, capture, stage)
+        if args.demo_gif or args.build_gif:
             stage("save recording")
             frames[0].save(
-                args.demo_gif,
+                args.demo_gif or args.build_gif,
                 format="GIF",
                 save_all=True,
                 append_images=frames[1:],

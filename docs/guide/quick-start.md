@@ -1,10 +1,10 @@
 ---
-title: Quick Start (5 Minutes)
-description: "Build and run your first Ciaren flow in five minutes: pick or upload a CSV dataset, add cleaning nodes, run it, export Python code, and optionally schedule it."
+title: Manual quick start — build a visual ETL pipeline without a model API key
+description: "Use the visual pipeline builder without an API key: connect nodes manually, clean a CSV, run locally and export a Python script in five minutes."
 search: quick start tutorial first flow editor api
 ---
 
-# Quick Start (5 Minutes)
+# Manual quick start (5 minutes)
 
 **For:** first-time users who have Ciaren running. **You get:** your first flow,
 built, run, and exported as Python in about five minutes.
@@ -13,6 +13,12 @@ In Ciaren, a saved pipeline is called a **flow** — you'll see that word
 everywhere in the editor and the API. This walkthrough uses the visual editor;
 an API-only version is at the bottom for developers who want to inspect the
 REST surface.
+
+## Do I need an API key to use Ciaren?
+
+No. Use the visual pipeline builder without an API key for a model provider. You can upload a CSV, connect nodes yourself, validate and run the flow locally, and export pandas or Polars code. A remote data service may require separate credentials if you choose its connector.
+
+To have Ciaren propose the nodes from a prompt, follow the [AI quick start](flow-assistant-quick-start.md).
 
 ## Before You Start
 
@@ -148,6 +154,7 @@ ready-made flows step by step, from a linear cleanup to a three-input join.
 
 Other places to go from here:
 
+- [Set up the AI flow assistant](flow-assistant-quick-start.md) — review, save and reverse a CSV cleanup
 - [Interface Tour](/guide/interface) — learn the editor
 - [Transformations Reference](/transformations/overview) — all node types
 - [Examples](/examples/sales-analysis) — real-world, end-to-end walkthroughs

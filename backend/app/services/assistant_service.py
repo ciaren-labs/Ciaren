@@ -17,7 +17,7 @@ from app.db.models.run import FlowRun
 from app.engine.node_metadata import BUILTIN_NODE_META
 from app.plugins import get_registry
 from app.schemas.assistant import Plan, Turn
-from app.services import assistant_activity, assistant_docs, assistant_join, assistant_provider
+from app.services import assistant_activity, assistant_docs, assistant_join, assistant_provider, assistant_training
 from app.services.assistant_graph import INPUTS, SAFE, STEPS, Graph, compile_plan, inspect
 from app.services.assistant_inputs import InputVersion, resolve_input
 from app.services.flow_revision import next_revision, update_one
@@ -103,6 +103,8 @@ class AssistantService:
         flow = await self.db.get(Flow, flow_id)
         if flow is None:
             raise NotFoundError("Flow", flow_id)
+        if body.training is not None and body.mode != "build":
+            raise ValidationError("Regression proposals are available in Build only.")
         if body.mode == "docs":
             return await assistant_docs.answer(body.provider, body.question)
         if flow.updated_at != body.revision or flow.is_disabled:
@@ -119,6 +121,12 @@ class AssistantService:
                 .limit(1)
             )
             message = failure_category(error)
+        if body.training is not None:
+            training = await assistant_training.propose(self.db, flow.project_id, body)
+            if training is None:
+                return {"message": "No supported regression plan was identified."}
+            graph, delta, versions = training
+            return self._remember(flow, body, graph, delta, versions, message)
         has_join = any(n["type"] == "join" for n in nodes)
         if body.second_dataset_id or (has_join and all(n["type"] in assistant_join.JOIN_NODES for n in nodes)):
             try:
@@ -224,6 +232,8 @@ class AssistantService:
             or get_settings().ASSISTANT_PROVIDER == "off"
         ):
             raise ConflictError("Proposal expired or unavailable. Generate a new one.")
+        if any(n["type"] == "mlTrainRegressor" for n in p.graph["nodes"]):
+            assistant_training.catalog()
         revision = next_revision(p.revision)
         saved = await update_one(
             self.db,

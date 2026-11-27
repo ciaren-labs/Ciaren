@@ -151,6 +151,12 @@ blocks are all rendered into styled components on ciaren.com. If you add a
 **new** `ciaren-*` grid class, the sync fails until the website adds a matching
 renderer — coordinate that change with the website repo before merging.
 
+## Update the editor’s Guides index
+
+The **Guides** tab ships with selected English Markdown passages in the wheel. To make a new page searchable there, add its path to `backend/tools/build_assistant_index.py`. Give each task a short heading and a standalone answer in plain prose. Lists, code fences and paragraphs containing Markdown links are skipped.
+
+Commit the source pages first, then run `python backend/tools/build_assistant_index.py` from the repository root and commit `backend/app/services/assistant_passages.json` separately. Each citation names the commit and line used to extract the passage. Merge with those source commits in the target branch’s history. If a squash or rebase is required, regenerate the index from the accepted source commits in a follow-up before packaging.
+
 ## Navigation and page order
 
 The website imports the navigation and sidebar definitions from

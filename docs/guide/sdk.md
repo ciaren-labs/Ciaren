@@ -16,6 +16,8 @@ The package is typed and ships
 `py.typed` for editors and type checkers. The SDK is licensed under
 Apache-2.0.
 
+For a read-only catalog function you can expose to your own agent, follow [Connect your own agent to Ciaren](external-agent.md).
+
 ## Installation
 
 ```bash

@@ -1,5 +1,9 @@
 import {
   ArrowDownWideNarrow,
+  ChartNoAxesCombined,
+  Network,
+  ScanLine,
+  Split,
   Combine,
   FileInput,
   FileOutput,
@@ -17,6 +21,10 @@ export function nodeMark(type: string) {
   if (category === "output") return { Icon: FileOutput, color: "text-success" };
   const icons = {
     join: Combine,
+    trainTestSplit: Split,
+    mlTrainRegressor: Network,
+    mlPredict: ScanLine,
+    mlEvaluate: ChartNoAxesCombined,
     conditionalColumn: GitBranch,
     limitRows: ListOrdered,
     sortRows: ArrowDownWideNarrow,

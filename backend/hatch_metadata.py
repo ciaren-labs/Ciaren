@@ -49,7 +49,10 @@ def _rewrite_repo_relative_links(text: str) -> str:
     """Make the repo README render correctly as PyPI long_description."""
     replacements = {
         'src="brand-assets/': f'src="{_REPO_RAW}/brand-assets/',
+        'href="docs/guide/': f'href="{_REPO_BLOB}/docs/guide/',
+        "(docs/guide/": f"({_REPO_BLOB}/docs/guide/",
         "(docs/public/": f"({_REPO_RAW}/docs/public/",
+        "(examples/shipping-regression/README.md)": f"({_REPO_BLOB}/examples/shipping-regression/README.md)",
         "(examples/orders-audit/README.md)": f"({_REPO_BLOB}/examples/orders-audit/README.md)",
         "(backend/app/plugin_api/)": f"({_REPO_BLOB}/backend/app/plugin_api/)",
         "(SECURITY.md)": f"({_REPO_BLOB}/SECURITY.md)",
