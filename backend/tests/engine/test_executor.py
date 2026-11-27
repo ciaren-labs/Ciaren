@@ -203,8 +203,8 @@ def test_codegen_fill_strategy_and_filter_ops_compile():
     code = CodeGenerator().generate(graph, {"ds1": "/data/in.csv"})
     assert ".mean()" in code
     assert ".between(1, 9)" in code
-    # Text items are typed at runtime against the column (see _filter_value).
-    assert ".isin(_filter_value(_d, 'b', ['x', 'y']))" in code
+    assert ".isin(['x', 'y'])" in code
+    assert "_filter_value" not in code  # non-numeric text needs no runtime typing
     compile(code, "<generated>", "exec")
 
 

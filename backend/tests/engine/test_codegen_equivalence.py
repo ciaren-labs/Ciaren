@@ -577,16 +577,21 @@ def test_filter_rows_text_value_compares_in_column_type(
         assert "02134" in set(result["zip"])  # compared as text: the leading zero survives
 
 
-@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+# Text that is not a number fails in the app on both engines. An export keeps
+# such text a plain literal (only number-like text is typed at runtime), so the
+# scripts are checked only where a number-like item puts the helper in play.
+_NOT_A_NUMBER_CASES = [
+    ("gt", {"column": "amount", "operator": ">", "value": "abc"}, ["pandas", "polars"]),
+    ("eq", {"column": "amount", "operator": "==", "value": "abc"}, ["pandas", "polars"]),
+    ("between", {"column": "amount", "operator": "between", "value": "1", "value2": "lots"}, _FILTER_RUNNERS),
+    ("in", {"column": "qty", "operator": "in", "value": "5, x"}, _FILTER_RUNNERS),
+]
+
+
 @pytest.mark.parametrize(
-    "config",
-    [
-        {"column": "amount", "operator": ">", "value": "abc"},
-        {"column": "amount", "operator": "==", "value": "abc"},
-        {"column": "amount", "operator": "between", "value": "1", "value2": "lots"},
-        {"column": "qty", "operator": "in", "value": "5, x"},
-    ],
-    ids=["gt", "eq", "between", "in"],
+    ("config", "runner"),
+    [(config, runner) for _, config, runners in _NOT_A_NUMBER_CASES for runner in runners],
+    ids=[f"{case_id}-{runner}" for case_id, _, runners in _NOT_A_NUMBER_CASES for runner in runners],
 )
 def test_filter_rows_rejects_text_that_is_not_a_number(config: dict[str, Any], runner: str, tmp_path: Any) -> None:
     with pytest.raises(Exception, match=r"is not a number, but column '(amount|qty)' is numeric"):

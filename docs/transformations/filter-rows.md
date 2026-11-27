@@ -61,9 +61,9 @@ compare text.
 This example keeps rows where `amount > 0` (`column: amount`, `operator: >`, `value: 0`). Zero, negative and missing amounts are excluded.
 
 The value typed in the editor is the text `'0'`, and the exported script does
-not know the column types in advance. It compares through a small
-`_filter_value` helper, defined once at the top of the script, that applies
-the rule above when the script runs.
+not know the column types in advance. A value that looks like a number goes
+through a small `_filter_value` helper, defined once at the top of the script,
+that applies the rule above when the script runs.
 
 ### pandas
 
@@ -77,8 +77,10 @@ df_2 = df_1.loc[lambda _d: _d['amount'] > _filter_value(_d, 'amount', '0')]
 df_2 = df_1.filter(pl.col('amount') > _filter_value(df_1, 'amount', '0'))
 ```
 
-A value stored as a number in the flow file (`"value": 0`) needs no helper: it
-exports as `_d['amount'] > 0` and `pl.col('amount') > 0`.
+Other text needs no helper: `status == paid` exports as
+`_d['status'] == 'paid'` and `pl.col('status') == 'paid'`. A value stored as a
+number in the flow file (`"value": 0`) exports as `_d['amount'] > 0` and
+`pl.col('amount') > 0`.
 
 ## Tips & common mistakes
 
