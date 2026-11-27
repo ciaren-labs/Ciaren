@@ -10,6 +10,14 @@ function settings(node: GraphNode, datasets: Dataset[]) {
   const columns = (field: unknown) =>
     Array.isArray(field) && field.length ? field.join(", ") : "all columns";
   switch (node.type) {
+    case "trainTestSplit":
+      return `Test ${Number(c.test_size) * 100}% · seed ${c.seed}`;
+    case "mlTrainRegressor":
+      return `${c.model_type} · ${c.target_column} from ${columns(c.feature_columns)}`;
+    case "mlPredict":
+      return `Score held-out rows into ${c.output_column}`;
+    case "mlEvaluate":
+      return `Compare ${c.target_column} with ${c.prediction_column} · ${columns(c.metrics)}`;
     case "join":
       return `${c.how ?? "inner"} Join · key ${[c.on].flat().join(", ")}`;
     case "conditionalColumn": {
@@ -148,7 +156,9 @@ export function ProposalReview({
             {delta.connected.map((e) => (
               <li key={e.id}>
                 Connect {endpoint(e.source)} → {byId.get(e.target)}
-                {["left", "right"].includes(e.targetHandle ?? "") &&
+                {["train", "test", "model"].includes(e.sourceHandle ?? "") &&
+                  ` · ${e.sourceHandle} output`}
+                {["left", "right", "model"].includes(e.targetHandle ?? "") &&
                   ` · ${e.targetHandle} input`}
               </li>
             ))}
@@ -165,6 +175,13 @@ export function ProposalReview({
             pandas and stay unmatched in Polars.
           </p>
         </details>
+      )}
+      {delta.added.some((n) => n.type === "mlTrainRegressor") && (
+        <p className="text-xs text-muted-foreground">
+          Both joins keep matching orders. Run needs at least 13 matched rows
+          with usable targets for the 80/20 split. Training logs the model and a feature sample to your configured MLflow
+          store.
+        </p>
       )}
       <p className="text-xs text-muted-foreground">
         Saves this proposal with your current canvas edits.

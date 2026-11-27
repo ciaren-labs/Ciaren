@@ -5,6 +5,10 @@ import type { Delta } from "./api";
 
 const captions: Record<string, string> = {
   fileInput: "Input",
+  trainTestSplit: "Split",
+  mlTrainRegressor: "Train",
+  mlPredict: "Predict",
+  mlEvaluate: "Evaluate",
   fileOutput: "Output",
   join: "Join",
   conditionalColumn: "Flag",
