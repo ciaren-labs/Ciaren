@@ -1,17 +1,17 @@
 """Browser-test process only. The editor, API, DB and engine are real; keyring and provider are doubles."""
 
 import asyncio
-from json import dumps, loads
 import sys
 import time
+from json import dumps, loads
 from pathlib import Path
 from unittest.mock import patch
 
 import uvicorn
 
 from app.core import assistant_keys
-from app.main import app
 from app.engine.executor import FlowExecutor
+from app.main import app
 from app.services import assistant_provider
 
 
@@ -84,7 +84,11 @@ class ProviderResponse:
             }
         elif "join" in self.data:
             assert set(self.data) == {"question", "join", "how", "failure"} and self.data["how"] == "inner"
-            answer = {"join": self.data["join"], "how": "left"}
+            answer = (
+                {}
+                if self.data["question"] == "Schedule a nightly refresh. Leave the Join unchanged."
+                else {"join": self.data["join"], "how": "left"}
+            )
         elif self.data["mode"] == "diagnose":
             assert "column" in self.data["last_failure"].lower()
             index = next(i for i, n in enumerate(self.data["nodes"]) if n["type"] == "sortRows")

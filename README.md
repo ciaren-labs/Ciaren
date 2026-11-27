@@ -94,6 +94,19 @@ Ciaren is not a hosted no-code black box. Every node maps to understandable
 dataframe behavior, every run leaves inspectable results, and every flow can
 become code.
 
+## Flow assistant for visual ETL
+
+Bring your own API key to build a CSV flow, ask a question about Ciaren with a
+source link, or diagnose a missing row. The editor highlights the affected node
+and shows each proposed change before you save. Each flow has an activity
+history where you can preview and revert a saved change.
+
+![Ciaren highlights a Join, previews an inner-to-left repair, and shows the saved change and its reversal in Activity](docs/public/screenshots/flow-assistant-join.gif)
+
+In this recording, order 104 has no catalog match. A left Join keeps it.
+The editor and its history are real. The example data and provider response
+are synthetic. [Read the walkthrough and configure a provider](docs/guide/flow-assistant.md).
+
 ## Quickstart
 
 ### Install From PyPI

@@ -1,6 +1,22 @@
-# Flow assistant
+---
+title: Flow assistant for visual ETL
+description: "Configure a bring-your-own-key AI assistant for Ciaren. Build CSV flows, diagnose joins, check the canvas and safely revert saved changes."
+search: flow assistant BYOK CSV ETL Join diagnose activity history revert
+---
 
-Open a flow and choose **Assistant**. The assistant starts off. Under **Settings → Assistant**, select a provider and save the choice. Choose a model and, where offered, a reasoning effort. Set up a billed API credential for that provider. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
+# Flow assistant for visual ETL
+
+Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, choose a provider under **Settings → Assistant** and save the setting. Select a supported model, choose a reasoning effort if offered, and configure its API key. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
+
+## Walkthrough: recover a missing order
+
+![The flow assistant highlights a Join and previews its repair, then shows the saved change and its reversal in Activity](/screenshots/flow-assistant-join.gif)
+
+1. Order 104 has no matching SKU in the catalog. An inner Join drops that order even though the run succeeds. In **Diagnose**, ask to keep every order, including those without a catalog match.
+2. Inspect the highlighted **Join / Merge**. The proposal changes `inner` to `left` and keeps the key and both inputs. Choose **Apply and save** when the preview matches your intent. Use **Run** separately to regenerate the CSV.
+3. Open **Activity**, expand **Saved repair**, and select **Preview reversal**. The inverse shows `left → inner`. **Confirm reversal** adds an entry and preserves a later, unrelated sort edit. The next run uses the restored Join.
+
+The recording uses the packaged editor, the synthetic orders audit and a simulated provider response. The canvas, validation, saves and history use the real application.
 
 ## Inside the editor
 
@@ -44,7 +60,7 @@ Files, samples, filenames, dataset IDs, connection details, node labels, scripts
 
 Ciaren settings and provider credentials belong to one server instance. Anyone with access to its API can manage the assistant within the installation's token and browser-origin rules. Deploy separate instances, data directories and secret sources for separate trust boundaries. Use TLS and the Ciaren API token for a networked installation. Configure reverse proxies and monitoring to omit request bodies and authorization headers. Restrict process and diagnostic dump access at the operating-system level.
 
-The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. The same suffixes apply to the other providers in the table. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. The same suffixes apply to the other providers in the table. The Settings page shows the effective value and its source. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
 
 Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE`.
 
