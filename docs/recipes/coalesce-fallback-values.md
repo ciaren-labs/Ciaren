@@ -1,78 +1,110 @@
 ---
 title: Combine Columns with Fallback Values
-description: Choose the first available value from two columns in Ciaren with Coalesce Columns, preserve missing values, and export runnable pandas or Polars.
-search: recipe coalesce fallback first non null combine columns pandas polars
+description: Pick the first available value from several columns in Ciaren with Coalesce Columns, such as a primary email with a backup, and see why a blank value still wins. Includes the pandas and Polars export.
+search: recipe coalesce fallback first non null combine columns primary backup email pandas polars
 ---
 
 # Combine Columns with Fallback Values
 
-Choose a primary email when it exists, otherwise use a backup email. Coalesce
-checks columns in order and copies the first non-null value into a new column.
+A contact list has a `primary_email` and a `backup_email`, and you want one
+`email` column: the primary address when there is one, otherwise the backup.
+**Coalesce Columns** checks the columns in the order you list them and copies
+the first value that is not null into a new column.
 
 **You'll use:** [File Input](/transformations/file-input) →
 [Coalesce Columns](/transformations/coalesce-columns) →
 [File Output](/transformations/file-output).
 
+<FlowPipeline :nodes='[
+  {"type":"input","label":"File Input","detail":"contacts.csv"},
+  {"type":"transform","label":"Coalesce Columns","detail":"primary_email, backup_email → email"},
+  {"type":"output","label":"File Output","detail":"contacts_email"}
+]' />
+
+## Sample data
+
+Save this as `contacts.csv`. Customer 2 has no primary email, customer 3 has
+neither, and customer 4 has a single space as the primary email.
+
+```csv
+customer_id,primary_email,backup_email
+1,ada@example.com,ada.backup@example.com
+2,,grace@example.com
+3,,
+4," ",lin@example.com
+```
+
 ## Steps
 
-1. Upload your CSV on **Datasets** and select it in **File Input**.
-2. Add **Coalesce Columns** with `columns: ["primary_email", "backup_email"]`
-   and `new_column: email`.
-3. Leave `keep_original: true` to compare the source and result columns.
-4. Preview the node. A row with two missing values should still have null
-   in `email`.
-5. Connect **File Output**, choose CSV, and run the flow.
+1. On **Datasets**, upload `contacts.csv`.
+2. In a new flow, add **File Input**. Set **File type** to CSV and **Dataset**
+   to `contacts.csv`.
+3. Add **Coalesce Columns**. In **Columns (in priority order)** pick
+   `primary_email` first, then `backup_email`. Set **New column** to `email`.
+4. Leave **Keep the original columns** checked for now, so you can compare
+   each source column with the result.
+5. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
+   `contacts_email`. Connect the nodes in order and click **Run**.
 
-## Before / after
+## Result
 
-| primary_email | backup_email | email |
-| --- | --- | --- |
-| `ada@example.com` | `ada.backup@example.com` | `ada@example.com` |
-| null | `grace@example.com` | `grace@example.com` |
-| null | null | null |
-| empty string | `lin@example.com` | empty string |
+| customer_id | primary_email | backup_email | email |
+| --- | --- | --- | --- |
+| 1 | `ada@example.com` | `ada.backup@example.com` | `ada@example.com` |
+| 2 | null | `grace@example.com` | `grace@example.com` |
+| 3 | null | null | null |
+| 4 | `" "` | `lin@example.com` | `" "` |
+
+![Coalesce reads primary_email, then backup_email, and copies the first value that is not null; the single space in row 4 is not null, so it wins](/illustrations/recipes/coalesce-first-non-null.svg)
+
+## Check the result
+
+Save the flow, click **Preview**, select the Coalesce Columns node and click
+**Run preview**. Customer 2 should show `grace@example.com` in `email` and
+customer 3 should show null. Customer 4 shows an `email` that looks empty: that
+is the space, and it is the row to fix.
+
+## Pitfalls
+
+- **Blank text is not null.** A space, or an empty text produced by an earlier
+  Strip spaces step, counts as a value and wins over the backup. If a blank
+  should mean missing, fix it in the source file: an empty CSV cell is read as
+  null.
+- **Order is priority.** Put the most trusted column first. Coalesce never
+  compares two values that are both set; customer 1 gets the primary address
+  even though a backup exists.
+- **Both missing stays missing.** Add [Fill Nulls](/transformations/fill-nulls)
+  after Coalesce if `email` needs a placeholder.
+- **Uncheck Keep the original columns** only after checking the result. The
+  output then has `customer_id` and `email` only.
+- **To join text from several columns**, such as first and last name, use
+  [Combine Columns](/transformations/combine-columns) instead.
 
 ## Exported Python
 
-These runnable examples use the same configuration. The transformation lines
-come from Ciaren's code generators.
+Click **Export** in the editor toolbar. The **pandas** and **polars** tabs show
+this code for the flow. It reads `contacts.csv` from the script's folder and
+writes `contacts_email.csv`.
 
-### pandas
+::: code-group
 
-```python
+```python [pandas]
 import pandas as pd
 
-df_1 = pd.DataFrame({
-    'primary_email': ['ada@example.com', None, None, ''],
-    'backup_email': ['ada.backup@example.com', 'grace@example.com', None, 'lin@example.com'],
-})
-df_2 = df_1.assign(email=lambda _d: _d['primary_email'].where(pd.notna, _d['backup_email']))
-print(df_2)
+df_contacts = pd.read_csv('contacts.csv')
+df_contacts = df_contacts.assign(email=lambda _d: _d['primary_email'].where(pd.notna, _d['backup_email']))
+df_contacts.to_csv('contacts_email.csv', index=False)
 ```
 
-### Polars
-
-```python
+```python [Polars]
 import polars as pl
 
-df_1 = pl.DataFrame({
-    'primary_email': ['ada@example.com', None, None, ''],
-    'backup_email': ['ada.backup@example.com', 'grace@example.com', None, 'lin@example.com'],
-})
-df_2 = df_1.with_columns(pl.coalesce([pl.col('primary_email'), pl.col('backup_email')]).alias('email'))
-print(df_2)
+df_contacts = pl.read_csv('contacts.csv')
+df_contacts = df_contacts.with_columns(pl.coalesce([pl.col('primary_email'), pl.col('backup_email')]).alias('email'))
+df_contacts.write_csv('contacts_email.csv')
 ```
 
-## Tips
-
-- Put the most trusted column first. Coalesce does not compare or merge two
-  non-null values.
-- An empty string is not null, so it takes priority over the backup. If empty
-  text means missing in your source, normalize it to null first.
-- Set `keep_original: false` only after checking the output, to drop the
-  source columns.
-- To join pieces of text together, use
-  [Combine Columns](/transformations/combine-columns).
+:::
 
 ## See also
 

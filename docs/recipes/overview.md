@@ -6,46 +6,48 @@ search: recipes how to tasks convert excel parquet remove duplicates pivot fill 
 
 # Recipes
 
-Quick, focused answers to *"how do I do X in Ciaren?"* Each recipe is a single
-small task you can build in a minute or two — no long walkthrough. For end-to-end
-projects, see the [Examples](/examples/sales-analysis).
+Each recipe solves one small task in a few nodes. It includes sample data, the
+exact node settings, the expected result, a way to check it, and the
+exported pandas and Polars code. For end-to-end projects, see the
+[Examples](/examples/sales-analysis).
 
 ## Format conversion
 
-- **[Convert Excel to Parquet](/recipes/convert-excel-to-parquet)** — read `.xlsx`,
-  write columnar `.parquet`
+- [Convert Excel to Parquet](/recipes/convert-excel-to-parquet): import one
+  sheet of an `.xlsx` workbook and write a typed `.parquet` file.
 
 ## Cleaning
 
-- **[Remove duplicate rows](/recipes/remove-duplicate-rows)** — drop exact or
-  key-based duplicates
-- **[Fill missing values](/recipes/fill-missing-values)** — mean / median / mode /
-  constant / forward-fill
-- **[Clean messy text](/recipes/clean-messy-text)** — trim spaces and normalize
-  email casing before a join or deduplication
-- **[Combine columns with fallback values](/recipes/coalesce-fallback-values)** —
-  pick the first non-null value in priority order
+- [Remove duplicate rows](/recipes/remove-duplicate-rows): keep one row per
+  email, and sort first to choose which one survives.
+- [Fill missing values](/recipes/fill-missing-values): fill a numeric column
+  with its median and a text column with a constant.
+- [Clean messy text](/recipes/clean-messy-text): trim spaces and lowercase
+  emails so the same address matches in a join.
+- [Combine columns with fallback values](/recipes/coalesce-fallback-values):
+  take the first value that is not null, in priority order.
 
 ## Filtering
 
-- **[Filter paid orders](/recipes/filter-paid-orders)** — keep paid orders of
-  100 or more by combining two conditions
+- [Filter paid orders](/recipes/filter-paid-orders): keep paid orders of 100
+  or more with one two-condition expression.
 
 ## Reshaping
 
-- **[Pivot a table](/recipes/pivot-a-table)** — turn long rows into a wide summary
-- **[Split a column](/recipes/split-a-column)** — separate delimited text into
-  named columns
-- **[One row per tag](/recipes/one-row-per-tag)** — split delimited tags into
-  rows while preserving record IDs
+- [Pivot a table](/recipes/pivot-a-table): turn one row per sale into one row
+  per region and one column per month.
+- [Split a column](/recipes/split-a-column): split `EU|Paris` into `region`
+  and `city` columns.
+- [One row per tag](/recipes/one-row-per-tag): split `news;sports` into one row
+  per tag and keep the record ID.
 
 ## Looking for more?
 
-- Browse the full [Transformations reference](/transformations/overview)
-- Try a complete [Example](/examples/sales-analysis)
-- Need a node that doesn't exist? [Write a plugin](/plugins/overview)
+- Browse the full [Transformations reference](/transformations/overview).
+- Try a complete [Example](/examples/sales-analysis).
+- Need a node that does not exist? [Write a plugin](/plugins/overview).
 
 ::: tip Have a recipe to suggest?
-Open a [Discussion](https://github.com/ciaren-labs/Ciaren/discussions) — the
-recipes that get requested most get written first.
+Open a [Discussion](https://github.com/ciaren-labs/Ciaren/discussions) and
+describe the task with a small, made-up sample.
 :::
