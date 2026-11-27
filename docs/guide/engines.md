@@ -1,6 +1,6 @@
 ---
 title: Engines (polars / pandas)
-description: Run Ciaren flows on Polars (default) or pandas, pick the engine per run, and export pandas, Polars, lazy Polars, or Jupyter notebook code.
+description: Run Ciaren flows on pandas or Polars, pick the engine per flow or per run, and export pandas, Polars, lazy Polars, or Jupyter notebook code.
 search: engines polars pandas default execution mode export code timeout
 ---
 
@@ -10,13 +10,16 @@ Ciaren executes flows through a small **engine abstraction**, so the same
 visual flow runs on either **polars** or **pandas**. Every transformation node is
 engine-agnostic — it knows how to run on both and how to generate code for both.
 
-## The default is polars
+## Which engine runs
 
-The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE = "polars"`).
-polars is fast and memory-light on small-to-medium data, which suits Ciaren's
-target use cases. pandas is fully supported and remains a first-class choice.
+- **Editor runs** use the engine in the editor toolbar. A new flow starts on
+  **pandas**; the choice is saved with the flow.
+- **Preview** always runs on pandas, whatever the toolbar shows.
+- **API runs** that send no engine use the engine saved with the flow, then the
+  server default, **polars** (`settings.DEFAULT_ENGINE = "polars"`).
 
-You can change the server-wide default:
+polars is fast and memory-light on small-to-medium data; pandas is fully
+supported. You can change the server-wide default:
 
 ```bash
 # backend/.env
