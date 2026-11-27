@@ -155,6 +155,7 @@ class CodeGenerator:
         engine_vars: dict[str, str] = {}  # connection_id -> engine var
         extra_imports: list[str] = []
         seen_imports = set(base_header)
+        helpers: dict[str, None] = {}  # distinct helper definitions, first-use order
         # Names already claimed: flow parameters must not be clobbered by a
         # semantic input variable (a parameter named df_sales is legal).
         taken_names = parameter_names(parameter_lines)
@@ -280,6 +281,7 @@ class CodeGenerator:
                     output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
                 add_imports(transformation.imports(config))
+                helpers.update(dict.fromkeys(transformation.helpers(config)))
                 body.append(strip_self_assign(transformation.to_python_code(input_vars, output_vars, config)))
 
             dels.schedule(node_id, node_outputs.get(node_id, {}))
@@ -288,5 +290,6 @@ class CodeGenerator:
         header = base_header + ordered_imports(extra_imports)
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
+        helper_lines = [line for helper in helpers for line in (helper, "")]
         script_body = insert_paragraph_breaks(fuse_method_chains(body))
-        return "\n".join([*header, "", *prelude, *script_body]) + "\n"
+        return "\n".join([*header, "", *prelude, *helper_lines, *script_body]) + "\n"

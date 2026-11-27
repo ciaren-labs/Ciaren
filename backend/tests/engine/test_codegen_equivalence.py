@@ -414,7 +414,7 @@ def test_pandas_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_python_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pd": pd, **{in_vars[h]: f.copy() for h, f in frames.items()}}
-    for imp in t.imports(config):  # the header the driver would emit (e.g. numpy)
+    for imp in [*t.imports(config), *t.helpers(config)]:  # the header the driver would emit (e.g. numpy)
         exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<pandas:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
@@ -492,8 +492,102 @@ def test_polars_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_polars_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pl": pl, **{in_vars[h]: f for h, f in frames.items()}}
-    for imp in t.polars_imports(config):  # the header the polars driver would emit
+    for imp in [*t.polars_imports(config), *t.polars_helpers(config)]:  # the header the polars driver would emit
         exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<polars:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
     _assert_frames_match(expected.to_pandas(), ns["result"].to_pandas(), case_id)
+
+
+# --- filterRows: values arrive as text --------------------------------------
+# The editor saves a Filter Rows value as text, so a numeric comparison is
+# "amount > '100'". Every runtime and export path must compare it in the
+# column's type: numbers for a numeric column, text (leading zeros kept) for a
+# text column, and an error for text that is not a number.
+
+_FILTER_CSV = "row,amount,qty,zip\n1,50.0,5,02134\n2,150.0,15,2134\n3,1000.5,150,x\n4,99.5,20,02134x\n"
+
+_FILTER_TEXT_VALUE_CASES = [
+    ("amount", "==", {"value": "150"}, [2]),
+    ("amount", "!=", {"value": "150"}, [1, 3, 4]),
+    ("amount", ">", {"value": "100"}, [2, 3]),
+    ("amount", ">=", {"value": "150"}, [2, 3]),
+    ("amount", "<", {"value": "100"}, [1, 4]),
+    ("amount", "<=", {"value": "99.5"}, [1, 4]),
+    ("amount", "between", {"value": "50", "value2": "150"}, [1, 2, 4]),
+    ("amount", "in", {"value": "50, 150"}, [1, 2]),
+    ("qty", "==", {"value": "15"}, [2]),
+    ("qty", ">", {"value": "19.5"}, [3, 4]),
+    ("qty", "in", {"value": "5, 20"}, [1, 4]),
+    ("zip", "==", {"value": "02134"}, [1]),
+    ("zip", "in", {"value": "02134, x"}, [1, 3]),
+    ("zip", "between", {"value": "02134", "value2": "2134"}, [1, 2, 4]),
+]
+
+_FILTER_RUNNERS = ["pandas", "polars", "pandas-script", "polars-script", "polars-lazy-script"]
+
+
+def _filter_graph(config: dict[str, Any], out_path: str) -> dict[str, Any]:
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "flt", "type": "filterRows", "data": {"config": config}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": out_path}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "flt"},
+            {"id": "e2", "source": "flt", "target": "out"},
+        ],
+    }
+
+
+def _run_filter(runner: str, config: dict[str, Any], tmp_path: Any) -> pd.DataFrame:
+    """Run csv -> filterRows -> csv through the app engine or an exported script."""
+    from app.engine.codegen import CodeGenerator
+    from app.engine.executor import FlowExecutor, dataset_ref_key
+    from app.engine.polars_codegen import PolarsCodeGenerator
+
+    source = tmp_path / "in.csv"
+    source.write_text(_FILTER_CSV, encoding="utf-8")
+    out = tmp_path / "out.csv"
+    graph = _filter_graph(config, str(out))
+    if runner in ("pandas", "polars"):
+        outputs = FlowExecutor().execute(graph, {dataset_ref_key("d", None): source}, tmp_path, engine_name=runner)
+        return pd.read_csv(next(iter(outputs.values())), dtype={"zip": str})
+    if runner == "pandas-script":
+        code = CodeGenerator().generate(graph, {"d": str(source)})
+    else:
+        code = PolarsCodeGenerator().generate(graph, {"d": str(source)}, lazy=runner == "polars-lazy-script")
+    exec(compile(code, f"<{runner}>", "exec"), {})  # noqa: S102 - exercising the exported script
+    return pd.read_csv(out, dtype={"zip": str})
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "operator", "values", "kept"),
+    _FILTER_TEXT_VALUE_CASES,
+    ids=[f"{c}{op}{v['value']}" for c, op, v, _ in _FILTER_TEXT_VALUE_CASES],
+)
+def test_filter_rows_text_value_compares_in_column_type(
+    column: str, operator: str, values: dict[str, Any], kept: list[int], runner: str, tmp_path: Any
+) -> None:
+    result = _run_filter(runner, {"column": column, "operator": operator, **values}, tmp_path)
+    assert sorted(result["row"]) == kept
+    if column == "zip":
+        assert "02134" in set(result["zip"])  # compared as text: the leading zero survives
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"column": "amount", "operator": ">", "value": "abc"},
+        {"column": "amount", "operator": "==", "value": "abc"},
+        {"column": "amount", "operator": "between", "value": "1", "value2": "lots"},
+        {"column": "qty", "operator": "in", "value": "5, x"},
+    ],
+    ids=["gt", "eq", "between", "in"],
+)
+def test_filter_rows_rejects_text_that_is_not_a_number(config: dict[str, Any], runner: str, tmp_path: Any) -> None:
+    with pytest.raises(Exception, match=r"is not a number, but column '(amount|qty)' is numeric"):
+        _run_filter(runner, config, tmp_path)

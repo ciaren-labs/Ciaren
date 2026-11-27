@@ -169,6 +169,18 @@ class BaseTransformation(ABC):
         conditionalColumn's ``numpy``) overrides this."""
         return self.imports(config)
 
+    def helpers(self, config: dict[str, Any]) -> list[str]:
+        """Top-level function definitions the generated pandas code calls (e.g.
+        filterRows' ``_filter_value``). The code generator emits each distinct
+        definition once, before the script body. Names start with ``_`` so flow
+        parameters (which must start with a letter) cannot shadow them."""
+        return []
+
+    def polars_helpers(self, config: dict[str, Any]) -> list[str]:
+        """:meth:`helpers` for the generated **polars** script. Not defaulted to
+        :meth:`helpers`: a helper's body is dialect-specific."""
+        return []
+
     @abstractmethod
     def to_polars_code(
         self,

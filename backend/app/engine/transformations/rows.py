@@ -5,6 +5,44 @@ from app.engine.backends.base import AnyFrame, EngineBackend
 from app.engine.transformations.base import BaseTransformation, one_or_list
 
 _SIMPLE_OPS = {"==", "!=", ">", ">=", "<", "<="}
+_TYPED_OPS = _SIMPLE_OPS | {"between", "in"}
+
+# An exported script doesn't know column dtypes, so it types a text value at
+# runtime with the engines' rule (backends.base.numeric_filter_value). Only the
+# numeric-column check (IS_NUMERIC) differs per dialect.
+_FILTER_VALUE_HELPER = '''def _filter_value(df, column, value):
+    """Type a Filter Rows value like its column: text becomes a number on a numeric column."""
+    if isinstance(value, list):
+        return [_filter_value(df, column, v) for v in value]
+    numeric = IS_NUMERIC
+    if not isinstance(value, str) or not numeric:
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Filter Rows value {value!r} is not a number, but column {column!r} is numeric.") from None'''
+_PANDAS_FILTER_VALUE = _FILTER_VALUE_HELPER.replace(
+    "IS_NUMERIC",
+    "pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])",
+)
+_POLARS_FILTER_VALUE = _FILTER_VALUE_HELPER.replace("IS_NUMERIC", "df.collect_schema()[column].is_numeric()")
+
+
+def _is_plain(value: Any) -> bool:
+    """A literal that needs no runtime typing: a number (or bool/None), or a list of them.
+    Text and flow-parameter references (``CodeRef``) go through ``_filter_value``."""
+    if isinstance(value, list):
+        return all(_is_plain(v) for v in value)
+    return value is None or isinstance(value, (int, float))
+
+
+def _typed(frame: str, column: Any, value: Any) -> str:
+    """Source for ``value`` compared against ``frame[column]`` in an exported script."""
+    return repr(value) if _is_plain(value) else f"_filter_value({frame}, {column!r}, {value!r})"
 
 
 class FilterRowsTransformation(BaseTransformation):
@@ -42,6 +80,15 @@ class FilterRowsTransformation(BaseTransformation):
         op = config["operator"]
         return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
 
+    def _needs_helper(self, config: dict[str, Any]) -> bool:
+        return config["operator"] in _TYPED_OPS and not _is_plain(self._values(config))
+
+    def helpers(self, config: dict[str, Any]) -> list[str]:
+        return [_PANDAS_FILTER_VALUE] if self._needs_helper(config) else []
+
+    def polars_helpers(self, config: dict[str, Any]) -> list[str]:
+        return [_POLARS_FILTER_VALUE] if self._needs_helper(config) else []
+
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         # `.loc[lambda _d: …]` instead of `src[src[col] …]`: the callable form is
         # the idiomatic chainable filter — the mask reads the *running* frame, so
@@ -52,16 +99,16 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {val!r}]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {_typed('_d', col, val)}]"
         if op == "isnull":
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isna()]"
         if op == "notnull":
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].notna()]"
         if op == "between":
-            low, high = self._values(config)
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low!r}, {high!r})]"
+            low, high = (_typed("_d", col, b) for b in self._values(config))
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low}, {high})]"
         if op == "in":
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({self._values(config)!r})]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({_typed('_d', col, self._values(config))})]"
         if op in {"contains", "startswith", "endswith"}:
             # str() like the engine: a numeric search value must not emit .str.contains(5).
             # regex=False mirrors PandasEngine.filter_rows: pandas' contains is
@@ -75,15 +122,17 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {val!r})"
+            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {_typed(src, col, val)})"
         if op == "isnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_null())"
         if op == "notnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_not_null())"
         if op == "between":
-            return f"{dst} = {src}.filter(pl.col({col!r}).is_between({val!r}, {config.get('value2')!r}))"
+            # pl.lit for typed bounds: is_between reads bare strings as column names.
+            low, high = (repr(b) if _is_plain(b) else f"pl.lit({_typed(src, col, b)})" for b in self._values(config))
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_between({low}, {high}))"
         if op == "in":
-            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({self._values(config)!r}))"
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({_typed(src, col, self._values(config))}))"
         if op in {"contains", "startswith", "endswith"}:
             method = {
                 "contains": "contains",

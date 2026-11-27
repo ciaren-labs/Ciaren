@@ -7,7 +7,14 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 
-from .base import DATE_UNIT_SECONDS, register_engine, rule_combine_all, rule_conditions
+from .base import (
+    DATE_UNIT_SECONDS,
+    TEXT_FILTER_OPERATORS,
+    numeric_filter_value,
+    register_engine,
+    rule_combine_all,
+    rule_conditions,
+)
 
 
 @register_engine
@@ -84,6 +91,12 @@ class PandasEngine:
 
     def filter_rows(self, df: pd.DataFrame, column: str, operator: str, value: Any) -> pd.DataFrame:
         col = df[column]
+        if (
+            operator not in TEXT_FILTER_OPERATORS
+            and pd.api.types.is_numeric_dtype(col)
+            and not pd.api.types.is_bool_dtype(col)
+        ):
+            value = numeric_filter_value(value, column)
         match operator:
             case "==" | "eq":
                 mask = col == value

@@ -117,7 +117,8 @@ def test_polars_codegen_fill_strategy_and_filter_ops() -> None:
     code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"})
     assert "fill_null(strategy='mean')" in code
     assert ".is_between(1, 9)" in code
-    assert ".is_in(['x', 'y'])" in code
+    # Text items are typed at runtime against the column (see _filter_value).
+    assert ".is_in(_filter_value(df_in, 'b', ['x', 'y']))" in code
     compile(code, "<generated-polars-fill>", "exec")
 
 

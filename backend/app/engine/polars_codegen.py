@@ -176,6 +176,7 @@ class PolarsCodeGenerator:
         lines: list[str] = []
         extra_imports: list[str] = []
         seen_imports: set[str] = set(base_header)
+        helpers: dict[str, None] = {}  # distinct helper definitions, first-use order
 
         def add_imports(imports: list[str]) -> None:
             for imp in imports:
@@ -319,6 +320,7 @@ class PolarsCodeGenerator:
             # its own. polars_imports, not imports: a node's pandas code may
             # need e.g. numpy where its polars code doesn't.
             add_imports(transformation.polars_imports(config))
+            helpers.update(dict.fromkeys(transformation.polars_helpers(config)))
             if lazy and not transformation.polars_lazy_safe_for(config):
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -470,5 +472,6 @@ class PolarsCodeGenerator:
         header = [*base_header, *ordered_imports(extra_imports)]
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
+        helper_lines = [line for helper in helpers for line in (helper, "")]
         script_body = insert_paragraph_breaks(fuse_method_chains(lines))
-        return "\n".join([*header, "", *prelude, *script_body]) + "\n"
+        return "\n".join([*header, "", *prelude, *helper_lines, *script_body]) + "\n"

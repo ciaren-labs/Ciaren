@@ -9,7 +9,14 @@ from typing import Any, Literal, cast
 import pandas as pd
 import polars as pl
 
-from app.engine.backends.base import DATE_UNIT_SECONDS, register_engine, rule_combine_all, rule_conditions
+from app.engine.backends.base import (
+    DATE_UNIT_SECONDS,
+    TEXT_FILTER_OPERATORS,
+    numeric_filter_value,
+    register_engine,
+    rule_combine_all,
+    rule_conditions,
+)
 
 # Rolling aggregation function name -> polars Expr method.
 _ROLLING_POLARS = {
@@ -170,6 +177,10 @@ class PolarsEngine:
 
     def filter_rows(self, df: pl.DataFrame, column: str, operator: str, value: Any) -> pl.DataFrame:
         col = pl.col(column)
+        # A missing column has no dtype; the filter below raises polars' own error.
+        dtype = df.schema.get(column)
+        if operator not in TEXT_FILTER_OPERATORS and dtype is not None and dtype.is_numeric():
+            value = numeric_filter_value(value, column)
         match operator:
             case "==" | "eq":
                 expr = col == value
@@ -191,7 +202,8 @@ class PolarsEngine:
                 expr = col.cast(pl.Utf8).str.ends_with(str(value))
             case "between":
                 low, high = value
-                expr = col.is_between(low, high)
+                # pl.lit: is_between reads bare strings as column names.
+                expr = col.is_between(pl.lit(low), pl.lit(high))
             case "in":
                 expr = col.is_in(list(value))
             case "isnull":

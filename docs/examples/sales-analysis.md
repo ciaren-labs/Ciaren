@@ -1,6 +1,6 @@
 ---
 title: Sales Data Analysis
-description: "Ciaren example: clean a messy sales CSV and summarize revenue by region with Drop Nulls, Filter by Expression, Replace Values and Group By Aggregate, then export Python."
+description: "Ciaren example: clean a messy sales CSV and summarize revenue by region with Drop Nulls, Filter Rows, Replace Values and Group By Aggregate, then export Python."
 search: example sales analysis group by aggregate clean revenue region refunds
 ---
 
@@ -12,7 +12,7 @@ sample, collapses it to three rows with **Group By Aggregate**, and exports the
 flow as a pandas or polars script.
 
 **You'll use:** File Input → Drop Columns → Change Types → Drop Nulls →
-Filter by Expression → Replace Values (twice) → Fill Nulls → Group By Aggregate →
+Filter Rows → Replace Values (twice) → Fill Nulls → Group By Aggregate →
 Rename Columns → Sort Rows → File Output.
 
 <FlowPipeline :nodes='[
@@ -20,7 +20,7 @@ Rename Columns → Sort Rows → File Output.
   {"type":"clean","label":"Drop Columns","detail":"internal_note"},
   {"type":"clean","label":"Change Types","detail":"amount → float · ordered_at → datetime"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: amount"},
-  {"type":"clean","label":"Filter by Expression","detail":"amount > 0 (drops refunds)"},
+  {"type":"clean","label":"Filter Rows","detail":"amount > 0 (drops refunds)"},
   {"type":"clean","label":"Replace Values","detail":"region: north → North, south → South"},
   {"type":"clean","label":"Fill Nulls","detail":"region → Unknown"},
   {"type":"transform","label":"Group By Aggregate","detail":"region · sum(amount) · count(order_id)"},
@@ -61,10 +61,9 @@ Five things need fixing before the numbers are trustworthy:
    malformed amount stops the run instead of silently turning into null.
 4. **Drop Nulls**: **Subset** = `amount`. This removes order 1003. Limit the
    subset to `amount`, or the row with no region would be dropped too.
-5. **Filter by Expression**: type `amount > 0` into **Expression**, or use
-   **Build condition**: pick `amount`, **> greater than** and `0`, then click
-   **Use condition**. The node keeps the rows where the expression is true, so
-   the refund, order 1004, is dropped.
+5. **Filter Rows**: **Column** `amount`, **Operator** *> greater than*,
+   **Value** `0`. The node keeps the rows where the condition is true, so the
+   refund, order 1004, is dropped.
 6. **Replace Values**: **Column** `region`, **Replace** `north`,
    **With** `North`. Add a second **Replace Values** node for `south` → `South`.
    Replace Values matches the whole cell exactly, so each spelling needs its own
@@ -130,16 +129,34 @@ and `north` are different keys and the summary has four rows.
 - `num_orders` adds up to 4, one per surviving order.
 
 If you see a `north` row, a Replace Values node is missing or misspelled. If the
-total is 456.75, the refund got through: check the Filter by Expression node.
+total is 456.75, the refund got through: check the Filter Rows node.
 
 ## Exported Python
 
 Click **Export** in the editor toolbar. The **pandas** tab shows a standalone
 script. The input frame is named after the dataset, and on a straight chain like
-this one the steps fuse into one method chain:
+this one the steps fuse into one method chain. The `_filter_value` helper at the
+top compares the Filter Rows value, saved as the text `'0'`, as a number because
+`amount` is numeric:
 
 ```python
 import pandas as pd
+
+def _filter_value(df, column, value):
+    """Type a Filter Rows value like its column: text becomes a number on a numeric column."""
+    if isinstance(value, list):
+        return [_filter_value(df, column, v) for v in value]
+    numeric = pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])
+    if not isinstance(value, str) or not numeric:
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Filter Rows value {value!r} is not a number, but column {column!r} is numeric.") from None
 
 df_sales = pd.read_csv('sales.csv')
 
@@ -147,8 +164,7 @@ df_sales = (
     df_sales.drop(columns=['internal_note'])
     .assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
     .dropna(subset='amount')
-    .query('amount > 0')
-    .reset_index(drop=True)
+    .loc[lambda _d: _d['amount'] > _filter_value(_d, 'amount', '0')]
     .assign(region=lambda _d: _d['region'].replace('north', 'North'))
     .assign(region=lambda _d: _d['region'].replace('south', 'South'))
     .fillna({'region': 'Unknown'})
@@ -163,9 +179,7 @@ df_sales.to_csv('sales_summary.csv', index=False)
 ```
 
 Run it next to `sales.csv` and `sales_summary.csv` contains the three rows from
-the result table. The **polars** tab writes the same file. Its filter step converts
-the frame to pandas to evaluate the expression, so that script needs pandas and
-PyArrow installed next to polars.
+the result table. The **polars** tab writes the same file.
 
 ## Pitfalls
 
