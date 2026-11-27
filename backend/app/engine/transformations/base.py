@@ -110,7 +110,13 @@ def needs_typed_value(value: Any) -> bool:
 
 def typed_value_code(frame: str, column: Any, value: Any) -> str:
     """Source for ``value`` compared against ``frame[column]`` in an exported script."""
-    return f"_filter_value({frame}, {column!r}, {value!r})" if needs_typed_value(value) else repr(value)
+    if needs_typed_value(value):
+        return f"_filter_value({frame}, {column!r}, {value!r})"
+    if isinstance(value, list) and any(isinstance(v, float) for v in value):
+        # A JSON number list mixing ints and floats: polars types a list by its
+        # first item, so emit every item as a float, as the engines compare it.
+        return repr([float(v) if isinstance(v, int) and not isinstance(v, bool) else v for v in value])
+    return repr(value)
 
 
 @dataclass

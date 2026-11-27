@@ -704,6 +704,9 @@ _FILTER_TEXT_VALUE_CASES = [
     # its first item, so every item must be a float once one is.
     ("amount", "in", {"value": "50, 99.5"}, [1, 4]),
     ("amount", "in", {"value": "99.5, 50"}, [1, 4]),
+    # The same lists stored as JSON numbers (hand-written or API-built flows).
+    ("amount", "in", {"value": [50, 99.5]}, [1, 4]),
+    ("qty", "in", {"value": [5, 19.5]}, [1]),
     ("amount", "between", {"value": "50", "value2": "99.5"}, [1, 4]),
     ("amount", "between", {"value": "99.5", "value2": "1000"}, [2, 4]),
     ("qty", "==", {"value": "15"}, [2]),
