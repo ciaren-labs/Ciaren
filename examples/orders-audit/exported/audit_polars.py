@@ -1,5 +1,4 @@
 import polars as pl
-import pandas as pd
 
 df_orders = pl.read_csv('orders.csv')
 df_catalog = pl.read_csv('catalog.csv')

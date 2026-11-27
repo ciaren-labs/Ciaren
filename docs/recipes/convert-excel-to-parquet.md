@@ -69,9 +69,10 @@ upload the file again with the sheet set.
   the new version in its **Version** field.
 - **Cell formats are not imported.** The `00000` format only changes how
   Excel displays the zip, so Ciaren reads the number `2134`, in runs and in both
-  exports. Codes typed as text, such as `'02134`, also arrive as numbers in
-  runs and in the pandas export; only the Polars export keeps them as text.
-  Check codes with leading zeros in the preview.
+  exports. To keep the leading zero, store the code as text in Excel (type
+  `'02134`). Text cells stay text in runs and in both exports, and a column
+  that mixes text and number cells becomes a text column. Text such as `NA` or
+  `N/A` stays text too; only empty cells become missing values.
 - **Dates gain a time.** An Excel date becomes a datetime at midnight.
 - **One sheet per dataset.** Every upload of `orders.xlsx` becomes a version
   of the same dataset. To convert a second sheet as well, upload a copy of the
@@ -89,7 +90,9 @@ needs `openpyxl` and `pyarrow`; the Polars version needs `openpyxl`.
 ```python [pandas]
 import pandas as pd
 
-df_orders = pd.read_excel('orders.xlsx', sheet_name='Orders')
+df_orders = pd.read_excel('orders.xlsx', dtype=object, keep_default_na=False, na_values=[''], sheet_name='Orders')
+# Columns with any text cell stay text (zip codes, IDs keep leading zeros).
+df_orders = df_orders.apply(lambda col: col.where(col.isna(), col.astype(str)) if col.apply(isinstance, args=(str,)).any() else col.infer_objects())
 df_orders.to_parquet('orders.parquet', index=False)
 ```
 

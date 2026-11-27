@@ -1,6 +1,8 @@
 """ML code export: the CodeGenerator wires multi-output handle variables and
 collects per-node sklearn imports; the exported script compiles."""
 
+import ast
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,6 +17,19 @@ from tests.ml.conftest import classification_df
 
 def _paths():
     return {"ds1": "data.csv"}
+
+
+def _unused_imports(code: str) -> list[str]:
+    """Names a script imports at top level but never references."""
+    tree = ast.parse(code)
+    bound: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            bound |= {a.asname or a.name.split(".")[0] for a in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            bound |= {a.asname or a.name for a in node.names}
+    used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    return sorted(bound - used)
 
 
 def test_train_test_split_export_uses_two_vars():
@@ -150,10 +165,33 @@ def test_exported_ml_pipeline_runs_on_categorical_and_null_data(tmp_path):
         ],
     }
     code = CodeGenerator().generate(graph, {"ds1": data.as_posix()})
+    assert _unused_imports(code) == []
     exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
     result = pd.read_csv(pred_out)
     assert "prediction" in result.columns
     assert result["prediction"].notna().all()
+
+
+@pytest.mark.parametrize("dialect", ["pandas", "polars", "lazy"])
+def test_predict_without_upstream_model_imports_the_mlflow_loader(dialect):
+    graph = {
+        "nodes": [
+            {"id": "in1", "type": "csvInput", "data": {"config": {"dataset_id": "ds1"}}},
+            {"id": "pr", "type": "mlPredict", "data": {"config": {"model_uri": "models:/churn@production"}}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": "pred.csv"}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in1", "target": "pr"},
+            {"id": "e2", "source": "pr", "target": "out"},
+        ],
+    }
+    if dialect == "pandas":
+        code = CodeGenerator().generate(graph, _paths())
+    else:
+        code = PolarsCodeGenerator().generate(graph, _paths(), lazy=dialect == "lazy")
+    assert "import mlflow.sklearn" in code
+    assert "mlflow.sklearn.load_model('models:/churn@production')" in code
+    assert _unused_imports(code) == []
 
 
 def test_exported_evaluate_and_proba_run_with_all_metrics(tmp_path):
@@ -289,6 +327,7 @@ def test_polars_ml_export_runs_end_to_end(tmp_path, lazy):
         ],
     }
     code = PolarsCodeGenerator().generate(graph, {"ds1": data.as_posix()}, lazy=lazy)
+    assert _unused_imports(code) == []
     exec(compile(code, "<gen>", "exec"), {})  # noqa: S102 - exercising generated code
 
     metrics = pd.read_csv(metrics_out)

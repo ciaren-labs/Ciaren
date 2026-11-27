@@ -700,6 +700,14 @@ def test_pivot_rejects_aggfunc_unsupported_by_polars(engine):
         get_transformation("pivot").validate_config({"index": ["r"], "columns": "c", "values": "v", "aggfunc": "std"})
 
 
+def test_pivot_polars_export_rejects_unlisted_aggfunc():
+    # The polars export emits aggfunc as a method name (.agg(pl.col(v).sum())),
+    # so an unvalidated config must not be able to splice code into the script.
+    config = {"index": ["r"], "columns": "c", "values": "v", "aggfunc": "sum(); import os; pl.col('v').sum"}
+    with pytest.raises(ValueError, match="aggfunc"):
+        get_transformation("pivot").to_polars_code({"in": "df"}, {"out": "out"}, config)
+
+
 def test_unpivot_value_vars_subset(engine):
     pdf = pd.DataFrame({"id": [1], "a": [10], "b": [20], "c": [30]})
     out = run(engine, "unpivot", pdf, {"id_vars": ["id"], "value_vars": ["a", "b"]})
@@ -716,6 +724,14 @@ def test_bin_column_with_labels(engine):
         {"column": "x", "new_column": "bucket", "method": "equalwidth", "bins": 2, "labels": ["low", "high"]},
     )
     assert set(out["bucket"].dropna().tolist()) <= {"low", "high"}
+
+
+def test_bin_quantile_pandas_export_rejects_label_count_mismatch():
+    # The quantile export maps labels by position, so pd.cut can no longer catch
+    # a wrong label count; the emitter must refuse it like validate_config does.
+    config = {"column": "x", "new_column": "b", "method": "quantile", "bins": 3, "labels": ["lo", "mid", "hi", "top"]}
+    with pytest.raises(ValueError, match="one label per bin"):
+        get_transformation("binColumn").to_python_code({"in": "df"}, {"out": "out"}, config)
 
 
 def test_remove_outliers_iqr_clip(engine):
@@ -1071,6 +1087,7 @@ def test_codegen_compiles_for_both_engines(node_type, config, input_vars):
         ("sampleRows", {"n": -1, "seed": 1}),  # negative n
         ("sampleRows", {"n": 3}),  # missing required seed
         ("binColumn", {"column": "x", "bins": 3}),  # missing new_column
+        ("binColumn", {"column": "x", "new_column": "b", "bins": 3, "labels": ["lo", "hi"]}),  # one label per bin
     ],
 )
 def test_validate_rejects_bad_config(node_type, config):

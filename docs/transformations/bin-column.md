@@ -69,7 +69,18 @@ df_2 = df_1.with_columns(pl.col('amount').cut(_breaks).cast(pl.Utf8).alias('amou
 
 - **`equalwidth` vs `quantile`:** equal-width splits the value range into equal
   spans (uneven counts); quantile splits into equal-sized groups (uneven spans).
-- **Custom `labels` must match the bin count** (one label per bin).
+- **How quantile edges work:** the edges are the 1/`bins`, 2/`bins`, …
+  quantiles of the non-null values, and the lowest and highest bins are open
+  ended. A value equal to an edge goes into the lower bin. When ties make two
+  edges equal, the bin between them stays empty and the other bins keep their
+  labels, so a label can go unused. A column whose values are all equal lands
+  in the first bin. Nulls stay null. Both engines and both exports put every
+  row in the same bin.
+- **Custom `labels` must match the bin count** (one label per bin); the node
+  rejects any other count before it runs.
+- **Default labels show the bin edges** and each engine formats them its own
+  way, for example `(-inf, 100.0]` on pandas and `(-inf, 100]` on Polars. Set
+  `labels` when a later step depends on the text.
 - The result is a text/category column — feed it into
   [Group by + aggregate](./group-by-aggregate.md) to count per band.
 

@@ -38,6 +38,7 @@ from app.engine.ingest import (
     detect_csv_options,
     is_default_dialect,
     read_delimited,
+    read_excel,
     validate_parse_options,
 )
 from app.engine.profile import profile_frame
@@ -682,9 +683,7 @@ def _parse_dataframe(
         if source_type in ("csv", "tsv"):
             return read_delimited(buf, source_type, opts)
         if source_type == "excel":
-            frame = pd.read_excel(buf, sheet_name=opts.get("sheet", 0))
-            assert isinstance(frame, pd.DataFrame)  # single sheet requested, never a dict
-            return frame
+            return read_excel(buf, opts.get("sheet", 0))
         if source_type == "parquet":
             return pd.read_parquet(buf)
         if source_type == "json":

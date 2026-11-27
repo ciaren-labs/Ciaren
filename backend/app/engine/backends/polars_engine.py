@@ -9,7 +9,14 @@ from typing import Any, Literal, cast
 import pandas as pd
 import polars as pl
 
-from app.engine.backends.base import DATE_UNIT_SECONDS, register_engine, rule_combine_all, rule_conditions
+from app.engine.backends.base import (
+    DATE_UNIT_SECONDS,
+    TEXT_FILTER_OPERATORS,
+    numeric_filter_value,
+    register_engine,
+    rule_combine_all,
+    rule_conditions,
+)
 
 # Rolling aggregation function name -> polars Expr method.
 _ROLLING_POLARS = {
@@ -170,6 +177,7 @@ class PolarsEngine:
 
     def filter_rows(self, df: pl.DataFrame, column: str, operator: str, value: Any) -> pl.DataFrame:
         col = pl.col(column)
+        value = _comparison_value(df.schema, column, operator, value)
         match operator:
             case "==" | "eq":
                 expr = col == value
@@ -191,7 +199,8 @@ class PolarsEngine:
                 expr = col.cast(pl.Utf8).str.ends_with(str(value))
             case "between":
                 low, high = value
-                expr = col.is_between(low, high)
+                # pl.lit: is_between reads bare strings as column names.
+                expr = col.is_between(pl.lit(low), pl.lit(high))
             case "in":
                 expr = col.is_in(list(value))
             case "isnull":
@@ -204,7 +213,6 @@ class PolarsEngine:
 
     # Strategies polars' fill_null accepts directly (rest are computed manually).
     _FILL_STRATEGY = {
-        "mean": "mean",
         "min": "min",
         "max": "max",
         "zero": "zero",
@@ -217,17 +225,27 @@ class PolarsEngine:
         exprs = []
         for col_name in targets:
             col = pl.col(col_name)
-            if strategy == "constant":
+            if strategy in ("mean", "median") and df[col_name].null_count() == 0:
+                # A float fill makes an integer column Float64 even with no
+                # nulls; leave null-free columns (e.g. an id) as is, the way
+                # pandas keeps them int64.
+                exprs.append(col)
+            elif strategy == "constant":
+                # A column whose type the value does not convert to is left
+                # as is (a text constant skips numeric columns).
                 col_dtype = df[col_name].dtype
                 try:
                     typed_value = pl.Series("_", [value]).cast(col_dtype)[0]
                     exprs.append(col.fill_null(typed_value))
-                except Exception:
+                except pl.exceptions.PolarsError:
                     exprs.append(col)
-            elif strategy == "mean" and not df.schema[col_name].is_numeric():
+            elif strategy == "mean":
                 # Mean only exists for numbers: skip other columns like the
-                # pandas engine instead of raising mid-run.
-                exprs.append(col)
+                # pandas engine instead of raising mid-run. Fill with the mean
+                # itself: fill_null(strategy="mean") casts it to an integer
+                # column's type (47.75 -> 47); a float fill makes the column
+                # Float64, as median does.
+                exprs.append(col.fill_null(col.mean()) if df.schema[col_name].is_numeric() else col)
             elif strategy in self._FILL_STRATEGY:
                 exprs.append(col.fill_null(strategy=cast(Any, self._FILL_STRATEGY[strategy])))
             elif strategy == "median":
@@ -507,11 +525,13 @@ class PolarsEngine:
         values: str,
         aggfunc: str,
     ) -> pl.DataFrame:
-        # pandas' pivot_table(aggfunc='count') counts NON-NULL values; polars'
-        # 'count' is a deprecated alias of 'len' (row count). Map count to an
-        # expression that counts non-null, so both engines agree.
-        agg: Any = pl.first().count() if aggfunc == "count" else aggfunc
-        return df.pivot(on=columns, index=index, values=values, aggregate_function=agg)
+        # pivot(aggregate_function=...) also evaluates cells that have no rows,
+        # where sum and count yield 0. Aggregating the existing (index, column)
+        # pairs first and pivoting one value per cell leaves those cells null, as
+        # pandas' pivot_table does. Expr.count() counts non-null values, which
+        # matches pivot_table(aggfunc='count').
+        grouped = df.group_by([*index, columns], maintain_order=True).agg(getattr(pl.col(values), aggfunc)())
+        return grouped.pivot(on=columns, index=index, values=values)
 
     # -- New nodes (text/date/value mapping) ---------------------------
 
@@ -593,7 +613,7 @@ class PolarsEngine:
     ) -> pl.DataFrame:
         chain: Any = None
         for rule in rules:
-            cond = _polars_rule_expr(rule)
+            cond = _polars_rule_expr(rule, df.schema)
             result = pl.lit(rule.get("result"))
             chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
         expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
@@ -735,10 +755,21 @@ def _polars_window_expr(
     return expr.over(part) if part else expr
 
 
-def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
+def _comparison_value(schema: pl.Schema, column: str, operator: str, value: Any) -> Any:
+    """A filter/condition value as the comparison uses it: text is typed as a
+    number on a numeric column; text operators keep it as is. A missing column
+    has no dtype, so the comparison raises polars' own error."""
+    dtype = schema.get(column)
+    if operator not in TEXT_FILTER_OPERATORS and dtype is not None and dtype.is_numeric():
+        return numeric_filter_value(value, column)
+    return value
+
+
+def _polars_rule_expr(rule: dict[str, Any], schema: pl.Schema) -> pl.Expr:
     """Combine a rule's conditions with AND (match all) or OR (match any)."""
     exprs = [
-        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value")) for c in rule_conditions(rule)
+        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value"), schema)
+        for c in rule_conditions(rule)
     ]
     combined = exprs[0]
     combine_all = rule_combine_all(rule)
@@ -747,9 +778,10 @@ def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
     return combined
 
 
-def _polars_condition_expr(column: str, operator: str, value: Any) -> pl.Expr:
+def _polars_condition_expr(column: str, operator: str, value: Any, schema: pl.Schema) -> pl.Expr:
     """Boolean expression for one conditionalColumn condition (mirrors filter operators)."""
     col = pl.col(column)
+    value = _comparison_value(schema, column, operator, value)
     expr: Any
     match operator:
         case "==" | "eq":

@@ -126,7 +126,6 @@ The Train configuration is:
 
 ```python
 import pandas as pd
-import joblib
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
@@ -158,7 +157,6 @@ df_2.to_csv('train-dim-reduction.csv', index=False)
 
 ```python
 import polars as pl
-import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA

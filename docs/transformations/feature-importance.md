@@ -87,7 +87,6 @@ The Train configuration is:
 
 ```python
 import pandas as pd
-import joblib
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -133,7 +132,6 @@ df_3.to_csv('feature-importance.csv', index=False)
 
 ```python
 import polars as pl
-import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier

@@ -54,7 +54,7 @@ from app.engine.codegen_common import (
     strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.ingest import config_parse_options
+from app.engine.ingest import PANDAS_EXCEL_KEEP_TEXT, PANDAS_EXCEL_READ_KWARGS, config_parse_options
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
@@ -155,6 +155,7 @@ class CodeGenerator:
         engine_vars: dict[str, str] = {}  # connection_id -> engine var
         extra_imports: list[str] = []
         seen_imports = set(base_header)
+        helpers: dict[str, None] = {}  # distinct helper definitions, first-use order
         # Names already claimed: flow parameters must not be clobbered by a
         # semantic input variable (a parameter named df_sales is legal).
         taken_names = parameter_names(parameter_lines)
@@ -241,8 +242,13 @@ class CodeGenerator:
                         kwargs = ", sep='\\t'"
                     elif source_type == "jsonl":
                         kwargs = ", lines=True"
+                    elif source_type == "excel":
+                        kwargs = f", {PANDAS_EXCEL_READ_KWARGS}"
                     kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
+                    if source_type == "excel":
+                        body.append("# Columns with any text cell stay text (zip codes, IDs keep leading zeros).")
+                        body.append(f"{var} = {var}.apply({PANDAS_EXCEL_KEEP_TEXT})")
                 elif source_type == "text":
                     body.append(f"with open({path!r}, encoding='utf-8') as _f:")
                     body.append(f'    {var} = pd.DataFrame({{"text": _f.read().splitlines()}})')
@@ -279,7 +285,8 @@ class CodeGenerator:
                 else:
                     output_vars = {h: next_var() for h in handles}
                 node_outputs[node_id] = output_vars
-                add_imports(transformation.imports(config))
+                add_imports(transformation.imports_for_inputs(config, input_vars))
+                helpers.update(dict.fromkeys(transformation.helpers(config)))
                 body.append(strip_self_assign(transformation.to_python_code(input_vars, output_vars, config)))
 
             dels.schedule(node_id, node_outputs.get(node_id, {}))
@@ -288,5 +295,6 @@ class CodeGenerator:
         header = base_header + ordered_imports(extra_imports)
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
+        helper_lines = [line for helper in helpers for line in (helper, "")]
         script_body = insert_paragraph_breaks(fuse_method_chains(body))
-        return "\n".join([*header, "", *prelude, *script_body]) + "\n"
+        return "\n".join([*header, "", *prelude, *helper_lines, *script_body]) + "\n"

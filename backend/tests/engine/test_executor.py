@@ -204,6 +204,7 @@ def test_codegen_fill_strategy_and_filter_ops_compile():
     assert ".mean()" in code
     assert ".between(1, 9)" in code
     assert ".isin(['x', 'y'])" in code
+    assert "_filter_value" not in code  # non-numeric text needs no runtime typing
     compile(code, "<generated>", "exec")
 
 

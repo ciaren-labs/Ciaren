@@ -14,6 +14,8 @@ branch cannot land without equivalence coverage (enforced by
 ``test_every_codegen_case_has_equivalence_data``).
 """
 
+import io
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -261,6 +263,8 @@ _CASE_INPUTS: dict[str, dict[str, Any]] = {
     "fill_median_mixed": {"in": _mixed_dtypes},
     "fill_mean_mixed": {"in": _mixed_dtypes},
     "fill_mode_with_empty": {"in": _with_empty_col},
+    "fill_const_text_mixed": {"in": _mixed_dtypes},
+    "fill_const_num_mixed": {"in": _mixed_dtypes},
     "fill_mode": {"in": _num},
     "fill_mode_multimodal": {"in": _multimodal},
     "groupby": {"in": _num},
@@ -414,7 +418,7 @@ def test_pandas_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_python_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pd": pd, **{in_vars[h]: f.copy() for h, f in frames.items()}}
-    for imp in t.imports(config):  # the header the driver would emit (e.g. numpy)
+    for imp in [*t.imports(config), *t.helpers(config)]:  # the header the driver would emit (e.g. numpy)
         exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<pandas:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
@@ -462,6 +466,95 @@ def test_split_column_export_preserves_absent_parts(
     _assert_frames_match(expected, exported, "split_absent_parts")
 
 
+@pytest.mark.parametrize(
+    ("aggfunc", "cells"),
+    [("sum", [[1.0, 0.0], [3.0, None], [None, 4.0]]), ("count", [[1, 0], [1, None], [None, 1]])],
+    ids=["sum", "count"],
+)
+@pytest.mark.parametrize("engine_name", ["pandas", "polars"])
+def test_pivot_cell_without_rows_is_null_on_runtime_and_export(
+    aggfunc: str, cells: list[list[float | None]], engine_name: str
+) -> None:
+    """A (row, column) pair with no source rows is null, never 0, on both engines
+    and in both exports. A pair whose rows exist but hold only nulls still
+    aggregates (r1/c2: sum 0, count 0), so the two cases stay distinguishable."""
+    node = get_transformation("pivot")
+    config = {"index": "r", "columns": "c", "values": "v", "aggfunc": aggfunc}
+    source = pd.DataFrame({"r": ["r1", "r1", "r2", "r3"], "c": ["c1", "c2", "c1", "c2"], "v": [1.0, None, 3.0, 4.0]})
+    expected = pd.DataFrame({"r": ["r1", "r2", "r3"], "c1": [row[0] for row in cells], "c2": [row[1] for row in cells]})
+
+    if engine_name == "pandas":
+        executed = node.execute(PandasEngine(), {"in": source}, config)["out"]
+        code = node.to_python_code({"in": "source"}, {"out": "result"}, config)
+        scope: dict[str, Any] = {"pd": pd, "source": source}
+    else:
+        frame = pl.from_pandas(source)
+        executed = node.execute(PolarsEngine(), {"in": frame}, config)["out"].to_pandas()
+        code = node.to_polars_code({"in": "source"}, {"out": "result"}, config)
+        scope = {"pl": pl, "source": frame}
+
+    _assert_frames_match(expected, executed, "pivot_str_index")
+    exec(compile(code, "<pivot_cell_without_rows>", "exec"), scope)  # noqa: S102 - exercising exported code
+    exported = scope["result"] if engine_name == "pandas" else scope["result"].to_pandas()
+    _assert_frames_match(expected, exported, "pivot_str_index")
+
+
+_BIN_LABELS = ["low", "mid", "high"]
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        # The 1/3 and 2/3 quantiles are exactly 100 and 250: a value on an edge
+        # belongs to the lower bin.
+        ([15.0, 100.0, 250.0, 500.0], ["low", "low", "mid", "high"]),
+        # The first edge equals the minimum: the tied minimum is its own bin.
+        ([1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0], ["low"] * 4 + ["mid"] + ["high"] * 3),
+        # Both edges are 2, so the middle bin is empty; the top keeps its label.
+        ([1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 3.0], ["low"] * 6 + ["high"]),
+        ([5.0, 5.0, 5.0, 5.0], ["low"] * 4),
+        # Nulls stay null and do not shift the edges of the other values.
+        ([1.0, None, 3.0, 4.0, 5.0, 6.0, None, 8.0], ["low", None, "low", "mid", "mid", "high", None, "high"]),
+        ([None, None], [None, None]),
+    ],
+    ids=["value-on-edge", "tie-at-minimum", "tied-edges", "constant", "nulls", "all-null"],
+)
+@pytest.mark.parametrize("engine_name", ["pandas", "polars", "polars-lazy"])
+def test_bin_quantile_edge_cases_agree_on_runtime_and_export(
+    values: list[float | None], expected: list[str | None], engine_name: str
+) -> None:
+    """Quantile bins are (-inf, q1], (q1, q2], ..., (qk, inf] over the interior
+    quantiles, on both engines and in every export. Default interval labels are
+    formatted per engine, so they must partition the rows like the labels do."""
+    node = get_transformation("binColumn")
+    source = pd.DataFrame({"x": pd.Series(values, dtype="float64")})
+    results = []
+    for labels in (_BIN_LABELS, None):
+        config = {"column": "x", "new_column": "tier", "method": "quantile", "bins": 3, "labels": labels}
+        node.validate_config(config)
+        if engine_name == "pandas":
+            executed = node.execute(PandasEngine(), {"in": source.copy()}, config)["out"]
+            code = node.to_python_code({"in": "source"}, {"out": "result"}, config)
+            scope: dict[str, Any] = {"pd": pd, "source": source.copy()}
+        else:
+            frame = pl.from_pandas(source)
+            executed = node.execute(PolarsEngine(), {"in": frame}, config)["out"].to_pandas()
+            code = node.to_polars_code({"in": "source"}, {"out": "result"}, config)
+            scope = {"pl": pl, "source": frame.lazy() if engine_name == "polars-lazy" else frame}
+        exec(compile(code, "<bin_quantile_edges>", "exec"), scope)  # noqa: S102 - exercising exported code
+        exported = scope["result"]
+        if engine_name != "pandas":
+            exported = (exported.collect() if engine_name == "polars-lazy" else exported).to_pandas()
+        _assert_frames_match(executed, exported, "bin_quantile_edges")
+        results.append([None if pd.isna(v) else v for v in executed["tier"]])
+
+    labelled, default = results
+    assert labelled == expected
+    pairs = {(a, b) for a, b in zip(labelled, default, strict=True)}
+    assert all((a is None) == (b is None) for a, b in pairs)
+    assert len({a for a, _ in pairs}) == len({b for _, b in pairs}) == len(pairs)
+
+
 def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     """Regression: mode() with nulls present can make null itself the mode, and
     fill_null(None) raises. The emitter must drop nulls first and, like the
@@ -481,6 +574,97 @@ def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     assert ns["result"]["empty"].null_count() == 3
 
 
+# Integer ids, an integer 'age' with one null and an outlier, and a text
+# 'region' with one null — read from CSV the way each exported script reads it
+# (pandas: float64 age, polars: Int64 age).
+_SURVEY_CSV = "respondent_id,age,region\n1,25,North\n2,,South\n3,40,\n4,31,East\n5,95,North\n"
+_SURVEY_AGE = [25, None, 40, 31, 95]
+_SURVEY_REGION = ["North", "South", None, "East", "North"]
+
+
+def _fill_nulls_every_path(
+    config: dict[str, Any], pandas_frame: Callable[[], pd.DataFrame], polars_frame: Callable[[], pl.DataFrame]
+) -> dict[str, pd.DataFrame]:
+    """Fill Nulls results from both engines, both exports and the lazy export."""
+    t = get_transformation("fillNulls")
+    pandas_ns: dict[str, Any] = {"pd": pd, "src": pandas_frame()}
+    exec(compile(t.to_python_code({"in": "src"}, {"out": "result"}, config), "<pandas>", "exec"), pandas_ns)  # noqa: S102
+    polars_code = compile(t.to_polars_code({"in": "src"}, {"out": "result"}, config), "<polars>", "exec")
+    polars_ns: dict[str, Any] = {"pl": pl, "src": polars_frame()}
+    exec(polars_code, polars_ns)  # noqa: S102 - exercising exported code
+    lazy_ns: dict[str, Any] = {"pl": pl, "src": polars_frame().lazy()}
+    exec(polars_code, lazy_ns)  # noqa: S102 - exercising exported code
+    return {
+        "pandas run": t.execute(PandasEngine(), {"in": pandas_frame()}, config)["out"],
+        "pandas export": pandas_ns["result"],
+        "polars run": t.execute(PolarsEngine(), {"in": polars_frame()}, config)["out"].to_pandas(),
+        "polars export": polars_ns["result"].to_pandas(),
+        "polars lazy export": lazy_ns["result"].collect().to_pandas(),
+    }
+
+
+@pytest.mark.parametrize(
+    ("config", "age", "region"),
+    [
+        # mean of 25, 40, 31, 95 is 47.75, not the integer 47
+        ({"strategy": "mean", "columns": ["age"]}, 47.75, None),
+        ({"strategy": "mean"}, 47.75, None),
+        # median of an even count is the midpoint 35.5
+        ({"strategy": "median", "columns": ["age"]}, 35.5, None),
+        ({"strategy": "median"}, 35.5, None),
+        # a selected null-free integer column (the id) is left as is
+        ({"strategy": "mean", "columns": ["respondent_id", "age"]}, 47.75, None),
+        ({"strategy": "median", "columns": ["respondent_id", "age"]}, 35.5, None),
+        # a text constant skips the numeric column, listed or not ...
+        ({"strategy": "constant", "value": "Unknown"}, None, "Unknown"),
+        ({"strategy": "constant", "value": "Unknown", "columns": ["age", "region"]}, None, "Unknown"),
+        # ... and a number-like constant (the editor sends text) fills both
+        ({"strategy": "constant", "value": "0"}, 0, "0"),
+        ({"strategy": "constant", "value": "0", "columns": ["age", "region"]}, 0, "0"),
+    ],
+    ids=[
+        "mean-cols",
+        "mean-all",
+        "median-cols",
+        "median-all",
+        "mean-cols-with-id",
+        "median-cols-with-id",
+        "const-text-all",
+        "const-text-cols",
+        "const-number-all",
+        "const-number-cols",
+    ],
+)
+def test_fill_nulls_every_path_fills_the_same_values(config: dict[str, Any], age: Any, region: Any) -> None:
+    expected = pd.DataFrame(
+        {
+            "respondent_id": [1, 2, 3, 4, 5],
+            "age": [age if v is None else v for v in _SURVEY_AGE],
+            "region": [region if v is None else v for v in _SURVEY_REGION],
+        }
+    )
+    results = _fill_nulls_every_path(
+        config, lambda: pd.read_csv(io.StringIO(_SURVEY_CSV)), lambda: pl.read_csv(io.StringIO(_SURVEY_CSV))
+    )
+    for path, got in results.items():
+        _assert_frames_match(expected, got, f"{config} via {path}")
+        # The null-free id column keeps its integer type (no 1.0 in a CSV).
+        assert pd.api.types.is_integer_dtype(got["respondent_id"]), f"{config} via {path}"
+
+
+@pytest.mark.parametrize("columns", [None, ["flag", "score"]], ids=["all", "cols"])
+def test_fill_nulls_constant_leaves_boolean_column_untouched(columns: list[str] | None) -> None:
+    """A text constant does not fit a boolean column: every path keeps its null."""
+    config: dict[str, Any] = {"strategy": "constant", "value": "Unknown", "columns": columns}
+
+    def pandas_frame() -> pd.DataFrame:
+        return pd.DataFrame({"flag": pd.array([True, None, False], dtype="boolean"), "score": [1.5, None, 2.0]})
+
+    expected = pandas_frame()
+    for path, got in _fill_nulls_every_path(config, pandas_frame, lambda: pl.from_pandas(pandas_frame())).items():
+        _assert_frames_match(expected, got, f"{columns} via {path}")
+
+
 @pytest.mark.parametrize("case_id", sorted(_CASE_INPUTS), ids=sorted(_CASE_INPUTS))
 def test_polars_codegen_matches_execute(case_id: str) -> None:
     node_type, config = _CASE_BY_ID[case_id]
@@ -492,8 +676,194 @@ def test_polars_codegen_matches_execute(case_id: str) -> None:
     in_vars, out_vars = _vars_for(frames)
     code = t.to_polars_code(in_vars, out_vars, config)
     ns: dict[str, Any] = {"pl": pl, **{in_vars[h]: f for h, f in frames.items()}}
-    for imp in t.polars_imports(config):  # the header the polars driver would emit
+    for imp in [*t.polars_imports(config), *t.polars_helpers(config)]:  # the header the polars driver would emit
         exec(imp, ns)  # noqa: S102
     exec(compile(code, f"<polars:{case_id}>", "exec"), ns)  # noqa: S102 - exercising generated code
 
     _assert_frames_match(expected.to_pandas(), ns["result"].to_pandas(), case_id)
+
+
+# --- filterRows: values arrive as text --------------------------------------
+# The editor saves a Filter Rows value as text, so a numeric comparison is
+# "amount > '100'". Every runtime and export path must compare it in the
+# column's type: numbers for a numeric column, text (leading zeros kept) for a
+# text column, and an error for text that is not a number.
+
+_FILTER_CSV = "row,amount,qty,zip\n1,50.0,5,02134\n2,150.0,15,2134\n3,1000.5,150,x\n4,99.5,20,02134x\n"
+
+_FILTER_TEXT_VALUE_CASES = [
+    ("amount", "==", {"value": "150"}, [2]),
+    ("amount", "!=", {"value": "150"}, [1, 3, 4]),
+    ("amount", ">", {"value": "100"}, [2, 3]),
+    ("amount", ">=", {"value": "150"}, [2, 3]),
+    ("amount", "<", {"value": "100"}, [1, 4]),
+    ("amount", "<=", {"value": "99.5"}, [1, 4]),
+    ("amount", "between", {"value": "50", "value2": "150"}, [1, 2, 4]),
+    ("amount", "in", {"value": "50, 150"}, [1, 2]),
+    # Mixed int/float items in either order: polars builds the list's dtype from
+    # its first item, so every item must be a float once one is.
+    ("amount", "in", {"value": "50, 99.5"}, [1, 4]),
+    ("amount", "in", {"value": "99.5, 50"}, [1, 4]),
+    # The same lists stored as JSON numbers (hand-written or API-built flows).
+    ("amount", "in", {"value": [50, 99.5]}, [1, 4]),
+    ("qty", "in", {"value": [5, 19.5]}, [1]),
+    ("amount", "between", {"value": "50", "value2": "99.5"}, [1, 4]),
+    ("amount", "between", {"value": "99.5", "value2": "1000"}, [2, 4]),
+    ("qty", "==", {"value": "15"}, [2]),
+    ("qty", ">", {"value": "19.5"}, [3, 4]),
+    ("qty", "in", {"value": "5, 20"}, [1, 4]),
+    ("qty", "in", {"value": "5, 19.5"}, [1]),
+    ("qty", "in", {"value": "19.5, 20"}, [4]),
+    ("qty", "between", {"value": "5", "value2": "15.5"}, [1, 2]),
+    ("zip", "==", {"value": "02134"}, [1]),
+    ("zip", "in", {"value": "02134, x"}, [1, 3]),
+    ("zip", "between", {"value": "02134", "value2": "2134"}, [1, 2, 4]),
+]
+
+_FILTER_RUNNERS = ["pandas", "polars", "pandas-script", "polars-script", "polars-lazy-script"]
+
+
+def _filter_graph(config: dict[str, Any], out_path: str, node_type: str) -> dict[str, Any]:
+    return {
+        "nodes": [
+            {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
+            {"id": "flt", "type": node_type, "data": {"config": config}},
+            {"id": "out", "type": "csvOutput", "data": {"config": {"path": out_path}}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "in", "target": "flt"},
+            {"id": "e2", "source": "flt", "target": "out"},
+        ],
+    }
+
+
+def _run_filter(
+    runner: str,
+    config: dict[str, Any],
+    tmp_path: Any,
+    node_type: str = "filterRows",
+    parameters: list[dict[str, Any]] | None = None,
+) -> pd.DataFrame:
+    """Run csv -> node -> csv through the app engine or an exported script. Flow
+    ``parameters`` resolve the way a run and an export resolve them."""
+    from app.engine.codegen import CodeGenerator
+    from app.engine.codegen_params import parameter_block_lines, substitute_for_codegen
+    from app.engine.executor import FlowExecutor, dataset_ref_key
+    from app.engine.parameters import apply_parameters
+    from app.engine.polars_codegen import PolarsCodeGenerator
+
+    source = tmp_path / "in.csv"
+    source.write_text(_FILTER_CSV, encoding="utf-8")
+    out = tmp_path / "out.csv"
+    graph = _filter_graph(config, str(out), node_type)
+    if parameters:
+        graph["parameters"] = parameters
+    if runner in ("pandas", "polars"):
+        resolved, _ = apply_parameters(graph, {})
+        outputs = FlowExecutor().execute(resolved, {dataset_ref_key("d", None): source}, tmp_path, engine_name=runner)
+        return pd.read_csv(next(iter(outputs.values())), dtype={"zip": str})
+    code_graph, param_lines = substitute_for_codegen(graph), parameter_block_lines(graph)
+    if runner == "pandas-script":
+        code = CodeGenerator().generate(code_graph, {"d": str(source)}, parameter_lines=param_lines)
+    else:
+        lazy = runner == "polars-lazy-script"
+        code = PolarsCodeGenerator().generate(code_graph, {"d": str(source)}, lazy=lazy, parameter_lines=param_lines)
+    exec(compile(code, f"<{runner}>", "exec"), {})  # noqa: S102 - exercising the exported script
+    return pd.read_csv(out, dtype={"zip": str})
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "operator", "values", "kept"),
+    _FILTER_TEXT_VALUE_CASES,
+    ids=[f"{c}{op}{v['value']}" for c, op, v, _ in _FILTER_TEXT_VALUE_CASES],
+)
+def test_filter_rows_text_value_compares_in_column_type(
+    column: str, operator: str, values: dict[str, Any], kept: list[int], runner: str, tmp_path: Any
+) -> None:
+    result = _run_filter(runner, {"column": column, "operator": operator, **values}, tmp_path)
+    assert sorted(result["row"]) == kept
+    if column == "zip":
+        assert "02134" in set(result["zip"])  # compared as text: the leading zero survives
+
+
+# An `in` value may be a flow parameter: the run splits the resolved value on
+# commas, and the export must split the parameter variable the same way.
+_IN_PARAMETER_CASES = [
+    ("qty", "{{ ids }}", {"name": "ids", "type": "string", "default": "5, 20"}, [1, 4]),
+    ("zip", "{{ ids }}", {"name": "ids", "type": "string", "default": "02134, x"}, [1, 3]),
+    ("qty", "{{ ids }}", {"name": "ids", "type": "integer", "default": 15}, [2]),
+    ("qty", "5, {{ ids }}", {"name": "ids", "type": "integer", "default": 20}, [1, 4]),
+]
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "value", "parameter", "kept"),
+    _IN_PARAMETER_CASES,
+    ids=["text-list", "text-list-on-text", "integer", "embedded"],
+)
+def test_filter_rows_in_resolves_a_parameter_like_the_run(
+    column: str, value: str, parameter: dict[str, Any], kept: list[int], runner: str, tmp_path: Any
+) -> None:
+    config = {"column": column, "operator": "in", "value": value}
+    result = _run_filter(runner, config, tmp_path, parameters=[parameter])
+    assert sorted(result["row"]) == kept
+
+
+# Text that is not a number fails in the app on both engines. An export keeps
+# such text a plain literal (only number-like text is typed at runtime), so the
+# scripts are checked only where a number-like item puts the helper in play.
+_NOT_A_NUMBER_CASES = [
+    ("gt", {"column": "amount", "operator": ">", "value": "abc"}, ["pandas", "polars"]),
+    ("eq", {"column": "amount", "operator": "==", "value": "abc"}, ["pandas", "polars"]),
+    ("between", {"column": "amount", "operator": "between", "value": "1", "value2": "lots"}, _FILTER_RUNNERS),
+    ("in", {"column": "qty", "operator": "in", "value": "5, x"}, _FILTER_RUNNERS),
+]
+
+
+@pytest.mark.parametrize(
+    ("config", "runner"),
+    [(config, runner) for _, config, runners in _NOT_A_NUMBER_CASES for runner in runners],
+    ids=[f"{case_id}-{runner}" for case_id, _, runners in _NOT_A_NUMBER_CASES for runner in runners],
+)
+def test_filter_rows_rejects_text_that_is_not_a_number(config: dict[str, Any], runner: str, tmp_path: Any) -> None:
+    with pytest.raises(Exception, match=r"is not a number, but column '(amount|qty)' is numeric"):
+        _run_filter(runner, config, tmp_path)
+
+
+# conditionalColumn conditions come from the same kind of text input, so a
+# condition value is typed against its column exactly like a Filter Rows value.
+_CONDITION_TEXT_VALUE_CASES = [
+    ("amount", ">=", "150", [2, 3]),
+    ("amount", "<", "99.75", [1, 4]),
+    ("qty", "==", "15", [2]),
+    ("zip", "==", "02134", [1]),
+]
+
+
+def _conditional_config(column: str, operator: str, value: str) -> dict[str, Any]:
+    return {
+        "new_column": "tier",
+        "default": "other",
+        "rules": [{"conditions": [{"column": column, "operator": operator, "value": value}], "result": "hit"}],
+    }
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "operator", "value", "hits"),
+    _CONDITION_TEXT_VALUE_CASES,
+    ids=[f"{c}{op}{v}" for c, op, v, _ in _CONDITION_TEXT_VALUE_CASES],
+)
+def test_conditional_column_text_value_compares_in_column_type(
+    column: str, operator: str, value: str, hits: list[int], runner: str, tmp_path: Any
+) -> None:
+    result = _run_filter(runner, _conditional_config(column, operator, value), tmp_path, "conditionalColumn")
+    assert sorted(result.loc[result["tier"] == "hit", "row"]) == hits
+
+
+@pytest.mark.parametrize("runner", ["pandas", "polars"])
+def test_conditional_column_rejects_text_that_is_not_a_number(runner: str, tmp_path: Any) -> None:
+    with pytest.raises(Exception, match=r"is not a number, but column 'amount' is numeric"):
+        _run_filter(runner, _conditional_config("amount", ">", "abc"), tmp_path, "conditionalColumn")
