@@ -134,10 +134,10 @@ total is 456.75, the refund got through: check the Filter Rows node.
 ## Exported Python
 
 Click **Export** in the editor toolbar. The **pandas** tab shows a standalone
-script. The input frame is named after the dataset, and on a straight chain like
-this one the steps fuse into one method chain. The `_filter_value` helper at the
-top compares the Filter Rows value, saved as the text `'0'`, as a number because
-`amount` is numeric:
+script. The input frame is named after the dataset, and consecutive steps fuse
+into method chains. The `_filter_value` helper at the top compares the Filter
+Rows value, saved as the text `'0'`, as a number because `amount` is numeric.
+Fill Nulls is a short loop that fills only the listed columns the value fits:
 
 ```python
 import pandas as pd
@@ -169,8 +169,18 @@ df_sales = (
     .loc[lambda _d: _d['amount'] > _filter_value(_d, 'amount', '0')]
     .assign(region=lambda _d: _d['region'].replace('north', 'North'))
     .assign(region=lambda _d: _d['region'].replace('south', 'South'))
-    .fillna({'region': 'Unknown'})
-    .groupby('region')
+)
+
+df_sales = df_sales.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_sales[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_sales[_col] = df_sales[_col].fillna(_fill)
+
+df_sales = (
+    df_sales.groupby('region')
     .agg({'amount': 'sum', 'order_id': 'count'})
     .reset_index()
     .rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})

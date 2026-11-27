@@ -109,12 +109,14 @@ writes `survey_filled.csv`.
 import pandas as pd
 
 df_survey = pd.read_csv('survey.csv')
-
-df_survey = (
-    df_survey.fillna({'age': df_survey['age'].median()})
-    .fillna({'region': 'Unknown'})
-)
-
+df_survey = df_survey.fillna({'age': df_survey['age'].median()})
+df_survey = df_survey.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_survey[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_survey[_col] = df_survey[_col].fillna(_fill)
 df_survey.to_csv('survey_filled.csv', index=False)
 ```
 
@@ -124,7 +126,14 @@ import polars as pl
 df_survey = pl.read_csv('survey.csv')
 _nulls = df_survey.lazy().null_count().collect()
 df_survey = df_survey.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in ['age'] if _nulls[c][0]])
-df_survey = df_survey.with_columns(pl.col('region').fill_null('Unknown'))
+_sch = df_survey.collect_schema()
+_fills = []
+for _col in ['region']:
+    try:
+        _fills.append(pl.col(_col).fill_null(pl.Series(['Unknown']).cast(_sch[_col])[0]))
+    except pl.exceptions.PolarsError:
+        continue  # the value does not fit this column's type
+df_survey = df_survey.with_columns(_fills)
 df_survey.write_csv('survey_filled.csv')
 ```
 

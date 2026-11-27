@@ -107,18 +107,14 @@ class FillNullsTransformation(BaseTransformation):
 
         if strategy == "constant":
             value = config.get("value")
-            if columns:
-                # fillna(dict) silently skips a column the frame doesn't have
-                # (the app run raises KeyError) — accepted: the value-computing
-                # strategies below still raise via their {src}[col] reads.
-                fills = ", ".join(f"{c!r}: {value!r}" for c in columns)
-                return f"{dst} = {src}.fillna({{{fills}}})"
-            # All columns: mirror PandasEngine.fill_nulls, which fills only the
+            # Mirror PandasEngine.fill_nulls, which fills only the target
             # columns whose dtype the value converts to (a plain fillna would
-            # also write a text constant into numeric columns).
+            # also write a text constant into numeric columns). A listed
+            # column the frame lacks raises KeyError, as in the app run.
+            targets = repr(list(columns)) if columns else f"{dst}.columns"
             return (
                 f"{dst} = {src}.copy()\n"
-                f"for _col in {dst}.columns:\n"
+                f"for _col in {targets}:\n"
                 f"    try:\n"
                 f"        _fill = pd.array([{value!r}], dtype={dst}[_col].dtype)[0]\n"
                 f"    except (ValueError, TypeError):\n"
@@ -177,16 +173,15 @@ class FillNullsTransformation(BaseTransformation):
 
         if strategy == "constant":
             value = config.get("value")
-            if columns:
-                exprs = [f"pl.col({c!r}).fill_null({value!r})" for c in columns]
-                return f"{dst} = {src}.with_columns({pl_exprs_arg(exprs)})"
-            # All columns: mirror PolarsEngine.fill_nulls, which fills only the
-            # columns whose dtype the value casts to. Frame-level fill_null
-            # differs: it skips a text column for a numeric value.
+            # Mirror PolarsEngine.fill_nulls, which fills only the target
+            # columns whose dtype the value casts to. A plain fill_null differs:
+            # frame-level it skips a text column for a numeric value, and on a
+            # listed column it converts the column to the value's type.
+            targets = repr(list(columns)) if columns else "_sch.names()"
             return (
                 f"_sch = {src}.collect_schema()\n"
                 f"_fills = []\n"
-                f"for _col in _sch.names():\n"
+                f"for _col in {targets}:\n"
                 f"    try:\n"
                 f"        _fills.append(pl.col(_col).fill_null(pl.Series([{value!r}]).cast(_sch[_col])[0]))\n"
                 f"    except pl.exceptions.PolarsError:\n"

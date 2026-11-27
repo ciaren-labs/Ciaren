@@ -54,19 +54,34 @@ This example fills missing `region` values with `Unknown` (`strategy: constant`,
 ### pandas
 
 ```python
-df_2 = df_1.fillna({'region': 'Unknown'})
+df_2 = df_1.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_2[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_2[_col] = df_2[_col].fillna(_fill)
 ```
 
 ### Polars
 
 ```python
-df_2 = df_1.with_columns(pl.col('region').fill_null('Unknown'))
+_sch = df_1.collect_schema()
+_fills = []
+for _col in ['region']:
+    try:
+        _fills.append(pl.col(_col).fill_null(pl.Series(['Unknown']).cast(_sch[_col])[0]))
+    except pl.exceptions.PolarsError:
+        continue  # the value does not fit this column's type
+df_2 = df_1.with_columns(_fills)
 ```
 
 ## Tips & common mistakes
 
 - **A `value` is only needed for `constant`.** Computed strategies (mean, median,
   …) ignore it.
+- **A constant only fills columns whose type it fits.** `Unknown` leaves numeric
+  columns alone, listed or not; `0` fills numeric and text columns.
 - **`mean`/`median` need numeric columns.** Restrict `columns` so the strategy
   only touches columns it applies to.
 

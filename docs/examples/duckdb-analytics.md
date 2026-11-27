@@ -153,15 +153,15 @@ from sqlalchemy import URL, create_engine
 
 _engine_1 = create_engine(URL.create('duckdb', database='analytics.duckdb'))
 df_1 = pd.read_sql_query('SELECT region, amount FROM orders WHERE amount > 0', _engine_1)
-
-df_1 = (
-    df_1.assign(region=lambda _d: _d['region'].astype('string').str.title())
-    .fillna({'region': 'Unknown'})
-    .groupby('region')
-    .agg({'amount': 'sum'})
-    .reset_index()
-)
-
+df_1 = df_1.assign(region=lambda _d: _d['region'].astype('string').str.title())
+df_1 = df_1.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_1[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_1[_col] = df_1[_col].fillna(_fill)
+df_1 = df_1.groupby('region').agg({'amount': 'sum'}).reset_index()
 df_1.to_sql('revenue_by_region', _engine_1, if_exists='replace', index=False)
 ```
 

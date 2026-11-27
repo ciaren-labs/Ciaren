@@ -15,6 +15,7 @@ branch cannot land without equivalence coverage (enforced by
 """
 
 import io
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -581,6 +582,27 @@ _SURVEY_AGE = [25, None, 40, 31, 95]
 _SURVEY_REGION = ["North", "South", None, "East", "North"]
 
 
+def _fill_nulls_every_path(
+    config: dict[str, Any], pandas_frame: Callable[[], pd.DataFrame], polars_frame: Callable[[], pl.DataFrame]
+) -> dict[str, pd.DataFrame]:
+    """Fill Nulls results from both engines, both exports and the lazy export."""
+    t = get_transformation("fillNulls")
+    pandas_ns: dict[str, Any] = {"pd": pd, "src": pandas_frame()}
+    exec(compile(t.to_python_code({"in": "src"}, {"out": "result"}, config), "<pandas>", "exec"), pandas_ns)  # noqa: S102
+    polars_code = compile(t.to_polars_code({"in": "src"}, {"out": "result"}, config), "<polars>", "exec")
+    polars_ns: dict[str, Any] = {"pl": pl, "src": polars_frame()}
+    exec(polars_code, polars_ns)  # noqa: S102 - exercising exported code
+    lazy_ns: dict[str, Any] = {"pl": pl, "src": polars_frame().lazy()}
+    exec(polars_code, lazy_ns)  # noqa: S102 - exercising exported code
+    return {
+        "pandas run": t.execute(PandasEngine(), {"in": pandas_frame()}, config)["out"],
+        "pandas export": pandas_ns["result"],
+        "polars run": t.execute(PolarsEngine(), {"in": polars_frame()}, config)["out"].to_pandas(),
+        "polars export": polars_ns["result"].to_pandas(),
+        "polars lazy export": lazy_ns["result"].collect().to_pandas(),
+    }
+
+
 @pytest.mark.parametrize(
     ("config", "age", "region"),
     [
@@ -593,10 +615,12 @@ _SURVEY_REGION = ["North", "South", None, "East", "North"]
         # a selected null-free integer column (the id) is left as is
         ({"strategy": "mean", "columns": ["respondent_id", "age"]}, 47.75, None),
         ({"strategy": "median", "columns": ["respondent_id", "age"]}, 35.5, None),
-        # all columns: a text constant skips the numeric column ...
+        # a text constant skips the numeric column, listed or not ...
         ({"strategy": "constant", "value": "Unknown"}, None, "Unknown"),
+        ({"strategy": "constant", "value": "Unknown", "columns": ["age", "region"]}, None, "Unknown"),
         # ... and a number-like constant (the editor sends text) fills both
         ({"strategy": "constant", "value": "0"}, 0, "0"),
+        ({"strategy": "constant", "value": "0", "columns": ["age", "region"]}, 0, "0"),
     ],
     ids=[
         "mean-cols",
@@ -606,12 +630,12 @@ _SURVEY_REGION = ["North", "South", None, "East", "North"]
         "mean-cols-with-id",
         "median-cols-with-id",
         "const-text-all",
+        "const-text-cols",
         "const-number-all",
+        "const-number-cols",
     ],
 )
 def test_fill_nulls_every_path_fills_the_same_values(config: dict[str, Any], age: Any, region: Any) -> None:
-    """Both engines, both exports and the lazy Polars export fill identically."""
-    t = get_transformation("fillNulls")
     expected = pd.DataFrame(
         {
             "respondent_id": [1, 2, 3, 4, 5],
@@ -619,32 +643,26 @@ def test_fill_nulls_every_path_fills_the_same_values(config: dict[str, Any], age
             "region": [region if v is None else v for v in _SURVEY_REGION],
         }
     )
-
-    def pandas_frame() -> pd.DataFrame:
-        return pd.read_csv(io.StringIO(_SURVEY_CSV))
-
-    def polars_frame() -> pl.DataFrame:
-        return pl.read_csv(io.StringIO(_SURVEY_CSV))
-
-    pandas_ns: dict[str, Any] = {"pd": pd, "src": pandas_frame()}
-    exec(compile(t.to_python_code({"in": "src"}, {"out": "result"}, config), "<pandas>", "exec"), pandas_ns)  # noqa: S102
-    polars_code = compile(t.to_polars_code({"in": "src"}, {"out": "result"}, config), "<polars>", "exec")
-    polars_ns: dict[str, Any] = {"pl": pl, "src": polars_frame()}
-    exec(polars_code, polars_ns)  # noqa: S102 - exercising exported code
-    lazy_ns: dict[str, Any] = {"pl": pl, "src": polars_frame().lazy()}
-    exec(polars_code, lazy_ns)  # noqa: S102 - exercising exported code
-
-    results = {
-        "pandas run": t.execute(PandasEngine(), {"in": pandas_frame()}, config)["out"],
-        "pandas export": pandas_ns["result"],
-        "polars run": t.execute(PolarsEngine(), {"in": polars_frame()}, config)["out"].to_pandas(),
-        "polars export": polars_ns["result"].to_pandas(),
-        "polars lazy export": lazy_ns["result"].collect().to_pandas(),
-    }
+    results = _fill_nulls_every_path(
+        config, lambda: pd.read_csv(io.StringIO(_SURVEY_CSV)), lambda: pl.read_csv(io.StringIO(_SURVEY_CSV))
+    )
     for path, got in results.items():
         _assert_frames_match(expected, got, f"{config} via {path}")
         # The null-free id column keeps its integer type (no 1.0 in a CSV).
         assert pd.api.types.is_integer_dtype(got["respondent_id"]), f"{config} via {path}"
+
+
+@pytest.mark.parametrize("columns", [None, ["flag", "score"]], ids=["all", "cols"])
+def test_fill_nulls_constant_leaves_boolean_column_untouched(columns: list[str] | None) -> None:
+    """A text constant does not fit a boolean column: every path keeps its null."""
+    config: dict[str, Any] = {"strategy": "constant", "value": "Unknown", "columns": columns}
+
+    def pandas_frame() -> pd.DataFrame:
+        return pd.DataFrame({"flag": pd.array([True, None, False], dtype="boolean"), "score": [1.5, None, 2.0]})
+
+    expected = pandas_frame()
+    for path, got in _fill_nulls_every_path(config, pandas_frame, lambda: pl.from_pandas(pandas_frame())).items():
+        _assert_frames_match(expected, got, f"{columns} via {path}")
 
 
 @pytest.mark.parametrize("case_id", sorted(_CASE_INPUTS), ids=sorted(_CASE_INPUTS))
