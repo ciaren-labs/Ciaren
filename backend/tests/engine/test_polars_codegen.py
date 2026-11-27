@@ -302,12 +302,14 @@ def test_polars_aggregation_runs_end_to_end(tmp_path: Path, lazy: bool) -> None:
     pd.testing.assert_frame_equal(out, pd.DataFrame({"region": regions, "amount": [8] * len(regions)}))
 
 
-def test_polars_lazy_pivot_runs_end_to_end(tmp_path: Path) -> None:
+@pytest.mark.parametrize("lazy", [False, True], ids=["eager", "lazy"])
+def test_polars_pivot_runs_end_to_end(tmp_path: Path, lazy: bool) -> None:
     (tmp_path / "in.csv").write_text("region,product,amount\nN,x,2\nN,y,3\nS,x,5\n")
     graph = _pivot_graph()
-    code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"}, lazy=True)
+    code = PolarsCodeGenerator().generate(graph, {"ds1": "in.csv"}, lazy=lazy)
     out = _run(code, tmp_path)
     by_region = {row["region"]: row for _, row in out.iterrows()}
     assert by_region["N"]["x"] == 2
     assert by_region["N"]["y"] == 3
     assert by_region["S"]["x"] == 5
+    assert pd.isna(by_region["S"]["y"])  # S has no y rows: null, not a 0 sum

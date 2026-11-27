@@ -392,7 +392,7 @@ def pivot_cell_placement() -> Figure:
         320,
         "Pivot Table turns month values into columns. The two North and Jan rows, 100 and 30, "
         "sum into one cell, 130.0. pandas sorts the month columns, and South has no Feb row, "
-        "so that cell is null on pandas and 0 on the Polars engine.",
+        "so that cell is null on both engines, not 0.",
     )
     fig.heading(44, 56, "each region and month pair becomes one cell")
     long_rows = [["North", "Jan", 100], ["North", "Feb", 120], ["South", "Jan", 80], ["North", "Jan", 30]]
@@ -417,8 +417,8 @@ def pivot_cell_placement() -> Figure:
     )
     nx = wx + ww + 22
     _row_notes(fig, nx, wy, {0: ("100 + 30 = 130", INK_SOFT), 1: ("no South Feb row", RED)})
-    fig.note(nx, _row_center(wy, 1) + 34, ["pandas writes null,", "Polars writes 0"], size=21, fill=RED)
-    fig.note(wx, wy - 14, "pandas output", size=21, fill=INK_SOFT)
+    fig.note(nx, _row_center(wy, 1) + 34, ["null on both", "engines, not 0"], size=21, fill=RED)
+    fig.note(wx, wy - 14, "pandas column order", size=21, fill=INK_SOFT)
     return fig
 
 

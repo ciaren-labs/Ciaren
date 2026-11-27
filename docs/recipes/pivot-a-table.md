@@ -1,6 +1,6 @@
 ---
 title: Pivot a Table
-description: "Pivot sales from long to wide in Ciaren with the Pivot Table node: one row per region, one column per month, repeated rows summed, and how the Polars and pandas engines fill empty cells."
+description: "Pivot sales from long to wide in Ciaren with the Pivot Table node: one row per region, one column per month, repeated rows summed, and cells with no rows left null."
 search: recipe pivot table long to wide reshape crosstab summary month columns sum missing cells
 ---
 
@@ -46,7 +46,7 @@ North,Jan,30
 4. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
    `sales_wide`. Connect the nodes in order and click **Run**.
 
-![Pivot Table turns month values into columns: the two North January rows, 100 and 30, sum into one cell of 130.0 in the pandas output, and the South February cell, which has no rows, is null on pandas and 0 on Polars](/illustrations/recipes/pivot-cell-placement.svg)
+![Pivot Table turns month values into columns: the two North January rows, 100 and 30, sum into one cell of 130.0 in the pandas output, and the South February cell, which has no rows, is null on both engines, not 0](/illustrations/recipes/pivot-cell-placement.svg)
 
 ## Result
 
@@ -61,13 +61,13 @@ always uses pandas. The run output is:
 pandas sorts the month columns, so `Feb` comes before `Jan`, and the null in
 the South row makes both columns decimal.
 
-If you switch the toolbar engine to **polars** before **Run**, the sums are the
-same but two details change:
+If you switch the toolbar engine to **polars** before **Run**, the sums and the
+null South `Feb` cell are the same but two details change:
 
-| Engine | Columns | South, Feb | Numbers on this sample |
-| --- | --- | --- | --- |
-| pandas | `region`, `Feb`, `Jan` (sorted) | null | decimal |
-| polars | `region`, `Jan`, `Feb` (first appearance) | `0` | integer |
+| Engine | Columns | Numbers on this sample |
+| --- | --- | --- |
+| pandas | `region`, `Feb`, `Jan` (sorted) | decimal |
+| polars | `region`, `Jan`, `Feb` (first appearance) | integer |
 
 ## Check the result
 
@@ -78,11 +78,12 @@ gives 100.
 
 ## Pitfalls
 
-- **An empty cell is not always null.** With **Aggregation** `sum` or `count`,
-  pandas writes null where no rows exist and Polars writes 0. With `mean`,
-  `min`, `max`, `median`, `first` or `last`, both write null. To get 0 on
-  every engine, add [Fill Nulls](/transformations/fill-nulls) after the pivot
-  with **Strategy** Zero.
+- **A cell with no rows is null, not 0.** This holds on both engines for
+  every **Aggregation**, including `sum` and `count`: no data is not a zero
+  total. A cell whose rows all have an empty `amount` does have rows, so `sum`
+  and `count` write 0 there. To show 0 in the empty cells too, add
+  [Fill Nulls](/transformations/fill-nulls) after the pivot with **Strategy**
+  Zero.
 - **Column names come from the data.** A month that appears in the next file
   adds a column, and a downstream node that names a missing month fails.
 - **Pick the aggregation on purpose.** `sum` adds repeated rows; `mean`
@@ -93,8 +94,10 @@ gives 100.
 
 Click **Export** in the editor toolbar. The **pandas** and **polars** tabs show
 this code for the flow. It reads `sales_long.csv` from the script's folder and
-writes `sales_wide.csv`. Each script keeps its engine's column order and empty
-cell value from the table above.
+writes `sales_wide.csv`. Each script keeps its engine's column order from the
+table above, and both leave the South `Feb` cell empty. The Polars script sums
+each region and month pair before it pivots, so a pair with no rows stays
+null.
 
 ::: code-group
 
@@ -110,7 +113,7 @@ df_sales_long.to_csv('sales_wide.csv', index=False)
 import polars as pl
 
 df_sales_long = pl.read_csv('sales_long.csv')
-df_sales_long = df_sales_long.pivot(on='month', index='region', values='amount', aggregate_function='sum')
+df_sales_long = df_sales_long.group_by(['region', 'month'], maintain_order=True).agg(pl.col('amount').sum()).pivot(on='month', index='region', values='amount')
 df_sales_long.write_csv('sales_wide.csv')
 ```
 

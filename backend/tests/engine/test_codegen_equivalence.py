@@ -465,6 +465,39 @@ def test_split_column_export_preserves_absent_parts(
     _assert_frames_match(expected, exported, "split_absent_parts")
 
 
+@pytest.mark.parametrize(
+    ("aggfunc", "cells"),
+    [("sum", [[1.0, 0.0], [3.0, None], [None, 4.0]]), ("count", [[1, 0], [1, None], [None, 1]])],
+    ids=["sum", "count"],
+)
+@pytest.mark.parametrize("engine_name", ["pandas", "polars"])
+def test_pivot_cell_without_rows_is_null_on_runtime_and_export(
+    aggfunc: str, cells: list[list[float | None]], engine_name: str
+) -> None:
+    """A (row, column) pair with no source rows is null, never 0, on both engines
+    and in both exports. A pair whose rows exist but hold only nulls still
+    aggregates (r1/c2: sum 0, count 0), so the two cases stay distinguishable."""
+    node = get_transformation("pivot")
+    config = {"index": "r", "columns": "c", "values": "v", "aggfunc": aggfunc}
+    source = pd.DataFrame({"r": ["r1", "r1", "r2", "r3"], "c": ["c1", "c2", "c1", "c2"], "v": [1.0, None, 3.0, 4.0]})
+    expected = pd.DataFrame({"r": ["r1", "r2", "r3"], "c1": [row[0] for row in cells], "c2": [row[1] for row in cells]})
+
+    if engine_name == "pandas":
+        executed = node.execute(PandasEngine(), {"in": source}, config)["out"]
+        code = node.to_python_code({"in": "source"}, {"out": "result"}, config)
+        scope: dict[str, Any] = {"pd": pd, "source": source}
+    else:
+        frame = pl.from_pandas(source)
+        executed = node.execute(PolarsEngine(), {"in": frame}, config)["out"].to_pandas()
+        code = node.to_polars_code({"in": "source"}, {"out": "result"}, config)
+        scope = {"pl": pl, "source": frame}
+
+    _assert_frames_match(expected, executed, "pivot_str_index")
+    exec(compile(code, "<pivot_cell_without_rows>", "exec"), scope)  # noqa: S102 - exercising exported code
+    exported = scope["result"] if engine_name == "pandas" else scope["result"].to_pandas()
+    _assert_frames_match(expected, exported, "pivot_str_index")
+
+
 def test_polars_fill_mode_all_null_column_is_left_untouched() -> None:
     """Regression: mode() with nulls present can make null itself the mode, and
     fill_null(None) raises. The emitter must drop nulls first and, like the

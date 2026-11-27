@@ -700,6 +700,14 @@ def test_pivot_rejects_aggfunc_unsupported_by_polars(engine):
         get_transformation("pivot").validate_config({"index": ["r"], "columns": "c", "values": "v", "aggfunc": "std"})
 
 
+def test_pivot_polars_export_rejects_unlisted_aggfunc():
+    # The polars export emits aggfunc as a method name (.agg(pl.col(v).sum())),
+    # so an unvalidated config must not be able to splice code into the script.
+    config = {"index": ["r"], "columns": "c", "values": "v", "aggfunc": "sum(); import os; pl.col('v').sum"}
+    with pytest.raises(ValueError, match="aggfunc"):
+        get_transformation("pivot").to_polars_code({"in": "df"}, {"out": "out"}, config)
+
+
 def test_unpivot_value_vars_subset(engine):
     pdf = pd.DataFrame({"id": [1], "a": [10], "b": [20], "c": [30]})
     out = run(engine, "unpivot", pdf, {"id_vars": ["id"], "value_vars": ["a", "b"]})

@@ -53,7 +53,9 @@ columns, filling each cell by aggregating the `values` column for that row key.
 
 These exports pivot `month` values into columns, grouping by `region` and
 summing `amount` for repeated keys. pandas sorts keys and output columns; Polars
-keeps first-appearance order. The Polars pivot requires an eager DataFrame.
+keeps first-appearance order. Polars aggregates each key pair before it
+pivots, so on both engines a cell with no rows is null rather than a 0 sum or
+count. The Polars pivot requires an eager DataFrame.
 
 ### pandas
 
@@ -64,7 +66,7 @@ df_2 = df_1.pivot_table(index='region', columns='month', values='amount', aggfun
 ### Polars
 
 ```python
-df_2 = df_1.pivot(on='month', index='region', values='amount', aggregate_function='sum')
+df_2 = df_1.group_by(['region', 'month'], maintain_order=True).agg(pl.col('amount').sum()).pivot(on='month', index='region', values='amount')
 ```
 
 ## Tips & common mistakes

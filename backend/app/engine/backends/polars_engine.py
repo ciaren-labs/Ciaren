@@ -525,11 +525,13 @@ class PolarsEngine:
         values: str,
         aggfunc: str,
     ) -> pl.DataFrame:
-        # pandas' pivot_table(aggfunc='count') counts NON-NULL values; polars'
-        # 'count' is a deprecated alias of 'len' (row count). Map count to an
-        # expression that counts non-null, so both engines agree.
-        agg: Any = pl.first().count() if aggfunc == "count" else aggfunc
-        return df.pivot(on=columns, index=index, values=values, aggregate_function=agg)
+        # pivot(aggregate_function=...) also evaluates cells that have no rows,
+        # where sum and count yield 0. Aggregating the existing (index, column)
+        # pairs first and pivoting one value per cell leaves those cells null, as
+        # pandas' pivot_table does. Expr.count() counts non-null values, which
+        # matches pivot_table(aggfunc='count').
+        grouped = df.group_by([*index, columns], maintain_order=True).agg(getattr(pl.col(values), aggfunc)())
+        return grouped.pivot(on=columns, index=index, values=values)
 
     # -- New nodes (text/date/value mapping) ---------------------------
 

@@ -357,13 +357,17 @@ class PivotTransformation(BaseTransformation):
         src, dst = input_vars["in"], output_vars["out"]
         index = config["index"]
         index = one_or_list(index) if isinstance(index, list) else index
+        keys = [*(index if isinstance(index, list) else [index]), config["columns"]]
+        # aggfunc is emitted as a method name, not a quoted string, so it must
+        # come from the allowlist even when export runs on an unvalidated config.
+        self.validate_config(config)
         aggfunc = config.get("aggfunc", "sum")
-        # count must count non-null (matching pandas pivot_table aggfunc='count'),
-        # not polars' deprecated 'count' (== 'len', row count).
-        agg = "pl.first().count()" if aggfunc == "count" else f"{aggfunc!r}"
+        # Aggregate before pivoting, like PolarsEngine.pivot: a cell with no rows
+        # stays null instead of becoming a 0 sum or count.
         return (
-            f"{dst} = {src}.pivot(on={config['columns']!r}, index={index!r}, "
-            f"values={config['values']!r}, aggregate_function={agg})"
+            f"{dst} = {src}.group_by({keys!r}, maintain_order=True)"
+            f".agg(pl.col({config['values']!r}).{aggfunc}())"
+            f".pivot(on={config['columns']!r}, index={index!r}, values={config['values']!r})"
         )
 
 
