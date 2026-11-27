@@ -704,23 +704,37 @@ def _filter_graph(config: dict[str, Any], out_path: str, node_type: str) -> dict
     }
 
 
-def _run_filter(runner: str, config: dict[str, Any], tmp_path: Any, node_type: str = "filterRows") -> pd.DataFrame:
-    """Run csv -> node -> csv through the app engine or an exported script."""
+def _run_filter(
+    runner: str,
+    config: dict[str, Any],
+    tmp_path: Any,
+    node_type: str = "filterRows",
+    parameters: list[dict[str, Any]] | None = None,
+) -> pd.DataFrame:
+    """Run csv -> node -> csv through the app engine or an exported script. Flow
+    ``parameters`` resolve the way a run and an export resolve them."""
     from app.engine.codegen import CodeGenerator
+    from app.engine.codegen_params import parameter_block_lines, substitute_for_codegen
     from app.engine.executor import FlowExecutor, dataset_ref_key
+    from app.engine.parameters import apply_parameters
     from app.engine.polars_codegen import PolarsCodeGenerator
 
     source = tmp_path / "in.csv"
     source.write_text(_FILTER_CSV, encoding="utf-8")
     out = tmp_path / "out.csv"
     graph = _filter_graph(config, str(out), node_type)
+    if parameters:
+        graph["parameters"] = parameters
     if runner in ("pandas", "polars"):
-        outputs = FlowExecutor().execute(graph, {dataset_ref_key("d", None): source}, tmp_path, engine_name=runner)
+        resolved, _ = apply_parameters(graph, {})
+        outputs = FlowExecutor().execute(resolved, {dataset_ref_key("d", None): source}, tmp_path, engine_name=runner)
         return pd.read_csv(next(iter(outputs.values())), dtype={"zip": str})
+    code_graph, param_lines = substitute_for_codegen(graph), parameter_block_lines(graph)
     if runner == "pandas-script":
-        code = CodeGenerator().generate(graph, {"d": str(source)})
+        code = CodeGenerator().generate(code_graph, {"d": str(source)}, parameter_lines=param_lines)
     else:
-        code = PolarsCodeGenerator().generate(graph, {"d": str(source)}, lazy=runner == "polars-lazy-script")
+        lazy = runner == "polars-lazy-script"
+        code = PolarsCodeGenerator().generate(code_graph, {"d": str(source)}, lazy=lazy, parameter_lines=param_lines)
     exec(compile(code, f"<{runner}>", "exec"), {})  # noqa: S102 - exercising the exported script
     return pd.read_csv(out, dtype={"zip": str})
 
@@ -738,6 +752,30 @@ def test_filter_rows_text_value_compares_in_column_type(
     assert sorted(result["row"]) == kept
     if column == "zip":
         assert "02134" in set(result["zip"])  # compared as text: the leading zero survives
+
+
+# An `in` value may be a flow parameter: the run splits the resolved value on
+# commas, and the export must split the parameter variable the same way.
+_IN_PARAMETER_CASES = [
+    ("qty", "{{ ids }}", {"name": "ids", "type": "string", "default": "5, 20"}, [1, 4]),
+    ("zip", "{{ ids }}", {"name": "ids", "type": "string", "default": "02134, x"}, [1, 3]),
+    ("qty", "{{ ids }}", {"name": "ids", "type": "integer", "default": 15}, [2]),
+    ("qty", "5, {{ ids }}", {"name": "ids", "type": "integer", "default": 20}, [1, 4]),
+]
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "value", "parameter", "kept"),
+    _IN_PARAMETER_CASES,
+    ids=["text-list", "text-list-on-text", "integer", "embedded"],
+)
+def test_filter_rows_in_resolves_a_parameter_like_the_run(
+    column: str, value: str, parameter: dict[str, Any], kept: list[int], runner: str, tmp_path: Any
+) -> None:
+    config = {"column": column, "operator": "in", "value": value}
+    result = _run_filter(runner, config, tmp_path, parameters=[parameter])
+    assert sorted(result["row"]) == kept
 
 
 # Text that is not a number fails in the app on both engines. An export keeps

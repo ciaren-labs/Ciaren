@@ -2,6 +2,7 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.codegen_params import CodeRef
 from app.engine.transformations.base import (
     FILTER_VALUE_HELPER_PANDAS,
     FILTER_VALUE_HELPER_POLARS,
@@ -48,6 +49,10 @@ class FilterRowsTransformation(BaseTransformation):
         if op == "in":
             if isinstance(val, list):
                 return val
+            if isinstance(val, CodeRef):
+                # A flow parameter (export only): split the variable in the script
+                # exactly as the run splits the resolved value below.
+                return CodeRef(f"[_v.strip() for _v in str({val.expr}).split(',') if _v.strip()]")
             return [v.strip() for v in str(val).split(",") if v.strip()]
         return val
 
