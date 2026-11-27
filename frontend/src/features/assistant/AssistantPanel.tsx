@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -47,6 +48,8 @@ interface Props {
   datasets: Dataset[];
   current: () => GraphJson;
   saved: (revision: string, graph: GraphJson) => void;
+  /** Canvas element that hosts a floating launcher, so the assistant is easy to find. */
+  floatingHost?: HTMLElement | null;
 }
 export function AssistantPanel({
   flowId,
@@ -59,6 +62,7 @@ export function AssistantPanel({
   datasets,
   current,
   saved,
+  floatingHost,
 }: Props) {
   const [tab, setTab] = useState("conversation");
   const [reversing, setReversing] = useState(false);
@@ -271,6 +275,22 @@ export function AssistantPanel({
           Assistant
         </Button>
       </DialogTrigger>
+      {floatingHost &&
+        !open &&
+        createPortal(
+          <button
+            type="button"
+            onClick={() => changeOpen(true)}
+            aria-label="Ask the flow assistant"
+            className="assistant-launcher absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-background/95 py-1.5 pl-1.5 pr-4 text-sm font-medium text-foreground shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="assistant-mast grid size-7 place-items-center rounded-full text-white">
+              <Sparkles aria-hidden className="size-4" />
+            </span>
+            Ask the assistant
+          </button>,
+          floatingHost,
+        )}
       <DialogContent
         overlayClassName="bg-foreground/10"
         onCloseAutoFocus={(e) => {

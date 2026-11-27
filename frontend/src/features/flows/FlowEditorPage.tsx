@@ -79,6 +79,7 @@ export function FlowEditorPage() {
     }
   };
   const [exportOpen, setExportOpen] = useState(false);
+  const [canvasHost, setCanvasHost] = useState<HTMLDivElement | null>(null);
   const [paramsOpen, setParamsOpen] = useState(false);
   const [runParamsOpen, setRunParamsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -332,6 +333,7 @@ export function FlowEditorPage() {
               }}
               datasets={datasets ?? []}
               current={assistantCanvas}
+              floatingHost={canvasHost}
               saved={(value, graph) => {
                 rememberSave(value, graph);
                 void refetch();
@@ -398,7 +400,7 @@ export function FlowEditorPage() {
         <div className="flex min-h-0 flex-1">
           <NodePalette onAdd={handleAddNode} unlocked={inputReady} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1">
+            <div ref={setCanvasHost} className="relative min-h-0 flex-1">
               {graphReadyForFlowId === flow.id ? (
                 <FlowCanvas key={flow.id} />
               ) : (
