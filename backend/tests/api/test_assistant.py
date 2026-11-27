@@ -219,6 +219,38 @@ async def test_docs_citation_abstention(client, enabled, monkeypatch):
     assert completion.await_count == 2
 
 
+@pytest.mark.parametrize(
+    ("question", "excerpt", "source"),
+    [
+        ("How do I set up an API key?", "**New API key**", "flow-assistant-quick-start"),
+        ("Where can I see the history of assistant changes?", "**Preview reversal**", "flow-assistant-quick-start"),
+        ("Do I need an API key to use Ciaren?", "visual pipeline builder without an API key", "quick-start"),
+        ("Can Ciaren build a pipeline from a prompt?", "supported CSV operations", "flow-assistant-quick-start"),
+        ("Can I connect my agent via MCP?", "does not ship a Model Context Protocol", "external-agent"),
+    ],
+)
+async def test_guides_retrieve_onboarding_passages(client, enabled, monkeypatch, question, excerpt, source):
+    from re import fullmatch
+
+    def choose(_provider, _instruction, context):
+        assert set(context) == {"question", "passages"}
+        return {"passage": next((i for i, passage in enumerate(context["passages"]) if excerpt in passage), None)}
+
+    monkeypatch.setattr(assistant_provider, "complete", AsyncMock(side_effect=choose))
+    flow = (await client.post("/api/flows", json={"name": "Guides"})).json()
+    response = await client.post(
+        f"/api/assistant/flows/{flow['id']}/turn",
+        json={"mode": "docs", "provider": "openai", "question": question, "revision": flow["updated_at"]},
+    )
+    assert response.status_code == 200
+    answer = response.json()
+    assert excerpt in answer["message"]
+    assert fullmatch(
+        rf"https://github\.com/ciaren-labs/Ciaren/blob/[a-f0-9]{{40}}/docs/guide/{source}\.md#L\d+",
+        answer["citation"]["url"],
+    )
+
+
 async def test_scope_resources_before_provider_call(client, enabled, monkeypatch):
     flow = (await client.post("/api/flows", json={"name": "Scope"})).json()
     project = (await client.post("/api/projects", json={"name": "Separate"})).json()

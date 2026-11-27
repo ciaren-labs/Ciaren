@@ -50,11 +50,13 @@ class ProviderResponse:
                 Path("cancelled").touch()
                 raise
         if "passages" in self.data:
+            markers = {
+                "How do I set up an API key?": "**New API key**",
+                "Where can I see the history of assistant changes?": "**Preview reversal**",
+            }
+            marker = markers.get(self.data["question"], "left** handle")
             answer = {
-                "passage": next(
-                    (i for i, p in enumerate(self.data["passages"]) if "left** handle" in p and "right** handle" in p),
-                    None,
-                )
+                "passage": next((i for i, passage in enumerate(self.data["passages"]) if marker in passage), None)
             }
         elif "inputs" in self.data:
             left, right = self.data["inputs"]

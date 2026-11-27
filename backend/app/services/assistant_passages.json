@@ -1,88 +1,93 @@
 [
   {
-    "title": "quick-start · Quick Start (5 Minutes)",
+    "title": "quick-start · Manual quick start (5 minutes)",
     "text": "In Ciaren, a saved pipeline is called a **flow** — you'll see that word everywhere in the editor and the API. This walkthrough uses the visual editor; an API-only version is at the bottom for developers who want to inspect the REST surface.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L12"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L12"
+  },
+  {
+    "title": "quick-start · Do I need an API key to use Ciaren?",
+    "text": "No. Use the visual pipeline builder without an API key for a model provider. You can upload a CSV, connect nodes yourself, validate and run the flow locally, and export pandas or Polars code. A remote data service may require separate credentials if you choose its connector.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L19"
   },
   {
     "title": "quick-start · What you'll build",
     "text": "By the end of this walkthrough you will have a running pipeline that cleans, aggregates, and outputs a summary CSV — plus the equivalent Python script.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L41"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L47"
   },
   {
     "title": "quick-start · 1. Pick or Upload a Dataset",
     "text": "If you are using the Demo project, you can skip the upload and use an existing sample dataset.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L54"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L60"
   },
   {
     "title": "quick-start · 1. Pick or Upload a Dataset",
     "text": "Ciaren infers the column schema and stores a sample. Datasets are **versioned** — re-uploading a file with the same name adds a new version rather than overwriting the old one, so existing flows stay reproducible.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L65"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L71"
   },
   {
     "title": "quick-start · 3. Run the flow",
     "text": "Open the run from the **Runs** page to inspect each node and download the output.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L96"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L103"
   },
   {
     "title": "quick-start · 4. Export Python",
     "text": "Click **Export → Python**. Ciaren returns standalone, readable code for your flow, including **polars**, **pandas**, and **lazy polars** variants where available. Paste it into a script or a Jupyter notebook and it runs on its own, no Ciaren required.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L100"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L107"
   },
   {
     "title": "quick-start · Prefer the API?",
     "text": "Everything above is also available over REST. The fastest way to explore it is the interactive docs at `http://localhost:8055/docs`.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/9bd6e3920696916ce61283b009cb0deb220ce00f/docs/guide/quick-start.md#L113"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/quick-start.md#L120"
   },
   {
     "title": "engines · Engines: polars & pandas",
     "text": "Ciaren executes flows through a small **engine abstraction**, so the same visual flow runs on either **polars** or **pandas**. Every transformation node is engine-agnostic — it knows how to run on both and how to generate code for both.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L9"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L9"
   },
   {
-    "title": "engines · The default is polars",
-    "text": "The default dataframe engine is **polars** (`settings.DEFAULT_ENGINE = \"polars\"`). polars is fast and memory-light on small-to-medium data, which suits Ciaren's target use cases. pandas is fully supported and remains a first-class choice.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L15"
+    "title": "engines · Which engine runs",
+    "text": "polars is fast and memory-light on small-to-medium data; pandas is fully supported. You can change the server-wide default:",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L21"
   },
   {
     "title": "engines · Choosing an engine per run",
     "text": "A single run can override the default. In the UI, pick the engine when you run a flow; over the API, pass it in the run body:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L33"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L36"
   },
   {
     "title": "engines · Choosing an engine per run",
     "text": "The chosen engine is **recorded on the run**, so the run is reproducible and you can see which engine produced a given output.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L41"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L44"
   },
   {
     "title": "engines · Code export: pandas, polars, and lazy polars",
     "text": "Each input frame is named after its dataset file (`sales.csv` → `df_sales`) or SQL table, so the script talks about your data, not `df_1`. Steps on a straight chain fuse into one fluent method chain on a single variable, the way a person would write it, and blank lines separate the reads, each chain, and the writes. A step whose result feeds **several** later nodes (a fan-out, or a join input) keeps its own `df_N` variable, since it must stay alive for every consumer.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L101"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L104"
   },
   {
     "title": "engines · Lazy polars (for large inputs)",
     "text": "The `polars (lazy)` variant reads with `scan_*` and builds a single **`LazyFrame`** query that only materializes at the final `collect()`. This lets polars apply projection and predicate pushdown (read fewer columns, filter at the scan) and optimize joins — a real speedup on large files for no change in results.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L110"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L113"
   },
   {
     "title": "engines · Freeing intermediates (lower peak memory)",
     "text": "Pass `?free_intermediates=true` (the **Free intermediate tables (`del`)** checkbox in the export dialog) to add a `del` after each dataframe's last use in the pandas and eager-polars scripts. This releases intermediate tables sooner, lowering peak memory on long pipelines. A fully linear flow already reuses one variable throughout, so it has nothing to `del` — the option matters for flows with fan-outs or joins, where intermediates outlive the next step. The lazy script is unaffected — its variables are query plans, not materialized data, so there is nothing to free.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L134"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L137"
   },
   {
     "title": "engines · Streaming reads at runtime (polars)",
     "text": "The above is about *exported code*. Inside Ciaren, the **polars** engine also loads CSV and Parquet inputs with a streaming reader (`scan_*` + a streaming `collect`), so a large input file is parsed in batches instead of all at once — lower peak memory at the point that usually dominates it. The result is identical to a plain read, so nothing else about your flow changes. (The pandas engine reads eagerly.)",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L161"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L164"
   },
   {
     "title": "engines · Execution mode: thread vs. process",
     "text": "Flow compute is synchronous (pandas/polars), so Ciaren runs it **off the event loop** to avoid blocking the API. `EXECUTION_MODE` selects how:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L170"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L173"
   },
   {
     "title": "engines · Run timeouts",
     "text": "Each node also records a `duration_ms` in the run, so you can spot the slow step.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/engines.md#L202"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/a8a8e063c3fd35ae73dd7de05f22ebdae8d1749e/docs/guide/engines.md#L205"
   },
   {
     "title": "parameters · Flow Parameters",
@@ -372,92 +377,92 @@
   {
     "title": "connections · Database Connections",
     "text": "Connections let Ciaren read from and write to databases through the **SQL Input** and **SQL Output** nodes. You define a connection to a database **once** on the Connections page, then reuse it across as many flows and nodes as you like — each node just picks a table (or writes a query).",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L10"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L10"
   },
   {
     "title": "connections · Security model",
     "text": "A connection stores only a **secret reference** — never the value. Like Airflow's secrets backends, the reference picks where the secret lives; all sources are local, with no external service required:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L28"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L28"
   },
   {
     "title": "connections · Security model",
     "text": "Whatever the source, the value is read only when a connection is used, and is:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L38"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L38"
   },
   {
     "title": "connections · Security model",
     "text": "For an env var reference, set the variable before starting Ciaren:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L47"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L47"
   },
   {
     "title": "connections · Security model",
     "text": "It's an extra (not part of the base install) so servers and containers stay lean, and it's pure-Python on every OS — no compiler needed. Then store a secret; the value is prompted, never echoed:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L62"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L62"
   },
   {
     "title": "connections · Security model",
     "text": "and use `keyring:pg-main` as the connection's secret. `ciaren secret unset` removes it. :::",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L70"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L70"
   },
   {
     "title": "connections · Security model",
     "text": "You don't have to drop to the CLI, though: the connection form has a **\"Store a value in the OS keychain\"** button under the secret field. Enter a name and the value, click save, and Ciaren writes the value to the OS keychain and fills the field with the resulting `keyring:NAME` reference — the plaintext is sent once, stored only in the keychain, and never persisted, echoed back, or logged. When `ciaren[keyring]` isn't installed, or the host has no keychain daemon (headless servers, containers), the button stays visible but **disabled** and a hover explains what to install; `env:` or `file:` references apply there instead.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L74"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L74"
   },
   {
     "title": "connections · Security model",
     "text": "Two rules govern **which** env vars an `env:` (or bare) reference may name:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L112"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L112"
   },
   {
     "title": "connections · Deleting a connection",
     "text": "Deleting a connection that flows still reference is refused with a message listing those flows — repoint their SQL/Storage nodes first, or force the delete (the UI asks; the API takes `?force=true`), after which those flows fail at run time until reconfigured.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L125"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L125"
   },
   {
     "title": "connections · Supported databases",
     "text": "To pull in **every** database driver at once:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L148"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L148"
   },
   {
     "title": "connections · Supported databases",
     "text": "Drivers are **optional**. If one isn't installed, that provider appears disabled on the Connections page with an \"install …\" hint, so the core stays lightweight. SQLite needs no driver and is great for trying things out.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L154"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L154"
   },
   {
     "title": "connections · Creating a connection",
     "text": "The Connections page ships with two pre-seeded **built-in** connections you'll see before adding any of your own:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L173"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L173"
   },
   {
     "title": "connections · Creating a connection",
     "text": "Both back core features out of the box and aren't meant to be deleted; treat them like defaults rather than connections you created.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L181"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L181"
   },
   {
     "title": "connections · Creating a connection",
     "text": "SQLite asks only for a file path; most others ask for host, port, database, username, and the **password secret** — a reference (env var name, `keyring:NAME`, or `file:/path`), or use **Save a secret to the system keychain** to store the value in the OS keychain in place. The actual secret is never stored by Ciaren.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L192"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L192"
   },
   {
     "title": "connections · Web APIs",
     "text": "The built-in **REST API** connector reads HTTP JSON/CSV endpoints like database tables — no driver required. It covers the connection options commercial tools offer:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L206"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L206"
   },
   {
     "title": "connections · Web APIs",
     "text": "In a flow, use **SQL Input**: pick the API connection, then choose a declared **endpoint** or switch to **Custom request path** (e.g. `users?active=true`). Each run snapshots the response to parquet like any other input, so runs stay reproducible. API connections are **read-only** — SQL Output doesn't list them.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L222"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L222"
   },
   {
     "title": "connections · Web APIs",
     "text": "The connector applies the same SSRF host guard as every other connector, and responses are size-capped before parsing — 256 MiB per request **and** cumulatively across the pages of one paginated read (with a hard ceiling of 1000 pages per read, whatever `max_pages` says). For larger extractions, filter or window the endpoint and split the read across runs.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L227"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L227"
   },
   {
     "title": "connections · Reproducibility",
     "text": "Each run snapshots its SQL inputs to parquet, so a run records exactly the data it processed even though the source is live.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/bdaf340f8a84be26189100322b0627a8bed9d4e2/docs/guide/connections.md#L265"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/f7bb8feec71f47fe7d9f34610bb9c5a4621f766a/docs/guide/connections.md#L265"
   },
   {
     "title": "visualizations · Visualizations",
@@ -533,5 +538,170 @@
     "title": "join · Generated Python code",
     "text": "These exports left-join `df_1` and `df_2` on `customer_id`, preserving unmatched left rows and expanding duplicate right keys. pandas matches null keys in this join; Polars leaves them unmatched. Ciaren explicitly enables null matching for Polars semi/anti joins. Input names come from the two upstream exports.",
     "url": "https://github.com/ciaren-labs/Ciaren/blob/88013fe9028a5c85c0e411a21561fb89d9b352be/docs/transformations/join.md#L66"
+  },
+  {
+    "title": "flow-assistant-quick-start · Set up the Ciaren AI flow assistant and build a CSV flow",
+    "text": "Use a four-row CSV to try the full review cycle. You will ask for a change, inspect the proposed nodes, save the flow, run it yourself and use its activity history to reverse the change.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L9"
+  },
+  {
+    "title": "flow-assistant-quick-start · Can Ciaren build a pipeline from a prompt?",
+    "text": "Yes. The assistant translates natural language to data workflows for supported CSV operations. It proposes real nodes and connections for a whole flow, including compatible two-input joins. You review and approve the proposal to save it, then choose when to run. The manual editor also supports operations outside the assistant’s plan.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L13"
+  },
+  {
+    "title": "flow-assistant-quick-start · Open an editor with Assistant",
+    "text": "Open a flow and look for **Assistant** in the toolbar. The published 0.3.1 release predates this feature. If the button is missing, build from a source revision that includes the assistant. With Git, Python 3.12+, an activated virtual environment and Node 24.15 or later in the 24.x series, build the editor and install the local package:",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L19"
+  },
+  {
+    "title": "flow-assistant-quick-start · Open an editor with Assistant",
+    "text": "Visit `http://127.0.0.1:8055`. The commands assume a new installation. For an existing database, back it up and run `ciaren db upgrade` before starting the upgraded server.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L30"
+  },
+  {
+    "title": "flow-assistant-quick-start · How do I register a provider API key?",
+    "text": "To set up or register a provider API key, open **Settings → Assistant**, choose your provider and save the setting. With the keyring source selected by the server, enter your provider-issued key in **New API key** and choose **Save key**. Look for **configured** and an empty key field. Checking this status makes no provider request.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L36"
+  },
+  {
+    "title": "flow-assistant-quick-start · Build a flow with a synthetic CSV",
+    "text": "To build a CSV flow, choose a project dataset on an empty canvas, describe the transformations and select **Create proposal**. The assistant generates the nodes and connections together. Review them before choosing **Apply and save**. **Run** executes the saved flow separately.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L42"
+  },
+  {
+    "title": "flow-assistant-quick-start · How do I revert a saved change in activity history?",
+    "text": "To revert a saved assistant change, open the flow’s **Assistant → Activity** history, expand the entry and choose **Preview reversal**. Review the inverse, then choose **Confirm reversal**. Reload the flow to see both the original save and the reversal. On this example’s otherwise unchanged canvas the four added nodes disappear.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L66"
+  },
+  {
+    "title": "flow-assistant-quick-start · How do I revert a saved change in activity history?",
+    "text": "A reversal creates a new saved revision. Undo changes your local canvas. Save or discard pending edits before previewing a reversal. If another editor changes a setting involved in the reversal, keep your local work, compare the saved version and review a fresh preview. Reversing a flow does not run it or remove earlier run results.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant-quick-start.md#L68"
+  },
+  {
+    "title": "flow-assistant · Flow assistant for visual ETL",
+    "text": "Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, choose a provider under **Settings → Assistant** and save the setting. Select a supported model, choose a reasoning effort if offered, and configure its API key. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L9"
+  },
+  {
+    "title": "flow-assistant · Walkthrough: recover a missing order",
+    "text": "The recording uses the packaged editor, the synthetic orders audit and a simulated provider response. The canvas, validation, saves and history use the real application.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L21"
+  },
+  {
+    "title": "flow-assistant · Inside the editor",
+    "text": "Generation makes one request. Cancel or close the dialog to end the wait and close the provider connection. A provider can still bill work already performed. A saved-flow revision conflict, changed input version or expired proposal requires a new proposal. Reload the editor after a concurrent save, preserving any local work first.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L29"
+  },
+  {
+    "title": "flow-assistant · Joining two CSV inputs",
+    "text": "On an empty canvas select the left dataset, then the optional **Right input for Join**. Both CSVs must belong to the flow's project. They need one same-named key of the same type within the first 64 columns of each input and no other overlapping column names. Open **Data shared with provider** and choose **Include column names in this request** if the question refers to specific fields. Review the two filenames, versions, key, join mode, and left/right wiring before applying. Press **Run** separately to execute.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L33"
+  },
+  {
+    "title": "flow-assistant · Joining two CSV inputs",
+    "text": "A proposed Join can keep matching rows (`inner`) or retain all left rows (`left`), add one boolean equality flag on a text column, sort ascending by one input column and write a CSV. For the repository's `examples/orders-audit`, choose orders on the left and catalog on the right. Ask to keep all orders by SKU, mark `ready_to_fulfill` when `catalog_status` equals `active`, and sort by `order_id`. The flag uses Ciaren's built-in Conditional Column. Duplicate keys can multiply rows. With null keys on both sides, pandas can match the nulls while Polars leaves them unmatched.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L35"
+  },
+  {
+    "title": "flow-assistant · Joining two CSV inputs",
+    "text": "If an inner Join drops an unmatched order, describe the missing left rows under **Diagnose a failure**. For a supported existing canvas the only proposed edit is `how` from `inner` to `left`. Review and apply it, then rerun. Both input snapshots are checked atomically at confirmation. A newer version invalidates a selection that followed latest. An explicitly pinned input continues to use its exact immutable version. Joins with multiple keys, different key names, additional overlap or plugins can be edited manually.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L37"
+  },
+  {
+    "title": "flow-assistant · Canvas tools and activity",
+    "text": "Open **Assistant → Conversation**. **Build**, **Guides** and **Diagnose** choose the task. A proposed edit shows the affected nodes and wiring. Expand **Connections** to check the ports, or **Compare all settings** to inspect an existing node. **Inspect on canvas** returns to that node. The request and proposal stay in the open panel until you close it.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L41"
+  },
+  {
+    "title": "flow-assistant · Canvas tools and activity",
+    "text": "Reversals preserve unrelated edits when the saved inverse can be proven safe. For example, reverting a Join mode keeps a later downstream sort. Ciaren checks the project, flow revision, affected settings, dependencies and bound inputs again when you confirm. If another client saves after a preview, preserve local work, reload and preview again. A changed dependency, a removed input, or a prior private value that cannot be reconstructed requires a manual edit. Reversals are final entries in the timeline; a fresh proposal can reapply a change.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L49"
+  },
+  {
+    "title": "flow-assistant · Canvas tools and activity",
+    "text": "The editor sends the loaded revision on **Save** and on the save before **Run**. Run creation checks the returned revision again before taking its execution snapshot. If you edit during a Run, the editor keeps the draft open and links to the result. A conflict leaves the draft on the canvas and offers a separate tab to compare the saved version. API callers can pass `expected_revision` (the flow’s `updated_at`) on both `PUT /api/flows/{id}` and `POST /api/flows/{id}/runs`. Older clients that omit it retain unconditional save and latest-version execution; upgrade those clients to protect their writes.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L51"
+  },
+  {
+    "title": "flow-assistant · Canvas tools and activity",
+    "text": "Access follows the installation’s existing server authentication. The timeline records the source of a change and the user’s confirmation without attributing it to a named person. A moved flow’s prior project entries are hidden. Activity pages contain up to 20 entries. Reversal previews use up to 64 short-lived process-local references with a three-minute timeout. Use sticky routing or a single process for confirmations. Deleting the flow deletes its activity.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L53"
+  },
+  {
+    "title": "flow-assistant · What leaves the server",
+    "text": "Every request includes the text you enter. Keep credentials and confidential row values out of that text. Graph requests additionally include supported node types, indexed connections, column indexes and coarse types. For two-input creation, the provider receives temporary input and port references and the indexes of matching keys. A Join repair sends the question, a temporary Join reference, its current mode and, during diagnosis, a fixed error category. Opt in to column names for a single request when they matter. Documentation questions send up to five bundled passages without canvas context.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L57"
+  },
+  {
+    "title": "flow-assistant · What leaves the server",
+    "text": "Files, samples, filenames, dataset IDs, connection details, node labels, scripts, full configuration, raw logs and error traces stay on the server. Recommendations and citations are rendered as text. The assistant cannot run a pipeline. Review uses ordinary Ciaren nodes, so the existing run, export and undo controls continue to work.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L59"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "Ciaren settings and provider credentials belong to one server instance. Anyone with access to its API can manage the assistant within the installation's token and browser-origin rules. Deploy separate instances, data directories and secret sources for separate trust boundaries. Use TLS and the Ciaren API token for a networked installation. Configure reverse proxies and monitoring to omit request bodies and authorization headers. Restrict process and diagnostic dump access at the operating-system level.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L63"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. Use the provider name in capitals for its model variable. Only OpenAI, Anthropic and DeepSeek expose an `_EFFORT` variable. OpenCode uses the provider default. The Settings page labels the effective value **Custom**, **From environment** or **Default**. For `CIAREN_ASSISTANT_PROVIDER` use `openai`, `anthropic`, `deepseek`, `opencode` or `off`. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L65"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "To rotate a key stored in the native keyring, enter the replacement in **New API key** and choose **Save key**. **Remove key** deletes the stored credential. An environment or file source is administered on the server. Ciaren uses the configured source exclusively.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L67"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "For Docker or a headless install, set the non-secret variables below and mount the selected secret file. Keep the source file outside the repository, build context, data directory and connector roots. Set `CIAREN_STORAGE_ALLOWED_ROOTS` to dedicated dataset folders on shared installations.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L77"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "For the repository Compose setup, save the fragment as `docker-compose.override.yml` alongside `docker-compose.yml`. Set the host path to an existing secret file and recreate the service with `docker compose up -d --build ciaren`. For process injection, set `CIAREN_ASSISTANT_DEEPSEEK_KEY_SOURCE=env` and have your secret manager supply `CIAREN_ASSISTANT_DEEPSEEK_API_KEY` to the server process when using DeepSeek. Keep secrets out of shell history and committed environment files.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L91"
+  },
+  {
+    "title": "flow-assistant · Deployment and credentials",
+    "text": "Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status indicates a local credential exists.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L93"
+  },
+  {
+    "title": "flow-assistant · Bounds and implementation",
+    "text": "Input is limited to 1,500 request characters, 80 canvas nodes, 160 edges, 64 columns per source, 16 KB of serialized provider context and 2,048 output tokens. The timeout is 35 seconds. Up to eight turns may be active per process. At most six steps are proposed per turn. Up to 64 proposals live in memory for three minutes. Each application process allows 20 provider calls per rolling hour by default (`CIAREN_ASSISTANT_TURNS_PER_HOUR`). Use a single process or sticky routing for proposal confirmation. Configure provider-side spend limits for a currency-denominated cap. Requests use zero automatic retries. The UI waits for a complete validated answer before rendering a change.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L108"
+  },
+  {
+    "title": "flow-assistant · Bounds and implementation",
+    "text": "The assistant uses a typed internal plan compiled against the installed node registry. It can place a file input and output, limit, filter or sort rows, select or drop columns, remove duplicates and drop nulls. It can replace a supported transformation's settings in place. Plugin, code and connector flows receive read-only diagnostic recommendations based on node types, wiring and the failure category. Edit those graphs in the regular editor. This first integration has no shell, generic network or file tools, MCP listener, direct repository access or arbitrary code generation. A local MCP transport would add another credential and authorization boundary without improving these editor actions. The two local canvas tools reuse existing documentation and validation. The activity endpoint handles confirmed edits separately from model tools and never provides history to the model.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/flow-assistant.md#L110"
+  },
+  {
+    "title": "external-agent · Does Ciaren provide an MCP server?",
+    "text": "Ciaren does not ship a Model Context Protocol (MCP) server, a stdio command for MCP clients or an MCP registration URL. The editor's Flow Assistant uses internal typed operations. Choosing a model provider in Settings configures that editor feature.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/external-agent.md#L11"
+  },
+  {
+    "title": "external-agent · Does Ciaren provide an MCP server?",
+    "text": "For an agent you maintain, the supported integration interfaces are the Ciaren REST API and the Python SDK. A small catalog lookup lets an agent answer a question about the installed nodes without reading a dataset or executing a pipeline.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/external-agent.md#L13"
+  },
+  {
+    "title": "external-agent · Give an agent one read-only lookup",
+    "text": "Start your local Ciaren server with `ciaren serve`. Install the client from the same checkout with `python -m pip install ./client`. Save this as `join_ports.py` and run `python join_ports.py`:",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/external-agent.md#L17"
+  },
+  {
+    "title": "external-agent · Give an agent one read-only lookup",
+    "text": "The expected result is `['left', 'right']`. Register only this fixed function with your own agent host. It calls `GET /api/catalog/nodes` and returns two port IDs. This lookup works with the editor assistant switched off and needs no model provider or provider key.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/external-agent.md#L39"
+  },
+  {
+    "title": "external-agent · Give an agent one read-only lookup",
+    "text": "If your installation requires authentication, supply the Ciaren server token to the host process via its environment. Keep it out of prompts and tool results. The installation token can authorize other operations; the fixed function limits what this particular tool exposes. Keep writes, arbitrary requests and run submission outside that tool. The editor’s proposal review and Activity history apply to the built-in assistant.",
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/473b95d58156a322100ab136046e7ea1bdc437b7/docs/guide/external-agent.md#L41"
   }
 ]

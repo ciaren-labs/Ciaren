@@ -137,6 +137,18 @@ def record_build(context, base, capture, stage):
     prompt.fill("How do I connect the two inputs of a Join?")
     panel.get_by_role("button", name="Ask the guides").click()
     expect(panel.locator('a[href*="/docs/transformations/join.md#L"]')).to_be_visible()
+    for question, passage in (
+        ("How do I set up an API key?", "To set up or register a provider API key"),
+        ("Where can I see the history of assistant changes?", "To revert a saved assistant change"),
+    ):
+        prompt.fill(question)
+        panel.get_by_role("button", name="Ask the guides").click()
+        expect(panel.get_by_text(passage, exact=False)).to_be_visible()
+        expect(panel.locator('a[href*="/docs/guide/flow-assistant-quick-start.md#L"]')).to_be_visible()
+    prompt.fill("zzqxthw")
+    panel.get_by_role("button", name="Ask the guides").click()
+    expect(panel.get_by_text("I could not find a supporting passage", exact=False)).to_be_visible()
+    expect(panel.locator('a[href*="/blob/"]')).to_have_count(0)
     panel.get_by_role("tab", name="Activity").click()
     panel.get_by_role("button", name="Preview reversal").click()
     panel.get_by_role("button", name="Confirm reversal").click()
