@@ -7,6 +7,19 @@ function settings(node: GraphNode, datasets: Dataset[]) {
   const columns = (field: unknown) =>
     Array.isArray(field) && field.length ? field.join(", ") : "all columns";
   switch (node.type) {
+    case "join":
+      return `${c.how ?? "inner"} Join · key ${[c.on].flat().join(", ")}`;
+    case "conditionalColumn": {
+      const rule = Array.isArray(c.rules) ? c.rules[0] : undefined;
+      if (
+        rule?.operator === "==" &&
+        rule.result === true &&
+        c.default === false
+      ) {
+        return `${c.new_column} is true when ${rule.column} equals “${rule.value}”, otherwise false`;
+      }
+      return JSON.stringify(c);
+    }
     case "fileInput":
       return `${datasets.find((d) => d.id === c.dataset_id)?.name ?? "Selected dataset"} · version ${c.dataset_version}`;
     case "fileOutput":
@@ -41,6 +54,11 @@ export function ProposalReview({
   const byId = new Map(
     [...base.nodes, ...delta.added].map((n) => [n.id, n.data.label]),
   );
+  const allNodes = [...base.nodes, ...delta.added];
+  function endpoint(id: string) {
+    const n = allNodes.find((node) => node.id === id);
+    return n?.type === "fileInput" ? settings(n, datasets) : byId.get(id);
+  }
   return (
     <section
       aria-label="Proposed changes"
@@ -91,10 +109,18 @@ export function ProposalReview({
         })}
         {delta.connected.map((e) => (
           <li key={e.id}>
-            Connect {byId.get(e.source)} → {byId.get(e.target)}
+            Connect {endpoint(e.source)} → {byId.get(e.target)}
+            {["left", "right"].includes(e.targetHandle ?? "") &&
+              ` · ${e.targetHandle} input`}
           </li>
         ))}
       </ul>
+      {[...delta.added, ...delta.changed].some((n) => n.type === "join") && (
+        <p className="text-xs text-muted-foreground">
+          Duplicate keys can produce multiple rows. Empty keys can match in
+          pandas and stay unmatched in Polars.
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         Applying also saves your current canvas edits. Undo restores the
         previous canvas.

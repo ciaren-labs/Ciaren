@@ -39,6 +39,7 @@ export function AssistantPanel({
   const [mode, setMode] = useState<Mode>("build");
   const [question, setQuestion] = useState("");
   const [dataset, setDataset] = useState("");
+  const [secondDataset, setSecondDataset] = useState("");
   const [shareNames, setShareNames] = useState(false);
   const [reply, setReply] = useState<Reply>();
   const [error, setError] = useState("");
@@ -112,7 +113,12 @@ export function AssistantPanel({
           revision,
           provider: service.data.provider,
           graph: mode === "docs" ? {} : snapshot,
-          dataset_id: dataset || null,
+          dataset_id:
+            mode === "build" && !snapshot.nodes.length ? dataset || null : null,
+          second_dataset_id:
+            mode === "build" && !snapshot.nodes.length
+              ? secondDataset || null
+              : null,
           share_names: shareNames,
         }),
       });
@@ -188,142 +194,187 @@ export function AssistantPanel({
           Assistant
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] w-[min(96vw,38rem)] max-w-none overflow-y-auto">
+      <DialogContent className="flex max-h-[90dvh] w-[min(96vw,38rem)] max-w-none flex-col overflow-hidden">
         <DialogTitle>Flow assistant</DialogTitle>
         <DialogDescription>
           {service.data?.model
             ? `${service.data.provider} · ${service.data.model}`
             : "Bring your own API key"}
         </DialogDescription>
-        {!ready && (
-          <p role="status">
-            {service.isLoading
-              ? "Checking configuration…"
-              : "Choose a provider and configure its key in Settings."}{" "}
-            <Link to="/settings" className="underline">
-              Open settings
-            </Link>
-          </p>
-        )}
-        {reply?.proposal ? (
-          <p className="text-sm text-muted-foreground">{question}</p>
-        ) : (
-          <>
-            <label className="grid gap-1 text-sm">
-              Task
-              <Select
-                aria-label="Task"
-                value={mode}
-                disabled={!!busy}
-                onChange={(e) => {
-                  setMode(e.target.value as Mode);
-                  setReply(undefined);
-                  setError("");
-                }}
-              >
-                {(Object.keys(labels) as Mode[]).map((m) => (
-                  <option key={m} value={m}>
-                    {labels[m]}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            {mode !== "docs" && !current().nodes.length && (
+        <div className="grid min-h-0 gap-3 overflow-y-auto px-1 py-1">
+          {!ready && (
+            <p role="status">
+              {service.isLoading
+                ? "Checking configuration…"
+                : "Choose a provider and configure its key in Settings."}{" "}
+              <Link to="/settings" className="underline">
+                Open settings
+              </Link>
+            </p>
+          )}
+          {reply?.proposal ? (
+            <p className="text-sm text-muted-foreground">{question}</p>
+          ) : (
+            <>
               <label className="grid gap-1 text-sm">
-                Input dataset
+                Task
                 <Select
-                  aria-label="Input dataset"
+                  aria-label="Task"
+                  value={mode}
                   disabled={!!busy}
-                  value={dataset}
                   onChange={(e) => {
-                    setDataset(e.target.value);
+                    setMode(e.target.value as Mode);
                     setReply(undefined);
+                    setError("");
                   }}
                 >
-                  <option value="">Choose a project dataset</option>
-                  {datasets
-                    .filter((d) => !d.is_disabled)
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
+                  {(Object.keys(labels) as Mode[]).map((m) => (
+                    <option key={m} value={m}>
+                      {labels[m]}
+                    </option>
+                  ))}
                 </Select>
               </label>
-            )}
-            <label className="grid gap-1 text-sm">
-              Request
-              <textarea
-                aria-label="Request"
-                className="min-h-20 rounded-md border border-border bg-background p-2"
-                disabled={!!busy}
-                maxLength={1500}
-                placeholder={
-                  mode === "docs"
-                    ? "How do I export Polars code?"
-                    : mode === "build"
-                      ? "Keep the first 100 rows"
-                      : "Why did this flow fail?"
-                }
-                value={question}
-                onChange={(e) => {
-                  setQuestion(e.target.value);
-                  setReply(undefined);
-                }}
-              />
-            </label>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <p>
-                {mode === "docs"
-                  ? "Sends your request and matching passages from the bundled guides."
-                  : "Sends your request, node types and connections, column types and indexes, and a failure category for diagnosis. Rows, filenames, raw errors and code stay local."}{" "}
-                Keep secrets out of your request.
-              </p>
-              {mode !== "docs" && (
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={shareNames}
+              {mode !== "docs" && !current().nodes.length && (
+                <label className="grid gap-1 text-sm">
+                  Input dataset
+                  <Select
+                    aria-label="Input dataset"
                     disabled={!!busy}
+                    value={dataset}
                     onChange={(e) => {
-                      setShareNames(e.target.checked);
+                      setDataset(e.target.value);
+                      setSecondDataset("");
                       setReply(undefined);
                     }}
-                  />
-                  Include column names in this request
+                  >
+                    <option value="">Choose a project dataset</option>
+                    {datasets
+                      .filter((d) => !d.is_disabled)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                  </Select>
                 </label>
               )}
-            </div>
-          </>
-        )}
-        <div role="status" aria-live="polite">
-          {busy === "generate"
-            ? "Waiting for provider…"
-            : busy === "apply"
-              ? "Saving proposal…"
-              : reply?.message
-                  .replace(/\*\*([^*]+)\*\*/g, "$1")
-                  .replace(/`([^`]+)`/g, "$1")}
+              {mode === "build" &&
+                !current().nodes.length &&
+                datasets.some(
+                  (d) => d.id === dataset && d.source_type === "csv",
+                ) && (
+                  <label className="grid gap-1 text-sm">
+                    Right input for Join (optional)
+                    <Select
+                      aria-label="Right input for Join"
+                      value={secondDataset}
+                      disabled={!!busy}
+                      onChange={(e) => {
+                        setSecondDataset(e.target.value);
+                        setReply(undefined);
+                      }}
+                    >
+                      <option value="">Use one input</option>
+                      {datasets
+                        .filter(
+                          (d) =>
+                            !d.is_disabled &&
+                            d.source_type === "csv" &&
+                            d.id !== dataset,
+                        )
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                    </Select>
+                    {secondDataset && (
+                      <span className="text-xs text-muted-foreground">
+                        The first dataset is the left input. A left Join keeps
+                        every row from it.
+                      </span>
+                    )}
+                  </label>
+                )}
+              <label className="grid gap-1 text-sm">
+                Request
+                <textarea
+                  aria-label="Request"
+                  className="min-h-20 rounded-md border border-border bg-background p-2"
+                  disabled={!!busy}
+                  maxLength={1500}
+                  placeholder={
+                    mode === "docs"
+                      ? "How do I export Polars code?"
+                      : mode === "build"
+                        ? "Keep the first 100 rows"
+                        : "Why did this flow fail?"
+                  }
+                  value={question}
+                  onChange={(e) => {
+                    setQuestion(e.target.value);
+                    setReply(undefined);
+                  }}
+                />
+              </label>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>
+                  {mode === "docs"
+                    ? "Sends your request and matching passages from the bundled guides."
+                    : "Sends your request, node types and connections, column types and indexes. Join requests can include matching key indexes or the current Join mode. Diagnosis can include a failure category. Rows, filenames, raw errors and code stay local."}{" "}
+                  Keep secrets out of your request.
+                </p>
+                {mode !== "docs" && (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={shareNames}
+                      disabled={!!busy}
+                      onChange={(e) => {
+                        setShareNames(e.target.checked);
+                        setReply(undefined);
+                      }}
+                    />
+                    Include column names in this request
+                  </label>
+                )}
+              </div>
+            </>
+          )}
+          <div role="status" aria-live="polite">
+            {busy === "generate"
+              ? "Waiting for provider…"
+              : busy === "apply"
+                ? "Saving proposal…"
+                : reply?.message
+                    .replace(/\*\*([^*]+)\*\*/g, "$1")
+                    .replace(/`([^`]+)`/g, "$1")}
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          {reply?.citation && (
+            <a
+              className="text-sm underline"
+              href={reply.citation.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {reply.citation.title}
+            </a>
+          )}
+          {reply?.delta && base && (
+            <ProposalReview
+              delta={reply.delta}
+              base={base}
+              datasets={datasets}
+            />
+          )}
         </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        {reply?.citation && (
-          <a
-            className="text-sm underline"
-            href={reply.citation.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {reply.citation.title}
-          </a>
-        )}
-        {reply?.delta && base && (
-          <ProposalReview delta={reply.delta} base={base} datasets={datasets} />
-        )}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <Button
             variant="outline"
             disabled={busy === "apply"}

@@ -36,7 +36,7 @@ export function FlowEditorPage() {
   const navigate = useNavigate();
   const { data: flow, isPending, isError, error, refetch } = useFlow(flowId ?? null);
   const updateFlow = useUpdateFlow();
-  const { data: datasets } = useDatasets(flow?.project_id ?? undefined);
+  const { data: datasets, refetch: refetchDatasets } = useDatasets(flow?.project_id ?? undefined);
   const { data: projects } = useProjects();
 
   const nodes = useFlowEditorStore((s) => s.nodes);
@@ -198,6 +198,27 @@ export function FlowEditorPage() {
     return graph;
   };
 
+  // Keep imported graph metadata outside the editor's node/edge form intact in a proposal.
+  const assistantCanvas = (): GraphJson => {
+    const previous = persistedGraph.current;
+    if (!previous?.nodes || !previous.edges) return buildGraph();
+    if (!useFlowEditorStore.getState().dirty) return previous;
+    const current = buildGraph();
+    const nodesById = new Map(previous.nodes.map((node) => [node.id, node]));
+    const edgesById = new Map(previous.edges.map((edge) => [edge.id, edge]));
+    const merged = {
+      ...previous,
+      ...current,
+      nodes: current.nodes.map((node) => {
+        const prior = nodesById.get(node.id);
+        return { ...prior, ...node, data: { ...prior?.data, ...node.data } };
+      }),
+      edges: current.edges.map((edge) => ({ ...edgesById.get(edge.id), ...edge })),
+    };
+    if (!current.parameters) delete merged.parameters;
+    return merged;
+  };
+
   const handleSave = () => {
     if (!flowId) return;
     updateFlow.mutate(
@@ -306,7 +327,15 @@ export function FlowEditorPage() {
 
         <div className="flex justify-start border-b border-border px-3 py-1">
           <AssistantPanel key={flow.id} flowId={flow.id} revision={revision} disabled={isDisabled}
-            datasets={datasets ?? []} current={buildGraph} saved={(value, graph) => {rememberSave(value, graph); void refetch();}} />
+            datasets={datasets ?? []}
+            current={assistantCanvas}
+            saved={(value, graph) => {
+              rememberSave(value, graph);
+              void refetch();
+              // A newly pinned input can be newer than the project list cached by this editor.
+              void refetchDatasets();
+            }}
+          />
         </div>
         {isDisabled && (
           <DisabledFlowBanner

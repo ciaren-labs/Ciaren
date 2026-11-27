@@ -24,6 +24,7 @@ class Turn(ClosedModel):
     revision: datetime
     graph: dict[str, Any] = Field(default_factory=dict)
     dataset_id: str | None = Field(None, max_length=64)
+    second_dataset_id: str | None = Field(None, min_length=1, max_length=64)
     share_names: bool = False
 
 
@@ -46,3 +47,30 @@ class Plan(ClosedModel):
     # Replace only a single explicitly identified transformation, otherwise append.
     replace: int | None = Field(None, ge=0)
     steps: list[Step] = Field(min_length=1, max_length=6)
+
+
+class ColumnRef(ClosedModel):
+    source: str = Field(pattern=r"^[0-9a-f]{12}$")
+    column: int = Field(ge=0, lt=64)
+
+
+class JoinSide(ColumnRef):
+    port: str = Field(pattern=r"^[0-9a-f]{12}$")
+
+
+class EqualityFlag(ColumnRef):
+    equals: str = Field(min_length=1, max_length=96)
+    name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+
+
+class BuildJoin(ClosedModel):
+    left: JoinSide
+    right: JoinSide
+    how: Literal["left", "inner"]
+    flag: EqualityFlag | None = None
+    sort: ColumnRef | None = None
+
+
+class RepairJoin(ClosedModel):
+    join: str = Field(pattern=r"^[0-9a-f]{12}$")
+    how: Literal["left"]

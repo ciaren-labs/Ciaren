@@ -303,3 +303,149 @@ def test_file_source_rotation_and_isolation(enabled, monkeypatch, tmp_path):
     slot.unlink()
     with pytest.raises(ValidationError, match="source unavailable"):
         assistant_keys.read_key("openai")
+
+
+@pytest.fixture
+async def join_case(client, enabled):
+    flow = (await client.post("/api/flows", json={"name": "Two sources"})).json()
+    datasets = []
+    for name, content in (
+        ("left-hidden.csv", "order,private_key\n104,never-share-this-row\n"),
+        ("right-hidden.csv", "private_key,status\nnever-share-this-row,active\n"),
+    ):
+        r = await client.post("/api/datasets/upload", files={"file": (name, content)})
+        assert r.status_code == 201
+        datasets.append(r.json())
+    url = f"/api/assistant/flows/{flow['id']}"
+    body = dict(
+        mode="build",
+        provider="openai",
+        question="Keep left rows",
+        revision=flow["updated_at"],
+        graph={"nodes": [], "edges": [], "engine": "polars"},
+        dataset_id=datasets[0]["id"],
+        second_dataset_id=datasets[1]["id"],
+    )
+    return flow, url, body, datasets
+
+
+def join_answer(provider, instruction, ctx):
+    left, right = ctx["inputs"]
+    a, b = ctx["shared_keys"][0]
+    assert set(ctx) == {"question", "inputs", "shared_keys"}
+    for side in (left, right):
+        assert all(set(c) == {"type", "index"} for c in side["columns"])
+    return {
+        "left": {"source": left["source"], "port": left["port"], "column": a},
+        "right": {"source": right["source"], "port": right["port"], "column": b},
+        "how": "inner",
+    }
+
+
+@pytest.mark.parametrize("side", [0, 1])
+async def test_join_latest_conflict_on_either_input(client, join_case, monkeypatch, side):
+    flow, url, body, datasets = join_case
+    complete = AsyncMock(side_effect=join_answer)
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    r = await client.post(url + "/turn", json=body)
+    assert r.status_code == 200, r.text
+    sent = repr(complete.await_args.args[-1])
+    for private in ("left-hidden", "right-hidden", "private_key", "never-share-this-row", *(d["id"] for d in datasets)):
+        assert private not in sent
+    r2 = await client.post("/api/datasets/upload", files={"file": (datasets[side]["name"], "private_key\nnew\n")})
+    assert r2.json()["latest_version"] == 2
+    assert (await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})).status_code == 409
+    assert not (await client.get("/api/flows/" + flow["id"])).json()["graph_json"]
+
+
+@pytest.mark.parametrize("fault", ["same", "project", "type", "ports", "column", "swapped", "extra"])
+async def test_join_rejects_unavailable_inputs_and_plan(client, join_case, monkeypatch, fault):
+    flow, url, body, _ = join_case
+
+    def response(*args):
+        answer = join_answer(*args)
+        if fault == "ports":
+            answer["right"]["port"] = answer["left"]["port"]
+        elif fault == "column":
+            answer["left"]["column"] = 0
+        elif fault == "swapped":
+            answer["left"], answer["right"] = answer["right"], answer["left"]
+        elif fault == "extra":
+            answer["left"]["config"] = {"unapproved": True}
+        return answer
+
+    complete = AsyncMock(side_effect=response)
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    if fault == "same":
+        body["second_dataset_id"] = body["dataset_id"]
+    if fault in {"project", "type"}:
+        project = (
+            (await client.post("/api/projects", json={"name": "Other project"})).json() if fault == "project" else flow
+        )
+        params = {"project_id": project["id"] if fault == "project" else flow["project_id"]}
+        dataset = await client.post(
+            "/api/datasets/upload", params=params, files={"file": ("other.csv", "private_key\n123\n")}
+        )
+        body["second_dataset_id"] = dataset.json()["id"]
+    assert (await client.post(url + "/turn", json=body)).status_code == 400
+    assert complete.await_count == int(fault not in {"same", "project", "type"})
+
+
+@pytest.mark.parametrize("side", [0, 1])
+async def test_join_repair_preserves_graph_and_checks_pinned_versions(client, join_case, monkeypatch, db_session, side):
+    from copy import deepcopy
+
+    from app.db.models.dataset_version import DatasetVersion
+
+    flow, url, body, datasets = join_case
+    complete = AsyncMock(side_effect=join_answer)
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    created = (await client.post(url + "/turn", json=body)).json()
+    assert (await client.post(url + "/apply", json={"proposal": created["proposal"]})).status_code == 200
+    path = "/api/flows/" + flow["id"]
+    current = (await client.get(path)).json()
+    graph = current["graph_json"]
+    join = next(n for n in graph["nodes"] if n["type"] == "join")
+    join["data"]["config"]["suffixes"] = ["_a", "_b"]
+    join["data"]["label"] = "private label"
+    current = (await client.put(path, json={"graph_json": graph})).json()
+    body.update(mode="diagnose", graph=graph, revision=current["updated_at"], second_dataset_id=None)
+
+    def repair(provider, instruction, context):
+        assert set(context) == {"question", "join", "how", "failure"} and context["how"] == "inner"
+        return {"join": context["join"], "how": "left"}
+
+    complete.side_effect = repair
+    proposal = (await client.post(url + "/turn", json=body)).json()
+    expected = deepcopy(join)
+    expected["data"]["config"]["how"] = "left"
+    assert proposal["delta"] == {"added": [], "changed": [expected], "connected": [], "disconnected": []}
+    assert (await client.get(path)).json()["graph_json"] == graph
+    # Appending a version to an explicitly pinned input does not change what was approved.
+    newer = await client.post("/api/datasets/upload", files={"file": (datasets[side]["name"], "private_key\nnew\n")})
+    assert newer.json()["latest_version"] == 2
+    second = (await client.post(url + "/turn", json=body)).json()
+    assert second["delta"] == proposal["delta"]
+    if side == 0:
+        assert (await client.post(url + "/apply", json={"proposal": second["proposal"]})).status_code == 200
+        assert (await client.post(url + "/apply", json={"proposal": proposal["proposal"]})).status_code == 409
+        saved_left = (await client.get(path)).json()
+        complete.side_effect = None
+        complete.return_value = {"check": "wiring"}
+        body.update(graph=saved_left["graph_json"], revision=saved_left["updated_at"])
+        readonly = (await client.post(url + "/turn", json=body)).json()
+        assert "manual edit" in readonly["message"] and "proposal" not in readonly
+        # Restore the original inner graph to exercise loss of either pinned version independently.
+        restored = (await client.put(path, json={"graph_json": graph})).json()
+        body.update(graph=graph, revision=restored["updated_at"])
+        complete.side_effect = repair
+        proposal = (await client.post(url + "/turn", json=body)).json()
+    pinned = await db_session.scalar(
+        select(DatasetVersion).where(
+            DatasetVersion.dataset_id == datasets[side]["id"], DatasetVersion.version_number == 1
+        )
+    )
+    await db_session.delete(pinned)
+    await db_session.commit()
+    assert (await client.post(url + "/apply", json={"proposal": proposal["proposal"]})).status_code == 409
+    assert (await client.get(path)).json()["graph_json"] == graph

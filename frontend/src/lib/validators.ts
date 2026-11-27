@@ -582,7 +582,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
     }),
   conditionalColumn: z.object({
     new_column: z.string().min(1, "New column name is required"),
-    default: z.string().optional(),
+    default: z.union([z.string(), z.boolean()]).optional(),
     rules: z
       .array(
         z
@@ -594,7 +594,7 @@ export const nodeConfigSchemas: Record<string, z.ZodTypeAny> = {
             column: z.string().optional(),
             operator: z.enum(conditionOperators).optional(),
             value: z.union([z.string(), z.number()]).optional(),
-            result: z.string().optional(),
+            result: z.union([z.string(), z.boolean()]).optional(),
           })
           .superRefine((rule, ctx) => {
             const hasConditions =

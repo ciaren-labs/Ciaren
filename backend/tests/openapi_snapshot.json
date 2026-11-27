@@ -2882,6 +2882,7 @@
         "question": "string",
         "request_id": "string(uuid)",
         "revision": "string(date-time)",
+        "second_dataset_id": "anyOf(null|string)",
         "share_names": "boolean"
       },
       "required": [

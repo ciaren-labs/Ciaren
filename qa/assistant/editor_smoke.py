@@ -5,7 +5,9 @@ python qa/assistant/editor_smoke.py --screenshots /tmp/ciaren-assistant-shots
 
 import argparse
 import csv
+from copy import deepcopy
 import os
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -17,6 +19,16 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 KEY = "synthetic-editor-key"
+
+
+def check_csv(file, expected_rows):
+    with file.open(encoding="utf-8-sig", newline="") as data:
+        rows = list(csv.DictReader(data))
+    assert list(rows[0]) == list(expected_rows[0])
+    for row in rows:
+        if "ready_to_fulfill" in row:
+            row["ready_to_fulfill"] = row["ready_to_fulfill"].lower()
+    assert rows == expected_rows, rows
 
 
 def run(base, shots, work):
@@ -52,7 +64,7 @@ def run(base, shots, work):
             base + "/api/datasets/upload",
             multipart={
                 "file": {
-                    "name": "orders.csv",
+                    "name": "cleanup.csv",
                     "mimeType": "text/csv",
                     "buffer": b"amount\n4\n3\n3\n",
                 }
@@ -131,7 +143,7 @@ def run(base, shots, work):
         expect(button).to_be_focused()
         page.set_viewport_size({"width": 1280, "height": 840})
 
-        def run_and_check_download(engine, amounts):
+        def run_and_check_download(engine, expected_rows, evidence=None):
             saved = get(path)
             output = next(
                 n["id"]
@@ -154,15 +166,14 @@ def run(base, shots, work):
             page.locator(f'.react-flow__node[data-id="{output}"]').click()
             with page.expect_download() as download:
                 page.get_by_role("button", name="Download output").click()
-            with download.value.path().open(encoding="utf-8-sig", newline="") as data:
-                assert list(csv.DictReader(data)) == [
-                    {"amount": str(n)} for n in amounts
-                ]
+            check_csv(download.value.path(), expected_rows)
+            if evidence:
+                download.value.save_as(shots / f"{evidence}-{engine}.csv")
             logs = api.get(base + "/api/runs/" + result["id"] + "/logs/stream")
             assert logs.ok and KEY not in logs.text()
             page.goto(base + path)
 
-        run_and_check_download("pandas", [4, 3])
+        run_and_check_download("pandas", [{"amount": "4"}, {"amount": "3"}])
 
         # Exercise a real failed run and repair it from the canvas.
         graph = get(path)["graph_json"]
@@ -184,7 +195,7 @@ def run(base, shots, work):
         apply.click()
         expect(dialog).to_have_count(0)
         for engine in ("pandas", "polars"):
-            run_and_check_download(engine, [3, 4])
+            run_and_check_download(engine, [{"amount": "3"}, {"amount": "4"}])
         exported = api.post(base + "/api" + path + "/export/python")
         assert exported.ok and KEY not in exported.text()
 
@@ -211,6 +222,151 @@ def run(base, shots, work):
         apply.click()
         expect(page.get_by_role("alert")).to_contain_text("changed")
         assert get(path)["name"] == "Concurrent save"
+        # Build the repository example with built-ins. Use the project's real CSVs and expected output.
+        example = ROOT / "examples/orders-audit"
+        inputs = []
+        for filename in ("orders.csv", "catalog.csv"):
+            response = api.post(
+                base + "/api/datasets/upload",
+                params={"project_id": ds["project_id"]},
+                multipart={
+                    "file": {
+                        "name": filename,
+                        "mimeType": "text/csv",
+                        "buffer": (example / filename).read_bytes(),
+                    }
+                },
+            )
+            assert response.ok, response.status
+            inputs.append(response.json())
+        flow = api.post(
+            base + "/api/flows",
+            data={"name": "Fulfillment audit", "project_id": ds["project_id"]},
+        ).json()
+        path = "/flows/" + flow["id"]
+        page.goto(base + path)
+        button.click()
+        page.get_by_label("Input dataset", exact=True).select_option(inputs[0]["id"])
+        page.get_by_label("Right input for Join").select_option(inputs[1]["id"])
+        page.get_by_label("Include column names in this request").check()
+        request.fill(
+            "Conserva todos los pedidos, une el catálogo por SKU, marca ready_to_fulfill si el estado es active, ordena por order_id y escribe un CSV."
+        )
+        send.click()
+        expect(apply).to_be_visible()
+        expect(dialog.get_by_text("left input", exact=False).last).to_be_visible()
+        expect(dialog.get_by_text("right input", exact=False).last).to_be_visible()
+        assert not get(path)["graph_json"].get("nodes")
+        # A newly uploaded right-hand version invalidates the preview, even on an unchanged canvas.
+        changed = api.post(
+            base + "/api/datasets/upload",
+            params={"project_id": ds["project_id"]},
+            multipart={
+                "file": {
+                    "name": "catalog.csv",
+                    "mimeType": "text/csv",
+                    "buffer": (example / "catalog.csv").read_bytes(),
+                }
+            },
+        )
+        assert changed.ok and changed.json()["latest_version"] == 2
+        apply.click()
+        expect(page.get_by_role("alert")).to_contain_text("changed")
+        assert not get(path)["graph_json"].get("nodes")
+        page.screenshot(path=shots / "join-stale.png")
+        page.get_by_label("Include column names in this request").check()
+        send.click()
+        expect(apply).to_be_visible()
+        expect(
+            dialog.get_by_text("catalog.csv · version 2", exact=True)
+        ).to_be_visible()
+        page.set_viewport_size({"width": 390, "height": 844})
+        expect(apply).to_be_in_viewport()
+        page.screenshot(path=shots / "join-mobile.png")
+        page.set_viewport_size({"width": 1280, "height": 840})
+        page.screenshot(path=shots / "join-create.png")
+        apply.click()
+        expect(dialog).to_have_count(0)
+        with (example / "expected.csv").open(newline="") as f:
+            expected = list(csv.DictReader(f))
+        for row in expected:
+            row["ready_to_fulfill"] = row["ready_to_fulfill"].lower()
+        for engine in ("pandas", "polars"):
+            run_and_check_download(engine, expected, "join-created")
+        exports = api.post(base + "/api" + path + "/export/python")
+        assert exports.ok and all(exports.json().get(k) for k in ("code", "polars"))
+        # The exports run outside the server with only the fixture CSVs and the installed engine.
+        output_name = next(
+            n["data"]["config"]["dataset_name"]
+            for n in get(path)["graph_json"]["nodes"]
+            if n["type"] == "fileOutput"
+        )
+        for field in ("code", "polars", "polars_lazy"):
+            standalone = work / field
+            standalone.mkdir()
+            for filename in ("orders.csv", "catalog.csv"):
+                shutil.copyfile(example / filename, standalone / filename)
+            script = standalone / "audit.py"
+            script.write_text(exports.json()[field], encoding="utf-8")
+            subprocess.run(
+                [str(ROOT / "backend/.venv/bin/python"), "-I", str(script)],
+                cwd=standalone,
+                env={
+                    k: v
+                    for k, v in os.environ.items()
+                    if k in {"PATH", "LANG", "SYSTEMROOT", "TMPDIR"}
+                },
+                check=True,
+                timeout=45,
+            )
+            check_csv(standalone / f"{output_name}.csv", expected)
+        # Seed a semantically wrong join; its successful inner run loses order 104.
+        wrong = get(path)["graph_json"]
+        next(n for n in wrong["nodes"] if n["type"] == "join")["data"]["config"][
+            "how"
+        ] = "inner"
+        assert api.put(base + "/api" + path, data={"graph_json": wrong}).ok
+        page.reload()
+        run_and_check_download(
+            "pandas", [r for r in expected if r["order_id"] != "104"], "join-inner"
+        )
+        before = get(path)["graph_json"]
+        before["nodes"][0]["data"]["description"] = "Local annotation"
+        before["parameters"] = []
+        # The inspector writes the canonical conditions shape after a normal edit.
+        flag = next(n for n in before["nodes"] if n["type"] == "conditionalColumn")
+        rule = flag["data"]["config"]["rules"][0]
+        flag["data"]["config"]["rules"] = [
+            {
+                "conditions": [{k: rule[k] for k in ("column", "operator", "value")}],
+                "match": "all",
+                "result": rule["result"],
+            }
+        ]
+        assert api.put(base + "/api" + path, data={"graph_json": before}).ok
+        page.reload()
+        after = deepcopy(before)
+        next(n for n in after["nodes"] if n["type"] == "join")["data"]["config"][
+            "how"
+        ] = "left"
+        button.click()
+        page.get_by_label("Task", exact=True).select_option("diagnose")
+        request.fill(
+            "El pedido 104 desaparece. Conserva todos los pedidos de la izquierda sin cambiar nada más."
+        )
+        send.click()
+        expect(apply).to_be_visible()
+        assert before == get(path)["graph_json"]
+        expect(dialog.get_by_text("Update Join / Merge", exact=True)).to_be_visible()
+        page.screenshot(path=shots / "join-repair.png")
+        apply.click()
+        expect(dialog).to_have_count(0)
+        assert get(path)["graph_json"] == after
+        for engine in ("pandas", "polars"):
+            run_and_check_download(engine, expected, "join-repaired")
+        print(
+            "orders-audit CSV matched all six columns and five rows on both engines; three standalone exports matched; inner lost 104; repair changed only how."
+        )
         assert KEY not in repr(
             page.evaluate(
                 "() => [Object.entries(localStorage), Object.entries(sessionStorage)]"

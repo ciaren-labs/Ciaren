@@ -58,6 +58,41 @@ class ProviderResponse:
                     None,
                 )
             }
+        elif "inputs" in self.data:
+            left, right = self.data["inputs"]
+            assert [left["side"], right["side"]] == ["left", "right"]
+
+            def col(side, name):
+                return next(c["index"] for c in side["columns"] if c["name"] == name)
+
+            lk, rk = col(left, "sku"), col(right, "sku")
+            assert [lk, rk] in self.data["shared_keys"]
+            assert all(
+                s not in dumps(self.data)
+                for s in ("MISSING", "CABLE", "SLEEVE", "orders.csv", "catalog.csv")
+            )
+            answer = {
+                "left": {"source": left["source"], "port": left["port"], "column": lk},
+                "right": {
+                    "source": right["source"],
+                    "port": right["port"],
+                    "column": rk,
+                },
+                "how": "left",
+                "flag": {
+                    "source": right["source"],
+                    "column": col(right, "catalog_status"),
+                    "equals": "active",
+                    "name": "ready_to_fulfill",
+                },
+                "sort": {"source": left["source"], "column": col(left, "order_id")},
+            }
+        elif "join" in self.data:
+            assert (
+                set(self.data) == {"question", "join", "how", "failure"}
+                and self.data["how"] == "inner"
+            )
+            answer = {"join": self.data["join"], "how": "left"}
         elif self.data["mode"] == "diagnose":
             assert "column" in self.data["last_failure"].lower()
             index = next(
