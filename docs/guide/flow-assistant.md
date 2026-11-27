@@ -36,6 +36,22 @@ A proposed Join can keep matching rows (`inner`) or retain all left rows (`left`
 
 If an inner Join drops an unmatched order, describe the missing left rows under **Diagnose a failure**. For a supported existing canvas the only proposed edit is `how` from `inner` to `left`. Review and apply it, then rerun. Both input snapshots are checked atomically at confirmation. A newer version invalidates a selection that followed latest. An explicitly pinned input continues to use its exact immutable version. Joins with multiple keys, different key names, additional overlap or plugins can be edited manually.
 
+## Train a shipping cost model from three CSVs
+
+With the ML extension enabled, Build can generate two inner joins followed by a seeded train/test split, linear regression, held-out prediction, evaluation and a metrics CSV. This plan starts on an empty canvas. The first CSV supplies the numeric target, and each lookup contributes one numeric predictor. Identifiers used for joining cannot be training features or targets.
+
+1. Upload `orders.csv`, `customers.csv` and `catalog.csv` from the [shipping regression example](https://github.com/ciaren-labs/Ciaren/tree/main/examples/shipping-regression) into the same project. Create a blank flow there.
+2. Open **Assistant → Build**. Choose orders under **Input dataset**, customers under **Right input for Join** and catalog under **Second lookup for regression**. Select **shipping_cost** as the **Regression target**.
+3. Open **Data shared with provider** and allow column names for this request. Ask: **Join orders to customers and catalog. Predict shipping cost from distance and weight with linear regression. Evaluate on held-out orders.** Choose **Create proposal**.
+4. Check both Join keys (`customer_id`, then `sku`), the features (`distance_km`, `weight_kg`) and the target. Check that Split's **train** port feeds the regressor while **test** and the fitted **model** feed Predict. Choose **Apply and save** after review.
+5. Choose **Run**. Select **File Output → Download output**. This synthetic example keeps 80 orders, trains on 64 and evaluates 16. The reference run has mean absolute error of about 0.27 currency units and R² of 0.997.
+
+Each lookup must have exactly one compatible key in common with the first CSV. The lookups must have distinct column names from each other. Ciaren checks the saved profile for a unique, non-null key across the whole lookup. A sampled profile cannot establish uniqueness. Both joins keep matched rows. The run needs at least 13 matching orders with usable numeric targets. The provider receives no rows or key values, so the proposal cannot establish how many orders match. Review the run counts when using your own data.
+
+The split uses seed 42 and holds out 20% of matched rows. Only the training branch fits the model. Choose features available at prediction time. Repeated measurements or historical forecasts can need a grouped or time-based split in a manually built flow. The three selected dataset versions and the flow revision are checked again before saving.
+
+On **Run**, the existing training node logs the fitted model and up to five rows of feature values to the installation’s configured MLflow store. That store can be remote. The LLM receives only the request and temporary join, target and predictor references by default. Opting in shares column names for that turn. When a lookup has multiple numeric candidates, Ciaren requires the opt-in to distinguish them. The model cannot choose a tracking endpoint, model URI, arbitrary hyperparameters or executable code.
+
 ## Canvas tools and activity
 
 Open **Assistant → Conversation**. **Build**, **Guides** and **Diagnose** choose the task. A proposed edit shows the affected nodes and wiring. Expand **Connections** to check the ports, or **Compare all settings** to inspect an existing node. **Inspect on canvas** returns to that node. The request and proposal stay in the open panel until you close it.

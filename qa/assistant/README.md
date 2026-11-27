@@ -62,6 +62,22 @@ The run asks the packaged editor to build a two-input flow, cite the Join guide,
 
 The smoke prints a fixed stage name before each check. A `FAIL` line identifies the first failed acceptance stage. Separate `CLEANUP` lines identify teardown failures. Either produces a nonzero exit. On Windows the server starts in its own process group and teardown waits for it before retrying transient file locks. A cleanup failure after the checks does not establish a provider failure. Use the simulated recording to investigate teardown without spending another API call.
 
+### Verify two joins and a real regression model
+
+Use a wheel built from the same checkout as `examples/shipping-regression`. Both modes automate the packaged editor, use three synthetic CSVs, verify the provider and model, check that a proposal leaves graph, activity and runs unchanged, approve explicitly, and submit a separate Run. They check ten nodes, ten edges, the model wire and held-out test branch, the saved MLflow model and the downloaded MAE and R². The smoke uses an isolated local MLflow store. An invalid or insufficient provider reply fails acceptance.
+
+To record with **simulated inference**, install FFmpeg on PATH as well as the browser and Python dependencies above. The recorder samples Chromium's real paint events on a 16 fps timeline, shows the pointer and compresses idle waits during training. The model training and evaluation use the real engine.
+
+```powershell
+& $python qa/assistant/provider_walkthrough.py --regression-gif docs/public/screenshots/flow-assistant-regression.gif
+```
+
+For the **paid direct DeepSeek** check on Windows, let the local credential manager inject `CIAREN_ASSISTANT_DEEPSEEK_API_KEY` into the process as described above. This mode uses at most one call to `deepseek-flash`, makes no retries and records no video or screenshots. FFmpeg is only required for recording. The live acceptance fails if the provider abstains or chooses the wrong predictors.
+
+```powershell
+& $python qa/assistant/provider_walkthrough.py --paid-deepseek-regression
+```
+
 ### Record the first CSV tutorial without an account
 
 The simulated build recording uses the packaged editor. It uploads four synthetic amounts, requests a four-node flow, confirms it and checks the downloaded CSV contains three distinct values. It also checks local validation, a guide citation and the persisted reversal after the last frame.

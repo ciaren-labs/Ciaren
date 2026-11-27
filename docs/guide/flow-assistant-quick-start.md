@@ -57,6 +57,8 @@ To build a CSV flow, choose a project dataset on an empty canvas, describe the t
 5. Choose **Apply and save**. The nodes should now appear on the canvas. Open **Assistant → Check canvas** to validate the wiring locally. Close the panel, select a node on the canvas and reopen **Assistant**. Use **Explain selected node** to read its bundled guide.
 6. Close the assistant and click **Run**. On the successful run, select **File Output** and choose **Download output**. The CSV should contain three amounts: 2, 3 and 4, each once. Row order may vary.
 
+For a larger example, follow [Train a shipping cost model from three CSVs](flow-assistant.md#train-a-shipping-cost-model-from-three-csvs). It uses two joins and evaluates a real model on held-out orders.
+
 ## Ask a question with a source
 
 Choose **Assistant → Guides** and ask **How do I connect the two inputs of a Join?** Open the citation and compare its left and right handles with the [Join guide](../transformations/join.md). Guides searches English documentation bundled with the installed build. When it cannot find a supporting passage it can say so. No canvas or CSV rows accompany this question.

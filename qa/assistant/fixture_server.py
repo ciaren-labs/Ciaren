@@ -58,6 +58,17 @@ class ProviderResponse:
             answer = {
                 "passage": next((i for i, passage in enumerate(self.data["passages"]) if marker in passage), None)
             }
+        elif "lookups" in self.data:
+            first, second = self.data["lookups"]
+            answer = {
+                "joins": [first["join"], second["join"]],
+                "features": [
+                    next(f["ref"] for f in lookup["features"] if f.get("name") == name)
+                    for lookup, name in ((first, "distance_km"), (second, "weight_kg"))
+                ],
+                "target": self.data["target"]["ref"],
+                "model": "linear_regression",
+            }
         elif "inputs" in self.data:
             left, right = self.data["inputs"]
             assert [left["side"], right["side"]] == ["left", "right"]

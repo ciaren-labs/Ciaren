@@ -3,12 +3,13 @@
 import unittest
 from unittest.mock import Mock
 
-from provider_walkthrough import Failed, check_turn, turn_error_code
+from walkthrough_checks import Failed, check_turn, turn_error_code
 
 
 class TurnErrorTests(unittest.TestCase):
     def test_only_exact_local_diagnostics_produce_specific_codes(self):
         for detail, code in [
+            ("The provider returned an unsupported regression plan.", "REGRESSION_PLAN_SCHEMA"),
             ("The provider returned an unsupported Join proposal.", "JOIN_PLAN_SCHEMA"),
             ("The repair references an unavailable Join.", "JOIN_REFERENCE_MISMATCH"),
             ("Provider returned HTTP 429. Check credentials, model and quota.", "UPSTREAM_HTTP_429"),

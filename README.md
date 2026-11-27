@@ -79,16 +79,17 @@ scheduler, and web UI.
 > change before `1.0.0`. Use it for learning, prototypes, and controlled
 > internal workflows before relying on it for critical production jobs.
 
-## Build a CSV flow with the AI assistant
+## Build an ETL and machine learning flow with the AI assistant
 
 **Can Ciaren build a pipeline from a prompt?** Yes. For supported CSV flows, the assistant generates a connected proposal with installed nodes. Choose **Apply and save** after review and **Run** when you want the output. [AI quick start](docs/guide/flow-assistant-quick-start.md).
 
 **Do I need an API key to use Ciaren?** No. Build the entire flow manually, run it locally and export Python. Connectors that access external services may require their own credentials. [Manual quick start](docs/guide/quick-start.md).
 
-![From an empty Ciaren canvas, a request to limit and deduplicate a CSV becomes a four-node proposal. After approval the connected flow runs and returns three distinct amounts.](docs/public/screenshots/flow-assistant-build.gif)
+![Ciaren builds two joins, splits orders into training and test sets and proposes a shipping cost regressor. After approval and a separate Run, the editor shows held-out error.](docs/public/screenshots/flow-assistant-regression.gif)
 
-The recording uses the packaged editor, synthetic data and simulated inference.
-The main branch includes the assistant. The 0.3.1 release predates it.
+The recorded editor joins 80 synthetic orders to customers and products, learns shipping cost from distance and weight, and evaluates 16 held-out orders. The provider response is simulated. The joins, model fit and metrics run in the packaged application. [Try the shipping cost example](examples/shipping-regression/README.md).
+
+Use a source build containing this example. The 0.3.1 release predates the assistant.
 [Walk through a Join diagnosis and reversal](docs/guide/flow-assistant.md).
 For an external agent, try the [read-only SDK example](docs/guide/external-agent.md).
 
