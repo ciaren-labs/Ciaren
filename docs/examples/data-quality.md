@@ -133,7 +133,7 @@ text `'0'` and `'120'`, as numbers because `age` is numeric:
 import pandas as pd
 
 def _filter_value(df, column, value):
-    """Type a Filter Rows value like its column: text becomes a number on a numeric column."""
+    """Type a comparison value like its column: text becomes a number on a numeric column."""
     if isinstance(value, list):
         return [_filter_value(df, column, v) for v in value]
     numeric = pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])
@@ -146,7 +146,7 @@ def _filter_value(df, column, value):
     try:
         return float(value)
     except ValueError:
-        raise ValueError(f"Filter Rows value {value!r} is not a number, but column {column!r} is numeric.") from None
+        raise ValueError(f"Value {value!r} is not a number, but column {column!r} is numeric.") from None
 
 df_contacts = pd.read_csv('contacts.csv')
 

@@ -91,12 +91,7 @@ class PandasEngine:
 
     def filter_rows(self, df: pd.DataFrame, column: str, operator: str, value: Any) -> pd.DataFrame:
         col = df[column]
-        if (
-            operator not in TEXT_FILTER_OPERATORS
-            and pd.api.types.is_numeric_dtype(col)
-            and not pd.api.types.is_bool_dtype(col)
-        ):
-            value = numeric_filter_value(value, column)
+        value = _comparison_value(col, column, operator, value)
         match operator:
             case "==" | "eq":
                 mask = col == value
@@ -665,6 +660,18 @@ class PandasEngine:
         return df.assign(**{new_column: diff})
 
 
+def _comparison_value(col: pd.Series, column: str, operator: str, value: Any) -> Any:
+    """A filter/condition value as the comparison uses it: text is typed as a
+    number on a numeric (non-boolean) column; text operators keep it as is."""
+    if (
+        operator not in TEXT_FILTER_OPERATORS
+        and pd.api.types.is_numeric_dtype(col)
+        and not pd.api.types.is_bool_dtype(col)
+    ):
+        return numeric_filter_value(value, column)
+    return value
+
+
 def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
     """Combine a rule's conditions with AND (match all) or OR (match any)."""
     masks = [
@@ -680,6 +687,7 @@ def _pandas_rule_mask(df: pd.DataFrame, rule: dict[str, Any]) -> pd.Series:
 def _pandas_condition_mask(df: pd.DataFrame, column: str, operator: str, value: Any) -> pd.Series:
     """Boolean mask for one conditionalColumn rule (mirrors filter operators)."""
     col = df[column]
+    value = _comparison_value(col, column, operator, value)
     mask: Any
     match operator:
         case "==" | "eq":

@@ -1,66 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from typing import Any
 
-from app.engine.backends.base import AnyFrame, EngineBackend, numeric_filter_value
-from app.engine.transformations.base import BaseTransformation, one_or_list
+from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.transformations.base import (
+    FILTER_VALUE_HELPER_PANDAS,
+    FILTER_VALUE_HELPER_POLARS,
+    BaseTransformation,
+    needs_typed_value,
+    one_or_list,
+    typed_value_code,
+)
 
 _SIMPLE_OPS = {"==", "!=", ">", ">=", "<", "<="}
 _TYPED_OPS = _SIMPLE_OPS | {"between", "in"}
-
-# An exported script doesn't know column dtypes, so it types a text value at
-# runtime with the engines' rule (backends.base.numeric_filter_value). Only the
-# numeric-column check (IS_NUMERIC) differs per dialect.
-_FILTER_VALUE_HELPER = '''def _filter_value(df, column, value):
-    """Type a Filter Rows value like its column: text becomes a number on a numeric column."""
-    if isinstance(value, list):
-        return [_filter_value(df, column, v) for v in value]
-    numeric = IS_NUMERIC
-    if not isinstance(value, str) or not numeric:
-        return value
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        raise ValueError(f"Filter Rows value {value!r} is not a number, but column {column!r} is numeric.") from None'''
-_PANDAS_FILTER_VALUE = _FILTER_VALUE_HELPER.replace(
-    "IS_NUMERIC",
-    "pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])",
-)
-_POLARS_FILTER_VALUE = _FILTER_VALUE_HELPER.replace("IS_NUMERIC", "df.collect_schema()[column].is_numeric()")
-
-
-def _needs_typing(value: Any) -> bool:
-    """Whether an exported comparison must type ``value`` at runtime via ``_filter_value``.
-
-    Only text that parses as a number can compare differently by column type
-    ('100' is 100 on a numeric column, '100' on a text one), and a flow-parameter
-    reference (``CodeRef``) is unknown until the script runs. Other text stays a
-    plain literal so exports read naturally (``_d['status'] == 'paid'``); against
-    a numeric column such text is an invalid config the app rejects when it runs.
-    """
-    if isinstance(value, list):
-        return any(_needs_typing(v) for v in value)
-    if isinstance(value, str):
-        try:
-            numeric_filter_value(value, "")
-        except ValueError:
-            return False
-        return True
-    return not (value is None or isinstance(value, (int, float)))
-
-
-def _typed(frame: str, column: Any, value: Any) -> str:
-    """Source for ``value`` compared against ``frame[column]`` in an exported script."""
-    return f"_filter_value({frame}, {column!r}, {value!r})" if _needs_typing(value) else repr(value)
 
 
 def _typed_bounds(frame: str, column: Any, bounds: list[Any]) -> list[str]:
     """Source for both ``between`` bounds. Like an ``in`` list they are typed
     together: one number-like bound types both, so a non-number partner fails."""
-    if not _needs_typing(bounds):
+    if not needs_typed_value(bounds):
         return [repr(b) for b in bounds]
     return [f"_filter_value({frame}, {column!r}, {b!r})" for b in bounds]
 
@@ -101,13 +59,13 @@ class FilterRowsTransformation(BaseTransformation):
         return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
 
     def _needs_helper(self, config: dict[str, Any]) -> bool:
-        return config["operator"] in _TYPED_OPS and _needs_typing(self._values(config))
+        return config["operator"] in _TYPED_OPS and needs_typed_value(self._values(config))
 
     def helpers(self, config: dict[str, Any]) -> list[str]:
-        return [_PANDAS_FILTER_VALUE] if self._needs_helper(config) else []
+        return [FILTER_VALUE_HELPER_PANDAS] if self._needs_helper(config) else []
 
     def polars_helpers(self, config: dict[str, Any]) -> list[str]:
-        return [_POLARS_FILTER_VALUE] if self._needs_helper(config) else []
+        return [FILTER_VALUE_HELPER_POLARS] if self._needs_helper(config) else []
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         # `.loc[lambda _d: …]` instead of `src[src[col] …]`: the callable form is
@@ -119,7 +77,7 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {_typed('_d', col, val)}]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {typed_value_code('_d', col, val)}]"
         if op == "isnull":
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isna()]"
         if op == "notnull":
@@ -128,7 +86,9 @@ class FilterRowsTransformation(BaseTransformation):
             low, high = _typed_bounds("_d", col, self._values(config))
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low}, {high})]"
         if op == "in":
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({_typed('_d', col, self._values(config))})]"
+            return (
+                f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({typed_value_code('_d', col, self._values(config))})]"
+            )
         if op in {"contains", "startswith", "endswith"}:
             # str() like the engine: a numeric search value must not emit .str.contains(5).
             # regex=False mirrors PandasEngine.filter_rows: pandas' contains is
@@ -142,7 +102,7 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {_typed(src, col, val)})"
+            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {typed_value_code(src, col, val)})"
         if op == "isnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_null())"
         if op == "notnull":
@@ -151,12 +111,12 @@ class FilterRowsTransformation(BaseTransformation):
             # pl.lit for text and typed bounds: is_between reads bare strings as column names.
             bounds = self._values(config)
             low, high = (
-                f"pl.lit({code})" if isinstance(b, str) or _needs_typing(bounds) else code
+                f"pl.lit({code})" if isinstance(b, str) or needs_typed_value(bounds) else code
                 for b, code in zip(bounds, _typed_bounds(src, col, bounds))
             )
             return f"{dst} = {src}.filter(pl.col({col!r}).is_between({low}, {high}))"
         if op == "in":
-            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({_typed(src, col, self._values(config))}))"
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({typed_value_code(src, col, self._values(config))}))"
         if op in {"contains", "startswith", "endswith"}:
             method = {
                 "contains": "contains",

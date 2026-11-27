@@ -527,11 +527,11 @@ _FILTER_TEXT_VALUE_CASES = [
 _FILTER_RUNNERS = ["pandas", "polars", "pandas-script", "polars-script", "polars-lazy-script"]
 
 
-def _filter_graph(config: dict[str, Any], out_path: str) -> dict[str, Any]:
+def _filter_graph(config: dict[str, Any], out_path: str, node_type: str) -> dict[str, Any]:
     return {
         "nodes": [
             {"id": "in", "type": "csvInput", "data": {"config": {"dataset_id": "d"}}},
-            {"id": "flt", "type": "filterRows", "data": {"config": config}},
+            {"id": "flt", "type": node_type, "data": {"config": config}},
             {"id": "out", "type": "csvOutput", "data": {"config": {"path": out_path}}},
         ],
         "edges": [
@@ -541,8 +541,8 @@ def _filter_graph(config: dict[str, Any], out_path: str) -> dict[str, Any]:
     }
 
 
-def _run_filter(runner: str, config: dict[str, Any], tmp_path: Any) -> pd.DataFrame:
-    """Run csv -> filterRows -> csv through the app engine or an exported script."""
+def _run_filter(runner: str, config: dict[str, Any], tmp_path: Any, node_type: str = "filterRows") -> pd.DataFrame:
+    """Run csv -> node -> csv through the app engine or an exported script."""
     from app.engine.codegen import CodeGenerator
     from app.engine.executor import FlowExecutor, dataset_ref_key
     from app.engine.polars_codegen import PolarsCodeGenerator
@@ -550,7 +550,7 @@ def _run_filter(runner: str, config: dict[str, Any], tmp_path: Any) -> pd.DataFr
     source = tmp_path / "in.csv"
     source.write_text(_FILTER_CSV, encoding="utf-8")
     out = tmp_path / "out.csv"
-    graph = _filter_graph(config, str(out))
+    graph = _filter_graph(config, str(out), node_type)
     if runner in ("pandas", "polars"):
         outputs = FlowExecutor().execute(graph, {dataset_ref_key("d", None): source}, tmp_path, engine_name=runner)
         return pd.read_csv(next(iter(outputs.values())), dtype={"zip": str})
@@ -596,3 +596,40 @@ _NOT_A_NUMBER_CASES = [
 def test_filter_rows_rejects_text_that_is_not_a_number(config: dict[str, Any], runner: str, tmp_path: Any) -> None:
     with pytest.raises(Exception, match=r"is not a number, but column '(amount|qty)' is numeric"):
         _run_filter(runner, config, tmp_path)
+
+
+# conditionalColumn conditions come from the same kind of text input, so a
+# condition value is typed against its column exactly like a Filter Rows value.
+_CONDITION_TEXT_VALUE_CASES = [
+    ("amount", ">=", "150", [2, 3]),
+    ("amount", "<", "99.75", [1, 4]),
+    ("qty", "==", "15", [2]),
+    ("zip", "==", "02134", [1]),
+]
+
+
+def _conditional_config(column: str, operator: str, value: str) -> dict[str, Any]:
+    return {
+        "new_column": "tier",
+        "default": "other",
+        "rules": [{"conditions": [{"column": column, "operator": operator, "value": value}], "result": "hit"}],
+    }
+
+
+@pytest.mark.parametrize("runner", _FILTER_RUNNERS)
+@pytest.mark.parametrize(
+    ("column", "operator", "value", "hits"),
+    _CONDITION_TEXT_VALUE_CASES,
+    ids=[f"{c}{op}{v}" for c, op, v, _ in _CONDITION_TEXT_VALUE_CASES],
+)
+def test_conditional_column_text_value_compares_in_column_type(
+    column: str, operator: str, value: str, hits: list[int], runner: str, tmp_path: Any
+) -> None:
+    result = _run_filter(runner, _conditional_config(column, operator, value), tmp_path, "conditionalColumn")
+    assert sorted(result.loc[result["tier"] == "hit", "row"]) == hits
+
+
+@pytest.mark.parametrize("runner", ["pandas", "polars"])
+def test_conditional_column_rejects_text_that_is_not_a_number(runner: str, tmp_path: Any) -> None:
+    with pytest.raises(Exception, match=r"is not a number, but column 'amount' is numeric"):
+        _run_filter(runner, _conditional_config("amount", ">", "abc"), tmp_path, "conditionalColumn")

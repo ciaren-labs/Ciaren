@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from app.engine.backends.base import AnyFrame, EngineBackend
+from app.engine.backends.base import AnyFrame, EngineBackend, numeric_filter_value
 
 
 def is_safe_kwarg(name: Any) -> bool:
@@ -56,6 +56,59 @@ def polars_to_datetime_expr(schema_var: str, column_code: str, fmt: str | None =
         f"if {schema_var}[{column_code}] == pl.Utf8 "
         f"else pl.col({column_code}).cast(pl.Datetime, strict={strict}))"
     )
+
+
+# Comparison values of filterRows and conditionalColumn conditions. An exported
+# script doesn't know column dtypes, so it types a number-like text value at
+# runtime with the engines' rule (backends.base.numeric_filter_value). Only the
+# numeric-column check (IS_NUMERIC) differs per dialect.
+_FILTER_VALUE_HELPER_TEMPLATE = '''def _filter_value(df, column, value):
+    """Type a comparison value like its column: text becomes a number on a numeric column."""
+    if isinstance(value, list):
+        return [_filter_value(df, column, v) for v in value]
+    numeric = IS_NUMERIC
+    if not isinstance(value, str) or not numeric:
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Value {value!r} is not a number, but column {column!r} is numeric.") from None'''
+FILTER_VALUE_HELPER_PANDAS = _FILTER_VALUE_HELPER_TEMPLATE.replace(
+    "IS_NUMERIC",
+    "pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])",
+)
+FILTER_VALUE_HELPER_POLARS = _FILTER_VALUE_HELPER_TEMPLATE.replace(
+    "IS_NUMERIC", "df.collect_schema()[column].is_numeric()"
+)
+
+
+def needs_typed_value(value: Any) -> bool:
+    """Whether an exported comparison must type ``value`` at runtime via ``_filter_value``.
+
+    Only text that parses as a number can compare differently by column type
+    ('100' is 100 on a numeric column, '100' on a text one), and a flow-parameter
+    reference (``CodeRef``) is unknown until the script runs. Other text stays a
+    plain literal so exports read naturally (``_d['status'] == 'paid'``); against
+    a numeric column such text is an invalid config the app rejects when it runs.
+    """
+    if isinstance(value, list):
+        return any(needs_typed_value(v) for v in value)
+    if isinstance(value, str):
+        try:
+            numeric_filter_value(value, "")
+        except ValueError:
+            return False
+        return True
+    return not (value is None or isinstance(value, (int, float)))
+
+
+def typed_value_code(frame: str, column: Any, value: Any) -> str:
+    """Source for ``value`` compared against ``frame[column]`` in an exported script."""
+    return f"_filter_value({frame}, {column!r}, {value!r})" if needs_typed_value(value) else repr(value)
 
 
 @dataclass

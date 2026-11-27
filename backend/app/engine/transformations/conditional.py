@@ -10,7 +10,14 @@ from app.engine.backends.base import (
     rule_combine_all,
     rule_conditions,
 )
-from app.engine.transformations.base import BaseTransformation, pd_assign_args
+from app.engine.transformations.base import (
+    FILTER_VALUE_HELPER_PANDAS,
+    FILTER_VALUE_HELPER_POLARS,
+    BaseTransformation,
+    needs_typed_value,
+    pd_assign_args,
+    typed_value_code,
+)
 
 # Comparison operators (and aliases) that map straight to a Python/expr operator.
 _COMPARISON = {
@@ -87,7 +94,7 @@ class ConditionalColumnTransformation(BaseTransformation):
         op = condition.get("operator", "==")
         val = condition.get("value")
         if op in _COMPARISON:
-            return f"{col} {_COMPARISON[op]} {val!r}"
+            return f"{col} {_COMPARISON[op]} {typed_value_code(dst, condition['column'], val)}"
         if op == "contains":
             return f"{col}.astype(str).str.contains({str(val)!r}, na=False, regex=False)"
         if op == "startswith":
@@ -109,24 +116,38 @@ class ConditionalColumnTransformation(BaseTransformation):
     def imports(self, config: dict[str, Any]) -> list[str]:
         return ["import numpy as np"]
 
+    @staticmethod
+    def _needs_helper(config: dict[str, Any]) -> bool:
+        return any(
+            c.get("operator", "==") in _COMPARISON and needs_typed_value(c.get("value"))
+            for rule in config["rules"]
+            for c in rule_conditions(rule)
+        )
+
+    def helpers(self, config: dict[str, Any]) -> list[str]:
+        return [FILTER_VALUE_HELPER_PANDAS] if self._needs_helper(config) else []
+
+    def polars_helpers(self, config: dict[str, Any]) -> list[str]:
+        return [FILTER_VALUE_HELPER_POLARS] if self._needs_helper(config) else []
+
     def polars_imports(self, config: dict[str, Any]) -> list[str]:
         return []  # the polars dialect is a pure when/then chain
 
     @staticmethod
-    def _polars_cond(rule: dict[str, Any]) -> str:
-        exprs = [ConditionalColumnTransformation._polars_condition(c) for c in rule_conditions(rule)]
+    def _polars_cond(rule: dict[str, Any], frame: str) -> str:
+        exprs = [ConditionalColumnTransformation._polars_condition(c, frame) for c in rule_conditions(rule)]
         if len(exprs) == 1:
             return exprs[0]
         joiner = " & " if rule_combine_all(rule) else " | "
         return joiner.join(f"({e})" for e in exprs)
 
     @staticmethod
-    def _polars_condition(condition: dict[str, Any]) -> str:
+    def _polars_condition(condition: dict[str, Any], frame: str) -> str:
         col = f"pl.col({condition['column']!r})"
         op = condition.get("operator", "==")
         val = condition.get("value")
         if op in _COMPARISON:
-            return f"{col} {_COMPARISON[op]} {val!r}"
+            return f"{col} {_COMPARISON[op]} {typed_value_code(frame, condition['column'], val)}"
         if op == "contains":
             return f"{col}.cast(pl.Utf8).str.contains({str(val)!r}, literal=True)"
         if op == "startswith":
@@ -140,6 +161,6 @@ class ConditionalColumnTransformation(BaseTransformation):
         new = config["new_column"]
         chain = ""
         for rule in config["rules"]:
-            chain += f".when({self._polars_cond(rule)}).then(pl.lit({rule.get('result')!r}))"
+            chain += f".when({self._polars_cond(rule, src)}).then(pl.lit({rule.get('result')!r}))"
         expr = f"pl{chain}.otherwise(pl.lit({config.get('default')!r}))"
         return f"{dst} = {src}.with_columns({expr}.alias({new!r}))"

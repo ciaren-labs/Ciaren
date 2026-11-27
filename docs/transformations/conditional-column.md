@@ -78,8 +78,12 @@ df_2 = df_1.with_columns(pl.when((pl.col('age') >= 18) & (pl.col('country') == '
 
 - **Order matters** — rules are evaluated top to bottom and the first match wins,
   so put the most specific rules first.
-- **Numeric vs text values:** compare a numeric column with a number
-  (`amount >= 5000`) and a text column with a string — the editor accepts both.
+- **Values are compared in the column's type.** The editor saves a condition
+  value as text. On a numeric column `5000` is compared as a number, and on a
+  text column `02134` stays text. On a numeric column, a value that is not a
+  number, such as `abc`, stops the run with an error that names the value and
+  the column. In the export, a number-like text value goes through the same
+  `_filter_value` helper as [Filter rows](./filter-rows.md).
 - **`isnull`/`notnull` take no value.**
 - For a simple value lookup (no comparisons) use [Map values](./map-values.md);
   to merely *keep* matching rows use [Filter rows](./filter-rows.md).

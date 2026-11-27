@@ -177,10 +177,7 @@ class PolarsEngine:
 
     def filter_rows(self, df: pl.DataFrame, column: str, operator: str, value: Any) -> pl.DataFrame:
         col = pl.col(column)
-        # A missing column has no dtype; the filter below raises polars' own error.
-        dtype = df.schema.get(column)
-        if operator not in TEXT_FILTER_OPERATORS and dtype is not None and dtype.is_numeric():
-            value = numeric_filter_value(value, column)
+        value = _comparison_value(df.schema, column, operator, value)
         match operator:
             case "==" | "eq":
                 expr = col == value
@@ -605,7 +602,7 @@ class PolarsEngine:
     ) -> pl.DataFrame:
         chain: Any = None
         for rule in rules:
-            cond = _polars_rule_expr(rule)
+            cond = _polars_rule_expr(rule, df.schema)
             result = pl.lit(rule.get("result"))
             chain = pl.when(cond).then(result) if chain is None else chain.when(cond).then(result)
         expr = pl.lit(default) if chain is None else chain.otherwise(pl.lit(default))
@@ -747,10 +744,21 @@ def _polars_window_expr(
     return expr.over(part) if part else expr
 
 
-def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
+def _comparison_value(schema: pl.Schema, column: str, operator: str, value: Any) -> Any:
+    """A filter/condition value as the comparison uses it: text is typed as a
+    number on a numeric column; text operators keep it as is. A missing column
+    has no dtype, so the comparison raises polars' own error."""
+    dtype = schema.get(column)
+    if operator not in TEXT_FILTER_OPERATORS and dtype is not None and dtype.is_numeric():
+        return numeric_filter_value(value, column)
+    return value
+
+
+def _polars_rule_expr(rule: dict[str, Any], schema: pl.Schema) -> pl.Expr:
     """Combine a rule's conditions with AND (match all) or OR (match any)."""
     exprs = [
-        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value")) for c in rule_conditions(rule)
+        _polars_condition_expr(c["column"], c.get("operator", "=="), c.get("value"), schema)
+        for c in rule_conditions(rule)
     ]
     combined = exprs[0]
     combine_all = rule_combine_all(rule)
@@ -759,9 +767,10 @@ def _polars_rule_expr(rule: dict[str, Any]) -> pl.Expr:
     return combined
 
 
-def _polars_condition_expr(column: str, operator: str, value: Any) -> pl.Expr:
+def _polars_condition_expr(column: str, operator: str, value: Any, schema: pl.Schema) -> pl.Expr:
     """Boolean expression for one conditionalColumn condition (mirrors filter operators)."""
     col = pl.col(column)
+    value = _comparison_value(schema, column, operator, value)
     expr: Any
     match operator:
         case "==" | "eq":
