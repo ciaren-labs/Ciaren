@@ -1,8 +1,8 @@
 ---
 layout: home
-title: Ciaren — Visual ETL That Exports Clean pandas and Polars Code
+title: Ciaren — AI-native visual ETL with pandas and Polars export
 titleTemplate: false
-description: Ciaren is an open-source visual ETL and ML workflow builder. Build data pipelines on a canvas, run them locally, and export clean pandas or Polars code.
+description: Build data pipelines manually without a model API key or turn a prompt into an editable CSV flow. Run locally and export pandas or Polars with Ciaren.
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
 head:
   - - script
@@ -31,7 +31,7 @@ head:
 hero:
   name: <span class="ciaren-c">C</span>iaren
   text: Export the pandas/polars code you'd write by hand. No lock-in.
-  tagline: Ciaren is an open-source visual workflow builder for data engineering and lightweight ML. It is for analysts, Python engineers, and ML practitioners who work with small and medium datasets on their own machine. Build a pipeline on a canvas, preview each step on real data, run it locally, and keep readable pandas or polars code.
+  tagline: Ciaren is an AI-native visual ETL and ML workflow builder. Design a complete pipeline manually without a model API key, or bring your own key to turn a CSV request into a proposal with editable nodes and connections. Review it, run locally and keep the Python.
   image:
     src: /logo.svg
     alt: Ciaren logo
@@ -40,11 +40,11 @@ hero:
       text: Install Ciaren
       link: /guide/installation
     - theme: alt
-      text: Quick Start (5 min)
+      text: Manual quick start
       link: /guide/quick-start
     - theme: alt
-      text: See Examples
-      link: /examples/sales-analysis
+      text: AI quick start
+      link: /guide/flow-assistant-quick-start
 
 features:
   - icon: 🧩

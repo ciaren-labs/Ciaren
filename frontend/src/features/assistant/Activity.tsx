@@ -16,6 +16,7 @@ type Fact = {
   from?: string;
   to?: string;
   port?: string;
+  source_port?: string;
 };
 type Entry = {
   id: string;
@@ -71,6 +72,7 @@ function Details({ facts }: { facts: Fact[] }) {
           <li key={i}>
             {f.action === "connect" ? "Connect" : "Disconnect"} {label(f.from)}{" "}
             → {label(f.to)}
+            {f.source_port && ` · ${f.source_port} output`}
             {f.port && f.port !== "in" ? ` · ${f.port} input` : ""}
           </li>
         );

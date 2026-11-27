@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -16,6 +16,19 @@ class Credential(ClosedModel):
     key: SecretStr = Field(min_length=1, max_length=4096)
 
 
+class TrainingSelection(ClosedModel):
+    dataset_id: str = Field(min_length=1, max_length=64)
+    versions: list[Annotated[int, Field(ge=1, strict=True)]] = Field(min_length=3, max_length=3)
+    target: str = Field(min_length=1, max_length=96)
+
+
+class RegressionPlan(ClosedModel):
+    joins: list[str] = Field(min_length=2, max_length=2)
+    target: str
+    features: list[str] = Field(min_length=2, max_length=2)
+    model: Literal["linear_regression"]
+
+
 class Turn(ClosedModel):
     request_id: UUID = Field(default_factory=uuid4)
     mode: Literal["build", "docs", "diagnose"]
@@ -25,6 +38,7 @@ class Turn(ClosedModel):
     graph: dict[str, Any] = Field(default_factory=dict)
     dataset_id: str | None = Field(None, max_length=64)
     second_dataset_id: str | None = Field(None, min_length=1, max_length=64)
+    training: TrainingSelection | None = None
     share_names: bool = False
 
 

@@ -8,6 +8,8 @@ search: flow assistant BYOK CSV ETL Join diagnose activity history revert
 
 Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, choose a provider under **Settings → Assistant** and save the setting. Select a supported model, choose a reasoning effort if offered, and configure its API key. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
 
+Follow [Set up the AI assistant and build a CSV flow](flow-assistant-quick-start.md) for a first run. To give an external agent a read-only catalog tool, see [Connect your own agent](external-agent.md).
+
 ## Walkthrough: recover a missing order
 
 ![The flow assistant highlights a Join and previews its repair, then shows the saved change and its reversal in Activity](/screenshots/flow-assistant-join.gif)
@@ -33,6 +35,22 @@ On an empty canvas select the left dataset, then the optional **Right input for 
 A proposed Join can keep matching rows (`inner`) or retain all left rows (`left`), add one boolean equality flag on a text column, sort ascending by one input column and write a CSV. For the repository's `examples/orders-audit`, choose orders on the left and catalog on the right. Ask to keep all orders by SKU, mark `ready_to_fulfill` when `catalog_status` equals `active`, and sort by `order_id`. The flag uses Ciaren's built-in Conditional Column. Duplicate keys can multiply rows. With null keys on both sides, pandas can match the nulls while Polars leaves them unmatched.
 
 If an inner Join drops an unmatched order, describe the missing left rows under **Diagnose a failure**. For a supported existing canvas the only proposed edit is `how` from `inner` to `left`. Review and apply it, then rerun. Both input snapshots are checked atomically at confirmation. A newer version invalidates a selection that followed latest. An explicitly pinned input continues to use its exact immutable version. Joins with multiple keys, different key names, additional overlap or plugins can be edited manually.
+
+## Train a shipping cost model from three CSVs
+
+With the ML extension enabled, Build can generate two inner joins followed by a seeded train/test split, linear regression, held-out prediction, evaluation and a metrics CSV. This plan starts on an empty canvas. The first CSV supplies the numeric target, and each lookup contributes one numeric predictor. Identifiers used for joining cannot be training features or targets.
+
+1. Upload `orders.csv`, `customers.csv` and `catalog.csv` from the [shipping regression example](https://github.com/ciaren-labs/Ciaren/tree/main/examples/shipping-regression) into the same project. Create a blank flow there.
+2. Open **Assistant → Build**. Choose orders under **Input dataset**, customers under **Right input for Join** and catalog under **Second lookup for regression**. Select **shipping_cost** as the **Regression target**.
+3. Open **Data shared with provider** and allow column names for this request. Ask: **Join orders to customers and catalog. Predict shipping cost from distance and weight with linear regression. Evaluate on held-out orders.** Choose **Create proposal**.
+4. Check both Join keys (`customer_id`, then `sku`), the features (`distance_km`, `weight_kg`) and the target. Check that Split's **train** port feeds the regressor while **test** and the fitted **model** feed Predict. Choose **Apply and save** after review.
+5. Choose **Run**. Select **File Output → Download output**. This synthetic example keeps 80 orders, trains on 64 and evaluates 16. The reference run has mean absolute error of about 0.27 currency units and R² of 0.997.
+
+Each lookup must have exactly one compatible key in common with the first CSV. The lookups must have distinct column names from each other. Ciaren checks the saved profile for a unique, non-null key across the whole lookup. A sampled profile cannot establish uniqueness. Both joins keep matched rows. The run needs at least 13 matching orders with usable numeric targets. The provider receives no rows or key values, so the proposal cannot establish how many orders match. Review the run counts when using your own data.
+
+The split uses seed 42 and holds out 20% of matched rows. Only the training branch fits the model. Choose features available at prediction time. Repeated measurements or historical forecasts can need a grouped or time-based split in a manually built flow. The three selected dataset versions and the flow revision are checked again before saving.
+
+On **Run**, the existing training node logs the fitted model and up to five rows of feature values to the installation’s configured MLflow store. That store can be remote. The LLM receives only the request and temporary join, target and predictor references by default. Opting in shares column names for that turn. When a lookup has multiple numeric candidates, Ciaren requires the opt-in to distinguish them. The model cannot choose a tracking endpoint, model URI, arbitrary hyperparameters or executable code.
 
 ## Canvas tools and activity
 
@@ -60,7 +78,9 @@ Files, samples, filenames, dataset IDs, connection details, node labels, scripts
 
 Ciaren settings and provider credentials belong to one server instance. Anyone with access to its API can manage the assistant within the installation's token and browser-origin rules. Deploy separate instances, data directories and secret sources for separate trust boundaries. Use TLS and the Ciaren API token for a networked installation. Configure reverse proxies and monitoring to omit request bodies and authorization headers. Restrict process and diagnostic dump access at the operating-system level.
 
-The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. The same suffixes apply to the other providers in the table. The Settings page shows the effective value and its source. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. Use the provider name in capitals for its model variable. Only OpenAI, Anthropic and DeepSeek expose an `_EFFORT` variable. OpenCode uses the provider default. The Settings page labels the effective value **Custom**, **From environment** or **Default**. For `CIAREN_ASSISTANT_PROVIDER` use `openai`, `anthropic`, `deepseek`, `opencode` or `off`. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+
+To rotate a key stored in the native keyring, enter the replacement in **New API key** and choose **Save key**. **Remove key** deletes the stored credential. An environment or file source is administered on the server. Ciaren uses the configured source exclusively.
 
 Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE`.
 
@@ -73,14 +93,18 @@ Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVID
 For Docker or a headless install, set the non-secret variables below and mount the selected secret file. Keep the source file outside the repository, build context, data directory and connector roots. Set `CIAREN_STORAGE_ALLOWED_ROOTS` to dedicated dataset folders on shared installations.
 
 ```yaml
-environment:
-  CIAREN_ASSISTANT_PROVIDER: openai
-  CIAREN_ASSISTANT_OPENAI_MODEL: gpt-5-mini
-  CIAREN_ASSISTANT_OPENAI_EFFORT: low
-  CIAREN_ASSISTANT_OPENAI_KEY_SOURCE: file
-volumes:
-  - /srv/private/ciaren/openai:/run/ciaren-assistant-secrets/openai:ro
+services:
+  ciaren:
+    environment:
+      CIAREN_ASSISTANT_PROVIDER: openai
+      CIAREN_ASSISTANT_OPENAI_MODEL: gpt-5-mini
+      CIAREN_ASSISTANT_OPENAI_EFFORT: low
+      CIAREN_ASSISTANT_OPENAI_KEY_SOURCE: file
+    volumes:
+      - /srv/private/ciaren/openai:/run/ciaren-assistant-secrets/openai:ro
 ```
+
+For the repository Compose setup, save the fragment as `docker-compose.override.yml` alongside `docker-compose.yml`. Set the host path to an existing secret file and recreate the service with `docker compose up -d --build ciaren`. For process injection, set `CIAREN_ASSISTANT_DEEPSEEK_KEY_SOURCE=env` and have your secret manager supply `CIAREN_ASSISTANT_DEEPSEEK_API_KEY` to the server process when using DeepSeek. Keep secrets out of shell history and committed environment files.
 
 Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status indicates a local credential exists.
 

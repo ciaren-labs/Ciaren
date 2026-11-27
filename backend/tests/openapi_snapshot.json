@@ -2939,6 +2939,18 @@
         "qualified"
       ]
     },
+    "TrainingSelection": {
+      "properties": {
+        "dataset_id": "string",
+        "target": "string",
+        "versions": "array<integer>"
+      },
+      "required": [
+        "dataset_id",
+        "target",
+        "versions"
+      ]
+    },
     "TransformationCategory": {
       "type": "string{etl,ml}"
     },
@@ -2972,7 +2984,8 @@
         "request_id": "string(uuid)",
         "revision": "string(date-time)",
         "second_dataset_id": "anyOf(null|string)",
-        "share_names": "boolean"
+        "share_names": "boolean",
+        "training": "anyOf(#TrainingSelection|null)"
       },
       "required": [
         "mode",

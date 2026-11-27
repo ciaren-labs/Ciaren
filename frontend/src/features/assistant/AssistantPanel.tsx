@@ -25,6 +25,7 @@ import type { Dataset } from "@/features/datasets/types";
 import type { Flow, GraphJson } from "@/features/flows/types";
 import { graphToStore } from "@/features/flows/graphMapper";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import { useMlEnabled } from "@/features/models/hooks";
 import { request } from "@/lib/api/client";
 import { ProposalReview } from "./ProposalReview";
 import { applyDelta, status, type Mode, type Reply } from "./api";
@@ -68,6 +69,14 @@ export function AssistantPanel({
   const [question, setQuestion] = useState("");
   const [dataset, setDataset] = useState("");
   const [secondDataset, setSecondDataset] = useState("");
+  const [lookup, setLookup] = useState("");
+  const [target, setTarget] = useState("");
+  const mlEnabled = useMlEnabled();
+  const fact = datasets.find((d) => d.id === dataset);
+  const selectedInputs = [dataset, secondDataset, lookup].map((id) =>
+    datasets.find((d) => d.id === id),
+  );
+  const training = mode === "build" && !!lookup && !current().nodes.length;
   const [shareNames, setShareNames] = useState(false);
   const [reply, setReply] = useState<Reply>();
   const [error, setError] = useState("");
@@ -163,6 +172,13 @@ export function AssistantPanel({
             mode === "build" && !snapshot.nodes.length
               ? secondDataset || null
               : null,
+          ...(training && {
+            training: {
+              dataset_id: lookup,
+              versions: selectedInputs.map((d) => d?.latest_version ?? 0),
+              target,
+            },
+          }),
           share_names: shareNames,
         }),
       });
@@ -412,6 +428,8 @@ export function AssistantPanel({
                         onChange={(e) => {
                           setDataset(e.target.value);
                           setSecondDataset("");
+                          setLookup("");
+                          setTarget("");
                           setReply(undefined);
                         }}
                       >
@@ -439,6 +457,8 @@ export function AssistantPanel({
                           disabled={!!busy}
                           onChange={(e) => {
                             setSecondDataset(e.target.value);
+                            setLookup("");
+                            setTarget("");
                             setReply(undefined);
                           }}
                         >
@@ -456,7 +476,7 @@ export function AssistantPanel({
                               </option>
                             ))}
                         </Select>
-                        {secondDataset && (
+                        {secondDataset && !training && (
                           <span className="text-xs text-muted-foreground">
                             The first dataset is the left input. A left Join
                             keeps every row from it.
@@ -464,7 +484,70 @@ export function AssistantPanel({
                         )}
                       </label>
                     )}
-                  {ready && !question && mode !== "docs" && (
+                  {mlEnabled &&
+                    secondDataset &&
+                    mode === "build" &&
+                    !current().nodes.length && (
+                      <label className="grid gap-1 text-sm">
+                        Second lookup for regression (optional)
+                        <Select
+                          value={lookup}
+                          disabled={!!busy}
+                          onChange={(e) => {
+                            setLookup(e.target.value);
+                            setTarget("");
+                            setReply(undefined);
+                          }}
+                        >
+                          <option value="">Use one Join</option>
+                          {datasets
+                            .filter(
+                              (d) =>
+                                !d.is_disabled &&
+                                d.source_type === "csv" &&
+                                d.id !== dataset &&
+                                d.id !== secondDataset,
+                            )
+                            .map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                        </Select>
+                      </label>
+                    )}
+                  {training && (
+                    <label className="grid gap-1 text-sm">
+                      Regression target
+                      <Select
+                        value={target}
+                        disabled={!!busy}
+                        onChange={(e) => {
+                          setTarget(e.target.value);
+                          setReply(undefined);
+                        }}
+                      >
+                        <option value="">Choose a numeric outcome</option>
+                        {fact?.column_schema
+                          ?.slice(0, 64)
+                          .filter(
+                            (c) =>
+                              ["integer", "float"].includes(c.type) &&
+                              !selectedInputs
+                                .slice(1)
+                                .some((d) =>
+                                  d?.column_schema?.some(
+                                    (other) => other.name === c.name,
+                                  ),
+                                ),
+                          )
+                          .map((c) => (
+                            <option key={c.name}>{c.name}</option>
+                          ))}
+                      </Select>
+                    </label>
+                  )}
+                  {ready && !question && mode !== "docs" && !training && (
                     <button
                       className="justify-self-start rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-muted focus-visible:ring-2"
                       onClick={() =>
@@ -495,7 +578,9 @@ export function AssistantPanel({
                         mode === "docs"
                           ? "How do I export Polars code?"
                           : mode === "build"
-                            ? "Keep the first 100 rows"
+                            ? training
+                              ? "Predict shipping cost and evaluate on held-out orders"
+                              : "Keep the first 100 rows"
                             : "Why did this flow fail?"
                       }
                       value={question}
@@ -517,7 +602,9 @@ export function AssistantPanel({
                       <p>
                         {mode === "docs"
                           ? "Sends your request and matching passages from the bundled guides."
-                          : "Sends your request, node types and connections, column types and indexes. Join requests can include matching key indexes or the current Join mode. Diagnosis can include a failure category. Rows, filenames, raw errors and code stay local."}{" "}
+                          : training
+                            ? "Sends your request and temporary references for the joins, selected target and numeric predictors. Column names are optional. Files, rows and filenames stay out of the provider request."
+                            : "Sends your request, node types and connections, column types and indexes. Join requests can include matching key indexes or the current Join mode. Diagnosis can include a failure category. Rows, filenames, raw errors and code stay local."}{" "}
                         Keep secrets out of your request.
                       </p>
                       {mode !== "docs" && (
@@ -603,6 +690,7 @@ export function AssistantPanel({
                     !!busy ||
                     !ready ||
                     !question.trim() ||
+                    (training && (!target || !mlEnabled)) ||
                     (mode !== "docs" && disabled)
                   }
                   onClick={() => void generate()}

@@ -19,6 +19,9 @@ for path in (
     "docs/guide/visualizations.md",
     "docs/guide/interface.md",
     "docs/transformations/join.md",
+    "docs/guide/flow-assistant-quick-start.md",
+    "docs/guide/flow-assistant.md",
+    "docs/guide/external-agent.md",
 ):
     name = Path(path).stem
     ref = subprocess.check_output(["git", "log", "-1", "--format=%H", "--", path], cwd=root, text=True).strip()

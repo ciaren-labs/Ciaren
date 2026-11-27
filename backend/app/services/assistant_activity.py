@@ -156,7 +156,12 @@ def receipt(
                     "action": action,
                     "from": kinds[e["source"]],
                     "to": kinds[e["target"]],
-                    **({"port": port} if port in ("left", "right", "in") else {}),
+                    **({"port": port} if port in ("left", "right", "in", "model") else {}),
+                    **(
+                        {"source_port": e["sourceHandle"]}
+                        if e.get("sourceHandle") in ("train", "test", "model")
+                        else {}
+                    ),
                 }
             )
             if action == "disconnect":
