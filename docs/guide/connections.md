@@ -140,7 +140,7 @@ to core.
 | PostgreSQL | `psycopg` | `pip install ciaren[postgres]` |
 | MySQL / MariaDB | `pymysql` | `pip install ciaren[mysql]` |
 | SQLite | built-in | — |
-| DuckDB | `duckdb` | `pip install ciaren[duckdb]` |
+| DuckDB | `duckdb`, `duckdb-engine` | `pip install ciaren[duckdb] duckdb-engine` |
 | SQL Server | `pyodbc` | `pip install ciaren[mssql]` |
 | Snowflake | `snowflake.sqlalchemy` | `pip install ciaren[snowflake]` |
 | MongoDB | `pymongo` | `pip install ciaren[mongo]` |

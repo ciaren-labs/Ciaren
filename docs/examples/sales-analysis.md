@@ -1,36 +1,38 @@
 ---
 title: Sales Data Analysis
-description: "Ciaren example: clean a messy sales CSV and summarize revenue by region with Drop Nulls, Filter Rows, and Group by + Aggregate, then export Python."
-search: example sales analysis group by aggregate clean
+description: "Ciaren example: clean a messy sales CSV and summarize revenue by region with Drop Nulls, Filter by Expression, Replace Values and Group By Aggregate, then export Python."
+search: example sales analysis group by aggregate clean revenue region refunds
 ---
 
 # Sales Data Analysis
 
-A common first task: take a messy export of orders and turn it into a clean
-revenue summary by region. This walkthrough cleans the data, then groups and
-aggregates it.
+You have an order export with a few problems in it and you want one number per
+region: total revenue and order count. This walkthrough cleans the six-row
+sample, collapses it to three rows with **Group By Aggregate**, and exports the
+flow as a pandas or polars script.
 
-**You'll use:** File Input → Drop Columns → Change Types → Drop Nulls → Filter Rows →
-Fill Nulls → Group by + Aggregate → Rename → Sort → File Output.
+**You'll use:** File Input → Drop Columns → Change Types → Drop Nulls →
+Filter by Expression → Replace Values (twice) → Fill Nulls → Group By Aggregate →
+Rename Columns → Sort Rows → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"sales.csv"},
-  {"type":"clean","label":"Drop Columns","detail":"remove internal_note"},
-  {"type":"clean","label":"Change Types","detail":"amount→float · ordered_at→datetime"},
+  {"type":"clean","label":"Drop Columns","detail":"internal_note"},
+  {"type":"clean","label":"Change Types","detail":"amount → float · ordered_at → datetime"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: amount"},
-  {"type":"clean","label":"Filter Rows","detail":"amount > 0 (remove refunds)"},
-  {"type":"clean","label":"Replace Values","detail":"normalise region casing"},
-  {"type":"clean","label":"Fill Nulls","detail":"region → \"Unknown\""},
-  {"type":"transform","label":"Group By + Aggregate","detail":"region · sum(amount) · count(order_id)"},
-  {"type":"clean","label":"Rename Columns","detail":"amount→total_sales · order_id→num_orders"},
-  {"type":"clean","label":"Sort Rows","detail":"total_sales desc"},
+  {"type":"clean","label":"Filter by Expression","detail":"amount > 0 (drops refunds)"},
+  {"type":"clean","label":"Replace Values","detail":"region: north → North, south → South"},
+  {"type":"clean","label":"Fill Nulls","detail":"region → Unknown"},
+  {"type":"transform","label":"Group By Aggregate","detail":"region · sum(amount) · count(order_id)"},
+  {"type":"clean","label":"Rename Columns","detail":"amount → total_sales · order_id → num_orders"},
+  {"type":"clean","label":"Sort Rows","detail":"total_sales, descending"},
   {"type":"output","label":"File Output","detail":"sales_summary.csv"}
 ]' :vertical="true" />
 
 ## Sample data
 
-Save this as `sales.csv` and upload it on the **Datasets** page
-(📥 [download sales.csv](/samples/sales-analysis/sales.csv)):
+Save this as `sales.csv`, or [download sales.csv](/samples/sales-analysis/sales.csv),
+and upload it on the **Datasets** page:
 
 ```csv
 order_id,region,amount,ordered_at,internal_note
@@ -42,62 +44,58 @@ order_id,region,amount,ordered_at,internal_note
 1006,north,210.00,2024-01-06,batch-c
 ```
 
-Notice the problems: an internal column we don't want, mixed-case regions, a
-missing amount, a negative (refund) amount, and a missing region.
+Five things need fixing before the numbers are trustworthy:
+
+- `internal_note` is an internal column that should not reach the summary.
+- Order 1003 has no amount.
+- Order 1004 is a refund (`-5.00`), not revenue.
+- Order 1005 has no region.
+- `north` and `south` are lowercase, so they would form their own groups.
 
 ## Build the flow
 
-1. **File Input** — File type CSV, select the `sales.csv` dataset.
-2. **Drop Columns** — `columns: ["internal_note"]`.
-3. **Change Types** — `casts: { "amount": "float", "ordered_at": "datetime" }`.
-4. **Drop Nulls** — `subset: ["amount"]` (drop rows with no amount).
-5. **Filter Rows** — `column: "amount"`, `operator: ">"`, `value: 0` (drop refunds).
-6. **Replace Values** — tidy region casing, e.g. `column: "region"`,
-   `to_replace: "north"`, `value: "North"` (add a second node for `"south" → "South"`).
-7. **Fill Nulls** — `strategy: "constant"`, `value: "Unknown"`, `columns: ["region"]`.
-8. **Group by + Aggregate** — `group_by: ["region"]`,
-   `aggregations: { "amount": "sum", "order_id": "count" }`.
-9. **Rename Columns** — `mapping: { "amount": "total_sales", "order_id": "num_orders" }`.
-10. **Sort Rows** — `columns: ["total_sales"]`, `ascending: false`.
-11. **File Output** — `format: csv` (name `sales_summary`).
+1. **File Input**: set **File type** to CSV and pick the `sales.csv` dataset.
+2. **Drop Columns**: **Columns to drop** = `internal_note`.
+3. **Change Types**: under **Casts**, set `amount` → `float` and
+   `ordered_at` → `datetime`. Leave **On bad values** at *Raise an error* so a
+   malformed amount stops the run instead of silently turning into null.
+4. **Drop Nulls**: **Subset** = `amount`. This removes order 1003. Limit the
+   subset to `amount`, or the row with no region would be dropped too.
+5. **Filter by Expression**: type `amount > 0` into **Expression**, or use
+   **Build condition**: pick `amount`, **> greater than** and `0`, then click
+   **Use condition**. The node keeps the rows where the expression is true, so
+   the refund, order 1004, is dropped.
+6. **Replace Values**: **Column** `region`, **Replace** `north`,
+   **With** `North`. Add a second **Replace Values** node for `south` → `South`.
+   Replace Values matches the whole cell exactly, so each spelling needs its own
+   node.
+7. **Fill Nulls**: **Strategy** *Constant value*, **Fill value** `Unknown`,
+   **Columns** `region`. Order 1005 keeps its revenue under an explicit
+   `Unknown` group.
+8. **Group By Aggregate**: **Group by columns** = `region`. Under
+   **Aggregations**, set `amount` → `sum` and `order_id` → `count`.
+9. **Rename Columns**: `amount` → `total_sales`, `order_id` → `num_orders`.
+   After the group-by, those columns hold a sum and a count, so the old names
+   would mislead.
+10. **Sort Rows**: **Sort by columns** `total_sales`, **Order** *Descending*.
+11. **File Output**: **File type** CSV, **Dataset name** `sales_summary`.
 
-Use the **live preview** after each node to watch the data take shape, then
-**Run** the flow.
+Select a node to see the live preview of its output, then click **Run**.
 
-## Exported Python
+## What Group By Aggregate does
 
-Click **Export → Python**. The generated pandas script is standalone — the
-input frame is named after your dataset, and on a straight chain like this one,
-consecutive steps fuse into fluent method chains on that single variable:
+Group By Aggregate turns many rows into one row per distinct value of the group
+column. Every other column you want to keep needs an aggregation; the result has
+only the group columns and the aggregated columns.
 
-```python
-import pandas as pd
+![Four cleaned order rows collapse into three region rows: North sums 120.50 and 210.00 into 330.50 with two orders](/illustrations/examples/sales-group-by.svg)
 
-df_sales = pd.read_csv('sales.csv')
+This is also why step 6 matters. Without the two Replace Values nodes, `North`
+and `north` are different keys and the summary has four rows.
 
-df_sales = (
-    df_sales.drop(columns=['internal_note'])
-    .assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
-    .dropna(subset='amount')
-    .loc[lambda _d: _d['amount'] > 0]
-    .assign(region=lambda _d: _d['region'].replace('north', 'North'))
-    .assign(region=lambda _d: _d['region'].replace('south', 'South'))
-    .fillna({'region': 'Unknown'})
-    .groupby('region')
-    .agg({'amount': 'sum', 'order_id': 'count'})
-    .reset_index()
-    .rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
-    .sort_values('total_sales', ascending=False)
-)
-
-df_sales.to_csv('sales_summary.csv', index=False)
-```
-
-Ciaren also generates the **polars** equivalent — pick whichever you prefer.
+![Without Replace Values, North and north form separate groups of 120.50 and 210.00 instead of one North group of 330.50](/illustrations/examples/sales-case-split.svg)
 
 ## Result
-
-The flow transforms the raw messy CSV into a clean revenue summary.
 
 <DataTransform
   transform="Full flow"
@@ -123,17 +121,73 @@ The flow transforms the raw messy CSV into a clean revenue summary.
   :highlight='["total_sales","num_orders"]'
 />
 
-The refund row (`amount = -5`) and the missing-amount row were filtered out; the
-row with no region became `Unknown`.
+### Check the result
+
+- The output has exactly three rows: `North`, `South`, `Unknown`.
+- `total_sales` adds up to 461.75. That is the sum of the four positive amounts
+  (120.50 + 89.00 + 42.25 + 210.00); the refund and the missing amount are not
+  in it.
+- `num_orders` adds up to 4, one per surviving order.
+
+If you see a `north` row, a Replace Values node is missing or misspelled. If the
+total is 456.75, the refund got through: check the Filter by Expression node.
+
+## Exported Python
+
+Click **Export** in the editor toolbar. The **pandas** tab shows a standalone
+script. The input frame is named after the dataset, and on a straight chain like
+this one the steps fuse into one method chain:
+
+```python
+import pandas as pd
+
+df_sales = pd.read_csv('sales.csv')
+
+df_sales = (
+    df_sales.drop(columns=['internal_note'])
+    .assign(amount=lambda _d: _d['amount'].astype('float64'), ordered_at=lambda _d: pd.to_datetime(_d['ordered_at']))
+    .dropna(subset='amount')
+    .query('amount > 0')
+    .reset_index(drop=True)
+    .assign(region=lambda _d: _d['region'].replace('north', 'North'))
+    .assign(region=lambda _d: _d['region'].replace('south', 'South'))
+    .fillna({'region': 'Unknown'})
+    .groupby('region')
+    .agg({'amount': 'sum', 'order_id': 'count'})
+    .reset_index()
+    .rename(columns={'amount': 'total_sales', 'order_id': 'num_orders'})
+    .sort_values('total_sales', ascending=False)
+)
+
+df_sales.to_csv('sales_summary.csv', index=False)
+```
+
+Run it next to `sales.csv` and `sales_summary.csv` contains the three rows from
+the result table. The **polars** tab writes the same file. Its filter step converts
+the frame to pandas to evaluate the expression, so that script needs pandas and
+PyArrow installed next to polars.
+
+## Pitfalls
+
+- **Group By Aggregate drops columns that have no aggregation.** `ordered_at`
+  is not in the output because it is neither a group column nor aggregated. Add
+  it to **Aggregations** (for example `max`) if you need the latest order date.
+- **Drop Nulls with an empty subset checks every column.** Here that would also
+  remove order 1005 and its 42.25 of revenue.
+- **Count counts non-null values.** `order_id` is never null, so its count is
+  the number of orders. Counting a column with gaps gives a smaller number.
 
 ## Variations
 
-- Want revenue **per day**? Add **Extract Date Parts** on `ordered_at` and group
-  by the new `ordered_at_day` column.
-- Want a recurring summary? Attach a [schedule](/guide/scheduling) to run this
-  flow every morning.
+- **Revenue per region and month:** add **Extract Date Parts** on `ordered_at`
+  with the `year` and `month` parts, then add `ordered_at_year` and
+  `ordered_at_month` to the group columns. [Time Series Analysis](/examples/time-series)
+  walks through this pattern.
+- **A daily summary:** attach a [schedule](/guide/scheduling) to run the flow
+  every morning.
 
 ## Next steps
 
 - [Customer Segmentation](/examples/customer-segmentation)
+- [Group By Aggregate reference](/transformations/group-by-aggregate)
 - [Transformations Reference](/transformations/overview)
