@@ -12,9 +12,9 @@ from app.core.assistant_keys import read_key, source, write_key
 from app.core.assistant_profiles import Provider
 from app.core.config import get_settings
 from app.core.exceptions import ConflictError, ValidationError
-from app.schemas.assistant import Confirmation, Credential, RevertPreview, Turn
+from app.schemas.assistant import Confirmation, Credential, Reply, RevertPreview, Turn
 from app.services import assistant_activity as activity
-from app.services.assistant_service import Refusal
+from app.services.assistant_scope import Refusal
 
 router = APIRouter()
 _active: dict[tuple[str, UUID], asyncio.Event] = {}
@@ -66,7 +66,7 @@ async def revoke(provider: Provider) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/flows/{flow_id}/turn")
+@router.post("/flows/{flow_id}/turn", response_model=Reply, response_model_exclude_none=True)
 async def turn(flow_id: str, body: Turn, service: AssistantServiceDep, request: Request) -> Any:
     identity = (flow_id, body.request_id)
     if identity in _active or len(_active) >= 8:

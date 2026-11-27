@@ -93,3 +93,65 @@ class RepairJoin(ClosedModel):
 
 class RevertPreview(ClosedModel):
     revision: datetime
+
+
+Reason = Literal[
+    "unsupported_node",
+    "locked_node",
+    "unsaved_changes",
+    "multiple_inputs",
+    "no_dataset",
+    "ml_disabled",
+    "no_failed_run",
+    "budget_exhausted",
+    "provider_no_tools",
+    "abstained",
+    "no_change",
+    "validation_failed",
+    "step_limit",
+    "timeout",
+]
+
+
+class Suggestion(ClosedModel):
+    label: str
+    action: Literal["save", "switch_mode", "open_docs", "enable_ml", "manual_edit", "share_names", "retry"]
+    target: str | None = None
+
+
+class Usage(ClosedModel):
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class ToolStep(ClosedModel):
+    tool: str
+    ok: bool
+
+
+class Delta(ClosedModel):
+    added: list[dict[str, Any]]
+    changed: list[dict[str, Any]]
+    connected: list[dict[str, Any]]
+    disconnected: list[str]
+
+
+class Citation(ClosedModel):
+    title: str
+    url: str
+
+
+class Reply(ClosedModel):
+    """Every turn answer. Absent fields are omitted from the response body."""
+
+    message: str
+    proposal: str | None = None
+    delta: Delta | None = None
+    citation: Citation | None = None
+    usage: Usage | None = None
+    steps: list[ToolStep] | None = None
+    expires_in: int | None = None
+    reason: Reason | None = None
+    supported: list[str] | None = None
+    suggestions: list[Suggestion] | None = None

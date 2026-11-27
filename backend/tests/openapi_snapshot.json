@@ -1295,7 +1295,7 @@
       },
       "responses": {
         "200": {
-          "application/json": "any"
+          "application/json": "#Reply"
         },
         "422": {
           "application/json": "#HTTPValidationError"
@@ -2040,6 +2040,16 @@
         "label"
       ]
     },
+    "Citation": {
+      "properties": {
+        "title": "string",
+        "url": "string"
+      },
+      "required": [
+        "title",
+        "url"
+      ]
+    },
     "CodeExportResponse": {
       "properties": {
         "code": "string",
@@ -2211,6 +2221,20 @@
         "id",
         "row_count",
         "version_number"
+      ]
+    },
+    "Delta": {
+      "properties": {
+        "added": "array<object>",
+        "changed": "array<object>",
+        "connected": "array<object>",
+        "disconnected": "array<string>"
+      },
+      "required": [
+        "added",
+        "changed",
+        "connected",
+        "disconnected"
       ]
     },
     "Engine": {
@@ -2796,6 +2820,23 @@
       },
       "required": []
     },
+    "Reply": {
+      "properties": {
+        "citation": "anyOf(#Citation|null)",
+        "delta": "anyOf(#Delta|null)",
+        "expires_in": "anyOf(integer|null)",
+        "message": "string",
+        "proposal": "anyOf(null|string)",
+        "reason": "anyOf(null|string{abstained,budget_exhausted,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
+        "steps": "anyOf(array<#ToolStep>|null)",
+        "suggestions": "anyOf(array<#Suggestion>|null)",
+        "supported": "anyOf(array<string>|null)",
+        "usage": "anyOf(#Usage|null)"
+      },
+      "required": [
+        "message"
+      ]
+    },
     "RevertPreview": {
       "properties": {
         "revision": "string(date-time)"
@@ -2928,6 +2969,17 @@
     "SortOrder": {
       "type": "string{asc,desc}"
     },
+    "Suggestion": {
+      "properties": {
+        "action": "string{enable_ml,manual_edit,open_docs,retry,save,share_names,switch_mode}",
+        "label": "string",
+        "target": "anyOf(null|string)"
+      },
+      "required": [
+        "action",
+        "label"
+      ]
+    },
     "TableInfo": {
       "properties": {
         "name": "string",
@@ -2937,6 +2989,16 @@
       "required": [
         "name",
         "qualified"
+      ]
+    },
+    "ToolStep": {
+      "properties": {
+        "ok": "boolean",
+        "tool": "string"
+      },
+      "required": [
+        "ok",
+        "tool"
       ]
     },
     "TrainingSelection": {
@@ -2993,6 +3055,14 @@
         "question",
         "revision"
       ]
+    },
+    "Usage": {
+      "properties": {
+        "calls": "integer",
+        "input_tokens": "integer",
+        "output_tokens": "integer"
+      },
+      "required": []
     },
     "ValidationError": {
       "properties": {

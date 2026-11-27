@@ -18,6 +18,12 @@ KEY = "synthetic-assistant-credential-87432"
 ROW = "private-row-sentinel"
 
 
+async def failed_run(db_session, flow_id):
+    """Diagnose explains the latest failed run, so diagnosis tests record one first."""
+    db_session.add(FlowRun(flow_id=flow_id, status="failed", error_message="column error: " + ROW))
+    await db_session.commit()
+
+
 @pytest.fixture
 def enabled(client, monkeypatch):
     settings = get_settings()
@@ -261,7 +267,7 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         assert ROW not in r.text and complete.await_count == 0
         assert (await client.get(path)).json()["graph_json"] == stored
     else:
-        assert r.status_code == 200, r.text
+        assert r.status_code == 200 and r.json()["expires_in"] == 180, r.text
         applied = await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})
         assert applied.status_code == 200, applied.text
         saved = (await client.get(path)).json()["graph_json"]
@@ -269,6 +275,53 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         assert saved["engine"] == "pandas" and len(saved["nodes"]) == 4
         # Only the stored base reaches the saved graph: draft presentation edits are not written.
         assert [n for n in saved["nodes"] if n["id"] in ids] == stored["nodes"]
+
+
+@pytest.mark.parametrize(
+    ("case", "reason", "action"),
+    [
+        ("no_dataset", "no_dataset", "manual_edit"),
+        ("no_input", "no_dataset", "manual_edit"),
+        ("multiple_inputs", "multiple_inputs", "manual_edit"),
+        ("unsupported_node", "unsupported_node", "manual_edit"),
+        ("no_failed_run", "no_failed_run", "switch_mode"),
+        ("disabled_flow", "disabled_flow", None),
+    ],
+)
+async def test_preflight_refuses_before_any_provider_call(client, enabled, monkeypatch, case, reason, action):
+    flow = (await client.post("/api/flows", json={"name": "Preflight"})).json()
+    dataset = (await client.post("/api/datasets/upload", files={"file": ("pre.csv", "amount\n1\n")})).json()
+
+    def node(i, kind, config):
+        return {"id": f"n{i}", "type": kind, "position": {"x": 0, "y": 0}, "data": {"label": kind, "config": config}}
+
+    source = {"dataset_id": dataset["id"], "format": "csv"}
+    graph = {
+        "no_dataset": {"nodes": [], "edges": []},
+        "no_input": {"nodes": [node(0, "limitRows", {"n": 1, "offset": 0})], "edges": []},
+        "multiple_inputs": {"nodes": [node(0, "fileInput", source), node(1, "fileInput", source)], "edges": []},
+        "unsupported_node": {"nodes": [node(0, "pythonTransform", {"code": ROW})], "edges": []},
+    }.get(case, {"nodes": [node(0, "fileInput", source)], "edges": []})
+    update = {"graph_json": graph, **({"is_disabled": True} if case == "disabled_flow" else {})}
+    flow = (await client.put(f"/api/flows/{flow['id']}", json=update)).json()
+    complete = AsyncMock(return_value={"steps": [{"kind": "limitRows", "count": 1}]})
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    body = {
+        "mode": "diagnose" if case == "no_failed_run" else "build",
+        "provider": "openai",
+        "question": "Limit rows",
+        "revision": flow["updated_at"],
+    }
+    r = await client.post(f"/api/assistant/flows/{flow['id']}/turn", json=body)
+    assert complete.await_count == 0
+    assert r.json()["reason"] == reason and ROW not in r.text
+    if action is None:
+        assert r.status_code == 409
+    else:
+        reply = r.json()
+        assert r.status_code == 200 and "proposal" not in reply and reply["message"]
+        assert action in {s["action"] for s in reply["suggestions"]}
+        assert case != "unsupported_node" or "limitRows" in reply["supported"]
 
 
 async def test_docs_citation_abstention(client, enabled, monkeypatch):
@@ -322,7 +375,7 @@ async def test_guides_retrieve_onboarding_passages(client, enabled, monkeypatch,
     )
 
 
-async def test_scope_resources_before_provider_call(client, enabled, monkeypatch):
+async def test_scope_resources_before_provider_call(client, enabled, monkeypatch, db_session):
     flow = (await client.post("/api/flows", json={"name": "Scope"})).json()
     project = (await client.post("/api/projects", json={"name": "Separate"})).json()
     dataset = (
@@ -345,6 +398,7 @@ async def test_scope_resources_before_provider_call(client, enabled, monkeypatch
         "dataset_id": dataset["id"],
     }
     assert (await client.post(url, json=body)).status_code == 400
+    await failed_run(db_session, flow["id"])
     body["mode"] = "diagnose"
     body["graph"] = {
         "nodes": [{"id": ROW, "type": "pythonTransform", "data": {"label": ROW, "config": {"code": ROW}}}],
@@ -503,7 +557,7 @@ async def test_join_rejects_unavailable_inputs_and_plan(client, join_case, monke
 
 
 @pytest.mark.parametrize("outcome", ["valid", "abstain", "wrong_ref", "wrong_mode", "extra_field", "malformed"])
-async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeypatch, outcome):
+async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeypatch, db_session, outcome):
     from pydantic import SecretStr
 
     flow, url, body, _ = join_case
@@ -514,6 +568,8 @@ async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeyp
     path = "/api/flows/" + flow["id"]
     current = (await client.get(path)).json()
     activity = (await client.get(url + "/activity")).json()
+    await failed_run(db_session, flow["id"])
+    runs = (await client.get("/api/runs")).json()
     body.update(
         mode="diagnose",
         provider="deepseek",
@@ -571,7 +627,7 @@ async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeyp
         assert response.json() == {"detail": expected}
     assert (await client.get(path)).json() == current
     assert (await client.get(url + "/activity")).json() == activity
-    assert (await client.get("/api/runs")).json() == []
+    assert (await client.get("/api/runs")).json() == runs
 
 
 @pytest.mark.parametrize("side", [0, 1])
@@ -592,6 +648,7 @@ async def test_join_repair_preserves_graph_and_checks_pinned_versions(client, jo
     join["data"]["config"]["suffixes"] = ["_a", "_b"]
     join["data"]["label"] = "private label"
     current = (await client.put(path, json={"graph_json": graph})).json()
+    await failed_run(db_session, flow["id"])
     body.update(mode="diagnose", graph=graph, revision=current["updated_at"], second_dataset_id=None)
 
     def repair(provider, instruction, context):
