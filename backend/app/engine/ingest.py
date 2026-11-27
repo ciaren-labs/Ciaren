@@ -269,10 +269,12 @@ def read_delimited(source: str | Path | IO[bytes], source_type: str, options: di
     )
 
 
-# pandas turns numeric-looking text cells ("02134") into numbers. Reading every
-# cell as stored (dtype=object) and applying this per column keeps a column with
+# pandas turns numeric-looking text cells ("02134") into numbers and text such as
+# "NA" or "N/A" into NaN. Reading every cell as stored (PANDAS_EXCEL_READ_KWARGS:
+# only empty cells are missing) and applying this per column keeps a column with
 # any text cell as text, like Polars' read_excel, and gives the rest their
-# numeric/date dtype. Exported pandas scripts emit this same expression.
+# numeric/date dtype. Exported pandas scripts emit these same kwargs/expression.
+PANDAS_EXCEL_READ_KWARGS = "dtype=object, keep_default_na=False, na_values=['']"
 PANDAS_EXCEL_KEEP_TEXT = (
     "lambda col: col.where(col.isna(), col.astype(str)) "
     "if col.apply(isinstance, args=(str,)).any() else col.infer_objects()"
@@ -287,7 +289,7 @@ def _keep_excel_text(col: pd.Series) -> pd.Series:
 
 def read_excel(source: str | Path | IO[bytes], sheet: int | str = 0) -> pd.DataFrame:
     """Read one sheet with pandas, keeping text cells as text (see above)."""
-    frame = pd.read_excel(source, sheet_name=sheet, dtype=object)
+    frame = pd.read_excel(source, sheet_name=sheet, dtype=object, keep_default_na=False, na_values=[""])
     return frame.apply(_keep_excel_text)
 
 

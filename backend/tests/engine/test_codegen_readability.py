@@ -98,8 +98,16 @@ def test_text_input_export_preserves_read_failures(tmp_path: Path, node_type: st
 
 # Text cells hold codes (zip codes, IDs) and must stay text; "code" is a number
 # that only *displays* as 02134 through its cell format and stays a number. A
-# column mixing text and number cells becomes text, so it keeps one type.
-_TEXT_CODE_COLUMNS = {"zip": ["02134", "10001"], "code": [2134, 10001], "mixed": ["007", "5"], "amount": [1.5, 2.0]}
+# column mixing text and number cells becomes text, so it keeps one type. Text
+# such as "NA" (Namibia's country code) or "N/A" is data, not a missing value.
+_TEXT_CODE_COLUMNS = {
+    "zip": ["02134", "10001"],
+    "code": [2134, 10001],
+    "mixed": ["007", "5"],
+    "amount": [1.5, 2.0],
+    "country": ["NA", "US"],
+    "score": ["1", "N/A"],
+}
 
 
 def _write_text_code_workbook(path: Path) -> None:
@@ -107,8 +115,8 @@ def _write_text_code_workbook(path: Path) -> None:
     sheet = book.active
     assert sheet is not None
     sheet.append(list(_TEXT_CODE_COLUMNS))
-    sheet.append(["02134", 2134, "007", 1.5])
-    sheet.append(["10001", 10001, 5, 2.0])
+    sheet.append(["02134", 2134, "007", 1.5, "NA", 1])
+    sheet.append(["10001", 10001, 5, 2.0, "US", "N/A"])
     for cell in sheet["B"][1:]:
         cell.number_format = "00000"
     book.save(path)

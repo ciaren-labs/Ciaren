@@ -54,7 +54,7 @@ from app.engine.codegen_common import (
     strip_self_assign,
 )
 from app.engine.graph import topological_sort, validate_graph
-from app.engine.ingest import PANDAS_EXCEL_KEEP_TEXT, config_parse_options
+from app.engine.ingest import PANDAS_EXCEL_KEEP_TEXT, PANDAS_EXCEL_READ_KWARGS, config_parse_options
 from app.engine.node_kinds import (
     FILE_INPUT_TYPE,
     FILE_OUTPUT_TYPE,
@@ -243,7 +243,7 @@ class CodeGenerator:
                     elif source_type == "jsonl":
                         kwargs = ", lines=True"
                     elif source_type == "excel":
-                        kwargs = ", dtype=object"
+                        kwargs = f", {PANDAS_EXCEL_READ_KWARGS}"
                     kwargs += pandas_dialect_kwargs(source_type, dialect)
                     body.append(f"{var} = {func}({path!r}{kwargs})")
                     if source_type == "excel":
