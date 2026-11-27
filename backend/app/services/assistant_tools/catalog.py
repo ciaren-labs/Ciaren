@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+"""Read-only tools: the allowed node catalog, node schemas and dataset shape. No row values."""
+
+from typing import Annotated, Any
+
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+
+from app.db.models.dataset_version import DatasetVersion
+from app.plugin_api.specs import NodeSpec
+from app.plugins import get_registry
+from app.services.assistant_nodes import MODELS, column_fields
+from app.services.assistant_policy import TERMINAL, tier
+from app.services.assistant_tools.context import ToolContext, ToolError
+
+NUMERIC = {"integer", "float", "int64", "float64", "number"}
+SHARED_TYPES = NUMERIC | {"string", "boolean", "datetime"}
+Ref = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,23}$")]
+
+
+class Args(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ListNodeTypes(Args):
+    category: Annotated[str, Field(max_length=32)] | None = None
+
+
+class GetNodeSchema(Args):
+    types: Annotated[list[Annotated[str, Field(max_length=64)]], Field(min_length=1, max_length=6)]
+
+
+class GetDatasetSchema(Args):
+    dataset: Ref
+
+
+class ProfileColumns(Args):
+    source: Ref
+    columns: Annotated[list[Ref], Field(min_length=1, max_length=16)]
+
+
+def allowed_specs() -> dict[str, NodeSpec]:
+    """Installed nodes the policy allows, from their expected provider only."""
+    return {s.id: s for s in get_registry().node_specs() if tier(s.id, s.provider) and s.id in MODELS}
+
+
+async def list_node_types(ctx: ToolContext, args: ListNodeTypes) -> dict[str, Any]:
+    return {
+        "nodes": [
+            {
+                "type": s.id,
+                "label": s.label,
+                "category": s.category,
+                "description": s.description,
+                "inputs": [{"id": p.id, "kind": p.type, "required": p.required, "multi": p.multi} for p in s.inputs],
+                "outputs": [p.id for p in s.outputs],
+                "tier": tier(s.id, s.provider),
+                "terminal": s.id in TERMINAL or s.is_flow_terminal,
+            }
+            for s in allowed_specs().values()
+            if args.category in (None, s.category)
+        ]
+    }
+
+
+async def get_node_schema(ctx: ToolContext, args: GetNodeSchema) -> dict[str, Any]:
+    specs = allowed_specs()
+    result: dict[str, Any] = {}
+    for node_type in dict.fromkeys(args.types):
+        spec = specs.get(node_type)
+        if spec is None:
+            result[node_type] = {"error": "policy"}
+            continue
+        notes = []
+        if column_fields(node_type):
+            notes.append("Column fields take column refs such as c0 from the input's schema.")
+        if tier(node_type, spec.provider) == "review":
+            notes.append("Expressions may only reference known columns and basic math functions.")
+        result[node_type] = {
+            "schema": MODELS[node_type].model_json_schema(),
+            "defaults": spec.default_config,
+            "notes": notes,
+        }
+    return result
+
+
+async def _stats(ctx: ToolContext, ref: str) -> tuple[int | None, list[dict[str, Any]]]:
+    schema = await ctx.dataset(ref)
+    row = (
+        await ctx.db.execute(
+            select(DatasetVersion.row_count, DatasetVersion.profile_json).where(
+                DatasetVersion.id == schema.version.version_id
+            )
+        )
+    ).one()
+    return row.row_count, row.profile_json or []
+
+
+async def get_dataset_schema(ctx: ToolContext, args: GetDatasetSchema) -> dict[str, Any]:
+    rows, profile = await _stats(ctx, args.dataset)
+    columns = ctx.schemas[args.dataset].shared_columns(ctx.share_names)
+    return {
+        "columns": [{"ref": f"c{c.pop('index')}", **c} for c in columns],
+        "row_count": rows,
+        "profiled": bool(profile),
+    }
+
+
+async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
+    if args.source not in ctx.datasets:
+        raise ToolError("unsupported", "Only dataset sources can be profiled.")
+    rows, profile = await _stats(ctx, args.source)
+    names = ctx.column_names(args.source, args.columns)
+    by_name = {p.get("name"): p for p in profile}
+    types = ctx.schemas[args.source].columns
+    result = []
+    for ref, name in zip(args.columns, names, strict=True):
+        p = by_name.get(name, {})
+        scanned = p.get("scanned") or 0
+        entry: dict[str, Any] = {
+            "ref": ref,
+            "type": types[name] if types[name] in SHARED_TYPES else "other",
+            "null_frac": round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None,
+            "distinct": p.get("distinct"),
+            "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
+            "numeric": types[name] in NUMERIC,
+        }
+        # Ranges are data values; they leave the process only with the explicit opt-in.
+        if ctx.share_values and "min" in p:
+            entry.update(min=p["min"], max=p["max"])
+        result.append(entry)
+    return {"columns": result, "row_count": rows}
+
+
+TOOLS: dict[str, tuple[type[Args], Any]] = {
+    "list_node_types": (ListNodeTypes, list_node_types),
+    "get_node_schema": (GetNodeSchema, get_node_schema),
+    "get_dataset_schema": (GetDatasetSchema, get_dataset_schema),
+    "profile_columns": (ProfileColumns, profile_columns),
+}
