@@ -2,3 +2,5 @@ node_modules/
 .vitepress/cache/
 .vitepress/dist/
 docs/
+scripts/illustrations/.fonts/
+scripts/illustrations/__pycache__/

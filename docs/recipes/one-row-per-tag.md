@@ -1,85 +1,133 @@
 ---
 title: One Row per Tag While Preserving Record IDs
-description: Split a delimited tags column into one row per tag in Ciaren while repeating the source record ID and preserving null and empty values.
-search: recipe split rows tags delimiter record id explode pandas polars null empty
+description: Split a delimited tags column into one row per tag in Ciaren with Split to Rows, repeat the record ID on every row, trim stray spaces, and handle null and empty tags. Includes the pandas and Polars export.
+search: recipe split rows tags delimiter record id explode one row per value pandas polars null empty
 ---
 
 # One Row per Tag While Preserving Record IDs
 
-Turn a semicolon-delimited `tags` field into one row per tag without losing the
-source record ID. This recipe uses **Split to Rows**, which creates rows; it is
-different from [Split a Column](/recipes/split-a-column), which creates columns.
+Each article has a `tags` field such as `news;sports`, and you want one row per
+tag so you can count or join on tags. **Split to Rows** splits the text and
+gives each piece its own row, repeating the other columns. It adds rows;
+[Split a Column](/recipes/split-a-column) adds columns instead.
 
 **You'll use:** [File Input](/transformations/file-input) →
 [Split to Rows](/transformations/split-to-rows) →
+[String Transform](/transformations/string-transform) →
 [File Output](/transformations/file-output).
+
+<FlowPipeline :nodes='[
+  {"type":"input","label":"File Input","detail":"articles.csv"},
+  {"type":"transform","label":"Split to Rows","detail":"tags · delimiter ;"},
+  {"type":"transform","label":"String Transform","detail":"tags · Strip spaces"},
+  {"type":"output","label":"File Output","detail":"article_tags"}
+]' />
+
+## Sample data
+
+Save this as `articles.csv`. Record `r3` has no tags, `r4` ends with a
+delimiter, and `r5` has a space after the delimiter.
+
+```csv
+record_id,tags
+r1,news;sports
+r2,news
+r3,
+r4,a;
+r5,news; sports
+```
 
 ## Steps
 
-1. Upload the CSV on **Datasets** and select it in **File Input**.
-2. Add **Split to Rows** and set `column: tags` and `delimiter: ;`.
-3. Preview the node. The `record_id` value is repeated for every expanded tag.
-4. Check null and empty values before adding any cleaning step: a null cell stays
-   null, and a trailing delimiter creates an empty-string row.
-5. Connect **File Output**, choose CSV or Parquet, and run the flow.
+1. On **Datasets**, upload `articles.csv`.
+2. In a new flow, add **File Input**. Set **File type** to CSV and **Dataset**
+   to `articles.csv`.
+3. Add **Split to Rows**. Set **Column** to `tags` and **Delimiter (optional)**
+   to `;`.
+4. Add **String Transform**. Set **Column** to `tags` and click **Strip
+   spaces**. Without it, `r5` gets the tag `" sports"`, which does not match
+   `sports`.
+5. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
+   `article_tags`. Connect the nodes in order and click **Run**.
 
-## Before / after
+![Split to Rows turns five records into eight rows: each tag gets its own row with the record_id repeated, a null stays one null row, a trailing delimiter adds an empty tag, and a space after the delimiter stays in the tag](/illustrations/recipes/split-to-rows-fanout.svg)
 
-The input has four records. The output has six rows because `r1` expands to two
-tags and `r4` keeps the empty token after its trailing delimiter.
+## Result
 
-### Before
-
-| record_id | tags |
-| --- | --- |
-| `r1` | `news;sports` |
-| `r2` | `news` |
-| `r3` | null |
-| `r4` | `a;` |
-
-### After
+Five records become eight rows:
 
 | record_id | tags |
 | --- | --- |
-| `r1` | `news` |
-| `r1` | `sports` |
-| `r2` | `news` |
-| `r3` | null |
-| `r4` | `a` |
-| `r4` | `""` (empty string) |
+| r1 | news |
+| r1 | sports |
+| r2 | news |
+| r3 | null |
+| r4 | a |
+| r4 | empty text (`""`) |
+| r5 | news |
+| r5 | sports |
 
-The null row and the empty-string row are different values. If the downstream
-workflow should remove either one, add an explicit [Filter by expression](/transformations/filter-expression)
-step after splitting. For whitespace cleanup, see [Clean Messy Text](/recipes/clean-messy-text).
+## Check the result
+
+Save the flow, click **Preview**, select the String Transform node and click
+**Run preview**. You should see 8 rows, with `r1` and `r5` on two rows each.
+Switch to **Profile**: `tags` should list `news` 3 times and `sports` 2 times.
+If `sports` appears only once, the Strip spaces step is missing.
+
+## Pitfalls
+
+- **A null stays one row.** `r3` keeps one row with a null tag, so the record
+  does not disappear.
+- **A trailing delimiter adds an empty tag.** `a;` gives `a` and an empty text.
+  Remove such rows with [Filter by Expression](/transformations/filter-expression),
+  for example `tags != ''`, which drops the empty tag and keeps the null row.
+- **Null and empty text look alike in a CSV.** Both are written as an empty
+  cell by the pandas engine; Polars writes the empty text as `""`. Check the
+  preview, not the file.
+- **Pick the delimiter the data uses.** With the default `,`, nothing in this
+  sample is split.
 
 ## Exported Python
 
-These examples use the current Split to Rows exporters. Both produce the same
-six records shown above.
+Click **Export** in the editor toolbar. The **pandas** and **polars** tabs show
+this code for the flow. It reads `articles.csv` from the script's folder and
+writes `article_tags.csv`.
 
-### pandas
+::: code-group
 
-```python
+```python [pandas]
 import pandas as pd
 
-df_1 = pd.DataFrame({'record_id': ['r1', 'r2', 'r3', 'r4'], 'tags': ['news;sports', 'news', None, 'a;']})
-df_2 = df_1.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';')).explode('tags').reset_index(drop=True)
-print(df_2)
+df_articles = pd.read_csv('articles.csv')
+
+df_articles = (
+    df_articles.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';'))
+    .explode('tags')
+    .reset_index(drop=True)
+    .assign(tags=lambda _d: _d['tags'].astype('string').str.strip())
+)
+
+df_articles.to_csv('article_tags.csv', index=False)
 ```
 
-### Polars
-
-```python
+```python [Polars]
 import polars as pl
 
-df_1 = pl.DataFrame({'record_id': ['r1', 'r2', 'r3', 'r4'], 'tags': ['news;sports', 'news', None, 'a;']})
-df_2 = df_1.with_columns(pl.col('tags').cast(pl.Utf8).str.split(';')).explode('tags')
-print(df_2)
+df_articles = pl.read_csv('articles.csv')
+
+df_articles = (
+    df_articles.with_columns(pl.col('tags').cast(pl.Utf8).str.split(';'))
+    .explode('tags')
+    .with_columns(pl.col('tags').cast(pl.Utf8).str.strip_chars())
+)
+
+df_articles.write_csv('article_tags.csv')
 ```
+
+:::
 
 ## See also
 
 - [Split to Rows](/transformations/split-to-rows)
 - [Split a Column](/recipes/split-a-column)
-- [Filter by expression](/transformations/filter-expression)
 - [Recipes](/recipes/overview)

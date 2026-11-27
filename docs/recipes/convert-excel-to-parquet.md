@@ -1,46 +1,112 @@
 ---
 title: Convert Excel to Parquet
-description: Convert an Excel (.xlsx) file to Parquet in Ciaren with just two nodes, File Input and File Output, and export the equivalent Python code.
-search: recipe convert excel xlsx to parquet columnar file format
+description: Convert one sheet of an Excel (.xlsx) workbook to a Parquet file in Ciaren with File Input and File Output, choose the sheet at upload, and check the column types. Includes the pandas and Polars export.
+search: recipe convert excel xlsx to parquet columnar file format sheet workbook types
 ---
 
 # Convert Excel to Parquet
 
-Parquet is a compact, columnar format that's much faster to read than Excel and
-keeps column types. Converting takes two nodes.
+You have an Excel workbook and want a Parquet file that other tools can read
+with its column types. Excel stores a type per cell; Parquet stores one type
+per column, so each column gets a single type on the way. It takes two nodes.
 
-**You'll use:** [File Input](/transformations/file-input) → [File Output](/transformations/file-output).
+**You'll use:** [File Input](/transformations/file-input) →
+[File Output](/transformations/file-output).
 
 <FlowPipeline :nodes='[
-  {"type":"input","label":"File Input","detail":"data.xlsx"},
-  {"type":"output","label":"File Output","detail":"data.parquet"}
+  {"type":"input","label":"File Input","detail":"orders.xlsx · Excel"},
+  {"type":"output","label":"File Output","detail":"orders · Parquet"}
 ]' />
+
+## Sample data
+
+Download <a href="/samples/recipes/orders.xlsx" download>orders.xlsx</a>. It has two sheets. The
+first, `Summary`, holds one note. The second, `Orders`, holds the data. `zip` is
+stored as a number with the cell format `00000`, so Excel shows `02134`:
+
+| order_id | order_date | amount | zip |
+| --- | --- | --- | --- |
+| ORD-1 | 2024-01-05 | 250.00 | 02134 |
+| ORD-2 | 2024-01-06 | 99.99 | 10001 |
+| ORD-3 | 2024-01-09 | 100.00 | 94105 |
 
 ## Steps
 
-1. Upload your `.xlsx` file on the **Datasets** page.
-2. **File Input** — select the dataset (Ciaren reads Excel via `openpyxl`).
-3. **File Output** — set `format: parquet` and a name like `data`.
-4. **Run**. Download the `.parquet` from the run output.
+1. On **Datasets**, open **Import options** and set **Excel sheet (name or
+   0-based index)** to `Orders`. Then upload `orders.xlsx`. Ciaren imports one
+   sheet per upload: without this setting it takes the first sheet, `Summary`.
+2. In a new flow, add **File Input**. Set **File type** to Excel and **Dataset**
+   to `orders.xlsx`. The Dataset list only shows uploads of the selected file
+   type.
+3. Add **File Output**. Set **File type** to Parquet (.parquet) and **Dataset
+   name** to `orders`. Connect the two nodes and click **Run**.
+4. Open the run from **Runs** to download `orders`.
+
+![A workbook with a Summary sheet and an Orders sheet: only the named sheet becomes the dataset, and the Parquet file stores one type per column, with the zip that Excel shows as 02134 stored as the number 2134](/illustrations/recipes/excel-one-sheet.svg)
+
+## Result
+
+`orders.parquet` has 3 rows and these column types:
+
+| Column | Type in Parquet | First value |
+| --- | --- | --- |
+| `order_id` | text | ORD-1 |
+| `order_date` | datetime | 2024-01-05 00:00:00 |
+| `amount` | decimal (float) | 250.0 |
+| `zip` | integer | 2134 |
+
+## Check the result
+
+Save the flow, click **Preview** and click **Run preview** on the File Input
+node. You should see 3 rows and the columns `order_id`, `order_date`, `amount`
+and `zip`. A single `note` column means the `Summary` sheet was imported:
+upload the file again with the sheet set.
+
+## Pitfalls
+
+- **Re-uploading adds a version.** Uploading `orders.xlsx` again creates
+  version 2 of the dataset, and the File Input stays pinned to version 1. Pick
+  the new version in its **Version** field.
+- **Cell formats are not imported.** The `00000` format only changes how
+  Excel displays the zip, so Ciaren reads the number `2134`, in runs and in both
+  exports. Codes typed as text, such as `'02134`, also arrive as numbers in
+  runs and in the pandas export; only the Polars export keeps them as text.
+  Check codes with leading zeros in the preview.
+- **Dates gain a time.** An Excel date becomes a datetime at midnight.
+- **One sheet per dataset.** Every upload of `orders.xlsx` becomes a version
+  of the same dataset. To convert a second sheet as well, upload a copy of the
+  workbook under another file name with that sheet set.
 
 ## Exported Python
 
-```python
+Click **Export** in the editor toolbar. The **pandas** and **polars** tabs show
+this code for the flow. It reads the original `orders.xlsx`, including the
+sheet you chose at upload, and writes `orders.parquet`. The pandas version
+needs `openpyxl` and `pyarrow`; the Polars version needs `openpyxl`.
+
+::: code-group
+
+```python [pandas]
 import pandas as pd
 
-df_data = pd.read_excel('data.xlsx')
-df_data.to_parquet('data.parquet', index=False)
+df_orders = pd.read_excel('orders.xlsx', sheet_name='Orders')
+df_orders.to_parquet('orders.parquet', index=False)
 ```
 
-## Tips
+```python [Polars]
+import polars as pl
 
-- **Pick a specific sheet** on the **Datasets** page when uploading — the import
-  dialect options include a sheet name/index for workbooks with several sheets.
-- **Going the other way?** Swap the formats — Parquet in, Excel or CSV out.
-- **Large files?** Parquet output plus the polars engine (and lazy export) is much
-  faster than CSV. See [Engines](/guide/engines).
+df_orders = pl.read_excel('orders.xlsx', engine="openpyxl", sheet_name='Orders')
+df_orders.write_parquet('orders.parquet')
+```
+
+:::
+
+To go the other way, use a File Input with **File type** Parquet and a File
+Output with **File type** Excel (.xlsx) or CSV (.csv).
 
 ## See also
 
-- [File input](/transformations/file-input) · [File output](/transformations/file-output)
+- [File Input](/transformations/file-input)
+- [File Output](/transformations/file-output)
 - [Recipes](/recipes/overview)

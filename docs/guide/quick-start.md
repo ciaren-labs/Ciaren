@@ -90,8 +90,9 @@ and the [Transformations Reference](/transformations/overview) for every node.
 ## 3. Run the flow
 
 Click **Run**. Ciaren executes the whole pipeline on the
-[default engine](/guide/engines) (polars), writes the output file, and records a
-**run** with status, logs, and per-node results (row/column counts and a sample).
+[engine](/guide/engines) selected in the toolbar (pandas for a new flow),
+writes the output file, and records a **run** with status, logs, and per-node
+results (row/column counts and a sample).
 
 Open the run from the **Runs** page to inspect each node and download the output.
 
