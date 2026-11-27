@@ -1,3 +1,4 @@
+import { CredentialSettings } from "@/features/assistant/CredentialSettings";
 import { useEffect, useState } from "react";
 import { Check, Info, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ function SourceBadge({ setting }: { setting: AppSetting }) {
       </span>
     );
   }
-  return null;
+  return setting.category === "Assistant" ? <span className="text-xs text-muted-foreground">Default</span> : null;
 }
 
 /** Client-side mirror of the backend's validation, for instant feedback only —
@@ -163,6 +164,7 @@ function SettingRow({ setting }: { setting: AppSetting }) {
 
 export function SettingsPage() {
   const { data: settings, isPending, isError, error, refetch } = useAppSettings();
+  const provider = String(settings?.find(s => s.key === "ASSISTANT_PROVIDER")?.value ?? "off");
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -170,8 +172,7 @@ export function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">
           Runtime configuration for this Ciaren server. Values start from the server&apos;s environment
-          (or built-in defaults); anything you change here is saved in Ciaren&apos;s database, applies to
-          everyone using this server, and survives restarts. Reset a setting to follow the environment again.
+          or built-in defaults. Non-secret overrides apply to everyone using this server and survive restarts. Reset a setting to follow the environment again.
         </p>
       </div>
 
@@ -187,9 +188,11 @@ export function SettingsPage() {
                 {category}
               </h2>
               <div className="divide-y divide-border rounded-xl border border-border bg-card">
-                {items.map((s) => (
+                {items.filter(s => category !== "Assistant" || s.key === "ASSISTANT_PROVIDER" ||
+                  s.key.startsWith(`ASSISTANT_${provider.toUpperCase()}_`)).map((s) => (
                   <SettingRow key={s.key} setting={s} />
                 ))}
+                {category === "Assistant" && <CredentialSettings key={provider} provider={provider} />}
               </div>
             </section>
           ))}

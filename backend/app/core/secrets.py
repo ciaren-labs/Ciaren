@@ -129,6 +129,10 @@ def _ensure_permitted_file(path_text: str) -> Path:
     an allowed secrets folder — otherwise a connection could exfiltrate any file
     the server can read (~/.aws/credentials, Ciaren's own database, …)."""
     resolved = Path(path_text).expanduser().resolve()
+    from app.core.config import get_settings
+
+    if resolved.is_relative_to(Path(get_settings().ASSISTANT_SECRET_DIR).resolve()):
+        raise ValidationError("Assistant credential files cannot be used as connection secrets.")
     dirs = _secret_file_dirs()
     for base in dirs:
         if resolved == base:

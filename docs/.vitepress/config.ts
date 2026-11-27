@@ -72,6 +72,7 @@ const guideSidebar = [
     collapsed: true,
     items: [
       { text: 'Docker', link: '/guide/docker' },
+      { text: 'Flow Assistant', link: '/guide/flow-assistant' },
       { text: 'Advanced Setup', link: '/guide/advanced-setup' },
     ],
   },

@@ -1,5 +1,45 @@
 {
   "operations": {
+    "DELETE /api/assistant/credentials/{provider}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "provider",
+          "required": true,
+          "type": "string{anthropic,deepseek,openai,opencode}"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/assistant/flows/{flow_id}/turns/{request_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "in": "path",
+          "name": "request_id",
+          "required": true,
+          "type": "string(uuid)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "DELETE /api/connections/keyring/{name}": {
       "parameters": [
         {
@@ -199,6 +239,15 @@
         },
         "422": {
           "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/assistant/status": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object"
         }
       }
     },
@@ -1132,6 +1181,48 @@
         }
       }
     },
+    "POST /api/assistant/flows/{flow_id}/apply": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#Confirmation"
+      },
+      "responses": {
+        "200": {
+          "application/json": "any"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/flows/{flow_id}/turn": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "flow_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#Turn"
+      },
+      "responses": {
+        "200": {
+          "application/json": "object"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "POST /api/connections": {
       "parameters": [],
       "request": {
@@ -1721,6 +1812,25 @@
         }
       }
     },
+    "PUT /api/assistant/credentials/{provider}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "provider",
+          "required": true,
+          "type": "string{anthropic,deepseek,openai,opencode}"
+        }
+      ],
+      "request": {
+        "application/json": "#Credential"
+      },
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "PUT /api/flows/{flow_id}": {
       "parameters": [
         {
@@ -1868,6 +1978,14 @@
         "polars_lazy"
       ]
     },
+    "Confirmation": {
+      "properties": {
+        "proposal": "string"
+      },
+      "required": [
+        "proposal"
+      ]
+    },
     "ConnectionCreate": {
       "properties": {
         "database": "anyOf(null|string)",
@@ -1951,6 +2069,14 @@
         "id",
         "kind",
         "label"
+      ]
+    },
+    "Credential": {
+      "properties": {
+        "key": "string(password)"
+      },
+      "required": [
+        "key"
       ]
     },
     "DatasetKind": {
@@ -2746,6 +2872,24 @@
         "parameters": "anyOf(null|object)"
       },
       "required": []
+    },
+    "Turn": {
+      "properties": {
+        "dataset_id": "anyOf(null|string)",
+        "graph": "object",
+        "mode": "string{build,diagnose,docs}",
+        "provider": "string{anthropic,deepseek,openai,opencode}",
+        "question": "string",
+        "request_id": "string(uuid)",
+        "revision": "string(date-time)",
+        "share_names": "boolean"
+      },
+      "required": [
+        "mode",
+        "provider",
+        "question",
+        "revision"
+      ]
     },
     "ValidationError": {
       "properties": {

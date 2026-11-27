@@ -15,6 +15,7 @@ Prefix conventions (see app/README.md):
 from fastapi import FastAPI
 
 from app.api.routes import (
+    assistant,
     catalog,
     connections,
     datasets,
@@ -34,6 +35,7 @@ from app.api.routes import settings as settings_routes
 
 def register_routers(app: FastAPI) -> None:
     app.include_router(health.router)
+    app.include_router(assistant.router, prefix="/api/assistant", tags=["assistant"])
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])

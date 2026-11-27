@@ -319,6 +319,8 @@ ciaren check    # data dir writable? async driver? DB reachable? engines present
 
 ## See also
 
+- [Flow assistant](/guide/flow-assistant) — BYOK providers, protected credentials and limits
+
 - [CLI Reference](/guide/cli) — every command and flag
 - [Engines](/guide/engines) — polars/pandas, execution mode, timeouts
 - [Scheduling](/guide/scheduling) — the background scheduler

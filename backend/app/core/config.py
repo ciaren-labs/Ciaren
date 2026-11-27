@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.enums import Engine, ExecutionMode
@@ -12,6 +14,26 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
     )
+
+    ASSISTANT_ENABLED: bool = True
+    ASSISTANT_PROVIDER: Literal["off", "openai", "anthropic", "deepseek", "opencode"] = "off"
+    ASSISTANT_SECRET_DIR: str = "/run/ciaren-assistant-secrets"
+    ASSISTANT_TURNS_PER_HOUR: int = 20
+    ASSISTANT_OPENAI_MODEL: Literal["gpt-5-mini", "gpt-5"] = "gpt-5-mini"
+    ASSISTANT_OPENAI_EFFORT: Literal["default", "low", "medium", "high"] = "default"
+    ASSISTANT_OPENAI_API_KEY: SecretStr | None = None
+    ASSISTANT_OPENAI_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_ANTHROPIC_MODEL: Literal["claude-sonnet-4-6"] = "claude-sonnet-4-6"
+    ASSISTANT_ANTHROPIC_EFFORT: Literal["default", "low", "medium", "high"] = "default"
+    ASSISTANT_ANTHROPIC_API_KEY: SecretStr | None = None
+    ASSISTANT_ANTHROPIC_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_DEEPSEEK_MODEL: Literal["deepseek-flash", "deepseek-v4-pro"] = "deepseek-flash"
+    ASSISTANT_DEEPSEEK_EFFORT: Literal["default", "low", "high", "max", "none"] = "default"
+    ASSISTANT_DEEPSEEK_API_KEY: SecretStr | None = None
+    ASSISTANT_DEEPSEEK_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_OPENCODE_MODEL: Literal["minimax-m2.7", "kimi-k2.6"] = "minimax-m2.7"
+    ASSISTANT_OPENCODE_API_KEY: SecretStr | None = None
+    ASSISTANT_OPENCODE_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
 
     ENVIRONMENT: str = "development"
     DEBUG: bool = False

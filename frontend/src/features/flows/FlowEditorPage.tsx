@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useCreateRun, useFlow, useToggleFlow, useUpdateFlow } from "./hooks";
 import { useCreateSchedule } from "@/features/schedules/hooks";
 import { ScheduleFormDialog } from "@/features/schedules/ScheduleFormDialog";
+import { AssistantPanel } from "@/features/assistant/AssistantPanel";
+import type { Flow, GraphJson } from "./types";
 import { FlowEditDialog } from "./FlowEditDialog";
 import { useDatasets } from "@/features/datasets/hooks";
 import { useProjects } from "@/features/projects/hooks";
@@ -59,6 +61,19 @@ export function FlowEditorPage() {
   const flowProjectId = useFlowEditorStore((s) => s.flowProjectId);
   const projectName = (projects ?? []).find((p) => p.id === flowProjectId)?.name ?? null;
 
+  const [revision, setRevision] = useState("");
+  const persistedGraph = useRef<GraphJson | null>(null);
+  const rememberSave = (updatedAt: string, graph: GraphJson | null) => {
+    persistedGraph.current = graph;
+    setRevision(updatedAt);
+  };
+  const acknowledgeMetadata = (result: Flow) => {
+    // A rename/enable can return another editor's newer graph. Only advance
+    // the local canvas revision when its underlying saved graph still matches.
+    if (JSON.stringify(result.graph_json) === JSON.stringify(persistedGraph.current)) {
+      setRevision(result.updated_at);
+    }
+  };
   const [exportOpen, setExportOpen] = useState(false);
   const [paramsOpen, setParamsOpen] = useState(false);
   const [runParamsOpen, setRunParamsOpen] = useState(false);
@@ -133,6 +148,7 @@ export function FlowEditorPage() {
       setEngine("pandas");
       setParameters([]);
     }
+    rememberSave(flow?.updated_at ?? "", flow?.graph_json ?? null);
     setFlowProjectId(flow?.project_id ?? null);
     setGraphReadyForFlowId(flow?.id ?? null);
     return () => reset();
@@ -187,7 +203,8 @@ export function FlowEditorPage() {
     updateFlow.mutate(
       { id: flowId, body: { graph_json: buildGraph() } },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          rememberSave(result.updated_at, result.graph_json);
           markClean();
           toast.success("Flow saved");
         },
@@ -221,6 +238,7 @@ export function FlowEditorPage() {
     );
   }
 
+  const reEnable = () => toggleFlow.mutate({ id: flow.id, is_disabled: false }, { onSuccess: acknowledgeMetadata });
   const isDisabled = flow.is_disabled;
   const runReason = isDisabled
     ? "This flow is disabled. Re-enable it first."
@@ -236,7 +254,8 @@ export function FlowEditorPage() {
     updateFlow.mutate(
       { id: flowId, body: { graph_json: buildGraph() } },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          rememberSave(result.updated_at, result.graph_json);
           markClean();
           createRun.mutate(
             { engine, parameters: paramValues },
@@ -258,7 +277,7 @@ export function FlowEditorPage() {
           isDisabled={isDisabled}
           dirty={dirty}
           validation={validation}
-          onReEnable={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+          onReEnable={reEnable}
           toggleFlowPending={toggleFlow.isPending}
           canUndo={canUndo}
           canRedo={canRedo}
@@ -285,9 +304,13 @@ export function FlowEditorPage() {
           savePending={updateFlow.isPending}
         />
 
+        <div className="flex justify-start border-b border-border px-3 py-1">
+          <AssistantPanel key={flow.id} flowId={flow.id} revision={revision} disabled={isDisabled}
+            datasets={datasets ?? []} current={buildGraph} saved={(value, graph) => {rememberSave(value, graph); void refetch();}} />
+        </div>
         {isDisabled && (
           <DisabledFlowBanner
-            onReEnable={() => toggleFlow.mutate({ id: flow.id, is_disabled: false })}
+            onReEnable={reEnable}
           />
         )}
 
@@ -373,7 +396,7 @@ export function FlowEditorPage() {
         onSubmit={(values) =>
           updateFlow.mutate(
             { id: flow.id, body: { name: values.name, description: values.description } },
-            { onSuccess: () => setEditOpen(false) },
+            { onSuccess: (result) => {acknowledgeMetadata(result); setEditOpen(false);} },
           )
         }
       />

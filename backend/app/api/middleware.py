@@ -11,6 +11,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 
 def register_middleware(app: FastAPI, settings: object) -> None:
+    from app.api.assistant_limit import AssistantBodyLimit
+
+    app.add_middleware(AssistantBodyLimit)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=getattr(settings, "CORS_ORIGINS", []),
@@ -24,6 +27,8 @@ def register_middleware(app: FastAPI, settings: object) -> None:
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next: object) -> Response:
         response: Response = await call_next(request)  # type: ignore[operator]
+        if request.url.path.startswith("/api/assistant/"):
+            response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
