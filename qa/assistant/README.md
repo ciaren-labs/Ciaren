@@ -60,6 +60,8 @@ Have the local credential manager inject the **direct DeepSeek API key** into th
 
 The run asks the packaged editor to build a two-input flow, cite the Join guide, decline a scheduling request and repair a missing order. It checks the saved graph, activity, runs and schedules before and after each proposal. A separate manual sort edit invalidates a reversal preview. A fresh confirmation must restore only the Join setting. Assertions use the typed graph, citation URL and server state. A wrong proposal, refusal on a supported task or invalid response fails the smoke. The report prints the mode, provider, model and check outcomes. The paid path produces no screenshots, GIF, request traces or response dumps.
 
+The smoke prints a fixed stage name before each check. A `FAIL` line identifies the first failed acceptance stage. Separate `CLEANUP` lines identify teardown failures. Either produces a nonzero exit. On Windows the server starts in its own process group and teardown waits for it before retrying transient file locks. A cleanup failure after the checks does not establish a provider failure. Use the simulated recording to investigate teardown without spending another API call.
+
 ### Reproduce the README recording without an account
 
 Use the same test environment as above. The following command uses a simulated provider, the packaged editor and the same synthetic CSVs and assertions. It records selected moments from Chromium starting at the repair request and ending at the confirmed reversal. The output omits browser chrome and credential settings.
