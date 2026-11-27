@@ -205,6 +205,11 @@ export function AssistantPanel({
     return () => clearTimeout(timer);
   }, [toast, toastPaused]);
 
+  // A click removes a hovered or focused toast without mouseleave or blur.
+  function dismissToast() {
+    setToast(undefined);
+    setToastPaused(false);
+  }
   function openPanel(from: "header" | "launcher") {
     openedFrom.current = from;
     setUnseen(false);
@@ -327,7 +332,7 @@ export function AssistantPanel({
             : "No change proposed",
       );
       setFocusNext(headingId({ id }));
-      setUnseen(true);
+      if (!wasOpen.current) setUnseen(true);
     } catch (err) {
       if (controller.signal.aborted) return;
       update(id, {
@@ -378,6 +383,7 @@ export function AssistantPanel({
         useFlowEditorStore.getState().acceptProposal(next.nodes, next.edges);
         saved(result.revision, graph);
         update(turn.id, { outcome: "applied" });
+        setFocusNext("composer");
         setToast({
           message: "Proposal applied to the flow.",
           saved: {
@@ -387,11 +393,11 @@ export function AssistantPanel({
           },
         });
       } else {
-        update(turn.id, {
-          outcome: "applied",
-          state: "error",
-          error:
-            "The proposal was saved while the canvas changed. Reload to reconcile both versions.",
+        update(turn.id, { outcome: "applied" });
+        setFocusNext("composer");
+        setToast({
+          message:
+            "Saved on the server while the canvas changed. Reload to reconcile both versions.",
         });
       }
     } catch (err) {
@@ -544,13 +550,13 @@ export function AssistantPanel({
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList
           aria-label="Assistant sections"
-          className="mx-4 my-3 grid shrink-0 grid-cols-2"
+          className="mx-4 my-3 grid h-10 shrink-0 grid-cols-2"
         >
-          <TabsTrigger value="conversation" disabled={reversing} className="motion-reduce:transition-none">
+          <TabsTrigger value="conversation" disabled={reversing} className="min-h-8 motion-reduce:transition-none">
             <MessageSquare aria-hidden className="mr-2 size-4" />
             Conversation
           </TabsTrigger>
-          <TabsTrigger value="activity" disabled={pending || applying} className="motion-reduce:transition-none">
+          <TabsTrigger value="activity" disabled={pending || applying} className="min-h-8 motion-reduce:transition-none">
             <History aria-hidden className="mr-2 size-4" />
             Activity
           </TabsTrigger>
@@ -926,7 +932,10 @@ export function AssistantPanel({
         <AssistantMark className="size-4 text-primary" />
         Assistant
         {unseen && !open && (
-          <span aria-hidden className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
+          <>
+            <span data-unseen aria-hidden className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
+            <span className="sr-only">, new reply</span>
+          </>
         )}
       </Button>
       {floatingHost &&
@@ -983,7 +992,7 @@ export function AssistantPanel({
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  setToast(undefined);
+                  dismissToast();
                   openPanel(openedFrom.current);
                   setTab("activity");
                 }}
@@ -997,7 +1006,7 @@ export function AssistantPanel({
               className="size-9 px-0"
               aria-label="Dismiss"
               disabled={toast.busy}
-              onClick={() => setToast(undefined)}
+              onClick={dismissToast}
             >
               <X aria-hidden className="size-4" />
             </Button>

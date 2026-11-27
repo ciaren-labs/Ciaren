@@ -123,7 +123,7 @@ function setup(options: { graph?: GraphJson; disabled?: boolean; datasets?: unkn
 }
 
 async function openPanel() {
-  fireEvent.click(screen.getByRole("button", { name: "Assistant" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Assistant(, new reply)?$/ }));
   const panel = screen.getByRole("dialog", { name: /Flow assistant/ });
   const textarea = await within(panel).findByRole("textbox", { name: "Request" });
   return { panel, textarea };
@@ -167,6 +167,7 @@ describe("docked assistant panel (AC-U1)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close assistant" }));
     await act(async () => pending.resolve(proposal()));
     expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    expect(screen.getByRole("button", { name: "Assistant, new reply" })).toBeInTheDocument();
     await openPanel();
     expect(await screen.findByRole("button", { name: "Apply and save" })).toBeEnabled();
   });
@@ -319,6 +320,80 @@ describe("apply, undo and activity (AC-U7)", () => {
     fireEvent.click(within(toast).getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(restored).toHaveBeenCalled());
     expect(calls.find((c) => c.path.endsWith("/revert"))?.body).toEqual({ proposal: "b".repeat(32) });
+  });
+
+  it("moves focus to the request after Apply and keeps toasts auto-dismissing after a click", async () => {
+    let n = 0;
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    routes["POST /api/assistant/flows/f1/apply"] = () => ({ revision: `2026-01-01T00:00:0${++n}` });
+    setup();
+    await ask("Keep 100 rows");
+    fireEvent.click(await screen.findByRole("button", { name: "Apply and save" }));
+    const toast = await screen.findByRole("status", { name: "Saved" });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Request" })).toHaveFocus());
+    // Hover pauses the toast; dismissing it by click fires no mouseleave.
+    fireEvent.mouseEnter(toast);
+    fireEvent.click(within(toast).getByRole("button", { name: "Dismiss" }));
+    await ask("Keep 100 rows");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      fireEvent.click(await screen.findByRole("button", { name: "Apply and save" }));
+      await screen.findByRole("status", { name: "Saved" });
+      await act(async () => vi.advanceTimersByTime(15_000));
+      expect(screen.queryByRole("status", { name: "Saved" })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports a save made while the canvas changed without a failure alert", async () => {
+    let canvasEdited = false;
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    routes["POST /api/assistant/flows/f1/apply"] = () => {
+      canvasEdited = true;
+      return { revision: "2026-01-01T00:00:01" };
+    };
+    const edited = { ...base, nodes: [...base.nodes, { ...base.nodes[1], id: "l2" }] } as never;
+    let canvas: GraphJson = base;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ReactFlowProvider>
+            <TooltipProvider>
+              <AssistantPanel
+                flowId="f1"
+                flowName="Orders"
+                projectId="p1"
+                revision="2026-01-01T00:00:00"
+                disabled={false}
+                datasets={datasets as never}
+                validation={{ errors: [], warnings: [] } as never}
+                restored={() => {}}
+                current={() => (canvasEdited ? edited : canvas)}
+                saved={(_, graph) => {
+                  canvas = graph;
+                }}
+              />
+            </TooltipProvider>
+          </ReactFlowProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await ask("Keep 100 rows");
+    fireEvent.click(await screen.findByRole("button", { name: "Apply and save" }));
+    expect(await screen.findByText(/Saved on the server while the canvas changed/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not mark a reply as unread when it arrived while the panel was open", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: "Answer" });
+    setup();
+    await ask("What does this flow do?");
+    await screen.findByText("Answer");
+    fireEvent.click(screen.getByRole("button", { name: "Close assistant" }));
+    expect(screen.getByRole("button", { name: "Assistant" })).not.toHaveAccessibleName(/unread|new/i);
+    expect(document.querySelector("[data-unseen]")).toBeNull();
   });
 
   it("explains inline why a disabled flow cannot change", async () => {
