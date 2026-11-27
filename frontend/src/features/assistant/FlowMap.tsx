@@ -54,8 +54,9 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
   const columns: GraphNode[][] = [];
   for (const n of nodes) (columns[levels.get(n.id)!] ??= []).push(n);
   const rows = Math.max(...columns.map((c) => c.length));
-  const height = rows * 59 + 4;
-  const width = columns.length * 66;
+  // Drawn at 1:1 so captions keep their 11px size; wide maps scroll instead of shrinking.
+  const height = rows * 64 + 8;
+  const width = columns.length * 88;
   const coords = new Map(
     columns.flatMap((col, i) =>
       col.map(
@@ -63,8 +64,8 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
           [
             n.id,
             {
-              x: 33 + i * 66,
-              y: height / 2 - 6 + (j - (col.length - 1) / 2) * 59,
+              x: 44 + i * 88,
+              y: height / 2 - 8 + (j - (col.length - 1) / 2) * 64,
             },
           ] as const,
       ),
@@ -73,13 +74,13 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
   return (
     <div
       aria-hidden="true"
-      className="assistant-map rounded-xl border border-border px-3 py-3"
+      className="assistant-map overflow-x-auto rounded-xl border border-border px-3 py-3"
     >
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width={width}
         height={height}
-        className="mx-auto block h-auto max-h-36 w-full"
+        className="mx-auto block shrink-0"
         fill="none"
       >
         {edges.map((e) => {
@@ -134,10 +135,10 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
               <Icon x="-9" y="-9" width="18" height="18" strokeWidth="1.9" />
               <text
                 x="0"
-                y="28"
+                y="31"
                 textAnchor="middle"
                 fill="hsl(var(--foreground))"
-                fontSize="8"
+                fontSize="11"
                 fontWeight="600"
               >
                 {caption}

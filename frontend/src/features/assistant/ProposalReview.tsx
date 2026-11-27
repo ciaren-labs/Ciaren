@@ -4,6 +4,7 @@ import type { Delta } from "./api";
 
 import { FlowMap } from "./FlowMap";
 import { nodeMark } from "./nodePresentation";
+import { deltaCounts, summarize } from "./changeSummary";
 
 function settings(node: GraphNode, datasets: Dataset[]) {
   const c = node.data.config;
@@ -58,11 +59,16 @@ export function ProposalReview({
   base,
   datasets,
   inspectNode,
+  headingId,
+  compact = false,
 }: {
   inspectNode: (id: string) => void;
   delta: Delta;
   base: GraphJson;
   datasets: Dataset[];
+  headingId?: string;
+  /** Summary only, for proposals that can no longer be applied. */
+  compact?: boolean;
 }) {
   const byId = new Map(
     [...base.nodes, ...delta.added].map((n) => [n.id, n.data.label]),
@@ -75,20 +81,19 @@ export function ProposalReview({
   return (
     <section aria-label="Proposed changes" className="space-y-3 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-1">
-        <h3 className="text-lg font-semibold tracking-tight">
+        <h3
+          id={headingId}
+          tabIndex={-1}
+          className="text-base font-semibold tracking-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Proposed changes
         </h3>
         <p className="text-xs text-muted-foreground">
-          {[
-            delta.added.length && `${delta.added.length} new`,
-            delta.changed.length && `${delta.changed.length} updated`,
-            delta.connected.length + delta.disconnected.length &&
-              `${delta.connected.length + delta.disconnected.length} connections`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {summarize(deltaCounts(delta, base))}
         </p>
       </div>
+      {!compact && (
+        <>
       <FlowMap delta={delta} base={base} />
       <ul className="divide-y divide-border rounded-xl border border-border bg-card px-3">
         {[...delta.added, ...delta.changed].map((n) => {
@@ -111,7 +116,8 @@ export function ProposalReview({
                 </p>
                 {old && (
                   <button
-                    className="mt-2 text-xs font-medium text-primary underline"
+                    type="button"
+                    className="mt-1 inline-flex min-h-8 items-center text-xs font-medium text-primary underline"
                     onClick={() => inspectNode(n.id)}
                   >
                     Inspect on canvas
@@ -119,7 +125,7 @@ export function ProposalReview({
                 )}
                 {old && (
                   <details className="mt-1 text-xs">
-                    <summary className="cursor-pointer">
+                    <summary className="inline-flex min-h-8 cursor-pointer items-center">
                       Compare all settings
                     </summary>
                     <p className="mt-2 font-medium">Before</p>
@@ -139,7 +145,7 @@ export function ProposalReview({
       </ul>
       {delta.connected.length + delta.disconnected.length > 0 && (
         <details className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <summary className="cursor-pointer text-xs font-semibold">
+          <summary className="flex min-h-8 cursor-pointer items-center text-xs font-semibold">
             Connections ({delta.connected.length + delta.disconnected.length})
           </summary>
           <ul className="mt-2 space-y-1 text-xs">
@@ -167,7 +173,7 @@ export function ProposalReview({
       )}
       {[...delta.added, ...delta.changed].some((n) => n.type === "join") && (
         <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium">
+          <summary className="flex min-h-8 cursor-pointer items-center font-medium">
             Join behavior
           </summary>
           <p className="mt-1">
@@ -186,6 +192,8 @@ export function ProposalReview({
       <p className="text-xs text-muted-foreground">
         Saves this proposal with your current canvas edits.
       </p>
+        </>
+      )}
     </section>
   );
 }

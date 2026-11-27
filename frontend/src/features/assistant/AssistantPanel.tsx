@@ -1,41 +1,61 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
+  Database,
   GitPullRequest,
   History,
   KeyRound,
   MessageSquare,
   ShieldCheck,
-  Sparkles,
   Stethoscope,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { Dataset } from "@/features/datasets/types";
 import type { Flow, GraphJson } from "@/features/flows/types";
 import { graphToStore } from "@/features/flows/graphMapper";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { useMlEnabled } from "@/features/models/hooks";
 import { request } from "@/lib/api/client";
-import { ProposalReview } from "./ProposalReview";
-import { applyDelta, status, type Mode, type Reply } from "./api";
+import { cn } from "@/lib/utils";
+import {
+  activityKey,
+  activityUrl,
+  applyDelta,
+  confirmReversal,
+  expiryOf,
+  headingId,
+  loadFlow,
+  previewReversal,
+  sameInstant,
+  status,
+  type ActivityPage,
+  type Inputs,
+  type Mode,
+  type Reply,
+  type Turn,
+} from "./api";
 
 import { useReactFlow } from "@xyflow/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { FlowValidation } from "@/features/flows/editor/flowValidation";
 import { CanvasHelp } from "./CanvasHelp";
 import { Activity } from "./Activity";
+import { AssistantMark } from "./AssistantMark";
+import { deltaCounts, summaryParts } from "./changeSummary";
+import { suggestedPrompts } from "./suggestions";
+import {
+  AnswerCard,
+  GuidanceCard,
+  PromptChips,
+  ProposalCard,
+  StatusCard,
+  Thinking,
+} from "./ReplyCards";
 
 interface Props {
   flowName: string;
@@ -50,7 +70,20 @@ interface Props {
   saved: (revision: string, graph: GraphJson) => void;
   /** Canvas element that hosts a floating launcher, so the assistant is easy to find. */
   floatingHost?: HTMLElement | null;
+  /** Editor column the panel docks into beside the canvas; without it the panel floats at the right edge. */
+  dockHost?: HTMLElement | null;
 }
+type Saved = { revision: string; graph: GraphJson; session: number };
+type Toast = { saved?: Saved; message: string; busy?: boolean };
+
+const labels: Record<Mode, string> = {
+  build: "Build",
+  docs: "Guides",
+  diagnose: "Diagnose",
+};
+const NARROW = "(max-width: 639px)";
+const TOAST_MS = 12000;
+
 export function AssistantPanel({
   flowId,
   flowName,
@@ -63,31 +96,51 @@ export function AssistantPanel({
   current,
   saved,
   floatingHost,
+  dockHost,
 }: Props) {
+  const client = useQueryClient();
   const [tab, setTab] = useState("conversation");
   const [reversing, setReversing] = useState(false);
-  const focusTarget = useRef<string | undefined>(undefined);
   const { fitView } = useReactFlow();
   const [open, setOpen] = useState(false);
+  const [unseen, setUnseen] = useState(false);
   const [mode, setMode] = useState<Mode>("build");
   const [question, setQuestion] = useState("");
   const [dataset, setDataset] = useState("");
   const [secondDataset, setSecondDataset] = useState("");
   const [lookup, setLookup] = useState("");
   const [target, setTarget] = useState("");
-  const mlEnabled = useMlEnabled();
-  const fact = datasets.find((d) => d.id === dataset);
-  const selectedInputs = [dataset, secondDataset, lookup].map((id) =>
-    datasets.find((d) => d.id === id),
-  );
-  const training = mode === "build" && !!lookup && !current().nodes.length;
   const [shareNames, setShareNames] = useState(false);
-  const [reply, setReply] = useState<Reply>();
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState<"generate" | "apply">();
-  const [base, setBase] = useState<GraphJson | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [toast, setToast] = useState<Toast>();
+  const [toastPaused, setToastPaused] = useState(false);
+  const mlEnabled = useMlEnabled();
+  const empty = !current().nodes.length;
+  const canvasInput = current().nodes.find((n) => n.type === "fileInput")?.data
+    .config.dataset_id;
+  const fact = datasets.find((d) => d.id === (empty ? dataset : canvasInput));
+  const training = mode === "build" && !!lookup && empty;
   const abort = useRef<AbortController | null>(null);
-  const session = useRef(0);
+  const openedFrom = useRef<"header" | "launcher">("header");
+  const wasOpen = useRef(false);
+  const composerFocused = useRef(false);
+  const headerButton = useRef<HTMLButtonElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const cancelButton = useRef<HTMLButtonElement | null>(null);
+  // Where focus goes after the next render: "composer", "cancel" or an element id.
+  const focusNext = useRef<string | undefined>(undefined);
+  const setFocusNext = (target: string) => {
+    focusNext.current = target;
+  };
+  const latestRevision = useRef(revision);
+  useEffect(() => {
+    latestRevision.current = revision;
+  }, [revision]);
+  const pending = turns.some((t) => t.state === "pending");
+  const busy = pending || applying || reversing;
   const service = useQuery({
     queryKey: ["assistant-status", flowId],
     queryFn: status,
@@ -95,6 +148,11 @@ export function AssistantPanel({
     retry: false,
     staleTime: 0,
   });
+  const ready = service.data?.state === "configured";
+  const live = [...turns]
+    .reverse()
+    .find((t) => t.reply?.proposal && t.reply.delta && !t.outcome);
+
   useEffect(
     () => () => {
       abort.current?.abort();
@@ -102,10 +160,10 @@ export function AssistantPanel({
     [],
   );
   useEffect(() => {
-    if (!open || tab !== "conversation" || !reply?.delta) return;
+    if (!open || tab !== "conversation" || !live?.reply?.delta) return;
     // The highlight is presentational and disappears when the preview closes.
     // Keeping it outside the graph prevents it entering saves or undo history.
-    const highlights = reply.delta.changed.flatMap((node) => {
+    const highlights = live.reply.delta.changed.flatMap((node) => {
       const el = document.querySelector<HTMLElement>(
         `.react-flow__node[data-id="${CSS.escape(node.id)}"]`,
       );
@@ -115,32 +173,86 @@ export function AssistantPanel({
     });
     return () =>
       highlights.forEach((el) => el.classList.remove("assistant-review-node"));
-  }, [open, tab, reply]);
+  }, [open, tab, live]);
+  // Focus follows the conversation: the composer on open, Cancel while
+  // waiting, the reply heading when it lands, and the opener on close.
+  useEffect(() => {
+    if (open && ready && !composerFocused.current) {
+      composerFocused.current = true;
+      textarea.current?.focus();
+    }
+    if (!open) composerFocused.current = false;
+  }, [open, ready]);
+  useEffect(() => {
+    if (!open && wasOpen.current)
+      (openedFrom.current === "launcher" && launcher.current
+        ? launcher.current
+        : headerButton.current
+      )?.focus();
+    wasOpen.current = open;
+  }, [open]);
+  useEffect(() => {
+    const next = focusNext.current;
+    if (!open || !next) return;
+    focusNext.current = undefined;
+    if (next === "composer") textarea.current?.focus();
+    else if (next === "cancel") cancelButton.current?.focus();
+    else document.getElementById(next)?.focus();
+  });
+  useEffect(() => {
+    if (!toast || toastPaused || toast.busy) return;
+    const timer = setTimeout(() => setToast(undefined), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [toast, toastPaused]);
+
+  function openPanel(from: "header" | "launcher") {
+    openedFrom.current = from;
+    setUnseen(false);
+    setTab("conversation");
+    setOpen(true);
+  }
+  function close() {
+    if (applying || reversing) return;
+    setOpen(false);
+  }
+  function update(id: string, patch: Partial<Turn>) {
+    setTurns((all) => all.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }
   function cancel() {
     abort.current?.abort();
-    abort.current = null;
-    setBusy(undefined);
-    setReply(undefined);
-    setError("Request cancelled.");
   }
-  function changeOpen(value: boolean) {
-    if (busy === "apply" || reversing) return;
-    if (!value) {
-      cancel();
-      setQuestion("");
-      setShareNames(false);
-    }
-    setError("");
-    if (value) setTab("conversation");
-    setOpen(value);
+  function trainingVersions(inputs: Inputs) {
+    const chosen = [inputs.dataset, inputs.secondDataset, inputs.lookup].map(
+      (id) => datasets.find((d) => d.id === id),
+    );
+    return chosen.every((d) => d && d.latest_version > 0)
+      ? chosen.map((d) => d!.latest_version)
+      : null;
   }
-  async function generate() {
-    if (!service.data || !question.trim()) return;
+  const composerInputs: Inputs = {
+    dataset,
+    secondDataset,
+    lookup,
+    target,
+    shareNames,
+  };
+  const staleTraining = training && !trainingVersions(composerInputs);
+
+  async function generate(text: string, turnMode: Mode, inputs: Inputs) {
+    if (!service.data || !text.trim() || pending) return;
+    const snapshot = current();
+    const asTraining =
+      turnMode === "build" && !!inputs.lookup && !snapshot.nodes.length;
+    const versions = asTraining ? trainingVersions(inputs) : null;
+    if (asTraining && !versions) return;
     const controller = new AbortController();
     const requestId = crypto.randomUUID();
+    const id = requestId;
     controller.signal.addEventListener(
       "abort",
       () => {
+        update(id, { state: "cancelled" });
+        setFocusNext("composer");
         void request<void>(`/assistant/flows/${flowId}/turns/${requestId}`, {
           method: "DELETE",
           keepalive: true,
@@ -151,67 +263,105 @@ export function AssistantPanel({
       { once: true },
     );
     abort.current = controller;
-    setBusy("generate");
-    setReply(undefined);
-    setError("");
-    const snapshot = current();
-    setBase(snapshot);
+    const session = useFlowEditorStore.getState().sessionId;
+    setTurns((all) => [
+      ...all.map((t) =>
+        t.reply?.proposal && !t.outcome
+          ? { ...t, outcome: "superseded" as const }
+          : t,
+      ),
+      {
+        id,
+        mode: turnMode,
+        question: text,
+        inputs,
+        state: "pending",
+        base: snapshot,
+        session,
+      },
+    ]);
+    setQuestion("");
     setShareNames(false);
-    session.current = useFlowEditorStore.getState().sessionId;
+    setAnnouncement("");
+    setFocusNext("cancel");
+    const sendsDataset = turnMode !== "docs" && !snapshot.nodes.length;
     try {
       const result = await request<Reply>(`/assistant/flows/${flowId}/turn`, {
         method: "POST",
         signal: controller.signal,
         redirect: "error",
         body: JSON.stringify({
-          mode,
+          mode: turnMode,
           request_id: requestId,
-          question,
+          question: text,
           revision,
           provider: service.data.provider,
-          graph: mode === "docs" ? {} : snapshot,
-          dataset_id:
-            mode === "build" && !snapshot.nodes.length ? dataset || null : null,
+          graph: turnMode === "docs" ? {} : snapshot,
+          dataset_id: sendsDataset ? inputs.dataset || null : null,
           second_dataset_id:
-            mode === "build" && !snapshot.nodes.length
-              ? secondDataset || null
+            turnMode === "build" && !snapshot.nodes.length
+              ? inputs.secondDataset || null
               : null,
-          ...(training && {
+          ...(asTraining && {
             training: {
-              dataset_id: lookup,
-              versions: selectedInputs.map((d) => d?.latest_version ?? 0),
-              target,
+              dataset_id: inputs.lookup,
+              versions,
+              target: inputs.target,
             },
           }),
-          share_names: shareNames,
+          share_names: inputs.shareNames,
         }),
       });
-      if (!controller.signal.aborted) setReply(result);
+      if (controller.signal.aborted) return;
+      const proposal = !!(result.proposal && result.delta);
+      update(id, {
+        state: "reply",
+        reply: result,
+        expiresAt: proposal ? expiryOf(result) : undefined,
+      });
+      setAnnouncement(
+        proposal
+          ? `Proposal ready: ${summaryParts(deltaCounts(result.delta!, snapshot)).join(", ")}`
+          : result.citation || turnMode === "docs"
+            ? "Answer ready"
+            : "No change proposed",
+      );
+      setFocusNext(headingId({ id }));
+      setUnseen(true);
     } catch (err) {
-      if (!controller.signal.aborted)
-        setError(err instanceof Error ? err.message : "Request failed.");
+      if (controller.signal.aborted) return;
+      update(id, {
+        state: "error",
+        error: err instanceof Error ? err.message : "Request failed.",
+      });
+      setFocusNext(headingId({ id }));
     } finally {
-      if (abort.current === controller) {
-        abort.current = null;
-        setBusy(undefined);
-      }
+      if (abort.current === controller) abort.current = null;
     }
   }
-  function matchesBase() {
+  function submit() {
+    if (!question.trim() || (training && (!target || !mlEnabled))) return;
+    if (mode !== "docs" && disabled) return;
+    void generate(question, mode, composerInputs);
+  }
+  function matchesBase(turn: Turn) {
     return (
-      session.current === useFlowEditorStore.getState().sessionId &&
-      JSON.stringify(current()) === JSON.stringify(base)
+      turn.session === useFlowEditorStore.getState().sessionId &&
+      JSON.stringify(current()) === JSON.stringify(turn.base)
     );
   }
-  async function confirm() {
-    if (!reply?.proposal || !reply.delta || !base || disabled) return;
-    if (!matchesBase()) {
-      setError("The canvas changed. Generate a fresh proposal.");
-      setReply(undefined);
+  async function confirm(turn: Turn) {
+    const reply = turn.reply;
+    if (!reply?.proposal || !reply.delta || !turn.base || disabled) return;
+    if (!matchesBase(turn)) {
+      update(turn.id, {
+        outcome: "discarded",
+        state: "error",
+        error: "The canvas changed. Generate a fresh proposal.",
+      });
       return;
     }
-    setBusy("apply");
-    setError("");
+    setApplying(true);
     try {
       const result = await request<{ revision: string }>(
         `/assistant/flows/${flowId}/apply`,
@@ -221,33 +371,99 @@ export function AssistantPanel({
           redirect: "error",
         },
       );
-      if (matchesBase()) {
-        const graph = applyDelta(base, reply.delta);
+      void client.invalidateQueries({ queryKey: activityKey(projectId, flowId) });
+      if (matchesBase(turn)) {
+        const graph = applyDelta(turn.base, reply.delta);
         const next = graphToStore(graph);
         useFlowEditorStore.getState().acceptProposal(next.nodes, next.edges);
         saved(result.revision, graph);
-        setOpen(false);
-        setQuestion("");
+        update(turn.id, { outcome: "applied" });
+        setToast({
+          message: "Proposal applied to the flow.",
+          saved: {
+            revision: result.revision,
+            graph,
+            session: useFlowEditorStore.getState().sessionId,
+          },
+        });
       } else {
-        setError(
-          "The proposal was saved while the canvas changed. Reload to reconcile both versions.",
-        );
+        update(turn.id, {
+          outcome: "applied",
+          state: "error",
+          error:
+            "The proposal was saved while the canvas changed. Reload to reconcile both versions.",
+        });
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Confirmation failed. Reload before retrying.",
-      );
+      update(turn.id, {
+        outcome: "discarded",
+        state: "error",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Confirmation failed. Reload before retrying.",
+      });
     } finally {
-      setReply(undefined);
-      setBusy(undefined);
+      setApplying(false);
+    }
+  }
+  /** Reverts the entry the apply just recorded, through the same API as Activity. */
+  async function undo(change: Saved) {
+    const unchanged = () =>
+      !useFlowEditorStore.getState().dirty &&
+      useFlowEditorStore.getState().sessionId === change.session &&
+      JSON.stringify(current()) === JSON.stringify(change.graph);
+    if (!unchanged()) {
+      setToast({
+        message: "The canvas changed after saving. Review the reversal in Activity.",
+      });
+      return;
+    }
+    setToast({ message: "Undoing…", busy: true });
+    setReversing(true);
+    let committed = false;
+    try {
+      const page = await request<ActivityPage>(activityUrl(flowId), {
+        cache: "no-store",
+      });
+      const entry = page.entries.find(
+        (e) => e.source !== "revert" && sameInstant(e.date, change.revision),
+      );
+      if (entry?.state !== "available") {
+        setToast({
+          message: "This change cannot be undone automatically. Review it in Activity.",
+        });
+        return;
+      }
+      const preview = await previewReversal(
+        flowId,
+        entry.id,
+        latestRevision.current,
+      );
+      const result = await confirmReversal(flowId, entry.id, preview.confirmation);
+      committed = true;
+      const flow = await loadFlow(flowId);
+      if (unchanged() && flow.updated_at === result.revision) {
+        restored(flow);
+        setToast({ message: "Change undone." });
+      } else setToast({ message: "Undone. Reload when your local edits are safe." });
+    } catch (err) {
+      setToast({
+        message: committed
+          ? "Undone. Reload to see the latest flow."
+          : err instanceof Error
+            ? err.message
+            : "Undo failed. Review the change in Activity.",
+      });
+    } finally {
+      void client.invalidateQueries({ queryKey: activityKey(projectId, flowId) });
+      setReversing(false);
     }
   }
   function inspectNode(id: string) {
-    focusTarget.current = id;
     useFlowEditorStore.getState().selectNode(id);
-    changeOpen(false);
+    // The full-width sheet would hide the node; the conversation survives closing.
+    if (window.matchMedia(NARROW).matches) close();
     void fitView({
       nodes: [{ id }],
       maxZoom: 1.2,
@@ -257,126 +473,109 @@ export function AssistantPanel({
         : 180,
     });
   }
-  const ready = service.data?.state === "configured";
-  const labels: Record<Mode, string> = {
-    build: "Build",
-    docs: "Guides",
-    diagnose: "Diagnose",
-  };
-  return (
-    <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          className="shrink-0 border-primary/40 text-foreground"
-        >
-          <Sparkles aria-hidden="true" className="h-4 w-4" />
-          Assistant
-        </Button>
-      </DialogTrigger>
-      {floatingHost &&
-        !open &&
-        createPortal(
-          <button
-            type="button"
-            onClick={() => changeOpen(true)}
-            aria-label="Ask the flow assistant"
-            className="assistant-launcher absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-background/95 py-1.5 pl-1.5 pr-4 text-sm font-medium text-foreground shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="assistant-mast grid size-7 place-items-center rounded-full text-white">
-              <Sparkles aria-hidden className="size-4" />
-            </span>
-            Ask the assistant
-          </button>,
-          floatingHost,
-        )}
-      <DialogContent
-        overlayClassName="bg-foreground/10"
-        onCloseAutoFocus={(e) => {
-          if (focusTarget.current) {
-            const el = document.querySelector<HTMLElement>(
-              `.react-flow__node[data-id="${CSS.escape(focusTarget.current)}"]`,
-            );
-            if (el) {
-              e.preventDefault();
-              el.focus();
-            }
-            focusTarget.current = undefined;
-          }
-        }}
-        className="assistant-panel top-2 bottom-2 left-auto right-2 flex h-auto max-h-none w-[min(32rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-xl"
-      >
-        <div className="assistant-mast flex items-center gap-3 px-5 py-4 text-white">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/35 bg-white/15 text-white">
-            <Sparkles aria-hidden className="size-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="text-lg">Flow assistant</DialogTitle>
-            <DialogDescription className="truncate text-violet-100">
-              {flowName}
-            </DialogDescription>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-white/15 hover:text-white"
-            aria-label="Close"
-            disabled={busy === "apply" || reversing}
-            onClick={() => changeOpen(false)}
-          >
-            <X aria-hidden className="size-4" />
-          </Button>
+  function choose(prompt: string) {
+    setQuestion(prompt);
+    setFocusNext("composer");
+  }
+  function edit(turn: Turn) {
+    setMode(turn.mode);
+    setDataset(turn.inputs.dataset);
+    setSecondDataset(turn.inputs.secondDataset);
+    setLookup(turn.inputs.lookup);
+    setTarget(turn.inputs.target);
+    choose(turn.question);
+  }
+
+  const prompts = suggestedPrompts({
+    mode,
+    dataset: fact,
+    target,
+    training,
+    joined: !!secondDataset && empty,
+  });
+  const canSubmit =
+    ready &&
+    !busy &&
+    !!question.trim() &&
+    !(training && (!target || !mlEnabled || staleTraining)) &&
+    !(mode !== "docs" && disabled);
+  const ModeIcon = { build: GitPullRequest, docs: BookOpen, diagnose: Stethoscope };
+
+  const panel = (
+    <section
+      role="dialog"
+      aria-labelledby="assistant-title"
+      aria-describedby="assistant-flow"
+      id="assistant-panel"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !e.defaultPrevented) {
+          e.preventDefault();
+          close();
+        }
+      }}
+      className={cn(
+        "assistant-panel flex min-h-0 w-[26rem] shrink-0 flex-col border-l border-border bg-background max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:border-l-0",
+        dockHost ? "h-full" : "fixed inset-y-0 right-0 z-40 shadow-xl",
+      )}
+    >
+      <div className="assistant-mast flex items-center gap-3 px-4 py-3">
+        <span className="assistant-mast__mark grid size-9 shrink-0 place-items-center rounded-xl">
+          <AssistantMark className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="assistant-title" className="text-base font-semibold leading-tight">
+            Flow assistant
+          </h2>
+          <p id="assistant-flow" className="assistant-mast__sub truncate text-xs">
+            {flowName}
+          </p>
         </div>
-        <Tabs
-          value={tab}
-          onValueChange={setTab}
-          className="flex min-h-0 flex-1 flex-col"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="assistant-mast__close size-9 px-0"
+          aria-label="Close assistant"
+          disabled={applying || reversing}
+          onClick={close}
         >
-          <TabsList
-            aria-label="Assistant sections"
-            className="mx-5 my-3 grid shrink-0 grid-cols-2"
-          >
-            <TabsTrigger
-              value="conversation"
-              disabled={reversing}
-              className="motion-reduce:transition-none"
-            >
-              <MessageSquare aria-hidden className="mr-2 size-4" />
-              Conversation
-            </TabsTrigger>
-            <TabsTrigger
-              value="activity"
-              disabled={!!busy}
-              className="motion-reduce:transition-none"
-            >
-              <History aria-hidden className="mr-2 size-4" />
-              Activity
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent
-            value="activity"
-            className="mt-0 min-h-0 overflow-y-auto px-5 pb-5"
-          >
-            <Activity
-              flowId={flowId}
-              projectId={projectId}
-              revision={revision}
-              disabled={disabled}
-              current={current}
-              restored={restored}
-              locking={setReversing}
-            />
-          </TabsContent>
-          <TabsContent
-            value="conversation"
-            className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
-          >
-            <div className="grid min-h-0 content-start gap-4 overflow-y-auto px-5 pb-5 pt-1">
-              {!ready && (
+          <X aria-hidden className="size-4" />
+        </Button>
+      </div>
+      <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+        <TabsList
+          aria-label="Assistant sections"
+          className="mx-4 my-3 grid shrink-0 grid-cols-2"
+        >
+          <TabsTrigger value="conversation" disabled={reversing} className="motion-reduce:transition-none">
+            <MessageSquare aria-hidden className="mr-2 size-4" />
+            Conversation
+          </TabsTrigger>
+          <TabsTrigger value="activity" disabled={pending || applying} className="motion-reduce:transition-none">
+            <History aria-hidden className="mr-2 size-4" />
+            Activity
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="activity" className="mt-0 min-h-0 overflow-y-auto px-4 pb-5">
+          <Activity
+            flowId={flowId}
+            projectId={projectId}
+            revision={revision}
+            disabled={disabled}
+            current={current}
+            restored={restored}
+            locking={setReversing}
+          />
+        </TabsContent>
+        <TabsContent
+          value="conversation"
+          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+        >
+          <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 pb-4 pt-1">
+            {!ready ? (
+              <>
                 <section
                   role="status"
-                  className="grid place-items-start gap-3 rounded-2xl border border-primary/20 bg-gradient-to-br from-accent to-card p-5"
+                  className="assistant-card assistant-card--primary place-items-start"
                 >
                   <span className="grid size-10 place-items-center rounded-xl border border-border bg-card text-primary">
                     <KeyRound aria-hidden className="size-5" />
@@ -397,335 +596,414 @@ export function AssistantPanel({
                   </div>
                   <Link
                     to="/settings#assistant"
-                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus-visible:ring-2"
+                    className="inline-flex min-h-8 items-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus-visible:ring-2"
                   >
                     Open settings
                   </Link>
                 </section>
-              )}
-              {reply?.proposal ? (
-                <div className="ml-8 rounded-xl rounded-tr-sm bg-primary/10 px-4 py-3 text-sm">
-                  {question}
-                </div>
-              ) : ready ? (
-                <>
-                  <div
-                    role="group"
-                    aria-label="Task"
-                    className="grid grid-cols-3 gap-2"
-                  >
-                    {(Object.keys(labels) as Mode[]).map((m) => {
-                      const Icon = {
-                        build: GitPullRequest,
-                        docs: BookOpen,
-                        diagnose: Stethoscope,
-                      }[m];
-                      return (
-                        <button
-                          key={m}
-                          aria-pressed={m === mode}
-                          disabled={!!busy}
-                          className="assistant-mode flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-2 py-3 text-sm font-semibold hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => {
-                            setMode(m);
-                            setReply(undefined);
-                            setError("");
-                          }}
-                        >
-                          <Icon aria-hidden className="size-4" />
-                          {labels[m]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {mode !== "docs" && !current().nodes.length && (
-                    <label className="grid gap-1 text-sm">
-                      Input dataset
-                      <Select
-                        aria-label="Input dataset"
-                        disabled={!!busy}
-                        value={dataset}
-                        onChange={(e) => {
-                          setDataset(e.target.value);
-                          setSecondDataset("");
-                          setLookup("");
-                          setTarget("");
-                          setReply(undefined);
-                        }}
-                      >
-                        <option value="">Choose a project dataset</option>
-                        {datasets
-                          .filter((d) => !d.is_disabled)
-                          .map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                      </Select>
-                    </label>
-                  )}
-                  {mode === "build" &&
-                    !current().nodes.length &&
-                    datasets.some(
-                      (d) => d.id === dataset && d.source_type === "csv",
-                    ) && (
-                      <label className="grid gap-1 text-sm">
-                        Right input for Join (optional)
-                        <Select
-                          aria-label="Right input for Join"
-                          value={secondDataset}
-                          disabled={!!busy}
-                          onChange={(e) => {
-                            setSecondDataset(e.target.value);
-                            setLookup("");
-                            setTarget("");
-                            setReply(undefined);
-                          }}
-                        >
-                          <option value="">Use one input</option>
-                          {datasets
-                            .filter(
-                              (d) =>
-                                !d.is_disabled &&
-                                d.source_type === "csv" &&
-                                d.id !== dataset,
-                            )
-                            .map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                        </Select>
-                        {secondDataset && !training && (
-                          <span className="text-xs text-muted-foreground">
-                            The first dataset is the left input. A left Join
-                            keeps every row from it.
-                          </span>
-                        )}
-                      </label>
-                    )}
-                  {mlEnabled &&
-                    secondDataset &&
-                    mode === "build" &&
-                    !current().nodes.length && (
-                      <label className="grid gap-1 text-sm">
-                        Second lookup for regression (optional)
-                        <Select
-                          value={lookup}
-                          disabled={!!busy}
-                          onChange={(e) => {
-                            setLookup(e.target.value);
-                            setTarget("");
-                            setReply(undefined);
-                          }}
-                        >
-                          <option value="">Use one Join</option>
-                          {datasets
-                            .filter(
-                              (d) =>
-                                !d.is_disabled &&
-                                d.source_type === "csv" &&
-                                d.id !== dataset &&
-                                d.id !== secondDataset,
-                            )
-                            .map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                        </Select>
-                      </label>
-                    )}
-                  {training && (
-                    <label className="grid gap-1 text-sm">
-                      Regression target
-                      <Select
-                        value={target}
-                        disabled={!!busy}
-                        onChange={(e) => {
-                          setTarget(e.target.value);
-                          setReply(undefined);
-                        }}
-                      >
-                        <option value="">Choose a numeric outcome</option>
-                        {fact?.column_schema
-                          ?.slice(0, 64)
-                          .filter(
-                            (c) =>
-                              ["integer", "float"].includes(c.type) &&
-                              !selectedInputs
-                                .slice(1)
-                                .some((d) =>
-                                  d?.column_schema?.some(
-                                    (other) => other.name === c.name,
-                                  ),
-                                ),
-                          )
-                          .map((c) => (
-                            <option key={c.name}>{c.name}</option>
-                          ))}
-                      </Select>
-                    </label>
-                  )}
-                  {ready && !question && mode !== "docs" && !training && (
-                    <button
-                      className="justify-self-start rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-muted focus-visible:ring-2"
-                      onClick={() =>
-                        setQuestion(
-                          mode === "diagnose"
-                            ? "Check the most recent failure"
-                            : secondDataset
-                              ? "Keep all rows from the left input"
-                              : "Keep the first 10 rows",
-                        )
-                      }
-                    >
-                      {mode === "diagnose"
-                        ? "Check the last failure"
-                        : secondDataset
-                          ? "Keep all left rows"
-                          : "Keep the first 10 rows"}
-                    </button>
-                  )}
-                  <label className="grid gap-1 text-sm">
-                    Request
-                    <textarea
-                      aria-label="Request"
-                      className="min-h-20 rounded-xl border border-input bg-card p-3 placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary"
-                      disabled={!!busy}
-                      maxLength={1500}
-                      placeholder={
-                        mode === "docs"
-                          ? "How do I export Polars code?"
-                          : mode === "build"
-                            ? training
-                              ? "Predict shipping cost and evaluate on held-out orders"
-                              : "Keep the first 100 rows"
-                            : "Why did this flow fail?"
-                      }
-                      value={question}
-                      onChange={(e) => {
-                        setQuestion(e.target.value);
-                        setReply(undefined);
-                      }}
-                    />
-                  </label>
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-medium text-foreground">
-                      <ShieldCheck
-                        aria-hidden
-                        className="mr-1 inline size-4 text-primary"
-                      />
-                      Data shared with provider
-                    </summary>
-                    <div className="mt-2 space-y-2 leading-relaxed">
-                      <p>
-                        {mode === "docs"
-                          ? "Sends your request and matching passages from the bundled guides."
-                          : training
-                            ? "Sends your request and temporary references for the joins, selected target and numeric predictors. Column names are optional. Files, rows and filenames stay out of the provider request."
-                            : "Sends your request, node types and connections, column types and indexes. Join requests can include matching key indexes or the current Join mode. Diagnosis can include a failure category. Rows, filenames, raw errors and code stay local."}{" "}
-                        Keep secrets out of your request.
-                      </p>
-                      {mode !== "docs" && (
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={shareNames}
-                            disabled={!!busy}
-                            onChange={(e) => {
-                              setShareNames(e.target.checked);
-                              setReply(undefined);
-                            }}
-                          />
-                          Include column names in this request
-                        </label>
-                      )}
-                    </div>
-                  </details>
-                  <CanvasHelp
-                    validation={validation}
-                    inspectNode={inspectNode}
-                  />
-                </>
-              ) : (
                 <CanvasHelp validation={validation} inspectNode={inspectNode} />
-              )}
-              <div role="status" aria-live="polite">
-                {busy === "generate"
-                  ? "Waiting for provider…"
-                  : busy === "apply"
-                    ? "Saving proposal…"
-                    : reply?.proposal && mode !== "diagnose"
-                      ? null
-                      : reply?.message
-                          .replace(/\*\*([^*]+)\*\*/g, "$1")
-                          .replace(/`([^`]+)`/g, "$1")}
+              </>
+            ) : (
+              !turns.length && (
+                <section aria-label="Get started" className="grid gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      {mode === "docs"
+                        ? "Ask the Ciaren guides"
+                        : mode === "diagnose"
+                          ? "Diagnose this flow"
+                          : empty
+                            ? "Start this flow from a dataset"
+                            : "Describe the next change"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {mode === "docs"
+                        ? "Answers cite the bundled guide they come from."
+                        : "You review every node and connection before anything is saved."}
+                    </p>
+                  </div>
+                  {mode !== "docs" && (
+                    <p className="assistant-dataset-chip">
+                      <Database aria-hidden className="size-3.5 text-primary" />
+                      {fact ? (
+                        <>
+                          <span className="font-medium">{fact.name}</span>
+                          <span className="text-muted-foreground">
+                            · {fact.column_schema?.length ?? 0} columns
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {empty ? "Choose an input dataset below" : "Input from the canvas"}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {prompts.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Try
+                      </p>
+                      <PromptChips prompts={prompts} choose={choose} />
+                    </div>
+                  )}
+                  <CanvasHelp validation={validation} inspectNode={inspectNode} />
+                </section>
+              )
+            )}
+            {turns.length > 0 && (
+              <ol aria-label="Conversation" className="grid gap-3">
+                {turns.flatMap((turn) => [
+                  <li key={`${turn.id}-q`} className="assistant-request">
+                    <span className="sr-only">You asked: </span>
+                    {turn.question}
+                  </li>,
+                  <li key={`${turn.id}-a`}>
+                    {turn.state === "pending" ? (
+                      <Thinking
+                        mode={turn.mode}
+                        cancel={cancel}
+                        cancelRef={(el) => {
+                          cancelButton.current = el;
+                        }}
+                      />
+                    ) : turn.state !== "reply" ? (
+                      <StatusCard turn={turn} />
+                    ) : turn.reply?.proposal && turn.reply.delta ? (
+                      <ProposalCard
+                        turn={turn}
+                        latest={turn === live}
+                        datasets={datasets}
+                        disabled={disabled}
+                        busy={busy}
+                        inspectNode={inspectNode}
+                        apply={() => void confirm(turn)}
+                        discard={() => {
+                          update(turn.id, { outcome: "discarded" });
+                          setFocusNext("composer");
+                        }}
+                        edit={() => edit(turn)}
+                        regenerate={() => void generate(turn.question, turn.mode, turn.inputs)}
+                      />
+                    ) : turn.mode === "docs" || turn.reply?.citation ? (
+                      <AnswerCard turn={turn} />
+                    ) : (
+                      <GuidanceCard turn={turn} choose={choose} />
+                    )}
+                  </li>,
+                ])}
+              </ol>
+            )}
+          </div>
+          {ready && (
+            <form
+              className="assistant-composer grid max-h-[60%] shrink-0 gap-2 overflow-y-auto border-t border-border bg-card px-4 py-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit();
+              }}
+            >
+              <div role="group" aria-label="Task" className="grid grid-cols-3 gap-1.5">
+                {(Object.keys(labels) as Mode[]).map((m) => {
+                  const Icon = ModeIcon[m];
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={m === mode}
+                      disabled={busy}
+                      className="assistant-mode flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2 text-sm font-semibold hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setMode(m)}
+                    >
+                      <Icon aria-hidden className="size-4" />
+                      {labels[m]}
+                    </button>
+                  );
+                })}
               </div>
-              {error && (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
+              {mode !== "docs" && empty && (
+                <label className="grid gap-1 text-sm">
+                  Input dataset
+                  <Select
+                    aria-label="Input dataset"
+                    disabled={busy}
+                    value={dataset}
+                    onChange={(e) => {
+                      setDataset(e.target.value);
+                      setSecondDataset("");
+                      setLookup("");
+                      setTarget("");
+                    }}
+                  >
+                    <option value="">Choose a project dataset</option>
+                    {datasets
+                      .filter((d) => !d.is_disabled)
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                  </Select>
+                </label>
+              )}
+              {mode === "build" &&
+                empty &&
+                datasets.some((d) => d.id === dataset && d.source_type === "csv") && (
+                  <label className="grid gap-1 text-sm">
+                    Right input for Join (optional)
+                    <Select
+                      aria-label="Right input for Join"
+                      value={secondDataset}
+                      disabled={busy}
+                      onChange={(e) => {
+                        setSecondDataset(e.target.value);
+                        setLookup("");
+                        setTarget("");
+                      }}
+                    >
+                      <option value="">Use one input</option>
+                      {datasets
+                        .filter(
+                          (d) => !d.is_disabled && d.source_type === "csv" && d.id !== dataset,
+                        )
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                    </Select>
+                    {secondDataset && !training && (
+                      <span className="text-xs text-muted-foreground">
+                        The first dataset is the left input. A left Join keeps every row from it.
+                      </span>
+                    )}
+                  </label>
+                )}
+              {mlEnabled && secondDataset && mode === "build" && empty && (
+                <label className="grid gap-1 text-sm">
+                  Second lookup for regression (optional)
+                  <Select
+                    value={lookup}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setLookup(e.target.value);
+                      setTarget("");
+                    }}
+                  >
+                    <option value="">Use one Join</option>
+                    {datasets
+                      .filter(
+                        (d) =>
+                          !d.is_disabled &&
+                          d.source_type === "csv" &&
+                          d.id !== dataset &&
+                          d.id !== secondDataset,
+                      )
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                  </Select>
+                </label>
+              )}
+              {training && (
+                <label className="grid gap-1 text-sm">
+                  Regression target
+                  <Select value={target} disabled={busy} onChange={(e) => setTarget(e.target.value)}>
+                    <option value="">Choose a numeric outcome</option>
+                    {fact?.column_schema
+                      ?.slice(0, 64)
+                      .filter(
+                        (c) =>
+                          ["integer", "float"].includes(c.type) &&
+                          ![secondDataset, lookup]
+                            .map((id) => datasets.find((d) => d.id === id))
+                            .some((d) => d?.column_schema?.some((other) => other.name === c.name)),
+                      )
+                      .map((c) => (
+                        <option key={c.name}>{c.name}</option>
+                      ))}
+                  </Select>
+                </label>
+              )}
+              {staleTraining && (
+                <p className="text-xs text-muted-foreground">
+                  A selected dataset is no longer available. Choose the inputs again.
                 </p>
               )}
-              {reply?.citation && (
-                <a
-                  className="text-sm underline"
-                  href={reply.citation.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {reply.citation.title}
-                </a>
-              )}
-              {reply?.delta && base && (
-                <ProposalReview
-                  delta={reply.delta}
-                  base={base}
-                  datasets={datasets}
-                  inspectNode={inspectNode}
-                />
-              )}
-            </div>
-            <div className="mt-auto flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-5 py-3">
-              <span className="mr-auto text-xs text-muted-foreground">
-                {service.data?.model ?? "Local workspace"}
-              </span>
-              {busy === "generate" && (
-                <Button variant="outline" onClick={cancel}>
-                  Cancel request
-                </Button>
-              )}
-              {reply?.proposal && (
-                <Button
-                  className="hover:bg-primary"
-                  disabled={!!busy || disabled}
-                  onClick={() => void confirm()}
-                >
-                  Apply and save
-                </Button>
-              )}
-              {ready && !reply?.proposal && (
-                <Button
-                  disabled={
-                    !!busy ||
-                    !ready ||
-                    !question.trim() ||
-                    (training && (!target || !mlEnabled)) ||
-                    (mode !== "docs" && disabled)
+              <label className="grid gap-1 text-sm">
+                <span className="sr-only">Request</span>
+                <textarea
+                  ref={textarea}
+                  aria-label="Request"
+                  aria-describedby="assistant-submit-hint"
+                  className="min-h-20 rounded-xl border border-input bg-background p-3 placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary"
+                  disabled={busy}
+                  maxLength={1500}
+                  placeholder={
+                    mode === "docs"
+                      ? "How do I export Polars code?"
+                      : mode === "build"
+                        ? training
+                          ? "Predict shipping cost and evaluate on held-out orders"
+                          : "Keep the first 100 rows"
+                        : "Why did this flow fail?"
                   }
-                  onClick={() => void generate()}
-                >
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      if (canSubmit) submit();
+                    }
+                  }}
+                />
+              </label>
+              {mode !== "docs" && disabled && (
+                <p className="text-xs text-muted-foreground">
+                  This flow is disabled. Re-enable it from the banner above the canvas to create or
+                  apply proposals. Guides still work.
+                </p>
+              )}
+              <details className="text-xs text-muted-foreground">
+                <summary className="flex min-h-8 cursor-pointer items-center gap-1 font-medium text-foreground">
+                  <ShieldCheck aria-hidden className="size-4 text-primary" />
+                  Data shared with provider
+                </summary>
+                <div className="mt-1 space-y-2 leading-relaxed">
+                  <p>
+                    {mode === "docs"
+                      ? "Sends your request and matching passages from the bundled guides."
+                      : training
+                        ? "Sends your request and temporary references for the joins, selected target and numeric predictors. Column names are optional. Files, rows and filenames stay out of the provider request."
+                        : "Sends your request, node types and connections, column types and indexes. Join requests can include matching key indexes or the current Join mode. Diagnosis can include a failure category. Rows, filenames, raw errors and code stay local."}{" "}
+                    Keep secrets out of your request.
+                  </p>
+                  {mode !== "docs" && (
+                    <label className="flex min-h-8 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={shareNames}
+                        disabled={busy}
+                        onChange={(e) => setShareNames(e.target.checked)}
+                      />
+                      Include column names in this request
+                    </label>
+                  )}
+                </div>
+              </details>
+              <div className="flex items-center justify-end gap-2">
+                <span id="assistant-submit-hint" className="mr-auto truncate text-xs text-muted-foreground">
+                  {service.data?.model} · Ctrl+Enter to send
+                </span>
+                <Button type="submit" size="sm" disabled={!canSubmit}>
                   {mode === "build"
                     ? "Create proposal"
                     : mode === "diagnose"
                       ? "Diagnose flow"
                       : "Ask the guides"}
                 </Button>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+              </div>
+            </form>
+          )}
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+
+  return (
+    <>
+      <Button
+        ref={headerButton}
+        size="sm"
+        variant="outline"
+        aria-expanded={open}
+        aria-controls={open ? "assistant-panel" : undefined}
+        className="relative shrink-0 border-primary/40 text-foreground"
+        onClick={() => (open ? close() : openPanel("header"))}
+      >
+        <AssistantMark className="size-4 text-primary" />
+        Assistant
+        {unseen && !open && (
+          <span aria-hidden className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
+        )}
+      </Button>
+      {floatingHost &&
+        !open &&
+        createPortal(
+          <button
+            ref={launcher}
+            type="button"
+            onClick={() => openPanel("launcher")}
+            aria-label="Ask the flow assistant"
+            className="assistant-launcher absolute bottom-4 left-1/2 z-10 flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-background/95 py-1.5 pl-1.5 pr-4 text-sm font-medium text-foreground shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          >
+            <span className="assistant-mast__mark grid size-7 place-items-center rounded-full">
+              <AssistantMark className="size-4" />
+            </span>
+            Ask the assistant
+          </button>,
+          floatingHost,
+        )}
+      {open && createPortal(panel, dockHost ?? document.body)}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+      {toast &&
+        createPortal(
+          <div
+            role="status"
+            aria-labelledby="assistant-toast-title"
+            onMouseEnter={() => setToastPaused(true)}
+            onMouseLeave={() => setToastPaused(false)}
+            onFocus={() => setToastPaused(true)}
+            onBlur={() => setToastPaused(false)}
+            className="assistant-toast"
+          >
+            <AssistantMark className="size-4 shrink-0 text-primary" />
+            <p className="min-w-0 flex-1 text-sm">
+              <span id="assistant-toast-title" className="font-semibold">
+                {toast.saved ? "Saved" : "Assistant"}
+              </span>
+              <span className="text-muted-foreground"> · {toast.message}</span>
+            </p>
+            {toast.saved && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reversing}
+                onClick={() => void undo(toast.saved!)}
+              >
+                Undo
+              </Button>
+            )}
+            {!toast.busy && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setToast(undefined);
+                  openPanel(openedFrom.current);
+                  setTab("activity");
+                }}
+              >
+                View in Activity
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="size-9 px-0"
+              aria-label="Dismiss"
+              disabled={toast.busy}
+              onClick={() => setToast(undefined)}
+            >
+              <X aria-hidden className="size-4" />
+            </Button>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

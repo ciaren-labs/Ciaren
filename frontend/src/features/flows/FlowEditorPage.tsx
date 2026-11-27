@@ -80,6 +80,7 @@ export function FlowEditorPage() {
   };
   const [exportOpen, setExportOpen] = useState(false);
   const [canvasHost, setCanvasHost] = useState<HTMLDivElement | null>(null);
+  const [assistantHost, setAssistantHost] = useState<HTMLDivElement | null>(null);
   const [paramsOpen, setParamsOpen] = useState(false);
   const [runParamsOpen, setRunParamsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -334,6 +335,7 @@ export function FlowEditorPage() {
               datasets={datasets ?? []}
               current={assistantCanvas}
               floatingHost={canvasHost}
+              dockHost={assistantHost}
               saved={(value, graph) => {
                 rememberSave(value, graph);
                 void refetch();
@@ -425,6 +427,7 @@ export function FlowEditorPage() {
             )}
           </div>
           <NodeSidebar />
+          <div ref={setAssistantHost} className="flex min-h-0 shrink-0" />
         </div>
       </div>
 

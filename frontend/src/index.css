@@ -210,9 +210,149 @@
   display: none;
 }
 
+/* Flow assistant. Tokens only: the mast is a brand wash, not a dark banner,
+   so the same rules hold in light and dark themes. */
 .assistant-mast {
-  background: radial-gradient(ellipse at 90% 0%, rgb(255 255 255 / 17%), transparent 60%),
-    linear-gradient(112deg, #36206c, #6030ac 72%, #7142bb);
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--brand-50));
+  background-image: radial-gradient(hsl(var(--primary) / .16) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.dark .assistant-mast {
+  background-color: hsl(var(--accent) / .55);
+  background-image: radial-gradient(hsl(var(--primary) / .22) 1px, transparent 1px);
+}
+.assistant-mast__mark {
+  color: hsl(var(--primary-foreground));
+  background: linear-gradient(135deg, hsl(var(--brand-500)), hsl(var(--brand-700)));
+  box-shadow: 0 1px 2px hsl(var(--brand-900) / .25);
+}
+.dark .assistant-mast__mark {
+  background: linear-gradient(135deg, hsl(var(--brand-400)), hsl(var(--brand-600)));
+}
+.assistant-mast__sub {
+  color: hsl(var(--muted-foreground));
+}
+.assistant-card {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-left: 2px solid hsl(var(--primary));
+  border-radius: .75rem;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05);
+}
+.assistant-card--muted {
+  border-left-color: hsl(var(--muted-foreground) / .5);
+}
+.assistant-card--destructive {
+  border-left-color: hsl(var(--destructive));
+}
+.assistant-request {
+  justify-self: end;
+  max-width: 85%;
+  padding: .5rem .875rem;
+  border-radius: .75rem .75rem .25rem .75rem;
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-size: .875rem;
+  overflow-wrap: anywhere;
+}
+.assistant-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: .25rem .75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--background));
+  font-size: .75rem;
+  font-weight: 500;
+  text-align: left;
+}
+.assistant-chip:hover {
+  border-color: hsl(var(--primary) / .6);
+  background: hsl(var(--accent));
+}
+.assistant-chip:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+.assistant-dataset-chip {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: .375rem;
+  min-height: 2rem;
+  padding: .25rem .75rem;
+  border: 1px solid hsl(var(--primary) / .3);
+  border-radius: .5rem;
+  background: hsl(var(--accent) / .5);
+  font-size: .8125rem;
+}
+.assistant-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem .5rem;
+  font-size: .8125rem;
+  color: hsl(var(--muted-foreground));
+}
+.assistant-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+}
+.assistant-steps li + li::before {
+  content: "→";
+  margin-right: .25rem;
+  color: hsl(var(--border));
+}
+.assistant-steps li[aria-current="step"] {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+.assistant-steps__dot {
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: hsl(var(--border));
+}
+.assistant-steps li[data-done] .assistant-steps__dot {
+  background: hsl(var(--primary) / .6);
+}
+.assistant-steps li[aria-current="step"] .assistant-steps__dot {
+  background: hsl(var(--primary));
+  animation: assistant-pulse 1.2s ease-in-out infinite;
+}
+@keyframes assistant-pulse {
+  50% { transform: scale(1.6); opacity: .45; }
+}
+.assistant-toast {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: .375rem .375rem .375rem .875rem;
+  transform: translateX(-50%);
+  border: 1px solid hsl(var(--border));
+  border-left: 2px solid hsl(var(--primary));
+  border-radius: .75rem;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+}
+@media (max-width: 639px) {
+  .assistant-toast {
+    flex-wrap: wrap;
+  }
 }
 .assistant-map {
   background-color: hsl(var(--accent) / .5);
@@ -238,6 +378,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .assistant-steps__dot {
+    animation: none !important;
+  }
   .assistant-panel * {
     transition-duration: 0s !important;
     animation-duration: 0s !important;

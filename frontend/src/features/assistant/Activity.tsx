@@ -6,34 +6,26 @@ import type { Flow, GraphJson } from "@/features/flows/types";
 import { getNodeTypeDef } from "@/features/flows/editor/nodeCatalog";
 import { request } from "@/lib/api/client";
 import { useFlowEditorStore } from "@/stores/flowEditorStore";
+import {
+  activityKey,
+  activityUrl,
+  confirmReversal,
+  loadFlow,
+  previewReversal,
+  type ActivityEntry,
+  type ActivityPage,
+  type Fact,
+  type ReversalPreview,
+} from "./api";
+import { factCounts, summarize } from "./changeSummary";
 
-type Fact = {
-  action: string;
-  kind?: string;
-  field?: string;
-  before?: unknown;
-  after?: unknown;
-  from?: string;
-  to?: string;
-  port?: string;
-  source_port?: string;
-};
-type Entry = {
-  id: string;
-  date: string;
-  source: "build" | "diagnose" | "revert";
-  state: "available" | "recorded" | "reverted";
-  reverses: string | null;
-  details: Fact[];
-};
-type Page = { entries: Entry[]; next: string | null };
-type Preview = { confirmation: string; details: Fact[] };
+type Preview = ReversalPreview;
 const label = (kind?: string) =>
   (kind && getNodeTypeDef(kind)?.label) || kind || "node";
-const title = {
-  build: "Saved proposal",
-  diagnose: "Saved repair",
-  revert: "Reverted change",
+const kicker = {
+  build: "Proposal saved",
+  diagnose: "Repair saved",
+  revert: "Reversal",
 };
 
 function Details({ facts }: { facts: Fact[] }) {
@@ -81,18 +73,6 @@ function Details({ facts }: { facts: Fact[] }) {
   );
 }
 
-function impact(facts: Fact[]) {
-  const groups = [
-    [facts.filter((f) => f.kind && f.action !== "edit_field").length, "node"],
-    [facts.filter((f) => f.from).length, "connection"],
-    [facts.filter((f) => f.action === "edit_field").length, "setting"],
-  ] as const;
-  return groups
-    .filter(([n]) => n)
-    .map(([n, word]) => `${n} ${word}${n === 1 ? "" : "s"}`)
-    .join(" · ");
-}
-
 export function Activity({
   flowId,
   projectId,
@@ -111,13 +91,13 @@ export function Activity({
   locking: (busy: boolean) => void;
 }) {
   const client = useQueryClient();
-  const queryKey = ["assistant-activity", projectId, flowId];
-  const url = `/assistant/flows/${flowId}/activity`;
+  const queryKey = activityKey(projectId, flowId);
+  const url = activityUrl(flowId);
   const feed = useInfiniteQuery({
     queryKey,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
-      request<Page>(
+      request<ActivityPage>(
         url + (pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""),
         { cache: "no-store" },
       ),
@@ -159,10 +139,7 @@ export function Activity({
     setNotice("");
     setPending(true);
     try {
-      const response = await request<Preview>(`${url}/${id}/preview`, {
-        method: "POST",
-        body: JSON.stringify({ revision }),
-      });
+      const response = await previewReversal(flowId, id, revision);
       if (alive.current)
         setPreview({ ...response, id, revision, snapshot, session });
     } catch (e) {
@@ -191,17 +168,13 @@ export function Activity({
     setError("");
     let committed = false;
     try {
-      const result = await request<{ revision: string }>(
-        `${url}/${preview.id}/revert`,
-        {
-          method: "POST",
-          body: JSON.stringify({ proposal: preview.confirmation }),
-        },
+      const result = await confirmReversal(
+        flowId,
+        preview.id,
+        preview.confirmation,
       );
       committed = true;
-      const flow = await request<Flow>(`/flows/${flowId}`, {
-        cache: "no-store",
-      });
+      const flow = await loadFlow(flowId);
       if (unchanged() && flow.updated_at === result.revision) {
         restored(flow);
         setNotice("Reversal saved to activity.");
@@ -226,6 +199,12 @@ export function Activity({
     }
   }
   const rows = feed.data?.pages.flatMap((p) => p.entries) ?? [];
+  const reversed = (entry: ActivityEntry) => {
+    const target = rows.find((r) => r.id === entry.reverses);
+    return target
+      ? `Reverses “${summarize(factCounts(target.details))}” from ${new Date(target.date).toLocaleString()}`
+      : "Reverses an earlier change";
+  };
   return (
     <div className="grid gap-4">
       <div>
@@ -325,22 +304,26 @@ export function Activity({
                     ) : (
                       <Check aria-hidden className="mt-1 size-4 text-primary" />
                     )}
-                    <div>
-                      <h4 className="font-semibold">{title[entry.source]}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.source === "revert"
-                          ? "User confirmation"
-                          : "Flow assistant"}{" "}
-                        ·{" "}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {kicker[entry.source]} ·{" "}
                         <time dateTime={entry.date}>
                           {new Date(entry.date).toLocaleString()}
                         </time>
                       </p>
+                      <h4 className="font-semibold">
+                        {summarize(factCounts(entry.details))}
+                      </h4>
+                      {entry.source === "revert" && (
+                        <p className="text-xs text-muted-foreground">
+                          {reversed(entry)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <details className="my-3 text-sm">
-                    <summary className="cursor-pointer font-medium">
-                      {impact(entry.details)}
+                    <summary className="flex min-h-8 cursor-pointer items-center font-medium">
+                      Show details
                     </summary>
                     <div className="mt-2">
                       <Details facts={entry.details} />
