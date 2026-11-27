@@ -137,9 +137,11 @@ def compile_regression(
     return graph, {"added": nodes, "changed": [], "connected": edges, "disconnected": []}
 
 
-async def propose(db: AsyncSession, project: str, body: Turn) -> tuple[Graph, Graph, list[InputVersion]] | None:
+async def propose(
+    db: AsyncSession, project: str, body: Turn, base: Graph
+) -> tuple[Graph, Graph, list[InputVersion]] | None:
     selection = body.training
-    if selection is None or body.mode != "build" or body.graph.get("nodes") or body.graph.get("edges"):
+    if selection is None or body.mode != "build" or base.get("nodes") or base.get("edges"):
         raise ValidationError("Start with an empty canvas to build a regression flow.")
     ids = [body.dataset_id, body.second_dataset_id, selection.dataset_id]
     if None in ids or len(set(ids)) != 3:
@@ -218,5 +220,5 @@ async def propose(db: AsyncSession, project: str, body: Turn) -> tuple[Graph, Gr
         features = [options[token] for options, token in zip(refs, plan.features, strict=True)]
     except (SchemaError, ValueError, KeyError):
         raise ValidationError("The provider returned an unsupported regression plan.") from None
-    graph, delta = compile_regression(body.graph, schemas, keys, target, features, labels)
+    graph, delta = compile_regression(base, schemas, keys, target, features, labels)
     return graph, delta, [s.version for s in schemas]

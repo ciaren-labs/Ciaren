@@ -239,9 +239,9 @@ def build_graph(graph: Graph, plan: BuildJoin, left: Side, right: Side) -> tuple
 
 
 async def propose(
-    db: AsyncSession, project: str, body: Turn, failure: str
+    db: AsyncSession, project: str, body: Turn, base: Graph, failure: str
 ) -> tuple[Graph, Graph, list[InputVersion]] | None:
-    nodes, edges = inspect(body.graph)
+    nodes, edges = inspect(base)
     join = next((n for n in nodes if n["type"] == "join"), None)
     if join:
         if body.second_dataset_id:
@@ -258,7 +258,7 @@ async def propose(
         raise ValidationError("Select two distinct CSVs in this project.")
     try:
         if join:
-            validate_join(body.graph, left.schema, right.schema)
+            validate_join(base, left.schema, right.schema)
             if join["data"]["config"].get("how", "inner") != "inner":
                 raise ManualJoin("Only an inner Join can be changed to preserve all left rows.")
             token = opaque()
@@ -279,7 +279,7 @@ async def propose(
                 raise ValidationError("The repair references an unavailable Join.")
             updated = deepcopy(join)
             updated["data"]["config"]["how"] = repair.how
-            result = {**body.graph, "nodes": [updated if n["id"] == join["id"] else n for n in nodes]}
+            result = {**base, "nodes": [updated if n["id"] == join["id"] else n for n in nodes]}
             delta = {"added": [], "changed": [updated], "connected": [], "disconnected": []}
         else:
             keys = shared_keys(left.schema, right.schema)
@@ -306,7 +306,7 @@ async def propose(
             )
             if not answer:
                 return None
-            result, delta = build_graph(body.graph, BuildJoin.model_validate(answer, strict=True), left, right)
+            result, delta = build_graph(base, BuildJoin.model_validate(answer, strict=True), left, right)
         validate_join(result, left.schema, right.schema)
     except SchemaError:
         raise ValidationError("The provider returned an unsupported Join proposal.") from None

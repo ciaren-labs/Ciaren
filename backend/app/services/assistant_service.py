@@ -2,7 +2,7 @@
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from time import monotonic
 from uuid import uuid4
 
@@ -33,6 +33,46 @@ INSTRUCTION = (
     "Append before file output or replace one same-kind "
     "transformation. To abstain, return {}. Never include prose, code, or actions outside this schema."
 )
+
+
+class Refusal(ConflictError):
+    """A conflict the client resolves itself; ``reason`` is a stable code for the editor."""
+
+    def __init__(self, reason: str, detail: str) -> None:
+        self.reason = reason
+        super().__init__(detail)
+
+
+def utc(value: datetime) -> datetime:
+    """SQLite returns naive UTC revisions while clients may send any offset."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+def projection(graph: Graph) -> str:
+    """The semantic canvas: node identity, type, settings and label, plus wiring. Positions are ignored."""
+
+    def node(n: object) -> object:
+        if not isinstance(n, dict):
+            return n
+        data = n.get("data")
+        data = data if isinstance(data, dict) else {}
+        return [n.get("id"), n.get("type"), data.get("config"), data.get("label")]
+
+    def edge(e: object) -> object:
+        if not isinstance(e, dict):
+            return e
+        handles = [e.get("sourceHandle") or "out", e.get("targetHandle") or "in"]
+        return [e.get("id"), e.get("source"), e.get("target"), *handles]
+
+    nodes, edges = graph.get("nodes") or [], graph.get("edges") or []
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        return json.dumps([nodes, edges], sort_keys=True)
+    return json.dumps(
+        [
+            sorted(json.dumps(node(n), sort_keys=True) for n in nodes),
+            sorted(json.dumps(edge(e), sort_keys=True) for e in edges),
+        ]
+    )
 
 
 @dataclass
@@ -107,11 +147,15 @@ class AssistantService:
             raise ValidationError("Regression proposals are available in Build only.")
         if body.mode == "docs":
             return await assistant_docs.answer(body.provider, body.question)
-        if flow.updated_at != body.revision or flow.is_disabled:
+        if utc(flow.updated_at) != utc(body.revision) or flow.is_disabled:
             raise ConflictError(STALE)
-        if len(json.dumps(body.graph)) > 96000:
+        # The saved flow is the only base a proposal is derived from and written over.
+        base: Graph = flow.graph_json or {}
+        if body.graph is not None and projection(body.graph) != projection(base):
+            raise Refusal("unsaved_changes", "Save the canvas before asking the assistant to change it.")
+        if len(json.dumps(base)) > 96000:
             raise ValidationError("Canvas exceeds the assistant size limit.")
-        nodes, edges = inspect(body.graph)
+        nodes, edges = inspect(base)
         message = ""
         if body.mode == "diagnose":
             error = await self.db.scalar(
@@ -122,15 +166,15 @@ class AssistantService:
             )
             message = failure_category(error)
         if body.training is not None:
-            training = await assistant_training.propose(self.db, flow.project_id, body)
+            training = await assistant_training.propose(self.db, flow.project_id, body, base)
             if training is None:
                 return {"message": "No supported regression plan was identified."}
             graph, delta, versions = training
-            return self._remember(flow, body, graph, delta, versions, message)
+            return self._remember(flow, base, body, graph, delta, versions, message)
         has_join = any(n["type"] == "join" for n in nodes)
         if body.second_dataset_id or (has_join and all(n["type"] in assistant_join.JOIN_NODES for n in nodes)):
             try:
-                proposal = await assistant_join.propose(self.db, flow.project_id, body, message)
+                proposal = await assistant_join.propose(self.db, flow.project_id, body, base, message)
             except assistant_join.ManualJoin:
                 if body.mode != "diagnose" or not has_join:
                     raise
@@ -140,7 +184,7 @@ class AssistantService:
             graph, delta, versions = proposal
             if has_join:
                 message = "An inner Join drops unmatched left rows. Review the change to retain them."
-            return self._remember(flow, body, graph, delta, versions, message)
+            return self._remember(flow, base, body, graph, delta, versions, message)
         if body.mode == "diagnose" and (
             any(n["type"] not in SAFE for n in nodes) or sum(n["type"] in INPUTS for n in nodes) != 1
         ):
@@ -196,12 +240,13 @@ class AssistantService:
             plan = Plan.model_validate(answer, strict=True)
         except SchemaError:
             raise ValidationError("The provider did not return a supported proposal.") from None
-        graph, delta = compile_plan(body.graph, plan, column_types, source.binding(), source.version.fmt)
-        return self._remember(flow, body, graph, delta, [source.version], message, set(column_types))
+        graph, delta = compile_plan(base, plan, column_types, source.binding(), source.version.fmt)
+        return self._remember(flow, base, body, graph, delta, [source.version], message, set(column_types))
 
     @staticmethod
     def _remember(
         flow: Flow,
+        base: Graph,
         body: Turn,
         graph: Graph,
         delta: Graph,
@@ -214,15 +259,17 @@ class AssistantService:
             raise ValidationError("Too many open proposals. Retry after existing proposals expire.")
         token = uuid4().hex
         activity = assistant_activity.receipt(
-            flow.id, flow.project_id, body.graph, graph, delta, versions, body.mode, known_columns
+            flow.id, flow.project_id, base, graph, delta, versions, body.mode, known_columns
         )
         if not activity.details:
             return {"message": "The proposed settings already match this canvas."}
-        _pending[token] = Pending(flow.id, body.revision, graph, monotonic() + 180, flow.project_id, versions, activity)
+        _pending[token] = Pending(
+            flow.id, flow.updated_at, graph, monotonic() + 180, flow.project_id, versions, activity
+        )
         asyncio.get_running_loop().call_later(180, _pending.pop, token, None)
         return {"message": message or "Review the proposed canvas changes.", "proposal": token, "delta": delta}
 
-    async def apply(self, flow_id: str, token: str) -> dict[str, datetime]:
+    async def apply(self, flow_id: str, token: str) -> Graph:
         _expire()
         p = _pending.get(token)
         if (
@@ -254,4 +301,4 @@ class AssistantService:
         self.db.add(p.activity)
         await self.db.commit()
         _pending.pop(token, None)
-        return {"revision": revision}
+        return {"revision": revision, "graph": p.graph}

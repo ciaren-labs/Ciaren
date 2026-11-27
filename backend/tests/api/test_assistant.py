@@ -154,7 +154,9 @@ async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_sessi
 
 
 async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_session, monkeypatch):
+    empty = {"nodes": [], "edges": [], "engine": "polars"}
     flow = (await client.post("/api/flows", json={"name": "Review"})).json()
+    flow = (await client.put(f"/api/flows/{flow['id']}", json={"graph_json": empty})).json()
     other = (await client.post("/api/flows", json={"name": "Other"})).json()
     dataset = (
         await client.post("/api/datasets/upload", files={"file": ("hidden.csv", f"private_column\n{ROW}\n")})
@@ -167,7 +169,7 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
         "provider": "openai",
         "question": "Limit rows",
         "revision": flow["updated_at"],
-        "graph": {"nodes": [], "edges": [], "engine": "polars"},
+        "graph": empty,
         "dataset_id": dataset["id"],
     }
     r = await client.post(url + "/turn", json=body)
@@ -175,7 +177,7 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
     confirmation = {"proposal": r.json()["proposal"]}
     context = repr(completion.await_args.args[-1])
     assert not any(s in context for s in (dataset["id"], "hidden.csv", ROW, "private_column"))
-    assert not (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"]
+    assert (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"] == empty
     assert (await client.post(f"/api/assistant/flows/{other['id']}/apply", json=confirmation)).status_code == 409
     assert (await client.post(url + "/apply", json=confirmation)).status_code == 200
     assert (await client.post(url + "/apply", json=confirmation)).status_code == 409
@@ -199,6 +201,74 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
     assert r.json()["delta"]["changed"][0]["data"]["config"]["n"] == 2
     await client.put(f"/api/flows/{flow['id']}", json={"name": "Concurrent rename"})
     assert (await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})).status_code == 409
+
+
+@pytest.mark.parametrize(
+    "variant", ["config", "label", "extra_node", "edge", "omitted", "position", "engine", "utc", "offset"]
+)
+async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, variant):
+    from copy import deepcopy
+    from datetime import datetime, timedelta, timezone
+
+    flow = (await client.post("/api/flows", json={"name": "Stored base"})).json()
+    dataset = (await client.post("/api/datasets/upload", files={"file": ("base.csv", "amount\n1\n2\n")})).json()
+    ids = ["a" * 32, "b" * 32, "c" * 32]
+    configs = [
+        {"dataset_id": dataset["id"], "format": "csv"},
+        {"n": 5, "offset": 0},
+        {"format": "csv", "dataset_name": "Base result"},
+    ]
+    stored = {
+        "engine": "pandas",
+        "nodes": [
+            {"id": i, "type": kind, "position": {"x": x, "y": 0}, "data": {"label": kind, "config": cfg}}
+            for x, (i, kind, cfg) in enumerate(zip(ids, ["fileInput", "limitRows", "fileOutput"], configs))
+        ],
+        "edges": [
+            {"id": "e1", "source": ids[0], "target": ids[1], "sourceHandle": "out", "targetHandle": "in"},
+            {"id": "e2", "source": ids[1], "target": ids[2], "sourceHandle": "out", "targetHandle": "in"},
+        ],
+    }
+    path = f"/api/flows/{flow['id']}"
+    flow = (await client.put(path, json={"graph_json": stored})).json()
+    draft = deepcopy(stored)
+    revision = flow["updated_at"]
+    if variant == "config":
+        draft["nodes"][1]["data"]["config"]["n"] = 99
+    elif variant == "label":
+        draft["nodes"][1]["data"]["label"] = "Renamed"
+    elif variant == "extra_node":
+        draft["nodes"].append({"id": ROW, "type": "pythonTransform", "data": {"label": "x", "config": {"code": ROW}}})
+    elif variant == "edge":
+        draft["edges"].pop()
+    elif variant == "position":
+        draft["nodes"][1]["position"] = {"x": 900, "y": 900}
+    elif variant == "engine":
+        draft["engine"] = "polars"
+    elif variant in {"utc", "offset"}:
+        instant = datetime.fromisoformat(revision).replace(tzinfo=timezone.utc)
+        zone = timezone(timedelta(hours=2)) if variant == "offset" else timezone.utc
+        revision = instant.astimezone(zone).isoformat()
+    complete = AsyncMock(return_value={"steps": [{"kind": "limitRows", "count": 1}]})
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    body = {"mode": "build", "provider": "openai", "question": "Limit rows", "revision": revision, "graph": draft}
+    if variant == "omitted":
+        del body["graph"]
+    url = f"/api/assistant/flows/{flow['id']}"
+    r = await client.post(url + "/turn", json=body)
+    if variant in {"config", "label", "extra_node", "edge"}:
+        assert r.status_code == 409 and r.json()["reason"] == "unsaved_changes", r.text
+        assert ROW not in r.text and complete.await_count == 0
+        assert (await client.get(path)).json()["graph_json"] == stored
+    else:
+        assert r.status_code == 200, r.text
+        applied = await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})
+        assert applied.status_code == 200, applied.text
+        saved = (await client.get(path)).json()["graph_json"]
+        assert applied.json()["graph"] == saved
+        assert saved["engine"] == "pandas" and len(saved["nodes"]) == 4
+        # Only the stored base reaches the saved graph: draft presentation edits are not written.
+        assert [n for n in saved["nodes"] if n["id"] in ids] == stored["nodes"]
 
 
 async def test_docs_citation_abstention(client, enabled, monkeypatch):
@@ -280,6 +350,8 @@ async def test_scope_resources_before_provider_call(client, enabled, monkeypatch
         "nodes": [{"id": ROW, "type": "pythonTransform", "data": {"label": ROW, "config": {"code": ROW}}}],
         "edges": [],
     }
+    saved = await client.put(f"/api/flows/{flow['id']}", json={"graph_json": body["graph"]})
+    body["revision"] = saved.json()["updated_at"]
     complete.return_value = {"check": "schema", "unexpected": ROW}
     result = await client.post(url, json=body)
     assert result.status_code == 200 and "manual edit" in result.text

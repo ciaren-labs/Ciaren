@@ -1295,7 +1295,7 @@
       },
       "responses": {
         "200": {
-          "application/json": "object"
+          "application/json": "any"
         },
         "422": {
           "application/json": "#HTTPValidationError"
@@ -2977,7 +2977,7 @@
     "Turn": {
       "properties": {
         "dataset_id": "anyOf(null|string)",
-        "graph": "object",
+        "graph": "anyOf(null|object)",
         "mode": "string{build,diagnose,docs}",
         "provider": "string{anthropic,deepseek,openai,opencode}",
         "question": "string",

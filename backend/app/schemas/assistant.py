@@ -35,7 +35,8 @@ class Turn(ClosedModel):
     provider: Provider
     question: str = Field(min_length=1, max_length=1500)
     revision: datetime
-    graph: dict[str, Any] = Field(default_factory=dict)
+    # Optional draft check only: proposals are always derived from the saved flow graph.
+    graph: dict[str, Any] | None = None
     dataset_id: str | None = Field(None, max_length=64)
     second_dataset_id: str | None = Field(None, min_length=1, max_length=64)
     training: TrainingSelection | None = None
