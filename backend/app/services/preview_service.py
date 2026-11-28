@@ -10,6 +10,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Any, Literal, get_args
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -441,10 +442,13 @@ class Placeholder:
         return cls(tuple(groups), parsed)
 
     def frame(self, sample: pd.DataFrame) -> pd.DataFrame:
+        """Placeholder rows for ``sample``, as many as it has up to ``PLACEHOLDER_ROWS``, so a
+        unique key stays unique and a join keeps its fan-out."""
         names = {str(c) for c in sample.columns}
+        n = min(max(len(sample), 1), PLACEHOLDER_ROWS)
         return pd.DataFrame(
-            {str(name): self._column(str(name), sample.iloc[:, i], names) for i, name in enumerate(sample.columns)},
-            index=pd.RangeIndex(PLACEHOLDER_ROWS),
+            {str(name): self._column(str(name), sample.iloc[:, i], names, n) for i, name in enumerate(sample.columns)},
+            index=pd.RangeIndex(n),
         )
 
     def _literals(self, column: str, names: set[str]) -> list[str]:
@@ -456,14 +460,24 @@ class Placeholder:
                         found.append(text)
         return found[:_PLACEHOLDER_LITERALS]
 
-    def _column(self, name: str, real: pd.Series, names: set[str]) -> pd.Series:
-        n, dtype = PLACEHOLDER_ROWS, real.dtype
-        distinct = min(max(int(real.nunique(dropna=True)), 1), n)
+    def _column(self, name: str, real: pd.Series, names: set[str], n: int) -> pd.Series:
+        dtype = real.dtype
+        # Object cells can be unhashable (lists); their text form counts the same values.
+        present = real.dropna()
+        distinct = min(
+            max(int((present.astype(str) if pd.api.types.is_object_dtype(dtype) else present).nunique()), 1), n
+        )
         nulls = bool(real.isna().any())
         if pd.api.types.is_bool_dtype(dtype):
             values: list[Any] = [k % distinct == 0 for k in range(n)]
+        elif pd.api.types.is_integer_dtype(dtype):
+            # A narrow integer type holds at most its own range of values.
+            limit = int(np.iinfo(dtype.numpy_dtype if hasattr(dtype, "numpy_dtype") else dtype).max) + 1
+            values = [k % min(distinct, limit) for k in range(n)]
         elif pd.api.types.is_numeric_dtype(dtype):
             values = [k % distinct for k in range(n)]
+        elif pd.api.types.is_timedelta64_dtype(dtype):
+            values = [pd.Timedelta(seconds=k % distinct) for k in range(n)]
         elif isinstance(dtype, pd.DatetimeTZDtype) or pd.api.types.is_datetime64_any_dtype(dtype):
             start = pd.Timestamp("2026-01-01", tz=getattr(dtype, "tz", None))
             values = [start + pd.Timedelta(days=k % distinct) for k in range(n)]
@@ -480,7 +494,9 @@ class Placeholder:
                 cycle = literals + [f"v{k}" for k in range(max(distinct - len(literals), 0))]
             values = [cycle[k % len(cycle)] for k in range(n)]
         if nulls:
-            values = [None if k % 10 == 9 else v for k, v in enumerate(values)]
+            # Every tenth row, or the last one of a short input.
+            empty = {k for k in range(9, n, 10)} or {n - 1}
+            values = [None if k in empty else v for k, v in enumerate(values)]
         series = pd.Series(values, dtype=object)
         if isinstance(dtype, pd.CategoricalDtype):
             return series.astype("category")

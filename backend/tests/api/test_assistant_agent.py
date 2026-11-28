@@ -480,8 +480,8 @@ async def test_node_gates_run_before_any_preview(client, db_session, monkeypatch
     assert previews == []
 
 
-#: Ten rows, one holding the secret. Columns: c0 name, c1 amount, c2 label.
-GUESS_CSV = f"name,amount,label\n{VALUE},3,1\n" + "".join(f"v{i},{i},{i % 2}\n" for i in range(9))
+#: Thirty rows, one holding the secret. Columns: c0 name, c1 amount, c2 label.
+GUESS_CSV = f"name,amount,label\n{VALUE},3,1\n" + "".join(f"v{i},{i},{i % 2}\n" for i in range(29))
 #: Steps after a filter on a guessed value whose outcome on real rows would depend on whether
 #: the guess occurs: an assertion, a failing cast, a value-dependent column set, a row minimum.
 GUESS_CHECKS = {
@@ -551,7 +551,7 @@ async def test_values_never_become_column_names(client, db_session, monkeypatch)
     assert result["ok"] and checked["ok"], (result, checked)
     assert VALUE not in json.dumps([result, checked])
     assert set(checked["nodes"]["enc"]["columns"]) == {"amount", "label"}
-    assert checked["nodes"]["enc"]["value_named_columns"] == 10
+    assert checked["nodes"]["enc"]["value_named_columns"] == 30
     model = [
         add(
             "m",

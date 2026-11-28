@@ -817,7 +817,7 @@ async def test_placeholder_rows_keep_schema_and_never_carry_values(
     monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
     rows = "".join(
         f"secret{i},{['paid', 'shipped', 'refunded'][i % 3]},{i % 2},{'' if i == 5 else i * 1.5},0{i % 9 + 1}/02/2026\n"
-        for i in range(30)
+        for i in range(60)
     )
     ds = await _upload(client, ("name,status,label,price,day\n" + rows).encode())
     steps = [
@@ -848,3 +848,52 @@ async def test_placeholder_rows_keep_schema_and_never_carry_values(
     assert filtered.preview is not None and filtered.preview.row_count > 0
     assert {r["status"] for r in filtered.preview.rows} == {"paid"}
     assert "secret" not in str(filtered.preview.rows) and not filtered.sampled
+
+
+async def test_placeholder_rows_keep_unique_keys_unique(client: AsyncClient, db_session) -> None:
+    # Placeholders follow the input's size, so joins on unique keys stay one to one.
+    left = await _upload(client, b"key,a\nA,1\nB,2\n", "left.csv")
+    mid = await _upload(client, b"key,b\nA,3\nB,4\n", "mid.csv")
+    right = await _upload(client, b"key,c\nA,5\nB,6\n", "right.csv")
+
+    def source(node_id: str, ds: dict) -> dict:
+        return {"id": node_id, "type": "fileInput", "data": {"config": {"dataset_id": ds["id"], "format": "csv"}}}
+
+    def join(node_id: str) -> dict:
+        return {"id": node_id, "type": "join", "data": {"config": {"on": "key", "how": "inner"}}}
+
+    def edge(source_id: str, target: str, handle: str) -> dict:
+        return {"id": f"{source_id}-{target}", "source": source_id, "target": target, "targetHandle": handle}
+
+    graph = {
+        "nodes": [source("l", left), source("m", mid), source("r", right), join("j1"), join("j2")],
+        "edges": [
+            edge("l", "j1", "left"),
+            edge("m", "j1", "right"),
+            edge("j1", "j2", "left"),
+            edge("r", "j2", "right"),
+        ],
+    }
+    result = await preview_graph(db_session, left["project_id"], graph, "j2", limit=10, profile=False, hide_values=True)
+    assert result.issues == [] and result.preview is not None
+    assert result.preview.row_count == 2
+
+
+def test_placeholder_rows_keep_every_dtype() -> None:
+    import numpy as np
+
+    sample = pd.DataFrame(
+        {
+            "small_int": pd.Series(np.arange(300) % 128, dtype="int8"),
+            "duration": pd.to_timedelta(np.arange(300), unit="s"),
+            "nested": [[1, 2]] * 299 + [None],
+            "category": pd.Categorical(["a", "b"] * 150),
+            "zoned": pd.date_range("2026-01-01", periods=300, tz="UTC"),
+            "nullable_int": pd.array([1, None] * 150, dtype="Int64"),
+            "nullable_bool": pd.array([True, None] * 150, dtype="boolean"),
+        }
+    )
+    frame = preview_service.Placeholder((), {}).frame(sample)
+    assert len(frame) == preview_service.PLACEHOLDER_ROWS
+    assert frame.dtypes.astype(str).to_dict() == sample.dtypes.astype(str).to_dict()
+    assert frame["nullable_int"].isna().any() and not frame["small_int"].isna().any()
