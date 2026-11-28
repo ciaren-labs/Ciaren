@@ -404,6 +404,8 @@ class _PluginEcho(BaseTransformation):
     [
         {"type": "pythonTransform", "config": {"script": "raise SystemExit('ran')"}},
         {"type": "filterExpression", "config": {"expression": "age > 1"}},
+        {"type": "calculatedColumn", "config": {"column_name": "x", "expression": "age * 2"}},
+        {"type": "assertExpression", "config": {"expression": "age > 0"}},
         {"type": "pluginEchoForPreviewTest", "config": {}},
         {"type": "neverRegisteredNode", "config": {}},
         {"type": "sqlOutput", "config": {}},
@@ -459,3 +461,131 @@ async def test_preview_graph_stops_at_resource_limits(client: AsyncClient, db_se
     result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False, sample_rows=10)
 
     assert result.preview is None and [(i.node, i.code) for i in result.issues] == [("in1", "limit")]
+
+
+def test_every_registered_type_is_classified_for_preview() -> None:
+    from app.engine.registry import list_transformation_types
+
+    registered = set(list_transformation_types())
+    safe, excluded = preview_service.PREVIEW_SAFE_TYPES, preview_service.PREVIEW_EXCLUDED
+    assert safe <= registered and set(excluded) <= registered
+    assert not safe & set(excluded) and all(reason.strip() for reason in excluded.values())
+    # A new node type fails here until someone decides whether a preview may run it.
+    assert registered == safe | set(excluded)
+
+
+@pytest.mark.parametrize("guard", ["none", "rejects"])
+@pytest.mark.parametrize("kind", ["calculatedColumn", "filterExpression", "assertExpression"])
+async def test_expression_payloads_never_run_without_an_accepting_guard(
+    client: AsyncClient, db_session, tmp_path, kind, guard
+) -> None:
+    sentinel = tmp_path / "written.csv"
+    payload = f"age.to_csv({str(sentinel)!r}) == age"
+    ds = await _upload(client)
+    step = {"id": "expr", "type": kind, "data": {"config": {"column_name": "x", "expression": payload}}}
+    seen: list[str] = []
+
+    def rejecting(expression: str) -> None:
+        seen.append(expression)
+        raise ValueError("attribute calls are not allowed")
+
+    result = await preview_graph(
+        db_session,
+        ds["project_id"],
+        _graph(ds, step),
+        None,
+        limit=5,
+        profile=False,
+        expression_guard=rejecting if guard == "rejects" else None,
+    )
+
+    assert [(i.node, i.code) for i in result.issues] == [("expr", "policy")] and not sentinel.exists()
+    assert seen == ([payload] if guard == "rejects" else [])
+
+
+async def test_expression_nodes_run_once_the_guard_accepts(client: AsyncClient, db_session) -> None:
+    ds = await _upload(client)
+    step = {"id": "expr", "type": "calculatedColumn", "data": {"config": {"column_name": "x", "expression": "age * 2"}}}
+    seen: list[str] = []
+
+    result = await preview_graph(
+        db_session, ds["project_id"], _graph(ds, step), None, limit=5, profile=False, expression_guard=seen.append
+    )
+
+    assert result.issues == [] and seen == ["age * 2"] and "x" in dict(result.schemas["expr"])
+
+
+@pytest.mark.parametrize("shape", ["nodes", "edges", "fan_in"])
+async def test_preview_graph_enforces_graph_shape_limits(client: AsyncClient, db_session, shape) -> None:
+    ds = await _upload(client)
+    graph = _graph(ds)
+    if shape == "nodes":
+        graph["nodes"] += [{"id": f"s{i}", "type": "dropNulls", "data": {"config": {}}} for i in range(80)]
+    elif shape == "edges":
+        graph["nodes"] += [{"id": f"s{i}", "type": "concatRows", "data": {"config": {}}} for i in range(21)]
+        graph["edges"] += [
+            {"id": f"x{i}_{j}", "source": "in1", "target": f"s{i}", "targetHandle": "in"}
+            for i in range(21)
+            for j in range(8)
+        ]
+    else:
+        graph["nodes"].append({"id": "many", "type": "concatRows", "data": {"config": {}}})
+        graph["edges"] += [{"id": f"f{j}", "source": "in1", "target": "many", "targetHandle": "in"} for j in range(9)]
+
+    result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False)
+
+    assert result.preview is None and [i.code for i in result.issues] == ["limit"]
+    assert result.issues[0].node == ("many" if shape == "fan_in" else None)
+
+
+@pytest.mark.parametrize(
+    ("step", "edges", "method"),
+    [
+        ({"type": "concatRows", "config": {}}, 3, "concat"),
+        ({"type": "unpivot", "config": {"id_vars": ["name"]}}, 1, "melt"),
+        ({"type": "explodeRows", "config": {"column": "tags", "delimiter": ","}}, 1, "explode"),
+    ],
+    ids=lambda v: v if isinstance(v, str) else None,
+)
+async def test_preview_graph_estimates_fan_out_before_running(
+    client: AsyncClient, db_session, monkeypatch, step, edges, method
+) -> None:
+    rows = [{"name": f"p{i}", "age": i, "tags": "a,b,c"} for i in range(12)]
+    ds = await _upload(client, _csv(rows), "fanout.csv")
+    monkeypatch.setattr(preview_service, "PREVIEW_MAX_NODE_ROWS", 20)
+    graph = _graph(ds)
+    graph["nodes"].append({"id": "big", "type": step["type"], "data": {"config": step["config"]}})
+    graph["edges"] += [{"id": f"b{j}", "source": "in1", "target": "big", "targetHandle": "in"} for j in range(edges)]
+    calls: list[str] = []
+    target = pd if method == "concat" else pd.DataFrame
+    monkeypatch.setattr(target, method, lambda *a, **k: calls.append(method))
+
+    result = await preview_graph(db_session, ds["project_id"], graph, "big", limit=5, profile=False)
+
+    assert [(i.node, i.code) for i in result.issues] == [("big", "limit")] and not calls
+
+
+async def test_preview_deadline_is_checked_before_a_node_runs(client: AsyncClient, db_session, monkeypatch) -> None:
+    ds = await _upload(client)
+    monkeypatch.setattr(preview_service, "PREVIEW_DEADLINE_SECONDS", 0)
+    reads: list[str] = []
+    monkeypatch.setattr(pd, "read_csv", lambda *a, **k: reads.append("read"))
+
+    result = await preview_graph(db_session, ds["project_id"], _graph(ds), None, limit=5, profile=False)
+
+    assert [(i.node, i.code) for i in result.issues] == [("in1", "limit")] and not reads
+
+
+async def test_safe_type_names_must_still_resolve_to_built_in_code(
+    client: AsyncClient, db_session, monkeypatch
+) -> None:
+    from app.engine import registry
+
+    # A safe name served by non-built-in code (e.g. a registry swap) is refused.
+    monkeypatch.setitem(registry._REGISTRY, "sortRows", _PluginEcho())
+    ds = await _upload(client)
+    step = {"id": "swapped", "type": "sortRows", "data": {"config": {"columns": ["age"]}}}
+
+    result = await preview_graph(db_session, ds["project_id"], _graph(ds, step), None, limit=5, profile=False)
+
+    assert [(i.node, i.code) for i in result.issues] == [("swapped", "policy")]

@@ -3,7 +3,7 @@ import asyncio
 import os
 import re
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
@@ -251,9 +251,44 @@ _REF = re.compile(r"[a-z][a-z0-9_]{0,23}")
 PREVIEW_MAX_NODE_ROWS = 50_000
 PREVIEW_DEADLINE_SECONDS = 15.0
 PREVIEW_MAX_JSON_BYTES = 16 * 1024 * 1024
-# Built-ins that evaluate user-written code or expressions. They wait for the
-# assistant expression guard; preview never runs them.
-_CODE_NODE_TYPES = frozenset({"pythonTransform", "filterExpression", "createCalculatedColumn", "assertExpression"})
+PREVIEW_MAX_NODES = 80
+PREVIEW_MAX_EDGES = 160
+PREVIEW_MAX_FAN_IN = 8
+
+# Registry types a preview may execute. Every registered type is either here or in
+# PREVIEW_EXCLUDED; a contract test fails for a new type until it is classified.
+# File inputs and fileOutput are not transformations: inputs are checked against
+# the project and fileOutput only passes its input through during a preview.
+PREVIEW_SAFE_TYPES: frozenset[str] = frozenset(
+    {
+        # Core
+        "assertNotNull", "assertRowCount", "assertUnique", "assertValueRange", "assertValuesInSet",
+        "binColumn", "castDtypes", "coalesceColumns", "combineColumns", "concatRows", "conditionalColumn",
+        "dateDifference", "dropColumns", "dropNulls", "explodeRows", "extractDateParts", "fillNulls",
+        "filterRows", "groupByAggregate", "join", "limitRows", "mapValues", "parseDates", "pivot",
+        "removeDuplicates", "removeOutliers", "renameColumns", "replaceValues", "rollingAggregate",
+        "roundNumbers", "rowDifference", "sampleRows", "selectColumns", "sortRows", "splitColumn",
+        "stringTransform", "unpivot", "windowFunction",
+        # Charts pass their input through during a preview.
+        "chartArea", "chartBar", "chartBoxPlot", "chartHeatmap", "chartHistogram", "chartLine",
+        "chartPie", "chartScatter",
+        # ML: preview mode never fits, logs or loads a model.
+        "encodeCategories", "featureImportance", "mlClassifierModel", "mlCrossValidate", "mlEvaluate",
+        "mlPredict", "mlRegressorModel", "mlTrainClassifier", "mlTrainClustering", "mlTrainDimReduction",
+        "mlTrainForecaster", "mlTrainRegressor", "reduceDimensions", "scaleFeatures", "selectFeatures",
+        "trainTestSplit",
+    }
+)  # fmt: skip
+_EXPRESSION_REASON = "evaluates a user expression with pandas eval; runs only after expression_guard accepts it"
+PREVIEW_EXCLUDED: dict[str, str] = {
+    "pythonTransform": "runs arbitrary Python with exec; never previewed",
+    "calculatedColumn": _EXPRESSION_REASON,
+    "filterExpression": _EXPRESSION_REASON,
+    "assertExpression": _EXPRESSION_REASON,
+}
+# Excluded types that a caller-supplied guard can admit, and the config fields it checks.
+PREVIEW_EXPRESSION_TYPES: frozenset[str] = frozenset({"calculatedColumn", "filterExpression", "assertExpression"})
+_EXPRESSION_FIELDS = ("expression",)
 _BUILTIN_MODULE_PREFIX = "app.engine.transformations."
 
 
@@ -289,7 +324,8 @@ class _SampleEngine(PandasEngine):
 
     It reads ``rows + 1`` rows so truncation is observable. JSON documents have no
     row stream, so they are parsed whole only below ``PREVIEW_MAX_JSON_BYTES``.
-    Joins are sized from key counts before they run.
+    Joins, concatenations, unpivots and explodes are sized before they run. A
+    pivot's rows never exceed its input rows, which the per-node cap already bounds.
     """
 
     def __init__(self, rows: int) -> None:
@@ -346,16 +382,46 @@ class _SampleEngine(PandasEngine):
             other.index = other.index.set_names(list(counts.index.names))
             # Matched pairs plus every row unmatched on either side bounds all join kinds.
             estimate = int((counts * other).sum()) + len(left) + len(right)
-        if estimate > PREVIEW_MAX_NODE_ROWS:
-            raise PreviewLimit("join output would exceed the preview row cap")
+        _check_estimate(estimate)
         return super().join(left, right, on, how, left_on, right_on, suffixes)
+
+    def concat(self, frames: list[pd.DataFrame]) -> pd.DataFrame:
+        _check_estimate(sum(len(f) for f in frames))
+        return super().concat(frames)
+
+    def unpivot(
+        self,
+        df: pd.DataFrame,
+        id_vars: list[str],
+        value_vars: list[str] | None,
+        var_name: str,
+        value_name: str,
+    ) -> pd.DataFrame:
+        melted = len(value_vars) if value_vars else len(df.columns) - len(id_vars or [])
+        _check_estimate(len(df) * max(melted, 0))
+        return super().unpivot(df, id_vars, value_vars, var_name, value_name)
+
+    def explode_rows(self, df: pd.DataFrame, column: str, delimiter: str | None) -> pd.DataFrame:
+        values = df[column]
+        if delimiter:
+            pieces = values.astype("string").str.count(re.escape(delimiter)).fillna(0) + 1
+        else:
+            pieces = values.map(lambda v: max(len(v), 1) if isinstance(v, list | tuple) else 1)
+        _check_estimate(int(pieces.sum()))
+        return super().explode_rows(df, column, delimiter)
+
+
+def _check_estimate(rows: int) -> None:
+    if rows > PREVIEW_MAX_NODE_ROWS:
+        raise PreviewLimit("node output would exceed the preview row cap")
 
 
 class _PreviewExecutor(FlowExecutor):
-    """Stops between nodes at the row cap or the deadline.
+    """Checks the deadline before and after each node and the row cap after it.
 
-    The deadline is cooperative: a thread cannot be interrupted mid-node, and the
-    per-node and join caps keep each node small.
+    The deadline is cooperative: a thread cannot be interrupted inside one node,
+    so a single slow operation (for example a pathological regex) can overrun it.
+    The size estimates and the row cap keep every node's input small.
     """
 
     def __init__(self, deadline: float) -> None:
@@ -363,6 +429,8 @@ class _PreviewExecutor(FlowExecutor):
         self.deadline = deadline
 
     def _node_outputs(self, engine: Any, *args: Any) -> Any:
+        if monotonic() >= self.deadline:
+            raise PreviewLimit("preview deadline reached")
         result = super()._node_outputs(engine, *args)
         if any(engine.row_count(frame) > PREVIEW_MAX_NODE_ROWS for frame in result[0].values()):
             raise PreviewLimit("node output exceeds the preview row cap")
@@ -371,27 +439,63 @@ class _PreviewExecutor(FlowExecutor):
         return result
 
 
-def _policy_issues(graph: dict[str, Any]) -> list[Issue]:
-    """Fail closed: only file inputs, the pass-through file output and built-in
-    core/ML transformations that run no user code may execute in a preview."""
+def _shape_issues(graph: dict[str, Any]) -> list[Issue]:
+    nodes, edges = graph.get("nodes", []), graph.get("edges", [])
+    if len(nodes) > PREVIEW_MAX_NODES or len(edges) > PREVIEW_MAX_EDGES:
+        return [Issue(None, "limit", "graph exceeds the preview node or edge limit")]
+    fan_in: dict[str, int] = {}
+    for edge in edges:
+        fan_in[edge.get("target")] = fan_in.get(edge.get("target"), 0) + 1
+    return [
+        Issue(target, "limit", "node exceeds the preview fan-in limit")
+        for target, count in fan_in.items()
+        if count > PREVIEW_MAX_FAN_IN
+    ]
+
+
+def _policy_issues(graph: dict[str, Any], expression_guard: Callable[[str], None] | None) -> list[Issue]:
+    """Fail closed: only file inputs, fileOutput and PREVIEW_SAFE_TYPES may run.
+    Expression nodes also run once ``expression_guard`` accepts every expression."""
     issues = []
     for node in graph.get("nodes", []):
         kind = node.get("type")
         config = (node.get("data") or {}).get("config") or {}
         if kind in ASSISTANT_INPUTS or kind == FILE_OUTPUT_TYPE:
             continue
-        try:
-            module = type(get_transformation(kind)).__module__
-        except (KeyError, TypeError):
-            module = ""
+        allowed = kind in PREVIEW_SAFE_TYPES or (
+            kind in PREVIEW_EXPRESSION_TYPES and _guard_accepts(config, expression_guard)
+        )
         if (
-            kind in _CODE_NODE_TYPES
-            or not module.startswith(_BUILTIN_MODULE_PREFIX)
+            not allowed
+            # Same name, different code: a registered type must still be the built-in.
+            or not _is_builtin(kind)
             # A model URI loads a pickled model from disk.
             or (kind == "mlPredict" and config.get("model_uri"))
         ):
             issues.append(Issue(node.get("id"), "policy", f"{kind} is not allowed in an assistant preview"))
     return issues
+
+
+def _is_builtin(kind: str) -> bool:
+    try:
+        return type(get_transformation(kind)).__module__.startswith(_BUILTIN_MODULE_PREFIX)
+    except KeyError:
+        return False
+
+
+def _guard_accepts(config: dict[str, Any], expression_guard: Callable[[str], None] | None) -> bool:
+    if expression_guard is None:
+        return False
+    for name in _EXPRESSION_FIELDS:
+        value = config.get(name)
+        if not isinstance(value, str):
+            return False
+        try:
+            expression_guard(value)
+        # The guard signals rejection by raising; any exception refuses the node.
+        except Exception:  # noqa: BLE001
+            return False
+    return True
 
 
 def classify_issue(exc: BaseException) -> IssueCode:
@@ -444,11 +548,15 @@ async def preview_graph(
     limit: int,
     profile: bool,
     sample_rows: int = 2000,
+    *,
+    expression_guard: Callable[[str], None] | None = None,
 ) -> GraphPreview:
     """Preview an unsaved graph on the first ``sample_rows`` rows of each input.
 
     Nodes outside the preview allowlist return ``policy`` issues before anything
-    runs; the row cap, join estimate and deadline return ``limit`` issues.
+    runs. Expression nodes are allowed only when ``expression_guard`` returns for
+    each of their expressions; it rejects one by raising. Graph shape limits, size
+    estimates, the row cap and the deadline return ``limit`` issues.
 
     With ``node_id`` only that node's upstream slice is computed; without it the
     whole graph is computed and the deepest node is the target. Every input must
@@ -456,13 +564,15 @@ async def preview_graph(
     Graph and node failures come back as ``issues`` so the caller can repair them.
     ML nodes are validated against their upstream schema and never fit.
     """
+    if shape := _shape_issues(graph):
+        return GraphPreview(node_id or "", None, issues=shape)
     try:
         graph, _ = apply_parameters(graph, {})
         target, graph = _slice(graph, node_id) if node_id else (_default_node(graph), graph)
     except (GraphValidationError, ParameterError) as exc:
         return GraphPreview(node_id or "", None, issues=[Issue(None, classify_issue(exc), str(exc))])
     # Checked before anything reads or executes.
-    if policy := _policy_issues(graph):
+    if policy := _policy_issues(graph, expression_guard):
         return GraphPreview(target, None, issues=policy)
     # build_dataset_paths is not project-scoped, so every input is checked first.
     for node in graph.get("nodes", []):
