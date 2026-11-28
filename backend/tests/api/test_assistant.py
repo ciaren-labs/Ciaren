@@ -13,6 +13,8 @@ from app.core.secrets import ensure_permitted_secret_ref
 from app.db.models.app_setting import AppSetting
 from app.db.models.run import FlowRun
 from app.services import assistant_provider
+from app.services.assistant_key_service import load_active
+from app.services.assistant_scope import tool_calling as scope_tools
 
 KEY = "synthetic-assistant-credential-87432"
 ROW = "private-row-sentinel"
@@ -118,7 +120,7 @@ async def test_wire_contract(provider, enabled, monkeypatch, caplog):
     assert KEY not in caplog.text and ROW not in caplog.text
 
 
-async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_session, caplog, tmp_path):
+async def test_saved_keys_and_boundaries(client, enabled, monkeypatch, db_session, caplog, tmp_path):
     entries = {}
 
     class Keychain:
@@ -131,25 +133,87 @@ async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_sessi
         def delete_password(self, service, name):
             entries.pop((service, name))
 
+    def missing():
+        raise ImportError("keyring")
+
+    # Without the keyring package the page explains how to install it.
+    monkeypatch.setattr(assistant_keys, "_backend", missing)
+    assert (await client.get("/api/assistant/keychain")).json() == {
+        "available": False,
+        "detail": "Install the OS keychain support with: pip install ciaren[keyring]",
+    }
     monkeypatch.setattr(assistant_keys, "_backend", Keychain)
-    url = "/api/assistant/credentials/openai"
-    for key in (KEY, KEY + "rotated"):
-        r = await client.put(url, json={"key": key})
-        assert r.status_code == 204 and not r.content
-        assert (await client.get("/api/assistant/status")).json()["state"] == "configured"
-    assert len(entries) == 1 and next(iter(entries))[0] != "ciaren"
-    assert (await client.put("/api/assistant/credentials/deepseek", json={"key": KEY})).status_code == 400
-    invalid = await client.put(url, json={"key": {KEY: KEY}})
-    assert invalid.status_code == 422 and KEY not in invalid.text
-    assert (
-        await client.put(url, json={"key": KEY}, headers={"Origin": "https://untrusted.invalid"})
-    ).status_code == 403
-    assert (await client.put(url, content=b"x" * 9000)).status_code == 413
+    assert (await client.get("/api/assistant/keychain")).json() == {"available": True}
+    monkeypatch.setattr(assistant_keys, "_local", None)
+    url = "/api/assistant/keys"
+    body = {"name": "Work", "provider": "openai", "model": "gpt-5", "key": KEY, "acknowledged": True}
+    # The storage notice must be confirmed, and a rejected key is never echoed.
+    for bad in ({**body, "acknowledged": False}, {**body, "key": {KEY: KEY}}, {**body, "key": f" {KEY}"}):
+        rejected = await client.post(url, json=bad)
+        assert rejected.status_code == 422 and KEY not in rejected.text
+    for model in ("gpt 5", "-gpt", "x" * 101):
+        assert (await client.post(url, json={**body, "model": model})).status_code == 422
+    assert (await client.post(url, json={**body, "effort": "max"})).status_code == 400
+
+    class Locked(Keychain):
+        def set_password(self, service, name, value):
+            raise RuntimeError(value)
+
+    # A keychain that refuses the secret leaves no saved key behind.
+    monkeypatch.setattr(assistant_keys, "_backend", Locked)
+    locked = await client.post(url, json=body)
+    assert locked.status_code == 400 and "keychain" in locked.text and KEY not in locked.text
+    assert (await client.get(url)).json() == []
+    monkeypatch.setattr(assistant_keys, "_backend", Keychain)
+    assert not entries
+    work = await client.post(url, json=body)
+    assert work.status_code == 201 and KEY not in work.text
+    work = work.json()
+    # The first key becomes the assistant's key; the secret sits in the keychain only.
+    assert work["is_active"] and work["is_enabled"]
+    assert list(entries.values()) == [KEY] and next(iter(entries))[0] != "ciaren"
+    status = (await client.get("/api/assistant/status")).json()
+    assert status == {"provider": "openai", "source": "local", "state": "configured", "model": "gpt-5", "name": "Work"}
+    assert (await client.post(url, json=body)).status_code == 409
+    # A model missing from the known list is accepted and uses tool calling.
+    custom = {**body, "name": "Personal", "provider": "anthropic", "model": "claude-next-1", "key": KEY + "b"}
+    personal = (await client.post(url, json=custom)).json()
+    assert not personal["is_active"]
+    assert assistant_provider.profile("openai") == ("gpt-5", "default")
+    activated = await client.post(f"{url}/{personal['id']}/activate")
+    assert activated.status_code == 200 and activated.json()["is_active"]
+    assert [k["is_active"] for k in (await client.get(url)).json()] == [False, True]
+    # A restart reads the chosen key back from the database.
+    assistant_keys.use_local(None)
+    await load_active(db_session)
+    assert assistant_provider.profile("anthropic") == ("claude-next-1", "default")
+    assert scope_tools("anthropic") and await assistant_provider._credential("anthropic") == KEY + "b"
+    with pytest.raises(ValidationError):
+        assistant_provider.profile("openai")
+    # Replacing a key needs the notice confirmed again.
+    patch = f"{url}/{personal['id']}"
+    assert (await client.patch(patch, json={"key": KEY + "c"})).status_code == 400
+    assert (await client.patch(patch, json={"key": KEY + "c", "acknowledged": True})).status_code == 200
+    assert KEY + "c" in entries.values()
+    # Disabling the active key turns the assistant off; a disabled key cannot be chosen.
+    disabled = (await client.patch(patch, json={"is_enabled": False})).json()
+    assert not disabled["is_enabled"] and not disabled["is_active"]
+    # Without an active saved key, the operator's environment configuration applies.
+    assert (await client.get("/api/assistant/status")).json()["source"] == "env"
+    assert (await client.post(f"{patch}/activate")).status_code == 400
+    assert (await client.delete(patch)).status_code == 204
+    assert (await client.delete(patch)).status_code == 404
+    assert list(entries.values()) == [KEY]
+    assert (await client.post(url, json=body, headers={"Origin": "https://untrusted.invalid"})).status_code == 403
+    assert (await client.post(url, content=b"x" * 9000)).status_code == 413
+    assert (await client.patch(f"{url}/{work['id']}", content=b"x" * 9000)).status_code == 413
     monkeypatch.setattr(enabled, "API_TOKEN", "ciaren-test-token")
     assert (await client.get("/api/assistant/status")).status_code == 401
-    assert (await client.delete(url)).status_code == 401
-    assert (await client.delete(url, headers={"Authorization": "Bearer ciaren-test-token"})).status_code == 204
-    assert not entries
+    assert (await client.get(url)).status_code == 401
+    assert (await client.delete(f"{url}/{work['id']}")).status_code == 401
+    auth = {"Authorization": "Bearer ciaren-test-token"}
+    assert (await client.delete(f"{url}/{work['id']}", headers=auth)).status_code == 204
+    assert not entries and assistant_keys._local is None
     for provider in PROFILES:
         with pytest.raises(ValidationError):
             ensure_permitted_secret_ref(f"CIAREN_ASSISTANT_{provider.upper()}_API_KEY")
@@ -441,7 +505,7 @@ async def test_scope_resources_before_provider_call(client, enabled, monkeypatch
     assert complete.await_count == 1
     monkeypatch.setattr(enabled, "ASSISTANT_ENABLED", False)
     assert (await client.post(url, json=body)).status_code == 400
-    assert (await client.put("/api/assistant/credentials/openai", json={"key": KEY})).status_code == 400
+    assert (await client.get("/api/assistant/status")).json() == {"provider": "off"}
 
 
 def test_projected_columns_and_typed_steps():
@@ -486,8 +550,6 @@ def test_file_source_rotation_and_isolation(enabled, monkeypatch, tmp_path):
     assert assistant_keys.read_key("openai").get_secret_value() == KEY
     slot.write_text(KEY + "rotated")
     assert assistant_keys.read_key("openai").get_secret_value() == KEY + "rotated"
-    with pytest.raises(ValidationError):
-        assistant_keys.write_key("openai", None)
     with pytest.raises(ConnectorError):
         ensure_allowed_path(slot, "Object")
     spec = StorageSpec(provider="local", bucket=str(tmp_path))

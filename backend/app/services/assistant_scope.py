@@ -195,7 +195,7 @@ async def preflight(db: AsyncSession, flow: Flow, body: Turn) -> Route | Reply:
     if body.mode == "build" and _needs_tools(body.question, nodes):
         return unsupported(
             "provider_no_tools",
-            "This request needs an assistant model with tool calling. Choose one in Settings or edit the canvas.",
+            "This request needs an assistant model with tool calling. Choose one in Connections or edit the canvas.",
             EDIT,
             Suggestion(label="Read about assistant models", action="open_docs"),
         )

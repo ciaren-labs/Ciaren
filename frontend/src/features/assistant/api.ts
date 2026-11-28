@@ -6,7 +6,36 @@ export interface AssistantStatus {
   provider: string;
   model?: string;
   state?: "configured" | "missing" | "unavailable";
-  source?: "keyring" | "env" | "file";
+  /** "local" is a key saved on the Connections page; env and file are server sources. */
+  source?: "local" | "env" | "file";
+  name?: string;
+}
+export interface ProviderModels {
+  id: string;
+  label: string;
+  /** Models Ciaren knows; any other name can be typed. */
+  models: string[];
+  efforts: string[];
+}
+export interface AssistantKey {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  effort: string;
+  is_enabled: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface AssistantKeyWrite {
+  name?: string;
+  provider?: string;
+  model?: string;
+  effort?: string;
+  key?: string;
+  acknowledged?: boolean;
+  is_enabled?: boolean;
 }
 export interface Delta {
   added: GraphNode[];
@@ -164,14 +193,21 @@ export function sameInstant(a: string, b: string) {
 }
 export const status = () =>
   request<AssistantStatus>("/assistant/status", { cache: "no-store" });
-export function updateCredential(provider: string, value?: string) {
-  return request<void>(`/assistant/credentials/${provider}`, {
-    method: value === undefined ? "DELETE" : "PUT",
-    redirect: "error",
-    cache: "no-store",
-    body: value === undefined ? undefined : JSON.stringify({ key: value }),
-  });
-}
+const keysUrl = "/assistant/keys";
+const send = { redirect: "error", cache: "no-store" } as const;
+export const keys = {
+  providers: () => request<ProviderModels[]>("/assistant/providers"),
+  keychain: () =>
+    request<{ available: boolean; detail?: string }>("/assistant/keychain", { cache: "no-store" }),
+  list: () => request<AssistantKey[]>(keysUrl, { cache: "no-store" }),
+  create: (body: AssistantKeyWrite) =>
+    request<AssistantKey>(keysUrl, { ...send, method: "POST", body: JSON.stringify(body) }),
+  update: (id: string, body: AssistantKeyWrite) =>
+    request<AssistantKey>(`${keysUrl}/${id}`, { ...send, method: "PATCH", body: JSON.stringify(body) }),
+  activate: (id: string) =>
+    request<AssistantKey>(`${keysUrl}/${id}/activate`, { ...send, method: "POST" }),
+  remove: (id: string) => request<void>(`${keysUrl}/${id}`, { ...send, method: "DELETE" }),
+};
 export function applyDelta(base: GraphJson, delta: Delta): GraphJson {
   const removed = new Set(delta.removed);
   return {

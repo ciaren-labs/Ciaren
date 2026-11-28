@@ -7,13 +7,22 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
-from app.api.deps import AssistantServiceDep
-from app.core.assistant_keys import read_key, source, write_key
-from app.core.assistant_profiles import Provider
-from app.core.config import get_settings
+from app.api.deps import AssistantKeyServiceDep, AssistantServiceDep
+from app.core.assistant_keys import credential, keychain_status, selection
 from app.core.exceptions import ConflictError, ValidationError
-from app.schemas.assistant import Confirmation, Credential, Refused, Reply, RevertPreview, Turn
+from app.schemas.assistant import (
+    AssistantKeyCreate,
+    AssistantKeyRead,
+    AssistantKeyUpdate,
+    Confirmation,
+    ProviderModels,
+    Refused,
+    Reply,
+    RevertPreview,
+    Turn,
+)
 from app.services import assistant_activity as activity
+from app.services.assistant_key_service import providers
 from app.services.assistant_scope import Refusal
 
 router = APIRouter()
@@ -30,39 +39,56 @@ async def cancel(flow_id: str, request_id: UUID) -> Response:
 
 @router.get("/status")
 async def status() -> dict[str, Any]:
-    cfg = get_settings()
-    provider = cfg.ASSISTANT_PROVIDER
-    if not cfg.ASSISTANT_ENABLED or provider == "off":
+    chosen = selection()
+    if chosen is None:
         return {"provider": "off"}
     try:
-        state = "configured" if await asyncio.to_thread(read_key, provider) else "missing"
+        state = "configured" if await asyncio.to_thread(credential, chosen) else "missing"
     except ValidationError:
         state = "unavailable"
     return {
-        "provider": provider,
-        "source": source(provider),
+        "provider": chosen.provider,
+        "source": chosen.source,
         "state": state,
-        "model": getattr(cfg, f"ASSISTANT_{provider.upper()}_MODEL"),
+        "model": chosen.model,
+        **({"name": chosen.name} if chosen.name else {}),
     }
 
 
-def _selected(provider: Provider) -> None:
-    settings = get_settings()
-    if not settings.ASSISTANT_ENABLED or provider != settings.ASSISTANT_PROVIDER:
-        raise ValidationError("Choose this provider in Settings first.")
+@router.get("/providers", response_model=list[ProviderModels])
+async def list_providers() -> Any:
+    return providers()
 
 
-@router.put("/credentials/{provider}", status_code=204)
-async def rotate(provider: Provider, body: Credential) -> Response:
-    _selected(provider)
-    await asyncio.to_thread(write_key, provider, body.key)
-    return Response(status_code=204)
+@router.get("/keychain")
+async def keychain() -> dict[str, Any]:
+    problem = await asyncio.to_thread(keychain_status)
+    return {"available": problem is None, **({"detail": problem} if problem else {})}
 
 
-@router.delete("/credentials/{provider}", status_code=204)
-async def revoke(provider: Provider) -> Response:
-    _selected(provider)
-    await asyncio.to_thread(write_key, provider, None)
+@router.get("/keys", response_model=list[AssistantKeyRead])
+async def list_keys(service: AssistantKeyServiceDep) -> Any:
+    return await service.list_keys()
+
+
+@router.post("/keys", response_model=AssistantKeyRead, status_code=201)
+async def create_key(body: AssistantKeyCreate, service: AssistantKeyServiceDep) -> Any:
+    return await service.create(body)
+
+
+@router.patch("/keys/{key_id}", response_model=AssistantKeyRead)
+async def update_key(key_id: str, body: AssistantKeyUpdate, service: AssistantKeyServiceDep) -> Any:
+    return await service.update(key_id, body)
+
+
+@router.post("/keys/{key_id}/activate", response_model=AssistantKeyRead)
+async def activate_key(key_id: str, service: AssistantKeyServiceDep) -> Any:
+    return await service.activate(key_id)
+
+
+@router.delete("/keys/{key_id}", status_code=204)
+async def delete_key(key_id: str, service: AssistantKeyServiceDep) -> Response:
+    await service.delete(key_id)
     return Response(status_code=204)
 
 

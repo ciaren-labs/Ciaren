@@ -33,7 +33,7 @@ Visit `http://127.0.0.1:8055`. The commands assume a new installation. For an ex
 
 Create a key in the console for the provider you intend to use. [OpenAI API keys](https://platform.openai.com/api-keys) · [Claude Console keys](https://platform.claude.com/settings/keys) · [DeepSeek API setup](https://api-docs.deepseek.com/) · [OpenCode Console authentication](https://opencode.ai/docs/console/api/inference#authentication).
 
-To set up or register a provider API key, open **Settings → Assistant**, choose your provider and save the setting. With the keyring source selected by the server, enter your provider-issued key in **New API key** and choose **Save key**. Look for **configured** and an empty key field. Checking this status makes no provider request.
+To register a provider API key, open **Connections** and choose **Add API key** under **Assistant API keys**. Name the key, choose the provider and a model, or pick **Other model…** to type a model ID that is not listed. Paste the key, confirm the storage notice and choose **Save key**. Ciaren keeps the key in this computer's OS keychain, and the first key you add is the one the assistant uses. With several keys, select the one to use; only one is in use at a time.
 
 Use an API key issued for the selected service. A ChatGPT or Claude chat subscription does not supply an API key. For a direct DeepSeek key, choose **DeepSeek** and `deepseek-flash`. Provider calls may incur charges. The server administrator can use an environment variable or a mounted secret file for headless installations. The [configuration reference](flow-assistant.md#deployment-and-credentials) covers exact names, precedence, rotation and disabling the assistant.
 

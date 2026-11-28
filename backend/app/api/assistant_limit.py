@@ -11,10 +11,14 @@ class AssistantBodyLimit:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = scope.get("path", "")
-        if scope["type"] != "http" or not path.startswith("/api/assistant/") or scope["method"] not in {"PUT", "POST"}:
+        if (
+            scope["type"] != "http"
+            or not path.startswith("/api/assistant/")
+            or scope["method"] not in {"PUT", "POST", "PATCH"}
+        ):
             await self.app(scope, receive, send)
             return
-        size = 8192 if path.startswith("/api/assistant/credentials/") else 112000
+        size = 8192 if path.startswith("/api/assistant/keys") else 112000
         body = bytearray()
         while True:
             part = await receive()

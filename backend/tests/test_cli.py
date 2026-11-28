@@ -372,6 +372,7 @@ def test_db_upgrade_adopts_create_all_schema(
         con = sqlite3.connect(db)
         con.execute("DROP TABLE alembic_version")  # simulate an older create_all-only DB
         con.execute("DROP TABLE assistant_activity")
+        con.execute("DROP TABLE assistant_keys")
         con.commit()
         con.close()
         capsys.readouterr()  # discard first run's output
@@ -380,7 +381,7 @@ def test_db_upgrade_adopts_create_all_schema(
         _clear_settings_cache()
     out = capsys.readouterr().out.lower()
     assert "adopted" in out
-    assert {"alembic_version", "assistant_activity"} <= _table_names(db)
+    assert {"alembic_version", "assistant_activity", "assistant_keys"} <= _table_names(db)
 
 
 def test_db_reset_requires_yes(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -25,8 +25,8 @@ from typing import Any, Protocol, TypeVar
 import aiohttp
 from opentelemetry import context as otel_context
 
-from app.core.assistant_keys import read_key
-from app.core.assistant_profiles import PROFILES, Provider, supports_tools
+from app.core.assistant_keys import credential, selection
+from app.core.assistant_profiles import PROFILES, Provider, supports_tools, valid_model
 from app.core.config import get_settings
 from app.core.exceptions import ValidationError
 
@@ -82,15 +82,12 @@ class Step:
 
 
 def profile(provider: Provider) -> tuple[str, str]:
-    cfg = get_settings()
-    if not cfg.ASSISTANT_ENABLED or cfg.ASSISTANT_PROVIDER != provider:
-        raise ValidationError("The assistant is disabled or the provider has changed. Check Settings.")
-    spec = PROFILES[provider]
-    model = getattr(cfg, f"ASSISTANT_{provider.upper()}_MODEL")
-    effort = getattr(cfg, f"ASSISTANT_{provider.upper()}_EFFORT", "default")
-    if model not in spec.models or effort not in ("default", *spec.efforts):
-        raise ValidationError("Unsupported assistant model or effort. Check Settings.")
-    return model, effort
+    chosen = selection()
+    if chosen is None or chosen.provider != provider:
+        raise ValidationError("The assistant is off or its API key has changed. Check Connections.")
+    if not valid_model(provider, chosen.model) or chosen.effort not in ("default", *PROFILES[provider].efforts):
+        raise ValidationError("Unsupported assistant model or effort. Check Connections.")
+    return chosen.model, chosen.effort
 
 
 # -- Budget ---------------------------------------------------------------
@@ -433,9 +430,12 @@ CODECS: dict[str, Codec] = {
 
 
 async def _credential(provider: Provider) -> str:
-    secret = await asyncio.to_thread(read_key, provider)
+    chosen = selection()
+    if chosen is None or chosen.provider != provider:
+        raise ValidationError("The assistant is off or its API key has changed. Check Connections.")
+    secret = await asyncio.to_thread(credential, chosen)
     if not secret:
-        raise ValidationError("Configure an API key for this provider in Settings.")
+        raise ValidationError("The assistant's API key is missing. Add it again in Connections.")
     return secret.get_secret_value()
 
 

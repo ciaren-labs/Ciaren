@@ -6,7 +6,7 @@ search: flow assistant BYOK CSV ETL Join diagnose activity history revert
 
 # Flow assistant for visual ETL
 
-Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, choose a provider under **Settings → Assistant** and save the setting. Select a supported model, choose a reasoning effort if offered, and configure its API key. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
+Open a flow and choose **Assistant**. You can check the canvas or look up the selected node immediately. To generate a proposal, add a provider API key under **Connections → Assistant API keys**. The assistant starts off. ChatGPT and Claude consumer subscriptions have separate billing from their APIs.
 
 Follow [Set up the AI assistant and build a CSV flow](flow-assistant-quick-start.md) for a first run. To give an external agent a read-only catalog tool, see [Connect your own agent](external-agent.md).
 
@@ -110,16 +110,23 @@ Files, samples, filenames, dataset IDs, connection details, node labels, scripts
 
 Ciaren settings and provider credentials belong to one server instance. Anyone with access to its API can manage the assistant within the installation's token and browser-origin rules. Deploy separate instances, data directories and secret sources for separate trust boundaries. Use TLS and the Ciaren API token for a networked installation. Configure reverse proxies and monitoring to omit request bodies and authorization headers. Restrict process and diagnostic dump access at the operating-system level.
 
-The settings page follows Ciaren's precedence for non-secret values. A saved override wins over the environment, followed by the built-in default. **Reset** removes that override. Use `CIAREN_ASSISTANT_PROVIDER` and provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. Use the provider name in capitals for its model variable. Only OpenAI, Anthropic and DeepSeek expose an `_EFFORT` variable. OpenCode uses the provider default. The Settings page labels the effective value **Custom**, **From environment** or **Default**. For `CIAREN_ASSISTANT_PROVIDER` use `openai`, `anthropic`, `deepseek`, `opencode` or `off`. For a direct DeepSeek API key, select **DeepSeek** and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. Select **off** to stop assistant requests. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to enforce this on the server.
+### Keys on the Connections page
 
-To rotate a key stored in the native keyring, enter the replacement in **New API key** and choose **Save key**. **Remove key** deletes the stored credential. An environment or file source is administered on the server. Ciaren uses the configured source exclusively.
+Choose **Add API key** under **Connections → Assistant API keys**. Name the key, pick the provider and a model from the list, or choose **Other model…** and type the provider's exact model ID. Typed models are not tested with Ciaren. They use tool calling, so a model without it fails with a provider error. Set a reasoning effort when the provider offers one. Read the storage notice and confirm it before you save.
 
-Select exactly one credential source per provider with `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE`.
+Ciaren saves the key in the OS keychain of the computer that runs it: Windows Credential Manager, macOS Keychain or Secret Service. Install `ciaren[keyring]` and keep the keychain unlocked. Entries use a separate service derived from the resolved data directory. The database stores only the name, provider, model, effort and state, and Ciaren never shows a saved key again.
+
+The assistant uses one key at a time. The first key you add becomes the one in use. To switch, select another enabled key. Clear **Enabled** to stop using a key without removing it. A disabled key cannot be selected. Use the pencil button to rename a key, change its model or effort, or replace the key. A replacement asks for the storage notice again. The provider of a saved key is fixed. **Remove** deletes the key from the keychain.
+
+### Server-managed keys
+
+Without a selected key, an operator can configure the assistant in the server environment. Set `CIAREN_ASSISTANT_PROVIDER` to `openai`, `anthropic`, `deepseek`, `opencode` or `off`. Set provider-specific variables such as `CIAREN_ASSISTANT_OPENAI_MODEL` and `CIAREN_ASSISTANT_OPENAI_EFFORT`. Use the provider name in capitals. Only OpenAI, Anthropic and DeepSeek expose an `_EFFORT` variable. For a direct DeepSeek API key, use `deepseek` and `deepseek-flash`. An OpenCode Go credential belongs to OpenCode. This version’s OpenCode adapter has no DeepSeek model. A key selected on the Connections page takes precedence. Set `CIAREN_ASSISTANT_ENABLED=false` and restart to turn the assistant off on the server.
+
+Select the credential source per provider with `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE`.
 
 | Source | Set, rotate or revoke |
 | --- | --- |
-| `keyring` (default) | Install `ciaren[keyring]` and use an unlocked native Windows, macOS or Secret Service backend. Use **Save key** to replace the key or **Remove key** to delete it. Entries use a separate service derived from the resolved data directory. An unsupported keychain reports unavailable. |
-| `env` | Inject `CIAREN_ASSISTANT_<PROVIDER>_API_KEY` into the server process using a deployment secret. Restart after replacing or removing it. |
+| `env` (default) | Inject `CIAREN_ASSISTANT_<PROVIDER>_API_KEY` into the server process using a deployment secret. Restart after replacing or removing it. |
 | `file` | Mount a read-only file named `openai`, `anthropic`, `deepseek` or `opencode` inside `CIAREN_ASSISTANT_SECRET_DIR` (default `/run/ciaren-assistant-secrets`). Files are read per request. Use a regular file, readable only by the service account. |
 
 For Docker or a headless install, set the non-secret variables below and mount the selected secret file. Keep the source file outside the repository, build context, data directory and connector roots. Set `CIAREN_STORAGE_ALLOWED_ROOTS` to dedicated dataset folders on shared installations.
@@ -138,20 +145,20 @@ services:
 
 For the repository Compose setup, save the fragment as `docker-compose.override.yml` alongside `docker-compose.yml`. Set the host path to an existing secret file and recreate the service with `docker compose up -d --build ciaren`. For process injection, set `CIAREN_ASSISTANT_DEEPSEEK_KEY_SOURCE=env` and have your secret manager supply `CIAREN_ASSISTANT_DEEPSEEK_API_KEY` to the server process when using DeepSeek. Keep secrets out of shell history and committed environment files.
 
-Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status indicates a local credential exists.
+Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status means Ciaren found the key, not that the provider accepts it.
 
-The server removes `CIAREN_ASSISTANT_*_API_KEY` variables from its environment at startup and from run worker processes, so flow code cannot read them there. A Python Transform node still runs with the server's privileges and can read a key that is in process memory or on disk. On a shared installation set `CIAREN_EXECUTION_MODE=process` and `CIAREN_PYTHON_TRANSFORM_STRICT=true`, prefer the `file` or `keyring` source, and allow only trusted users to edit flows. See [Advanced setup](advanced-setup.md).
+The server removes `CIAREN_ASSISTANT_*_API_KEY` variables from its environment at startup and from run worker processes, so flow code cannot read them there. A Python Transform node still runs with the server's privileges and can read a key that is in process memory or on disk. On a shared installation set `CIAREN_EXECUTION_MODE=process` and `CIAREN_PYTHON_TRANSFORM_STRICT=true`, prefer a key on the Connections page or the `file` source, and allow only trusted users to edit flows. See [Advanced setup](advanced-setup.md).
 
 ## Provider contracts
 
-| Provider | Allowed models | Effort in Ciaren | API family |
+| Provider | Listed models | Effort in Ciaren | API family |
 | --- | --- | --- | --- |
 | OpenAI | `gpt-5-mini`, `gpt-5` | default, low, medium, high | Responses with storage disabled |
 | Anthropic | `claude-sonnet-4-6` | default, low, medium, high | Messages, adaptive thinking for explicit efforts |
 | DeepSeek | `deepseek-flash`, `deepseek-v4-pro` | default, none, low, high, max | Chat Completions, single turn |
 | OpenCode Console | `minimax-m2.7`, `kimi-k2.6` | provider default | Paid OpenAI-compatible Chat Completions |
 
-Default omits the effort field. Each provider has its own fixed HTTPS destination, model and credential. OpenCode's Console API routes vary by family and its free-tier chat models are restricted to OpenCode clients. Use an OpenCode Console API key for this adapter. Model availability, provider retention and charges depend on the selected provider and account. See [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [Anthropic thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking), [DeepSeek thinking](https://api-docs.deepseek.com/guides/thinking_mode/) and [OpenCode Console inference](https://opencode.ai/docs/console/api/inference).
+Default omits the effort field. A typed model can be any provider model ID; it never changes the destination. Each provider has its own fixed HTTPS destination, model and credential. OpenCode's Console API routes vary by family and its free-tier chat models are restricted to OpenCode clients. Use an OpenCode Console API key for this adapter. Model availability, provider retention and charges depend on the selected provider and account. See [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning), [Anthropic thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking), [DeepSeek thinking](https://api-docs.deepseek.com/guides/thinking_mode/) and [OpenCode Console inference](https://opencode.ai/docs/console/api/inference).
 
 ## Bounds and implementation
 

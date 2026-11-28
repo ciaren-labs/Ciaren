@@ -3,17 +3,63 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, StringConstraints
 
-from app.core.assistant_profiles import Provider
+from app.core.assistant_profiles import CUSTOM_MODEL, Provider
 
 
 class ClosedModel(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
-class Credential(ClosedModel):
-    key: SecretStr = Field(min_length=1, max_length=4096)
+def _printable(key: SecretStr | None) -> SecretStr | None:
+    value = None if key is None else key.get_secret_value()
+    if value is not None and (value != value.strip() or not value.isascii() or not value.isprintable()):
+        raise ValueError("An API key is one line of printable ASCII characters.")
+    return key
+
+
+ApiKey = Annotated[SecretStr, Field(min_length=1, max_length=4096), AfterValidator(_printable)]
+KeyName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+ModelName = Annotated[str, Field(min_length=1, max_length=100, pattern=f"^{CUSTOM_MODEL.pattern}$")]
+
+
+class AssistantKeyCreate(ClosedModel):
+    name: KeyName
+    provider: Provider
+    model: ModelName
+    effort: str = Field(default="default", max_length=16)
+    key: ApiKey
+    # The user confirmed the storage and billing notice shown with the key field.
+    acknowledged: Literal[True]
+
+
+class AssistantKeyUpdate(ClosedModel):
+    name: KeyName | None = None
+    model: ModelName | None = None
+    effort: str | None = Field(default=None, max_length=16)
+    key: ApiKey | None = None
+    acknowledged: bool = False
+    is_enabled: bool | None = None
+
+
+class AssistantKeyRead(BaseModel):
+    id: str
+    name: str
+    provider: Provider
+    model: str
+    effort: str
+    is_enabled: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProviderModels(BaseModel):
+    id: Provider
+    label: str
+    models: list[str]
+    efforts: list[str]
 
 
 class TrainingSelection(ClosedModel):

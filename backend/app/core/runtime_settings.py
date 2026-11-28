@@ -50,7 +50,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlsplit
 
-from app.core.assistant_profiles import PROFILES
 from app.core.config import Settings, get_settings
 from app.core.enums import Engine, ExecutionMode
 
@@ -115,37 +114,6 @@ class SettingSpec:
 
 
 _SPECS: tuple[SettingSpec, ...] = (
-    SettingSpec(
-        "ASSISTANT_PROVIDER",
-        "Assistant provider",
-        "Select the API billed for explicit assistant requests.",
-        "Assistant",
-        "select",
-        ("off", *PROFILES),
-    ),
-    *(
-        SettingSpec(
-            f"ASSISTANT_{name.upper()}_MODEL",
-            f"{spec.label} model",
-            "Model used when this provider is selected.",
-            "Assistant",
-            "select",
-            spec.models,
-        )
-        for name, spec in PROFILES.items()
-    ),
-    *(
-        SettingSpec(
-            f"ASSISTANT_{name.upper()}_EFFORT",
-            f"{spec.label} effort",
-            "Default uses the provider's model default.",
-            "Assistant",
-            "select",
-            ("default", *spec.efforts),
-        )
-        for name, spec in PROFILES.items()
-        if spec.efforts
-    ),
     SettingSpec(
         key="DEFAULT_ENGINE",
         label="Default engine",

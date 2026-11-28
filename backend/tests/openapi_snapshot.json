@@ -1,22 +1,5 @@
 {
   "operations": {
-    "DELETE /api/assistant/credentials/{provider}": {
-      "parameters": [
-        {
-          "in": "path",
-          "name": "provider",
-          "required": true,
-          "type": "string{anthropic,deepseek,openai,opencode}"
-        }
-      ],
-      "request": null,
-      "responses": {
-        "204": null,
-        "422": {
-          "application/json": "#HTTPValidationError"
-        }
-      }
-    },
     "DELETE /api/assistant/flows/{flow_id}/turns/{request_id}": {
       "parameters": [
         {
@@ -30,6 +13,23 @@
           "name": "request_id",
           "required": true,
           "type": "string(uuid)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/assistant/keys/{key_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
         }
       ],
       "request": null,
@@ -264,6 +264,33 @@
         },
         "422": {
           "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/assistant/keychain": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object"
+        }
+      }
+    },
+    "GET /api/assistant/keys": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#AssistantKeyRead>"
+        }
+      }
+    },
+    "GET /api/assistant/providers": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ProviderModels>"
         }
       }
     },
@@ -1143,6 +1170,27 @@
         }
       }
     },
+    "PATCH /api/assistant/keys/{key_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#AssistantKeyUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#AssistantKeyRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "PATCH /api/connections/{connection_id}": {
       "parameters": [
         {
@@ -1299,6 +1347,39 @@
         },
         "409": {
           "application/json": "#Refused"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/keys": {
+      "parameters": [],
+      "request": {
+        "application/json": "#AssistantKeyCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#AssistantKeyRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/keys/{key_id}/activate": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#AssistantKeyRead"
         },
         "422": {
           "application/json": "#HTTPValidationError"
@@ -1894,25 +1975,6 @@
         }
       }
     },
-    "PUT /api/assistant/credentials/{provider}": {
-      "parameters": [
-        {
-          "in": "path",
-          "name": "provider",
-          "required": true,
-          "type": "string{anthropic,deepseek,openai,opencode}"
-        }
-      ],
-      "request": {
-        "application/json": "#Credential"
-      },
-      "responses": {
-        "204": null,
-        "422": {
-          "application/json": "#HTTPValidationError"
-        }
-      }
-    },
     "PUT /api/flows/{flow_id}": {
       "parameters": [
         {
@@ -2015,6 +2077,58 @@
       "required": [
         "value"
       ]
+    },
+    "AssistantKeyCreate": {
+      "properties": {
+        "acknowledged": "boolean",
+        "effort": "string",
+        "key": "string(password)",
+        "model": "string",
+        "name": "string",
+        "provider": "string{anthropic,deepseek,openai,opencode}"
+      },
+      "required": [
+        "acknowledged",
+        "key",
+        "model",
+        "name",
+        "provider"
+      ]
+    },
+    "AssistantKeyRead": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "effort": "string",
+        "id": "string",
+        "is_active": "boolean",
+        "is_enabled": "boolean",
+        "model": "string",
+        "name": "string",
+        "provider": "string{anthropic,deepseek,openai,opencode}",
+        "updated_at": "string(date-time)"
+      },
+      "required": [
+        "created_at",
+        "effort",
+        "id",
+        "is_active",
+        "is_enabled",
+        "model",
+        "name",
+        "provider",
+        "updated_at"
+      ]
+    },
+    "AssistantKeyUpdate": {
+      "properties": {
+        "acknowledged": "boolean",
+        "effort": "anyOf(null|string)",
+        "is_enabled": "anyOf(boolean|null)",
+        "key": "anyOf(null|string(password))",
+        "model": "anyOf(null|string)",
+        "name": "anyOf(null|string)"
+      },
+      "required": []
     },
     "Body_install_plugin_api_plugins_install_post": {
       "properties": {
@@ -2181,14 +2295,6 @@
         "id",
         "kind",
         "label"
-      ]
-    },
-    "Credential": {
-      "properties": {
-        "key": "string(password)"
-      },
-      "required": [
-        "key"
       ]
     },
     "DatasetKind": {
@@ -2843,6 +2949,20 @@
         "name": "anyOf(null|string)"
       },
       "required": []
+    },
+    "ProviderModels": {
+      "properties": {
+        "efforts": "array<string>",
+        "id": "string{anthropic,deepseek,openai,opencode}",
+        "label": "string",
+        "models": "array<string>"
+      },
+      "required": [
+        "efforts",
+        "id",
+        "label",
+        "models"
+      ]
     },
     "Refused": {
       "properties": {

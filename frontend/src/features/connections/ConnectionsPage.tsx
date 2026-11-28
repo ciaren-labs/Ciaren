@@ -9,6 +9,7 @@ import { useConnectionProviders, useConnections, useDeleteConnection, useTestCon
 import { ConnectionDialog } from "./components/ConnectionDialog";
 import { ProviderIconBadge } from "./components/providerMeta";
 import { TestButton } from "./components/TestButton";
+import { AssistantKeys } from "./components/AssistantKeys";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -70,9 +71,11 @@ export function ConnectionsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
+      <h1 className="mb-6 text-2xl font-bold">Connections</h1>
+      <AssistantKeys />
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Connections</h1>
+          <h2 className="text-lg font-semibold">Data connections</h2>
           <p className="text-sm text-muted-foreground">
             Reusable connections for database and cloud storage nodes. Passwords and
             secret keys are read from environment variables — never stored.

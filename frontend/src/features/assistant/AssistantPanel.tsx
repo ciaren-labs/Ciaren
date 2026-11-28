@@ -682,15 +682,15 @@ export function AssistantPanel({
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {service.isError
-                        ? "Retry in Settings. Canvas tools are available here."
-                        : "Choose an API key to build flows and ask the guides."}
+                        ? "Retry in Connections. Canvas tools are available here."
+                        : "Add or choose an API key to build flows and ask the guides."}
                     </p>
                   </div>
                   <Link
-                    to="/settings#assistant"
+                    to="/connections#assistant"
                     className="inline-flex min-h-8 items-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus-visible:ring-2"
                   >
-                    Open settings
+                    Open connections
                   </Link>
                 </section>
                 <CanvasHelp validation={validation} inspectNode={inspectNode} />

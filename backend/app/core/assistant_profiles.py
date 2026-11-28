@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Closed provider/model contracts. Destinations and capabilities are operator-independent."""
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -48,5 +49,16 @@ PROFILES: dict[str, Profile] = {
 }
 
 
+# A model name typed by the user: it only selects a model at the provider's fixed URL.
+CUSTOM_MODEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}")
+
+
+def valid_model(provider: str, model: str) -> bool:
+    return model in PROFILES[provider].models or CUSTOM_MODEL.fullmatch(model) is not None
+
+
 def supports_tools(provider: str, model: str) -> bool:
-    return model in PROFILES[provider].tools
+    """Known models use tool calling only when a codec test covers it; a model
+    the user typed is newer than this list, so tool calling is attempted."""
+    spec = PROFILES[provider]
+    return model in spec.tools or model not in spec.models

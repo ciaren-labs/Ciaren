@@ -10,7 +10,7 @@ from pydantic import ValidationError as SchemaError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.assistant_keys import selection
 from app.core.exceptions import ConflictError, MLNotEnabledError, NotFoundError, ValidationError
 from app.db.models.dataset import Dataset
 from app.db.models.flow import AssistantActivity, Flow
@@ -300,12 +300,7 @@ class AssistantService:
     async def apply(self, flow_id: str, token: str) -> Graph:
         _expire()
         p = _pending.get(token)
-        if (
-            not p
-            or p.flow != flow_id
-            or not get_settings().ASSISTANT_ENABLED
-            or get_settings().ASSISTANT_PROVIDER == "off"
-        ):
+        if not p or p.flow != flow_id or selection() is None:
             raise ConflictError("Proposal expired or unavailable. Generate a new one.")
         if any(n["type"] == "mlTrainRegressor" for n in p.graph["nodes"]):
             assistant_training.catalog()

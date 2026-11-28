@@ -27,18 +27,18 @@ class Settings(BaseSettings):
     ASSISTANT_OPENAI_MODEL: Literal["gpt-5-mini", "gpt-5"] = "gpt-5-mini"
     ASSISTANT_OPENAI_EFFORT: Literal["default", "low", "medium", "high"] = "default"
     ASSISTANT_OPENAI_API_KEY: SecretStr | None = None
-    ASSISTANT_OPENAI_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_OPENAI_KEY_SOURCE: Literal["env", "file"] = "env"
     ASSISTANT_ANTHROPIC_MODEL: Literal["claude-sonnet-4-6"] = "claude-sonnet-4-6"
     ASSISTANT_ANTHROPIC_EFFORT: Literal["default", "low", "medium", "high"] = "default"
     ASSISTANT_ANTHROPIC_API_KEY: SecretStr | None = None
-    ASSISTANT_ANTHROPIC_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_ANTHROPIC_KEY_SOURCE: Literal["env", "file"] = "env"
     ASSISTANT_DEEPSEEK_MODEL: Literal["deepseek-flash", "deepseek-v4-pro"] = "deepseek-flash"
     ASSISTANT_DEEPSEEK_EFFORT: Literal["default", "low", "high", "max", "none"] = "default"
     ASSISTANT_DEEPSEEK_API_KEY: SecretStr | None = None
-    ASSISTANT_DEEPSEEK_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_DEEPSEEK_KEY_SOURCE: Literal["env", "file"] = "env"
     ASSISTANT_OPENCODE_MODEL: Literal["minimax-m2.7", "kimi-k2.6"] = "minimax-m2.7"
     ASSISTANT_OPENCODE_API_KEY: SecretStr | None = None
-    ASSISTANT_OPENCODE_KEY_SOURCE: Literal["keyring", "env", "file"] = "keyring"
+    ASSISTANT_OPENCODE_KEY_SOURCE: Literal["env", "file"] = "env"
 
     ENVIRONMENT: str = "development"
     DEBUG: bool = False

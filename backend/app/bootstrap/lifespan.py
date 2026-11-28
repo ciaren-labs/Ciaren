@@ -56,6 +56,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception:  # noqa: BLE001 - settings overrides must never block startup
         logger.warning("Could not load persisted app settings; using env/defaults.", exc_info=True)
 
+    # Mirror the assistant key chosen on the Connections page into the process.
+    try:
+        from app.services.assistant_key_service import load_active
+
+        async with AsyncSessionLocal() as session:
+            await load_active(session)
+    except Exception:  # noqa: BLE001 - the assistant must never block startup
+        logger.warning("Could not load the active assistant key; the assistant stays off.", exc_info=True)
+
     # Discover plugins and bridge their executable nodes into the engine registry
     # before any request, so a run that uses a plugin node resolves it even if the
     # catalog endpoint was never hit first.
