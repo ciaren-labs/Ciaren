@@ -111,10 +111,13 @@ _worker_plugin_generation: int | None = None
 
 
 def _init_worker(plugin_generation: int) -> None:
-    """Process-pool worker initializer: load + bridge plugins. Best-effort."""
+    """Process-pool worker initializer: drop assistant keys, then load + bridge plugins."""
     global _worker_plugin_generation
+    from app.core.config import drop_assistant_keys
     from app.plugins import ensure_plugins_loaded
 
+    # Flow code runs here and never needs a provider credential.
+    drop_assistant_keys()
     ensure_plugins_loaded()
     _worker_plugin_generation = plugin_generation
 
