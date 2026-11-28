@@ -5,14 +5,16 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 
 from app.api.deps import AssistantServiceDep
 from app.core.assistant_keys import read_key, source, write_key
 from app.core.assistant_profiles import Provider
 from app.core.config import get_settings
 from app.core.exceptions import ConflictError, ValidationError
-from app.schemas.assistant import Confirmation, Credential, RevertPreview, Turn
+from app.schemas.assistant import Confirmation, Credential, Refused, Reply, RevertPreview, Turn
 from app.services import assistant_activity as activity
+from app.services.assistant_scope import Refusal
 
 router = APIRouter()
 _active: dict[tuple[str, UUID], asyncio.Event] = {}
@@ -64,8 +66,13 @@ async def revoke(provider: Provider) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/flows/{flow_id}/turn")
-async def turn(flow_id: str, body: Turn, service: AssistantServiceDep, request: Request) -> dict[str, Any]:
+@router.post(
+    "/flows/{flow_id}/turn",
+    response_model=Reply,
+    response_model_exclude_none=True,
+    responses={409: {"model": Refused, "description": "Stale, disabled or unsaved flow."}},
+)
+async def turn(flow_id: str, body: Turn, service: AssistantServiceDep, request: Request) -> Any:
     identity = (flow_id, body.request_id)
     if identity in _active or len(_active) >= 8:
         raise ValidationError("Another assistant turn is active. Try again shortly.")
@@ -83,7 +90,10 @@ async def turn(flow_id: str, body: Turn, service: AssistantServiceDep, request: 
     try:
         done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         if task in done:
-            return await task
+            try:
+                return await task
+            except Refusal as exc:
+                return JSONResponse(status_code=409, content={"detail": exc.detail, "reason": exc.reason})
         raise ValidationError("Assistant request cancelled.")
     finally:
         _active.pop(identity, None)

@@ -10,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, ValidationError
 from app.db.models.dataset_version import DatasetVersion
-from app.engine.graph import GraphValidationError, validate_graph, validate_node_configs
-from app.engine.parameters import validate_parameter_specs
 from app.ml.availability import ml_extension_ready
 from app.plugins import get_registry
 from app.plugins.builtin import CORE_PROVIDER, ML_PROVIDER
@@ -20,6 +18,8 @@ from app.services import assistant_provider
 from app.services.assistant_graph import Graph
 from app.services.assistant_inputs import InputSchema, InputVersion, resolve_input
 from app.services.assistant_join import opaque, shared_keys
+from app.services.assistant_tools import gates
+from app.services.assistant_tools.ops import AddNode, AnyOp, Connect, EditRejected
 
 ML_NODES = {"trainTestSplit", "mlTrainRegressor", "mlPredict", "mlEvaluate"}
 CORE_NODES = {"fileInput", "join", "fileOutput"}
@@ -35,7 +35,7 @@ INSTRUCTION = (
 )
 
 
-def catalog() -> dict[str, str]:
+def catalog() -> None:
     if not ml_extension_ready():
         raise ValidationError("Regression proposals require the ML extension to be enabled.")
     required = CORE_NODES | ML_NODES
@@ -46,7 +46,6 @@ def catalog() -> dict[str, str]:
     }
     if set(labels) != required:
         raise ValidationError("A built-in regression workflow node is unavailable.")
-    return labels
 
 
 async def column_profile(db: AsyncSession, schema: InputSchema, name: str) -> tuple[int, Graph]:
@@ -76,75 +75,52 @@ def compile_regression(
     keys: list[str],
     target: str,
     features: list[str],
-    labels: dict[str, str],
 ) -> tuple[Graph, Graph]:
-    nodes: list[Graph] = []
-    edges: list[Graph] = []
-
-    def add(kind: str, config: Graph, x: int, y: int) -> str:
-        node_id = uuid4().hex
-        nodes.append(
-            {
-                "id": node_id,
-                "type": kind,
-                "position": {"x": x, "y": y},
-                "data": {"label": labels[kind], "config": config},
-            }
-        )
-        return node_id
-
-    def wire(src: str, dst: str, target_port: str = "in", source_port: str = "out") -> None:
-        edges.append(
-            {"id": uuid4().hex, "source": src, "target": dst, "sourceHandle": source_port, "targetHandle": target_port}
-        )
-
-    fact, first, second = [
-        add("fileInput", {**s.binding(), "format": "csv"}, 40, 60 + i * 150) for i, s in enumerate(schemas)
+    ops: list[AnyOp] = [
+        AddNode(ref=ref, type="fileInput", config={**s.binding(), "format": "csv"})
+        for ref, s in zip(("fact", "first", "second"), schemas, strict=True)
     ]
-    for i, lookup in enumerate((first, second)):
-        joined = add("join", {"on": [keys[i]], "how": "inner"}, 300 + 230 * i, 140)
-        wire(fact, joined, "left")
-        wire(lookup, joined, "right")
+    fact = "fact"
+    for i, lookup in enumerate(("first", "second")):
+        joined = f"join{i}"
+        ops += [
+            AddNode(ref=joined, type="join", config={"on": [keys[i]], "how": "inner"}),
+            Connect(source=fact, target=joined, target_port="left"),
+            Connect(source=lookup, target=joined, target_port="right"),
+        ]
         fact = joined
-    split = add("trainTestSplit", {"test_size": 0.2, "seed": 42}, 760, 140)
-    train = add(
-        "mlTrainRegressor",
-        {"model_type": "linear_regression", "seed": 42, "target_column": target, "feature_columns": features},
-        990,
-        40,
-    )
-    predict = add("mlPredict", {"output_column": PREDICTION}, 1220, 200)
-    evaluate = add(
-        "mlEvaluate",
-        {"task_type": "regression", "target_column": target, "prediction_column": PREDICTION, "metrics": ["mae", "r2"]},
-        1450,
-        200,
-    )
-    output = add("fileOutput", {"format": "csv", "dataset_name": f"Regression metrics {uuid4().hex[:12]}"}, 1680, 200)
-    wire(fact, split)
-    wire(split, train, "in", "train")
-    wire(split, predict, "in", "test")
-    wire(train, predict, "model", "model")
-    wire(predict, evaluate)
-    wire(evaluate, output)
-    graph = {**base, "nodes": nodes, "edges": edges}
+    model = {"model_type": "linear_regression", "seed": 42, "target_column": target, "feature_columns": features}
+    metrics = {"task_type": "regression", "target_column": target, "prediction_column": PREDICTION}
+    output = {"format": "csv", "dataset_name": f"Regression metrics {uuid4().hex[:12]}"}
+    ops += [
+        AddNode(ref="split", type="trainTestSplit", config={"test_size": 0.2, "seed": 42}),
+        AddNode(ref="train", type="mlTrainRegressor", config=model),
+        AddNode(ref="predict", type="mlPredict", config={"output_column": PREDICTION}),
+        AddNode(ref="evaluate", type="mlEvaluate", config={**metrics, "metrics": ["mae", "r2"]}),
+        AddNode(ref="result", type="fileOutput", config=output),
+        Connect(source=fact, target="split"),
+        Connect(source="split", source_port="train", target="train"),
+        Connect(source="split", source_port="test", target="predict"),
+        Connect(source="train", source_port="model", target="predict", target_port="model"),
+        Connect(source="predict", target="evaluate"),
+        Connect(source="evaluate", target="result"),
+    ]
     try:
-        validate_parameter_specs(graph)
-        validate_graph(graph)
-        validate_node_configs(graph)
-    except (GraphValidationError, ValueError):
+        return gates.build(base, ops)
+    except EditRejected:
         raise ValidationError("The regression plan failed local graph validation.") from None
-    return graph, {"added": nodes, "changed": [], "connected": edges, "disconnected": []}
 
 
-async def propose(db: AsyncSession, project: str, body: Turn) -> tuple[Graph, Graph, list[InputVersion]] | None:
+async def propose(
+    db: AsyncSession, project: str, body: Turn, base: Graph
+) -> tuple[Graph, Graph, list[InputVersion]] | None:
     selection = body.training
-    if selection is None or body.mode != "build" or body.graph.get("nodes") or body.graph.get("edges"):
+    if selection is None or body.mode != "build" or base.get("nodes") or base.get("edges"):
         raise ValidationError("Start with an empty canvas to build a regression flow.")
     ids = [body.dataset_id, body.second_dataset_id, selection.dataset_id]
     if None in ids or len(set(ids)) != 3:
         raise ValidationError("Select three distinct project CSVs.")
-    labels = catalog()
+    catalog()
     schemas = [await resolve_input(db, project, dataset, None) for dataset in ids]
     if any(s.version.fmt != "csv" for s in schemas):
         raise ValidationError("Regression inputs must be CSV files.")
@@ -218,5 +194,5 @@ async def propose(db: AsyncSession, project: str, body: Turn) -> tuple[Graph, Gr
         features = [options[token] for options, token in zip(refs, plan.features, strict=True)]
     except (SchemaError, ValueError, KeyError):
         raise ValidationError("The provider returned an unsupported regression plan.") from None
-    graph, delta = compile_regression(body.graph, schemas, keys, target, features, labels)
+    graph, delta = compile_regression(base, schemas, keys, target, features)
     return graph, delta, [s.version for s in schemas]

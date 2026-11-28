@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Compile a narrow proposal language into ordinary editor nodes and edges."""
 
-from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
 from app.core.exceptions import ValidationError
-from app.engine.graph import GraphValidationError, topological_sort, validate_graph, validate_node_configs
-from app.engine.parameters import ParameterError, apply_parameters, validate_parameter_specs
+from app.engine.graph import GraphValidationError, topological_sort
+from app.engine.parameters import ParameterError, apply_parameters
 from app.plugins import get_registry
 from app.schemas.assistant import Plan, Step
 
@@ -16,11 +15,12 @@ INPUTS = {"fileInput", "csvInput", "excelInput", "parquetInput", "textInput", "j
 OUTPUTS = {"fileOutput", "csvOutput", "excelOutput", "parquetOutput"}
 STEPS = {"limitRows", "sortRows", "dropNulls", "removeDuplicates", "selectColumns", "dropColumns", "filterRows"}
 SAFE = INPUTS | OUTPUTS | STEPS
+MAX_NODES, MAX_EDGES = 80, 160
 
 
 def inspect(graph: Graph) -> tuple[list[Graph], list[Graph]]:
     nodes, edges = graph.get("nodes", []), graph.get("edges", [])
-    if not isinstance(nodes, list) or not isinstance(edges, list) or len(nodes) > 80 or len(edges) > 160:
+    if not isinstance(nodes, list) or not isinstance(edges, list) or len(nodes) > MAX_NODES or len(edges) > MAX_EDGES:
         raise ValidationError("Canvas exceeds the assistant graph limit.")
     ids = set()
     for n in nodes:
@@ -135,81 +135,57 @@ def _validate_schemas(graph: Graph, column_types: dict[str, str]) -> None:
 def compile_plan(
     graph: Graph, plan: Plan, column_types: dict[str, str], binding: Graph, fmt: str
 ) -> tuple[Graph, Graph]:
+    # The tool layer imports this module's canvas checks, so it is loaded on first use.
+    from app.services.assistant_tools import gates
+    from app.services.assistant_tools.ops import AddNode, AnyOp, Connect, Disconnect, EditRejected, UpdateConfig
+
     nodes, edges = inspect(graph)
-    specs = {s.id: s for s in get_registry().node_specs() if s.id in SAFE}
+    specs = {s.id for s in get_registry().node_specs() if s.id in SAFE}
     if any(n["type"] not in specs for n in nodes):
         raise ValidationError("Automatic edits support file inputs, cleaning steps and file outputs only.")
-    added: list[Graph] = []
-    changed: list[Graph] = []
-    links: list[Graph] = []
-    removed: list[str] = []
-
-    def add(kind: str, cfg: Graph) -> Graph:
-        if kind not in specs:
-            raise ValidationError("The requested node is unavailable on this installation.")
-        n = {
-            "id": uuid4().hex,
-            "type": kind,
-            "position": {"x": 80 + (len(nodes) + len(added)) * 230, "y": 120},
-            "data": {"label": specs[kind].label, "config": cfg},
-        }
-        added.append(n)
-        return n
-
-    def connect(a: Graph, b: Graph) -> None:
-        links.append(
-            {"id": uuid4().hex, "source": a["id"], "target": b["id"], "sourceHandle": "out", "targetHandle": "in"}
-        )
-
+    if any(step.kind not in specs for step in plan.steps):
+        raise ValidationError("The requested node is unavailable on this installation.")
+    ref = {n["id"]: f"n{i}" for i, n in enumerate(nodes)}
     shared_names = list(column_types)[:64]
     configs = [config(step, shared_names) for step in plan.steps]
+    ops: list[AnyOp] = []
     if plan.replace is not None:
         if len(configs) != 1 or plan.replace >= len(nodes) or nodes[plan.replace]["type"] != plan.steps[0].kind:
             raise ValidationError("Repair must update one existing transformation of the same type.")
-        n = deepcopy(nodes[plan.replace])
-        n["data"]["config"] = configs[0]
-        changed.append(n)
+        previous = nodes[plan.replace]["data"]["config"]
+        ops.append(UpdateConfig(node=f"n{plan.replace}", set=configs[0], unset=sorted(previous)))
     else:
         outputs = [n for n in nodes if n["type"] in OUTPUTS]
         if not nodes:
-            upstream = add("fileInput", {**binding, "format": fmt})
+            ops.append(AddNode(ref="source", type="fileInput", config={**binding, "format": fmt}))
+            upstream = "source"
         elif outputs:
             incoming = [e for e in edges if e["target"] == outputs[0]["id"]]
             if len(outputs) != 1 or len(incoming) != 1:
                 raise ValidationError("Select a canvas with one connected file output.")
-            removed.append(incoming[0]["id"])
-            upstream = next(n for n in nodes if n["id"] == incoming[0]["source"])
+            upstream = ref[incoming[0]["source"]]
+            ops.append(Disconnect(source=upstream, target=ref[outputs[0]["id"]]))
         else:
             leaves = [n for n in nodes if not any(e["source"] == n["id"] for e in edges)]
             if len(leaves) != 1:
                 raise ValidationError("Connect the canvas to a single last step first.")
-            upstream = leaves[0]
-        for step, cfg in zip(plan.steps, configs, strict=True):
-            n = add(step.kind, cfg)
-            connect(upstream, n)
-            upstream = n
-        output = (
-            outputs[0]
-            if outputs
-            else add("fileOutput", {"format": "csv", "dataset_name": f"Flow result {uuid4().hex[:12]}"})
-        )
-        connect(upstream, output)
-
-    replacements = {n["id"]: n for n in changed}
-    result = {
-        **graph,
-        "nodes": [replacements.get(n["id"], n) for n in nodes] + added,
-        "edges": [e for e in edges if e["id"] not in removed] + links,
-    }
-    inspect(result)
+            upstream = ref[leaves[0]["id"]]
+        for i, (step, cfg) in enumerate(zip(plan.steps, configs, strict=True)):
+            ops += [AddNode(ref=f"step{i}", type=step.kind, config=cfg), Connect(source=upstream, target=f"step{i}")]
+            upstream = f"step{i}"
+        if outputs:
+            output = ref[outputs[0]["id"]]
+        else:
+            output = "result"
+            dataset_name = f"Flow result {uuid4().hex[:12]}"
+            ops.append(AddNode(ref=output, type="fileOutput", config={"format": "csv", "dataset_name": dataset_name}))
+        ops.append(Connect(source=upstream, target=output))
     try:
-        validate_parameter_specs(result)
+        result, delta = gates.build(graph, ops)
         resolved, _ = apply_parameters(result)
-        validate_graph(resolved)
-        validate_node_configs(resolved)
         _validate_schemas(resolved, column_types)
-    except (GraphValidationError, ParameterError, ValueError, TypeError, KeyError):
+    except (EditRejected, GraphValidationError, ParameterError, ValueError, TypeError, KeyError):
         raise ValidationError(
             "The proposed graph failed Ciaren validation. Review its inputs, parameters and connections."
         ) from None
-    return result, {"added": added, "changed": changed, "connected": links, "disconnected": removed}
+    return result, delta
