@@ -142,6 +142,47 @@ def ml(monkeypatch):
     monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
 
 
+RF = {"model_type": "random_forest_regressor", "target_column": "c1"}
+
+
+@pytest.mark.parametrize(
+    ("node_type", "config", "code"),
+    [
+        ("mlCrossValidate", {"n_splits": "x"}, "config"),
+        ("mlCrossValidate", {"n_repeats": None}, "config"),
+        ("mlCrossValidate", {"cv_strategy": ["leave_one_out"]}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": [{}]}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": ["alpha"]}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": "n_jobs"}, "config"),
+        ("mlTrainRegressor", {**RF, "model_type": ["ridge"]}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": {"n_estimators": 1e9}}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": {"max_depth": 64.5}}, "config"),
+        ("mlTrainRegressor", {**RF, "hyperparameters": {"n_estimators": True}}, "config"),
+        (
+            "mlTrainClassifier",
+            {**RF, "model_type": "lightgbm_classifier", "hyperparameters": {"num_leaves": 5000}},
+            "limit",
+        ),
+        (
+            "mlTrainClassifier",
+            {**RF, "model_type": "logistic_regression", "hyperparameters": {"max_iter": 10**6}},
+            "limit",
+        ),
+        ("mlPredict", {"model_uri": ["x"]}, "config"),
+        # Column fields are bound to names before the model gate; unhashable values must not crash it.
+        ("filterRows", {"column": {"x": 1}, "value": 1}, "bad_type"),
+        ("sortRows", {"columns": [["c0"]]}, "bad_type"),
+        ("renameColumns", {"mapping": ["c0"]}, "bad_type"),
+    ],
+)
+async def test_malformed_values_are_issues_not_errors(ml, canvas, node_type, config, code):
+    ctx, work = canvas
+    op = {"op": "add_node", "as": "m", "type": node_type, "config": config}
+    after, result = await propose_edit(ctx, edit(op, {"op": "connect", "from": "n0", "to": "m"}), work)
+    assert after is work and not result["ok"]
+    assert result["issues"][0]["code"] == code, result
+
+
 def test_graph_limit_is_reported():
     from app.services.assistant_tools import gates
     from app.services.assistant_tools.ops import EditRejected

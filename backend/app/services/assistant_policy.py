@@ -231,31 +231,45 @@ HYPERPARAMETERS: dict[str, tuple[str, ...]] = {
     "agglomerative": ("n_clusters",),
     "pca_fit": ("n_components",),
 }
-MAX_ESTIMATORS = 500
-MAX_DEPTH = 64
+#: Integer hyperparameters that scale compute, with the largest value the assistant may write.
+HYPERPARAMETER_CAPS = {"n_estimators": 500, "max_depth": 64, "num_leaves": 1024, "max_iter": 10_000}
 MAX_SPLITS = 20
 MAX_REPEATS = 5
 LEAVE_ONE_OUT_ROWS = 2000
 
 
+def _typed(config: dict[str, Any], key: str, kind: type, default: Any) -> Any:
+    """A field the caps read, with its type checked first so malformed values become issues."""
+    value = config.get(key, default)
+    if type(value) is not kind:
+        raise PolicyError(f"{key} has an unsupported value type.", key, "config")
+    return value
+
+
 def check_fields(node_type: str, config: dict[str, Any], rows: int | None = None) -> None:
-    """Field rules beyond the node model: caps that depend on policy or on the input size."""
+    """Field rules beyond the node model: caps that depend on policy or on the input size.
+
+    Runs before the node model, so every value it reads is type-checked here.
+    """
     reject_templates(config)
-    if node_type == "mlPredict" and config.get("model_uri"):
+    if node_type == "mlPredict" and _typed(config, "model_uri", str, ""):
         raise PolicyError("Predictions must use the connected model, not a stored model URI.", "model_uri")
-    params = config.get("hyperparameters") or {}
-    if "n_jobs" in params:
-        raise PolicyError("Parallel training settings are not allowed.", "hyperparameters")
-    if set(params) - set(HYPERPARAMETERS.get(config.get("model_type", ""), ())):
-        raise PolicyError("A hyperparameter is not available for this model.", "hyperparameters")
-    for key, cap in (("n_estimators", MAX_ESTIMATORS), ("max_depth", MAX_DEPTH)):
-        value = params.get(key)
-        if isinstance(value, int) and value > cap:
-            raise PolicyError(f"{key} is limited to {cap}.", "hyperparameters", "limit")
+    if "hyperparameters" in config or "model_type" in config:
+        params = _typed(config, "hyperparameters", dict, {})
+        model_type = _typed(config, "model_type", str, "")
+        if "n_jobs" in params:
+            raise PolicyError("Parallel training settings are not allowed.", "hyperparameters")
+        if set(params) - set(HYPERPARAMETERS.get(model_type, ())):
+            raise PolicyError("A hyperparameter is not available for this model.", "hyperparameters")
+        for key, cap in HYPERPARAMETER_CAPS.items():
+            if key in params and _typed(params, key, int, None) > cap:
+                raise PolicyError(f"{key} is limited to {cap}.", "hyperparameters", "limit")
     if node_type == "mlCrossValidate":
-        if config.get("n_splits", 5) > MAX_SPLITS or config.get("n_repeats", 1) > MAX_REPEATS:
+        splits, repeats = _typed(config, "n_splits", int, 5), _typed(config, "n_repeats", int, 1)
+        if splits > MAX_SPLITS or repeats > MAX_REPEATS:
             raise PolicyError("Cross-validation folds or repeats exceed the assistant limit.", "n_splits", "limit")
-        if config.get("cv_strategy") == "leave_one_out" and (rows is None or rows > LEAVE_ONE_OUT_ROWS):
+        strategy = _typed(config, "cv_strategy", str, "kfold")
+        if strategy == "leave_one_out" and (rows is None or rows > LEAVE_ONE_OUT_ROWS):
             raise PolicyError(
                 f"Leave-one-out is limited to inputs of at most {LEAVE_ONE_OUT_ROWS} rows.", "cv_strategy", "limit"
             )

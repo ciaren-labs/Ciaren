@@ -70,6 +70,8 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
         known.extend(columns.values())
 
         def name(value: Any, field: str) -> Any:
+            if not isinstance(value, str):
+                return value  # The node model gate reports the wrong type.
             if value in columns:
                 return columns[value]
             previous = before.get(node["id"], {}).get(field)
