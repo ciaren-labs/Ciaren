@@ -99,8 +99,17 @@ function useSecondsLeft(expiresAt: number | undefined, active: boolean) {
     // `left` only reads expiresAt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expiresAt, active]);
-  return seconds;
+  // A hidden tab throttles the interval, so the clock is read again before acting.
+  const check = () => {
+    const now = left();
+    setSeconds(now);
+    return now;
+  };
+  return [seconds, check] as const;
 }
+
+/** Limits that end a turn with a draft the final check did not pass. */
+const DRAFTS = new Set<Reason | Conflict>(["step_limit", "timeout", "provider_error"]);
 
 export function ProposalCard({
   turn,
@@ -127,8 +136,9 @@ export function ProposalCard({
 }) {
   const reply = turn.reply!;
   const live = latest && !turn.outcome;
-  const seconds = useSecondsLeft(turn.expiresAt, live);
+  const [seconds, checkExpiry] = useSecondsLeft(turn.expiresAt, live);
   const expired = live && seconds === 0;
+  const draft = reply.reason && DRAFTS.has(reply.reason) ? REASONS[reply.reason] : undefined;
   const status = turn.outcome
     ? { applied: "Saved", discarded: "Discarded", superseded: "Replaced by a newer request" }[
         turn.outcome
@@ -141,8 +151,19 @@ export function ProposalCard({
       aria-labelledby={headingId(turn)}
       className="assistant-card assistant-card--primary"
     >
-      {turn.mode === "diagnose" && reply.message && (
-        <p className="text-sm">{plain(reply.message)}</p>
+      {draft ? (
+        <div
+          role="note"
+          className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-sm"
+        >
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+          <div>
+            <p className="font-medium">{draft.title}: this draft was not checked</p>
+            {reply.message && <p className="text-muted-foreground">{plain(reply.message)}</p>}
+          </div>
+        </div>
+      ) : (
+        reply.message && <p className="text-sm">{plain(reply.message)}</p>
       )}
       <ProposalReview
         headingId={headingId(turn)}
@@ -203,7 +224,13 @@ export function ProposalCard({
           )}
           <div className="flex flex-wrap gap-2">
             {!expired && (
-              <Button size="sm" disabled={busy || disabled} onClick={apply}>
+              <Button
+                size="sm"
+                disabled={busy || disabled}
+                onClick={() => {
+                  if (checkExpiry() > 0) apply();
+                }}
+              >
                 Apply and save
               </Button>
             )}

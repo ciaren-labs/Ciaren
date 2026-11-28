@@ -254,6 +254,43 @@ describe("proposal card (AC-U3, AC-U6)", () => {
     expect(turns()[1].body?.question).toBe("Keep 100 rows");
   });
 
+  it.each(["step_limit", "timeout", "provider_error"])(
+    "flags a %s draft as unchecked before it can be applied",
+    async (reason) => {
+      routes["POST /api/assistant/flows/f1/turn"] = () =>
+        proposal({ reason, message: "Review this unvalidated draft carefully." });
+      setup();
+      await ask("Keep 100 rows");
+      const note = await screen.findByRole("note");
+      expect(note).toHaveTextContent(/not checked/i);
+      expect(note).toHaveTextContent("Review this unvalidated draft carefully.");
+      expect(screen.getByRole("button", { name: "Apply and save" })).toBeInTheDocument();
+    },
+  );
+
+  it("shows the assistant's summary of a checked proposal", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () =>
+      proposal({ message: "Sorted by amount, then kept 100 rows." });
+    setup();
+    await ask("Keep 100 rows");
+    expect(await screen.findByText("Sorted by amount, then kept 100 rows.")).toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("does not apply a proposal whose time ran out while the tab was hidden", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    setup();
+    await ask("Keep 100 rows");
+    const apply = await screen.findByRole("button", { name: "Apply and save" });
+    // A hidden tab throttles the countdown timer, so the clock moves without a tick.
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 181_000);
+    fireEvent.click(apply);
+    expect(await screen.findByText("Proposal expired")).toBeInTheDocument();
+    expect(calls.filter((c) => c.path.endsWith("/apply"))).toHaveLength(0);
+    vi.restoreAllMocks();
+  });
+
   it("puts the request back in the composer on Edit request and drops the proposal on Discard", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
     setup();

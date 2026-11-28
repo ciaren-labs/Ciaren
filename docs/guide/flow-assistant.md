@@ -80,7 +80,7 @@ On **Run**, the existing training node logs the fitted model and up to five rows
 
 ## Canvas tools and activity
 
-Open **Assistant → Conversation**. **Build**, **Guides** and **Diagnose** choose the task. A proposed edit shows the affected nodes and wiring. Expand **Connections** to check the ports, or **Compare all settings** to inspect an existing node. **Inspect on canvas** returns to that node. The request and proposal stay in the open panel until you close it.
+Open **Assistant → Conversation**. **Build**, **Guides** and **Diagnose** choose the task. A proposed edit shows the affected nodes and wiring. Each updated node lists every setting that changes, and **All settings** lists every field of a new node. Expand **Connections** to check the ports, or **Compare all settings** to inspect an existing node. A draft that ran out of steps or time, or lost the provider, carries a note that it was not checked. **Inspect on canvas** returns to that node. The request and proposal stay in the open panel until you close it.
 
 **Explain selected node** opens the selected node’s bundled guide. **Check canvas** applies the editor’s validation rules and links node-specific issues to their inspector. Both work locally without a provider. Only **Apply and save** commits an assistant proposal. Executing the flow requires the editor’s **Run** action.
 
