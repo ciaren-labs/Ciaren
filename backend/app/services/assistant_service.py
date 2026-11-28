@@ -10,13 +10,15 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, MLNotEnabledError, NotFoundError, ValidationError
 from app.db.models.flow import AssistantActivity, Flow
 from app.engine.node_metadata import BUILTIN_NODE_META
+from app.ml.availability import guard_graph_ml_enabled
 from app.plugins import get_registry
 from app.schemas.assistant import Plan, Reply, Turn
 from app.services import (
     assistant_activity,
+    assistant_agent,
     assistant_docs,
     assistant_join,
     assistant_provider,
@@ -25,9 +27,11 @@ from app.services import (
 )
 from app.services.assistant_graph import INPUTS, STEPS, Graph, compile_plan
 from app.services.assistant_inputs import InputVersion, resolve_input
+from app.services.assistant_provider import BudgetExhausted
 from app.services.assistant_tools import gates
-from app.services.assistant_tools.edit import expression_columns
-from app.services.assistant_tools.ops import EditRejected
+from app.services.assistant_tools.context import ToolContext
+from app.services.assistant_tools.edit import expression_columns, start
+from app.services.assistant_tools.ops import EditRejected, diff
 from app.services.flow_revision import next_revision, update_one
 
 TTL = 180
@@ -103,6 +107,8 @@ class AssistantService:
             return route.model_dump(exclude_none=True)
         if route.kind == "docs":
             return await assistant_docs.answer(body.provider, body.question)
+        if route.kind == "tools":
+            return await self._tool_turn(flow, body, route)
         base, nodes, edges, message = route.base, route.nodes, route.edges, route.failure
         if route.kind == "training":
             training = await assistant_training.propose(self.db, flow.project_id, body, base)
@@ -172,6 +178,47 @@ class AssistantService:
         graph, delta = compile_plan(base, plan, column_types, source.binding(), source.version.fmt)
         return self._remember(flow, base, body, graph, delta, [source.version], message, set(column_types))
 
+    async def _tool_turn(self, flow: Flow, body: Turn, route: assistant_scope.Route) -> Graph:
+        """Build mode with a tool-calling model: run the agent and propose its graph."""
+        requested = [d for d in (body.dataset_id, body.second_dataset_id) if d is not None]
+        # Selected datasets are checked against the project before any provider call.
+        for dataset in requested:
+            await resolve_input(self.db, flow.project_id, dataset, None)
+        canvas = [n["data"]["config"].get("dataset_id") for n in route.nodes if n["type"] in INPUTS]
+        ordered = list(dict.fromkeys(d for d in (*requested, *canvas) if isinstance(d, str)))
+        ctx = ToolContext(
+            self.db,
+            flow.project_id,
+            route.base,
+            datasets={f"d{i}": d for i, d in enumerate(ordered)},
+            share_names=body.share_names,
+        )
+        try:
+            async with assistant_provider.turn_budget() as reservation:
+                outcome = await assistant_agent.run(
+                    body.provider, ctx, start(route.base), body.question, body.mode, route.failure, reservation
+                )
+        except BudgetExhausted:
+            return assistant_scope.unsupported(
+                "budget_exhausted", "The assistant hourly budget is spent. Try again later."
+            ).model_dump(exclude_none=True)
+        extra: Graph = {"usage": outcome.usage, "steps": outcome.steps}
+        if outcome.kind in ("abstain", "invalid") or outcome.work is None:
+            reason = {"abstain": "abstained", "invalid": "validation_failed"}.get(outcome.kind, outcome.kind)
+            return {"message": outcome.message, "reason": reason, **extra}
+        graph = outcome.work.graph
+        versions = [
+            (await resolve_input(self.db, flow.project_id, None, n)).version
+            for n in graph["nodes"]
+            if n["type"] in INPUTS
+        ]
+        reply = self._remember(flow, route.base, body, graph, diff(outcome.work), versions, outcome.message)
+        if "proposal" not in reply:
+            reply["reason"] = "no_change"
+        elif outcome.kind != "finish":
+            reply["reason"] = outcome.kind
+        return {**reply, **extra}
+
     @staticmethod
     def _remember(
         flow: Flow,
@@ -215,6 +262,10 @@ class AssistantService:
             raise ConflictError("Proposal expired or unavailable. Generate a new one.")
         if any(n["type"] == "mlTrainRegressor" for n in p.graph["nodes"]):
             assistant_training.catalog()
+        try:
+            guard_graph_ml_enabled(p.graph)
+        except MLNotEnabledError:
+            raise ConflictError("Proposal expired or unavailable. Generate a new one.") from None
         try:
             # Policy, settings or installed plugins may have changed since the review.
             work, touched = gates.reviewed(p.base, p.graph)

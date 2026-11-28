@@ -14,6 +14,8 @@ from app.services.assistant_tools.ops import diff
 
 PRIVATE = "private_amount"
 LABEL = "Secret label 9921"
+# These tests cover the structured fallback planners, which serve models without tool calling.
+pytestmark = pytest.mark.usefixtures("structured_planner")
 
 
 @pytest.fixture

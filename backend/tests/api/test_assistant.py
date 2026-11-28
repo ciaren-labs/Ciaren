@@ -16,6 +16,8 @@ from app.services import assistant_provider
 
 KEY = "synthetic-assistant-credential-87432"
 ROW = "private-row-sentinel"
+# These tests cover the structured fallback planners, which serve models without tool calling.
+pytestmark = pytest.mark.usefixtures("structured_planner")
 
 
 async def failed_run(db_session, flow_id):

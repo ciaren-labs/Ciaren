@@ -20,6 +20,8 @@ from app.services.assistant_service import AssistantService
 from app.services.flow_service import FlowService
 
 PRIVATE = "activity-private-user-value"
+# These tests cover the structured fallback planners, which serve models without tool calling.
+pytestmark = pytest.mark.usefixtures("structured_planner")
 
 
 @pytest.fixture

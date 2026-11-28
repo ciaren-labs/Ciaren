@@ -2,6 +2,7 @@
 """Decide whether and how a turn can be served before any provider call is made."""
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal
@@ -9,13 +10,15 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.assistant_profiles import Provider, supports_tools
 from app.core.exceptions import ConflictError, ValidationError
 from app.db.models.flow import Flow
 from app.db.models.run import FlowRun
 from app.ml.availability import ml_extension_ready
 from app.schemas.assistant import Reason, Reply, Suggestion, Turn
-from app.services import assistant_join
+from app.services import assistant_join, assistant_provider
 from app.services.assistant_graph import INPUTS, MAX_EDGES, MAX_NODES, SAFE, STEPS, Graph, inspect
+from app.services.assistant_policy import POLICY
 
 STALE = "The flow or one of its inputs changed or became unavailable. Reopen the editor and review a fresh proposal."
 
@@ -68,7 +71,7 @@ def projection(graph: Graph) -> str:
 
 @dataclass
 class Route:
-    kind: Literal["docs", "training", "join", "structure", "plan"]
+    kind: Literal["docs", "training", "join", "structure", "plan", "tools"]
     base: Graph = field(default_factory=dict)
     nodes: list[Graph] = field(default_factory=list)
     edges: list[Graph] = field(default_factory=list)
@@ -94,6 +97,23 @@ def unsupported(reason: Reason, message: str, *suggestions: Suggestion, supporte
 
 
 EDIT = Suggestion(label="Edit the canvas manually", action="manual_edit")
+# Requests only the tool-calling planner can build; the structured fallbacks cannot.
+_TOOL_ONLY = re.compile(
+    r"\b(chart|plot|histogram|scatter|heatmap|pie|train\w*|predict\w*|classif\w*|regress\w*|cross[- ]?validat\w*"
+    r"|random forest|feature importance|cluster\w*|machine learning|ml)\b",
+    re.IGNORECASE,
+)
+
+
+def tool_calling(provider: Provider) -> bool:
+    """Whether the configured model of ``provider`` serves the tool-calling planner."""
+    model, _ = assistant_provider.profile(provider)
+    return supports_tools(provider, model)
+
+
+def _needs_tools(question: str, nodes: list[Graph]) -> bool:
+    """A canvas with nodes the assistant may edit but the fallbacks cannot, or such a request."""
+    return any(n["type"] not in SAFE and n["type"] in POLICY for n in nodes) or bool(_TOOL_ONLY.search(question))
 
 
 async def preflight(db: AsyncSession, flow: Flow, body: Turn) -> Route | Reply:
@@ -150,11 +170,23 @@ async def preflight(db: AsyncSession, flow: Flow, body: Turn) -> Route | Reply:
             )
         route.kind = "training"
         return route
+    inputs = [n for n in nodes if n["type"] in INPUTS]
+    if body.mode == "build" and tool_calling(body.provider):
+        if not inputs and body.dataset_id is None and body.second_dataset_id is None:
+            return unsupported("no_dataset", "Select a project dataset or add a file input first.", EDIT)
+        route.kind = "tools"
+        return route
     has_join = any(n["type"] == "join" for n in nodes)
     if body.second_dataset_id or (has_join and all(n["type"] in assistant_join.JOIN_NODES for n in nodes)):
         route.kind = "join"
         return route
-    inputs = [n for n in nodes if n["type"] in INPUTS]
+    if body.mode == "build" and _needs_tools(body.question, nodes):
+        return unsupported(
+            "provider_no_tools",
+            "This request needs an assistant model with tool calling. Choose one in Settings or edit the canvas.",
+            EDIT,
+            Suggestion(label="Read about assistant models", action="open_docs"),
+        )
     if body.mode == "diagnose" and (any(n["type"] not in SAFE for n in nodes) or len(inputs) != 1):
         route.kind = "structure"
         return route
