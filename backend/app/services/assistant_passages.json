@@ -392,102 +392,102 @@
   {
     "title": "connections · Assistant API keys",
     "text": "The top of the Connections page, above the data connections, is **Assistant API keys**. These are the provider keys the AI flow assistant uses to build flows from natural language. They are not database connections: no node uses them and flows never read them.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L27"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L27"
   },
   {
     "title": "connections · Assistant API keys",
     "text": "Choose **Add API key**, name the key, pick the provider and a model, or choose **Other model…** to type a model ID that is not listed. Set a reasoning effort if the provider offers one, paste the key and confirm the storage notice. Ciaren stores the key in the OS keychain of the computer that runs it, which needs `ciaren[keyring]`, and never shows it again. The database keeps only the name, provider, model, effort and state.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L34"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L34"
   },
   {
     "title": "connections · Assistant API keys",
     "text": "The assistant uses one enabled key at a time. The first key you add is in use, and you select another with its radio button. Clear **Enabled** to stop using a key without deleting it. The pencil button renames a key, changes its model or effort, or replaces the key, and the trash button deletes it from the keychain.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L41"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L41"
   },
   {
     "title": "connections · Security model",
     "text": "A connection stores only a **secret reference** — never the value. Like Airflow's secrets backends, the reference picks where the secret lives; all sources are local, with no external service required:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L57"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L57"
   },
   {
     "title": "connections · Security model",
     "text": "Whatever the source, the value is read only when a connection is used, and is:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L67"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L67"
   },
   {
     "title": "connections · Security model",
     "text": "For an env var reference, set the variable before starting Ciaren:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L76"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L76"
   },
   {
     "title": "connections · Security model",
     "text": "It's an extra (not part of the base install) so servers and containers stay lean, and it's pure-Python on every OS — no compiler needed. Then store a secret; the value is prompted, never echoed:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L91"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L91"
   },
   {
     "title": "connections · Security model",
     "text": "and use `keyring:pg-main` as the connection's secret. `ciaren secret unset` removes it. :::",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L99"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L99"
   },
   {
     "title": "connections · Security model",
     "text": "You don't have to drop to the CLI, though: the connection form has a **\"Store a value in the OS keychain\"** button under the secret field. Enter a name and the value, click save, and Ciaren writes the value to the OS keychain and fills the field with the resulting `keyring:NAME` reference — the plaintext is sent once, stored only in the keychain, and never persisted, echoed back, or logged. When `ciaren[keyring]` isn't installed, or the host has no keychain daemon (headless servers, containers), the button stays visible but **disabled** and a hover explains what to install; `env:` or `file:` references apply there instead.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L103"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L103"
   },
   {
     "title": "connections · Security model",
     "text": "Two rules govern **which** env vars an `env:` (or bare) reference may name:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L141"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L141"
   },
   {
     "title": "connections · Deleting a connection",
     "text": "Deleting a connection that flows still reference is refused with a message listing those flows — repoint their SQL/Storage nodes first, or force the delete (the UI asks; the API takes `?force=true`), after which those flows fail at run time until reconfigured.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L154"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L154"
   },
   {
     "title": "connections · Supported databases",
     "text": "To pull in **every** database driver at once:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L177"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L177"
   },
   {
     "title": "connections · Supported databases",
     "text": "Drivers are **optional**. If one isn't installed, that provider appears disabled on the Connections page with an \"install …\" hint, so the core stays lightweight. SQLite needs no driver and is great for trying things out.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L183"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L183"
   },
   {
     "title": "connections · Creating a connection",
     "text": "The Connections page ships with two pre-seeded **built-in** connections you'll see before adding any of your own:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L202"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L202"
   },
   {
     "title": "connections · Creating a connection",
     "text": "Both back core features out of the box and aren't meant to be deleted; treat them like defaults rather than connections you created.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L210"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L210"
   },
   {
     "title": "connections · Creating a connection",
     "text": "SQLite asks only for a file path; most others ask for host, port, database, username, and the **password secret** — a reference (env var name, `keyring:NAME`, or `file:/path`), or use **Store a value in the OS keychain** to store the value in the OS keychain in place. The actual secret is never stored by Ciaren.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L221"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L221"
   },
   {
     "title": "connections · Web APIs",
     "text": "The built-in **REST API** connector reads HTTP JSON/CSV endpoints like database tables — no driver required. It covers the connection options commercial tools offer:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L235"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L235"
   },
   {
     "title": "connections · Web APIs",
     "text": "In a flow, use **SQL Input**: pick the API connection, then choose a declared **endpoint** or switch to **Custom request path** (e.g. `users?active=true`). Each run snapshots the response to parquet like any other input, so runs stay reproducible. API connections are **read-only** — SQL Output doesn't list them.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L251"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L251"
   },
   {
     "title": "connections · Web APIs",
     "text": "The connector applies the same SSRF host guard as every other connector, and responses are size-capped before parsing — 256 MiB per request **and** cumulatively across the pages of one paginated read (with a hard ceiling of 1000 pages per read, whatever `max_pages` says). For larger extractions, filter or window the endpoint and split the read across runs.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L256"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L256"
   },
   {
     "title": "connections · Reproducibility",
     "text": "Each run snapshots its SQL inputs to parquet, so a run records exactly the data it processed even though the source is live.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/connections.md#L294"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/connections.md#L294"
   },
   {
     "title": "visualizations · Visualizations",
@@ -517,52 +517,52 @@
   {
     "title": "interface · Top-level pages",
     "text": "Ciaren is organized around a few pages, reachable from the navigation bar at the top:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L14"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L14"
   },
   {
     "title": "interface · The flow editor",
     "text": "The toolbar above the canvas also holds the flow name, undo and redo, the keyboard shortcuts help, the engine picker, **Parameters**, **Schedule** and **Save**. **Save** shows a small dot while the canvas has unsaved edits.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L91"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L91"
   },
   {
     "title": "interface · The flow editor",
     "text": "Building a pipeline is drag, configure, connect — no code required to start:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L95"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L95"
   },
   {
     "title": "interface · Canvas shortcuts",
     "text": "Open **Keyboard shortcuts** in the editor toolbar for the current controls. Use **Backspace** to delete selected nodes or edges, **Shift + drag** to select nodes in a box, and **Ctrl/Cmd + click** to toggle a node's selection. Hold **Space** while dragging to pan; scroll or pinch to zoom. Arrow keys move the selection when a selected node has keyboard focus. **Escape** closes the shortcut help or a node's context menu.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L101"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L101"
   },
   {
     "title": "interface · Canvas shortcuts",
     "text": "Copy, paste, duplicate, undo and redo apply outside editable form fields. Redo accepts **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L108"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L108"
   },
   {
     "title": "interface · The assistant panel",
     "text": "Choose **Assistant** in the toolbar, or **Ask the assistant** at the bottom of the canvas, to open the AI flow assistant. The panel docks to the right of the canvas, and fills the screen on a narrow window. The **Assistant** button shows a dot when a reply arrives while the panel is closed. Close the panel with the **X** or Escape. A request keeps running while the panel is closed.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L113"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L113"
   },
   {
     "title": "interface · The assistant panel",
     "text": "The panel has two tabs. **Conversation** is where you ask. **Activity** lists the changes the assistant saved to this flow and lets you preview and confirm a reversal.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L119"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L119"
   },
   {
     "title": "interface · The assistant panel",
     "text": "The Conversation tab works from top to bottom:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L123"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L123"
   },
   {
     "title": "interface · Node handles",
     "text": "Most nodes have a single input handle (`in`) and a single output handle (`out`). Two nodes are different:",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L164"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L164"
   },
   {
     "title": "interface · Runs view",
     "text": "A run's detail page (`/runs/:runId`) shows the flow as a read-only DAG.",
-    "url": "https://github.com/ciaren-labs/Ciaren/blob/ad489f3e5694e289fcf04236b63295390cf36a43/docs/guide/interface.md#L173"
+    "url": "https://github.com/ciaren-labs/Ciaren/blob/19efb5a4b3922831e094125e5466dbe346c1773c/docs/guide/interface.md#L173"
   },
   {
     "title": "join · Join — `join`",
