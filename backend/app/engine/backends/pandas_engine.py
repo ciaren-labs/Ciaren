@@ -588,7 +588,8 @@ class PandasEngine:
     def explode_rows(self, df: pd.DataFrame, column: str, delimiter: str | None) -> pd.DataFrame:
         work = df
         if delimiter:
-            work = df.assign(**{column: df[column].astype("string").str.split(delimiter)})
+            # Literal, as in polars: pandas treats a multi-character pattern as a regex.
+            work = df.assign(**{column: df[column].astype("string").str.split(delimiter, regex=False)})
         exploded: pd.DataFrame = work.explode(column).reset_index(drop=True)
         return exploded
 

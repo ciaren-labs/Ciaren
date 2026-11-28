@@ -736,11 +736,16 @@ async def _expanding(client, db_session, monkeypatch, rows, step, patched, sampl
 
 
 async def test_explode_estimate_uses_the_engine_split(client: AsyncClient, db_session, monkeypatch) -> None:
-    # "x?" is a regex to pandas: it matches between every character.
-    rows = [{"id": i, "tags": "a" * 500} for i in range(200)]
+    # "x?" splits literally, as in the engine: 300 separators give 301 pieces per row.
+    rows = [{"id": i, "tags": "ax?" * 300} for i in range(200)]
     step = {"type": "explodeRows", "config": {"column": "tags", "delimiter": "x?"}}
     issues, calls = await _expanding(client, db_session, monkeypatch, rows, step, (pd.DataFrame, "explode"))
     assert issues == [("big", "limit")] and not calls
+    # As a regex "x?" would match between every character; literally it is absent here.
+    monkeypatch.undo()
+    rows = [{"id": i, "tags": "a" * 500} for i in range(200)]
+    issues, _ = await _expanding(client, db_session, monkeypatch, rows, step, None)
+    assert issues == []
 
 
 async def test_pivot_estimate_counts_distinct_index_and_columns(client: AsyncClient, db_session, monkeypatch) -> None:

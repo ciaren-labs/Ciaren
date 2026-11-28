@@ -416,8 +416,8 @@ def _explode(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimat
     df = inputs["in"]
     values = df[config["column"]]
     delimiter = config.get("delimiter") or None
-    # The same split the engine runs (a multi-character delimiter is a regex there).
-    lists = values.astype("string").str.split(delimiter) if delimiter else values
+    # The same literal split the engine runs.
+    lists = values.astype("string").str.split(delimiter, regex=False) if delimiter else values
     pieces = lists.map(lambda v: max(len(v), 1) if isinstance(v, list | tuple) else 1)
     return int(pieces.sum()), len(df.columns)
 

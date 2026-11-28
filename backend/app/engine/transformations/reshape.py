@@ -390,7 +390,7 @@ class ExplodeRowsTransformation(BaseTransformation):
         col = config["column"]
         delimiter = config.get("delimiter") or None
         if delimiter:
-            split = f"lambda _d: _d[{col!r}].astype('string').str.split({delimiter!r})"
+            split = f"lambda _d: _d[{col!r}].astype('string').str.split({delimiter!r}, regex=False)"
             return f"{dst} = {src}.assign({pd_assign_args({col: split})}).explode({col!r}).reset_index(drop=True)"
         return f"{dst} = {src}.explode({col!r}).reset_index(drop=True)"
 
