@@ -145,6 +145,8 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
     before = {n["id"]: n["data"]["config"] for n in prior.graph["nodes"]}
     by_id = {n["id"]: n for n in work.graph["nodes"]}
     schemas: dict[str, list[tuple[str, str]]] = {}
+    # Placeholder names of value-named columns: no setting may name them.
+    value_named: set[str] = set()
     # Dependency order: a node's upstream settings are bound before its source is previewed.
     for node_id in sample.order(work.graph):
         if node_id not in touched:
@@ -173,13 +175,14 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
             except MLNotEnabledError:
                 raise _ml_disabled() from None
             schemas.update(preview.schemas)
+            value_named |= preview.value_named
             if source not in schemas:
                 refs = {i: r for r, i in work.refs.items()}
                 found = sample.public_issues(preview, refs, ctx.hidden())
                 # Unattributed graph errors point at the node whose input failed.
                 source_ref = work.ref_of(source)
                 raise EditRejected([Issue(i["code"], i["message"], i.get("node", source_ref)) for i in found])
-        columns = ctx.register(work.ref_of(source), [c for c, _ in schemas[source]])
+        columns = ctx.register(work.ref_of(source), [c for c, _ in schemas[source] if c not in value_named])
         stored = before.get(node_id, {})
         if expression and cfg["expression"] != stored.get("expression"):
             previous = stored.get("expression")

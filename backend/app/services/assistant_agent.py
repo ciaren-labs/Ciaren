@@ -58,11 +58,17 @@ only when names are shared.
 Input nodes use fileInput with dataset_id as a dataset ref. Connect ports by id; most nodes \
 read "in" and write "out". A successful edit lists the output columns of the nodes it \
 touched. An edit may be incomplete; validate and finish need a complete flow with an output.
-- validate runs every check plus a sample preview and lists each node's columns.
+- validate runs every check plus a preview and lists each node's columns. Previews run on \
+placeholder rows with the real schema, so they check types and wiring, not values; data \
+checks run when the user runs the flow. Columns named after data values (one-hot, pivot) \
+have no refs and are counted as value_named_columns; a later node uses them implicitly, \
+for example an ML node with empty feature_columns uses every column except the target.
 - preview and profile_columns describe one node or dataset.
 
 Finish rule: call validate after your last edit and call finish only when validate returned \
-ok. If the request cannot be met with these tools, call abstain. Keep the flow minimal."""
+ok. If the request cannot be met with these tools, call abstain. Never guess which ref is a \
+column the user named: when names are not shared and types do not settle it, call abstain \
+with ambiguous_request so the user can share names. Keep the flow minimal."""
 
 
 class Finish(Args):
@@ -71,7 +77,7 @@ class Finish(Args):
 
 class Abstain(Args):
     reason: Literal["unsupported_request", "missing_data", "ambiguous_request", "policy"]
-    detail: Annotated[str, Field(max_length=200)] = ""
+    detail: Annotated[str, Field(max_length=400)] = ""
 
 
 Kind = Literal["finish", "abstain", "step_limit", "timeout", "provider_error", "invalid"]
@@ -85,6 +91,8 @@ class Outcome:
     message: str
     usage: dict[str, int]
     steps: list[dict[str, Any]]
+    #: Why the model abstained, when it did.
+    abstained: str | None = None
 
 
 def tool_specs() -> list[Tool]:
@@ -218,14 +226,14 @@ TOOLS: dict[str, _Tool] = {
     ),
     "profile_columns": _Tool(
         catalog.ProfileColumns,
-        "Null fraction, distinct count and numeric flag of up to 16 columns of a dataset or node ref.",
+        "Types of up to 16 columns; for a dataset ref also null fraction and distinct count.",
         lambda t, a: catalog.profile_columns(t.ctx, a),
         True,
         True,
     ),
     "preview": _Tool(
         verify.Preview,
-        "Row count and column types of one node on a sample, optionally profiled.",
+        "Column types of one node, from a preview on placeholder rows.",
         lambda t, a: verify.preview(t.ctx, a, t.work),
         True,
         True,
@@ -234,7 +242,11 @@ TOOLS: dict[str, _Tool] = {
         edit.ProposeEdit, "Apply up to 24 ops to the working graph, all or none.", _Turn.propose, False, True
     ),
     "validate": _Tool(
-        verify.Validate, "Run every check and a sample preview of the changed flow.", _Turn.validate, False, True
+        verify.Validate,
+        "Run every check and a placeholder-row preview of the changed flow.",
+        _Turn.validate,
+        False,
+        True,
     ),
     # Ending tools are decided by the loop itself.
     "finish": _Tool(Finish, "End the turn with a short summary. Requires a successful validate.", None, False, False),
@@ -349,7 +361,9 @@ async def run(
                 }
             elif name == "abstain" and isinstance(args, Abstain):
                 turn.steps.append({"tool": name, "ok": True})
-                return outcome("abstain", args.detail or "The assistant could not serve this request.")
+                ended = outcome("abstain", args.detail or "The assistant could not serve this request.")
+                ended.abstained = args.reason
+                return ended
             turn.steps.append({"tool": name, "ok": bool(result.get("ok", True))})
             messages.append(
                 {"role": "tool", "call_id": call_id, "name": name, "content": json.dumps(result, ensure_ascii=False)}

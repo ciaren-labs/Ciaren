@@ -363,7 +363,7 @@ async def test_injected_names_and_values_never_reach_the_model_as_instructions(c
         wire("src", "srt"),
         wire("srt", "out"),
     ]
-    # The engine's error for this cast quotes the cell value; it must reach the model redacted.
+    # On real rows this cast fails with an error quoting the cell; previews never see it.
     cast = [*ops[:2], add("cast", "castDtypes", casts={"c0": "integer"}), wire("src", "cast"), wire("cast", "srt")]
     cast += [op for op in ops[2:] if op.get("to") != "srt"]
     sent = scripted(
@@ -378,7 +378,7 @@ async def test_injected_names_and_values_never_reach_the_model_as_instructions(c
     assert "proposal" in reply, reply
     transcript = sent[-1]
     # Each call's transcript, before compaction stubbed the superseded results.
-    assert results(sent[3], "validate")[0]["ok"] is False
+    assert results(sent[3], "validate")[0]["ok"] is True
     assert VALUE not in json.dumps(sent) and dataset["id"] not in json.dumps(transcript)
     assert INJECTED not in transcript[0]["content"]
     assert len(transcript[0]["content"].encode()) <= assistant_agent.FIRST_MESSAGE_BYTES
@@ -404,7 +404,7 @@ async def test_profile_and_expressions_use_each_nodes_own_columns(client, db_ses
     assert result["ok"], result
     ctx.graph, ctx.refs = work.graph, work.refs
     profiled = await catalog.profile_columns(ctx, catalog.ProfileColumns(source="calc", columns=["c2"]))
-    # Without share_values a node profile states shape only: any flag of a filtered node
+    # A node profile states shape only: any count or flag of a filtered node
     # would let the model test data values one query at a time.
     assert profiled["columns"] == [{"ref": "c2", "type": "integer", "numeric": True}]
     assert "empty" not in profiled and "row_count" not in profiled
@@ -480,40 +480,93 @@ async def test_node_gates_run_before_any_preview(client, db_session, monkeypatch
     assert previews == []
 
 
-@pytest.mark.parametrize(
-    "check",
-    [
-        {"type": "assertRowCount", "config": {"min_rows": 1}},
-        {"type": "assertValuesInSet", "config": {"column": "c0", "allowed": ["guess"]}},
-        {"type": "assertExpression", "config": {"expression": "c0 != 'guess'"}},
-    ],
-)
-async def test_validate_does_not_answer_guesses_through_assertions(client, db_session, check):
+#: Ten rows, one holding the secret. Columns: c0 name, c1 amount, c2 label.
+GUESS_CSV = f"name,amount,label\n{VALUE},3,1\n" + "".join(f"v{i},{i},{i % 2}\n" for i in range(9))
+#: Steps after a filter on a guessed value whose outcome on real rows would depend on whether
+#: the guess occurs: an assertion, a failing cast, a value-dependent column set, a row minimum.
+GUESS_CHECKS = {
+    "row_count": ("==", [add("chk", "assertRowCount", min_rows=1)]),
+    "values_in_set": ("==", [add("chk", "assertValuesInSet", column="c0", allowed=["guess"])]),
+    "expression": ("==", [add("chk", "assertExpression", expression="c0 != 'guess'")]),
+    "cast": ("==", [add("chk", "castDtypes", casts={"c0": "integer"})]),
+    "pivot": ("==", [add("chk", "pivot", index=["c2"], columns="c0", values="c1")]),
+    "cross_validate": (
+        "!=",
+        [
+            add("rf", "mlClassifierModel", model_type="random_forest_classifier", target_column="c2"),
+            add("chk", "mlCrossValidate", n_splits=3),
+            wire("f", "rf"),
+            wire("rf", "chk", "model", "model"),
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize("check", GUESS_CHECKS)
+async def test_validate_does_not_answer_guesses_about_values(client, db_session, monkeypatch, check):
     from app.services.assistant_tools import verify
 
-    dataset = await upload(client, "g.csv", f"name,amount\n{VALUE},3\nb,4\n")
-    ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]})
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    dataset = await upload(client, "g.csv", GUESS_CSV)
+    operator, steps = GUESS_CHECKS[check]
     outcomes = []
     for guess in (VALUE, "wrong"):
-        config = json.loads(json.dumps(check["config"]).replace("guess", guess))
+        ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]})
         ops = [
             add("src", "fileInput", dataset_id="d0"),
-            add("f", "filterRows", column="c0", operator="==", value=guess),
-            add("chk", check["type"], **config),
+            add("f", "filterRows", column="c0", operator=operator, value=guess),
+            *json.loads(json.dumps(steps).replace("guess", guess)),
             add("out", "fileOutput", dataset_name="G"),
             wire("src", "f"),
             wire("f", "chk"),
             wire("chk", "out"),
         ]
         work, result = await propose_edit(ctx, edit_of(*ops), start({}))
-        assert result["ok"], result
         ctx.graph, ctx.refs = work.graph, work.refs
-        outcomes.append(await verify.validate(ctx, verify.Validate(), work))
-    # The data checks run when the flow runs; in the assistant's preview they pass through.
-    assert outcomes[0] == outcomes[1] and outcomes[0]["ok"], outcomes
+        outcomes.append((result, await verify.validate(ctx, verify.Validate(), work)))
+    # Previews run on placeholder rows built from the schema, so nothing they report can
+    # depend on whether the guess occurs; the data checks run when the flow runs.
+    assert outcomes[0] == outcomes[1] and outcomes[0][1]["ok"], outcomes
 
 
-async def test_counts_need_share_values(client, db_session):
+async def test_values_never_become_column_names(client, db_session, monkeypatch):
+    from app.services.assistant_tools import verify
+
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    dataset = await upload(client, "n.csv", GUESS_CSV)
+    ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]}, share_names=True)
+    ops = [
+        add("src", "fileInput", dataset_id="d0"),
+        add("enc", "encodeCategories", columns=["name"]),
+        add("out", "fileOutput", dataset_name="N"),
+        wire("src", "enc"),
+        wire("enc", "out"),
+    ]
+    work, result = await propose_edit(ctx, edit_of(*ops), start({}))
+    ctx.graph, ctx.refs = work.graph, work.refs
+    checked = await verify.validate(ctx, verify.Validate(), work)
+    # One-hot columns are named after values; sharing column names must not share those,
+    # and their placeholder names get no ref, so no setting can name a column the real run
+    # would not have.
+    assert result["ok"] and checked["ok"], (result, checked)
+    assert VALUE not in json.dumps([result, checked])
+    assert set(checked["nodes"]["enc"]["columns"]) == {"amount", "label"}
+    assert checked["nodes"]["enc"]["value_named_columns"] == 10
+    model = [
+        add(
+            "m",
+            "mlClassifierModel",
+            model_type="random_forest_classifier",
+            target_column="label",
+            feature_columns=["name_v0"],
+        ),
+        wire("enc", "m"),
+    ]
+    _, named = await propose_edit(ctx, edit_of(*model), work)
+    assert not named["ok"] and named["issues"][0]["code"] == "missing_column", named
+
+
+async def test_node_previews_share_only_types(client, db_session):
     from app.services.assistant_tools import verify
 
     dataset = await upload(client, "v.csv", f"name,amount\n{VALUE},3\nb,4\n")
@@ -528,10 +581,7 @@ async def test_counts_need_share_values(client, db_session):
     for result in (hidden, profiled):
         assert "row_count" not in result and "empty" not in result
     for column in [*hidden["profile"], *profiled["columns"]]:
-        assert set(column) <= {"ref", "type", "numeric"}
-    ctx.share_values = True
-    shared = await verify.preview(ctx, verify.Preview(node="srt", profile=True), work)
-    assert shared["row_count"] == 2 and shared["profile"][1]["distinct"] == 2
+        assert set(column) == {"ref", "type", "numeric"}
 
 
 @pytest.mark.parametrize("share_names", [False, True])
@@ -629,3 +679,16 @@ async def test_existing_legacy_inputs_stay_editable(client, db_session):
     ops = [add("lim", "limitRows", n=1), add("out", "fileOutput"), wire("n0", "lim"), wire("lim", "out")]
     _, result = await propose_edit(ctx, edit_of(*ops), start(base))
     assert result["ok"], result
+
+
+@pytest.mark.parametrize(
+    ("reason", "share_names", "offered"),
+    [("ambiguous_request", False, True), ("ambiguous_request", True, False), ("policy", False, False)],
+)
+async def test_abstaining_for_hidden_names_offers_to_share_them(client, scripted, reason, share_names, offered):
+    dataset = await upload(client, "a.csv", "price,qty\n2,3\n")
+    scripted([("abstain", {"reason": reason, "detail": "Which column is the price?"})])
+    _, _, reply = await turn(client, "Multiply price by qty", dataset_id=dataset["id"], share_names=share_names)
+    assert reply["reason"] == "abstained" and reply["message"] == "Which column is the price?"
+    actions = [s["action"] for s in reply.get("suggestions", [])]
+    assert ("share_names" in actions) is offered, reply

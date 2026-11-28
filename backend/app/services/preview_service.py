@@ -319,6 +319,9 @@ class GraphPreview:
     issues: list[Issue] = field(default_factory=list)
     # True when at least one input had more rows than the sample.
     sampled: bool = False
+    # With hidden values: columns named after placeholder values, whose real names are
+    # known only when the flow runs.
+    value_named: frozenset[str] = frozenset()
 
 
 class _SampleEngine(PandasEngine):
@@ -329,9 +332,10 @@ class _SampleEngine(PandasEngine):
     Output sizes are estimated per node by ``_PreviewExecutor`` from ``EXPANSION``.
     """
 
-    def __init__(self, rows: int) -> None:
+    def __init__(self, rows: int, placeholder: "Placeholder | None" = None) -> None:
         self.rows = rows
         self.truncated = False
+        self.placeholder = placeholder
 
     def read(self, path: str, source_type: str) -> pd.DataFrame:
         n = self.rows + 1
@@ -357,10 +361,134 @@ class _SampleEngine(PandasEngine):
                 df = pd.DataFrame({"text": [line.rstrip("\r\n") for line in islice(fh, n)]})
         else:
             df = super().read(path, source_type)
+        if self.placeholder is not None:
+            return self.placeholder.frame(df)
         if len(df) > self.rows:
             self.truncated = True
             df = df.head(self.rows)
         return df
+
+
+#: Rows of the placeholder frame that replaces each input when values are hidden.
+PLACEHOLDER_ROWS = 200
+#: Text literals mixed into one column, and the longest literal kept.
+_PLACEHOLDER_LITERALS = 16
+_PLACEHOLDER_TEXT = 160
+#: Nodes that parse text into another type; with placeholder rows they coerce instead of
+#: raising, since a placeholder is not the text the real column holds.
+_PARSE_TYPES = frozenset({"castDtypes", "parseDates"})
+#: Nodes that name new columns after data values (one-hot categories, pivot values).
+VALUE_NAMED_TYPES = frozenset({"encodeCategories", "pivot"})
+_QUOTED = re.compile(r"'([^']*)'")
+_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _strings(config: dict[str, Any]) -> list[str]:
+    """The strings one settings object names directly: values, list items, mapping keys and
+    values, and the identifiers and quoted literals of an expression."""
+    found: list[str] = []
+    for key, value in config.items():
+        items = value if isinstance(value, list) else [*value, *value.values()] if isinstance(value, dict) else [value]
+        for item in items:
+            if isinstance(item, str):
+                found.append(item)
+                if key == "expression":
+                    found += _QUOTED.findall(item) + _WORD.findall(_QUOTED.sub("", item))
+    return found
+
+
+@dataclass(frozen=True)
+class Placeholder:
+    """Builds input frames from a schema and the graph's own settings, never from values.
+
+    Each input keeps its column names, dtypes, distinct-value counts and whether a column
+    has nulls: facts about the whole input that no node of the graph can filter. The values
+    follow a fixed pattern, and a text column also takes the literals its settings compare
+    it with (a filter value, a mapping key). Whatever a preview then reports, a pass or fail,
+    a column set or a row minimum, depends only on what the caller already knows, so no
+    preview can answer a guess about the data.
+    """
+
+    #: Strings named together in one settings object, so a column's group holds its literals.
+    groups: tuple[tuple[str, ...], ...]
+    #: Text columns that a cast or date parse reads: column name to (target type, format).
+    parsed: Mapping[str, tuple[str, str | None]]
+
+    @classmethod
+    def of(cls, graph: dict[str, Any]) -> "Placeholder":
+        groups: list[tuple[str, ...]] = []
+        parsed: dict[str, tuple[str, str | None]] = {}
+
+        def walk(value: Any) -> None:
+            if isinstance(value, dict):
+                groups.append(tuple(_strings(value)))
+                for item in value.values():
+                    walk(item)
+            elif isinstance(value, list):
+                for item in value:
+                    walk(item)
+
+        for node in graph.get("nodes", []):
+            config = node.get("data", {}).get("config") or {}
+            walk(config)
+            fmt = config.get("format") if isinstance(config.get("format"), str) else None
+            if node.get("type") == "castDtypes" and isinstance(config.get("casts"), dict):
+                for column, dtype in config["casts"].items():
+                    parsed.setdefault(str(column), (str(dtype), fmt))
+            elif node.get("type") == "parseDates" and isinstance(config.get("columns"), list):
+                for column in config["columns"]:
+                    parsed.setdefault(str(column), ("datetime", fmt))
+        return cls(tuple(groups), parsed)
+
+    def frame(self, sample: pd.DataFrame) -> pd.DataFrame:
+        names = {str(c) for c in sample.columns}
+        return pd.DataFrame(
+            {str(name): self._column(str(name), sample.iloc[:, i], names) for i, name in enumerate(sample.columns)},
+            index=pd.RangeIndex(PLACEHOLDER_ROWS),
+        )
+
+    def _literals(self, column: str, names: set[str]) -> list[str]:
+        found: list[str] = []
+        for group in self.groups:
+            if column in group:
+                for text in group:
+                    if text not in names and text not in found and len(text) <= _PLACEHOLDER_TEXT:
+                        found.append(text)
+        return found[:_PLACEHOLDER_LITERALS]
+
+    def _column(self, name: str, real: pd.Series, names: set[str]) -> pd.Series:
+        n, dtype = PLACEHOLDER_ROWS, real.dtype
+        distinct = min(max(int(real.nunique(dropna=True)), 1), n)
+        nulls = bool(real.isna().any())
+        if pd.api.types.is_bool_dtype(dtype):
+            values: list[Any] = [k % distinct == 0 for k in range(n)]
+        elif pd.api.types.is_numeric_dtype(dtype):
+            values = [k % distinct for k in range(n)]
+        elif isinstance(dtype, pd.DatetimeTZDtype) or pd.api.types.is_datetime64_any_dtype(dtype):
+            start = pd.Timestamp("2026-01-01", tz=getattr(dtype, "tz", None))
+            values = [start + pd.Timedelta(days=k % distinct) for k in range(n)]
+        else:
+            target, fmt = self.parsed.get(name, ("", None))
+            if target in ("integer", "float"):
+                cycle = [str(k) for k in range(distinct)]
+            elif target == "boolean":
+                cycle = ["true", "false"]
+            elif target == "datetime":
+                cycle = list(pd.date_range("2026-01-01", periods=distinct, freq="D").strftime(fmt or "%Y-%m-%d"))
+            else:
+                literals = self._literals(name, names)
+                cycle = literals + [f"v{k}" for k in range(max(distinct - len(literals), 0))]
+            values = [cycle[k % len(cycle)] for k in range(n)]
+        if nulls:
+            values = [None if k % 10 == 9 else v for k, v in enumerate(values)]
+        series = pd.Series(values, dtype=object)
+        if isinstance(dtype, pd.CategoricalDtype):
+            return series.astype("category")
+        try:
+            return series.astype(dtype)
+        except (TypeError, ValueError):
+            # A dtype the pattern cannot fill (an extension or mixed type): keep the text.
+            return series
 
 
 Estimate = tuple[int, int]
@@ -508,20 +636,21 @@ class _PreviewExecutor(FlowExecutor):
     example a pathological regex) can overrun it. The size caps keep each node small.
     """
 
-    def __init__(self, deadline: float, skip_assertions: bool = False) -> None:
+    def __init__(self, deadline: float, hide_values: bool = False) -> None:
         super().__init__()
         self.deadline = deadline
-        self.skip_assertions = skip_assertions
+        self.hide_values = hide_values
 
     def _node_outputs(
         self, engine: Any, node: dict[str, Any], incoming: dict[str, Any], outputs: dict[str, Any], *rest: Any
     ) -> Any:
         if monotonic() >= self.deadline:
             raise PreviewLimit("preview deadline reached")
-        if self.skip_assertions and node["type"] in ASSERTION_TYPES:
-            # Pass the rows through unchecked: the check's outcome would tell the
-            # caller whether a guessed value occurs in the data.
+        if self.hide_values and node["type"] in ASSERTION_TYPES:
+            # Placeholder rows would fail most checks; they run when the flow runs.
             return {"out": _build_inputs(incoming.get(node["id"], []), outputs)["in"]}, None
+        if self.hide_values and node["type"] in _PARSE_TYPES:
+            node = {**node, "data": {**node["data"], "config": {**node["data"]["config"], "errors": "coerce"}}}
         rule = EXPANSION.get(node["type"])
         if rule is not None:
             inputs = _build_inputs(incoming.get(node["id"], []), outputs)
@@ -537,6 +666,19 @@ class _PreviewExecutor(FlowExecutor):
         if monotonic() >= self.deadline:
             raise PreviewLimit("preview deadline reached")
         return result
+
+
+def _value_named(graph: dict[str, Any], frames: Mapping[str, Any]) -> frozenset[str]:
+    """The new columns of ``VALUE_NAMED_TYPES`` nodes; downstream nodes keep their names."""
+    found: set[str] = set()
+    for node in graph["nodes"]:
+        if node["type"] in VALUE_NAMED_TYPES and node["id"] in frames:
+            sources = [
+                frames[e["source"]] for e in graph["edges"] if e["target"] == node["id"] and e["source"] in frames
+            ]
+            before = {str(c) for frame in sources for c in frame.columns}
+            found |= {str(c) for c in frames[node["id"]].columns} - before
+    return frozenset(found)
 
 
 def _shape_issues(graph: dict[str, Any]) -> list[Issue]:
@@ -650,15 +792,18 @@ async def preview_graph(
     sample_rows: int = 2000,
     *,
     expression_guard: Callable[[str], None] | None = None,
-    skip_assertions: bool = False,
+    hide_values: bool = False,
 ) -> GraphPreview:
     """Preview an unsaved graph on the first ``sample_rows`` rows of each input.
 
     Nodes outside the preview allowlist return ``policy`` issues before anything
     runs. Expression nodes are allowed only when ``expression_guard`` returns for
     each of their expressions; it rejects one by raising. Graph shape limits, size
-    estimates, the row cap and the deadline return ``limit`` issues. With
-    ``skip_assertions`` data-quality assertions pass their rows through unchecked.
+    estimates, the row cap and the deadline return ``limit`` issues.
+
+    With ``hide_values`` every input is replaced by :class:`Placeholder` rows with the
+    same schema, data-quality assertions pass their rows through and text parsing
+    coerces, so the result depends on the schema and the graph only.
 
     With ``node_id`` only that node's upstream slice is computed; without it the
     whole graph is computed and the deepest node is the target. Every input must
@@ -684,8 +829,8 @@ async def preview_graph(
 
     guard_graph_ml_enabled(graph)
     dataset_paths, _ = await build_dataset_paths(db, graph)
-    engine = _SampleEngine(sample_rows)
-    executor = _PreviewExecutor(monotonic() + PREVIEW_DEADLINE_SECONDS, skip_assertions)
+    engine = _SampleEngine(sample_rows, Placeholder.of(graph) if hide_values else None)
+    executor = _PreviewExecutor(monotonic() + PREVIEW_DEADLINE_SECONDS, hide_values)
 
     def _compute() -> GraphPreview:
         try:
@@ -700,6 +845,7 @@ async def preview_graph(
             _response(engine, frames[target], limit, profile),
             {nid: [(str(c), str(t)) for c, t in df.dtypes.items()] for nid, df in frames.items()},
             sampled=engine.truncated,
+            value_named=_value_named(graph, frames) if hide_values else frozenset(),
         )
         ml_types = ml_node_types()
         for node in graph["nodes"]:

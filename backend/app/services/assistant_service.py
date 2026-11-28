@@ -15,7 +15,7 @@ from app.db.models.flow import AssistantActivity, Flow
 from app.engine.node_metadata import BUILTIN_NODE_META
 from app.ml.availability import guard_graph_ml_enabled
 from app.plugins import get_registry
-from app.schemas.assistant import Plan, Reply, Turn
+from app.schemas.assistant import Plan, Reply, Suggestion, Turn
 from app.services import (
     assistant_activity,
     assistant_agent,
@@ -205,6 +205,10 @@ class AssistantService:
         extra: Graph = {"usage": outcome.usage, "steps": outcome.steps}
         if outcome.kind in ("abstain", "invalid") or outcome.work is None:
             reason = {"abstain": "abstained", "invalid": "validation_failed"}.get(outcome.kind, outcome.kind)
+            if outcome.abstained in ("ambiguous_request", "missing_data") and not body.share_names:
+                extra["suggestions"] = [
+                    Suggestion(label="Share column names and retry", action="share_names").model_dump()
+                ]
             return {"message": outcome.message, "reason": reason, **extra}
         graph = outcome.work.graph
         versions = [

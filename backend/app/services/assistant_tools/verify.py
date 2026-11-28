@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""``validate`` and ``preview``: static gates and sample previews of the working graph.
+"""``validate`` and ``preview``: static gates and placeholder previews of the working graph.
 
 Both report column refs and types per node, never row values.
 """
@@ -9,7 +9,7 @@ from typing import Any
 
 from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.services.assistant_tools import gates, sample
-from app.services.assistant_tools.catalog import Args, Ref, column_profile, counts
+from app.services.assistant_tools.catalog import Args, Ref, column_profile
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
 from app.services.assistant_tools.edit import expression_columns
 from app.services.assistant_tools.ops import EditRejected, Working, diff
@@ -46,16 +46,23 @@ def affected(graph: Graph, nodes: set[str]) -> Graph:
     }
 
 
-def _columns(ctx: ToolContext, ref: str, schema: list[tuple[str, str]]) -> dict[str, str]:
-    """Column ref (or name when names are shared) -> coarse type, registering the refs."""
-    refs = ctx.register(ref, [c for c, _ in schema])
+def _columns(ctx: ToolContext, ref: str, schema: list[tuple[str, str]], preview: GraphPreview) -> dict[str, str]:
+    """Column ref (or name when names are shared) -> coarse type, registering the refs.
+
+    Columns named after data values get no ref: their preview names are placeholders."""
+    refs = ctx.register(ref, [c for c, _ in schema if c not in preview.value_named])
     types = dict(schema)
     return {name if ctx.share_names else key: sample.kind(types[name]) for key, name in refs.items()}
 
 
-async def _preview(ctx: ToolContext, graph: Graph, node: str | None, profile: bool = False) -> GraphPreview:
+def _value_named(schema: list[tuple[str, str]], preview: GraphPreview) -> dict[str, int]:
+    count = sum(c in preview.value_named for c, _ in schema)
+    return {"value_named_columns": count} if count else {}
+
+
+async def _preview(ctx: ToolContext, graph: Graph, node: str | None) -> GraphPreview:
     try:
-        return await sample.scoped_preview(ctx.db, ctx.project, graph, node, profile=profile)
+        return await sample.scoped_preview(ctx.db, ctx.project, graph, node)
     except ValidationError:
         raise ToolError("missing_dataset", "An input dataset is unavailable.") from None
     except MLNotEnabledError:
@@ -73,7 +80,9 @@ async def columns_of(ctx: ToolContext, work: Working, node_ids: set[str]) -> dic
         return {}
     refs = {i: r for r, i in work.refs.items()}
     return {
-        refs[i]: _columns(ctx, refs[i], schema) for i, schema in result.schemas.items() if i in node_ids and i in refs
+        refs[i]: _columns(ctx, refs[i], schema, result)
+        for i, schema in result.schemas.items()
+        if i in node_ids and i in refs
     }
 
 
@@ -95,35 +104,28 @@ async def validate(ctx: ToolContext, args: Validate, work: Working) -> dict[str,
     preview = await _preview(ctx, affected(work.graph, changed), None)
     refs = {i: r for r, i in work.refs.items()}
     nodes = {
-        refs[node_id]: {"columns": _columns(ctx, refs[node_id], schema)}
+        refs[node_id]: {"columns": _columns(ctx, refs[node_id], schema, preview), **_value_named(schema, preview)}
         for node_id, schema in preview.schemas.items()
         if node_id in refs
     }
     issues = sample.public_issues(preview, refs, ctx.hidden())
-    return {"ok": not issues, "nodes": nodes, "sampled": preview.sampled, "issues": issues}
+    return {"ok": not issues, "nodes": nodes, "issues": issues}
 
 
 async def preview(ctx: ToolContext, args: Preview, work: Working) -> dict[str, Any]:
-    """Row count, column types and an optional shape profile of one node. No rows."""
+    """Column types and an optional shape profile of one node. No rows or counts."""
     node_id = work.refs.get(args.node)
     if node_id is None or not any(n["id"] == node_id for n in work.graph["nodes"]):
         raise ToolError("bad_ref", "Unknown node reference.")
-    result = await _preview(ctx, work.graph, node_id, args.profile)
+    result = await _preview(ctx, work.graph, node_id)
     refs = {i: r for r, i in work.refs.items()}
     if result.preview is None or node_id not in result.schemas:
         return {"ok": False, "issues": sample.public_issues(result, refs, ctx.hidden())}
-    columns = _columns(ctx, args.node, result.schemas[node_id])
-    reply: dict[str, Any] = {
-        "ok": True,
-        "sampled": result.sampled,
-        "columns": columns,
-        **counts(result.preview.row_count, ctx.share_values),
-    }
+    columns = _columns(ctx, args.node, result.schemas[node_id], result)
+    reply: dict[str, Any] = {"ok": True, "columns": columns, **_value_named(result.schemas[node_id], result)}
     if args.profile:
         types = dict(result.schemas[node_id])
-        by_name = {p.get("name"): p for p in result.preview.profile or []}
         reply["profile"] = [
-            column_profile(ref, sample.kind(types[name]), by_name.get(name, {}), ctx.share_values, ctx.share_values)
-            for ref, name in ctx.columns[args.node].items()
+            column_profile(ref, sample.kind(types[name])) for ref, name in ctx.columns[args.node].items()
         ]
     return reply

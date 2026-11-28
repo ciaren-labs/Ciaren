@@ -807,3 +807,44 @@ def test_assertion_passthrough_covers_every_registered_assertion() -> None:
 
     registered = {t for t in list_transformation_types() if t.startswith("assert")}
     assert registered == preview_service.ASSERTION_TYPES
+
+
+async def test_placeholder_rows_keep_schema_and_never_carry_values(
+    client: AsyncClient, db_session, monkeypatch
+) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    rows = "".join(
+        f"secret{i},{['paid', 'shipped', 'refunded'][i % 3]},{i % 2},{'' if i == 5 else i * 1.5},0{i % 9 + 1}/02/2026\n"
+        for i in range(30)
+    )
+    ds = await _upload(client, ("name,status,label,price,day\n" + rows).encode())
+    steps = [
+        {"id": "f", "type": "filterRows", "data": {"config": {"column": "status", "operator": "==", "value": "paid"}}},
+        {
+            "id": "p",
+            "type": "parseDates",
+            "data": {"config": {"columns": ["day"], "format": "%d/%m/%Y", "errors": "raise"}},
+        },
+        {
+            "id": "s",
+            "type": "trainTestSplit",
+            "data": {"config": {"seed": 1, "test_size": 0.25, "stratify_column": "label"}},
+        },
+    ]
+    graph = _graph(ds, *steps)
+
+    split = await preview_graph(db_session, ds["project_id"], graph, "s", limit=0, profile=False, hide_values=True)
+    filtered = await preview_graph(db_session, ds["project_id"], graph, "f", limit=50, profile=False, hide_values=True)
+
+    # Types, cardinality and the literals the graph compares survive, so a stratified split
+    # on the 0/1 label and a strict date parse work; no real value reaches the preview.
+    assert split.issues == [] and filtered.issues == []
+    assert dict(split.schemas["p"])["day"].startswith("datetime64")
+    assert dict(split.schemas["in1"]) == dict(
+        (await preview_graph(db_session, ds["project_id"], graph, "in1", 0, False)).schemas["in1"]
+    )
+    assert filtered.preview is not None and filtered.preview.row_count > 0
+    assert {r["status"] for r in filtered.preview.rows} == {"paid"}
+    assert "secret" not in str(filtered.preview.rows) and not filtered.sampled

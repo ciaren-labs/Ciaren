@@ -317,10 +317,12 @@ async def test_dataset_tools_share_refs_not_values(client, db_session):
     assert profiled["columns"][1]["numeric"] and profiled["columns"][1]["unique"]
     sent = json.dumps([shape, profiled])
     assert SECRET not in sent and "private_name" not in sent and "hidden" not in sent and dataset["id"] not in sent
-    ctx.share_names = ctx.share_values = True
+    ctx.share_names = True
     named = await catalog.get_dataset_schema(ctx, catalog.GetDatasetSchema(dataset="d0"))
     assert named["columns"][0]["name"] == "private_name"
-    assert (await catalog.profile_columns(ctx, args))["columns"][1]["max"] == 5
+    # Value ranges are data: they stay on the server even when names are shared.
+    assert SECRET not in json.dumps(await catalog.profile_columns(ctx, args))
+    assert "max" not in (await catalog.profile_columns(ctx, args))["columns"][1]
     with pytest.raises(ToolError, match="column"):
         await catalog.profile_columns(ctx, catalog.ProfileColumns(source="d0", columns=["c9"]))
     with pytest.raises(ToolError):

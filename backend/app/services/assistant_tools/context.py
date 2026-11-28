@@ -32,7 +32,6 @@ class ToolContext:
     #: Dataset ref (``d0``) -> project dataset id, fixed by the caller before the turn.
     datasets: dict[str, str] = field(default_factory=dict)
     share_names: bool = False
-    share_values: bool = False
     #: Source ref (dataset or node) -> column ref (``c0``) -> real column name.
     columns: dict[str, dict[str, str]] = field(default_factory=dict)
     #: Real column name -> ref, one map per turn: a column keeps its ref at every node.

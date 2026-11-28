@@ -83,7 +83,7 @@ async def expression_scopes(
             continue
         if source not in known:
             result = await preview_graph(
-                db, project, graph, source, 0, False, expression_guard=_guard(graph, scopes), skip_assertions=True
+                db, project, graph, source, 0, False, expression_guard=_guard(graph, scopes), hide_values=True
             )
             known.update(result.schemas)
             if source not in known:
@@ -92,17 +92,15 @@ async def expression_scopes(
     return scopes, None
 
 
-async def scoped_preview(
-    db: AsyncSession, project: str, graph: Graph, node_id: str | None = None, *, profile: bool = False
-) -> GraphPreview:
+async def scoped_preview(db: AsyncSession, project: str, graph: Graph, node_id: str | None = None) -> GraphPreview:
     """``preview_graph`` with per-node expression scopes. Same errors as ``expression_scopes``."""
     wanted = ancestors(graph, [node_id]) if node_id else None
     scopes, failed = await expression_scopes(db, project, graph, wanted)
     if failed is not None:
         return failed
-    # Assertions pass through: their outcome would answer guesses about hidden values.
+    # Placeholder rows: no result may answer a guess about the hidden values.
     return await preview_graph(
-        db, project, graph, node_id, 0, profile, expression_guard=_guard(graph, scopes), skip_assertions=True
+        db, project, graph, node_id, 0, False, expression_guard=_guard(graph, scopes), hide_values=True
     )
 
 

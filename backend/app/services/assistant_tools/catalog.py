@@ -129,36 +129,30 @@ async def get_dataset_schema(ctx: ToolContext, args: GetDatasetSchema) -> dict[s
     }
 
 
-def column_profile(ref: str, dtype: str, p: dict[str, Any], counts: bool, share_values: bool) -> dict[str, Any]:
-    """Shape facts for one column from a profile entry.
+def column_profile(ref: str, dtype: str, p: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Shape facts for one column, with counts only from a dataset's stored profile ``p``.
 
-    Without ``counts`` only flags are given: counts of a filtered node would let the model
-    test data values one query at a time. Ranges need ``share_values``.
+    A node's columns get no counts or flags: a node can filter on a guessed value, so any
+    count would answer the guess. Value ranges are data and never leave the server.
     """
-    scanned = p.get("scanned") or 0
     kind = dtype if dtype in SHARED_TYPES else "other"
     entry: dict[str, Any] = {"ref": ref, "type": kind, "numeric": dtype in NUMERIC}
-    if not (counts or share_values):
-        return entry  # A filtered node's flags would answer guesses about its values.
+    if p is None:
+        return entry
+    scanned = p.get("scanned") or 0
     entry["unique"] = bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0
-    if counts:
-        entry["null_frac"] = round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None
-        entry["distinct"] = p.get("distinct")
-    else:
-        entry["has_nulls"] = bool(p.get("null_count"))
-    # Ranges are data values; they leave the process only with the explicit opt-in.
-    if share_values and "min" in p:
-        entry.update(min=p["min"], max=p["max"])
+    entry["null_frac"] = round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None
+    entry["distinct"] = p.get("distinct")
     return entry
 
 
 async def _node_profile(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
-    """Profile a working-graph node's output on the preview sample."""
+    """Column types of a working-graph node's output, from a placeholder preview."""
     node_id = ctx.refs.get(args.source)
     if node_id is None:
         raise ToolError("bad_ref", "Unknown dataset or node reference.")
     try:
-        preview = await sample.scoped_preview(ctx.db, ctx.project, ctx.graph, node_id, profile=True)
+        preview = await sample.scoped_preview(ctx.db, ctx.project, ctx.graph, node_id)
     except ValidationError:
         raise ToolError("missing_dataset", "The input dataset is unavailable.") from None
     except MLNotEnabledError:
@@ -166,23 +160,10 @@ async def _node_profile(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any
     if preview.preview is None or node_id not in preview.schemas:
         issue = preview.issues[0].code if preview.issues else "config"
         raise ToolError(issue, "This node could not be previewed. Run validate for details.")
-    types = {name: sample.kind(dtype) for name, dtype in preview.schemas[node_id]}
+    types = {name: sample.kind(dtype) for name, dtype in preview.schemas[node_id] if name not in preview.value_named}
     ctx.register(args.source, list(types))
     names = ctx.column_names(args.source, args.columns)
-    by_name = {p.get("name"): p for p in preview.preview.profile or []}
-    columns = [
-        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values, ctx.share_values)
-        for ref, name in zip(args.columns, names, strict=True)
-    ]
-    return {"columns": columns, "sampled": preview.sampled, **counts(preview.preview.row_count, ctx.share_values)}
-
-
-def counts(rows: int, share_values: bool) -> dict[str, Any]:
-    """A node's row count, only with share_values.
-
-    Any count or flag of a filtered node tells whether a guessed value occurs in the data.
-    """
-    return {"row_count": rows} if share_values else {}
+    return {"columns": [column_profile(ref, types[name]) for ref, name in zip(args.columns, names, strict=True)]}
 
 
 async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
@@ -195,8 +176,7 @@ async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, A
     types = ctx.schemas[args.source].columns
     # A dataset's stored profile describes the whole dataset, which the model cannot filter.
     columns = [
-        column_profile(ref, types[name], by_name.get(name, {}), True, ctx.share_values)
-        for ref, name in zip(args.columns, names, strict=True)
+        column_profile(ref, types[name], by_name.get(name, {})) for ref, name in zip(args.columns, names, strict=True)
     ]
     return {"columns": columns, "row_count": rows}
 
