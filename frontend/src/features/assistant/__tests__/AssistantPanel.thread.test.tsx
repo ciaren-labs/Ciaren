@@ -284,6 +284,7 @@ describe("guidance card (AC-U4, F2)", () => {
     ["validation_failed", "The proposal did not pass checks"],
     ["step_limit", "Too many steps for one request"],
     ["timeout", "The request took too long"],
+    ["provider_error", "The provider stopped responding"],
     ["canvas_limit", "The canvas is too large"],
   ])("explains %s in plain copy with the server message as support", async (reason, title) => {
     routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: `Server detail for ${reason}.`, reason });

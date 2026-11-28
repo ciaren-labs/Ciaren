@@ -74,7 +74,7 @@ class Abstain(Args):
     detail: Annotated[str, Field(max_length=200)] = ""
 
 
-Kind = Literal["finish", "abstain", "step_limit", "timeout", "invalid"]
+Kind = Literal["finish", "abstain", "step_limit", "timeout", "provider_error", "invalid"]
 
 
 @dataclass
@@ -278,9 +278,13 @@ async def run(
         return Outcome(kind, result, message, reservation.usage, turn.steps)
 
     async def limited(kind: Kind) -> Outcome:
-        """End on a limit: validate the last working graph and propose it as finished when
-        it passes, or as an unvalidated draft when it does not."""
-        reason = "reached its step limit" if kind == "step_limit" else "ran out of time"
+        """End on a limit or a provider error: validate the last working graph and propose it
+        as finished when it passes, or as an unvalidated draft when it does not."""
+        reason = {
+            "step_limit": "reached its step limit",
+            "timeout": "ran out of time",
+            "provider_error": "hit a provider error",
+        }[kind]
         if turn.draft is None:
             return outcome(kind, f"The assistant {reason} before proposing a change.")
         try:
@@ -306,6 +310,11 @@ async def run(
             return await limited("timeout")
         except BudgetExhausted:
             return await limited("step_limit")
+        except ValidationError:
+            # A failed provider call keeps the draft; without one it stays a request error.
+            if turn.draft is None:
+                raise
+            return await limited("provider_error")
         calls += 1
         messages.append({"role": "assistant", "echo": step.echo})
         if not step.tool_calls:

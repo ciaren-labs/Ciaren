@@ -13,6 +13,7 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.config import get_settings
+from app.core.exceptions import ValidationError
 from app.services import assistant_agent, assistant_provider
 from app.services.assistant_tools import catalog
 from app.services.assistant_tools.context import ToolContext
@@ -251,6 +252,27 @@ async def test_step_limit_validates_the_last_working_graph(client, scripted, com
     else:
         assert reply["reason"] == "step_limit" and "unvalidated" in reply["message"]
         assert added == {"fileInput", "limitRows"}
+
+
+@pytest.mark.parametrize("draft", ["complete", "incomplete", None])
+async def test_provider_error_mid_turn_keeps_the_draft(client, scripted, draft):
+    dataset = await upload(client, "p.csv", "a\n1\n")
+    failure = ValidationError("The provider request or response transfer failed.")
+    ops = {"complete": LIMITED, "incomplete": LIMITED[:2] + [wire("src", "lim")]}.get(draft)
+    scripted(*([[("propose_edit", {"ops": ops})]] if ops else []), failure)
+    flow = (await client.post("/api/flows", json={"name": "Agent"})).json()
+    body = {"mode": "build", "provider": "openai", "question": "Limit", "revision": flow["updated_at"]}
+    r = await client.post(f"/api/assistant/flows/{flow['id']}/turn", json={**body, "dataset_id": dataset["id"]})
+    if draft is None:
+        # Nothing to keep: the provider error stays a request error.
+        assert r.status_code == 400 and "transfer failed" in r.text
+        return
+    reply = r.json()
+    assert r.status_code == 200 and "proposal" in reply and "provider" in reply["message"], reply
+    if draft == "complete":
+        assert "reason" not in reply and "passed validation" in reply["message"]
+    else:
+        assert reply["reason"] == "provider_error" and "unvalidated" in reply["message"]
 
 
 async def test_wall_clock_returns_the_draft_as_timeout(client, scripted, monkeypatch):

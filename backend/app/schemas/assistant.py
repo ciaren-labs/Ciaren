@@ -110,6 +110,7 @@ Reason = Literal[
     "validation_failed",
     "step_limit",
     "timeout",
+    "provider_error",
     "disabled_flow",
     "canvas_limit",
 ]

@@ -293,6 +293,10 @@ const REASONS: Record<Reason | Conflict, { title: string; text: string }> = {
     title: "The request took too long",
     text: "The provider did not finish in time; retry, or ask for a smaller change.",
   },
+  provider_error: {
+    title: "The provider stopped responding",
+    text: "The provider call failed partway through. Review the draft carefully or retry.",
+  },
 };
 
 const ASSISTANT_GUIDE = "https://ciaren.com/docs/latest/guide/flow-assistant";

@@ -2827,7 +2827,7 @@
     "Refused": {
       "properties": {
         "detail": "string",
-        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})"
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})"
       },
       "required": [
         "detail"
@@ -2840,7 +2840,7 @@
         "expires_in": "anyOf(integer|null)",
         "message": "string",
         "proposal": "anyOf(null|string)",
-        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
         "steps": "anyOf(array<#ToolStep>|null)",
         "suggestions": "anyOf(array<#Suggestion>|null)",
         "supported": "anyOf(array<string>|null)",
