@@ -440,10 +440,14 @@ async def test_docs_citation_abstention(client, enabled, monkeypatch):
 @pytest.mark.parametrize(
     ("question", "excerpt", "source"),
     [
-        ("How do I set up an API key?", "**New API key**", "flow-assistant-quick-start"),
+        ("How do I set up an API key?", "paste the key and confirm the storage notice", "connections"),
         ("Where can I see the history of assistant changes?", "**Preview reversal**", "flow-assistant-quick-start"),
         ("Do I need an API key to use Ciaren?", "visual pipeline builder without an API key", "quick-start"),
-        ("Can Ciaren build a pipeline from a prompt?", "supported CSV operations", "flow-assistant-quick-start"),
+        (
+            "Can Ciaren build a pipeline from a prompt?",
+            "proposes real nodes, settings and connections",
+            "flow-assistant-quick-start",
+        ),
         ("How do I train a shipping cost model from three CSVs?", "seeded train/test split", "flow-assistant"),
         ("Can I connect my agent via MCP?", "does not ship a Model Context Protocol", "external-agent"),
     ],
