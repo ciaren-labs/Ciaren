@@ -20,7 +20,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.db.models.flow import Flow
 from app.engine.backends import AnyFrame, EngineBackend, get_engine
 from app.engine.backends.pandas_engine import PandasEngine
-from app.engine.executor import FlowExecutor, NodeExecutionError
+from app.engine.executor import FlowExecutor, NodeExecutionError, _build_inputs
 from app.engine.graph import GraphValidationError, ancestor_subgraph, topological_sort
 from app.engine.node_kinds import FILE_OUTPUT_TYPE
 from app.engine.parameters import ParameterError, apply_parameters
@@ -249,6 +249,7 @@ _REF = re.compile(r"[a-z][a-z0-9_]{0,23}")
 
 # Resource bounds for one assistant preview. Module globals so tests can lower them.
 PREVIEW_MAX_NODE_ROWS = 50_000
+PREVIEW_MAX_CELLS = 2_000_000
 PREVIEW_DEADLINE_SECONDS = 15.0
 PREVIEW_MAX_JSON_BYTES = 16 * 1024 * 1024
 PREVIEW_MAX_NODES = 80
@@ -275,13 +276,14 @@ PREVIEW_SAFE_TYPES: frozenset[str] = frozenset(
         # ML: preview mode never fits, logs or loads a model.
         "encodeCategories", "featureImportance", "mlClassifierModel", "mlCrossValidate", "mlEvaluate",
         "mlPredict", "mlRegressorModel", "mlTrainClassifier", "mlTrainClustering", "mlTrainDimReduction",
-        "mlTrainForecaster", "mlTrainRegressor", "reduceDimensions", "scaleFeatures", "selectFeatures",
+        "mlTrainRegressor", "reduceDimensions", "scaleFeatures", "selectFeatures",
         "trainTestSplit",
     }
 )  # fmt: skip
 _EXPRESSION_REASON = "evaluates a user expression with pandas eval; runs only after expression_guard accepts it"
 PREVIEW_EXCLUDED: dict[str, str] = {
     "pythonTransform": "runs arbitrary Python with exec; never previewed",
+    "mlTrainForecaster": "no runnable estimator yet, so its output size cannot be verified",
     "calculatedColumn": _EXPRESSION_REASON,
     "filterExpression": _EXPRESSION_REASON,
     "assertExpression": _EXPRESSION_REASON,
@@ -324,8 +326,7 @@ class _SampleEngine(PandasEngine):
 
     It reads ``rows + 1`` rows so truncation is observable. JSON documents have no
     row stream, so they are parsed whole only below ``PREVIEW_MAX_JSON_BYTES``.
-    Joins, concatenations, unpivots and explodes are sized before they run. A
-    pivot's rows never exceed its input rows, which the per-node cap already bounds.
+    Output sizes are estimated per node by ``_PreviewExecutor`` from ``EXPANSION``.
     """
 
     def __init__(self, rows: int) -> None:
@@ -361,79 +362,167 @@ class _SampleEngine(PandasEngine):
             df = df.head(self.rows)
         return df
 
-    def join(
-        self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        on: list[str] | None,
-        how: str,
-        left_on: list[str] | None = None,
-        right_on: list[str] | None = None,
-        suffixes: tuple[str, str] = ("_x", "_y"),
-    ) -> pd.DataFrame:
-        left_keys, right_keys = (left_on, right_on) if left_on and right_on else (on, on)
-        if how == "cross":
-            estimate = len(left) * len(right)
-        elif how in ("semi", "anti") or not left_keys or not right_keys:
-            estimate = 0  # semi/anti keep a subset of the left rows; keyless joins fail validation
-        else:
-            counts = left.groupby(left_keys, dropna=False).size()
-            other = right.groupby(right_keys, dropna=False).size()
-            other.index = other.index.set_names(list(counts.index.names))
-            # Matched pairs plus every row unmatched on either side bounds all join kinds.
-            estimate = int((counts * other).sum()) + len(left) + len(right)
-        _check_estimate(estimate)
-        return super().join(left, right, on, how, left_on, right_on, suffixes)
 
-    def concat(self, frames: list[pd.DataFrame]) -> pd.DataFrame:
-        _check_estimate(sum(len(f) for f in frames))
-        return super().concat(frames)
-
-    def unpivot(
-        self,
-        df: pd.DataFrame,
-        id_vars: list[str],
-        value_vars: list[str] | None,
-        var_name: str,
-        value_name: str,
-    ) -> pd.DataFrame:
-        melted = len(value_vars) if value_vars else len(df.columns) - len(id_vars or [])
-        _check_estimate(len(df) * max(melted, 0))
-        return super().unpivot(df, id_vars, value_vars, var_name, value_name)
-
-    def explode_rows(self, df: pd.DataFrame, column: str, delimiter: str | None) -> pd.DataFrame:
-        values = df[column]
-        if delimiter:
-            pieces = values.astype("string").str.count(re.escape(delimiter)).fillna(0) + 1
-        else:
-            pieces = values.map(lambda v: max(len(v), 1) if isinstance(v, list | tuple) else 1)
-        _check_estimate(int(pieces.sum()))
-        return super().explode_rows(df, column, delimiter)
+Estimate = tuple[int, int]
+Estimator = Callable[[dict[str, pd.DataFrame], dict[str, Any]], Estimate]
 
 
-def _check_estimate(rows: int) -> None:
-    if rows > PREVIEW_MAX_NODE_ROWS:
-        raise PreviewLimit("node output would exceed the preview row cap")
+def _as_list(value: Any) -> list[str] | None:
+    if not value:
+        return None
+    return [value] if isinstance(value, str) else list(value)
+
+
+def _frames(inputs: dict[str, pd.DataFrame]) -> list[pd.DataFrame]:
+    return [f for f in inputs.values() if isinstance(f, pd.DataFrame)]
+
+
+def _largest(inputs: dict[str, pd.DataFrame]) -> Estimate:
+    frames = _frames(inputs)
+    return max((len(f) for f in frames), default=1), max((len(f.columns) for f in frames), default=0)
+
+
+def _join(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    left, right = inputs["left"], inputs["right"]
+    how = config.get("how", "inner")
+    left_keys, right_keys = _as_list(config.get("left_on")), _as_list(config.get("right_on"))
+    if not (left_keys and right_keys):
+        left_keys = right_keys = _as_list(config.get("on"))
+    width = len(left.columns) + len(right.columns)
+    if how == "cross":
+        return len(left) * len(right), width
+    if how in ("semi", "anti") or not left_keys or not right_keys:
+        return len(left), width  # semi/anti keep a subset of the left rows
+    counts = left.groupby(left_keys, dropna=False).size()
+    other = right.groupby(right_keys, dropna=False).size()
+    other.index = other.index.set_names(list(counts.index.names))
+    # Matched pairs plus every row unmatched on either side bounds all join kinds.
+    return int((counts * other).sum()) + len(left) + len(right), width
+
+
+def _concat(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    frames = _frames(inputs)
+    return sum(len(f) for f in frames), len({c for f in frames for c in f.columns})
+
+
+def _unpivot(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    id_vars = config.get("id_vars") or []
+    melted = len(config.get("value_vars") or []) or len(df.columns) - len(id_vars)
+    return len(df) * max(melted, 0), len(id_vars) + 2
+
+
+def _explode(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    values = df[config["column"]]
+    delimiter = config.get("delimiter") or None
+    # The same split the engine runs (a multi-character delimiter is a regex there).
+    lists = values.astype("string").str.split(delimiter) if delimiter else values
+    pieces = lists.map(lambda v: max(len(v), 1) if isinstance(v, list | tuple) else 1)
+    return int(pieces.sum()), len(df.columns)
+
+
+def _pivot(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    index = _as_list(config.get("index")) or []
+    rows = int(df.groupby(index, dropna=False).ngroups) if index else 1
+    return rows, len(index) + int(df[config["columns"]].nunique(dropna=False))
+
+
+def _split_column(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    into = len(config.get("into") or [])
+    if config.get("mode", "delimiter") == "regex":
+        pieces = re.compile(config.get("pattern") or "").groups
+    else:
+        # The engine splits literally and expands every piece before keeping ``into``.
+        counts = df[config["column"]].astype("string").str.count(re.escape(config.get("delimiter") or ","))
+        pieces = int(counts.max()) + 1 if counts.notna().any() else 1
+    return len(df), len(df.columns) + max(into, pieces)
+
+
+def _encode_categories(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    if config.get("method", "onehot") != "onehot":
+        return len(df), len(df.columns)
+    added = sum(int(df[c].nunique(dropna=False)) for c in config.get("columns") or [])
+    return len(df), len(df.columns) + added
+
+
+def _reduce_dimensions(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) -> Estimate:
+    df = inputs["in"]
+    components = config.get("n_components")
+    return len(df), len(df.columns) + (components if isinstance(components, int) and components > 0 else 0)
+
+
+# How each safe type sizes its output. "bounded" means at most the largest input's
+# rows and its columns plus BOUNDED_EXTRA_COLUMNS and one column per config list
+# entry (a test checks each label on a
+# fixture). An estimator returns (rows, columns), computed with the engine's own
+# semantics on the sampled inputs before the node runs.
+BOUNDED_EXTRA_COLUMNS = 16
+_EXPANDING: dict[str, Estimator] = {
+    "join": _join,
+    "concatRows": _concat,
+    "unpivot": _unpivot,
+    "explodeRows": _explode,
+    "pivot": _pivot,
+    "splitColumn": _split_column,
+    "encodeCategories": _encode_categories,
+    "reduceDimensions": _reduce_dimensions,
+}
+EXPANSION: dict[str, Estimator | Literal["bounded"]] = {
+    kind: _EXPANDING.get(kind, "bounded") for kind in PREVIEW_SAFE_TYPES
+}
+
+
+def _config_entries(config: Any) -> int:
+    """Entries in every list of a config: an upper bound on the columns it can name.
+
+    A "bounded" node can still repeat names (``selectColumns`` with a duplicated
+    list), so its width estimate counts each listed entry once more.
+    """
+    if isinstance(config, dict):
+        return sum(_config_entries(v) for v in config.values())
+    if isinstance(config, list | tuple):
+        return len(config) + sum(_config_entries(v) for v in config if isinstance(v, dict | list | tuple))
+    return 0
+
+
+def _check_size(rows: int, cols: int) -> None:
+    if rows > PREVIEW_MAX_NODE_ROWS or rows * max(cols, 1) > PREVIEW_MAX_CELLS:
+        raise PreviewLimit("node output would exceed the preview row or cell cap")
 
 
 class _PreviewExecutor(FlowExecutor):
-    """Checks the deadline before and after each node and the row cap after it.
+    """Sizes each node from its inputs before it runs and checks the result after.
 
-    The deadline is cooperative: a thread cannot be interrupted inside one node,
-    so a single slow operation (for example a pathological regex) can overrun it.
-    The size estimates and the row cap keep every node's input small.
+    The deadline is checked before and after every node. It is cooperative: a
+    thread cannot be interrupted inside one node, so a single slow operation (for
+    example a pathological regex) can overrun it. The size caps keep each node small.
     """
 
     def __init__(self, deadline: float) -> None:
         super().__init__()
         self.deadline = deadline
 
-    def _node_outputs(self, engine: Any, *args: Any) -> Any:
+    def _node_outputs(
+        self, engine: Any, node: dict[str, Any], incoming: dict[str, Any], outputs: dict[str, Any], *rest: Any
+    ) -> Any:
         if monotonic() >= self.deadline:
             raise PreviewLimit("preview deadline reached")
-        result = super()._node_outputs(engine, *args)
-        if any(engine.row_count(frame) > PREVIEW_MAX_NODE_ROWS for frame in result[0].values()):
-            raise PreviewLimit("node output exceeds the preview row cap")
+        rule = EXPANSION.get(node["type"])
+        if rule is not None:
+            inputs = _build_inputs(incoming.get(node["id"], []), outputs)
+            if rule == "bounded":
+                rows, cols = _largest(inputs)
+                extra = BOUNDED_EXTRA_COLUMNS + _config_entries(node["data"]["config"])
+                _check_size(rows, cols + extra)
+            else:
+                _check_size(*rule(inputs, node["data"]["config"]))
+        result = super()._node_outputs(engine, node, incoming, outputs, *rest)
+        for frame in result[0].values():
+            _check_size(len(frame), len(frame.columns))
         if monotonic() >= self.deadline:
             raise PreviewLimit("preview deadline reached")
         return result
