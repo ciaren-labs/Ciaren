@@ -113,7 +113,6 @@ class Reservation:
 
     calls: int
     stamp: float
-    tokens_per_hour: int | None = None
     used: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -127,7 +126,7 @@ class Reservation:
         _prune(monotonic())
         if self.released or self.used >= self.calls:
             raise BudgetExhausted()
-        if self.tokens_per_hour is not None and _tokens_spent() >= self.tokens_per_hour:
+        if _tokens_exhausted():
             raise BudgetExhausted()
         self.used += 1
 
@@ -149,28 +148,34 @@ class Reservation:
                 break
 
 
-def _reserve(wanted: int, minimum: int, tokens_per_hour: int | None) -> Reservation:
+def _tokens_exhausted() -> bool:
+    limit = get_settings().ASSISTANT_TOKENS_PER_HOUR
+    return limit is not None and _tokens_spent() >= limit
+
+
+def _reserve(wanted: int, minimum: int) -> Reservation:
     now = monotonic()
     _prune(now)
     remaining = get_settings().ASSISTANT_TURNS_PER_HOUR - len(_turns)
-    if remaining < minimum or (tokens_per_hour is not None and _tokens_spent() >= tokens_per_hour):
+    if remaining < minimum or _tokens_exhausted():
         raise BudgetExhausted()
     calls = min(wanted, remaining)
     _turns.extend([now] * calls)
-    return Reservation(calls, now, tokens_per_hour)
+    return Reservation(calls, now)
 
 
-def reserve(max_calls: int = MAX_CALLS, tokens_per_hour: int | None = None) -> Reservation:
-    """Hold ``min(max_calls, remaining)`` calls; refuse when fewer than two remain."""
-    return _reserve(max_calls, 2, tokens_per_hour)
+def reserve(max_calls: int = MAX_CALLS) -> Reservation:
+    """Hold ``min(max_calls, remaining)`` calls; refuse when fewer than two remain
+    or when ``ASSISTANT_TOKENS_PER_HOUR`` is set and spent."""
+    return _reserve(max_calls, 2)
 
 
 @asynccontextmanager
-async def turn_budget(max_calls: int = MAX_CALLS, tokens_per_hour: int | None = None) -> AsyncIterator[Reservation]:
+async def turn_budget(max_calls: int = MAX_CALLS) -> AsyncIterator[Reservation]:
     """Reserve calls for one turn. Unused calls return when the turn ends, except
     on cancellation: a cancelled turn keeps its whole reservation, so cancelling
     and retrying cannot exceed the hourly budget."""
-    reservation = reserve(max_calls, tokens_per_hour)
+    reservation = reserve(max_calls)
     try:
         yield reservation
     except asyncio.CancelledError:
@@ -475,6 +480,13 @@ async def _transport(provider: Provider, body: dict[str, Any], key: str) -> dict
     return envelope
 
 
+def _refuse_echo(key: str, decoded: object) -> None:
+    """Nested JSON (an answer, tool arguments) can spell the key with escapes
+    that the envelope check cannot see, so check it again once decoded."""
+    if key in json.dumps(decoded, ensure_ascii=False):
+        raise ValueError("Invalid content")
+
+
 async def _guarded(call: Awaitable[T], incomplete: str) -> T:
     try:
         return await call
@@ -497,7 +509,7 @@ async def complete(provider: Provider, instruction: str, data: dict[str, Any]) -
     if key in context:
         raise ValidationError("Remove the configured credential from the request.")
     try:
-        _reserve(1, 1, None)
+        _reserve(1, 1)
     except BudgetExhausted:
         raise ValidationError("Assistant hourly turn budget reached.") from None
     codec = CODECS[provider]
@@ -510,6 +522,7 @@ async def complete(provider: Provider, instruction: str, data: dict[str, Any]) -
         decoded = json.loads(result.text)
         if not isinstance(decoded, dict):
             raise ValueError("Invalid completion")
+        _refuse_echo(key, decoded)
         return decoded
 
     return await _guarded(call(), "The provider returned an incomplete structured answer.")
@@ -533,7 +546,10 @@ async def step(
     reservation.take()
 
     async def call() -> Step:
-        return codec.parse(await _transport(provider, body, key))
+        parsed = codec.parse(await _transport(provider, body, key))
+        for tool_call in parsed.tool_calls:
+            _refuse_echo(key, tool_call.arguments)
+        return parsed
 
     result = await _guarded(call(), "The provider returned an incomplete answer.")
     reservation.record(result.usage)

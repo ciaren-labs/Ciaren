@@ -14,7 +14,9 @@ import pytest
 from httpx import AsyncClient
 
 from app.core.exceptions import ValidationError
-from app.services.preview_service import preview_graph, redact_issue
+from app.engine.transformations.base import BaseTransformation
+from app.services import preview_service
+from app.services.preview_service import ISSUE_TEMPLATES, preview_graph, redact_issue
 
 ROWS: list[dict[str, Any]] = [
     {"name": "Alice", "age": 30, "city": "NYC"},
@@ -362,17 +364,98 @@ async def test_preview_graph_reports_ml_schema_issues(
 
 
 @pytest.mark.parametrize(
-    ("message", "expected"),
+    ("message", "refs"),
     [
-        ("Column 'salary' not found", "Column 'c0' not found"),
-        ('value "Alice" is not a number in salary', "value '…' is not a number in c0"),
-        ("x" * 300, "x" * 200),
+        ("Column 'salary' not found", " Refs: c0."),
+        ("unable to parse: alice@example.com, at position 0", ""),
+        ("Values [alice, bob] are not in salary or 'Order Total'", " Refs: c0, c1."),
+        ("Join (node-7) failed: salary", " Refs: c0, n0."),
+        ("x" * 300 + " salary", " Refs: c0."),
     ],
 )
-def test_redact_maps_names_strips_literals_and_caps(message: str, expected: str) -> None:
-    assert redact_issue(message, "config", {"salary": "c0"}) == {"code": "config", "message": expected}
+def test_redact_emits_only_templates_and_refs(message: str, refs: str) -> None:
+    known = {"salary": "c0", "Order Total": "c1", "node-7": "n0", "alice": "Not A Ref"}
+    assert redact_issue(message, "config", known) == {"code": "config", "message": ISSUE_TEMPLATES["config"] + refs}
 
 
 def test_redact_rejects_unknown_codes() -> None:
     with pytest.raises(ValueError):
         redact_issue("boom", "surprise", {})
+
+
+class _PluginEcho(BaseTransformation):
+    type = "pluginEchoForPreviewTest"
+
+    def validate_config(self, config: dict[str, Any]) -> None:
+        return None
+
+    def execute(self, engine: Any, inputs: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+        raise AssertionError("a plugin node must not run in an assistant preview")
+
+    def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        return ""
+
+    def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
+        return ""
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"type": "pythonTransform", "config": {"script": "raise SystemExit('ran')"}},
+        {"type": "filterExpression", "config": {"expression": "age > 1"}},
+        {"type": "pluginEchoForPreviewTest", "config": {}},
+        {"type": "neverRegisteredNode", "config": {}},
+        {"type": "sqlOutput", "config": {}},
+        {"type": "csvOutput", "config": {"path": "x.csv"}},
+        {"type": "mlPredict", "config": {"model_uri": "file:///tmp/model.pkl"}},
+    ],
+    ids=lambda s: s["type"],
+)
+async def test_preview_graph_refuses_unsafe_nodes_before_running(client: AsyncClient, db_session, step) -> None:
+    from app.engine.registry import register_transformations, unregister_transformations
+
+    register_transformations(_PluginEcho())
+    try:
+        ds = await _upload(client)
+        graph = _graph(ds, {"id": "risky", "type": step["type"], "data": {"config": step["config"]}})
+        result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False)
+    finally:
+        unregister_transformations(_PluginEcho.type)
+    assert result.preview is None and [(i.node, i.code) for i in result.issues] == [("risky", "policy")]
+
+
+async def test_preview_graph_estimates_joins_before_running_them(client: AsyncClient, db_session, monkeypatch) -> None:
+    monkeypatch.setattr(preview_service, "PREVIEW_MAX_NODE_ROWS", 50)
+    ds = await _upload(client, *reversed(_encoded("csv")))
+    graph = _graph(ds)
+    graph["nodes"].append({"id": "j", "type": "join", "data": {"config": {"on": ["city"], "how": "inner"}}})
+    graph["edges"] += [
+        {"id": "l", "source": "in1", "target": "j", "targetHandle": "left"},
+        {"id": "r", "source": "in1", "target": "j", "targetHandle": "right"},
+    ]
+    merged = []
+    monkeypatch.setattr(pd.DataFrame, "merge", lambda *a, **k: merged.append(1))
+
+    result = await preview_graph(db_session, ds["project_id"], graph, "j", limit=5, profile=False)
+
+    assert [(i.node, i.code) for i in result.issues] == [("j", "limit")] and not merged
+
+
+@pytest.mark.parametrize("cap", ["rows", "deadline", "json_bytes"])
+async def test_preview_graph_stops_at_resource_limits(client: AsyncClient, db_session, monkeypatch, cap) -> None:
+    fmt = "json" if cap == "json_bytes" else "csv"
+    frame = pd.DataFrame(WIDE)
+    content = frame.to_json(orient="records").encode() if fmt == "json" else frame.to_csv(index=False).encode()
+    ds = await _upload(client, content, f"capped.{fmt}")
+    if cap == "rows":
+        monkeypatch.setattr(preview_service, "PREVIEW_MAX_NODE_ROWS", 5)
+    elif cap == "deadline":
+        monkeypatch.setattr(preview_service, "PREVIEW_DEADLINE_SECONDS", 0)
+    else:
+        monkeypatch.setattr(preview_service, "PREVIEW_MAX_JSON_BYTES", 64)
+    graph = _graph(ds, {"id": "keep", "type": "dropNulls", "data": {"config": {}}})
+
+    result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False, sample_rows=10)
+
+    assert result.preview is None and [(i.node, i.code) for i in result.issues] == [("in1", "limit")]

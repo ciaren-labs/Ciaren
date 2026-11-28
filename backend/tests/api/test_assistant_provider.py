@@ -206,13 +206,37 @@ async def test_hourly_budget_reserves_and_refuses(settings, monkeypatch):
 async def test_token_budget_refuses_new_turns(settings, monkeypatch):
     _use(settings, monkeypatch, "deepseek")
     _wire(monkeypatch, FIXTURES["deepseek"]["final"])
-    async with provider_mod.turn_budget(tokens_per_hour=200) as budget:
+    monkeypatch.setattr(settings, "ASSISTANT_TOKENS_PER_HOUR", 200)
+    async with provider_mod.turn_budget() as budget:
         await provider_mod.step("deepseek", "system", [{"role": "user", "content": "x"}], TOOLS, budget)
         with pytest.raises(BudgetExhausted):
             await provider_mod.step("deepseek", "system", [{"role": "user", "content": "x"}], TOOLS, budget)
     with pytest.raises(BudgetExhausted):
-        provider_mod.reserve(tokens_per_hour=200)
-    assert provider_mod.reserve(tokens_per_hour=500).calls == 8
+        provider_mod.reserve()
+    monkeypatch.setattr(settings, "ASSISTANT_TOKENS_PER_HOUR", 500)
+    assert provider_mod.reserve().calls == 8
+
+
+# The key spelled with JSON escapes survives the envelope check and only
+# appears once the nested JSON is decoded.
+ESCAPED = "".join(f"\\u{ord(c):04x}" for c in KEY)
+
+
+async def test_decoded_answers_and_tool_arguments_cannot_echo_the_key(settings, monkeypatch):
+    _use(settings, monkeypatch, "deepseek")
+    answer = {"choices": [{"finish_reason": "stop", "message": {"content": '{"steps": "' + ESCAPED + '"}'}}]}
+    call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "validate", "arguments": '{"dataset": "' + ESCAPED + '"}'},
+    }
+    tool = {"choices": [{"finish_reason": "tool_calls", "message": {"content": "", "tool_calls": [call]}}]}
+    _wire(monkeypatch, answer, tool)
+    with pytest.raises(ValidationError, match="incomplete structured answer"):
+        await provider_mod.complete("deepseek", "Return JSON.", {})
+    async with provider_mod.turn_budget() as budget:
+        with pytest.raises(ValidationError, match="incomplete answer"):
+            await provider_mod.step("deepseek", "system", [{"role": "user", "content": "x"}], TOOLS, budget)
 
 
 async def test_cancelled_turn_keeps_its_reservation(settings, monkeypatch):

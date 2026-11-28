@@ -25,7 +25,7 @@ from app.bootstrap.seeding import (
     seed_local_storage_safe,
     seed_mlflow_connection_safe,
 )
-from app.core.config import get_settings
+from app.core.config import get_settings, scrub_assistant_key_env
 from app.core.database import AsyncSessionLocal, init_db
 from app.core.logging import setup_logging
 from app.services.run_recovery import recover_orphaned_runs
@@ -36,6 +36,8 @@ logger = logging.getLogger("ciaren.bootstrap")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
+    # Keys stay in these settings; spawned workers and subprocesses must not inherit them.
+    scrub_assistant_key_env()
     setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG, log_format=settings.LOG_FORMAT)
 
     for subdir in ("uploads", "outputs", "previews"):

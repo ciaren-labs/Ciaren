@@ -358,3 +358,30 @@ async def test_reversal_accepts_timezone_aware_revisions(client, proposal, suffi
     assert preview.status_code == 200, preview.text
     res = await client.post(target + "/revert", json={"proposal": preview.json()["confirmation"]})
     assert res.status_code == 200, res.text
+
+
+# Guard stored by the pre-versioning receipt code (04466d87) for the graph below
+# with event id 0123456789abcdef0123456789abcdef.
+LEGACY_GUARD = "5b535b67d8b453f3668c64d39fba5bf497105a7ac02800686baafd82ad10b601"
+
+
+async def test_receipts_without_a_guard_version_keep_the_legacy_hash(db_session, monkeypatch):
+    from uuid import UUID
+
+    monkeypatch.setattr(audit, "uuid4", lambda: UUID("0123456789abcdef0123456789abcdef"))
+    a, b = node("a", "fileInput"), node("b", "fileOutput")
+    added = {**node("c", "limitRows", n=1), "position": {"x": 0, "y": 0}}
+    before = {"nodes": [a, b], "edges": [edge("a", "b")]}
+    after = {"nodes": [a, b, added], "edges": [edge("a", "c"), edge("c", "b")]}
+    delta = {"added": [added], "changed": [], "connected": after["edges"], "disconnected": [before["edges"][0]["id"]]}
+    current = audit.receipt("flow", "project", before, after, delta, [], "build")
+    assert current.inverse["guard_version"] == 2
+    legacy = audit.receipt("flow", "project", before, after, delta, [], "build")
+    legacy.inverse = {k: v for k, v in legacy.inverse.items() if k != "guard_version"} | {"guard": LEGACY_GUARD}
+    for entry in (current, legacy):
+        assert (await audit.inverse_graph(db_session, entry, deepcopy(after)))["nodes"] == [a, b]
+    moved = deepcopy(after)
+    moved["nodes"][2]["position"] = {"x": 5, "y": 5}
+    # Legacy records keep their original, position-sensitive meaning.
+    with pytest.raises(ConflictError):
+        await audit.inverse_graph(db_session, legacy, moved)

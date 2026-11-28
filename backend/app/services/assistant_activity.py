@@ -54,8 +54,19 @@ def encoded(salt: str, cfg: Graph, key: str) -> Graph:
     return {"private": True}
 
 
+# Version 2 hashes added nodes by type, config and label. Records stored without
+# a version (1) hash the whole added node, position included, and keep that meaning.
+GUARD_VERSION = 2
+
+
 def guard(
-    graph: Graph, salt: str, roots: list[str], added: list[str], upstream_only: bool, updates: list[Graph]
+    graph: Graph,
+    salt: str,
+    roots: list[str],
+    added: list[str],
+    upstream_only: bool,
+    updates: list[Graph],
+    version: int = GUARD_VERSION,
 ) -> str:
     """Protect the touched connected component. Ignore presentation edits on retained nodes."""
     nodes, edges = inspect(graph)
@@ -67,7 +78,7 @@ def guard(
                 component.update((e["source"], e["target"]))
         if len(component) == prior:
             break
-    state = []
+    state: list[tuple[str, object]] = []
     for node in nodes:
         if node["id"] not in component:
             continue
@@ -80,9 +91,12 @@ def guard(
             config = {k: v for k, v in config.items() if k in fields or k not in {"n", "offset"}}
         # Added nodes are removed whole on reversal, so their label matters too; a
         # moved node is a presentation edit and does not block the reversal.
-        state.append(
-            (node["id"], [node["type"], config, node["data"].get("label")] if ref in added else [node["type"], config])
-        )
+        if ref not in added:
+            state.append((node["id"], [node["type"], config]))
+        elif version == 1:
+            state.append((node["id"], node))
+        else:
+            state.append((node["id"], [node["type"], config, node["data"].get("label")]))
     wiring = [(e["id"], e) for e in edges if e["target"] in component]
     # A later unrelated flow parameter is independent of this edit.
     references = set(re.findall(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", json.dumps(state)))
@@ -236,6 +250,7 @@ def receipt(
             "connections": [digest(event, e["id"]) for e in delta["connected"]],
             "upstream_only": upstream_only,
             "guard": guard(after, event, roots, added, upstream_only, updates),
+            "guard_version": GUARD_VERSION,
             "inputs": [asdict(v) for v in _receipt_inputs(after, inputs)],
         },
     )
@@ -264,7 +279,10 @@ async def inverse_graph(db: AsyncSession, event: AssistantActivity, graph: Graph
         raise ConflictError(
             "This entry cannot be reversed automatically because the previous configuration cannot be restored safely."
         )
-    if inv["guard"] != guard(graph, event.id, inv["roots"], inv["added"], inv["upstream_only"], inv["updates"]):
+    expected = guard(
+        graph, event.id, inv["roots"], inv["added"], inv["upstream_only"], inv["updates"], inv.get("guard_version", 1)
+    )
+    if inv["guard"] != expected:
         raise ConflictError(CONFLICT)
     result = deepcopy(graph)
     nodes = {digest(event.id, n["id"]): n for n in result["nodes"]}

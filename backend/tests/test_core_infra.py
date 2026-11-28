@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import subprocess
 import sys
 import tomllib
@@ -298,15 +299,61 @@ def test_ciaren_version_falls_back_when_metadata_returns_no_version(
 
 
 ASSISTANT_KEY = "synthetic-assistant-credential-30961"
+ASSISTANT_PROVIDERS = ("OPENAI", "ANTHROPIC", "DEEPSEEK", "OPENCODE")
 
 
-def test_api_key_env_is_scrubbed_before_workers_spawn(monkeypatch):
+def _assistant_key_names() -> list[str]:
+    return [n for n in os.environ if "ASSISTANT" in n.upper() and "API_KEY" in n.upper()]
+
+
+def _worker_key_probe() -> tuple[list[str], list[str]]:
+    """Runs inside a spawned pool worker: which key settings and variables it sees."""
+    cfg = get_settings()
+    fields = [p for p in ASSISTANT_PROVIDERS if getattr(cfg, f"ASSISTANT_{p}_API_KEY") is not None]
+    return fields, _assistant_key_names()
+
+
+@pytest.fixture
+def assistant_key_env(monkeypatch):
     monkeypatch.setenv("CIAREN_ASSISTANT_OPENAI_API_KEY", ASSISTANT_KEY)
     monkeypatch.setenv("ciaren_assistant_deepseek_api_key", ASSISTANT_KEY + "-lower")
     monkeypatch.setenv("CIAREN_ASSISTANT_OPENAI_MODEL", "gpt-5")
     get_settings.cache_clear()
-    try:
-        cfg = get_settings()
+    yield
+    get_settings.cache_clear()
+
+
+def test_serve_cli_keeps_assistant_keys_for_the_server_process(assistant_key_env):
+    from argparse import Namespace
+
+    from app import cli
+
+    # The parent reads settings before uvicorn starts (and restarts) the server child.
+    cli._warn_if_exposed_without_token(Namespace(host="0.0.0.0"))
+    assert get_settings().ASSISTANT_OPENAI_API_KEY is not None
+    assert len(_assistant_key_names()) == 2
+
+
+async def test_server_startup_scrubs_assistant_key_env(assistant_key_env, monkeypatch):
+    import app.bootstrap.lifespan as ls
+    import app.main as main
+
+    async def _noop(*args, **kwargs):  # noqa: ANN002, ANN003
+        return None
+
+    for name in ("init_db", "seed_local_storage_safe", "seed_mlflow_connection_safe", "seed_demo_safe"):
+        monkeypatch.setattr(ls, name, _noop)
+    monkeypatch.setattr(ls, "recover_orphaned_runs", _noop, raising=False)
+    monkeypatch.setattr("app.core.runtime_settings.load_and_apply_overrides", _noop)
+    monkeypatch.setattr("app.plugins.ensure_plugins_loaded", lambda *a, **k: None)
+    cfg = get_settings()
+    for flag in ("SCHEDULER_ENABLED", "SEED_DEMO", "ML_ENABLED"):
+        monkeypatch.setattr(cfg, flag, False, raising=False)
+
+    async with ls.lifespan(main.app):
+        assert _assistant_key_names() == []
+        key = get_settings().ASSISTANT_OPENAI_API_KEY
+        assert key is not None and key.get_secret_value() == ASSISTANT_KEY
         child = subprocess.run(
             [sys.executable, "-c", "import json, os; print(json.dumps(dict(os.environ)))"],
             capture_output=True,
@@ -314,12 +361,23 @@ def test_api_key_env_is_scrubbed_before_workers_spawn(monkeypatch):
             check=True,
             timeout=60,
         )
-    finally:
-        get_settings.cache_clear()
-    assert cfg.ASSISTANT_OPENAI_API_KEY is not None and cfg.ASSISTANT_OPENAI_API_KEY.get_secret_value() == ASSISTANT_KEY
-    assert cfg.ASSISTANT_DEEPSEEK_API_KEY is not None
-    inherited = json.loads(child.stdout)
-    assert ASSISTANT_KEY not in child.stdout and not any(
-        "API_KEY" in name.upper() and "ASSISTANT" in name.upper() for name in inherited
-    )
-    assert inherited["CIAREN_ASSISTANT_OPENAI_MODEL"] == "gpt-5"
+    assert ASSISTANT_KEY not in child.stdout
+    assert json.loads(child.stdout)["CIAREN_ASSISTANT_OPENAI_MODEL"] == "gpt-5"
+
+
+def test_pool_workers_drop_assistant_keys(assistant_key_env):
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    from app.engine import process_pool
+
+    # The key reaches the worker through its environment here; a .env file or
+    # any other source lands in the same settings fields.
+    with ProcessPoolExecutor(
+        max_workers=1,
+        initializer=process_pool._init_worker,
+        initargs=(0,),
+        mp_context=multiprocessing.get_context("spawn"),
+    ) as pool:
+        fields, names = pool.submit(_worker_key_probe).result(timeout=120)
+    assert fields == [] and names == []

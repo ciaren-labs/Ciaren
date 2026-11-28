@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import asyncio
+import os
 import re
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
+from time import monotonic
 from typing import Any, Literal, get_args
 
 import pandas as pd
@@ -20,7 +22,7 @@ from app.engine.backends import AnyFrame, EngineBackend, get_engine
 from app.engine.backends.pandas_engine import PandasEngine
 from app.engine.executor import FlowExecutor, NodeExecutionError
 from app.engine.graph import GraphValidationError, ancestor_subgraph, topological_sort
-from app.engine.node_kinds import INPUT_TYPES
+from app.engine.node_kinds import FILE_OUTPUT_TYPE
 from app.engine.parameters import ParameterError, apply_parameters
 from app.engine.preview_context import preview_mode
 from app.engine.profile import profile_frame
@@ -31,6 +33,7 @@ from app.schemas.preview import (
     PreviewResponse,
     TransformationPreviewRequest,
 )
+from app.services.assistant_graph import INPUTS as ASSISTANT_INPUTS
 from app.services.assistant_inputs import resolve_input
 from app.services.dataset_resolver import build_dataset_paths, resolve_version
 from app.services.sql_resolver import has_sql_inputs, materialize_sql_inputs
@@ -200,10 +203,11 @@ def _compute_frames(
     engine: EngineBackend,
     sql_input_paths: dict[str, Path] | None = None,
     storage_input_paths: dict[str, Path] | None = None,
+    executor: FlowExecutor | None = None,
 ) -> dict[str, AnyFrame]:
     # preview_mode keeps ML nodes from fitting/logging in a preview.
     with preview_mode():
-        return FlowExecutor().compute_frames(
+        return (executor or FlowExecutor()).compute_frames(
             graph,
             dataset_paths,
             engine,
@@ -230,6 +234,31 @@ def _check_ml_schema(
 
 IssueCode = Literal["missing_column", "bad_type", "bad_port", "cycle", "policy", "limit", "config"]
 ISSUE_CODES: frozenset[str] = frozenset(get_args(IssueCode))
+# The only text a model ever sees for an issue, besides refs. Raw exception text
+# can carry data values in any shape, so it never leaves the server.
+ISSUE_TEMPLATES: dict[str, str] = {
+    "missing_column": "A referenced column is not available at this node.",
+    "bad_type": "A column has a type this node cannot use.",
+    "bad_port": "A connection uses a missing or invalid port.",
+    "cycle": "The connections form a cycle.",
+    "policy": "This node type cannot run in an assistant preview.",
+    "limit": "The preview exceeded a size or time limit.",
+    "config": "The node configuration is invalid.",
+}
+_REF = re.compile(r"[a-z][a-z0-9_]{0,23}")
+
+# Resource bounds for one assistant preview. Module globals so tests can lower them.
+PREVIEW_MAX_NODE_ROWS = 50_000
+PREVIEW_DEADLINE_SECONDS = 15.0
+PREVIEW_MAX_JSON_BYTES = 16 * 1024 * 1024
+# Built-ins that evaluate user-written code or expressions. They wait for the
+# assistant expression guard; preview never runs them.
+_CODE_NODE_TYPES = frozenset({"pythonTransform", "filterExpression", "createCalculatedColumn", "assertExpression"})
+_BUILTIN_MODULE_PREFIX = "app.engine.transformations."
+
+
+class PreviewLimit(Exception):
+    """A preview resource bound was reached."""
 
 
 @dataclass(frozen=True)
@@ -259,7 +288,8 @@ class _SampleEngine(PandasEngine):
     """Pandas engine whose reads stop after ``rows`` rows.
 
     It reads ``rows + 1`` rows so truncation is observable. JSON documents have no
-    row stream and are parsed whole before slicing.
+    row stream, so they are parsed whole only below ``PREVIEW_MAX_JSON_BYTES``.
+    Joins are sized from key counts before they run.
     """
 
     def __init__(self, rows: int) -> None:
@@ -283,6 +313,8 @@ class _SampleEngine(PandasEngine):
                 if seen >= n:
                     break
             df = pa.Table.from_batches(batches, schema=pf.schema_arrow).to_pandas()
+        elif source_type == "json" and os.path.getsize(path) > PREVIEW_MAX_JSON_BYTES:
+            raise PreviewLimit("JSON input is too large to sample")
         elif source_type == "text":
             with open(path, encoding="utf-8") as fh:
                 df = pd.DataFrame({"text": [line.rstrip("\r\n") for line in islice(fh, n)]})
@@ -293,10 +325,80 @@ class _SampleEngine(PandasEngine):
             df = df.head(self.rows)
         return df
 
+    def join(
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        on: list[str] | None,
+        how: str,
+        left_on: list[str] | None = None,
+        right_on: list[str] | None = None,
+        suffixes: tuple[str, str] = ("_x", "_y"),
+    ) -> pd.DataFrame:
+        left_keys, right_keys = (left_on, right_on) if left_on and right_on else (on, on)
+        if how == "cross":
+            estimate = len(left) * len(right)
+        elif how in ("semi", "anti") or not left_keys or not right_keys:
+            estimate = 0  # semi/anti keep a subset of the left rows; keyless joins fail validation
+        else:
+            counts = left.groupby(left_keys, dropna=False).size()
+            other = right.groupby(right_keys, dropna=False).size()
+            other.index = other.index.set_names(list(counts.index.names))
+            # Matched pairs plus every row unmatched on either side bounds all join kinds.
+            estimate = int((counts * other).sum()) + len(left) + len(right)
+        if estimate > PREVIEW_MAX_NODE_ROWS:
+            raise PreviewLimit("join output would exceed the preview row cap")
+        return super().join(left, right, on, how, left_on, right_on, suffixes)
+
+
+class _PreviewExecutor(FlowExecutor):
+    """Stops between nodes at the row cap or the deadline.
+
+    The deadline is cooperative: a thread cannot be interrupted mid-node, and the
+    per-node and join caps keep each node small.
+    """
+
+    def __init__(self, deadline: float) -> None:
+        super().__init__()
+        self.deadline = deadline
+
+    def _node_outputs(self, engine: Any, *args: Any) -> Any:
+        result = super()._node_outputs(engine, *args)
+        if any(engine.row_count(frame) > PREVIEW_MAX_NODE_ROWS for frame in result[0].values()):
+            raise PreviewLimit("node output exceeds the preview row cap")
+        if monotonic() >= self.deadline:
+            raise PreviewLimit("preview deadline reached")
+        return result
+
+
+def _policy_issues(graph: dict[str, Any]) -> list[Issue]:
+    """Fail closed: only file inputs, the pass-through file output and built-in
+    core/ML transformations that run no user code may execute in a preview."""
+    issues = []
+    for node in graph.get("nodes", []):
+        kind = node.get("type")
+        config = (node.get("data") or {}).get("config") or {}
+        if kind in ASSISTANT_INPUTS or kind == FILE_OUTPUT_TYPE:
+            continue
+        try:
+            module = type(get_transformation(kind)).__module__
+        except (KeyError, TypeError):
+            module = ""
+        if (
+            kind in _CODE_NODE_TYPES
+            or not module.startswith(_BUILTIN_MODULE_PREFIX)
+            # A model URI loads a pickled model from disk.
+            or (kind == "mlPredict" and config.get("model_uri"))
+        ):
+            issues.append(Issue(node.get("id"), "policy", f"{kind} is not allowed in an assistant preview"))
+    return issues
+
 
 def classify_issue(exc: BaseException) -> IssueCode:
     """Map a preview failure onto the stable issue code the assistant sees."""
     text = str(exc).lower()
+    if isinstance(exc, PreviewLimit):
+        return "limit"
     if isinstance(exc, GraphValidationError):
         if "cycle" in text:
             return "cycle"
@@ -314,24 +416,24 @@ def classify_issue(exc: BaseException) -> IssueCode:
     return "config"
 
 
-_QUOTED = r"'([^']*)'|\"([^\"]*)\"|`([^`]*)`"
-
-
 def redact_issue(message: str, code: str, refs: Mapping[str, str]) -> dict[str, str]:
-    """Make an issue safe to show the model: real names become refs, every other
-    quoted literal is dropped, and the text is capped at 200 characters."""
+    """Model-facing form of an issue: the fixed template for ``code`` plus the refs
+    of known names (columns, nodes) that appear in ``message``.
+
+    Nothing else from ``message`` is copied, and only values shaped like refs are
+    emitted, so unknown names and data values cannot leak.
+    """
     if code not in ISSUE_CODES:
         raise ValueError(f"Unknown issue code {code!r}")
-    bare = "|".join(re.escape(n) for n in sorted((n for n in refs if n), key=len, reverse=True))
-    pattern = re.compile(_QUOTED + (rf"|(?<!\w)({bare})(?!\w)" if bare else ""))
-
-    def swap(m: re.Match[str]) -> str:
-        if m.lastindex == 4:
-            return refs[m.group(4)]
-        inner = next(g for g in m.groups()[:3] if g is not None)
-        return f"'{refs[inner]}'" if inner in refs else "'…'"
-
-    return {"code": code, "message": pattern.sub(swap, message)[:200]}
+    found = sorted(
+        {
+            ref
+            for name, ref in refs.items()
+            if name and _REF.fullmatch(ref) and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", message)
+        }
+    )
+    suffix = f" Refs: {', '.join(found)}." if found else ""
+    return {"code": code, "message": (ISSUE_TEMPLATES[code] + suffix)[:200]}
 
 
 async def preview_graph(
@@ -345,6 +447,9 @@ async def preview_graph(
 ) -> GraphPreview:
     """Preview an unsaved graph on the first ``sample_rows`` rows of each input.
 
+    Nodes outside the preview allowlist return ``policy`` issues before anything
+    runs; the row cap, join estimate and deadline return ``limit`` issues.
+
     With ``node_id`` only that node's upstream slice is computed; without it the
     whole graph is computed and the deepest node is the target. Every input must
     be an available file dataset of ``project_id``, otherwise ``ValidationError``.
@@ -356,19 +461,23 @@ async def preview_graph(
         target, graph = _slice(graph, node_id) if node_id else (_default_node(graph), graph)
     except (GraphValidationError, ParameterError) as exc:
         return GraphPreview(node_id or "", None, issues=[Issue(None, classify_issue(exc), str(exc))])
+    # Checked before anything reads or executes.
+    if policy := _policy_issues(graph):
+        return GraphPreview(target, None, issues=policy)
     # build_dataset_paths is not project-scoped, so every input is checked first.
     for node in graph.get("nodes", []):
-        if node.get("type") in INPUT_TYPES:
+        if node.get("type") in ASSISTANT_INPUTS:
             await resolve_input(db, project_id, None, node)
     from app.ml.availability import guard_graph_ml_enabled
 
     guard_graph_ml_enabled(graph)
     dataset_paths, _ = await build_dataset_paths(db, graph)
     engine = _SampleEngine(sample_rows)
+    executor = _PreviewExecutor(monotonic() + PREVIEW_DEADLINE_SECONDS)
 
     def _compute() -> GraphPreview:
         try:
-            frames = _compute_frames(graph, dataset_paths, engine)
+            frames = _compute_frames(graph, dataset_paths, engine, executor=executor)
         except GraphValidationError as exc:
             return GraphPreview(target, None, issues=[Issue(None, classify_issue(exc), str(exc))])
         except NodeExecutionError as exc:

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     ASSISTANT_PROVIDER: Literal["off", "openai", "anthropic", "deepseek", "opencode"] = "off"
     ASSISTANT_SECRET_DIR: str = "/run/ciaren-assistant-secrets"
     ASSISTANT_TURNS_PER_HOUR: int = 20
+    # Optional cap on provider input + output tokens per rolling hour.
+    ASSISTANT_TOKENS_PER_HOUR: int | None = None
     ASSISTANT_OPENAI_MODEL: Literal["gpt-5-mini", "gpt-5"] = "gpt-5-mini"
     ASSISTANT_OPENAI_EFFORT: Literal["default", "low", "medium", "high"] = "default"
     ASSISTANT_OPENAI_API_KEY: SecretStr | None = None
@@ -264,14 +266,31 @@ class Settings(BaseSettings):
 
 
 _ASSISTANT_KEY_ENV = re.compile(r"CIAREN_ASSISTANT_[A-Z0-9]+_API_KEY")
+_ASSISTANT_KEY_FIELD = re.compile(r"ASSISTANT_[A-Z0-9]+_API_KEY")
 
 
 @lru_cache
 def get_settings() -> Settings:
-    settings = Settings()
-    # Spawned code workers inherit os.environ. Once loaded, assistant API keys
-    # live only in these settings, so the variables are removed from the process
-    # environment. Clearing this cache afterwards drops env-sourced keys.
+    return Settings()
+
+
+def scrub_assistant_key_env() -> None:
+    """Remove assistant API keys from this process's environment.
+
+    The server calls this at startup, after its settings hold the keys, so the
+    processes it spawns do not inherit them. The CLI parent must not call it:
+    ``uvicorn --reload`` starts each server from the parent's environment.
+    """
+    get_settings()
     for name in [n for n in os.environ if _ASSISTANT_KEY_ENV.fullmatch(n.upper())]:
         del os.environ[name]
-    return settings
+
+
+def drop_assistant_keys() -> None:
+    """For worker processes, which never call a provider: remove the keys from
+    the environment and from settings, whatever their source (env, .env file)."""
+    settings = get_settings()
+    scrub_assistant_key_env()
+    for name in Settings.model_fields:
+        if _ASSISTANT_KEY_FIELD.fullmatch(name):
+            setattr(settings, name, None)
