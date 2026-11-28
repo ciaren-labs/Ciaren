@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Which nodes and settings the assistant may write. Anything not listed is denied."""
 
+import ast
 import re
 from collections.abc import Iterable
 from typing import Any, Literal
@@ -132,29 +133,80 @@ def reject_templates(value: Any, field: str | None = None) -> None:
 
 
 EXPRESSION_LIMIT = 300
-EXPRESSION_FUNCTIONS = frozenset(
-    {"abs", "sqrt", "exp", "log", "log10", "log1p", "expm1", "sin", "cos", "tan", "sinh", "cosh", "tanh"}
+LITERAL_LIMIT = 160
+#: Functions both evaluators accept: pandas ``DataFrame.eval`` (filters, assertions and
+#: pandas calculated columns) and polars ``pl.sql_expr`` (polars calculated columns).
+EXPRESSION_FUNCTIONS = frozenset({"abs", "sqrt", "exp", "log10", "log1p", "sin", "cos", "floor", "ceil"})
+_OPERATORS = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.And,
+    ast.Or,
+    ast.Not,
+    ast.USub,
+    ast.UAdd,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
 )
-_KEYWORDS = frozenset({"and", "or", "not", "in", "True", "False"})
-_TOKEN = re.compile(
-    r"""(?P<quoted>'[^'\n]*'|"[^"\n]*")|`(?P<named>[^`\n]*)`|(?P<number>\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)"""
-    r"|(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
-)
+_DECIMAL = re.compile(r"\d+(\.\d+)?")
+_STRUCTURE = (ast.Expression, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare, ast.Load)
 
 
 def guard_expression(expression: str, columns: Iterable[str], field: str = "expression") -> None:
-    """Accept only short comparisons and arithmetic over known columns and math functions."""
+    """Allow only arithmetic, comparisons and boolean logic over known columns and literals.
+
+    The text must be printable ASCII, so evaluators that normalise Unicode identifiers
+    cannot see a name the check did not. Attribute access, indexing, keyword arguments,
+    comprehensions and every other node type are rejected.
+    """
     known = set(columns)
     if len(expression) > EXPRESSION_LIMIT:
         raise PolicyError(f"Expressions are limited to {EXPRESSION_LIMIT} characters.", field, "limit")
-    if any(term in expression for term in ("@", "__", ";", "\n", "\r", "import", "lambda")):
+    if not expression.isascii() or not expression.isprintable():
+        raise PolicyError("Expressions may only contain printable ASCII characters.", field)
+    if any(term in expression for term in ("@", "__", ";", "`", "import", "lambda")):
         raise PolicyError("The expression uses a disallowed construct.", field)
-    for match in _TOKEN.finditer(expression):
-        if match["named"] is not None and match["named"] not in known:
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError:
+        raise PolicyError("The expression is not a supported formula.", field) from None
+    for node in ast.walk(tree):
+        if isinstance(node, _STRUCTURE + _OPERATORS):
+            continue
+        if isinstance(node, ast.Name):
+            if node.id not in known and node.id not in EXPRESSION_FUNCTIONS:
+                raise PolicyError("The expression references an unknown column.", field)
+        elif isinstance(node, ast.Constant):
+            value = node.value
+            source = ast.get_source_segment(expression, node) or ""
+            # Plain decimals only: polars SQL rejects exponent and hex forms, and None.
+            plain = isinstance(value, bool | str) or isinstance(value, int | float) and _DECIMAL.fullmatch(source)
+            if not plain:
+                raise PolicyError("Unsupported literal in the expression.", field)
+            if isinstance(value, str) and len(value) > LITERAL_LIMIT:
+                raise PolicyError(f"Text literals are limited to {LITERAL_LIMIT} characters.", field, "limit")
+        elif isinstance(node, ast.Call):
+            if (
+                not isinstance(node.func, ast.Name)
+                or node.func.id not in EXPRESSION_FUNCTIONS
+                or len(node.args) != 1
+                or node.keywords
+            ):
+                raise PolicyError("Only single-argument math functions may be called.", field)
+        else:
+            raise PolicyError("The expression uses a disallowed construct.", field)
+    # A function name used as a value (``abs > 1``) is not a column.
+    called = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and id(node) not in called and node.id not in known:
             raise PolicyError("The expression references an unknown column.", field)
-        name = match["name"]
-        if name and name not in known and name not in EXPRESSION_FUNCTIONS and name not in _KEYWORDS:
-            raise PolicyError("The expression references an unknown column or function.", field)
 
 
 _TREES = ("n_estimators", "max_depth", "min_samples_split", "min_samples_leaf")

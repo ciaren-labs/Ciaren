@@ -160,26 +160,56 @@ async def test_list_and_schema_tools_hide_denied_nodes(ml, db_session):
 @pytest.mark.parametrize(
     ("expression", "accepted"),
     [
-        ("amount > 2 and abs(price) <= 10", True),
-        ("`unit price` * 2 + 1e3", True),
-        ("city == 'Lyon'", True),
+        ("amount > 100 and region == 'EU'", True),
+        ("price * qty", True),
+        ("amount > 2 and abs(price) <= 10 or not qty < 1", True),
+        ("sqrt(amount) + 1000.5 - -price % 2 / qty", True),
+        ("amount > 1e3", False),
+        ("amount > 0x10", False),
+        ("amount == None", False),
+        ("region != 'Lyon'", True),
         # Forbidden constructs are rejected inside quoted literals too.
-        ("city == 'x; import os'", False),
-        ("@limit < amount", False),
+        ("region == 'x; import os'", False),
+        # NFKC-normalised fullwidth attribute call: wrote a file through df.eval before.
+        ("amount.ｔｏ＿ｃｓｖ('out.csv') == amount", False),
+        ("region == 'été'", False),
+        ("amount.replace(1, 99) > 0", False),
+        # A column may be named like a DataFrame method; it is still only a bare name.
+        ("amount.to_csv('out.csv') == amount", False),
+        ("to_csv('out.csv')", False),
+        ("to_csv > 1", True),
         ("amount.__class__", False),
-        ("amount.str.len() > 2", False),
+        ("`unit price` * 2", False),
+        ("@limit < amount", False),
+        ("amount @ price", False),
+        ("amount[0] > 1", False),
+        ("amount ** 2", False),
+        ("log(amount)", False),
+        ("abs(amount, price)", False),
+        ("abs(x=amount)", False),
+        ("[a for a in amount]", False),
+        ("(qty := 1)", False),
+        ("amount in (1, 2)", False),
         ("unknown > 1", False),
-        ("`missing` > 1", False),
         ("amount > 1; price", False),
         ("amount\n> 1", False),
         ("(lambda: 1)()", False),
         ("amount > " + "1" * 300, False),
+        ("region == '" + "x" * 161 + "'", False),
     ],
 )
 def test_expression_guard(expression, accepted):
-    columns = ["amount", "price", "unit price", "city"]
+    import pandas as pd
+    import polars as pl
+
+    columns = ["amount", "price", "qty", "region", "to_csv"]
     if accepted:
         policy.guard_expression(expression, columns)
+        # Accepted expressions evaluate on both engines' expression evaluators.
+        frame = pd.DataFrame({"amount": [150.0, 4.0], "price": [2.0, 3.0], "qty": [1, 2], "region": ["EU", "US"]})
+        frame["to_csv"] = 1
+        frame.eval(expression)
+        pl.from_pandas(frame).with_columns(pl.sql_expr(expression).alias("result"))
     else:
         with pytest.raises(policy.PolicyError):
             policy.guard_expression(expression, columns)
