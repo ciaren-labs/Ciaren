@@ -595,7 +595,7 @@ export function AssistantPanel({
         }
       }}
       className={cn(
-        "assistant-panel flex min-h-0 w-[26rem] min-[1280px]:max-[1440px]:w-[22rem] shrink-0 flex-col border-l border-border bg-background max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:border-l-0",
+        "assistant-panel flex min-h-0 w-[26rem] min-[1280px]:max-[1456px]:w-[22rem] shrink-0 flex-col border-l border-border bg-background max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:border-l-0",
         dockHost ? "h-full" : "fixed inset-y-0 right-0 z-40 shadow-xl",
       )}
     >
