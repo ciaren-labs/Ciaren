@@ -589,3 +589,196 @@ async def test_safe_type_names_must_still_resolve_to_built_in_code(
     result = await preview_graph(db_session, ds["project_id"], _graph(ds, step), None, limit=5, profile=False)
 
     assert [(i.node, i.code) for i in result.issues] == [("swapped", "policy")]
+
+
+# -- Expansion classification ------------------------------------------------
+
+FEATURES = ["num", "num2"]
+CLASSIFIER = {"model_type": "logistic_regression", "target_column": "target", "feature_columns": FEATURES, "seed": 1}
+TRAINED = {"model_type": "random_forest_classifier", "target_column": "target", "feature_columns": FEATURES, "seed": 1}
+# One small, valid config per type labelled "bounded"; the test below checks that
+# label instead of trusting it.
+BOUNDED_CASES: dict[str, dict[str, Any]] = {
+    "assertNotNull": {"columns": ["id"]},
+    "assertRowCount": {"min_rows": 1},
+    "assertUnique": {"columns": ["id"]},
+    "assertValueRange": {"column": "num", "min": -1000, "max": 1000},
+    "assertValuesInSet": {"column": "cat", "allowed": ["a", "b", "c"]},
+    "binColumn": {"column": "num", "new_column": "bin", "bins": 3},
+    "castDtypes": {"casts": {"id": "float"}},
+    "chartArea": {"x": "id", "y_columns": ["num"]},
+    "chartBar": {"x": "cat", "y": "num"},
+    "chartBoxPlot": {"column": "num"},
+    "chartHeatmap": {"columns": FEATURES},
+    "chartHistogram": {"column": "num"},
+    "chartLine": {"x": "id", "y_columns": ["num"]},
+    "chartPie": {"category": "cat", "value": "num"},
+    "chartScatter": {"x": "num", "y": "num2"},
+    "coalesceColumns": {"columns": FEATURES, "new_column": "first"},
+    "combineColumns": {"columns": ["cat", "text"], "new_column": "both"},
+    "conditionalColumn": {
+        "new_column": "band",
+        "default": "low",
+        "rules": [{"conditions": [{"column": "num", "operator": ">", "value": 5}], "value": "high"}],
+    },
+    "dateDifference": {"start_column": "date", "end_column": "date2", "new_column": "gap"},
+    "dropColumns": {"columns": ["text"]},
+    "dropNulls": {},
+    "extractDateParts": {"column": "date", "parts": ["year", "month", "day"]},
+    "fillNulls": {"strategy": "constant", "value": "0", "columns": ["cat"]},
+    "filterRows": {"column": "num", "operator": ">", "value": 3},
+    "groupByAggregate": {"group_by": ["cat"], "aggregations": {"num": "sum", "num2": "mean"}},
+    "limitRows": {"n": 5},
+    "mapValues": {"column": "cat", "new_column": "mapped", "mapping": {"a": "A"}},
+    "parseDates": {"columns": ["date"]},
+    "removeDuplicates": {},
+    "removeOutliers": {"columns": ["num"]},
+    "renameColumns": {"mapping": {"num": "n"}},
+    "replaceValues": {"column": "cat", "to_replace": "a", "value": "z"},
+    "rollingAggregate": {"target": "num", "function": "mean", "window": 2, "order_by": ["id"], "new_column": "roll"},
+    "roundNumbers": {"columns": ["num"]},
+    "rowDifference": {"target": "num", "order_by": ["id"], "new_column": "delta"},
+    "sampleRows": {"n": 5, "seed": 1},
+    "selectColumns": {"columns": ["id", "num"]},
+    "sortRows": {"columns": ["num"]},
+    "stringTransform": {"column": "text", "operation": "upper"},
+    "windowFunction": {"function": "row_number", "order_by": ["id"], "new_column": "rank"},
+    "scaleFeatures": {"columns": FEATURES},
+    "selectFeatures": {"method": "variance", "threshold": 0.0},
+    "trainTestSplit": {"seed": 1, "test_size": 0.25},
+    "mlClassifierModel": CLASSIFIER,
+    "mlRegressorModel": {"model_type": "ridge", "target_column": "num", "feature_columns": ["num2"], "seed": 1},
+    "mlTrainClassifier": TRAINED,
+    "mlTrainRegressor": {
+        "model_type": "random_forest_regressor",
+        "target_column": "num",
+        "feature_columns": ["num2"],
+        "seed": 1,
+    },
+    "mlTrainClustering": {"model_type": "kmeans", "feature_columns": FEATURES, "seed": 1},
+    "mlTrainDimReduction": {"model_type": "pca_fit", "feature_columns": FEATURES, "seed": 1},
+    "mlEvaluate": {"task_type": "classification", "target_column": "target", "prediction_column": "flag"},
+    "mlPredict": {},
+    "featureImportance": {},
+    "mlCrossValidate": {"n_splits": 2, "seed": 1},
+}
+# Nodes fed by a model wire: (model node type, model config, does it also read "in").
+MODEL_FED = {
+    "mlPredict": ("mlTrainClassifier", TRAINED, True),
+    "featureImportance": ("mlTrainClassifier", TRAINED, False),
+    "mlCrossValidate": ("mlClassifierModel", CLASSIFIER, True),
+}
+SAMPLE = [
+    {
+        "id": i,
+        "num": float(i),
+        "num2": float(i % 4),
+        "cat": "abc"[i % 3],
+        "text": f"t{i} x",
+        "date": f"2024-01-{i + 1:02d}",
+        "date2": f"2024-02-{i + 1:02d}",
+        "target": i % 2,
+        "flag": (i + 1) % 2,
+    }
+    for i in range(16)
+]
+
+
+def test_every_safe_type_declares_its_expansion() -> None:
+    expansion = preview_service.EXPANSION
+    assert expansion.keys() == preview_service.PREVIEW_SAFE_TYPES
+    assert all(rule == "bounded" or callable(rule) for rule in expansion.values())
+    # Every "bounded" label is exercised below.
+    assert {t for t, rule in expansion.items() if rule == "bounded"} == set(BOUNDED_CASES)
+
+
+@pytest.mark.parametrize("kind", sorted(BOUNDED_CASES))
+async def test_bounded_types_keep_rows_and_columns_bounded(
+    client: AsyncClient, db_session, monkeypatch, kind: str
+) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    ds = await _upload(client, _csv(SAMPLE), "bounded.csv")
+    graph = _graph(ds)
+    graph["nodes"].append({"id": "node", "type": kind, "data": {"config": BOUNDED_CASES[kind]}})
+    if kind in MODEL_FED:
+        model_type, model_config, reads_rows = MODEL_FED[kind]
+        graph["nodes"].append({"id": "model", "type": model_type, "data": {"config": model_config}})
+        graph["edges"].append({"id": "m_in", "source": "in1", "target": "model", "targetHandle": "in"})
+        graph["edges"].append({"id": "m", "source": "model", "target": "node", "targetHandle": "model"})
+        if reads_rows:
+            graph["edges"].append({"id": "d", "source": "in1", "target": "node", "targetHandle": "in"})
+    else:
+        graph["edges"].append({"id": "d", "source": "in1", "target": "node", "targetHandle": "in"})
+
+    result = await preview_graph(db_session, ds["project_id"], graph, "node", limit=50, profile=False)
+
+    assert result.issues == [] and result.preview is not None, result.issues
+    assert result.preview.row_count <= len(SAMPLE)
+    assert len(result.preview.columns) <= len(SAMPLE[0]) + preview_service.BOUNDED_EXTRA_COLUMNS
+
+
+async def _expanding(client, db_session, monkeypatch, rows, step, patched, sample_rows=2000):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "ML_ENABLED", True)
+    ds = await _upload(client, _csv(rows), "expanding.csv")
+    calls: list[str] = []
+    if patched:
+        owner, name = patched
+        monkeypatch.setattr(owner, name, lambda *a, **k: calls.append(name))
+    graph = _graph(ds, {"id": "big", "type": step["type"], "data": {"config": step["config"]}})
+    result = await preview_graph(
+        db_session, ds["project_id"], graph, "big", limit=5, profile=False, sample_rows=sample_rows
+    )
+    return [(i.node, i.code) for i in result.issues], calls
+
+
+async def test_explode_estimate_uses_the_engine_split(client: AsyncClient, db_session, monkeypatch) -> None:
+    # "x?" is a regex to pandas: it matches between every character.
+    rows = [{"id": i, "tags": "a" * 500} for i in range(200)]
+    step = {"type": "explodeRows", "config": {"column": "tags", "delimiter": "x?"}}
+    issues, calls = await _expanding(client, db_session, monkeypatch, rows, step, (pd.DataFrame, "explode"))
+    assert issues == [("big", "limit")] and not calls
+
+
+async def test_pivot_estimate_counts_distinct_index_and_columns(client: AsyncClient, db_session, monkeypatch) -> None:
+    rows = [{"id": i, "key": f"k{i}", "num": 1} for i in range(3000)]
+    step = {"type": "pivot", "config": {"index": ["id"], "columns": "key", "values": "num", "aggfunc": "sum"}}
+    issues, calls = await _expanding(
+        client, db_session, monkeypatch, rows, step, (pd.DataFrame, "pivot_table"), sample_rows=3000
+    )
+    assert issues == [("big", "limit")] and not calls
+
+
+async def test_one_hot_estimate_counts_distinct_categories(client: AsyncClient, db_session, monkeypatch) -> None:
+    rows = [{"id": i, "code": f"c{i}"} for i in range(2000)]
+    step = {"type": "encodeCategories", "config": {"method": "onehot", "columns": ["code"]}}
+    issues, calls = await _expanding(client, db_session, monkeypatch, rows, step, (pd, "get_dummies"))
+    assert issues == [("big", "limit")] and not calls
+
+
+async def test_split_column_estimate_counts_intermediate_pieces(client: AsyncClient, db_session, monkeypatch) -> None:
+    rows = [{"id": i, "csv": ",".join(["v"] * 5000)} for i in range(500)]
+    step = {"type": "splitColumn", "config": {"column": "csv", "delimiter": ",", "into": ["first", "second"]}}
+    issues, _ = await _expanding(client, db_session, monkeypatch, rows, step, None)
+    assert issues == [("big", "limit")]
+
+
+async def test_cell_cap_applies_after_each_node(client: AsyncClient, db_session, monkeypatch) -> None:
+    monkeypatch.setattr(preview_service, "PREVIEW_MAX_CELLS", 5)
+    ds = await _upload(client)
+    result = await preview_graph(db_session, ds["project_id"], _graph(ds), None, limit=5, profile=False)
+    assert [(i.node, i.code) for i in result.issues] == [("in1", "limit")]
+
+
+async def test_bounded_nodes_are_sized_before_they_run(client: AsyncClient, db_session, monkeypatch) -> None:
+    # 3 rows x 3 columns pass the cap; room for the bounded extra columns does not.
+    monkeypatch.setattr(preview_service, "PREVIEW_MAX_CELLS", 20)
+    ds = await _upload(client)
+    calls: list[str] = []
+    monkeypatch.setattr(pd.DataFrame, "dropna", lambda *a, **k: calls.append("dropna"))
+    graph = _graph(ds, {"id": "keep", "type": "dropNulls", "data": {"config": {}}})
+    result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False)
+    assert [(i.node, i.code) for i in result.issues] == [("keep", "limit")] and not calls
