@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Per-turn state shared by the assistant tools."""
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -12,6 +13,8 @@ Graph = dict[str, Any]
 MAX_COLUMNS = 64
 #: Column refs one turn may hand out: c0 .. c255.
 MAX_REFS = 256
+_REF = re.compile(r"\b[cdn]\d{1,3}\b")
+_ECHO = re.compile(r"(\S+) \(\1\)")
 
 
 class ToolError(ValueError):
@@ -63,6 +66,17 @@ class ToolContext:
     def hidden(self) -> dict[str, str]:
         """Real column name -> ref for every registered column; empty when names are shared."""
         return {} if self.share_names else dict(self.names)
+
+    def readable(self, text: str, datasets: dict[str, str]) -> str:
+        """``text`` with each column, node and dataset ref replaced by its name. For the user
+        only: the result can hold real names, so it never goes back to the model."""
+        labels = {ref: name for name, ref in self.names.items()}
+        nodes = {n["id"]: n["data"].get("label") or n["type"] for n in self.graph["nodes"]}
+        labels |= {ref: nodes[i] for ref, i in self.refs.items() if i in nodes}
+        labels |= datasets
+        named = _REF.sub(lambda m: labels.get(m.group(0), m.group(0)), text)
+        # "price (c3)" would read "price (price)".
+        return _ECHO.sub(r"\1", named)
 
     def column_names(self, source: str, refs: list[str]) -> list[str]:
         known = self.columns.get(source, {})

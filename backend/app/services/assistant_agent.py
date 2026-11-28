@@ -9,7 +9,8 @@ proposal.
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable
+import re
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Annotated, Any, Literal
@@ -67,8 +68,17 @@ for example an ML node with empty feature_columns uses every column except the t
 
 Finish rule: call validate after your last edit and call finish only when validate returned \
 ok. If the request cannot be met with these tools, call abstain. Never guess which ref is a \
-column the user named: when names are not shared and types do not settle it, call abstain \
-with ambiguous_request so the user can share names. Keep the flow minimal."""
+column the user named: when names are not shared and types do not settle it, call ask_user \
+with the candidate dataset column refs as options; the user sees them by name. Use ask_user \
+for any other choice that settles the request, and abstain only when no option would. \
+"answers" in the request are the user's replies to earlier questions, and "named_columns" \
+maps the column names typed in the question to their refs. Keep the flow minimal.
+
+Reply style: the user reads your text in a narrow panel. Write in the language of the \
+user's question. The finish summary is one plain sentence on what the flow does; put details \
+in at most 4 short notes. A question is one short sentence and each option label a few words. \
+Refer to datasets and columns by ref only, once each: the user sees their names. Describe \
+nodes in words, not refs. No markdown, no arrow chains."""
 
 
 #: Longest model text kept for the reply. Longer text is shortened, not refused, so a
@@ -76,12 +86,35 @@ with ambiguous_request so the user can share names. Keep the flow minimal."""
 REPLY_TEXT = 600
 
 
-def _shorten(text: str) -> str:
-    return text if len(text) <= REPLY_TEXT else text[: REPLY_TEXT - 1].rstrip() + "…"
+#: Answered questions one request may carry; a turn that has them all cannot ask again.
+MAX_ANSWERS = 3
+
+#: Notes and options kept for the reply, and the longest note or option label.
+REPLY_ITEMS = {"notes": 4, "options": 6}
+ITEM_TEXT = 160
+
+#: Text the model writes; long text or extra items are cut for the reply, never refused.
+Text = Annotated[str, Field(min_length=1, max_length=8000)]
+
+
+def _shorten(text: str, limit: int = REPLY_TEXT) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 class Finish(Args):
-    summary: Annotated[str, Field(min_length=1, max_length=8000)]
+    summary: Text
+    notes: Annotated[list[Text], Field(max_length=20)] = []
+
+
+class Option(Args):
+    label: Text
+    #: A dataset column ref when the option picks a column.
+    column: Annotated[str, Field(pattern=r"^c\d{1,3}$")] | None = None
+
+
+class AskUser(Args):
+    question: Text
+    options: Annotated[list[Option], Field(min_length=2, max_length=20)]
 
 
 class Abstain(Args):
@@ -89,7 +122,7 @@ class Abstain(Args):
     detail: Annotated[str, Field(max_length=8000)] = ""
 
 
-Kind = Literal["finish", "abstain", "step_limit", "timeout", "provider_error", "invalid"]
+Kind = Literal["finish", "abstain", "ask", "step_limit", "timeout", "provider_error", "invalid"]
 
 
 @dataclass
@@ -102,6 +135,9 @@ class Outcome:
     steps: list[dict[str, Any]]
     #: Why the model abstained, when it did.
     abstained: str | None = None
+    notes: list[str] = field(default_factory=list)
+    #: For ``ask``: each option's label (with refs) and the answer a follow-up turn sends back.
+    choices: list[dict[str, str]] = field(default_factory=list)
 
 
 def tool_specs() -> list[Tool]:
@@ -111,7 +147,22 @@ def tool_specs() -> list[Tool]:
     ]
 
 
-def first_message(ctx: ToolContext, work: Working, question: str, mode: str, failure: str) -> str:
+def typed_columns(ctx: ToolContext, question: str) -> dict[str, str]:
+    """Refs of the column names the user typed as whole words. The question already carries
+    those names, so mapping them reveals only that they are columns; other names stay hidden."""
+    if ctx.share_names:
+        return {}
+    text = question.casefold()
+    return {
+        name: ref
+        for name, ref in ctx.names.items()
+        if len(name) >= 3 and re.search(rf"(?<!\w){re.escape(name.casefold())}(?!\w)", text)
+    }
+
+
+def first_message(
+    ctx: ToolContext, work: Working, question: str, mode: str, failure: str, answers: Sequence[dict[str, str]] = ()
+) -> str:
     """The opening request: question, canvas shape, refs and the compact node catalog (about
     7 KB), at most 12 KB."""
     datasets = {dataset: ref for ref, dataset in ctx.datasets.items()}
@@ -137,6 +188,10 @@ def first_message(ctx: ToolContext, work: Working, question: str, mode: str, fai
         "names_shared": ctx.share_names,
         "last_failure": failure or None,
     }
+    if answers:
+        request["answers"] = list(answers)
+    if named := typed_columns(ctx, question):
+        request["named_columns"] = named
     text = json.dumps(request, ensure_ascii=False)
     if len(text.encode()) > FIRST_MESSAGE_BYTES:
         # Large canvases are summarized; validate and preview describe them on demand.
@@ -260,6 +315,9 @@ TOOLS: dict[str, _Tool] = {
     # Ending tools are decided by the loop itself.
     "finish": _Tool(Finish, "End the turn with a short summary. Requires a successful validate.", None, False, False),
     "abstain": _Tool(Abstain, "End the turn without a proposal.", None, False, False),
+    "ask_user": _Tool(
+        AskUser, "End the turn with one question and 2-6 options the user picks from.", None, False, False
+    ),
 }
 
 
@@ -282,11 +340,12 @@ async def run(
     mode: str,
     failure: str,
     reservation: Reservation,
+    answers: Sequence[dict[str, str]] = (),
 ) -> Outcome:
     """Run one turn under ``reservation`` and the call, tool, time and size limits."""
     turn = _Turn(ctx, work)
     turn.sync()
-    messages: list[Message] = [{"role": "user", "content": first_message(ctx, work, question, mode, failure)}]
+    messages: list[Message] = [{"role": "user", "content": first_message(ctx, work, question, mode, failure, answers)}]
     tools = tool_specs()
     # Each call resends the whole transcript, so it must also fit the per-call limit
     # next to the system prompt, the tool schemas and the codec's envelope.
@@ -363,7 +422,9 @@ async def run(
             if name == "finish" and isinstance(args, Finish):
                 if turn.validated == verify.fingerprint(turn.work):
                     turn.steps.append({"tool": name, "ok": True})
-                    return outcome("finish", _shorten(args.summary), turn.work)
+                    done = outcome("finish", _shorten(args.summary), turn.work)
+                    done.notes = [_shorten(n, ITEM_TEXT) for n in args.notes[: REPLY_ITEMS["notes"]]]
+                    return done
                 result = {
                     "ok": False,
                     "issues": [{"code": "not_validated", "message": "Call validate and fix every issue first."}],
@@ -373,6 +434,29 @@ async def run(
                 ended = outcome("abstain", _shorten(args.detail) or "The assistant could not serve this request.")
                 ended.abstained = args.reason
                 return ended
+            elif name == "ask_user" and isinstance(args, AskUser):
+                columns = {ref for d in ctx.datasets for ref in ctx.columns.get(d, {})}
+                if len(answers) >= MAX_ANSWERS:
+                    issue = {"code": "too_many_questions", "message": "Decide with the answers given, or abstain."}
+                    result = {"ok": False, "issues": [issue]}
+                elif all(o.column is None or o.column in columns for o in args.options):
+                    turn.steps.append({"tool": name, "ok": True})
+                    asked = outcome("ask", _shorten(args.question))
+                    for o in args.options[: REPLY_ITEMS["options"]]:
+                        label = _shorten(o.label, ITEM_TEXT)
+                        answer = f"{o.column}: {label}" if o.column else label
+                        asked.choices.append({"label": label, "reply": answer})
+                    return asked
+                else:
+                    result = {
+                        "ok": False,
+                        "issues": [
+                            {
+                                "code": "missing_column",
+                                "message": "Options pick dataset columns from get_dataset_schema.",
+                            }
+                        ],
+                    }
             turn.steps.append({"tool": name, "ok": bool(result.get("ok", True))})
             messages.append(
                 {"role": "tool", "call_id": call_id, "name": name, "content": json.dumps(result, ensure_ascii=False)}

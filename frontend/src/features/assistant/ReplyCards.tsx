@@ -1,10 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Ban, Check, CircleAlert, Clock, Compass } from "lucide-react";
+import { Ban, Check, CircleAlert, Clock, Compass, MessageCircleQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Dataset } from "@/features/datasets/types";
 import { cn } from "@/lib/utils";
-import { headingId, type Conflict, type Mode, type Reason, type Suggestion, type Turn } from "./api";
+import {
+  headingId,
+  type Choice,
+  type Conflict,
+  type Mode,
+  type Reason,
+  type Suggestion,
+  type Turn,
+} from "./api";
 import { ProposalReview } from "./ProposalReview";
 
 const count = (n: number, word: string) =>
@@ -108,6 +116,20 @@ function useSecondsLeft(expiresAt: number | undefined, active: boolean) {
   return [seconds, check] as const;
 }
 
+/** What each assistant tool did, in words. */
+const STEP_LABELS: Record<string, string> = {
+  list_node_types: "Looked up node types",
+  get_node_schema: "Read node settings",
+  get_dataset_schema: "Read dataset columns",
+  profile_columns: "Profiled columns",
+  preview: "Previewed a node",
+  propose_edit: "Drafted a change",
+  validate: "Checked the flow",
+  finish: "Finished",
+  abstain: "Stopped",
+  ask_user: "Asked a question",
+};
+
 /** Limits that end a turn with a draft the final check did not pass. */
 const DRAFTS = new Set<Reason | Conflict>(["step_limit", "timeout", "provider_error"]);
 
@@ -165,6 +187,13 @@ export function ProposalCard({
       ) : (
         reply.message && <p className="text-sm">{plain(reply.message)}</p>
       )}
+      {!!reply.notes?.length && (
+        <ul aria-label="Details" className="list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
+          {reply.notes.map((note, i) => (
+            <li key={i}>{plain(note)}</li>
+          ))}
+        </ul>
+      )}
       <ProposalReview
         headingId={headingId(turn)}
         delta={reply.delta!}
@@ -186,8 +215,12 @@ export function ProposalCard({
                 ) : (
                   <CircleAlert aria-hidden className="size-3.5 text-warning" />
                 )}
-                <code>{step.tool}</code>
-                <span>· {step.ok ? "ok" : "failed"}</span>
+                {STEP_LABELS[step.tool] ?? <code>{step.tool}</code>}
+                {step.ok ? (
+                  <span className="sr-only">· done</span>
+                ) : (
+                  <span>· did not pass</span>
+                )}
               </li>
             ))}
           </ol>
@@ -308,6 +341,10 @@ const REASONS: Record<Reason | Conflict, { title: string; text: string }> = {
     title: "Nothing to change",
     text: "The flow already does what the request asks for.",
   },
+  needs_choice: {
+    title: "Choose one to continue",
+    text: "The assistant needs one choice from you before it can propose a change.",
+  },
   validation_failed: {
     title: "The proposal did not pass checks",
     text: "The assistant drafted a change that failed validation, so nothing was proposed.",
@@ -401,6 +438,47 @@ export function GuidanceCard({
           )}
         </div>
       )}
+    </Card>
+  );
+}
+
+/** The assistant asks one question; each option is a card that answers it. */
+export function ChoiceCard({
+  turn,
+  busy,
+  choose,
+}: {
+  turn: Turn;
+  busy: boolean;
+  choose: (choice: Choice) => void;
+}) {
+  const reply = turn.reply!;
+  const question = `${headingId(turn)}-question`;
+  return (
+    <Card
+      turn={turn}
+      icon={<MessageCircleQuestion aria-hidden className="size-4 text-primary" />}
+      title="Choose one to continue"
+    >
+      <p id={question} className="text-sm">
+        {plain(reply.message)}
+      </p>
+      <div role="group" aria-labelledby={question} className="assistant-choices">
+        {reply.choices!.map((c) => (
+          <button
+            key={c.reply}
+            type="button"
+            className="assistant-choice"
+            disabled={busy}
+            onClick={() => choose(c)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        None fits? Edit the request below with more detail.
+      </p>
     </Card>
   );
 }

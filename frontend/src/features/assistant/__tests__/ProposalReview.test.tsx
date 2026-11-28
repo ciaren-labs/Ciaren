@@ -57,6 +57,8 @@ describe("ProposalReview", () => {
   });
 
   it("lists every changed field of an update and every field of a new node", () => {
+    const input = node("in", "fileInput", "File Input", { dataset_id: null });
+    const bound = node("in", "fileInput", "File Input", { dataset_id: "d1" });
     const before = node("cast", "castDtypes", "Cast", {
       casts: { amount: "float" },
       errors: "raise",
@@ -74,9 +76,9 @@ describe("ProposalReview", () => {
     });
     render(
       <ProposalReview
-        delta={{ added: [model], changed: [after], connected: [], disconnected: [] }}
-        base={{ nodes: [before], edges: [] }}
-        datasets={[]}
+        delta={{ added: [model], changed: [after, bound], connected: [], disconnected: [] }}
+        base={{ nodes: [before, input], edges: [] }}
+        datasets={[{ id: "d1", name: "orders.csv" } as Dataset]}
         inspectNode={() => {}}
         compact={false}
       />,
@@ -84,6 +86,10 @@ describe("ProposalReview", () => {
     const changes = screen.getByRole("list", { name: "Changed settings of Cast" });
     expect(changes).toHaveTextContent("errors: raise → coerce");
     expect(changes).toHaveTextContent('casts: {"amount":"float"} → {"amount":"integer"}');
+    // A dataset id reads as its name.
+    expect(screen.getByRole("list", { name: "Changed settings of File Input" })).toHaveTextContent(
+      "dataset id: not set → orders.csv",
+    );
     const all = screen.getByRole("list", { name: "All settings of Classifier Model" });
     expect(all).toHaveTextContent('hyperparameters: {"n_estimators":200,"max_depth":8}');
     expect(all).toHaveTextContent("class weight: balanced");

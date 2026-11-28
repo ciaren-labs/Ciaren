@@ -101,10 +101,23 @@ function Fields({ label, rows }: { label: string; rows: [string, string][] }) {
   );
 }
 
-function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
+/** A field value in words; a dataset id reads as the dataset's name. */
+function fieldText(key: string, v: unknown, datasets: Dataset[]) {
+  const name = key === "dataset_id" ? datasets.find((d) => d.id === v)?.name : undefined;
+  return name ?? shown(v);
+}
+
+function changedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  datasets: Dataset[],
+) {
   return [...new Set([...Object.keys(before), ...Object.keys(after)])]
     .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
-    .map((k): [string, string] => [k, `${shown(before[k])} → ${shown(after[k])}`]);
+    .map((k): [string, string] => [
+      k,
+      `${fieldText(k, before[k], datasets)} → ${fieldText(k, after[k], datasets)}`,
+    ]);
 }
 
 export function ProposalReview({
@@ -172,7 +185,7 @@ export function ProposalReview({
                 {old ? (
                   <Fields
                     label={`Changed settings of ${n.data.label}`}
-                    rows={changedFields(old.data.config, n.data.config)}
+                    rows={changedFields(old.data.config, n.data.config, datasets)}
                   />
                 ) : (
                   Object.keys(n.data.config).length > 0 && (
@@ -182,7 +195,7 @@ export function ProposalReview({
                       </summary>
                       <Fields
                         label={`All settings of ${n.data.label}`}
-                        rows={Object.entries(n.data.config).map(([k, v]) => [k, shown(v)])}
+                        rows={Object.entries(n.data.config).map(([k, v]) => [k, fieldText(k, v, datasets)])}
                       />
                     </details>
                   )

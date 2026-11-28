@@ -29,6 +29,7 @@ export type Reason =
   | "provider_no_tools"
   | "abstained"
   | "no_change"
+  | "needs_choice"
   | "validation_failed"
   | "step_limit"
   | "timeout"
@@ -61,6 +62,22 @@ export interface Reply {
   reason?: Reason | Conflict;
   supported?: string[];
   suggestions?: Suggestion[];
+  /** Short details under a proposal's one-sentence summary. */
+  notes?: string[];
+  /** For `needs_choice`: the question as the model wrote it, sent back with the pick. */
+  ask?: string;
+  choices?: Choice[];
+}
+/** An option of a `needs_choice` reply: shown by `label`, sent back as `reply`. */
+export interface Choice {
+  label: string;
+  reply: string;
+}
+/** A pick from an earlier question, carried by the follow-up turn. */
+export interface Answer {
+  question: string;
+  answer: string;
+  label: string;
 }
 /** Apply response: the saved revision and the graph the server stored. */
 export interface ApplyResult {
@@ -87,6 +104,7 @@ export interface Inputs {
   lookup: string;
   target: string;
   shareNames: boolean;
+  answers?: Answer[];
 }
 
 /** Id of a reply heading, which receives focus when the reply lands. */

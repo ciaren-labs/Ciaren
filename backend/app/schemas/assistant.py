@@ -29,6 +29,13 @@ class RegressionPlan(ClosedModel):
     model: Literal["linear_regression"]
 
 
+class Clarification(ClosedModel):
+    """The user's pick from an earlier ``needs_choice`` reply, sent back as the model wrote it."""
+
+    question: str = Field(min_length=1, max_length=1000)
+    answer: str = Field(min_length=1, max_length=1000)
+
+
 class Turn(ClosedModel):
     request_id: UUID = Field(default_factory=uuid4)
     mode: Literal["build", "docs", "diagnose"]
@@ -41,6 +48,8 @@ class Turn(ClosedModel):
     second_dataset_id: str | None = Field(None, min_length=1, max_length=64)
     training: TrainingSelection | None = None
     share_names: bool = False
+    # assistant_agent.MAX_ANSWERS: a turn with three answers cannot ask a fourth question.
+    clarifications: list[Clarification] = Field(default_factory=list, max_length=3)
 
 
 class Confirmation(ClosedModel):
@@ -107,6 +116,7 @@ Reason = Literal[
     "provider_no_tools",
     "abstained",
     "no_change",
+    "needs_choice",
     "validation_failed",
     "step_limit",
     "timeout",
@@ -127,6 +137,13 @@ class Suggestion(ClosedModel):
     label: str
     action: Literal["save", "switch_mode", "open_docs", "enable_ml", "manual_edit", "share_names", "retry"]
     target: str | None = None
+
+
+class Choice(ClosedModel):
+    #: Shown to the user, with names in place of refs.
+    label: str
+    #: Sent back as the answer, as the model wrote it.
+    reply: str
 
 
 class Usage(ClosedModel):
@@ -166,3 +183,8 @@ class Reply(ClosedModel):
     reason: Reason | None = None
     supported: list[str] | None = None
     suggestions: list[Suggestion] | None = None
+    #: Short details under a proposal's one-sentence summary.
+    notes: list[str] | None = None
+    #: For ``needs_choice``: the question as the model wrote it, and the options to pick from.
+    ask: str | None = None
+    choices: list[Choice] | None = None

@@ -38,7 +38,6 @@ import {
   type ApplyResult,
   type Inputs,
   type Mode,
-  type Reply,
   type Suggestion,
   type Turn,
 } from "./api";
@@ -53,6 +52,7 @@ import { deltaCounts, summaryParts } from "./changeSummary";
 import { suggestedPrompts } from "./suggestions";
 import {
   AnswerCard,
+  ChoiceCard,
   GuidanceCard,
   PromptChips,
   ProposalCard,
@@ -90,13 +90,8 @@ const labels: Record<Mode, string> = {
 };
 const NARROW = "(max-width: 639px)";
 const TOAST_MS = 12000;
-const SAVE: Suggestion = { label: "Save and continue", action: "save" };
-/** Build and diagnose read the saved flow, so unsaved canvas edits always offer Save. */
-const withSave = (reply: Reply): Reply =>
-  reply.reason === "unsaved_changes" &&
-  !reply.suggestions?.some((s) => s.action === "save")
-    ? { ...reply, suggestions: [SAVE, ...(reply.suggestions ?? [])] }
-    : reply;
+/** A request held back because Build and Diagnose read the saved flow. */
+type Held = { text: string; mode: Mode; inputs: Inputs; server?: boolean };
 
 export function AssistantPanel({
   flowId,
@@ -122,6 +117,9 @@ export function AssistantPanel({
   const [unseen, setUnseen] = useState(false);
   const [mode, setMode] = useState<Mode>("build");
   const [question, setQuestion] = useState("");
+  const [held, setHeld] = useState<Held | null>(null);
+  const dirty = useFlowEditorStore((s) => s.dirty);
+  const nudgeSave = useFlowEditorStore((s) => s.nudgeSave);
   const [dataset, setDataset] = useState("");
   const [secondDataset, setSecondDataset] = useState("");
   const [lookup, setLookup] = useState("");
@@ -274,23 +272,12 @@ export function AssistantPanel({
     const versions = asTraining ? trainingVersions(inputs) : null;
     if (asTraining && !versions) return;
     if (turnMode !== "docs" && useFlowEditorStore.getState().dirty) {
-      // The server refuses a canvas that differs from the saved flow, so ask for a save first.
-      const id = crypto.randomUUID();
-      setTurns((all) => [
-        ...all,
-        {
-          id,
-          mode: turnMode,
-          question: text,
-          inputs,
-          state: "reply",
-          reply: withSave({ message: "", reason: "unsaved_changes" }),
-        },
-      ]);
-      setQuestion("");
-      setFocusNext(headingId({ id }));
+      // The server refuses a canvas that differs from the saved flow: keep the request in
+      // the composer and point at Save instead of adding a card to the conversation.
+      hold({ text, mode: turnMode, inputs });
       return;
     }
+    setHeld(null);
     const controller = new AbortController();
     const requestId = crypto.randomUUID();
     const id = requestId;
@@ -332,8 +319,7 @@ export function AssistantPanel({
     setFocusNext("cancel");
     const sendsDataset = turnMode !== "docs" && !snapshot.nodes.length;
     try {
-      const result = withSave(
-        await sendTurn(
+      const result = await sendTurn(
           flowId,
           {
             mode: turnMode,
@@ -356,11 +342,18 @@ export function AssistantPanel({
               },
             }),
             share_names: inputs.shareNames,
+            ...(inputs.answers?.length && {
+              clarifications: inputs.answers.map(({ question, answer }) => ({ question, answer })),
+            }),
           },
           controller.signal,
-        ),
-      );
+        );
       if (controller.signal.aborted) return;
+      if (result.reason === "unsaved_changes") {
+        setTurns((all) => all.filter((t) => t.id !== id));
+        hold({ text, mode: turnMode, inputs, server: true });
+        return;
+      }
       const proposal = !!(result.proposal && result.delta);
       update(id, {
         state: "reply",
@@ -370,9 +363,11 @@ export function AssistantPanel({
       setAnnouncement(
         proposal
           ? `Proposal ready: ${summaryParts(deltaCounts(result.delta!, snapshot)).join(", ")}`
-          : result.citation || turnMode === "docs"
-            ? "Answer ready"
-            : "No change proposed",
+          : result.reason === "needs_choice"
+            ? `The assistant asks: ${result.message}`
+            : result.citation || turnMode === "docs"
+              ? "Answer ready"
+              : "No change proposed",
       );
       setFocusNext(headingId({ id }));
       if (!wasOpen.current) setUnseen(true);
@@ -385,6 +380,22 @@ export function AssistantPanel({
       setFocusNext(headingId({ id }));
     } finally {
       if (abort.current === controller) abort.current = null;
+    }
+  }
+  function hold(request: Held) {
+    setHeld(request);
+    setQuestion(request.text);
+    nudgeSave();
+    setFocusNext("composer");
+  }
+  async function saveAndSend() {
+    if (!held) return;
+    setSaving(true);
+    try {
+      const at = await save();
+      if (at) void generate(question.trim() ? question : held.text, held.mode, held.inputs, at);
+    } finally {
+      setSaving(false);
     }
   }
   function submit() {
@@ -740,6 +751,12 @@ export function AssistantPanel({
                   <li key={`${turn.id}-q`} className="assistant-request">
                     <span className="sr-only">You asked: </span>
                     {turn.question}
+                    {turn.inputs.answers?.map((a, i) => (
+                      <span key={i} className="assistant-request__answer">
+                        <span className="sr-only">You chose: </span>
+                        {a.label}
+                      </span>
+                    ))}
                   </li>,
                   <li key={`${turn.id}-a`}>
                     {turn.state === "pending" ? (
@@ -767,6 +784,25 @@ export function AssistantPanel({
                         }}
                         edit={() => edit(turn)}
                         regenerate={() => void generate(turn.question, turn.mode, turn.inputs)}
+                      />
+                    ) : turn.reply?.reason === "needs_choice" && turn.reply.ask && turn.reply.choices?.length ? (
+                      <ChoiceCard
+                        turn={turn}
+                        busy={busy || turn !== turns[turns.length - 1]}
+                        choose={(choice) =>
+                          void generate(turn.question, turn.mode, {
+                            ...turn.inputs,
+                            answers: [
+                              ...(turn.inputs.answers ?? []),
+                              // The raw question: the shown message can hold real names.
+                              {
+                                question: turn.reply!.ask!,
+                                answer: choice.reply,
+                                label: choice.label,
+                              },
+                            ],
+                          })
+                        }
                       />
                     ) : turn.mode === "docs" || turn.reply?.citation ? (
                       <AnswerCard turn={turn} />
@@ -980,6 +1016,18 @@ export function AssistantPanel({
                   )}
                 </div>
               </details>
+              {held && (held.server || dirty) && (
+                <div role="status" className="assistant-save-hint">
+                  <span className="mr-auto">
+                    {held.server
+                      ? "The saved flow differs from the canvas. Save it to continue."
+                      : "Unsaved canvas changes. The assistant works from the saved flow."}
+                  </span>
+                  <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void saveAndSend()}>
+                    Save and send
+                  </Button>
+                </div>
+              )}
               <div className="flex items-center justify-end gap-2">
                 <span id="assistant-submit-hint" className="mr-auto truncate text-xs text-muted-foreground">
                   {service.data?.model} · Ctrl+Enter to send

@@ -291,6 +291,50 @@ describe("proposal card (AC-U3, AC-U6)", () => {
     vi.restoreAllMocks();
   });
 
+  it("lists the notes under a proposal's one-line summary", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () =>
+      proposal({ message: "Sorts and keeps rows.", notes: ["Sorted by amount", "Keeps 100 rows"] });
+    setup();
+    await ask("Keep 100 rows");
+    const notes = await screen.findByRole("list", { name: "Details" });
+    expect(within(notes).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Sorted by amount",
+      "Keeps 100 rows",
+    ]);
+  });
+
+  it("offers the assistant's question as choices and sends the pick back", async () => {
+    const asked = {
+      message: "Which column is the target?",
+      reason: "needs_choice",
+      ask: "Which column of d0 is the target?",
+      choices: [
+        { label: "churn (two values)", reply: "c2: c2 (two values)" },
+        { label: "plan", reply: "c0: c0" },
+      ],
+    };
+    routes["POST /api/assistant/flows/f1/turn"] = () => asked;
+    setup();
+    await ask("Train a model");
+    const choices = await screen.findByRole("group", { name: "Which column is the target?" });
+    expect(screen.getByText("The assistant asks: Which column is the target?")).toBeInTheDocument();
+    expect(within(choices).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "churn (two values)",
+      "plan",
+    ]);
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    fireEvent.click(within(choices).getByRole("button", { name: "churn (two values)" }));
+    await waitFor(() => expect(turns()).toHaveLength(2));
+    expect(turns()[1].body?.question).toBe("Train a model");
+    expect(turns()[1].body?.clarifications).toEqual([
+      { question: "Which column of d0 is the target?", answer: "c2: c2 (two values)" },
+    ]);
+    // The thread shows the pick, and a pick cannot be sent twice.
+    expect(await screen.findByText("churn (two values)", { selector: ".assistant-request *" })).toBeInTheDocument();
+    expect(within(choices).getByRole("button", { name: "churn (two values)" })).toBeDisabled();
+    expect(turns()[0].body?.clarifications).toBeUndefined();
+  });
+
   it("puts the request back in the composer on Edit request and drops the proposal on Discard", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
     setup();
@@ -309,7 +353,6 @@ describe("guidance card (AC-U4, F2)", () => {
   it.each([
     ["unsupported_node", "This step is not available yet"],
     ["locked_node", "This node is locked"],
-    ["unsaved_changes", "Save your changes first"],
     ["multiple_inputs", "Several inputs on the canvas"],
     ["no_dataset", "Choose a dataset first"],
     ["ml_disabled", "Machine learning is turned off"],
@@ -427,15 +470,12 @@ describe("guidance card (AC-U4, F2)", () => {
 });
 
 describe("conflicts and unsaved canvas (F3)", () => {
-  it.each([
-    ["unsaved_changes", "Save your changes first"],
-    ["disabled_flow", "This flow is disabled"],
-  ])("shows a 409 %s as guidance, not a failure", async (reason, title) => {
+  it("shows a 409 disabled_flow as guidance, not a failure", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () =>
-      conflict({ detail: "Server conflict detail.", reason });
+      conflict({ detail: "Server conflict detail.", reason: "disabled_flow" });
     setup();
     await ask("Keep 100 rows");
-    expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "This flow is disabled" })).toBeInTheDocument();
     expect(screen.getByText("Server conflict detail.")).toBeInTheDocument();
     expect(screen.queryByText("Request failed")).not.toBeInTheDocument();
   });
@@ -448,12 +488,14 @@ describe("conflicts and unsaved canvas (F3)", () => {
     expect(screen.getByText("Stale revision.")).toBeInTheDocument();
   });
 
-  it("offers Save on a server unsaved_changes conflict", async () => {
+  it("keeps a server unsaved_changes conflict out of the conversation", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () =>
       conflict({ detail: "Save the canvas first.", reason: "unsaved_changes" });
     setup();
     await ask("Keep 100 rows");
-    expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Save and send" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Conversation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Request" })).toHaveValue("Keep 100 rows");
   });
 
   it.each([
@@ -470,10 +512,14 @@ describe("conflicts and unsaved canvas (F3)", () => {
     await openPanel();
     fireEvent.click(screen.getByRole("button", { name: mode }));
     act(() => useFlowEditorStore.setState({ dirty: true }));
+    const nudges = useFlowEditorStore.getState().saveNudge;
     await ask("Keep 100 rows", submit);
-    expect(await screen.findByRole("heading", { name: "Save your changes first" })).toBeInTheDocument();
+    // No card: the request stays in the composer and the toolbar Save button pulses.
+    expect(await screen.findByText(/Unsaved canvas changes/)).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Conversation" })).not.toBeInTheDocument();
+    expect(useFlowEditorStore.getState().saveNudge).toBe(nudges + 1);
     expect(turns()).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and send" }));
     await waitFor(() => expect(turns()).toHaveLength(1));
     expect(save).toHaveBeenCalledTimes(1);
     expect(turns()[0].body?.revision).toBe("2026-01-01T00:00:05");
@@ -496,18 +542,21 @@ describe("proposal trace, removals and server graph (F4, F5)", () => {
     routes["POST /api/assistant/flows/f1/turn"] = () =>
       proposal({
         steps: [
-          { tool: "inspect_schema", ok: true },
-          { tool: "add_node", ok: false },
+          { tool: "get_dataset_schema", ok: true },
+          { tool: "propose_edit", ok: false },
+          { tool: "future_tool", ok: true },
         ],
         usage: { calls: 3, input_tokens: 1200, output_tokens: 340 },
       });
     setup();
     await ask("Keep 100 rows");
-    const summary = await screen.findByText("Steps (2)");
+    const summary = await screen.findByText("Steps (3)");
     const trace = summary.closest("details")!;
     expect(trace).not.toHaveAttribute("open");
-    expect(within(trace).getByText("inspect_schema").closest("li")).toHaveTextContent(/ok/);
-    expect(within(trace).getByText("add_node").closest("li")).toHaveTextContent(/failed/);
+    // Steps read as actions; a tool without a label keeps its name.
+    expect(within(trace).getByText("Read dataset columns").closest("li")).toHaveTextContent(/done/);
+    expect(within(trace).getByText("Drafted a change").closest("li")).toHaveTextContent(/did not pass/);
+    expect(within(trace).getByText("future_tool")).toBeInTheDocument();
     expect(screen.getByText("3 calls · 1,200 input tokens · 340 output tokens")).toBeInTheDocument();
   });
 

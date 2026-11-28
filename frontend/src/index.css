@@ -260,6 +260,86 @@
   font-size: .875rem;
   overflow-wrap: anywhere;
 }
+/* Unsaved edits: a quiet dot on Save, and a short pulse when something needs a save. */
+.save-dirty-dot {
+  position: absolute;
+  /* Inside the button: the toolbar row scrolls horizontally and clips overflow. */
+  top: .1875rem;
+  right: .1875rem;
+  width: .5rem;
+  height: .5rem;
+  border: 1.5px solid hsl(var(--primary));
+  border-radius: 999px;
+  background: hsl(38 92% 50%);
+  animation: save-dot 2.4s ease-in-out infinite;
+}
+.save-nudge {
+  animation: save-nudge .8s ease-out 2;
+}
+@keyframes save-dot {
+  50% { transform: scale(.75); opacity: .7; }
+}
+@keyframes save-nudge {
+  0% { box-shadow: 0 0 0 0 hsl(38 92% 50% / .55); }
+  100% { box-shadow: 0 0 0 .5rem hsl(38 92% 50% / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-dirty-dot,
+  .save-nudge {
+    animation: none;
+  }
+  .save-nudge {
+    box-shadow: 0 0 0 2px hsl(38 92% 50%);
+  }
+}
+.assistant-save-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  padding: .375rem .625rem;
+  border-radius: .5rem;
+  background: hsl(38 92% 50% / .1);
+  font-size: .75rem;
+}
+.assistant-request__answer {
+  display: block;
+  margin-top: .25rem;
+  font-weight: 600;
+}
+.assistant-request__answer::before {
+  content: "→ ";
+  font-weight: 400;
+}
+.assistant-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: .5rem;
+}
+.assistant-choice {
+  min-height: 2.75rem;
+  padding: .5rem .75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: .625rem;
+  background: hsl(var(--background));
+  font-size: .8125rem;
+  font-weight: 500;
+  text-align: left;
+  overflow-wrap: anywhere;
+  transition: border-color .15s, background-color .15s;
+}
+.assistant-choice:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / .6);
+  background: hsl(var(--accent));
+}
+.assistant-choice:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+.assistant-choice:disabled {
+  cursor: default;
+  opacity: .6;
+}
 .assistant-chip {
   display: inline-flex;
   align-items: center;

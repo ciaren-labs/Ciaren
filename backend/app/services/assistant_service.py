@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import asyncio
+import contextlib
 from dataclasses import dataclass
 from datetime import datetime
 from time import monotonic
 from uuid import uuid4
 
 from pydantic import ValidationError as SchemaError
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import ConflictError, MLNotEnabledError, NotFoundError, ValidationError
+from app.db.models.dataset import Dataset
 from app.db.models.flow import AssistantActivity, Flow
 from app.engine.node_metadata import BUILTIN_NODE_META
 from app.ml.availability import guard_graph_ml_enabled
@@ -193,30 +195,71 @@ class AssistantService:
             datasets={f"d{i}": d for i, d in enumerate(ordered)},
             share_names=body.share_names,
         )
+        # Dataset columns get their refs first, in dataset order, so a column keeps its ref
+        # from a question to the turn that answers it. An unavailable dataset is reported
+        # to the model when it reads it.
+        for ref in ctx.datasets:
+            with contextlib.suppress(ValidationError):
+                await ctx.dataset(ref)
+        names = dict(
+            (
+                await self.db.execute(
+                    select(Dataset.id, Dataset.name).where(
+                        Dataset.id.in_(ordered), Dataset.project_id == flow.project_id
+                    )
+                )
+            )
+            .tuples()
+            .all()
+        )
+        labels = {ref: names[d] for ref, d in ctx.datasets.items() if d in names}
+        answers = [c.model_dump() for c in body.clarifications]
         try:
             async with assistant_provider.turn_budget() as reservation:
                 outcome = await assistant_agent.run(
-                    body.provider, ctx, start(route.base), body.question, body.mode, route.failure, reservation
+                    body.provider,
+                    ctx,
+                    start(route.base),
+                    body.question,
+                    body.mode,
+                    route.failure,
+                    reservation,
+                    answers,
                 )
         except BudgetExhausted:
             return assistant_scope.unsupported(
                 "budget_exhausted", "The assistant hourly budget is spent. Try again later."
             ).model_dump(exclude_none=True)
+
+        def readable(text: str) -> str:
+            return ctx.readable(text, labels)
+
         extra: Graph = {"usage": outcome.usage, "steps": outcome.steps}
+        if outcome.kind == "ask":
+            choices = [{"label": readable(c["label"]), "reply": c["reply"]} for c in outcome.choices]
+            return {
+                "message": readable(outcome.message),
+                "reason": "needs_choice",
+                "ask": outcome.message,
+                "choices": choices,
+                **extra,
+            }
         if outcome.kind in ("abstain", "invalid") or outcome.work is None:
             reason = {"abstain": "abstained", "invalid": "validation_failed"}.get(outcome.kind, outcome.kind)
             if outcome.abstained in ("ambiguous_request", "missing_data") and not body.share_names:
                 extra["suggestions"] = [
                     Suggestion(label="Share column names and retry", action="share_names").model_dump()
                 ]
-            return {"message": outcome.message, "reason": reason, **extra}
+            return {"message": readable(outcome.message), "reason": reason, **extra}
+        if outcome.notes:
+            extra["notes"] = [readable(n) for n in outcome.notes]
         graph = outcome.work.graph
         versions = [
             (await resolve_input(self.db, flow.project_id, None, n)).version
             for n in graph["nodes"]
             if n["type"] in INPUTS
         ]
-        reply = self._remember(flow, route.base, body, graph, diff(outcome.work), versions, outcome.message)
+        reply = self._remember(flow, route.base, body, graph, diff(outcome.work), versions, readable(outcome.message))
         if "proposal" not in reply:
             reply["reason"] = "no_change"
         elif outcome.kind != "finish":

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EditorToolbar } from "../components/EditorToolbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { FlowValidation } from "@/features/flows/editor/flowValidation";
+import { useFlowEditorStore } from "@/stores/flowEditorStore";
 
 const READY_VALIDATION: FlowValidation = {
   issues: [],
@@ -159,6 +160,15 @@ describe("EditorToolbar", () => {
   it("shows Saving… and disables the button while a save is pending", () => {
     renderToolbar({ savePending: true });
     expect(screen.getByRole("button", { name: /Saving…/ })).toBeDisabled();
+  });
+
+  it.each([true, false])("marks Save with a dot and pulses it on request when dirty=%s", (dirty) => {
+    renderToolbar({ dirty });
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(!!save.querySelector(".save-dirty-dot")).toBe(dirty);
+    act(() => useFlowEditorStore.getState().nudgeSave());
+    // A clean canvas has nothing to save, so a request to save does not pulse.
+    expect(save.classList.contains("save-nudge")).toBe(dirty);
   });
 
   it("calls onSave when Save is clicked", async () => {

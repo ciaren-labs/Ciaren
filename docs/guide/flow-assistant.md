@@ -50,7 +50,11 @@ The assistant never writes Python Transform nodes, database or cloud storage con
 
 The checks run on placeholder rows: each input keeps its column names, types, row count (up to 200 rows), distinct-value counts and whether a column has nulls, but every value is generated. Types and wiring are checked before you see the proposal. A value-dependent failure, such as text that does not parse as a date, appears when you run the flow, and **Diagnose** can propose a repair. Columns named after values, such as one-hot or pivot columns, have generated names in these checks, so the assistant cannot select them by name; a model node then uses every column except the target.
 
-Column names stay on the server unless you share them. When a request names columns that the types cannot identify, the assistant asks instead of guessing, and the reply offers **Share column names and retry**.
+Column names stay on the server unless you share them. A column name you type in the request, such as `tenure` in "sort by tenure", is matched to that column; the request already carries the word, so only the fact that it is a column leaves the server. When a request describes columns that the types cannot identify, the assistant asks instead of guessing. The question appears as a card with one button per candidate, and the buttons show your real column names. Choosing one sends the pick back as a column reference, so the name still stays on the server. The same cards cover other choices that settle a request. If no option fits, edit the request. When the assistant cannot offer options, the reply offers **Share column names and retry**.
+
+Build and Diagnose work from the saved flow. While the canvas has unsaved edits, the toolbar **Save** button carries a small dot. If you send a request before saving, the request stays in the box, **Save** pulses briefly and **Save and send** saves the canvas and sends the request.
+
+Replies use the names you see in the editor, never internal references. A proposal opens with a one-sentence summary and up to four short notes. **Steps** lists what the assistant did, such as reading dataset columns, drafting a change and checking the flow.
 
 The OpenCode adapter has no tool calling. It uses the guided proposals described below: the cleaning steps, the two-input Join and the shipping regression.
 

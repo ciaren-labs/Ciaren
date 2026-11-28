@@ -705,3 +705,90 @@ async def test_a_long_summary_or_reason_never_costs_a_call(client, scripted):
     scripted([("abstain", {"reason": "policy", "detail": long})])
     _, _, reply = await turn(client, "Write a Python script", dataset_id=dataset["id"])
     assert reply["reason"] == "abstained" and len(reply["message"]) <= 601 and len(sent) == 4
+
+
+async def test_ask_user_shows_names_and_the_answer_returns_as_refs(client, scripted):
+    dataset = await upload(client, "churn.csv", "plan,tenure,churn\nbasic,3,1\npro,9,0\n")
+    question = {
+        "question": "Which column of d0 is the target?",
+        "options": [{"label": "c2 (two values)", "column": "c2"}, {"label": "c0", "column": "c0"}],
+    }
+    sent = scripted([("get_dataset_schema", {"dataset": "d0"})], [("ask_user", question)])
+    flow, url, reply = await turn(client, "Train a model", dataset_id=dataset["id"])
+    # The user reads names; the model only ever saw refs.
+    assert reply["reason"] == "needs_choice" and "proposal" not in reply, reply
+    assert reply["message"] == "Which column of churn.csv is the target?"
+    assert [c["label"] for c in reply["choices"]] == ["churn (two values)", "plan"]
+    assert reply["ask"] == question["question"]
+    assert not any(name in json.dumps(sent) for name in ("plan", "tenure", "churn"))
+
+    answer = {"question": reply["ask"], "answer": reply["choices"][0]["reply"]}
+    sent = scripted([("abstain", {"reason": "policy"})])
+    body = {
+        "mode": "build",
+        "provider": "openai",
+        "question": "Train a model",
+        "revision": flow["updated_at"],
+        "dataset_id": dataset["id"],
+        "clarifications": [answer],
+    }
+    assert (await client.post(url + "/turn", json=body)).status_code == 200
+    first = json.loads(sent[-1][0]["content"])
+    # Dataset columns keep their refs across turns, so the answer still names c2.
+    assert first["answers"] == [{"question": "Which column of d0 is the target?", "answer": "c2: c2 (two values)"}]
+    assert "churn" not in sent[-1][0]["content"]
+
+
+@pytest.mark.parametrize("options", [[{"label": "x", "column": "c9"}, {"label": "y"}], [{"label": "only"}]])
+async def test_ask_user_with_unknown_columns_or_one_option_is_refused(client, scripted, options):
+    dataset = await upload(client, "few.csv", "a,b\n1,2\n")
+    sent = scripted([("ask_user", {"question": "Which?", "options": options})], [("abstain", {"reason": "policy"})])
+    _, _, reply = await turn(client, "Do it", dataset_id=dataset["id"])
+    assert reply["reason"] == "abstained" and len(sent) == 2, reply
+    refused = [json.loads(m["content"]) for m in sent[1] if m["role"] == "tool"][-1]
+    assert refused["ok"] is False
+
+
+async def test_finish_notes_are_short_and_name_columns(client, scripted):
+    dataset = await upload(client, "notes.csv", "price,qty\n2,3\n4,5\n")
+    notes = ["Keeps price (c0) and c1.", "x" * 400, "three", "four", "five"]
+    scripted(
+        [("get_dataset_schema", {"dataset": "d0"})],
+        [("propose_edit", {"ops": LIMITED})],
+        [("validate", {})],
+        [("finish", {"summary": "Keeps the first row of d0.", "notes": notes})],
+    )
+    _, _, reply = await turn(client, "Keep the first row", dataset_id=dataset["id"])
+    assert reply["message"] == "Keeps the first row of notes.csv.", reply
+    assert reply["notes"][0] == "Keeps price and qty."
+    assert len(reply["notes"]) == 4 and len(reply["notes"][1]) <= 160
+
+
+@pytest.mark.parametrize(
+    ("question", "named"),
+    [
+        ("Ordena por tenure", {"tenure": "c1"}),
+        ("Sort by TENURE then by plan", {"tenure": "c1", "plan": "c0"}),
+        # Only whole words, and never names of one or two characters.
+        ("Keep the tenured rows by id", {}),
+    ],
+)
+async def test_column_names_the_user_typed_map_to_refs(client, scripted, question, named):
+    dataset = await upload(client, "named.csv", "plan,tenure,id,churn\nbasic,3,1,1\npro,9,2,0\n")
+    sent = scripted([("abstain", {"reason": "policy"})])
+    await turn(client, question, dataset_id=dataset["id"])
+    first = json.loads(sent[0][0]["content"])
+    assert first.get("named_columns", {}) == named
+    # No other column name leaves the server.
+    assert "churn" not in sent[0][0]["content"]
+
+
+async def test_a_request_with_three_answers_cannot_ask_again(client, scripted):
+    dataset = await upload(client, "asked.csv", "a,b\n1,2\n")
+    question = {"question": "Which?", "options": [{"label": "c0", "column": "c0"}, {"label": "c1", "column": "c1"}]}
+    sent = scripted([("ask_user", question)], [("abstain", {"reason": "ambiguous_request"})])
+    answers = [{"question": f"Q{i}", "answer": "c0"} for i in range(3)]
+    _, _, reply = await turn(client, "Do it", dataset_id=dataset["id"], clarifications=answers)
+    # The fourth question is refused, so the conversation cannot reach the schema's limit.
+    assert reply["reason"] == "abstained", reply
+    assert results(sent[1], "ask_user")[0]["issues"][0]["code"] == "too_many_questions"

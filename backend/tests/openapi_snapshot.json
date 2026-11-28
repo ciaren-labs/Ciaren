@@ -2043,6 +2043,16 @@
         "label"
       ]
     },
+    "Choice": {
+      "properties": {
+        "label": "string",
+        "reply": "string"
+      },
+      "required": [
+        "label",
+        "reply"
+      ]
+    },
     "Citation": {
       "properties": {
         "title": "string",
@@ -2051,6 +2061,16 @@
       "required": [
         "title",
         "url"
+      ]
+    },
+    "Clarification": {
+      "properties": {
+        "answer": "string",
+        "question": "string"
+      },
+      "required": [
+        "answer",
+        "question"
       ]
     },
     "CodeExportResponse": {
@@ -2827,7 +2847,7 @@
     "Refused": {
       "properties": {
         "detail": "string",
-        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})"
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,needs_choice,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})"
       },
       "required": [
         "detail"
@@ -2835,12 +2855,15 @@
     },
     "Reply": {
       "properties": {
+        "ask": "anyOf(null|string)",
+        "choices": "anyOf(array<#Choice>|null)",
         "citation": "anyOf(#Citation|null)",
         "delta": "anyOf(#Delta|null)",
         "expires_in": "anyOf(integer|null)",
         "message": "string",
+        "notes": "anyOf(array<string>|null)",
         "proposal": "anyOf(null|string)",
-        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,needs_choice,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
         "steps": "anyOf(array<#ToolStep>|null)",
         "suggestions": "anyOf(array<#Suggestion>|null)",
         "supported": "anyOf(array<string>|null)",
@@ -3051,6 +3074,7 @@
     },
     "Turn": {
       "properties": {
+        "clarifications": "array<#Clarification>",
         "dataset_id": "anyOf(null|string)",
         "graph": "anyOf(null|object)",
         "mode": "string{build,diagnose,docs}",

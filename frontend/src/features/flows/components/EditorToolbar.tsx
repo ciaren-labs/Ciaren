@@ -13,6 +13,7 @@ import {
   Undo2,
   Variable,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -22,6 +23,8 @@ import {
 import { KeyboardShortcutsHelp } from "@/components/flow/KeyboardShortcutsHelp";
 import { ValidationSummary } from "@/components/flow/ValidationSummary";
 import type { FlowValidation } from "@/features/flows/editor/flowValidation";
+import { cn } from "@/lib/utils";
+import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { GatedButton } from "./GatedButton";
 
 export function EditorToolbar({
@@ -225,17 +228,43 @@ export function EditorToolbar({
             <Button size="sm" variant="outline" onClick={onOpenSchedule}>
               <CalendarClock className="h-4 w-4" /> Schedule
             </Button>
-            <Button size="sm" onClick={onSave} disabled={savePending}>
-              {savePending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {savePending ? "Saving…" : "Save"}
-            </Button>
+            <SaveButton dirty={dirty} pending={savePending} onSave={onSave} />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/** Save, with a quiet dot while there are unsaved edits and a short pulse when asked for. */
+function SaveButton({
+  dirty,
+  pending,
+  onSave,
+}: {
+  dirty: boolean;
+  pending: boolean;
+  onSave: () => void;
+}) {
+  const nudge = useFlowEditorStore((s) => s.saveNudge);
+  // The last nudge whose pulse has finished; a newer nudge pulses until its timer ends.
+  const [settled, setSettled] = useState(nudge);
+  const pulsing = nudge !== settled;
+  useEffect(() => {
+    if (!pulsing) return;
+    const timer = setTimeout(() => setSettled(nudge), 1600);
+    return () => clearTimeout(timer);
+  }, [nudge, pulsing]);
+  return (
+    <Button
+      size="sm"
+      onClick={onSave}
+      disabled={pending}
+      className={cn("relative", pulsing && dirty && "save-nudge")}
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      {pending ? "Saving…" : "Save"}
+      {dirty && !pending && <span aria-hidden className="save-dirty-dot" />}
+    </Button>
   );
 }
