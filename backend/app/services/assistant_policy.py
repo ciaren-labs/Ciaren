@@ -134,6 +134,8 @@ def reject_templates(value: Any, field: str | None = None) -> None:
 
 EXPRESSION_LIMIT = 300
 LITERAL_LIMIT = 160
+NUMBER_LIMIT = 1e12
+NODE_LIMIT = 64
 #: Functions both evaluators accept: pandas ``DataFrame.eval`` (filters, assertions and
 #: pandas calculated columns) and polars ``pl.sql_expr`` (polars calculated columns).
 EXPRESSION_FUNCTIONS = frozenset({"abs", "sqrt", "exp", "log10", "log1p", "sin", "cos", "floor", "ceil"})
@@ -164,20 +166,35 @@ def guard_expression(expression: str, columns: Iterable[str], field: str = "expr
 
     The text must be printable ASCII, so evaluators that normalise Unicode identifiers
     cannot see a name the check did not. Attribute access, indexing, keyword arguments,
-    comprehensions and every other node type are rejected.
+    comprehensions and every other node type are rejected. Accepted text must also mean
+    the same to pandas ``eval`` and polars SQL: single-quoted strings only, no SQL comment
+    sequences, no arithmetic on text and ``not`` only on a comparison or boolean operation.
     """
     known = set(columns)
     if len(expression) > EXPRESSION_LIMIT:
         raise PolicyError(f"Expressions are limited to {EXPRESSION_LIMIT} characters.", field, "limit")
     if not expression.isascii() or not expression.isprintable():
         raise PolicyError("Expressions may only contain printable ASCII characters.", field)
-    if any(term in expression for term in ("@", "__", ";", "`", "import", "lambda")):
+    if any(term in expression for term in ("@", "__", ";", "`", '"', "--", "/*", "*/", "import", "lambda")):
         raise PolicyError("The expression uses a disallowed construct.", field)
     try:
         tree = ast.parse(expression, mode="eval")
     except SyntaxError:
         raise PolicyError("The expression is not a supported formula.", field) from None
-    for node in ast.walk(tree):
+    nodes = list(ast.walk(tree))
+    if len(nodes) > NODE_LIMIT:
+        raise PolicyError("The expression is too complex.", field, "limit")
+    clashing = known & EXPRESSION_FUNCTIONS & {n.id for n in nodes if isinstance(n, ast.Name)}
+    if clashing:
+        raise PolicyError("Rename the column first: its name matches a function.", field, "config")
+    for node in nodes:
+        if isinstance(node, ast.BinOp | ast.UnaryOp) and any(
+            isinstance(n, ast.Constant) and isinstance(n.value, str) for n in ast.walk(node)
+        ):
+            raise PolicyError("Arithmetic on text is not supported.", field)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            if not isinstance(node.operand, ast.Compare | ast.BoolOp):
+                raise PolicyError("Use not only on a comparison.", field)
         if isinstance(node, _STRUCTURE + _OPERATORS):
             continue
         if isinstance(node, ast.Name):
@@ -190,6 +207,8 @@ def guard_expression(expression: str, columns: Iterable[str], field: str = "expr
             plain = isinstance(value, bool | str) or isinstance(value, int | float) and _DECIMAL.fullmatch(source)
             if not plain:
                 raise PolicyError("Unsupported literal in the expression.", field)
+            if isinstance(value, int | float) and not isinstance(value, bool) and abs(value) > NUMBER_LIMIT:
+                raise PolicyError("Numbers in expressions are limited to 1e12.", field, "limit")
             if isinstance(value, str) and len(value) > LITERAL_LIMIT:
                 raise PolicyError(f"Text literals are limited to {LITERAL_LIMIT} characters.", field, "limit")
         elif isinstance(node, ast.Call):

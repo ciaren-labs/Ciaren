@@ -196,6 +196,23 @@ async def test_list_and_schema_tools_hide_denied_nodes(ml, db_session):
         ("(lambda: 1)()", False),
         ("amount > " + "1" * 300, False),
         ("region == '" + "x" * 161 + "'", False),
+        ("qty / 2 + amount", True),
+        ("not amount > 1 or not (qty == 1 and price < 3)", True),
+        ("-amount + -(price - 1) < 0", True),
+        # Arithmetic on text is evaluated eagerly by pandas and exhausts memory.
+        ("('x' * 99999 * 99999 * 99999 * 99999) == region", False),
+        ("region == 'x' * 3", False),
+        ("-'x' == region", False),
+        ("amount > 10000000000000", False),
+        ("qty" + " + qty" * 40, False),
+        # Polars reads double quotes as identifiers and -- or /* */ as SQL comments.
+        ('region == "EU"', False),
+        ("amount--1 > 0", False),
+        ("amount /* x */ > 0", False),
+        ("amount > 1 */ 2", False),
+        # Negating a non-boolean differs between the engines.
+        ("not amount", False),
+        ("~(amount > 1)", False),
     ],
 )
 def test_expression_guard(expression, accepted):
@@ -208,11 +225,19 @@ def test_expression_guard(expression, accepted):
         # Accepted expressions evaluate on both engines' expression evaluators.
         frame = pd.DataFrame({"amount": [150.0, 4.0], "price": [2.0, 3.0], "qty": [1, 2], "region": ["EU", "US"]})
         frame["to_csv"] = 1
-        frame.eval(expression)
-        pl.from_pandas(frame).with_columns(pl.sql_expr(expression).alias("result"))
+        expected = pd.Series(frame.eval(expression), index=frame.index).tolist()
+        actual = pl.from_pandas(frame).with_columns(pl.sql_expr(expression).alias("result"))["result"].to_list()
+        assert actual == pytest.approx(expected)
     else:
         with pytest.raises(policy.PolicyError):
             policy.guard_expression(expression, columns)
+
+
+@pytest.mark.parametrize("expression", ["abs > 1", "abs(amount) > 1"])
+def test_columns_named_like_functions_must_be_renamed(expression):
+    with pytest.raises(policy.PolicyError, match="Rename the column") as error:
+        policy.guard_expression(expression, ["amount", "abs"])
+    assert error.value.code == "config"
 
 
 @pytest.mark.parametrize(
