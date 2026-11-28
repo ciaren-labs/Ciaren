@@ -31,7 +31,7 @@ export function suggestedPrompts({
       "How do parameters work?",
     ];
   if (mode === "diagnose")
-    return ["Check the most recent failure", "Why are rows missing after the Join?"];
+    return ["Check the most recent failure"];
   if (training)
     return target ? [`Train a model to predict ${target}`] : [];
   if (joined) return ["Keep all rows from the left input"];

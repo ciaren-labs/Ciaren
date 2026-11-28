@@ -166,6 +166,7 @@ export function AssistantKeys() {
                     role="switch"
                     className="size-4 accent-primary"
                     checked={k.is_enabled}
+                    aria-label={`${k.name} enabled`}
                     onChange={() => toggle.mutate(k)}
                   />
                   Enabled

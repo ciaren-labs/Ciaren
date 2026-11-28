@@ -72,7 +72,7 @@ describe("Assistant API keys", () => {
     expect(screen.getByText(/gpt-6-preview \(custom model\)/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: /Personal/ }));
     await waitFor(() => expect(api.activate).toHaveBeenCalledWith("k2", expect.anything()));
-    fireEvent.click(screen.getAllByRole("switch", { name: "Enabled" })[0]);
+    fireEvent.click(screen.getByRole("switch", { name: "Work enabled" }));
     await waitFor(() => expect(api.update).toHaveBeenCalledWith("k1", { is_enabled: false }));
   });
 

@@ -127,10 +127,8 @@ class AssistantKeyService:
         model = body.model if body.model is not None else row.model
         effort = body.effort if body.effort is not None else row.effort
         _check(row.provider, model, effort)
-        if body.key is not None:
-            if not body.acknowledged:
-                raise ValidationError("Confirm the storage notice to save a new API key.")
-            await asyncio.to_thread(assistant_keys.store_key, row.id, body.key)
+        if body.key is not None and not body.acknowledged:
+            raise ValidationError("Confirm the storage notice to save a new API key.")
         if body.name is not None:
             row.name = body.name
         row.model, row.effort = model, effort
@@ -139,7 +137,17 @@ class AssistantKeyService:
             if not body.is_enabled:
                 row.active = None
         row.updated_at = _now()
-        await self._commit()
+        if body.key is None:
+            await self._commit()
+        else:
+            # The keychain has no transaction: put the old secret back if the row is not saved.
+            previous = await asyncio.to_thread(assistant_keys.load_key, key_id)
+            await asyncio.to_thread(assistant_keys.store_key, key_id, body.key)
+            try:
+                await self._commit()
+            except BaseException:
+                await asyncio.to_thread(assistant_keys.store_key, key_id, previous)
+                raise
         await load_active(self.db)
         return _read(row)
 

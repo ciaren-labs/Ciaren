@@ -192,6 +192,9 @@ async def test_saved_keys_and_boundaries(client, enabled, monkeypatch, db_sessio
         assistant_provider.profile("openai")
     # Replacing a key needs the notice confirmed again.
     patch = f"{url}/{personal['id']}"
+    # A rename that conflicts keeps the saved secret.
+    clash = await client.patch(patch, json={"name": "Work", "key": KEY + "x", "acknowledged": True})
+    assert clash.status_code == 409 and KEY + "b" in entries.values() and KEY + "x" not in entries.values()
     assert (await client.patch(patch, json={"key": KEY + "c"})).status_code == 400
     assert (await client.patch(patch, json={"key": KEY + "c", "acknowledged": True})).status_code == 200
     assert KEY + "c" in entries.values()

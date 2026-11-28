@@ -95,14 +95,17 @@ def _account(key_id: str) -> str:
     return "key:" + key_id
 
 
+def load_key(key_id: str) -> SecretStr | None:
+    """The keychain secret of a saved key."""
+    try:
+        value = _backend().get_password(_service(), _account(key_id))
+    except Exception:
+        raise ValidationError("The OS keychain is unavailable. Unlock it and try again.") from None
+    return SecretStr(value) if value else None
+
+
 def credential(chosen: Selection) -> SecretStr | None:
-    if chosen.key_id is not None:
-        try:
-            value = _backend().get_password(_service(), _account(chosen.key_id))
-        except Exception:
-            raise ValidationError("The OS keychain is unavailable. Unlock it and try again.") from None
-        return SecretStr(value) if value else None
-    return read_key(chosen.provider)
+    return load_key(chosen.key_id) if chosen.key_id is not None else read_key(chosen.provider)
 
 
 def read_key(provider: Provider) -> SecretStr | None:
