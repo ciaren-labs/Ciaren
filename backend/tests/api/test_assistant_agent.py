@@ -266,13 +266,12 @@ async def test_provider_error_mid_turn_keeps_the_draft(client, scripted, draft):
     if draft is None:
         # Nothing to keep: the provider error stays a request error.
         assert r.status_code == 400 and "transfer failed" in r.text
-        return
-    reply = r.json()
-    assert r.status_code == 200 and "proposal" in reply and "provider" in reply["message"], reply
-    if draft == "complete":
-        assert "reason" not in reply and "passed validation" in reply["message"]
+    elif draft == "complete":
+        assert r.status_code == 200 and "proposal" in r.json() and "reason" not in r.json(), r.text
+        assert "provider error" in r.json()["message"] and "passed validation" in r.json()["message"]
     else:
-        assert reply["reason"] == "provider_error" and "unvalidated" in reply["message"]
+        assert r.status_code == 200 and "proposal" in r.json() and r.json()["reason"] == "provider_error", r.text
+        assert "provider error" in r.json()["message"] and "unvalidated" in r.json()["message"]
 
 
 async def test_wall_clock_returns_the_draft_as_timeout(client, scripted, monkeypatch):
