@@ -213,7 +213,19 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
 
 @pytest.mark.parametrize(
     "variant",
-    ["config", "label", "extra_node", "edge", "parameters", "omitted", "position", "engine", "utc", "offset"],
+    [
+        "config",
+        "label",
+        "extra_node",
+        "edge",
+        "parameters",
+        "omitted",
+        "position",
+        "engine",
+        "utc",
+        "offset",
+        "integral_float",
+    ],
 )
 async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, variant):
     from copy import deepcopy
@@ -256,6 +268,9 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         draft["nodes"][1]["position"] = {"x": 900, "y": 900}
     elif variant == "engine":
         draft["engine"] = "polars"
+    elif variant == "integral_float":
+        # The browser writes 0 for a stored 0.0 and the server may store 0.0 for a sent 0.
+        draft["nodes"][1]["data"]["config"]["offset"] = 0.0
     elif variant in {"utc", "offset"}:
         instant = datetime.fromisoformat(revision).replace(tzinfo=timezone.utc)
         zone = timezone(timedelta(hours=2)) if variant == "offset" else timezone.utc

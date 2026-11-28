@@ -36,6 +36,18 @@ def utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+def _numbers(value: object) -> object:
+    """Integral floats as integers: the browser writes 0 for a stored 0.0, and both are the
+    same setting."""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, dict):
+        return {k: _numbers(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_numbers(v) for v in value]
+    return value
+
+
 def projection(graph: Graph) -> str:
     """The semantic canvas: node identity, type, settings and label, wiring and flow parameters.
 
@@ -47,7 +59,7 @@ def projection(graph: Graph) -> str:
             return n
         data = n.get("data")
         data = data if isinstance(data, dict) else {}
-        return [n.get("id"), n.get("type"), data.get("config"), data.get("label")]
+        return [n.get("id"), n.get("type"), _numbers(data.get("config")), data.get("label")]
 
     def edge(e: object) -> object:
         if not isinstance(e, dict):
@@ -56,7 +68,7 @@ def projection(graph: Graph) -> str:
         return [e.get("id"), e.get("source"), e.get("target"), *handles]
 
     nodes, edges = graph.get("nodes") or [], graph.get("edges") or []
-    parameters = graph.get("parameters") or []
+    parameters = _numbers(graph.get("parameters") or [])
     if not isinstance(nodes, list) or not isinstance(edges, list):
         return json.dumps([nodes, edges, parameters], sort_keys=True)
     return json.dumps(
