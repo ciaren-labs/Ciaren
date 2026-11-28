@@ -26,6 +26,7 @@ from app.services import (
 from app.services.assistant_graph import INPUTS, STEPS, Graph, compile_plan
 from app.services.assistant_inputs import InputVersion, resolve_input
 from app.services.assistant_tools import gates
+from app.services.assistant_tools.edit import expression_columns
 from app.services.assistant_tools.ops import EditRejected
 from app.services.flow_revision import next_revision, update_one
 
@@ -216,7 +217,8 @@ class AssistantService:
             assistant_training.catalog()
         try:
             # Policy, settings or installed plugins may have changed since the review.
-            gates.recheck(p.base, p.graph)
+            work, touched = gates.reviewed(p.base, p.graph)
+            gates.check(work, touched, await expression_columns(self.db, p.project, p.graph, touched))
         except EditRejected:
             raise ConflictError("Proposal expired or unavailable. Generate a new one.") from None
         revision = next_revision(p.revision)

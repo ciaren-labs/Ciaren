@@ -1,6 +1,7 @@
 """The assistant edit language: all-or-nothing ops, ordered gates, redaction, layout and delta."""
 
 import json
+from copy import deepcopy
 from unittest.mock import AsyncMock
 
 import pytest
@@ -210,3 +211,39 @@ async def test_apply_rechecks_policy_on_the_reviewed_graph(client, monkeypatch):
     limit["data"]["config"] = {"script": "return df"}
     assert (await client.post(url + "/apply", json={"proposal": proposal})).status_code == 409
     assert not (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"]
+
+
+async def test_expression_proposal_applies_end_to_end(client, db_session, monkeypatch):
+    from app.db.models.flow import Flow
+    from app.schemas.assistant import Turn
+    from app.services.assistant_service import AssistantService
+
+    monkeypatch.setattr(get_settings(), "ASSISTANT_PROVIDER", "openai")
+    dataset = (await client.post("/api/datasets/upload", files={"file": ("x.csv", f"{PRIVATE},b\n3,4\n")})).json()
+    flow = (await client.post("/api/flows", json={"name": "Expression"})).json()
+    ctx = ToolContext(db_session, flow["project_id"], {}, datasets={"d0": dataset["id"]})
+    ops = [
+        {"op": "add_node", "as": "src", "type": "fileInput", "config": {"dataset_id": "d0"}},
+        {"op": "add_node", "as": "calc", "type": "calculatedColumn"},
+        {"op": "add_node", "as": "out", "type": "fileOutput", "config": {"dataset_name": "Calculated"}},
+        {"op": "connect", "from": "src", "to": "calc"},
+        {"op": "connect", "from": "calc", "to": "out"},
+    ]
+    ops[1]["config"] = {"column_name": "total", "expression": f"{PRIVATE} * b + 1"}
+    work, result = await propose_edit(ctx, edit(*ops), start({}))
+    assert result["ok"], result
+    row = await db_session.get(Flow, flow["id"])
+    body = Turn(mode="build", provider="openai", question="Total", revision=flow["updated_at"])
+    version = [ctx.schemas["d0"].version]
+    # The apply-time recheck still rejects an expression the propose-time guard would reject.
+    tampered = deepcopy(work.graph)
+    next(n for n in tampered["nodes"] if n["type"] == "calculatedColumn")["data"]["config"]["expression"] = "zz * 2"
+    rejected = AssistantService._remember(row, {}, body, tampered, diff(work), version, "")
+    url = f"/api/assistant/flows/{flow['id']}/apply"
+    assert (await client.post(url, json={"proposal": rejected["proposal"]})).status_code == 409
+    reply = AssistantService._remember(row, {}, body, work.graph, diff(work), version, "")
+    applied = await client.post(f"/api/assistant/flows/{flow['id']}/apply", json={"proposal": reply["proposal"]})
+    assert applied.status_code == 200, applied.text
+    saved = (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"]
+    calc = next(n for n in saved["nodes"] if n["type"] == "calculatedColumn")
+    assert calc["data"]["config"]["expression"] == f"{PRIVATE} * b + 1"

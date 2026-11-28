@@ -4,13 +4,16 @@
 from typing import Annotated, Any
 
 from pydantic import Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ValidationError
 from app.plugins import get_registry
+from app.services.assistant_inputs import resolve_input
 from app.services.assistant_nodes import MODELS, column_fields
 from app.services.assistant_policy import INPUTS, tier
 from app.services.assistant_tools import gates
 from app.services.assistant_tools.catalog import Args
-from app.services.assistant_tools.context import ToolContext, ToolError
+from app.services.assistant_tools.context import Graph, ToolContext, ToolError
 from app.services.assistant_tools.ops import MAX_OPS, AnyOp, EditRejected, Issue, Working, layout, materialize
 
 
@@ -28,25 +31,37 @@ def start(graph: dict[str, Any]) -> Working:
 
 def _upstream_dataset(ctx: ToolContext, work: Working, node_id: str) -> str | None:
     """The dataset ref feeding a node through its first input path, if any."""
-    by_id = {n["id"]: n for n in work.graph["nodes"]}
+    source = gates.upstream_input(work.graph, node_id)
     refs = {dataset: ref for ref, dataset in ctx.datasets.items()}
-    seen: set[str] = set()
-    current: str | None = node_id
-    while current and current not in seen:
-        seen.add(current)
-        node = by_id[current]
-        if node["type"] in INPUTS:
-            return refs.get(node["data"]["config"].get("dataset_id"))
-        current = next((e["source"] for e in work.graph["edges"] if e["target"] == current), None)
-    return None
+    return refs.get(source["data"]["config"].get("dataset_id")) if source else None
 
 
-async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Working) -> list[str]:
-    """Replace dataset and column refs by real values in touched nodes; returns known column names.
+async def expression_columns(db: AsyncSession, project: str, graph: Graph, node_ids: set[str]) -> dict[str, list[str]]:
+    """Columns each review-tier node's expression may reference: its upstream input's schema.
+
+    Propose and apply both use this, so the apply-time recheck sees the same columns.
+    """
+    providers = {s.id: s.provider for s in get_registry().node_specs()}
+    result: dict[str, list[str]] = {}
+    for node in graph["nodes"]:
+        if node["id"] not in node_ids or tier(node["type"], providers.get(node["type"])) != "review":
+            continue
+        source = gates.upstream_input(graph, node["id"])
+        if source is None:
+            continue
+        try:
+            schema = await resolve_input(db, project, None, source)
+        except ValidationError:
+            raise EditRejected([Issue("missing_dataset", "The input dataset is unavailable.")]) from None
+        result[node["id"]] = list(schema.columns)
+    return result
+
+
+async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Working) -> None:
+    """Replace dataset and column refs by real values in touched nodes.
 
     Values already bound by an earlier edit of the same node are kept as they are.
     """
-    known: list[str] = []
     before = {n["id"]: n["data"]["config"] for n in prior.graph["nodes"]}
     for node in work.graph["nodes"]:
         if node["id"] not in touched:
@@ -67,7 +82,6 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
             continue
         await ctx.dataset(source)
         columns = ctx.columns[source]
-        known.extend(columns.values())
 
         def name(value: Any, field: str) -> Any:
             if not isinstance(value, str):
@@ -90,7 +104,6 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
                 cfg[field] = [name(v, field) for v in value]
             else:
                 cfg[field] = name(value, field)
-    return known
 
 
 async def propose_edit(ctx: ToolContext, args: ProposeEdit, work: Working) -> tuple[Working, dict[str, Any]]:
@@ -99,9 +112,10 @@ async def propose_edit(ctx: ToolContext, args: ProposeEdit, work: Working) -> tu
     try:
         candidate, touched = materialize(current, args.ops)
         gates.policy(candidate, touched)
-        known = await _bind(ctx, candidate, touched, current)
+        await _bind(ctx, candidate, touched, current)
+        columns = await expression_columns(ctx.db, ctx.project, candidate.graph, touched)
         hidden = {} if ctx.share_names else {n: r for cols in ctx.columns.values() for r, n in cols.items()}
-        gates.check(candidate, touched, known, names=hidden)
+        gates.check(candidate, touched, columns, names=hidden)
     except EditRejected as exc:
         return work, {"ok": False, "issues": [i.public() for i in exc.issues]}
     except ToolError as exc:

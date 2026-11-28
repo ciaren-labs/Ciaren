@@ -58,10 +58,23 @@ def policy(work: Working, touched: Iterable[str], rows: int | None = None) -> No
         raise EditRejected(issues)
 
 
+def upstream_input(graph: Graph, node_id: str) -> Graph | None:
+    """The input node feeding a node through its first incoming path, if any."""
+    by_id: dict[str, Graph] = {n["id"]: n for n in graph["nodes"]}
+    seen: set[str] = set()
+    current: str | None = node_id
+    while current and current not in seen:
+        seen.add(current)
+        if by_id[current]["type"] in INPUTS:
+            return by_id[current]
+        current = next((e["source"] for e in graph["edges"] if e["target"] == current), None)
+    return None
+
+
 def check(
     work: Working,
     touched: Iterable[str],
-    columns: Iterable[str] = (),
+    columns: Mapping[str, list[str]] | None = None,
     rows: int | None = None,
     names: Mapping[str, str] | None = None,
 ) -> None:
@@ -78,7 +91,6 @@ def check(
         **{node_id: ref for ref, node_id in work.refs.items()},
     }
     providers = {s.id: s.provider for s in get_registry().node_specs()}
-    known = list(columns)
     issues: list[Issue] = []
     wanted = set(touched)
     for node in work.graph["nodes"]:
@@ -104,7 +116,7 @@ def check(
             continue
         if level == "review":
             try:
-                guard_expression(str(cfg.get("expression", "")), known)
+                guard_expression(str(cfg.get("expression", "")), (columns or {}).get(node["id"], []))
             except PolicyError as exc:
                 issues.append(Issue(exc.code, str(exc), ref, exc.field))
                 continue
@@ -130,16 +142,16 @@ def check(
         raise EditRejected([Issue(_graph_code(message), message)]) from None
 
 
-def build(base: Graph, ops: list[AnyOp], columns: Iterable[str] = ()) -> tuple[Graph, Graph]:
+def build(base: Graph, ops: list[AnyOp]) -> tuple[Graph, Graph]:
     """Materialize planner ops over a stored base, gate them, lay them out and return graph and delta."""
     work, touched = materialize(Working.start(base), ops)
-    check(work, touched, columns)
+    check(work, touched)
     layout(work)
     return work.graph, diff(work)
 
 
-def recheck(base: Graph, graph: Graph, columns: Iterable[str] = ()) -> None:
-    """Gate the nodes a reviewed proposal adds or changes again before it is saved."""
+def reviewed(base: Graph, graph: Graph) -> tuple[Working, set[str]]:
+    """A reviewed proposal as working state, with the nodes it adds or changes."""
     work = Working(base, graph, {f"n{i}": n["id"] for i, n in enumerate(graph["nodes"])})
     delta = diff(work)
-    check(work, {n["id"] for n in delta["added"] + delta["changed"]}, columns)
+    return work, {n["id"] for n in delta["added"] + delta["changed"]}
