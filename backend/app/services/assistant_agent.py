@@ -71,13 +71,22 @@ column the user named: when names are not shared and types do not settle it, cal
 with ambiguous_request so the user can share names. Keep the flow minimal."""
 
 
+#: Longest model text kept for the reply. Longer text is shortened, not refused, so a
+#: wordy summary never costs a call.
+REPLY_TEXT = 600
+
+
+def _shorten(text: str) -> str:
+    return text if len(text) <= REPLY_TEXT else text[: REPLY_TEXT - 1].rstrip() + "…"
+
+
 class Finish(Args):
-    summary: Annotated[str, Field(min_length=1, max_length=400)]
+    summary: Annotated[str, Field(min_length=1, max_length=8000)]
 
 
 class Abstain(Args):
     reason: Literal["unsupported_request", "missing_data", "ambiguous_request", "policy"]
-    detail: Annotated[str, Field(max_length=400)] = ""
+    detail: Annotated[str, Field(max_length=8000)] = ""
 
 
 Kind = Literal["finish", "abstain", "step_limit", "timeout", "provider_error", "invalid"]
@@ -354,14 +363,14 @@ async def run(
             if name == "finish" and isinstance(args, Finish):
                 if turn.validated == verify.fingerprint(turn.work):
                     turn.steps.append({"tool": name, "ok": True})
-                    return outcome("finish", args.summary, turn.work)
+                    return outcome("finish", _shorten(args.summary), turn.work)
                 result = {
                     "ok": False,
                     "issues": [{"code": "not_validated", "message": "Call validate and fix every issue first."}],
                 }
             elif name == "abstain" and isinstance(args, Abstain):
                 turn.steps.append({"tool": name, "ok": True})
-                ended = outcome("abstain", args.detail or "The assistant could not serve this request.")
+                ended = outcome("abstain", _shorten(args.detail) or "The assistant could not serve this request.")
                 ended.abstained = args.reason
                 return ended
             turn.steps.append({"tool": name, "ok": bool(result.get("ok", True))})

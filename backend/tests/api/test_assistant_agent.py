@@ -692,3 +692,16 @@ async def test_abstaining_for_hidden_names_offers_to_share_them(client, scripted
     assert reply["reason"] == "abstained" and reply["message"] == "Which column is the price?"
     actions = [s["action"] for s in reply.get("suggestions", [])]
     assert ("share_names" in actions) is offered, reply
+
+
+async def test_a_long_summary_or_reason_never_costs_a_call(client, scripted):
+    dataset = await upload(client, "long.csv", "price,qty\n2,3\n4,5\n")
+    long = "Flujo listo: " + "detalle " * 200
+    sent = scripted([("propose_edit", {"ops": LIMITED})], [("validate", {})], [("finish", {"summary": long})])
+    _, _, reply = await turn(client, "Keep the first rows", dataset_id=dataset["id"])
+    # The model's text is shortened for the reply instead of refused, so no call is spent on it.
+    assert "proposal" in reply and len(sent) == 3, reply
+    assert reply["message"].startswith("Flujo listo") and len(reply["message"]) <= 601
+    scripted([("abstain", {"reason": "policy", "detail": long})])
+    _, _, reply = await turn(client, "Write a Python script", dataset_id=dataset["id"])
+    assert reply["reason"] == "abstained" and len(reply["message"]) <= 601 and len(sent) == 4
