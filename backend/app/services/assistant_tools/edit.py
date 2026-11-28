@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """``propose_edit``: map refs to names, materialize the ops and run the static gates."""
 
+import re
 from copy import deepcopy
 from typing import Annotated, Any
 
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.plugins import get_registry
 from app.services.assistant_nodes import MODELS, column_fields
-from app.services.assistant_policy import INPUTS, tier
+from app.services.assistant_policy import INPUTS, REVIEW, tier
 from app.services.assistant_tools import gates, sample
 from app.services.assistant_tools.catalog import Args
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
@@ -24,6 +25,39 @@ from app.services.assistant_tools.ops import (
     layout,
     materialize,
 )
+
+_REF = re.compile(r"\bc\d{1,2}\b")
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _bind_expression(text: str, columns: dict[str, str], node: str) -> str:
+    """Replace column refs (c0, c1) outside single-quoted literals by real names.
+
+    The guard allows only single-quoted literals without escapes, so splitting on quotes
+    separates code from literals. A refused name is reported by ref, never by name.
+    """
+    parts = text.split("'")
+
+    def name(match: re.Match[str]) -> str:
+        ref = match.group(0)
+        if ref not in columns:
+            return ref  # The expression guard reports unknown names.
+        real = columns[ref]
+        if not _IDENTIFIER.fullmatch(real):
+            raise EditRejected(
+                [
+                    Issue(
+                        "bad_type",
+                        f"Column {ref} has a name expressions cannot use; rename it first.",
+                        node,
+                        "expression",
+                    )
+                ]
+            )
+        return real
+
+    parts[::2] = [_REF.sub(name, code) for code in parts[::2]]
+    return "'".join(parts)
 
 
 class ProposeEdit(Args):
@@ -95,8 +129,9 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
             cfg["dataset_id"] = ctx.datasets[dataset]
             continue
         fields = column_fields(node["type"]) if node["type"] in MODELS else {}
+        expression = node["type"] in REVIEW and isinstance(cfg.get("expression"), str)
         source = sample.data_source(work.graph, node_id)
-        if not fields or source is None:
+        if not (fields or expression) or source is None:
             continue
         if source not in schemas:
             try:
@@ -113,6 +148,8 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
                 source_ref = work.ref_of(source)
                 raise EditRejected([Issue(i["code"], i["message"], i.get("node", source_ref)) for i in found])
         columns = ctx.register(work.ref_of(source), [c for c, _ in schemas[source]])
+        if expression and cfg["expression"] != before.get(node_id, {}).get("expression"):
+            cfg["expression"] = _bind_expression(cfg["expression"], columns, ref)
 
         def name(value: Any, field: str) -> Any:
             if not isinstance(value, str):

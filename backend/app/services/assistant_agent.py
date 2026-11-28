@@ -51,7 +51,8 @@ and their schemas.
 - Datasets are refs d0, d1. Canvas nodes are refs n0, n1; name new nodes with lowercase refs \
 in add_node "as". Columns are refs c0, c1 scoped to one source: in a node's settings use the \
 column refs of the node feeding its input (get_dataset_schema for an input's dataset, \
-validate or preview for any node). Use real column names only when names are shared.
+validate or preview for any node), also inside expressions such as "c0 * c1 > 10". Use real \
+column names only when names are shared.
 - propose_edit applies a whole batch of ops or none. add_node starts from the node's defaults. \
 Input nodes take dataset_id as a dataset ref. Connect ports by id; most nodes read "in" and write "out".
 - validate runs every check plus a sample preview and lists each node's columns.

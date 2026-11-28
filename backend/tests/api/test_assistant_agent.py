@@ -353,3 +353,34 @@ async def test_profile_and_expressions_use_each_nodes_own_columns(client, db_ses
     assert "proposal" in reply, results(sent[-1], "propose_edit")
     nodes, _ = await applied(client, flow, url, reply)
     assert nodes["filterExpression"]["data"]["config"]["expression"] == "total > 6"
+
+
+async def test_expressions_take_column_refs_when_names_are_hidden(client, db_session):
+    dataset = await upload(client, "d.csv", "price,qty,unit price,note\n2,3,1,'c0'\n4,5,1,x\n")
+    ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]})
+    ops = [
+        add("src", "fileInput", dataset_id="d0"),
+        add("calc", "calculatedColumn", column_name="total", expression="c0 * c1"),
+        # c4 is "total", the column the calculated node adds; 'c0' inside quotes is a literal.
+        add("big", "filterExpression", expression="c4 > 6 and c3 != 'c0'"),
+        add("out", "fileOutput", dataset_name="Big"),
+        wire("src", "calc"),
+        wire("calc", "big"),
+        wire("big", "out"),
+    ]
+    work, result = await propose_edit(ctx, ProposeEdit.model_validate({"ops": ops}), start({}))
+    assert result["ok"], result
+    config = {n["type"]: n["data"]["config"] for n in work.graph["nodes"]}
+    assert config["calculatedColumn"]["expression"] == "price * qty"
+    assert config["filterExpression"]["expression"] == "total > 6 and note != 'c0'"
+    # A column whose name is not an identifier cannot appear in an expression.
+    spaced = [
+        add("src", "fileInput", dataset_id="d0"),
+        add("f", "filterExpression", expression="c2 > 0"),
+        add("out", "fileOutput", dataset_name="Spaced"),
+        wire("src", "f"),
+        wire("f", "out"),
+    ]
+    _, refused = await propose_edit(ctx, ProposeEdit.model_validate({"ops": spaced}), start({}))
+    assert not refused["ok"] and refused["issues"][0]["field"] == "expression"
+    assert "unit price" not in json.dumps(refused)
