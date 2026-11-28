@@ -6,7 +6,7 @@ search: legal terms of use disclaimer warranty liability license
 
 # Terms of Use
 
-Last updated: **July 1, 2026**
+Last updated: **November 27, 2026**
 
 These terms cover your use of this website (the Ciaren documentation site) and
 restate, in plain language, the legal terms under which the Ciaren software is
@@ -49,6 +49,10 @@ availability, data integrity, or fitness for production use**. In particular:
 - There is no encryption at rest and no authentication by default; the
   supported deployment model is local-first or behind access controls **you**
   operate.
+- The optional flow assistant sends your request text and a limited description
+  of your flow to the AI provider whose key you configure. That provider's terms,
+  retention and charges apply, and its output can be wrong, so review every
+  proposal before you save it.
 - APIs, file formats, and generated code may change between releases without
   notice.
 

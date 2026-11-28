@@ -8,6 +8,24 @@ breaking changes may still happen between `0.x` releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Flow assistant** (off until you add a provider key) proposes flows and
+  repairs from a plain-language request, answers questions from the bundled
+  guides and diagnoses a failed run. It works through server-side tools against
+  the installed node catalog and validates each draft, marking one it could not finish checking. Nothing
+  is saved until you choose **Apply and save**, and it never runs a flow. See
+  the Flow assistant guide.
+- **Assistant API keys** are managed on **Connections**, stored in the OS keychain
+  (`ciaren[keyring]`), with OpenAI, Anthropic, DeepSeek and OpenCode providers.
+  Server operators can instead use `CIAREN_ASSISTANT_*` environment variables or a
+  secret file, and turn the assistant off with `CIAREN_ASSISTANT_ENABLED=false`.
+- **Assistant Activity** lists confirmed assistant changes per flow and can
+  preview and confirm a reversal that keeps unrelated later edits. Run
+  `ciaren db upgrade` on existing installations before starting the new version.
+- **Flow revision checks**: `PUT /api/flows/{id}` and `POST /api/flows/{id}/runs`
+  accept `expected_revision` and return `409` when the saved flow has changed.
+
 ## [0.3.1] - 2026-10-12
 
 This release improves Python export parity and the documentation for both

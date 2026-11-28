@@ -9,12 +9,30 @@ search: getting started introduction what is ciaren beginner technical overview
 **For:** anyone new to Ciaren. **You get:** the mental model in a few minutes,
 then a four-step path from installation to your first working flows.
 
-Ciaren is an AI-native visual workflow builder for local data engineering and lightweight
-machine-learning work. You build **flows** — Ciaren's word for a saved
-pipeline — on a canvas, preview real data at each step, run them locally, and
-export readable pandas, polars, or lazy polars Python.
+Ciaren is an open-source visual workflow builder for local data engineering and
+lightweight machine-learning work. You build **flows** — Ciaren's word for a
+saved pipeline — on a canvas, preview real data at each step, run them locally,
+and export readable pandas, polars, or lazy polars Python.
 
-Choose the [manual quick start](quick-start.md) to build without a provider API key, or the [AI quick start](flow-assistant-quick-start.md) to review a CSV pipeline generated from a prompt.
+There are two ways to build a flow, and you can switch between them at any time:
+
+- **Describe it.** With your own provider API key, the AI flow assistant drafts a
+  complete flow from plain language: inputs, cleaning, joins, reshaping, charts,
+  and ML training, cross-validation and evaluation. You review the proposed nodes
+  and connections, and nothing is saved until you choose **Apply and save**.
+  Start with the [AI quick start](flow-assistant-quick-start.md).
+- **Build it by hand.** Drag nodes onto the canvas and configure them. This needs
+  no API key. Start with the [manual quick start](quick-start.md).
+
+A proposal from the assistant is ordinary nodes on the canvas, so you can edit it
+by hand, run it locally, and export it like any other flow.
+
+:::info The assistant is newer than the 0.3.1 release
+The published 0.3.1 package has the full manual editor but not the assistant.
+To use the assistant, run a source checkout or the Docker build; the
+[AI quick start](flow-assistant-quick-start.md#open-an-editor-with-assistant)
+shows how.
+:::
 
 :::warning Alpha software
 Ciaren is in early development. APIs, generated code, workflow files, and plugin
@@ -90,8 +108,9 @@ install method. You do not need your own dataset: fresh installs seed a
 
 | Goal | Start here |
 | --- | --- |
+| "I want to describe a pipeline and review what Ciaren builds" | [AI quick start](/guide/flow-assistant-quick-start), then [what the assistant can build and what it sends](/guide/flow-assistant) |
 | "I just want to see it running" | [Installation](/guide/installation), install from PyPI or use Docker, then open the Demo project |
-| "I want to build my first flow" | [Quick Start](/guide/quick-start) |
+| "I want to build my first flow by hand" | [Manual quick start](/guide/quick-start) |
 | "I want to understand the UI" | [Interface Tour](/guide/interface) |
 | "I want a realistic example" | [Sales Analysis](/examples/sales-analysis) or [Data Quality Checks](/examples/data-quality) |
 | "I care about generated code" | [Engines and Python export](/guide/engines) |
@@ -120,8 +139,9 @@ Read these in order. Each page ends with a link to the next one.
 
 1. **[Installation](/guide/installation)** — get Ciaren running at
    `http://localhost:8055`.
-2. **[Quick Start](/guide/quick-start)** — build, run, and export your first
-   flow in about five minutes.
+2. **[AI quick start](/guide/flow-assistant-quick-start)** or
+   **[Manual quick start](/guide/quick-start)** — build, run, and export your
+   first flow, with the assistant or by hand.
 3. **[Demo Project & Tutorials](/guide/demo-project)** — follow four
    ready-made flows, from a linear cleanup to a three-input join.
 4. **Next steps** — learn the editor in the [Interface Tour](/guide/interface),

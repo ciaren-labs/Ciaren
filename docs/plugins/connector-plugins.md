@@ -112,6 +112,12 @@ it afterwards regardless).
 Only `read` is required. Optional methods you don't implement surface in the
 UI/API as a clear *"not supported by this connector"* message — never a 500.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never adds or configures SQL or Storage
+nodes, connections or credentials, so it cannot use a plugin connector. Wire these
+nodes in the editor.
+:::
+
 ## Secrets
 
 Ciaren's rule is **env-var-only secrets** and plugin connectors inherit it: the
@@ -127,8 +133,8 @@ resolve them with `os.environ` yourself — document that clearly.
   and granted its manifest permissions (`network`, `credentials`,
   `database_access`, …) — gated plugins are never even imported.
 - The host runs its **SSRF guard** on the connection's `host` field before
-  invoking your runtime (when `CONNECTOR_BLOCK_PRIVATE_HOSTS` is enabled), the
-  same guard the core connectors use.
+  invoking your runtime when `CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS=true` (it is
+  off by default), the same guard the core connectors use.
 - Failures in your runtime surface as clean connection-test failures or 400s;
   a broken plugin can't crash the connections API.
 

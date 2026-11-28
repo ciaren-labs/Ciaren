@@ -19,6 +19,12 @@ the run (`error` mode) or logs a warning and continues (`warn` mode).
 - Catch unexpected nulls in a derived column: `score.notnull()`.
 - Any condition expressible as a pandas column expression.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) can add this node, limited to
+column references, numbers, arithmetic, comparisons and a few math functions. It
+highlights the expression for your review before you save.
+:::
+
 ## Configuration
 
 | Config key | Type | Required | Description |

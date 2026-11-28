@@ -63,6 +63,12 @@ Plugin **train nodes** get first-class ML support too: a node can declare typed
 **ModelStore**, and emit **model references** that the core Predict / Feature
 Importance nodes consume — see [ML Model Plugins](/plugins/ml-model-plugins).
 
+::: tip Flow assistant and plugins
+The built-in [flow assistant](/guide/flow-assistant) is part of Ciaren core, not a
+plugin. It never adds or configures plugin nodes or connectors, so build and edit
+those in the regular editor.
+:::
+
 > **Status note.** The built-in catalog ships **nodes**, **connectors**,
 > **storage**, the **polars / pandas** engines, and the ML **model catalog**;
 > plugins can execute nodes, connectors, and model types end-to-end. The
@@ -85,7 +91,7 @@ Ciaren finds plugins two ways:
    point is discovered automatically once `pip install`-ed.
 
 Fresh installs also include a small **bundled Explore catalog** with the Hello
-Plugin and MLP Classifier example packages. Bundled catalog entries are not
+Plugin, HTTPS Input Connector and MLP Classifier example packages. Bundled catalog entries are not
 loaded automatically: they are shown as installable examples so users can try the
 install and approval flow.
 Set `CIAREN_MARKETPLACE_INDEX=none` to hide Explore, or point it at your own
@@ -136,9 +142,12 @@ publisher workflow.
 
 ## Complete, runnable examples
 
-Three example plugins live in the repository, shipped as pre-built **signed**
-packages in [`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist)
-and bundled into the Explore catalog so a fresh install lists them ready to install:
+Four example plugins live in the repository. Hello, HTTPS Input Connector and MLP
+Classifier also ship as pre-built packages in
+[`examples/plugins/dist/`](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/dist),
+signed with the `ciaren-demo` key (they show **Untrusted key** unless you add that
+key to your trusted keys), and are bundled into the Explore catalog so a fresh
+install lists them ready to install. The Validator plugin ships as source only:
 
 - **[Hello plugin](https://github.com/ciaren-labs/Ciaren/tree/main/examples/plugins/hello-node-plugin)** —
   the smallest node that runs end-to-end. Start here → [Build Your First Plugin](/plugins/first-plugin).

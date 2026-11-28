@@ -17,6 +17,13 @@ Ciaren has two parts:
 You can run the backend on its own and drive it through the
 [REST API](/api/rest-api), or run both for the full visual experience.
 
+:::info Which install includes the AI flow assistant?
+The AI flow assistant is in the source tree but not in the published 0.3.1
+package. A PyPI install or a Codespace gives you 0.3.1: the full manual editor
+without an **Assistant** button. A source checkout or the Docker build from
+`main` includes it. See [Use the AI flow assistant](#use-the-ai-flow-assistant).
+:::
+
 ## Requirements
 
 | Install method | You need |
@@ -68,7 +75,7 @@ optional model families:
 python -m pip install "ciaren[postgres]"
 python -m pip install "ciaren[s3]"
 python -m pip install "ciaren[ml]"        # adds XGBoost and LightGBM choices
-python -m pip install "ciaren[keyring]"   # recommended on desktop: OS-keychain connection secrets
+python -m pip install "ciaren[keyring]"   # recommended on desktop: OS-keychain connection secrets and assistant keys
 ```
 
 For a full list, see [Connections](/guide/connections) and
@@ -114,7 +121,7 @@ Use Codespaces to try Ciaren in your browser without installing anything. Open
 codespace.
 
 The repository's `.devcontainer/` setup installs the released Ciaren package
-from PyPI, starts `ciaren serve` on port 8055 in the codespace terminal, and
+from PyPI (currently 0.3.1, without the AI assistant), starts `ciaren serve` on port 8055 in the codespace terminal, and
 opens the editor in a new browser tab with the **Demo project** loaded. The
 first start takes about two minutes; restarting a stopped codespace is faster.
 If your browser blocks the new tab, click the link printed in the terminal, or
@@ -166,7 +173,9 @@ ciaren serve
 ```
 
 The backend runs on `http://localhost:8055`. The database schema is **created
-automatically** on first start — there is no migration step. Open the interactive
+automatically** on first start of a new database, so a fresh install has no
+migration step. If you are upgrading an existing database, run
+`ciaren db upgrade` first (the assistant's Activity history adds a table). Open the interactive
 API docs at `http://localhost:8055/docs`. The default startup also seeds the
 Demo project; use `ciaren serve --no-demo` if you want an empty workspace.
 
@@ -242,6 +251,21 @@ If the **Machine Learning** palette section is missing entirely, check
 `ciaren check` (it reports `ml: ok`) and that the frontend you're viewing is up
 to date. See the [ML Quick Start](/guide/ml-quickstart).
 :::
+
+## Use the AI flow assistant
+
+The assistant needs a build that includes it and a provider API key (OpenAI,
+Anthropic, DeepSeek or OpenCode Console). Building manually needs neither.
+
+- **Source build.** Build the editor, then install the local package with the
+  keychain extra so you can save a key on the **Connections** page. The commands
+  are in the [AI quick start](/guide/flow-assistant-quick-start#open-an-editor-with-assistant).
+- **Docker.** `docker compose up --build` from a `main` checkout includes the
+  assistant. A container has no OS keychain, so supply the key through a
+  server secret instead. See
+  [Deployment and credentials](/guide/flow-assistant#deployment-and-credentials).
+- **Keys.** Add one under **Connections → Assistant API keys**. Ciaren stores it
+  in the OS keychain and the database keeps only its name, provider and model.
 
 ## Detailed Setup
 
@@ -368,8 +392,8 @@ pip install asyncpg
 CIAREN_DATABASE_URL=postgresql+asyncpg://ciaren:password@localhost/ciaren_dev
 ```
 
-The backend creates its tables on startup, so there is no manual migration step.
-MySQL works the same way with `pip install aiomysql` and a
+The backend creates its tables on startup for a new database. For an existing
+one, run `ciaren db upgrade` when you move to a newer version. MySQL works the same way with `pip install aiomysql` and a
 `mysql+aiomysql://` URL.
 
 ## Verify the Install
@@ -448,5 +472,7 @@ CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 
 ## Next Step
 
-Once Ciaren is running, continue to the **[Quick Start](/guide/quick-start)**
-to build, run, and export your first flow.
+Once Ciaren is running, continue to the **[Manual quick start](/guide/quick-start)**
+to build, run, and export your first flow by hand, or to the
+**[AI quick start](/guide/flow-assistant-quick-start)** to have the assistant
+draft one from a prompt.

@@ -50,6 +50,10 @@ S5,US|Austin|TX
 4. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
    `stores_split`. Connect the nodes in order and click **Run**.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "split the location column on | into region and city." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 | store_id | location | region | city |

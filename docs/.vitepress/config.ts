@@ -29,8 +29,9 @@ function pageUrl(page: string) {
 }
 
 // Sidebar for the user guide. Each page is listed once, in the order a new
-// user reads it: install, first flow, day-to-day features, then reference and
-// project pages. Contributor-only pages sit in the last group.
+// user reads it: install, first flow (with the AI assistant, then by hand),
+// day-to-day features, then reference and project pages. Contributor-only pages
+// sit in the last group.
 //
 // Declared before `nav` on purpose: the ciaren.com docs sync derives each
 // folder's page order from the first `link: '/<folder>/<page>'` it finds in
@@ -42,17 +43,22 @@ const guideSidebar = [
     items: [
       { text: 'Introduction', link: '/guide/getting-started' },
       { text: 'Installation', link: '/guide/installation' },
-      { text: 'Quick Start (5 min)', link: '/guide/quick-start' },
-      { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
-      { text: 'Interface Tour', link: '/guide/interface' },
     ],
   },
   {
     text: 'AI Flow Assistant',
     items: [
-      { text: 'Set Up and Build a CSV Flow', link: '/guide/flow-assistant-quick-start' },
-      { text: 'Providers, Privacy & Activity', link: '/guide/flow-assistant' },
+      { text: 'AI Quick Start', link: '/guide/flow-assistant-quick-start' },
+      { text: 'What It Can Build, Providers & Privacy', link: '/guide/flow-assistant' },
       { text: 'Connect Your Own Agent', link: '/guide/external-agent' },
+    ],
+  },
+  {
+    text: 'Build by Hand',
+    items: [
+      { text: 'Manual Quick Start (5 min)', link: '/guide/quick-start' },
+      { text: 'Demo Project & Tutorials', link: '/guide/demo-project' },
+      { text: 'Interface Tour', link: '/guide/interface' },
     ],
   },
   {
@@ -148,7 +154,7 @@ const extendingSidebar = [
 export default defineConfig({
   title: 'Ciaren',
   description:
-    'Open-source, plugin-first platform for building Data Engineering and Machine Learning workflows visually — and exporting clean, portable pandas/polars Python. Local-first, no lock-in.',
+    'Open-source, local-first platform for building Data Engineering and Machine Learning workflows. Describe a pipeline to the AI flow assistant or build it on a canvas, then export clean, portable pandas/polars Python. Plugin-first, no lock-in.',
   lang: 'en-US',
   base: docsBasePath,
   srcExclude: ['README.md', 'PUBLISHING.md', 'agent-runs/**'],
@@ -244,6 +250,11 @@ export default defineConfig({
     siteTitle: '<span class="ciaren-c">C</span>iaren',
 
     nav: [
+      {
+        text: 'AI Assistant',
+        link: '/guide/flow-assistant-quick-start',
+        activeMatch: '/guide/(flow-assistant|external-agent)',
+      },
       {
         text: 'Guide',
         link: '/guide/getting-started',

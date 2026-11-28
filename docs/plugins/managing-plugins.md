@@ -10,9 +10,11 @@ This page is the **user's** guide to the plugin lifecycle: getting a plugin onto
 your machine, approving it, and removing it again. To *build* a plugin, see
 [Build Your First Plugin](/plugins/first-plugin).
 
-Everything here is available two ways — the **Plugins page** in the app
-(<code>/plugins</code>) and the <code>ciaren-plugin</code> CLI. Pick whichever fits;
-they act on the same state.
+Installing, enabling, disabling and uninstalling work two ways — the **Plugins
+page** in the app (<code>/plugins</code>) and the <code>ciaren-plugin</code> CLI —
+and act on the same state. Revoking permissions and removing a license token are
+available on the Plugins page; the CLI has no `approve` or `revoke` command (see
+[From the CLI](#approve-disable-and-permissions) below).
 
 ::: warning Plugins run real code on your machine
 A plugin is ordinary Python that runs with your account's access — it is **not
@@ -74,6 +76,10 @@ ciaren-plugin install ./acme.ciarenplugin --trusted  # refuse unless signed by a
 ciaren-plugin list                                   # see what's installed
 ```
 
+The CLI prints the verification result and asks you to restart `ciaren serve` to
+load the plugin. A plugin that declares permissions stays pending until you
+approve it on the Plugins page.
+
 ### 4. Drop-in directory (development)
 
 Point `CIAREN_PLUGINS_DIR` at a folder of plugin directories, or drop one into
@@ -109,8 +115,11 @@ ciaren-plugin enable  acme.hello
 ciaren-plugin disable acme.hello
 ```
 
-Changes take effect **live** — the node catalog is rebuilt, so a plugin's nodes
-appear in (or leave) the editor palette without a restart.
+`ciaren-plugin enable` also approves the plugin, so it is an explicit choice to
+let that code run. The CLI changes saved state only: restart `ciaren serve` to
+apply it. Changes made on the Plugins page take effect **live** — the node
+catalog is rebuilt, so a plugin's nodes appear in (or leave) the editor palette
+without a restart.
 
 ::: tip Optional runtime enforcement
 Granted permissions are advisory by default (an approved plugin runs unsandboxed).

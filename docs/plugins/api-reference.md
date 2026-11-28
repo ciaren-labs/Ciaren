@@ -223,6 +223,7 @@ the matching core train node's picker and trains through the core pipeline.
 | `requires`, `install_hint` | Importable modules the builder needs; the hint shown when missing. |
 | `default_hyperparameters`, `hyperparameter_schema` | Drive the model picker's hyperparameter form (same field dialect as `config_schema`). The defaults are also **merged under the user's values** before your builder is called, so an untouched form trains with what the catalog advertises. |
 | `import_lines` | Top-level imports exported training scripts use for the estimator. When empty, the import is derived from the estimator's class module — declare them whenever the estimator's `repr` needs anything beyond that. |
+| `permissions` | Permissions the model type needs, shown with the plugin's own permissions. |
 
 The matching builder (from `ModelProvider.model_builders()`) is
 `(hyperparameters: dict, seed: int | None) -> estimator` and must return an
@@ -261,7 +262,7 @@ contributes. They carry no executable behavior.
 | --- | --- | --- | --- |
 | `id` | `str` | — | Node type, unique in the catalog (e.g. `"greeting.add"`). |
 | `label` | `str` | — | Display name. |
-| `category` | `str` | `"plugins"` | UI grouping (`"input"`, `"clean"`, `"columns"`, `"reshape"`, `"chart"`, `"ml"`, …); unrecognized values normalize to `"plugins"`. |
+| `category` | `str` | `"plugins"` | UI grouping: `"input"`, `"clean"`, `"columns"`, `"reshape"`, `"analytics"`, `"quality"`, `"chart"`, `"ml"`, `"output"` or `"plugins"`; unrecognized values normalize to `"plugins"`. |
 | `description` | `str` | `""` | Shown in the palette/inspector. |
 | `provider` | `str` | `"ciaren.core"` | Namespaced provider id. |
 | `version` | `str` | `"1.0.0"` | Node version. |
@@ -287,16 +288,19 @@ contributes. They carry no executable behavior.
 ### Other specs (shared shape)
 
 `ConnectorSpec`, `StorageSpec`, `ExecutionSpec`, `ExporterSpec`, `ValidatorSpec`,
-`AICapabilitySpec`, and `AuthMethodSpec` all carry an `id`, a `label`, a
-`provider`, and `capabilities`, plus a few type-specific fields:
+`AICapabilitySpec`, and `AuthMethodSpec` all carry an `id`, a `label` and a
+`provider`. All except `AuthMethodSpec` also carry `capabilities`. Type-specific
+fields:
 
-- **`ConnectorSpec`** — `kind` (`"sql"` / `"mongo"` / `"storage"` / `"mlflow"`,
-  or your own, e.g. `"api"` — sql-ish kinds back the SQL nodes, `storage` backs
-  the storage nodes), `available`, `driver_module`, `extra` (pip extra for the
-  install hint), `permissions`, `metadata` (form flags: host/port/auth/bucket/…),
-  and `config_schema` (extra connector-specific form fields, stored in the
+- **`ConnectorSpec`** — `kind` (`"sql"` / `"mongo"` / `"storage"` / `"mlflow"` /
+  `"api"`; sql-ish kinds back the SQL nodes, `storage` backs the storage nodes),
+  `available`, `driver_module`, `extra` (pip extra for the install hint),
+  `permissions`, `metadata` (form flags: host/port/auth/bucket/…), and
+  `config_schema` (extra connector-specific form fields, stored in the
   connection's `options`).
-- **`ExecutionSpec`** — `available` (an engine name the executor understands).
+- **`StorageSpec`** — `available` and `permissions`.
+- **`ExecutionSpec`** — `available` (whether the engine can run here); its `id` is
+  the engine name the executor understands.
 - **`ExporterSpec`** — `format` (e.g. `"python"`) and `file_extension`.
 - **`ValidatorSpec`** / **`AICapabilitySpec`** — a `description`.
 

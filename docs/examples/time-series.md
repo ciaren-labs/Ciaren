@@ -65,6 +65,10 @@ Six events, two in each of January, February and March 2024.
    **Min periods** and **Partition by** empty.
 8. **File Output**: **File type** CSV, **Dataset name** `monthly_summary`.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "total the value per month from the events and add a rolling average of the monthly totals." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## How the rolling window moves
 
 Rolling Aggregate orders the rows by **Order by**, then, for each row, takes the

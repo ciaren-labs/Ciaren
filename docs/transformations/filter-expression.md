@@ -18,10 +18,18 @@ conditions combined with `and` / `or` in a single expression.
 
 ## What it does
 
-The expression is evaluated per row with pandas `eval` semantics — the same
-syntax as [Calculated column](./calculated-column.md) — and only rows where it is
-true are kept. The result behaves identically on the pandas and polars engines.
-Column count is unchanged; the row index is reset.
+The expression is evaluated per row with pandas `eval` semantics, and only rows
+where it is true are kept. The polars engine converts the frame to pandas to
+evaluate the mask, so both engines give the same result (and the Polars export
+needs pandas and PyArrow). [Calculated column](./calculated-column.md) uses
+different syntax on Polars. Column count is unchanged; the row index is reset.
+
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) can add this node. It accepts only
+column references, numbers, single-quoted text, arithmetic and comparison
+operators, `and`/`or`/`not`, and a few math functions, and it highlights the
+expression for your review before you save.
+:::
 
 ## Configuration
 

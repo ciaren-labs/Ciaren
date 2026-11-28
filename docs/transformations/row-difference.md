@@ -52,7 +52,8 @@ df_2 = df_1.with_columns(pl.col('amount').diff().over('customer', order_by='date
 
 ## Tips & common mistakes
 
-- The **first row of each partition** has no previous row, so its result is null.
+- The **first `periods` rows of each partition** have no earlier row to compare
+  with, so their result is null.
 - `pct_change` returns a fraction (`0.5` = +50%); multiply by 100 with a
   [Calculated column](./calculated-column.md) for a percentage.
 

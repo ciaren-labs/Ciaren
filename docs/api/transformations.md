@@ -11,7 +11,9 @@ search: api transformations list preview node types sample
 | `GET` | `/api/transformations` | List available transformation types |
 | `POST` | `/api/transformations/preview` | Preview a single transformation against sample data |
 
-`GET /api/transformations` returns the registered node types from
+`GET /api/transformations` returns the registered transformation type names
+(66 in this release, ML ones only when ML is enabled; `?category=etl` or
+`?category=ml` narrows the list) from
 [`app/engine/registry.py`](https://github.com/ciaren-labs/Ciaren/blob/main/backend/app/engine/registry.py).
 `POST /api/transformations/preview` runs one node's config against supplied sample
 rows — this powers the editor's live preview without saving a run.

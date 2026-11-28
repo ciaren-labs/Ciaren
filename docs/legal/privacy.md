@@ -6,7 +6,7 @@ search: legal privacy policy analytics cookies telemetry data collection
 
 # Privacy Policy
 
-Last updated: **July 1, 2026**
+Last updated: **November 27, 2026**
 
 This policy explains what data is collected when you visit this website and
 when you use the Ciaren software. The short version: the software collects
@@ -29,6 +29,14 @@ Ciaren is **local-first**. The application:
 Your pipelines may of course connect to databases or services **you**
 configure; that traffic goes directly from your machine to those services under
 their own terms, and never through us.
+
+The optional **flow assistant** works the same way. It is off until you add your
+own API key for an AI provider (OpenAI, Anthropic, DeepSeek or OpenCode). Once it
+is on, the text of each request and a limited description of the flow go from
+your machine straight to that provider under the provider's own terms and
+billing, never through us. Rows, files and connection details are not sent. The
+[flow assistant guide](/guide/flow-assistant#what-leaves-the-server) lists exactly
+what is shared.
 
 ## This website
 

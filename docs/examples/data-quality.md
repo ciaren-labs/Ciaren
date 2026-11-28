@@ -76,6 +76,10 @@ What is wrong with each row:
 Select steps 5 to 8 one at a time and read the preview to see each rule remove
 exactly the row you expect.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "strip and lowercase the text columns, turn age into an integer, drop rows with no name or age, remove duplicate emails and keep ages from 0 to 120." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Why Drop Nulls comes before Remove Duplicates
 
 Both Grace rows share an email. *Keep first occurrence* keeps whichever comes

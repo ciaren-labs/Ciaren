@@ -33,10 +33,14 @@ are intentionally available. They run with the privileges of the local process.
 
 ## Where Ciaren *does* enforce boundaries
 
-- **Secrets stay out of artifacts.** Connection passwords are referenced by
-  environment-variable name (`password_env`), never stored in the flow graph,
-  `.flow` documents, or generated code — exported scripts read the secret from
-  `os.environ` at run time.
+- **Secrets stay out of artifacts.** A connection stores a *reference* to its
+  password (`password_env`): an environment variable name (`env:NAME` or bare
+  `NAME`), `keyring:NAME` for the OS keychain, or `file:/path` for a mounted
+  secret file. The value is never stored in the database, the flow graph,
+  `.flow` documents, or generated code. Exported scripts read it at run time. A
+  reference cannot name Ciaren's own configuration variables, and `file:` paths
+  must sit inside the allowed secret folders. See the
+  [connection security model](/guide/connections#security-model).
 - **Model URIs can't escape the artifact root.** A local `model_uri` must resolve
   inside the configured artifact directory (no `..` traversal, no absolute paths
   elsewhere); otherwise an MLflow `runs:/` / `models:/` URI is required.
@@ -76,14 +80,60 @@ are intentionally available. They run with the privileges of the local process.
   and are unaffected; when `CIAREN_API_TOKEN` is set the token gate covers this
   instead.
 
-## Hardening for shared / team use (future)
+## The flow assistant
 
-The current model is tuned for local use. Before multi-user, team, or enterprise
-deployments, add: read-only SQL connection modes, query allow/deny lists and
-audit logs, per-plugin OS sandboxing, and admin-enforced permission policies.
-These are deliberately out of scope for the local-first core.
+The optional [flow assistant](/guide/flow-assistant) sends your request text and a
+limited description of the flow to the AI provider you configure. It is off until
+you add a provider key or an operator configures one on the server.
+
+- **What leaves the server.** Your request, supported node types, wiring, turn-local
+  column references with coarse types, and each dataset's row count with per-column
+  null fraction, distinct count and uniqueness from the stored profile. Column names
+  are sent only when you opt in for a request or type them in it. Rows, file contents, filenames, dataset IDs, connection details, scripts
+  and raw logs stay on the server. The assistant checks its drafts on generated
+  placeholder rows, not your data.
+- **What it can change.** Its tools run inside the server against the same node
+  validation as the editor. It cannot run a flow, edit data connections or file paths,
+  write Python Transform nodes, or reach the network or filesystem. Nothing is saved
+  until you choose **Apply and save**. Confirmed changes are listed in the flow's
+  **Activity** and can be reversed.
+- **Where the key lives.** A key saved on the Connections page goes into the OS
+  keychain, not the database. Operators can use the environment or a mounted secret
+  file instead. Ciaren removes assistant key variables from its environment at
+  startup and from run workers.
+- **What it is not.** A Python Transform node still runs with the server's
+  privileges and can read the key wherever it is stored: server memory, a mounted
+  secret file or the OS keychain. Process mode and strict Python checks do not stop
+  that. On a shared installation, allow only trusted users to edit flows and use a
+  provider key with a spending limit. Anyone with access to the API can manage
+  the assistant, so deploy separate instances for separate trust boundaries.
+
+## Opt-in guards for networked or shared use
+
+The defaults are tuned for one trusted local user. These settings tighten them
+when connection configs, flow authors or network reachability are less trusted.
+All are environment-only, so changing them needs access to the server's
+environment. See [Advanced Setup](/guide/advanced-setup#environment-variables).
+
+| Setting | Guards against |
+| --- | --- |
+| `CIAREN_API_TOKEN` | Unauthenticated access to `/api/*` when bound beyond loopback |
+| `CIAREN_CONNECTOR_BLOCK_PRIVATE_HOSTS` | Connections that reach loopback, link-local (cloud metadata) or private addresses |
+| `CIAREN_STORAGE_ALLOWED_ROOTS` | A Local Storage or SQLite/DuckDB connection reading or writing arbitrary server files |
+| `CIAREN_SECRET_ENV_ALLOWLIST`, `CIAREN_SECRET_FILE_DIRS` | A connection pointing its password reference at an unrelated environment variable or file |
+| `CIAREN_PYTHON_TRANSFORM_STRICT` | Dangerous imports, builtins and dunder access in Python Transform scripts (static checks, not a sandbox) |
+| `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | Ungranted plugin network, file-write and process actions (not a sandbox) |
+| `CIAREN_REQUIRE_TRUSTED_PLUGINS` | Installing unsigned plugins from the UI |
+
+## Still out of scope: multi-user hardening
+
+Ciaren has no user accounts, roles, per-user audit trail, read-only SQL connection
+modes or per-plugin OS sandboxing. Before multi-user, team or enterprise use, add
+those yourself or deploy one isolated instance per trust boundary. They are
+deliberately out of scope for the local-first core.
 
 ## See also
 
 - [Plugin security & permissions](/security/plugin-security)
+- [Flow assistant](/guide/flow-assistant) — what leaves the server and how keys are stored
 - [Packaging & Distribution](/plugins/packaging-and-distribution)

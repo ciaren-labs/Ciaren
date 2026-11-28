@@ -7,14 +7,16 @@ search: comparison ciaren vs knime alternative alteryx alternative open source f
 # Ciaren vs KNIME, Alteryx, and Flowfile
 
 Ciaren is an open-source, local-first visual ETL tool for small and medium
-datasets. You build a flow on a canvas, preview every step, and export it as
-pandas or Polars Python. This page compares it with other visual ETL tools,
-with notebooks, and with orchestrators.
+datasets. You build a flow on a canvas, or describe it and review the flow its
+AI assistant proposes, preview every step, and export it as pandas or Polars
+Python. This page compares it with other visual ETL tools, with notebooks, and
+with orchestrators.
 
 ::: tip Summary
 
 - Against other visual ETL tools, Ciaren's focus is exported Python you can run
-  without Ciaren.
+  without Ciaren, and a bring-your-own-key assistant that proposes complete,
+  editable flows from plain language.
 - Against notebooks, Ciaren adds repeatable runs, previews, schedules, and run
   history.
 - Against Airflow, dbt, and Spark, Ciaren is smaller. It runs on one machine and
@@ -38,6 +40,18 @@ September 2026. Check their sites for current terms and features.
 | Scheduling | Built-in cron scheduler, included | Paid KNIME Hub plans and KNIME Business Hub | Alteryx Server, Desktop Automation (Scheduler), or Alteryx One cloud scheduling | Built in: interval, cron, or a trigger on catalog table updates |
 | Extensibility | Plugin SDK for nodes, connectors, and ML model types. More extension points (engines, exporters, validators) are defined but not yet run from plugins | Node extensions, including extensions written in pure Python | AYX Python SDK and UI SDK for custom tools | Custom Python nodes built in the Node Designer |
 
+## What Ciaren's assistant does
+
+Ciaren's AI flow assistant turns a plain-language request into a proposed flow of
+ordinary nodes: inputs, cleaning, joins, reshaping, charts, and ML training,
+cross-validation and evaluation. You review the proposal and choose **Apply and
+save**; the assistant never runs a flow. It uses your own API key (OpenAI,
+Anthropic, DeepSeek or OpenCode Console) and does not send dataset rows to the
+provider. It does not write Python Transform nodes, connectors or plugin nodes.
+Because the result is a normal flow, you can edit it by hand and export it as
+Python. See the [assistant guide](/guide/flow-assistant). It is in the source
+tree but not in the published 0.3.1 release.
+
 ## Ciaren vs KNIME Analytics Platform
 
 KNIME Analytics Platform is a mature, free desktop tool for visual data
@@ -55,7 +69,8 @@ that runs without Ciaren, and the cron scheduler is part of the free install.
 several languages, or a supported path to team deployment.
 
 **Choose Ciaren when** you want each flow to end as ordinary pandas or Polars
-code, with scheduling on your own machine at no cost.
+code, with scheduling on your own machine at no cost, or you want to draft flows
+from a prompt with your own model key.
 
 ## Ciaren vs Alteryx Designer
 
@@ -118,7 +133,7 @@ copy and paste.
 
 | | Notebooks and scripts | Ciaren |
 | --- | --- | --- |
-| Build | Code, cell by cell | Visual canvas, one node per operation |
+| Build | Code, cell by cell | Visual canvas, one node per operation, or a prompt that the assistant turns into a flow you review |
 | Repeatability | Cells can run out of order | Topologically sorted, deterministic runs |
 | Preview | Manual `df.head()` | Live preview at every step |
 | Reuse | Copy and paste | Saved flows, parameters, schedules, run history |
@@ -162,7 +177,7 @@ fit today.
 
 ## Next steps
 
-- [Get Started](/guide/getting-started) · [Quick Start (5 min)](/guide/quick-start)
+- [Get Started](/guide/getting-started) · [AI quick start](/guide/flow-assistant-quick-start) · [Manual quick start (5 min)](/guide/quick-start)
 - [Engines (polars / pandas)](/guide/engines)
 - [Machine Learning nodes](/transformations/machine-learning)
 - [Plugins Overview](/plugins/overview)

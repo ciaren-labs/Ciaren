@@ -20,7 +20,9 @@ returned on the run (and re-used by **Retry**). Unknown names, missing required
 values, or type mismatches return `400`. It may also include `input_dataset_id`
 (attribute the run to a specific dataset, overriding the graph's own input
 node) and `timeout_seconds` (override the server's default run timeout; `0`
-means no limit).
+means no limit). `expected_revision` (the flow's `updated_at`) makes the run
+fail with `409` when the saved flow has changed since you read it; omit it to
+run the latest saved version.
 
 ```bash
 curl -X POST http://localhost:8055/api/flows/{flow_id}/runs \

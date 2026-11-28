@@ -37,7 +37,7 @@ Each value in the column is checked against the allowed set. Violations either
 
 ```python
 df_2 = df_1
-_set_mask = df_2["status"].isin(["paid", "pending", "failed"]) | df_2["status"].isna()
+_set_mask = df_2['status'].isin(['paid', 'pending', 'failed']) | df_2['status'].isna()
 if not _set_mask.all():
     raise ValueError(f"assertValuesInSet: {(~_set_mask).sum()} row(s) in 'status' outside the allowed set")
 ```

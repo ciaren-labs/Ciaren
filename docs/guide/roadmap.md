@@ -23,6 +23,10 @@ The core platform works end to end:
 
 - **Visual builder** with 66 transformation nodes (including 8 chart nodes)
   plus file, SQL, and cloud-storage I/O
+- **AI flow assistant** (in the source tree, after the 0.3.1 release) — with your
+  own provider API key it proposes complete flows from plain language and
+  diagnoses failed runs, and you review every proposal before it is saved. See
+  the [assistant guide](/guide/flow-assistant)
 - **Multi-engine execution** — polars (default) and pandas, selectable per run
 - **Python code export** — readable pandas, polars, or lazy-polars scripts
 - **Data quality** contract nodes (assert not-null/unique/range/expression/row-count)
@@ -100,12 +104,15 @@ These are roadmap themes, not promises of specific dated features.
 
 ### AI capabilities
 
-- **AI as an extension point** — introduce AI capabilities through providers,
-  not as a required dependency of the core app.
-- **Assistive workflows** — explore pipeline generation, flow debugging,
-  optimization suggestions, and plain-language explanations of errors.
-- **Data-control safeguards** — keep any AI integration explicit about what data
-  is used, where it goes, and how users can opt in or out.
+- **Optional, never required** — the assistant is off until you add a provider
+  API key, and every flow can still be built and edited by hand.
+- **Broader coverage** — today the assistant does not write Python Transform,
+  connector or plugin nodes. Whether and how to widen that is an open question.
+- **More assistance** — explore optimization suggestions and plain-language
+  explanations of errors beyond what Diagnose offers today.
+- **Data-control safeguards** — keep the integration explicit about what data
+  is used, where it goes, and how users can opt in or out. Today dataset rows
+  are not sent, and column names are shared only per request.
 
 ### Scheduling and automation
 

@@ -45,6 +45,17 @@ column. All original columns are preserved unchanged.
 The editor offers formula templates that fill the expression from your upstream
 column names.
 
+The pandas engine evaluates the expression with `DataFrame.eval`; the Polars
+engine parses it as a SQL expression (`pl.sql_expr`). Column names, numbers,
+`+ - * /` and parentheses behave the same on both.
+
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) can add this node. It accepts only
+column references, numbers, arithmetic and a few math functions (`abs`, `sqrt`,
+`exp`, `log10`, `log1p`, `sin`, `cos`, `floor`, `ceil`), and it highlights the
+expression for your review before you save.
+:::
+
 ## Generated Python code
 
 These exports add `total = price * quantity`, preserving the input columns and row order. A missing price produces a missing total.
@@ -66,8 +77,9 @@ df_2 = df_1.with_columns(pl.sql_expr('price * quantity').alias('total'))
 - **Arithmetic expressions only** (column names, numbers, `+ - * /`,
   parentheses). For if/else logic use [Conditional column](./conditional-column.md);
   for ranks/running totals use [Window function](./window-function.md).
-- Reference columns by their exact name; quote names with spaces per pandas
-  `eval` rules.
+- Reference columns by their exact name. Quoting for names with spaces differs
+  between pandas `eval` (backticks) and Polars SQL (double quotes), so rename such
+  columns with [Rename columns](./rename-columns.md) first.
 
 ## See also
 

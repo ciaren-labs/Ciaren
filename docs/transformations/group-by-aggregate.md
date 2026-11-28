@@ -44,7 +44,8 @@ All non-grouped, non-aggregated columns are dropped from the result.
 | `aggregations` | object | Yes | `{ "col": "func" }` |
 
 **Aggregation functions:** `sum`, `mean`, `count`, `min`, `max`, `median`,
-`nunique`, `std`, `first`, `last`.
+`nunique`, `std`, `var`, `prod`, `first`, `last`. Other names are rejected so a
+flow behaves the same on the pandas and Polars engines.
 
 ## Generated Python code
 

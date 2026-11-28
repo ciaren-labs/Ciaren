@@ -31,7 +31,7 @@ selected on every run — important for pipelines you preview, schedule, or expo
 | `frac` | float | Conditional | Fraction in `(0, 1]` |
 | `seed` | int | **Yes** | Random seed — required so the sample is reproducible |
 
-Provide exactly one of `n` or `frac`. The `seed` must be an integer; a sample
+Provide `n` or `frac`; when both are set, `frac` is used and `n` is ignored. The `seed` must be an integer; a sample
 without one is rejected so runs stay reproducible.
 
 ## Generated Python code

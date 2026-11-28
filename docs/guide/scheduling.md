@@ -66,6 +66,10 @@ curl -X POST http://localhost:8055/api/flows/{flow_id}/schedules \
 
 The UI includes a cron builder so you don't have to hand-write expressions.
 
+A schedule always runs the flow as it was last saved, so a change saved from a
+[Flow assistant](./flow-assistant.md) proposal, or a reversal in its **Activity**
+list, applies from the next slot.
+
 ::: tip Parameterized flows
 If the flow declares [parameters](./parameters.md), the schedule form shows a
 **Parameter values** section. Values you set there apply to every run this

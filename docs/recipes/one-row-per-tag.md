@@ -52,6 +52,10 @@ r5,news; sports
 
 ![Split to Rows turns five records into eight rows: each tag gets its own row with the record_id repeated, a null stays one null row, a trailing delimiter adds an empty tag, and a space after the delimiter stays in the tag](/illustrations/recipes/split-to-rows-fanout.svg)
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "split the tags column on semicolons into one row per tag." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 Five records become eight rows:

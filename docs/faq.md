@@ -1,10 +1,56 @@
 ---
 title: Frequently Asked Questions
-description: "Answers to common Ciaren questions: cost and AGPL licensing, system requirements, Windows support, dataset size limits, data privacy, and code export."
-search: faq help questions answers
+description: "Answers to common Ciaren questions: the AI flow assistant, cost and AGPL licensing, system requirements, Windows support, dataset size limits, data privacy, and code export."
+search: faq help questions answers ai assistant api key prompt
 ---
 
 # Frequently Asked Questions
+
+## AI Flow Assistant
+
+### Can Ciaren build a pipeline from a prompt?
+
+Yes, with the AI flow assistant. Open a flow, choose **Assistant → Build**, and
+describe the result in your own words. The assistant proposes a complete flow of
+ordinary nodes — inputs, cleaning, joins, reshaping, data-quality checks,
+charts, and ML training, cross-validation and evaluation. You review the nodes,
+settings and connections, then choose **Apply and save**. Nothing is saved
+before that, and the assistant never runs the flow: you choose **Run**. After
+that you can edit every node by hand. See [Flow assistant](/guide/flow-assistant)
+and the [AI quick start](/guide/flow-assistant-quick-start).
+
+### Do I need an API key to use Ciaren?
+
+No. The assistant is optional and needs your own provider API key (OpenAI,
+Anthropic, DeepSeek or OpenCode Console). Add it under **Connections →
+Assistant API keys**; Ciaren stores it in the OS keychain. The manual editor,
+runs, scheduling and Python export need no model key. A ChatGPT or Claude chat
+subscription does not include an API key, and the provider can bill API calls.
+
+### Is the assistant in the published release?
+
+Not yet. It is in the source tree after release 0.3.1. `pip install ciaren` and
+GitHub Codespaces currently give you 0.3.1, which has no **Assistant** button.
+Run a source checkout or the Docker build to use it. The
+[AI quick start](/guide/flow-assistant-quick-start#open-an-editor-with-assistant)
+has the commands.
+
+### What can't the assistant do?
+
+It does not write Python Transform nodes, SQL or cloud-storage connectors,
+format-specific outputs, forecasting models or plugin nodes, and it cannot change
+data connections, credentials or file paths. A request that needs any of those ends
+with an explanation instead of a proposal; add those nodes in the editor.
+Complete proposals need a model with tool calling, which covers the listed
+OpenAI, Anthropic and DeepSeek models.
+
+### What does the assistant send to the provider?
+
+By default: your request text, supported node types, the wiring, and column
+types, row counts and null and distinct counts from the stored profile. Dataset
+rows, file paths, connection details and credentials stay on the server. Column
+names are shared only when you opt in for a request. Details are in
+[What leaves the server](/guide/flow-assistant#what-leaves-the-server).
 
 ## General Questions
 
@@ -12,9 +58,10 @@ search: faq help questions answers
 
 Ciaren is a **local-first visual builder for data and ML workflows**. You build
 data transformation and machine-learning pipelines by connecting nodes on a
-canvas, preview real data at every step, run them on **polars** (default) or
-**pandas**, and export the equivalent Python — readable code with no
-proprietary runtime. In Ciaren, a saved pipeline is called a **flow**.
+canvas, or by describing them to the AI flow assistant and reviewing what it
+proposes. You preview real data at every step, run flows on **polars** (the
+server default) or **pandas**, and export the equivalent Python — readable code
+with no proprietary runtime. In Ciaren, a saved pipeline is called a **flow**.
 
 ### Who created Ciaren?
 
@@ -172,8 +219,11 @@ python my_flow.py
 
 Ciaren runs **locally on your machine** — there's no SaaS, no cloud uploads,
 and no telemetry. Data only leaves your machine when *you* configure it to:
-a SQL/Mongo connection talks to your database, and S3/Azure/GCS nodes talk to
-your storage, using credentials you control.
+a SQL/Mongo connection talks to your database, S3/Azure/GCS nodes talk to
+your storage, and, if you add a provider API key, the AI flow assistant sends
+requests to that provider (it does not send dataset rows; see
+[What leaves the server](/guide/flow-assistant#what-leaves-the-server)).
+All of these use credentials you control.
 
 Two honest caveats: Ciaren is alpha software, it stores data unencrypted at
 rest, and it assumes a trusted local environment (no authentication by
@@ -187,7 +237,9 @@ Yes! Export the Python code and read it. You'll see exactly what operations run 
 
 ### Can I use Ciaren offline?
 
-Yes! Ciaren works completely offline once installed.
+Yes! The editor, runs, scheduling and Python export work completely offline once
+installed. The AI flow assistant is the exception: it needs network access to
+the provider you choose.
 
 ### Where is my data stored?
 
@@ -257,7 +309,8 @@ Check:
 2. The database server is running (if using PostgreSQL or MySQL)
 3. The matching async driver is installed (`asyncpg`, `aiomysql`)
 
-The schema is created automatically on startup — there is no migration step to run.
+The schema is created automatically when the server starts on a new database.
+When you upgrade an existing database, run `ciaren db upgrade` first.
 
 See [Installation Guide](/guide/installation#troubleshooting) for more.
 

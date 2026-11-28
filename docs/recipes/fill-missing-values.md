@@ -49,6 +49,10 @@ respondent_id,age,region
 5. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
    `survey_filled`. Connect the nodes in order and click **Run**.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "fill missing numbers with the column median and missing text with Unknown." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 | respondent_id | age | region |

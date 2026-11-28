@@ -32,16 +32,20 @@ format from a dropdown and give it a name.
 
 | Config key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `format` | enum | Yes | `csv` · `tsv` · `excel` · `parquet` · `json` · `jsonl` · `text` |
-| `dataset_name` | string | Yes | Name for the produced dataset/file |
+| `format` | enum | No | `csv` (default) · `tsv` · `excel` · `parquet` · `json` · `jsonl` · `text` |
+| `dataset_name` | string | No | Name for the produced dataset; the editor starts blank |
 
-The result is written to the run's output location and registered as a dataset
-you can preview, download, or feed into another flow.
+The result is written to the run's output location. When `dataset_name` is set,
+it is also registered as a dataset you can preview, download, or feed into
+another flow; with a blank name the file is still written but no dataset is
+registered.
 
 ::: tip Legacy outputs
 Flows built before the consolidation may still contain the old `csvOutput` /
 `excelOutput` / `parquetOutput` nodes. They keep working, but new flows use the
-unified **File Output** node (the old ones are hidden from the palette).
+unified **File Output** node (the old ones are hidden from the palette). The
+[flow assistant](/guide/flow-assistant) adds only File Output, never the legacy
+nodes.
 :::
 
 ## Generated Python code

@@ -6,7 +6,7 @@ search: demo project sample data tutorial example flows customers orders product
 
 # Demo Project & Tutorials
 
-**For:** anyone who finished the [Quick Start](/guide/quick-start) or learns best
+**For:** anyone who finished a [quick start](/guide/quick-start) or learns best
 from working examples. **You get:** four guided tutorials on flows that are
 already in your Demo project, from a linear cleanup to a three-input sales mart.
 
@@ -56,7 +56,7 @@ the preview to **Chart → Histogram** on `amount` to *see* the outliers, or to
 [Visualizations](./visualizations.md).)
 :::
 
-![Flows list showing the Demo project's flows, including Clean Customers, ML flows, and the Full Sales Mart](/screenshots/flows.png)
+![Flows list showing the Demo project's flows, from the House Prices models to the Full Sales Mart](/screenshots/flows.png)
 
 ---
 
@@ -249,6 +249,16 @@ appear.
 **Try it:** on **Group By Aggregate**, open **Chart → Bar** (category =
 `category`, value = `line_total`) to compare categories at a glance.
 
+## Compare with the AI assistant
+
+If you have set up the [AI flow assistant](/guide/flow-assistant-quick-start),
+the Demo datasets make a quick test. Create a blank flow in the **Demo** project,
+open **Assistant → Build**, choose `orders.csv` under **Input dataset**, and ask
+for Tutorial 2 in your own words, for example "keep completed orders, total the
+amount per month and sort by month". A model can propose a different plan from
+the tutorial flow, so compare the nodes and settings before you choose **Apply
+and save**, then edit anything you want to change by hand.
+
 ## Next steps
 
 You have finished the start path. Pick what fits your next task:
@@ -261,5 +271,7 @@ You have finished the start path. Pick what fits your next task:
 - **Read the generated code** — run a flow and open its
   [exported Python code](./engines.md#code-export-pandas-polars-and-lazy-polars);
   the demo flows make readable, educational examples.
+- **Describe a flow instead** — the [AI quick start](./flow-assistant-quick-start.md)
+  shows how to have the assistant draft one for you to review.
 - **Try the ML flows** — open **Projects → Demo → Flows** and read the
   [ML Quick Start](./ml-quickstart.md) for the concepts they use.

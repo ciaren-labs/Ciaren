@@ -38,6 +38,9 @@ npm run lint
 │   ├── installation.md                # engines, advanced setup, etc.)
 │   ├── quick-start.md
 │   ├── interface.md
+│   ├── flow-assistant.md
+│   ├── flow-assistant-quick-start.md
+│   ├── external-agent.md
 │   ├── projects-and-runs.md
 │   ├── connections.md
 │   ├── parameters.md
@@ -54,6 +57,7 @@ npm run lint
 │   ├── comparison.md
 │   ├── roadmap.md
 │   ├── cli.md
+│   ├── changelog.md
 │   └── troubleshooting.md
 ├── transformations/                   # Flat — one file per node, no subfolders
 │   ├── overview.md
@@ -76,6 +80,8 @@ npm run lint
 │   ├── remove-duplicate-rows.md
 │   ├── clean-messy-text.md
 │   ├── split-a-column.md
+│   ├── one-row-per-tag.md
+│   ├── filter-paid-orders.md
 │   └── coalesce-fallback-values.md
 ├── api/
 │   ├── rest-api.md
@@ -86,6 +92,7 @@ npm run lint
 │   ├── projects.md
 │   ├── runs.md
 │   ├── schedules.md
+│   ├── settings.md
 │   └── transformations.md
 ├── plugins/
 │   ├── overview.md
@@ -108,6 +115,7 @@ npm run lint
 │   ├── privacy.md
 │   └── terms.md
 ├── faq.md
+├── public/                            # screenshots, samples, illustrations
 └── .vitepress/
     ├── config.ts              # VitePress configuration
     └── theme/
@@ -157,6 +165,15 @@ Important warning
 df = df.drop(columns=['col1'])
 \`\`\`
 ```
+
+## The editor's Guides index
+
+The editor's **Assistant → Guides** tab searches passages taken from selected pages
+of this tree. When you change one of those pages, or add a page that should be
+searchable, follow the Guides index steps in
+[Publishing](PUBLISHING.md).
+The page list lives in `backend/tools/build_assistant_index.py`, and the generated
+`backend/app/services/assistant_passages.json` is committed separately.
 
 ## Adding Content
 
@@ -294,4 +311,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for complete contribution standards.
 
 ---
 
-**Last Updated:** 2026-10-12
+**Last Updated:** 2026-11-27

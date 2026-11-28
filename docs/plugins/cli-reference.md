@@ -12,8 +12,10 @@ a separate entry point from `ciaren` for the plugin lifecycle (install,
 enable/disable) and, for publishers, authoring tooling (signing, packaging,
 manifest generation, marketplace indexing, license issuance). It's split out
 so the everyday [`ciaren`](/guide/cli) surface used to run the app stays
-small. Publisher tooling (`keygen` / `sign`) additionally needs
-`pip install ciaren[signing]`; everything else works with the base install.
+small. Publisher tooling (`keygen`, `sign`, `license issue`) and checking a
+signature need `pip install ciaren[signing]`. Without it, a signed package
+verifies as `untrusted` because its signature cannot be checked; unsigned
+packages and everything else work with the base install.
 
 ```bash
 ciaren-plugin --help
@@ -28,6 +30,7 @@ prints a pointer to `ciaren-plugin` instead of failing with an opaque
 
 ```bash
 ciaren-plugin list                          # discovered plugins + status
+ciaren-plugin list --output json            # machine-readable (also on verify, search, licenses)
 ciaren-plugin install my-plugin.ciarenplugin    # verify + install
 ciaren-plugin install ./src --dir           # install from a source directory
 ciaren-plugin install my-plugin.ciarenplugin --trusted   # require a trusted signature
@@ -52,16 +55,16 @@ ciaren-plugin licenses --flagged-only --fail-on-flagged   # CI gate
 
 | Subcommand | Description |
 | --- | --- |
-| `list` | List discovered plugins (loaded / disabled / pending) and load errors. |
+| `list` | List discovered plugins and load errors. Status is `loaded`, `disabled`, `needs_permissions` (pending approval) or `needs_license`. |
 | `install` | Verify and install a `.ciarenplugin` (or `--dir` source). `--trusted` requires a trusted signature; a tampered package is always refused. `--force` overwrites an existing install. |
 | `uninstall` | Remove an installed plugin and forget its state. |
 | `verify` | Report a package's signature/integrity outcome (exits non-zero if `invalid`). |
-| `enable` / `disable` | Toggle whether a plugin loads. |
+| `enable` / `disable` | Toggle whether a plugin loads. `enable` also approves it. Restart `ciaren serve` to apply. |
 | `keygen` / `pack` / `sign` | Publisher tooling to create and sign packages. `pack --compile` ships `.pyc` bytecode instead of source. |
-| `manifest` | Generate `ciaren-plugin.json` from a plugin's code (single source of truth); `--api-version` targets an older plugin-contract minor. |
+| `manifest` | Generate `ciaren-plugin.json` from a plugin's code (single source of truth). `--entrypoint module:Class` is needed the first time, `--out` sets the destination (`-` prints to stdout), `--api-version` targets an older plugin-contract minor, and `--ciaren`, `--license` and `--trust` set the compatibility specifier, license kind and trust tier. |
 | `search` | Search a local marketplace index file. |
-| `index add` | Add/replace a packed plugin's entry in a marketplace index (records digest + signing key id). |
-| `license issue` | Sign a license token for a user + plugin (publisher; needs the private key). |
+| `index add` | Add/replace a packed plugin's entry in a marketplace index (records digest + signing key id). `--download-url` overrides where clients fetch the artifact. |
+| `license issue` | Sign a license token for a user + plugin (publisher; needs the private key). Requires `--key`, `--user`, `--plugin`, `--expires` and `--grace`; `--type` (default `pro`) and `--out` are optional. |
 | `license import` | Cache a received license token locally so the plugin validates it. |
 | `license status` | Show a cached token's user/expiry; `--key <issuer public hex>` verifies the signature. |
 | `licenses` | Scan installed Python dependency licenses for redistribution review; `--flagged-only` / `--fail-on-flagged` for CI. |

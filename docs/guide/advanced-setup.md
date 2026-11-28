@@ -31,7 +31,7 @@ Scaffold a commented file with `ciaren init`, confirm the resolved values with
 
 ## The Settings page
 
-The gear icon in the header opens **Settings** — runtime configuration editable
+The gear icon at the right of the header opens **Settings** — runtime configuration editable
 from the browser: default engine, execution mode, run timeout, upload size,
 dataset retention, scheduler tuning, and the ML guardrail limits. Each setting
 shows where its current value comes from (default, environment, or a saved
@@ -100,10 +100,20 @@ All settings use the `CIAREN_` prefix.
 | `CIAREN_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails **UI** |
 | `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job **UI** |
 | `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job **UI** |
+| `CIAREN_ML_MAX_HYPERPARAMETER_VALUE` | `100000` | Largest value accepted for compute-scaling hyperparameters such as `n_estimators` or `max_iter` |
 | `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
 | `CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS` | unset | Registers a `TokenLicenseProvider` per configured issuer key, for validating plugin license tokens at startup |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
+| `CIAREN_PLUGINS_DIR` | — | Extra plugin directories to scan (`os.pathsep`-separated), on top of `~/.ciaren/plugins`; see [Writing a plugin](/plugins/writing-a-plugin) |
 | `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` (log ungranted actions) / `enforce` (block them). Not a sandbox — see [Plugin Security](/security/plugin-security#opt-in-runtime-enforcement) |
+| `CIAREN_ASSISTANT_ENABLED` | `true` | Set `false` and restart to turn the [flow assistant](/guide/flow-assistant) off on the server |
+| `CIAREN_ASSISTANT_PROVIDER` | `off` | Server-managed provider: `openai` \| `anthropic` \| `deepseek` \| `opencode` \| `off`. A key selected on **Connections → Assistant API keys** takes precedence |
+| `CIAREN_ASSISTANT_<PROVIDER>_MODEL` | provider default | Model for that provider (`OPENAI`, `ANTHROPIC`, `DEEPSEEK`, `OPENCODE`); the listed models are in [Flow assistant](/guide/flow-assistant#provider-contracts) |
+| `CIAREN_ASSISTANT_<PROVIDER>_EFFORT` | `default` | Reasoning effort; only OpenAI, Anthropic and DeepSeek have one |
+| `CIAREN_ASSISTANT_<PROVIDER>_KEY_SOURCE` | `env` | Where the server reads that provider's key: `env` (`CIAREN_ASSISTANT_<PROVIDER>_API_KEY`) or `file` (a file in `CIAREN_ASSISTANT_SECRET_DIR`) |
+| `CIAREN_ASSISTANT_SECRET_DIR` | `/run/ciaren-assistant-secrets` | Folder of read-only key files named after the provider (`openai`, `anthropic`, `deepseek`, `opencode`) |
+| `CIAREN_ASSISTANT_TURNS_PER_HOUR` | `60` | Provider calls per rolling hour and process |
+| `CIAREN_ASSISTANT_TOKENS_PER_HOUR` | unset | Optional cap on provider input and output tokens per rolling hour |
 
 Booleans accept `true`/`false`; lists (like `CORS_ORIGINS`) are JSON.
 Variables marked **UI** can also be edited at runtime from the Settings
@@ -119,14 +129,21 @@ Ciaren uses **async SQLAlchemy**, so the URL must use an async driver.
 | PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/dbname` | `pip install asyncpg` |
 | MySQL / MariaDB | `mysql+aiomysql://user:pass@host:3306/dbname` | `pip install aiomysql` |
 
+`pip install ciaren[postgres]` installs `asyncpg` for you. The `mysql` extra
+installs `pymysql` for the SQL-node connectors only, not the async driver for
+the application database.
+
 ```bash
 # backend/.env
 CIAREN_DATABASE_URL=postgresql+asyncpg://ciaren:secret@localhost:5432/ciaren
 ```
 
-The schema is **created automatically** on startup — there is no separate
-migration step. `ciaren check` verifies the driver is async and that the
-database is reachable.
+On startup Ciaren creates any missing tables, so a fresh database needs no
+setup. For a database you keep, run `ciaren db upgrade` before starting a new
+version: it applies the Alembic migrations (the Docker image does this on every
+start), and the startup path then leaves the schema to them. See
+[CLI Reference](/guide/cli#ciaren-db). `ciaren check` verifies the driver is
+async and that the database is reachable.
 
 :::warning Async driver required
 A plain `sqlite://`, `postgresql://`, or `mysql://` URL will fail to connect.
@@ -245,7 +262,8 @@ ciaren serve --host 0.0.0.0 --port 8055 --log-level info
 ```
 
 - Set `CIAREN_ENVIRONMENT=production`.
-- Use a managed PostgreSQL/MySQL via `CIAREN_DATABASE_URL`.
+- Use a managed PostgreSQL/MySQL via `CIAREN_DATABASE_URL`, and run
+  `ciaren db upgrade` before each start.
 - Put the data dir on a persistent volume.
 - Run it under a process manager (systemd, Docker, etc.).
 - Set `CIAREN_LOG_FORMAT=json` to emit one JSON object per log line
@@ -319,8 +337,7 @@ ciaren check    # data dir writable? async driver? DB reachable? engines present
 
 ## See also
 
-- [Flow assistant](/guide/flow-assistant) — BYOK providers, protected credentials and limits
-
+- [Flow assistant](/guide/flow-assistant) — bring-your-own-key providers, protected credentials and limits
 - [CLI Reference](/guide/cli) — every command and flag
 - [Engines](/guide/engines) — polars/pandas, execution mode, timeouts
 - [Scheduling](/guide/scheduling) — the background scheduler

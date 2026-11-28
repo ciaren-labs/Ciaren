@@ -46,6 +46,10 @@ customer_id,primary_email,backup_email
 5. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
    `contacts_email`. Connect the nodes in order and click **Run**.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "create an email column from primary_email, falling back to backup_email." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 | customer_id | primary_email | backup_email | email |

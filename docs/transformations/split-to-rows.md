@@ -39,7 +39,7 @@ null.
 ### pandas
 
 ```python
-df_2 = df_1.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';')).explode('tags').reset_index(drop=True)
+df_2 = df_1.assign(tags=lambda _d: _d['tags'].astype('string').str.split(';', regex=False)).explode('tags').reset_index(drop=True)
 ```
 
 ### Polars

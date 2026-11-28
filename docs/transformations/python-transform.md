@@ -8,6 +8,12 @@ search: python transform script custom code exec pandas polars escape hatch
 
 Run arbitrary Python code on the input dataframe and return a transformed one.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never writes this node, because its
+script runs unsandboxed. A request that needs custom code ends with an
+explanation instead of a script; add the node in the editor.
+:::
+
 ## Use cases
 
 - One-off transformations too complex or unusual to express with built-in nodes.

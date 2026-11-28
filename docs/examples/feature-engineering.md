@@ -67,6 +67,10 @@ Feature nodes do not end a flow, so the File Output is what lets you **Run** and
 export it. You can also connect the last feature node to a **Train Classifier**
 node instead.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "fill nulls, one-hot encode the region, scale the numbers and reduce age and score to one component." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## What one-hot encoding does
 
 A model cannot multiply the word `North`. One-hot encoding gives each region its

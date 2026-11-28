@@ -211,7 +211,7 @@ project before importing it.
 ciaren flow validate project.flow              # schema + graph structure
 ciaren flow validate project.flow --output json
 ciaren flow migrate  project.flow              # print the document migrated to the current schema version
-ciaren flow migrate  project.flow --to 3       # target a specific schema version instead of the latest
+ciaren flow migrate  project.flow --to 1.0.0   # target a specific schema version instead of the latest
 ciaren flow migrate  project.flow --write      # write back (keeps a .bak)
 ```
 
@@ -309,11 +309,22 @@ All settings use the `CIAREN_` prefix and can be set via the environment or a
 | `CIAREN_ML_MAX_MODEL_SIZE_MB` | `500` | Maximum model artifact size accepted by ML guardrails |
 | `CIAREN_ML_MAX_TRAINING_ROWS` | `5000000` | Maximum rows accepted for one training job |
 | `CIAREN_ML_MAX_FEATURE_COLUMNS` | `500` | Maximum feature columns accepted for one training job |
+| `CIAREN_ML_MAX_HYPERPARAMETER_VALUE` | `100000` | Largest value accepted for compute-scaling hyperparameters such as `n_estimators` |
 | `CIAREN_MARKETPLACE_INDEX` | bundled catalog | Local marketplace index JSON path for Explore catalog; set `none` to disable |
 | `CIAREN_MARKETPLACE_LICENSE_ISSUER_KEYS` | unset | Registers a `TokenLicenseProvider` per configured issuer key, for validating plugin license tokens at startup |
 | `CIAREN_REQUIRE_TRUSTED_PLUGINS` | `false` | Require trusted signatures for marketplace/UI installs |
 | `CIAREN_PLUGINS_DIR` | — | Extra plugin directories to scan (`os.pathsep`-separated); see [Writing a plugin](/plugins/writing-a-plugin) |
 | `CIAREN_PLUGIN_PERMISSION_ENFORCEMENT` | `off` | Runtime enforcement of plugin permissions: `off` / `warn` / `enforce` — see [Advanced Setup](/guide/advanced-setup#environment-variables) |
+| `CIAREN_ASSISTANT_ENABLED` | `true` | Set `false` to turn the [flow assistant](/guide/flow-assistant) off on the server |
+| `CIAREN_ASSISTANT_PROVIDER` | `off` | Server-managed assistant provider: `openai`, `anthropic`, `deepseek`, `opencode` or `off` |
+| `CIAREN_ASSISTANT_<PROVIDER>_MODEL` / `_EFFORT` / `_KEY_SOURCE` / `_API_KEY` | see [Flow assistant](/guide/flow-assistant#server-managed-keys) | Per-provider model, reasoning effort, key source (`env` or `file`) and key |
+| `CIAREN_ASSISTANT_SECRET_DIR` | `/run/ciaren-assistant-secrets` | Folder of key files for the `file` key source |
+| `CIAREN_ASSISTANT_TURNS_PER_HOUR` | `60` | Assistant provider calls per rolling hour and process |
+| `CIAREN_ASSISTANT_TOKENS_PER_HOUR` | unset | Optional cap on assistant tokens per rolling hour |
+
+The same table with more detail on the settings above is in
+[Advanced Setup](/guide/advanced-setup#environment-variables). Assistant keys saved on
+the **Connections** page live in the OS keychain, not in these variables.
 
 :::warning Async driver required
 `CIAREN_DATABASE_URL` must use an async driver: `sqlite+aiosqlite://`,
@@ -326,3 +337,4 @@ non-async URL.
 - [Installation](/guide/installation) — first-time setup
 - [Engines](/guide/engines) — `--engine`, `--execution-mode`, run timeouts
 - [Scheduling](/guide/scheduling) — the background scheduler
+- [Flow assistant](/guide/flow-assistant) — server-side assistant configuration

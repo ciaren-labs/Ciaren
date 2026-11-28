@@ -122,7 +122,8 @@ Some nodes have no lazy equivalent — [Pivot](/transformations/pivot),
 [Filter by expression](/transformations/filter-expression),
 [Python transform](/transformations/python-transform), and the six
 **Data Quality** assert nodes (Assert not null, Assert unique, Assert value
-range, Assert expression, Assert values in set, Assert row count). The lazy
+range, Assert expression, Assert values in set, Assert row count) and the
+machine-learning nodes. The lazy
 export materializes around just those steps (`.collect()` … `.lazy()`) and
 keeps the rest of the plan lazy.
 

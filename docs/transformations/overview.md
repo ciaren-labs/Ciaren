@@ -6,11 +6,13 @@ search: transformations nodes all reference config pandas polars
 
 # Transformations Reference
 
-Ciaren ships with file/storage/SQL input/output nodes plus **66 registered
-transformation nodes** for cleaning, reshaping, combining, validating, charting,
-analytics, and scripting data. Each node maps to one clear dataframe operation and
-contributes to the exported Python — in the **pandas**, **polars**, or
-**lazy polars** version.
+Ciaren has **80 built-in nodes**: 8 input nodes (File Input, SQL Input, Storage
+Input and five legacy single-format file inputs), **66 transformation nodes** for
+cleaning, reshaping, combining, validating, charting, analytics, and scripting
+data, and 6 output nodes (File Output, SQL Output, Storage Output and three
+legacy single-format file outputs). Each node maps to one clear dataframe
+operation and contributes to the exported Python — in the **pandas**, **polars**,
+or **lazy polars** version.
 
 This page is the map. **Each node also has its own reference page** with use
 cases, full configuration, generated code, and tips — follow the links below or
@@ -21,6 +23,14 @@ The authoritative list lives in
 [`backend/app/engine/registry.py`](https://github.com/ciaren-labs/Ciaren/blob/main/backend/app/engine/registry.py).
 Each node's `type` (shown on its page) is the value stored in the flow graph at
 `node.type`; its settings live at `node.data.config`.
+:::
+
+::: tip Flow assistant
+Describe a step to the [flow assistant](/guide/flow-assistant) and it can add and
+configure most built-in nodes for you. It never writes Python Transform, SQL or
+Storage input/output nodes, legacy single-format outputs, Train Forecaster or
+plugin nodes, so add those in the editor. Expression nodes (Filter by Expression,
+Calculated Column, Assert Expression) are highlighted for your review.
 :::
 
 ## Node categories
@@ -58,12 +68,17 @@ between is optional cleaning and transformation.
 | -------------- | ----- |
 | Remove columns | [Drop columns](./drop-columns.md) |
 | Fix column names | [Rename columns](./rename-columns.md) |
+| Swap one value for another in a column | [Replace values](./replace-values.md) |
+| Trim, change case, pad or measure text | [String transform](./string-transform.md) |
 | Keep only some columns | [Select columns](./select-columns.md) |
 | Change a column's type | [Change types](./cast-types.md) |
 | Remove rows with missing values | [Drop nulls](./drop-nulls.md) |
 | Fill missing values | [Fill nulls](./fill-nulls.md) |
 | Remove duplicate rows | [Remove duplicates](./remove-duplicates.md) |
 | Keep rows matching a condition | [Filter rows](./filter-rows.md) |
+| Order rows | [Sort rows](./sort-rows.md) |
+| Keep the first N rows (optionally skipping some) | [Limit rows](./limit-rows.md) |
+| Take a reproducible random subset | [Sample rows](./sample-rows.md) |
 | Filter on a multi-condition expression | [Filter by expression](./filter-expression.md) |
 | Join columns into one text field | [Combine columns](./combine-columns.md) |
 | First non-null across columns | [Coalesce columns](./coalesce-columns.md) |
@@ -78,10 +93,14 @@ between is optional cleaning and transformation.
 | Read from S3 / GCS / Azure Blob | [Storage input](./storage-input.md) |
 | Write to S3 / GCS / Azure Blob | [Storage output](./storage-output.md) |
 | Read from a database | [SQL input](./sql-input.md) |
+| Write to a database table | [SQL output](./sql-output.md) |
+| Write a CSV, Excel, Parquet, JSON or text file | [File output](./file-output.md) |
 | Combine two datasets on a key | [Join](./join.md) |
 | Stack datasets row-wise | [Union / Concat](./union-concat.md) |
 | Reshape long ↔ wide | [Pivot](./pivot.md) / [Unpivot](./unpivot.md) |
 | Bucket a number into bands | [Bin column](./bin-column.md) |
+| Round numbers | [Round numbers](./round-numbers.md) |
+| Drop or clip outliers | [Remove outliers](./remove-outliers.md) |
 | Split a date into year/month/… | [Extract date parts](./extract-date-parts.md) |
 | Turn date text into real dates | [Parse dates](./parse-dates.md) |
 | Split one column into several | [Split column](./split-column.md) |
@@ -95,6 +114,7 @@ between is optional cleaning and transformation.
 | Assert row count in bounds | [Assert row count](./assert-row-count.md) |
 | Save a chart of the results on every run | [Chart nodes](./charts.md) |
 | Run arbitrary Python on a frame | [Python transform](./python-transform.md) |
+| Train, score and evaluate a model | [Machine Learning nodes](./machine-learning.md) |
 | Hold out data for ML evaluation | [Train/Test Split](./train-test-split.md) |
 | Scale numeric features | [Scale Features](./scale-features.md) |
 | Encode categorical fields | [Encode Categories](./encode-categories.md) |
@@ -105,8 +125,8 @@ between is optional cleaning and transformation.
 
 Every node implements both `to_python_code` (pandas) and `to_polars_code`
 (polars), so [exporting a flow](/guide/engines#code-export-pandas-polars-and-lazy-polars) gives you a runnable
-script in either dialect. Reference pages are being expanded to show both
-**pandas** and **Polars** exports for the same configuration. ML steps use
+script in either dialect. Each reference page shows both the **pandas** and
+**Polars** export for the same configuration. ML steps use
 pandas/scikit-learn, so the Polars flow exporter inserts conversions around them.
 Sampling algorithms and fraction rounding can differ between engines; see
 [Sample rows](./sample-rows.md). Tests compare each export with its engine's

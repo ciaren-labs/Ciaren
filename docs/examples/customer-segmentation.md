@@ -84,6 +84,10 @@ Aggregating before the join keeps the join one-to-one: four totals meet four
 customers. If you joined the raw orders instead, Ada and Margaret would each
 appear twice and you would still need a group-by afterwards.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "total each customer's orders, join them to the customers file and bin the totals into tiers." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## How the tiers are cut
 
 With **Equal width**, Bin Column splits the range from the smallest total to the
