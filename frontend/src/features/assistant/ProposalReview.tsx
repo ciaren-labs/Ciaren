@@ -2,6 +2,8 @@ import type { Dataset } from "@/features/datasets/types";
 import type { GraphJson, GraphNode } from "@/features/flows/types";
 import type { Delta } from "./api";
 
+import { getNodeSummary } from "@/lib/nodeSummary";
+
 import { FlowMap } from "./FlowMap";
 import { nodeMark } from "./nodePresentation";
 import { deltaCounts, summarize } from "./changeSummary";
@@ -30,10 +32,19 @@ function settings(node: GraphNode, datasets: Dataset[]) {
       ) {
         return `${c.new_column} is true when ${rule.column} equals “${rule.value}”, otherwise false`;
       }
-      return JSON.stringify(c);
+      return fallback(node, datasets);
     }
-    case "fileInput":
-      return `${datasets.find((d) => d.id === c.dataset_id)?.name ?? "Selected dataset"} · version ${c.dataset_version}`;
+    // Expressions are shown whole: the reviewer reads them before saving.
+    case "calculatedColumn":
+      return `${c.column_name} = ${c.expression}`;
+    case "filterExpression":
+      return `Keep rows where ${c.expression}`;
+    case "assertExpression":
+      return `Check that ${c.expression}`;
+    case "fileInput": {
+      const name = datasets.find((d) => d.id === c.dataset_id)?.name ?? "Selected dataset";
+      return c.dataset_version == null ? `${name} · latest version` : `${name} · version ${c.dataset_version}`;
+    }
     case "fileOutput":
       return `${String(c.format).toUpperCase()} · publish dataset “${c.dataset_name}” on run`;
     case "limitRows":
@@ -50,8 +61,21 @@ function settings(node: GraphNode, datasets: Dataset[]) {
     case "removeDuplicates":
       return `Compare ${columns(c.subset)} · keep ${c.keep ?? "first"}`;
     default:
-      return JSON.stringify(c);
+      return fallback(node, datasets);
   }
+}
+
+/** The editor's canvas subtitle, or the configured fields in words. */
+function fallback(node: GraphNode, datasets: Dataset[]) {
+  const c = node.data.config;
+  const datasetName = datasets.find((d) => d.id === c.dataset_id)?.name;
+  const summary = getNodeSummary(node.type, c, { datasetName });
+  if (summary) return summary;
+  const fields = Object.entries(c)
+    .filter(([, v]) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0))
+    .slice(0, 4)
+    .map(([k, v]) => `${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(", ") : typeof v === "object" ? "custom" : String(v)}`);
+  return fields.length ? fields.join(" · ") : "Default settings";
 }
 
 export function ProposalReview({
