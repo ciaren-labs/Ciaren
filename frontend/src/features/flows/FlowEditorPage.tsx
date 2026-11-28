@@ -247,14 +247,12 @@ export function FlowEditorPage() {
     const onError = (error: Error) => {
       if (inSession() && error instanceof ApiError && error.status === 409) setConflict(true);
     };
-    updateFlow.mutate(
-      { id: flowId, body: { graph_json: graph, expected_revision: revision } },
-      {
-        onError: (error) => {
-          onError(error);
-          done?.(null);
-        },
-        onSuccess: (result) => {
+    // mutateAsync, not per-call callbacks: a second mutate (Save, Run) detaches
+    // the earlier callbacks and `done` would never run, leaving its caller waiting.
+    void updateFlow
+      .mutateAsync({ id: flowId, body: { graph_json: graph, expected_revision: revision } })
+      .then(
+        (result) => {
           if (!inSession()) return done?.(null);
           const unchanged = JSON.stringify(latestCanvas.current()) === snapshot;
           rememberSave(result.updated_at, result.graph_json);
@@ -278,8 +276,11 @@ export function FlowEditorPage() {
             );
           } else toast.success("Flow saved");
         },
-      },
-    );
+        (error: Error) => {
+          onError(error);
+          done?.(null);
+        },
+      );
   };
 
   // The palette search, or its expand button when the palette is collapsed.

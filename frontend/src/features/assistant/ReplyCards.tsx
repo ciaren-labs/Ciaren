@@ -241,6 +241,10 @@ const REASONS: Record<Reason | Conflict, { title: string; text: string }> = {
     title: "Save your changes first",
     text: "The assistant works from the saved flow, so save your canvas edits before asking.",
   },
+  canvas_limit: {
+    title: "The canvas is too large",
+    text: "The assistant works on flows of up to 80 nodes and 160 connections, so split this flow or edit it manually.",
+  },
   disabled_flow: {
     title: "This flow is disabled",
     text: "Re-enable the flow from the banner above the canvas before asking for changes.",

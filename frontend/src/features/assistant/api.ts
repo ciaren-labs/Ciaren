@@ -31,7 +31,8 @@ export type Reason =
   | "no_change"
   | "validation_failed"
   | "step_limit"
-  | "timeout";
+  | "timeout"
+  | "canvas_limit";
 /** Reasons the server sends as a 409 conflict instead of a reply. */
 export type Conflict = "unsaved_changes" | "disabled_flow";
 export interface Suggestion {
