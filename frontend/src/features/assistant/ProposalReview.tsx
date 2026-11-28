@@ -78,6 +78,35 @@ function fallback(node: GraphNode, datasets: Dataset[]) {
   return fields.length ? fields.join(" · ") : "Default settings";
 }
 
+const words = (key: string) => key.replace(/_/g, " ");
+const shown = (v: unknown) =>
+  v == null || v === ""
+    ? "not set"
+    : Array.isArray(v) && v.every((x) => typeof x !== "object")
+      ? v.join(", ") || "none"
+      : typeof v === "object"
+        ? JSON.stringify(v)
+        : String(v);
+
+/** Every field, so a summary that abbreviates can never hide what is approved. */
+function Fields({ label, rows }: { label: string; rows: [string, string][] }) {
+  return (
+    <ul aria-label={label} className="mt-1 space-y-0.5 break-words text-xs">
+      {rows.map(([key, text]) => (
+        <li key={key}>
+          <span className="font-medium">{words(key)}</span>: {text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+    .map((k): [string, string] => [k, `${shown(before[k])} → ${shown(after[k])}`]);
+}
+
 export function ProposalReview({
   delta,
   base,
@@ -119,7 +148,10 @@ export function ProposalReview({
       {!compact && (
         <>
       <FlowMap delta={delta} base={base} />
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card px-3">
+      <ul
+        aria-label="Proposed nodes"
+        className="divide-y divide-border rounded-xl border border-border bg-card px-3"
+      >
         {[...delta.added, ...delta.changed].map((n) => {
           const old = base.nodes.find((existing) => existing.id === n.id);
           const { Icon, color } = nodeMark(n.type);
@@ -135,9 +167,26 @@ export function ProposalReview({
                   {old ? "Update" : "Add"} {n.data.label}
                 </span>
                 <p className="break-words text-xs text-muted-foreground">
-                  {old && <>{settings(old, datasets)} → </>}
                   {settings(n, datasets)}
                 </p>
+                {old ? (
+                  <Fields
+                    label={`Changed settings of ${n.data.label}`}
+                    rows={changedFields(old.data.config, n.data.config)}
+                  />
+                ) : (
+                  Object.keys(n.data.config).length > 0 && (
+                    <details className="mt-1 text-xs text-muted-foreground">
+                      <summary className="inline-flex min-h-8 cursor-pointer items-center">
+                        All settings ({Object.keys(n.data.config).length})
+                      </summary>
+                      <Fields
+                        label={`All settings of ${n.data.label}`}
+                        rows={Object.entries(n.data.config).map(([k, v]) => [k, shown(v)])}
+                      />
+                    </details>
+                  )
+                )}
                 {old && (
                   <button
                     type="button"

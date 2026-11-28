@@ -46,11 +46,46 @@ describe("ProposalReview", () => {
         compact={false}
       />,
     );
-    const list = screen.getByRole("list");
+    const list = screen.getByRole("list", { name: "Proposed nodes" });
+    // The one-line summaries are words; the full field lists sit in collapsed details.
+    list.querySelectorAll("details").forEach((d) => d.remove());
     expect(list.textContent).not.toMatch(/[{}]|null|undefined/);
     // Expressions are shown in full so they can be read before saving.
     expect(list.textContent).toContain("revenue = price * qty");
     expect(list.textContent).toContain("Keep rows where revenue > 100");
     expect(list.textContent).toContain("orders.csv");
+  });
+
+  it("lists every changed field of an update and every field of a new node", () => {
+    const before = node("cast", "castDtypes", "Cast", {
+      casts: { amount: "float" },
+      errors: "raise",
+    });
+    const after = node("cast", "castDtypes", "Cast", {
+      casts: { amount: "integer" },
+      errors: "coerce",
+    });
+    const model = node("rf", "mlClassifierModel", "Classifier Model", {
+      model_type: "random_forest",
+      hyperparameters: { n_estimators: 200, max_depth: 8 },
+      a: 1,
+      b: 2,
+      class_weight: "balanced",
+    });
+    render(
+      <ProposalReview
+        delta={{ added: [model], changed: [after], connected: [], disconnected: [] }}
+        base={{ nodes: [before], edges: [] }}
+        datasets={[]}
+        inspectNode={() => {}}
+        compact={false}
+      />,
+    );
+    const changes = screen.getByRole("list", { name: "Changed settings of Cast" });
+    expect(changes).toHaveTextContent("errors: raise → coerce");
+    expect(changes).toHaveTextContent('casts: {"amount":"float"} → {"amount":"integer"}');
+    const all = screen.getByRole("list", { name: "All settings of Classifier Model" });
+    expect(all).toHaveTextContent('hyperparameters: {"n_estimators":200,"max_depth":8}');
+    expect(all).toHaveTextContent("class weight: balanced");
   });
 });
