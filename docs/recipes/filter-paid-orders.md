@@ -51,12 +51,16 @@ ORD-1004,180.50,paid
 4. Add **File Output**. Set **File type** to CSV (.csv) and **Dataset name** to
    `paid_orders`. Connect the nodes in order and click **Run**.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "keep orders where amount is at least 100 and status is paid." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 | order_id | amount | status |
 | --- | --- | --- |
-| ORD-1003 | 100.00 | paid |
-| ORD-1004 | 180.50 | paid |
+| ORD-1003 | 100.0 | paid |
+| ORD-1004 | 180.5 | paid |
 
 ![Each order is checked against amount >= 100 and status == 'paid'; ORD-1001 fails the status test, ORD-1002 fails the amount test, and ORD-1003 and ORD-1004 pass both](/illustrations/recipes/filter-two-conditions.svg)
 

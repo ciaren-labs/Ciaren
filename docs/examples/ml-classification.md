@@ -92,6 +92,10 @@ in-model preprocessing and the MLflow experiment name. Use **Classifier Model**
 with **Cross-Validate** when you want fold scores before you train a final
 model.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "train a classifier on the churn column with a train/test split and evaluate it on the test rows." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## What the split protects against
 
 A model scored on rows it trained on looks better than it is: it can memorize

@@ -42,6 +42,15 @@ const itemNames = (container: HTMLElement) =>
 const search = (value: string) =>
   fireEvent.change(screen.getByPlaceholderText("Search nodes…"), { target: { value } });
 
+describe("NodePalette sections", () => {
+  it.each([true, false])("opens only the Inputs section by default (unlocked=%s)", (unlocked) => {
+    renderPalette({ unlocked });
+
+    expect(screen.getByRole("button", { name: /^Inputs/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Cleaning/ })).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
 describe("NodePalette recently used section", () => {
   it("collapses the panel using its named button", () => {
     renderPalette();

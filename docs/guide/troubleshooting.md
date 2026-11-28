@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting Guide
-description: "Fix Ciaren setup and runtime errors: database URLs, occupied ports, CORS, missing modules, pandas exports, Windows paths and MLflow tracking."
-search: troubleshooting help issues database cors port modules pandas export split
+description: "Fix Ciaren setup and runtime errors: database URLs, occupied ports, CORS, AI assistant keys and replies, missing modules, pandas exports, Windows paths and MLflow tracking."
+search: troubleshooting help issues database cors port modules pandas export split assistant api key keychain provider
 ---
 
 # Troubleshooting Guide
@@ -25,7 +25,10 @@ Ciaren uses async SQLAlchemy. A plain `sqlite://`, `postgresql://`, or
 - `mysql+aiomysql://user:pass@host/db`
 
 Install the matching driver (`asyncpg`, `aiomysql`) for non-SQLite databases.
-The schema is created automatically on startup, so there is no migration step.
+Missing tables are created automatically on startup. After upgrading Ciaren,
+run `ciaren db upgrade` against an existing database to apply changes to
+tables that already exist. It is safe to re-run; see the
+[CLI reference](/guide/cli#ciaren-db).
 
 ## "Port 8055 already in use"
 
@@ -65,6 +68,73 @@ CIAREN_CORS_ORIGINS=["http://localhost:5173"]
 If API auth is enabled, browser clients can send either
 `Authorization: Bearer <token>` or `X-Ciaren-Token: <token>`; both are allowed by
 the API's CORS preflight handling.
+
+## The assistant asks me to connect a provider
+
+The flow assistant needs one enabled API key marked **In use**. Open
+**Connections → Assistant API keys**, add a key or select an existing one, and
+check that **Enabled** is on. Disabling or removing the key in use leaves none
+selected, and Ciaren does not pick another for you. If the server is
+configured through the environment instead, the key must be present and
+`CIAREN_ASSISTANT_ENABLED` must not be `false`. The status check never
+contacts the provider, so a configured key can still be rejected later.
+
+## "Add API key" is disabled
+
+Saved keys live in the OS keychain of the computer that runs Ciaren, so the
+button is disabled, with a note, when Ciaren finds no supported keychain
+(Windows Credential Manager, macOS Keychain or Secret Service). Install the
+extra with `python -m pip install "ciaren[keyring]"` and unlock the keychain.
+On a headless server or container, configure the key with an environment
+variable or a mounted file instead, as described in
+[Flow assistant: server-managed keys](/guide/flow-assistant#server-managed-keys).
+
+## The assistant fails with a keychain or provider error
+
+"The OS keychain is unavailable" means the keychain is locked or was removed;
+unlock it and retry. "The assistant's API key is missing" means the keychain
+entry or the server's key source no longer holds a key, so add it again.
+"Provider returned HTTP 401" or "403" points to a rejected key, and other
+`4xx` codes to the model name or quota. A model you typed must exist at the
+provider and support tool calling. Ciaren never retries a provider call, so
+choose **Regenerate** to try again.
+
+## "Save your changes first" or "Proposal expired"
+
+The assistant reads the saved flow, never the unsaved canvas. Choose **Save
+and send**, or save the canvas and send the request again. A proposal expires
+three minutes after it appears and cannot be applied if the flow, one of its
+input versions changed or the assistant was turned off in the meantime. Generate a
+new proposal. If another tab saved the flow, reload the editor and keep your
+local work first.
+
+## "This model cannot edit flows" or a request is declined
+
+Charts, machine learning and most multi-step flows need a model with tool
+calling. OpenAI, Anthropic and DeepSeek models in the list qualify. The OpenCode
+models in the list do not, and use a smaller set of guided plans. Choose another
+key in **Connections**. Other replies are explanations, not errors: **The
+assistant was not confident** asks for a more specific request, **The proposal
+did not pass checks** means a draft failed validation and nothing was proposed,
+and **Too many steps for one request** means you should split the request into
+smaller changes. A draft marked **this draft was not checked** ran out of
+steps, time or provider connection, so review it with extra care.
+
+## "Request budget used up"
+
+Each application process allows 60 provider calls per rolling hour by default,
+and one complex Build can use up to 14. Wait for the window to pass, or raise
+`CIAREN_ASSISTANT_TURNS_PER_HOUR` and restart. "Another assistant turn is
+active" appears when eight requests are already running in the process, or the
+same request is repeated; wait a moment and send it again.
+
+## Diagnose says there is no failed run
+
+Diagnose explains the latest failed run of the flow. When a run succeeded but
+the result is wrong, such as rows missing after a Join, describe the change you
+want in **Build** instead. Diagnose proposes a fix only for an inner Join that
+drops left rows and for simple cleaning flows. For other failures it gives
+advice and asks for a manual edit.
 
 ## Upload rejected as too large
 

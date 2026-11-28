@@ -80,8 +80,32 @@ CIAREN_SCHEDULER_MAX_CONCURRENT_RUNS=3
 CIAREN_RUN_TIMEOUT_SECONDS=300
 ```
 
-See `ciaren info` (below) for the full list of resolved settings, or
-`docs/guide/cli.md` for a description of every variable.
+See `ciaren info` (below) for the full list of resolved settings, or the
+[CLI Reference](./cli.md#environment-variables) for a description of every variable.
+
+## Flow assistant in a container
+
+The [flow assistant](./flow-assistant.md) is off until a provider key is available.
+A container has no OS keychain, so the **Connections → Assistant API keys** page
+cannot save a key there. Give the server the provider settings and a mounted
+secret file instead, and keep the file outside the image and the repository.
+`docker-compose.yml` does not list the `CIAREN_ASSISTANT_*` variables, so add
+them in a `docker-compose.override.yml` next to it:
+
+```yaml
+services:
+  ciaren:
+    environment:
+      CIAREN_ASSISTANT_PROVIDER: openai
+      CIAREN_ASSISTANT_OPENAI_KEY_SOURCE: file
+    volumes:
+      - /srv/private/ciaren/openai:/run/ciaren-assistant-secrets/openai:ro
+```
+
+Recreate the service with `docker compose up -d --build ciaren`. The full set of
+variables, the other providers and the data that leaves the server are in
+[Flow assistant](./flow-assistant.md#deployment-and-credentials). Set
+`CIAREN_ASSISTANT_ENABLED=false` to turn it off on the server.
 
 ## Optional feature extras
 
@@ -232,7 +256,8 @@ docker build --build-arg EXTRAS=ml,postgres -t ciaren:full .
   container replacement.
 - **Set `CIAREN_CORS_ORIGINS`** if your frontend and API are on different
   origins (unnecessary when both are served from the same port).
-- **Pin the image tag** — use `ciaren:0.3.0` rather than `latest` in
+- **Pin the image tag** — build with a version tag such as
+  `docker build -t ciaren:0.3.1 .` and use it, rather than `latest`, in
   production compose files.
 - **Run behind a reverse proxy** (nginx, Caddy, Traefik) for TLS and
   compression. The image does not include TLS termination.

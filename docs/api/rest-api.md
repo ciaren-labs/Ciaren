@@ -31,6 +31,7 @@ Each resource has its own reference page:
 - [Settings](./settings.md) — read and override the runtime-editable server settings
 - **ML endpoints** — model metrics, registration, aliases, experiments, and runs under `/api/ml/*`, `/api/runs/{id}/ml/*`, and `/api/flows/{id}/ml/*`
 - **Marketplace** — plugin Explore catalog and install endpoint under `/api/marketplace`
+- **Flow assistant** — status, provider list, API keys, proposals and saved-change history under `/api/assistant/*` (see [below](#flow-assistant-endpoints))
 
 ## Webhook trigger
 
@@ -42,6 +43,32 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 | --- | --- | --- |
 | `GET` | `/api/settings/webhook` | Returns `{"configured": true/false}` (never the secret) |
 | `POST` | `/api/flows/{flow_id}/trigger` | Trigger a run; requires `X-Ciaren-Secret` header |
+
+## Flow assistant endpoints
+
+The editor's [Flow assistant](/guide/flow-assistant) panel is built on these
+endpoints and are shaped for it, so treat the request and response bodies as
+editor-internal. Like the rest of `/api` they honour `CIAREN_API_TOKEN` and the
+browser-origin guard.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/assistant/status` | Active provider, key source and model, and whether a key is `configured`, `missing` or `unavailable` (never the key) |
+| `GET` | `/api/assistant/providers` | Providers with their listed models and reasoning efforts |
+| `GET` | `/api/assistant/keychain` | Whether this host has a usable OS keychain for saved keys |
+| `GET` / `POST` | `/api/assistant/keys` | List saved keys (name, provider, model, effort, state; never the key) or add one |
+| `PATCH` / `DELETE` | `/api/assistant/keys/{key_id}` | Edit, enable or disable, replace or remove a saved key |
+| `POST` | `/api/assistant/keys/{key_id}/activate` | Use this key for the assistant |
+| `POST` | `/api/assistant/flows/{flow_id}/turn` | Ask the assistant to build, answer from the guides or diagnose; returns a proposal, a question or an explanation. Needs the saved flow revision; `409` when that revision is stale, the flow is disabled or unsaved |
+| `DELETE` | `/api/assistant/flows/{flow_id}/turns/{request_id}` | Cancel a running turn |
+| `POST` | `/api/assistant/flows/{flow_id}/apply` | Confirm a proposal by its token and save it. Nothing changes the flow until this call |
+| `GET` | `/api/assistant/flows/{flow_id}/activity` | Confirmed assistant changes for the flow, most recent first (`?cursor=`) |
+| `POST` | `/api/assistant/flows/{flow_id}/activity/{event_id}/preview` | Preview the reversal of a saved change |
+| `POST` | `/api/assistant/flows/{flow_id}/activity/{event_id}/revert` | Confirm a previewed reversal |
+
+Saving keys needs `ciaren[keyring]` and an unlocked OS keychain. For a server
+without one, configure the provider through environment variables or a secret
+file instead. See [Flow assistant](/guide/flow-assistant#deployment-and-credentials).
 
 ## Conventions
 
@@ -83,6 +110,10 @@ orchestrators. See the [Webhook guide](/guide/webhook) for full details.
 5. `GET /api/runs/{run_id}` — poll status and read logs.
 6. `GET /api/runs/{run_id}/logs/stream` — stream logs as SSE (optional).
 7. `POST /api/flows/{id}/export/python` — get standalone code (pandas and polars).
+
+In the editor you can also build the graph of step 2 by describing it to the
+[Flow assistant](/guide/flow-assistant), then reviewing the proposal and choosing
+**Apply and save**.
 
 ## See Also
 

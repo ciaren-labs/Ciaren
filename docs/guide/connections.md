@@ -10,7 +10,8 @@ layout: doc
 Connections let Ciaren read from and write to databases through the **SQL
 Input** and **SQL Output** nodes. You define a connection to a database **once**
 on the Connections page, then reuse it across as many flows and nodes as you like
-— each node just picks a table (or writes a query).
+— each node just picks a table (or writes a query). The same page also holds the
+[provider API keys](#assistant-api-keys) for the AI flow assistant.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"Database","detail":"PostgreSQL · MySQL · SQLite · SQL Server · MongoDB"},
@@ -20,6 +21,34 @@ on the Connections page, then reuse it across as many flows and nodes as you lik
   {"type":"output","label":"SQL Output node","detail":"replace · append · fail if exists"},
   {"type":"output","label":"Database","detail":"result written back"}
 ]' />
+
+## Assistant API keys
+
+The top of the Connections page, above the data connections, is **Assistant
+API keys**. These are the provider keys the AI flow assistant uses to build
+flows from natural language. They are not database connections: no node uses
+them and flows never read them.
+
+![The Assistant API keys section at the top of the Connections page](/screenshots/assistant-keys.png)
+
+Choose **Add API key**, name the key, pick the provider and a model, or choose
+**Other model…** to type a model ID that is not listed. Set a reasoning effort
+if the provider offers one, paste the key and confirm the storage notice. Ciaren
+stores the key in the OS keychain of the computer that runs it, which needs
+`ciaren[keyring]`, and never shows it again. The database keeps only the name,
+provider, model, effort and state.
+
+The assistant uses one enabled key at a time. The first key you add is in use,
+and you select another with its radio button. Clear **Enabled** to stop using a
+key without deleting it. The pencil button renames a key, changes its model or
+effort, or replaces the key, and the trash button deletes it from the keychain.
+
+On a server without a supported keychain, such as a container, **Add API key**
+is disabled and an administrator supplies the key through an environment
+variable or a mounted file instead. Connection `file:` references cannot read
+those assistant secret files. See [Flow assistant](flow-assistant.md#deployment-and-credentials)
+for the privacy model, precedence, rotation and server-managed keys, and
+[Set up the AI flow assistant](flow-assistant-quick-start.md) for a first run.
 
 ## Security model
 
@@ -191,8 +220,8 @@ them like defaults rather than connections you created.
 
    SQLite asks only for a file path; most others ask for host, port, database,
    username, and the **password secret** — a reference (env var name,
-   `keyring:NAME`, or `file:/path`), or use **Save a secret to the system
-   keychain** to store the value in the OS keychain in place. The actual secret
+   `keyring:NAME`, or `file:/path`), or use **Store a value in the OS keychain**
+   to store the value in the OS keychain in place. The actual secret
    is never stored by Ciaren.
 
    **Snowflake** is the exception: there's no port field (Snowflake's driver

@@ -177,7 +177,12 @@ async def test_validate_inputs_before_request(client, case, monkeypatch, fault):
     if fault in invalid:
         response = await client.post("/api/datasets/upload", files={"file": ("replacement.csv", invalid[fault])})
         body["training"]["dataset_id"] = response.json()["id"]
-    assert (await client.post(url + "/turn", json=body)).status_code == 400
+    response = await client.post(url + "/turn", json=body)
+    if fault == "disabled":
+        assert response.status_code == 200 and response.json()["reason"] == "ml_disabled"
+        assert "enable_ml" in {s["action"] for s in response.json()["suggestions"]}
+    else:
+        assert response.status_code == 400
     mock.assert_not_awaited()
 
 

@@ -1,5 +1,5 @@
-DELETE /api/assistant/credentials/{provider}
 DELETE /api/assistant/flows/{flow_id}/turns/{request_id}
+DELETE /api/assistant/keys/{key_id}
 DELETE /api/connections/keyring/{name}
 DELETE /api/connections/{connection_id}
 DELETE /api/datasets/{dataset_id}
@@ -11,6 +11,9 @@ DELETE /api/projects/{project_id}
 DELETE /api/schedules/{schedule_id}
 DELETE /api/settings/{key}
 GET /api/assistant/flows/{flow_id}/activity
+GET /api/assistant/keychain
+GET /api/assistant/keys
+GET /api/assistant/providers
 GET /api/assistant/status
 GET /api/catalog/categories
 GET /api/catalog/connectors
@@ -59,6 +62,7 @@ GET /api/settings/webhook
 GET /api/transformations
 GET /health
 GET /ready
+PATCH /api/assistant/keys/{key_id}
 PATCH /api/connections/{connection_id}
 PATCH /api/datasets/{dataset_id}
 PATCH /api/schedules/{schedule_id}
@@ -66,6 +70,8 @@ POST /api/assistant/flows/{flow_id}/activity/{event_id}/preview
 POST /api/assistant/flows/{flow_id}/activity/{event_id}/revert
 POST /api/assistant/flows/{flow_id}/apply
 POST /api/assistant/flows/{flow_id}/turn
+POST /api/assistant/keys
+POST /api/assistant/keys/{key_id}/activate
 POST /api/connections
 POST /api/connections/keyring
 POST /api/connections/test-config
@@ -96,7 +102,6 @@ POST /api/runs/{run_id}/ml/register
 POST /api/runs/{run_id}/retry
 POST /api/schedules/{schedule_id}/run-now
 POST /api/transformations/preview
-PUT /api/assistant/credentials/{provider}
 PUT /api/flows/{flow_id}
 PUT /api/projects/{project_id}
 PUT /api/settings/{key}

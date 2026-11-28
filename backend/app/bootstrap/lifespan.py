@@ -25,7 +25,7 @@ from app.bootstrap.seeding import (
     seed_local_storage_safe,
     seed_mlflow_connection_safe,
 )
-from app.core.config import get_settings
+from app.core.config import get_settings, scrub_assistant_key_env
 from app.core.database import AsyncSessionLocal, init_db
 from app.core.logging import setup_logging
 from app.services.run_recovery import recover_orphaned_runs
@@ -36,6 +36,8 @@ logger = logging.getLogger("ciaren.bootstrap")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
+    # Keys stay in these settings; spawned workers and subprocesses must not inherit them.
+    scrub_assistant_key_env()
     setup_logging(settings.ENVIRONMENT, debug=settings.DEBUG, log_format=settings.LOG_FORMAT)
 
     for subdir in ("uploads", "outputs", "previews"):
@@ -53,6 +55,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await load_and_apply_overrides(session)
     except Exception:  # noqa: BLE001 - settings overrides must never block startup
         logger.warning("Could not load persisted app settings; using env/defaults.", exc_info=True)
+
+    # Mirror the assistant key chosen on the Connections page into the process.
+    try:
+        from app.services.assistant_key_service import load_active
+
+        async with AsyncSessionLocal() as session:
+            await load_active(session)
+    except Exception:  # noqa: BLE001 - the assistant must never block startup
+        logger.warning("Could not load the active assistant key; using the server configuration.", exc_info=True)
 
     # Discover plugins and bridge their executable nodes into the engine registry
     # before any request, so a run that uses a plugin node resolves it even if the

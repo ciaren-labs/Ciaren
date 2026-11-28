@@ -35,7 +35,11 @@ class FeatureImportanceTransformation(MetadataMLTransformation):
 
         # During preview we don't load the model; pass the reference frame through.
         if in_preview():
-            return {"out": inputs["model"]}, None
+            # Nothing is fitted: an empty frame with the real output columns.
+            import pandas as pd
+
+            empty = pd.DataFrame({"feature_name": pd.Series(dtype=object), "importance": pd.Series(dtype=float)})
+            return {"out": engine.from_pandas(empty)}, None
 
         from app.ml.loader import load_model
 

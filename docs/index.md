@@ -2,7 +2,7 @@
 layout: home
 title: Ciaren — AI-native visual ETL with pandas and Polars export
 titleTemplate: false
-description: Build data pipelines manually without a model API key or turn a prompt into an editable CSV flow. Run locally and export pandas or Polars with Ciaren.
+description: Describe a data or ML pipeline in plain language, review the flow Ciaren proposes, edit it on the canvas, run locally and export pandas or Polars code.
 search: ciaren data engineering machine learning etl plugin platform visual polars pandas duckdb mlflow python code export local-first open source workflow builder
 head:
   - - script
@@ -12,7 +12,7 @@ head:
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Ciaren",
-        "description": "Open-source visual ETL and ML workflow builder that exports clean pandas and Polars Python code.",
+        "description": "Open-source visual ETL and ML workflow builder with an AI flow assistant that exports clean pandas and Polars Python code.",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Windows, macOS, Linux",
         "url": "https://ciaren.com",
@@ -30,23 +30,27 @@ head:
 
 hero:
   name: <span class="ciaren-c">C</span>iaren
-  text: Export the pandas/polars code you'd write by hand. No lock-in.
-  tagline: Ciaren is an AI-native visual ETL and ML workflow builder. Design a complete pipeline manually without a model API key, or bring your own key to turn a CSV request into a proposal with editable nodes and connections. Review it, run locally and keep the Python.
+  text: Describe the pipeline. Review it. Keep the pandas or Polars code.
+  tagline: Ciaren is an open-source, local-first visual ETL and ML workflow builder. Bring your own provider API key and the AI flow assistant drafts complete flows from plain language, from cleaning and joins to charts and model training. You approve every proposal and can edit every node by hand. Building manually needs no API key.
   image:
     src: /logo.svg
     alt: Ciaren logo
   actions:
     - theme: brand
+      text: AI quick start
+      link: /guide/flow-assistant-quick-start
+    - theme: alt
       text: Install Ciaren
       link: /guide/installation
     - theme: alt
       text: Manual quick start
       link: /guide/quick-start
-    - theme: alt
-      text: AI quick start
-      link: /guide/flow-assistant-quick-start
 
 features:
+  - icon: ✨
+    title: Prompt-to-flow assistant
+    details: Describe the result you want. The assistant proposes inputs, cleaning, joins, reshaping, charts and ML training, cross-validation and evaluation. Nothing is saved until you approve it.
+
   - icon: 🧩
     title: Plugin-first by design
     details: Nodes, connectors, storage, engines, exporters, validators, and AI capabilities are extension points, not afterthoughts.
@@ -79,6 +83,13 @@ experimentation, prototypes, and controlled internal workflows, but you should
 test carefully before using it for critical production jobs.
 :::
 
+:::info The assistant is newer than the 0.3.1 release
+The AI flow assistant is in the source tree but not in the published 0.3.1
+package. `pip install ciaren` gives you the full manual editor. To use the
+assistant today, run a source checkout or the Docker build. See the
+[AI quick start](/guide/flow-assistant-quick-start).
+:::
+
 <div class="ciaren-proof-grid">
   <div class="ciaren-proof-card">
     <strong>72 nodes</strong>
@@ -98,7 +109,32 @@ test carefully before using it for critical production jobs.
   </div>
 </div>
 
-## From Two Sources to a Model — on One Canvas
+## From a Prompt to a Running Pipeline
+
+1. **Describe.** In a flow, open **Assistant → Build** and write the result you
+   want, for example "join orders with customers, compute revenue per country and
+   chart it" or "train a random forest with 5-fold cross validation and show
+   feature importance".
+2. **Review.** The assistant checks its draft against the installed node catalog
+   and your column types, then shows the nodes, every changed setting and the
+   connections.
+3. **Apply and save.** Nothing changes until you approve. **Activity** can preview
+   and reverse a saved assistant change.
+4. **Edit.** The proposal is ordinary nodes on the canvas. Change anything by
+   hand, whenever you want.
+5. **Run and export.** **Run** executes locally. The assistant never runs a flow.
+   Export standalone pandas, Polars or lazy Polars Python.
+
+It can propose file inputs and outputs, cleaning, joins, reshaping, data-quality
+checks, charts, and machine learning (split, preprocessing, classifiers and
+regressors, training, predict, evaluate, cross-validate, feature importance). It
+does not write Python Transform nodes, SQL or cloud-storage connectors, or plugin
+nodes. It works with OpenAI, Anthropic, DeepSeek or OpenCode Console keys saved
+under **Connections → Assistant API keys**, and dataset rows are never sent to
+the provider. [Set up the assistant →](/guide/flow-assistant-quick-start) ·
+[What it can build, and what leaves your machine →](/guide/flow-assistant)
+
+## Or Build It by Hand: Two Sources to a Model on One Canvas
 
 Join a CSV file and a SQL table, clean each side, train a classifier, preview the
 result on real data, and export it as clean Polars — without leaving the editor.
@@ -133,20 +169,20 @@ exported to ordinary Python.
 ## Why People Try It
 
 <div class="ciaren-path-grid">
+  <a class="ciaren-path-card" href="/guide/flow-assistant-quick-start">
+    <span>For a fast first draft</span>
+    <strong>Describe a flow and review the proposal</strong>
+    <p>Add a provider API key, ask for a pipeline in plain language, inspect the nodes it proposes, then apply, edit and run them.</p>
+  </a>
   <a class="ciaren-path-card" href="/guide/quick-start">
     <span>For first-time users</span>
-    <strong>Build and run a real flow in five minutes</strong>
+    <strong>Build and run a real flow by hand in five minutes</strong>
     <p>Use the demo project or upload a small CSV, add cleaning and aggregation nodes, preview the result, run it, and export Python.</p>
   </a>
   <a class="ciaren-path-card" href="/guide/engines">
     <span>For Python engineers</span>
     <strong>Keep the generated code readable</strong>
     <p>Export pandas, polars, or lazy polars code that looks like code a person would write, with no hidden runtime dependency.</p>
-  </a>
-  <a class="ciaren-path-card" href="/plugins/overview">
-    <span>For contributors and builders</span>
-    <strong>Extend the platform instead of forking it</strong>
-    <p>Add custom nodes, connectors, and ML model types through the plugin architecture.</p>
   </a>
 </div>
 
@@ -162,7 +198,9 @@ ciaren serve
 ```
 
 Open `http://localhost:8055`, then open **Projects → Demo**. You can inspect,
-preview, run, and export working flows before uploading your own data.
+preview, run, and export working flows before uploading your own data. This
+package is release 0.3.1, so it does not include the AI assistant yet; for the
+assistant, follow the [AI quick start](/guide/flow-assistant-quick-start).
 
 Prefer an isolated container instead?
 
@@ -251,13 +289,13 @@ and versioned independently.
 ## Pick Your Next Step
 
 <div class="ciaren-next-grid">
+  <a href="/guide/flow-assistant-quick-start">Build a flow with the AI assistant</a>
   <a href="/guide/getting-started">Understand the project</a>
   <a href="/guide/installation">Install Ciaren</a>
-  <a href="/guide/quick-start">Build your first flow</a>
+  <a href="/guide/quick-start">Build your first flow by hand</a>
   <a href="/guide/demo-project">Explore the demo project</a>
   <a href="/examples/sales-analysis">Read an end-to-end example</a>
   <a href="/plugins/first-plugin">Build your first plugin</a>
-  <a href="https://github.com/ciaren-labs/Ciaren">Star on GitHub</a>
   <a href="https://github.com/ciaren-labs/Ciaren/blob/main/CONTRIBUTING.md">Contribute</a>
 </div>
 

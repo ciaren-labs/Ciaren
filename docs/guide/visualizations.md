@@ -44,7 +44,7 @@ The picker groups chart types the same way this reference does:
 
 :::warning Sample, not the full dataset
 Charts are computed in your browser from the node's **preview sample** — a
-capped number of rows, not the entire dataset. Every chart shows a caption like
+capped number of rows (up to 500), not the entire dataset. Every chart shows a caption like
 *"Based on a sample of N rows — not the full dataset."*
 
 This matters most for the **correlation heatmap**: a Pearson value on a sample
@@ -62,6 +62,10 @@ add a **[chart node](../transformations/charts.md)** from the **Charts**
 palette category instead: it computes the chart over the **full data** when the
 flow runs, stores it on the run, and lets you **export it as a PNG** from the
 run page.
+
+You can also describe the chart to the [Flow assistant](./flow-assistant.md)
+(for example, "chart revenue per country"). It can propose Bar, Line, Area, Scatter,
+Pie, Histogram, Box Plot and Heatmap chart nodes, which you review before saving.
 
 ![Run detail — a Bar Chart node selected, showing the stored chart computed over the full run data with an Export PNG button](/screenshots/run-chart-detail.png)
 

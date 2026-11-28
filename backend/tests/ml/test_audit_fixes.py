@@ -59,6 +59,31 @@ def test_preview_mode_skips_training_in_full_flow(ml_env, tmp_path):
     assert "tr" in frames
 
 
+@pytest.mark.parametrize(
+    ("kind", "config", "expected"),
+    [
+        ("featureImportance", {}, ["feature_name", "importance"]),
+        ("mlEvaluate", {"task_type": "classification", "target_column": "target"}, ["metric", "value"]),
+        ("mlPredict", {}, [*classification_df().columns, "prediction"]),
+        (
+            "mlPredict",
+            {"output_column": "label", "output_proba_columns": ["p0", "p1"]},
+            [*classification_df().columns, "label", "p0", "p1"],
+        ),
+    ],
+)
+def test_preview_output_has_the_runtime_columns(kind, config, expected):
+    # Downstream settings are chosen from the preview columns, so a preview that passed its
+    # input through would let a chart name columns the real run never produces.
+    from app.engine.registry import get_transformation
+
+    engine = get_engine("pandas")
+    frame = engine.from_pandas(classification_df())
+    with preview_mode():
+        out, _ = get_transformation(kind).execute_with_metadata(engine, {"in": frame, "model": frame}, config)
+    assert list(engine.to_pandas(out["out"]).columns) == expected
+
+
 # -- train-only flow validates ----------------------------------------------
 
 

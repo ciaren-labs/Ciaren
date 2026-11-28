@@ -2,8 +2,11 @@ import type { Dataset } from "@/features/datasets/types";
 import type { GraphJson, GraphNode } from "@/features/flows/types";
 import type { Delta } from "./api";
 
+import { getNodeSummary } from "@/lib/nodeSummary";
+
 import { FlowMap } from "./FlowMap";
 import { nodeMark } from "./nodePresentation";
+import { deltaCounts, summarize } from "./changeSummary";
 
 function settings(node: GraphNode, datasets: Dataset[]) {
   const c = node.data.config;
@@ -29,10 +32,19 @@ function settings(node: GraphNode, datasets: Dataset[]) {
       ) {
         return `${c.new_column} is true when ${rule.column} equals “${rule.value}”, otherwise false`;
       }
-      return JSON.stringify(c);
+      return fallback(node, datasets);
     }
-    case "fileInput":
-      return `${datasets.find((d) => d.id === c.dataset_id)?.name ?? "Selected dataset"} · version ${c.dataset_version}`;
+    // Expressions are shown whole: the reviewer reads them before saving.
+    case "calculatedColumn":
+      return `${c.column_name} = ${c.expression}`;
+    case "filterExpression":
+      return `Keep rows where ${c.expression}`;
+    case "assertExpression":
+      return `Check that ${c.expression}`;
+    case "fileInput": {
+      const name = datasets.find((d) => d.id === c.dataset_id)?.name ?? "Selected dataset";
+      return c.dataset_version == null ? `${name} · latest version` : `${name} · version ${c.dataset_version}`;
+    }
     case "fileOutput":
       return `${String(c.format).toUpperCase()} · publish dataset “${c.dataset_name}” on run`;
     case "limitRows":
@@ -49,8 +61,63 @@ function settings(node: GraphNode, datasets: Dataset[]) {
     case "removeDuplicates":
       return `Compare ${columns(c.subset)} · keep ${c.keep ?? "first"}`;
     default:
-      return JSON.stringify(c);
+      return fallback(node, datasets);
   }
+}
+
+/** The editor's canvas subtitle, or the configured fields in words. */
+function fallback(node: GraphNode, datasets: Dataset[]) {
+  const c = node.data.config;
+  const datasetName = datasets.find((d) => d.id === c.dataset_id)?.name;
+  const summary = getNodeSummary(node.type, c, { datasetName });
+  if (summary) return summary;
+  const fields = Object.entries(c)
+    .filter(([, v]) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0))
+    .slice(0, 4)
+    .map(([k, v]) => `${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(", ") : typeof v === "object" ? "custom" : String(v)}`);
+  return fields.length ? fields.join(" · ") : "Default settings";
+}
+
+const words = (key: string) => key.replace(/_/g, " ");
+const shown = (v: unknown) =>
+  v == null || v === ""
+    ? "not set"
+    : Array.isArray(v) && v.every((x) => typeof x !== "object")
+      ? v.join(", ") || "none"
+      : typeof v === "object"
+        ? JSON.stringify(v)
+        : String(v);
+
+/** Every field, so a summary that abbreviates can never hide what is approved. */
+function Fields({ label, rows }: { label: string; rows: [string, string][] }) {
+  return (
+    <ul aria-label={label} className="mt-1 space-y-0.5 break-words text-xs">
+      {rows.map(([key, text]) => (
+        <li key={key}>
+          <span className="font-medium">{words(key)}</span>: {text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A field value in words; a dataset id reads as the dataset's name. */
+function fieldText(key: string, v: unknown, datasets: Dataset[]) {
+  const name = key === "dataset_id" ? datasets.find((d) => d.id === v)?.name : undefined;
+  return name ?? shown(v);
+}
+
+function changedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  datasets: Dataset[],
+) {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+    .map((k): [string, string] => [
+      k,
+      `${fieldText(k, before[k], datasets)} → ${fieldText(k, after[k], datasets)}`,
+    ]);
 }
 
 export function ProposalReview({
@@ -58,11 +125,16 @@ export function ProposalReview({
   base,
   datasets,
   inspectNode,
+  headingId,
+  compact = false,
 }: {
   inspectNode: (id: string) => void;
   delta: Delta;
   base: GraphJson;
   datasets: Dataset[];
+  headingId?: string;
+  /** Summary only, for proposals that can no longer be applied. */
+  compact?: boolean;
 }) {
   const byId = new Map(
     [...base.nodes, ...delta.added].map((n) => [n.id, n.data.label]),
@@ -75,22 +147,24 @@ export function ProposalReview({
   return (
     <section aria-label="Proposed changes" className="space-y-3 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-1">
-        <h3 className="text-lg font-semibold tracking-tight">
+        <h3
+          id={headingId}
+          tabIndex={-1}
+          className="text-base font-semibold tracking-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           Proposed changes
         </h3>
         <p className="text-xs text-muted-foreground">
-          {[
-            delta.added.length && `${delta.added.length} new`,
-            delta.changed.length && `${delta.changed.length} updated`,
-            delta.connected.length + delta.disconnected.length &&
-              `${delta.connected.length + delta.disconnected.length} connections`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {summarize(deltaCounts(delta, base))}
         </p>
       </div>
+      {!compact && (
+        <>
       <FlowMap delta={delta} base={base} />
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card px-3">
+      <ul
+        aria-label="Proposed nodes"
+        className="divide-y divide-border rounded-xl border border-border bg-card px-3"
+      >
         {[...delta.added, ...delta.changed].map((n) => {
           const old = base.nodes.find((existing) => existing.id === n.id);
           const { Icon, color } = nodeMark(n.type);
@@ -106,12 +180,30 @@ export function ProposalReview({
                   {old ? "Update" : "Add"} {n.data.label}
                 </span>
                 <p className="break-words text-xs text-muted-foreground">
-                  {old && <>{settings(old, datasets)} → </>}
                   {settings(n, datasets)}
                 </p>
+                {old ? (
+                  <Fields
+                    label={`Changed settings of ${n.data.label}`}
+                    rows={changedFields(old.data.config, n.data.config, datasets)}
+                  />
+                ) : (
+                  Object.keys(n.data.config).length > 0 && (
+                    <details className="mt-1 text-xs text-muted-foreground">
+                      <summary className="inline-flex min-h-8 cursor-pointer items-center">
+                        All settings ({Object.keys(n.data.config).length})
+                      </summary>
+                      <Fields
+                        label={`All settings of ${n.data.label}`}
+                        rows={Object.entries(n.data.config).map(([k, v]) => [k, fieldText(k, v, datasets)])}
+                      />
+                    </details>
+                  )
+                )}
                 {old && (
                   <button
-                    className="mt-2 text-xs font-medium text-primary underline"
+                    type="button"
+                    className="mt-1 inline-flex min-h-8 items-center text-xs font-medium text-primary underline"
                     onClick={() => inspectNode(n.id)}
                   >
                     Inspect on canvas
@@ -119,7 +211,7 @@ export function ProposalReview({
                 )}
                 {old && (
                   <details className="mt-1 text-xs">
-                    <summary className="cursor-pointer">
+                    <summary className="inline-flex min-h-8 cursor-pointer items-center">
                       Compare all settings
                     </summary>
                     <p className="mt-2 font-medium">Before</p>
@@ -136,10 +228,28 @@ export function ProposalReview({
             </li>
           );
         })}
+        {delta.removed?.map((id) => {
+          const old = base.nodes.find((n) => n.id === id);
+          if (!old) return null;
+          const { Icon } = nodeMark(old.type);
+          return (
+            <li key={id} className="flex gap-3 py-2.5">
+              <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-destructive">
+                <Icon aria-hidden className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <span className="font-medium">Remove {old.data.label}</span>
+                <p className="break-words text-xs text-muted-foreground">
+                  {settings(old, datasets)} · its connections go too
+                </p>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {delta.connected.length + delta.disconnected.length > 0 && (
         <details className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <summary className="cursor-pointer text-xs font-semibold">
+          <summary className="flex min-h-8 cursor-pointer items-center text-xs font-semibold">
             Connections ({delta.connected.length + delta.disconnected.length})
           </summary>
           <ul className="mt-2 space-y-1 text-xs">
@@ -167,7 +277,7 @@ export function ProposalReview({
       )}
       {[...delta.added, ...delta.changed].some((n) => n.type === "join") && (
         <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium">
+          <summary className="flex min-h-8 cursor-pointer items-center font-medium">
             Join behavior
           </summary>
           <p className="mt-1">
@@ -184,8 +294,10 @@ export function ProposalReview({
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Saves this proposal with your current canvas edits.
+        Applying saves this proposal to the flow.
       </p>
+        </>
+      )}
     </section>
   );
 }

@@ -34,6 +34,7 @@ def _app_table_names() -> set[str]:
     # Importing the models registers them on Base.metadata.
     from app.db.models import (  # noqa: F401
         app_setting,
+        assistant_key,
         connection,
         dataset,
         dataset_version,

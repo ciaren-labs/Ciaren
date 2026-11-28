@@ -7,6 +7,22 @@ import type { useConnectionObjects, useConnectionTables } from "@/features/conne
 import type { NodeConfigRenderProps } from "./shared";
 import { CLEAR_DIALECT } from "@/lib/csvDialect";
 import { StorageDialectFields } from "./StorageDialectFields";
+import { Check } from "lucide-react";
+
+// Uploaded datasets are stored as "<uuid>_<original name>"; show the original.
+const UPLOAD_ID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
+/** Readable parts of a storage object key for the file picker. */
+function describeObject(key: string): { name: string; folder: string; ext: string } {
+  const slash = key.lastIndexOf("/");
+  const base = key.slice(slash + 1);
+  const dot = base.lastIndexOf(".");
+  return {
+    name: base.replace(UPLOAD_ID_PREFIX, "") || base,
+    folder: slash >= 0 ? key.slice(0, slash + 1) : "",
+    ext: dot > 0 ? base.slice(dot + 1) : "file",
+  };
+}
 
 // SQL/storage nodes are the one family that can't be pure closures: their
 // table/object pickers depend on live connection queries, whose hooks must
@@ -213,21 +229,50 @@ export function renderIoConfig(type: string, ctx: IoConfigRenderProps) {
                 <p className="text-[11px] text-muted-foreground">Loading files…</p>
               ) : objects.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background">
-                    {objects.map((obj) => (
-                      <button
-                        key={obj}
-                        type="button"
-                        onClick={() => set({ path: obj, format: formatFromPath(obj), ...CLEAR_DIALECT })}
-                        className={cn(
-                          "w-full px-2 py-1 text-left text-[11px] font-mono hover:bg-muted",
-                          selectedPath === obj && "bg-primary/10 font-semibold text-primary",
-                        )}
-                      >
-                        {obj}
-                      </button>
-                    ))}
+                  <div
+                    role="radiogroup"
+                    aria-label="Files in this connection"
+                    className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-input bg-background shadow-sm"
+                  >
+                    {objects.map((obj) => {
+                      const { name, folder, ext } = describeObject(obj);
+                      const selected = selectedPath === obj;
+                      return (
+                        <button
+                          key={obj}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          aria-label={folder ? `${name} in ${folder}` : name}
+                          title={obj}
+                          onClick={() => set({ path: obj, format: formatFromPath(obj), ...CLEAR_DIALECT })}
+                          className={cn(
+                            "flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            selected && "bg-primary/10 hover:bg-primary/15",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-11 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide",
+                              selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {ext}
+                          </span>
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className={cn("truncate text-xs", selected ? "font-semibold text-primary" : "text-foreground")}>
+                              {name}
+                            </span>
+                            {folder && <span className="truncate text-[10px] text-muted-foreground">{folder}</span>}
+                          </span>
+                          {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+                        </button>
+                      );
+                    })}
                   </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {objects.length} {objects.length === 1 ? "file" : "files"} · click one to select it
+                  </p>
                   {selectedPath && !objects.includes(selectedPath) && (
                     <p className="text-[11px] text-amber-600">
                       Current path not found in connection — update or retype below.

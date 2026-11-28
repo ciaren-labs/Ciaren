@@ -1,7 +1,7 @@
 ---
 title: Interface Tour
-description: "A tour of the Ciaren visual editor: the Projects, Datasets, Flows, and Runs pages, plus the canvas, 72-node palette, config panel, live preview, and export."
-search: interface ui tour navigation editor canvas
+description: "A tour of the Ciaren visual editor: the Projects, Datasets, Connections, Flows and Runs pages, plus the canvas, 72-node palette, config panel, live preview, AI assistant panel and export."
+search: interface ui tour navigation editor canvas assistant panel connections api keys
 ---
 
 # Interface Tour
@@ -23,10 +23,12 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
   Parquet, JSON/JSONL, and text), with versioning. Each dataset has a **Profile** tab with per-column
   statistics (nulls, distinct counts, ranges, top values), computed at upload
   time.
-- **Connections** (`/connections`) — reusable database connections for the SQL
-  Input/Output nodes (PostgreSQL, MySQL, SQLite, SQL Server, MongoDB). Passwords
-  are read from environment variables, never stored. See
-  [Database Connections](/guide/connections).
+- **Connections** (`/connections`) — two sections. **Assistant API keys** holds
+  the provider keys for the [flow assistant](/guide/flow-assistant), kept in the
+  OS keychain. **Data connections** holds reusable connections for the SQL,
+  storage and REST API nodes (databases, S3, GCS, Azure Blob, MLflow and
+  plugin connectors). A connection stores a secret reference, never the secret
+  itself. See [Database Connections](/guide/connections).
 - **Flows** (`/flows`) — your saved pipelines; open one to edit it on the canvas.
 - **Models** (`/models`) — MLflow-tracked model registry: registered models with
   metrics, aliases (`@production`, `@staging`), and lineage back to the flow and
@@ -49,7 +51,8 @@ Ciaren is organized around a few pages, reachable from the navigation bar at the
 ## The flow editor
 
 Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
-[React Flow](https://reactflow.dev/). The layout has three main regions:
+[React Flow](https://reactflow.dev/). The layout has three main regions, plus
+the assistant panel when you open it:
 
 ![Ciaren flow editor — node palette on the left, canvas in the center, config panel on the right](/screenshots/editor-full.png)
 
@@ -82,6 +85,12 @@ Opening a flow (`/flows/:flowId`) shows the node-based editor, built on
   frames.
 - **Run** — executes the whole flow and records a run.
 - **Export** — generates standalone Python (polars and pandas) for the flow.
+- **Assistant** — opens the [flow assistant](/guide/flow-assistant) panel. See
+  [The assistant panel](#the-assistant-panel) below.
+
+The toolbar above the canvas also holds the flow name, undo and redo, the
+keyboard shortcuts help, the engine picker, **Parameters**, **Schedule** and
+**Save**. **Save** shows a small dot while the canvas has unsaved edits.
 
 Building a pipeline is drag, configure, connect — no code required to start:
 
@@ -98,6 +107,57 @@ shortcut help or a node's context menu.
 
 Copy, paste, duplicate, undo and redo apply outside editable form fields.
 Redo accepts **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**.
+
+## The assistant panel
+
+Choose **Assistant** in the toolbar, or **Ask the assistant** at the bottom of
+the canvas, to open the AI flow assistant. The panel docks to the right of the
+canvas, and fills the screen on a narrow window. The **Assistant** button shows
+a dot when a reply arrives while the panel is closed. Close the panel with the
+**X** or Escape. A request keeps running while the panel is closed.
+
+The panel has two tabs. **Conversation** is where you ask. **Activity** lists
+the changes the assistant saved to this flow and lets you preview and confirm a
+reversal.
+
+The Conversation tab works from top to bottom:
+
+- **Conversation area.** Before the first request it shows a short prompt,
+  example requests under **Try**, and the **On device** canvas tools: **Check
+  canvas** and **Explain selected node**, which need no provider. After a
+  request it shows your requests and the replies: a proposal to review, a
+  question with choice buttons, an answer from the guides, or an explanation
+  of why nothing was proposed. Without an API key, it shows **Connect a
+  provider** with an **Open connections** button.
+- **Task buttons.** **Build** creates or changes nodes, **Guides** answers
+  questions from the bundled documentation, and **Diagnose** looks at the
+  latest failed run.
+- **Input dataset.** On an empty canvas, pick the dataset to start from. Build
+  can also offer **Right input for Join** and, with the ML extension,
+  **Second lookup for regression** and **Regression target**.
+- **Request box.** Type up to 1,500 characters, then choose **Create
+  proposal** (Build), **Diagnose flow** or **Ask the guides**. Ctrl+Enter sends.
+  The box shows the model in use.
+- **Data shared with provider.** Expand it to see what a request sends and to
+  opt in to **Include column names in this request**.
+
+A proposal lists every added or updated node and connection, with **Apply and
+save**, **Regenerate**, **Edit request** and **Discard**. After you apply it,
+a message offers **Undo** and **View in Activity**. See the
+[flow assistant guide](/guide/flow-assistant) for what it can build, privacy
+and limits.
+
+## The Connections page
+
+The Connections page starts with **Assistant API keys**. Each key appears as a
+row with a radio button to choose the key in use, an **In use** or **Disabled**
+badge, an **Enabled** switch, and edit and remove buttons. **Add API key**
+opens a form for the name, provider, model, reasoning effort and the key, with
+a storage notice to confirm. **Data connections** follows, with **Add
+connection**, a card per connection with **Test**, edit and delete, and the
+built-in **Local MLflow** and **Local Storage** connections. See
+[Database Connections](/guide/connections) and
+[Assistant API keys](/guide/connections#assistant-api-keys).
 
 ## Node handles
 

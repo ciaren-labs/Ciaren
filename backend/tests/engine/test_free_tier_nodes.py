@@ -198,6 +198,18 @@ class TestExplodeRows:
         out = run(engine, "explodeRows", df, {"column": "tags", "delimiter": ";"})
         assert out.index.tolist() == [0, 1, 2]
 
+    @pytest.mark.parametrize("delimiter", ["a+", "(a+)+b", ".", "||"])
+    def test_multi_character_delimiter_is_literal(self, engine, delimiter):
+        # Both engines and the exported pandas code split on the literal text, never a regex.
+        df = pd.DataFrame({"tags": [f"x{delimiter}y", "aaaaaaaaaaaaaaaaaaaaaaaaaaaa!"]})
+        config = {"column": "tags", "delimiter": delimiter}
+        out = run(engine, "explodeRows", df, config)
+        assert out["tags"].tolist() == ["x", "y", "aaaaaaaaaaaaaaaaaaaaaaaaaaaa!"]
+        code = get_transformation("explodeRows").to_python_code({"in": "df"}, {"out": "result"}, config)
+        ns = {"pd": pd, "df": df.copy()}
+        exec(code, ns)
+        assert ns["result"]["tags"].tolist() == out["tags"].tolist()
+
     def test_requires_column(self):
         node = get_transformation("explodeRows")
         with pytest.raises(ValueError, match="column"):

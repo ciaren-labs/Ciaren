@@ -59,6 +59,10 @@ appends a **new version** rather than overwriting the old one.
 - `GET /api/datasets/{id}/versions` lists versions newest-first;
   `GET /api/datasets/{id}/schema` and `.../sample` accept an optional `?version=`.
 
+Once a dataset is uploaded you can build a flow on it by hand in the editor, or
+describe the result you want to the [Flow assistant](./flow-assistant.md) and
+review its proposal. Either way, nothing runs until you choose **Run**.
+
 ### Lineage
 
 `GET /api/datasets/{id}/flows` lists the flows that use a dataset, so you can see

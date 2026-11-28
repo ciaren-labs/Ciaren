@@ -107,6 +107,13 @@ from the current `orders`; pair the flow with a [schedule](/guide/scheduling)
 for a daily refresh. *Append* adds rows on every run instead, so a rerun would
 duplicate the summary.
 
+:::info Build this one by hand
+The [Flow assistant](/guide/flow-assistant) does not add SQL Input or SQL Output
+nodes and cannot create or change connections. For a flow that uses a database
+connector it gives read-only diagnostic recommendations, so edit this graph in
+the editor.
+:::
+
 ## Where the work happens
 
 ![The WHERE clause runs inside DuckDB, so 4 of the 6 order rows reach the Ciaren canvas, which cleans and groups them into 3 rows written back to the revenue_by_region table](/illustrations/examples/duckdb-pushdown.svg)

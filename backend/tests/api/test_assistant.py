@@ -13,9 +13,19 @@ from app.core.secrets import ensure_permitted_secret_ref
 from app.db.models.app_setting import AppSetting
 from app.db.models.run import FlowRun
 from app.services import assistant_provider
+from app.services.assistant_key_service import load_active
+from app.services.assistant_scope import tool_calling as scope_tools
 
 KEY = "synthetic-assistant-credential-87432"
 ROW = "private-row-sentinel"
+# These tests cover the structured fallback planners, which serve models without tool calling.
+pytestmark = pytest.mark.usefixtures("structured_planner")
+
+
+async def failed_run(db_session, flow_id):
+    """Diagnose explains the latest failed run, so diagnosis tests record one first."""
+    db_session.add(FlowRun(flow_id=flow_id, status="failed", error_message="column error: " + ROW))
+    await db_session.commit()
 
 
 @pytest.fixture
@@ -110,7 +120,7 @@ async def test_wire_contract(provider, enabled, monkeypatch, caplog):
     assert KEY not in caplog.text and ROW not in caplog.text
 
 
-async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_session, caplog, tmp_path):
+async def test_saved_keys_and_boundaries(client, enabled, monkeypatch, db_session, caplog, tmp_path):
     entries = {}
 
     class Keychain:
@@ -123,25 +133,90 @@ async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_sessi
         def delete_password(self, service, name):
             entries.pop((service, name))
 
+    def missing():
+        raise ImportError("keyring")
+
+    # Without the keyring package the page explains how to install it.
+    monkeypatch.setattr(assistant_keys, "_backend", missing)
+    assert (await client.get("/api/assistant/keychain")).json() == {
+        "available": False,
+        "detail": "Install the OS keychain support with: pip install ciaren[keyring]",
+    }
     monkeypatch.setattr(assistant_keys, "_backend", Keychain)
-    url = "/api/assistant/credentials/openai"
-    for key in (KEY, KEY + "rotated"):
-        r = await client.put(url, json={"key": key})
-        assert r.status_code == 204 and not r.content
-        assert (await client.get("/api/assistant/status")).json()["state"] == "configured"
-    assert len(entries) == 1 and next(iter(entries))[0] != "ciaren"
-    assert (await client.put("/api/assistant/credentials/deepseek", json={"key": KEY})).status_code == 400
-    invalid = await client.put(url, json={"key": {KEY: KEY}})
-    assert invalid.status_code == 422 and KEY not in invalid.text
-    assert (
-        await client.put(url, json={"key": KEY}, headers={"Origin": "https://untrusted.invalid"})
-    ).status_code == 403
-    assert (await client.put(url, content=b"x" * 9000)).status_code == 413
+    assert (await client.get("/api/assistant/keychain")).json() == {"available": True}
+    monkeypatch.setattr(assistant_keys, "_local", None)
+    url = "/api/assistant/keys"
+    body = {"name": "Work", "provider": "openai", "model": "gpt-5", "key": KEY, "acknowledged": True}
+    # The storage notice must be confirmed, and a rejected key is never echoed.
+    for bad in ({**body, "acknowledged": False}, {**body, "key": {KEY: KEY}}, {**body, "key": f" {KEY}"}):
+        rejected = await client.post(url, json=bad)
+        assert rejected.status_code == 422 and KEY not in rejected.text
+    for model in ("gpt 5", "-gpt", "x" * 101):
+        assert (await client.post(url, json={**body, "model": model})).status_code == 422
+    assert (await client.post(url, json={**body, "effort": "max"})).status_code == 400
+
+    class Locked(Keychain):
+        def set_password(self, service, name, value):
+            raise RuntimeError(value)
+
+    # A keychain that refuses the secret leaves no saved key behind.
+    monkeypatch.setattr(assistant_keys, "_backend", Locked)
+    locked = await client.post(url, json=body)
+    assert locked.status_code == 400 and "keychain" in locked.text and KEY not in locked.text
+    assert (await client.get(url)).json() == []
+    monkeypatch.setattr(assistant_keys, "_backend", Keychain)
+    assert not entries
+    work = await client.post(url, json=body)
+    assert work.status_code == 201 and KEY not in work.text
+    work = work.json()
+    # The first key becomes the assistant's key; the secret sits in the keychain only.
+    assert work["is_active"] and work["is_enabled"]
+    assert list(entries.values()) == [KEY] and next(iter(entries))[0] != "ciaren"
+    status = (await client.get("/api/assistant/status")).json()
+    assert status == {"provider": "openai", "source": "local", "state": "configured", "model": "gpt-5", "name": "Work"}
+    assert (await client.post(url, json=body)).status_code == 409
+    # A model missing from the known list is accepted and uses tool calling.
+    custom = {**body, "name": "Personal", "provider": "anthropic", "model": "claude-next-1", "key": KEY + "b"}
+    personal = (await client.post(url, json=custom)).json()
+    assert not personal["is_active"]
+    assert assistant_provider.profile("openai") == ("gpt-5", "default")
+    activated = await client.post(f"{url}/{personal['id']}/activate")
+    assert activated.status_code == 200 and activated.json()["is_active"]
+    assert [k["is_active"] for k in (await client.get(url)).json()] == [False, True]
+    # A restart reads the chosen key back from the database.
+    assistant_keys.use_local(None)
+    await load_active(db_session)
+    assert assistant_provider.profile("anthropic") == ("claude-next-1", "default")
+    assert scope_tools("anthropic") and await assistant_provider._credential("anthropic") == KEY + "b"
+    with pytest.raises(ValidationError):
+        assistant_provider.profile("openai")
+    # Replacing a key needs the notice confirmed again.
+    patch = f"{url}/{personal['id']}"
+    # A rename that conflicts keeps the saved secret.
+    clash = await client.patch(patch, json={"name": "Work", "key": KEY + "x", "acknowledged": True})
+    assert clash.status_code == 409 and KEY + "b" in entries.values() and KEY + "x" not in entries.values()
+    assert (await client.patch(patch, json={"key": KEY + "c"})).status_code == 400
+    assert (await client.patch(patch, json={"key": KEY + "c", "acknowledged": True})).status_code == 200
+    assert KEY + "c" in entries.values()
+    # Disabling the active key turns the assistant off; a disabled key cannot be chosen.
+    disabled = (await client.patch(patch, json={"is_enabled": False})).json()
+    assert not disabled["is_enabled"] and not disabled["is_active"]
+    # Without an active saved key, the operator's environment configuration applies.
+    assert (await client.get("/api/assistant/status")).json()["source"] == "env"
+    assert (await client.post(f"{patch}/activate")).status_code == 400
+    assert (await client.delete(patch)).status_code == 204
+    assert (await client.delete(patch)).status_code == 404
+    assert list(entries.values()) == [KEY]
+    assert (await client.post(url, json=body, headers={"Origin": "https://untrusted.invalid"})).status_code == 403
+    assert (await client.post(url, content=b"x" * 9000)).status_code == 413
+    assert (await client.patch(f"{url}/{work['id']}", content=b"x" * 9000)).status_code == 413
     monkeypatch.setattr(enabled, "API_TOKEN", "ciaren-test-token")
     assert (await client.get("/api/assistant/status")).status_code == 401
-    assert (await client.delete(url)).status_code == 401
-    assert (await client.delete(url, headers={"Authorization": "Bearer ciaren-test-token"})).status_code == 204
-    assert not entries
+    assert (await client.get(url)).status_code == 401
+    assert (await client.delete(f"{url}/{work['id']}")).status_code == 401
+    auth = {"Authorization": "Bearer ciaren-test-token"}
+    assert (await client.delete(f"{url}/{work['id']}", headers=auth)).status_code == 204
+    assert not entries and assistant_keys._local is None
     for provider in PROFILES:
         with pytest.raises(ValidationError):
             ensure_permitted_secret_ref(f"CIAREN_ASSISTANT_{provider.upper()}_API_KEY")
@@ -154,7 +229,9 @@ async def test_credentials_and_boundaries(client, enabled, monkeypatch, db_sessi
 
 
 async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_session, monkeypatch):
+    empty = {"nodes": [], "edges": [], "engine": "polars"}
     flow = (await client.post("/api/flows", json={"name": "Review"})).json()
+    flow = (await client.put(f"/api/flows/{flow['id']}", json={"graph_json": empty})).json()
     other = (await client.post("/api/flows", json={"name": "Other"})).json()
     dataset = (
         await client.post("/api/datasets/upload", files={"file": ("hidden.csv", f"private_column\n{ROW}\n")})
@@ -167,7 +244,7 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
         "provider": "openai",
         "question": "Limit rows",
         "revision": flow["updated_at"],
-        "graph": {"nodes": [], "edges": [], "engine": "polars"},
+        "graph": empty,
         "dataset_id": dataset["id"],
     }
     r = await client.post(url + "/turn", json=body)
@@ -175,7 +252,7 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
     confirmation = {"proposal": r.json()["proposal"]}
     context = repr(completion.await_args.args[-1])
     assert not any(s in context for s in (dataset["id"], "hidden.csv", ROW, "private_column"))
-    assert not (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"]
+    assert (await client.get(f"/api/flows/{flow['id']}")).json()["graph_json"] == empty
     assert (await client.post(f"/api/assistant/flows/{other['id']}/apply", json=confirmation)).status_code == 409
     assert (await client.post(url + "/apply", json=confirmation)).status_code == 200
     assert (await client.post(url + "/apply", json=confirmation)).status_code == 409
@@ -201,6 +278,147 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
     assert (await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})).status_code == 409
 
 
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "config",
+        "label",
+        "extra_node",
+        "edge",
+        "parameters",
+        "omitted",
+        "position",
+        "engine",
+        "utc",
+        "offset",
+        "integral_float",
+    ],
+)
+async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, variant):
+    from copy import deepcopy
+    from datetime import datetime, timedelta, timezone
+
+    flow = (await client.post("/api/flows", json={"name": "Stored base"})).json()
+    dataset = (await client.post("/api/datasets/upload", files={"file": ("base.csv", "amount\n1\n2\n")})).json()
+    ids = ["a" * 32, "b" * 32, "c" * 32]
+    configs = [
+        {"dataset_id": dataset["id"], "format": "csv"},
+        {"n": 5, "offset": 0},
+        {"format": "csv", "dataset_name": "Base result"},
+    ]
+    stored = {
+        "engine": "pandas",
+        "nodes": [
+            {"id": i, "type": kind, "position": {"x": x, "y": 0}, "data": {"label": kind, "config": cfg}}
+            for x, (i, kind, cfg) in enumerate(zip(ids, ["fileInput", "limitRows", "fileOutput"], configs))
+        ],
+        "edges": [
+            {"id": "e1", "source": ids[0], "target": ids[1], "sourceHandle": "out", "targetHandle": "in"},
+            {"id": "e2", "source": ids[1], "target": ids[2], "sourceHandle": "out", "targetHandle": "in"},
+        ],
+    }
+    path = f"/api/flows/{flow['id']}"
+    flow = (await client.put(path, json={"graph_json": stored})).json()
+    draft = deepcopy(stored)
+    revision = flow["updated_at"]
+    if variant == "config":
+        draft["nodes"][1]["data"]["config"]["n"] = 99
+    elif variant == "label":
+        draft["nodes"][1]["data"]["label"] = "Renamed"
+    elif variant == "extra_node":
+        draft["nodes"].append({"id": ROW, "type": "pythonTransform", "data": {"label": "x", "config": {"code": ROW}}})
+    elif variant == "edge":
+        draft["edges"].pop()
+    elif variant == "parameters":
+        draft["parameters"] = [{"name": "limit", "type": "integer", "default": 1}]
+    elif variant == "position":
+        draft["nodes"][1]["position"] = {"x": 900, "y": 900}
+    elif variant == "engine":
+        draft["engine"] = "polars"
+    elif variant == "integral_float":
+        # The browser writes 0 for a stored 0.0 and the server may store 0.0 for a sent 0.
+        draft["nodes"][1]["data"]["config"]["offset"] = 0.0
+    elif variant in {"utc", "offset"}:
+        instant = datetime.fromisoformat(revision).replace(tzinfo=timezone.utc)
+        zone = timezone(timedelta(hours=2)) if variant == "offset" else timezone.utc
+        revision = instant.astimezone(zone).isoformat()
+    complete = AsyncMock(return_value={"steps": [{"kind": "limitRows", "count": 1}]})
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    body = {"mode": "build", "provider": "openai", "question": "Limit rows", "revision": revision, "graph": draft}
+    if variant == "omitted":
+        del body["graph"]
+    url = f"/api/assistant/flows/{flow['id']}"
+    r = await client.post(url + "/turn", json=body)
+    if variant in {"config", "label", "extra_node", "edge", "parameters"}:
+        assert r.status_code == 409 and r.json()["reason"] == "unsaved_changes", r.text
+        assert ROW not in r.text and complete.await_count == 0
+        assert (await client.get(path)).json()["graph_json"] == stored
+    else:
+        assert r.status_code == 200 and r.json()["expires_in"] == 180, r.text
+        applied = await client.post(url + "/apply", json={"proposal": r.json()["proposal"]})
+        assert applied.status_code == 200, applied.text
+        saved = (await client.get(path)).json()["graph_json"]
+        assert applied.json()["graph"] == saved
+        assert saved["engine"] == "pandas" and len(saved["nodes"]) == 4
+        # Only the stored base reaches the saved graph: draft presentation edits are not written.
+        assert [n for n in saved["nodes"] if n["id"] in ids] == stored["nodes"]
+
+
+@pytest.mark.parametrize(
+    ("case", "reason", "action"),
+    [
+        ("no_dataset", "no_dataset", "manual_edit"),
+        ("no_input", "no_dataset", "manual_edit"),
+        ("multiple_inputs", "multiple_inputs", "manual_edit"),
+        ("unsupported_node", "unsupported_node", "manual_edit"),
+        ("no_failed_run", "no_failed_run", "switch_mode"),
+        ("disabled_flow", "disabled_flow", None),
+        ("canvas_limit", "canvas_limit", "manual_edit"),
+    ],
+)
+async def test_preflight_refuses_before_any_provider_call(client, enabled, monkeypatch, case, reason, action):
+    flow = (await client.post("/api/flows", json={"name": "Preflight"})).json()
+    dataset = (await client.post("/api/datasets/upload", files={"file": ("pre.csv", "amount\n1\n")})).json()
+
+    def node(i, kind, config):
+        return {"id": f"n{i}", "type": kind, "position": {"x": 0, "y": 0}, "data": {"label": kind, "config": config}}
+
+    source = {"dataset_id": dataset["id"], "format": "csv"}
+    graph = {
+        "no_dataset": {"nodes": [], "edges": []},
+        "no_input": {"nodes": [node(0, "limitRows", {"n": 1, "offset": 0})], "edges": []},
+        "multiple_inputs": {"nodes": [node(0, "fileInput", source), node(1, "fileInput", source)], "edges": []},
+        "unsupported_node": {"nodes": [node(0, "pythonTransform", {"code": ROW})], "edges": []},
+        "canvas_limit": {"nodes": [node(i, "limitRows", {"n": 1, "offset": 0}) for i in range(81)], "edges": []},
+    }.get(case, {"nodes": [node(0, "fileInput", source)], "edges": []})
+    update = {"graph_json": graph, **({"is_disabled": True} if case == "disabled_flow" else {})}
+    flow = (await client.put(f"/api/flows/{flow['id']}", json=update)).json()
+    complete = AsyncMock(return_value={"steps": [{"kind": "limitRows", "count": 1}]})
+    monkeypatch.setattr(assistant_provider, "complete", complete)
+    body = {
+        "mode": "diagnose" if case == "no_failed_run" else "build",
+        "provider": "openai",
+        "question": "Limit rows",
+        "revision": flow["updated_at"],
+    }
+    r = await client.post(f"/api/assistant/flows/{flow['id']}/turn", json=body)
+    assert complete.await_count == 0
+    assert r.json()["reason"] == reason and ROW not in r.text
+    if action is None:
+        assert r.status_code == 409
+        from app.main import app
+
+        documented = app.openapi()["paths"]["/api/assistant/flows/{flow_id}/turn"]["post"]["responses"]["409"]
+        refusal = documented["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+        reasons = app.openapi()["components"]["schemas"][refusal]["properties"]["reason"]["anyOf"][0]["enum"]
+        assert {"unsaved_changes", "disabled_flow"} <= set(reasons)
+    else:
+        reply = r.json()
+        assert r.status_code == 200 and "proposal" not in reply and reply["message"]
+        assert action in {s["action"] for s in reply["suggestions"]}
+        assert case != "unsupported_node" or "limitRows" in reply["supported"]
+
+
 async def test_docs_citation_abstention(client, enabled, monkeypatch):
     flow = (await client.post("/api/flows", json={"name": "Guide"})).json()
     url = f"/api/assistant/flows/{flow['id']}/turn"
@@ -222,10 +440,14 @@ async def test_docs_citation_abstention(client, enabled, monkeypatch):
 @pytest.mark.parametrize(
     ("question", "excerpt", "source"),
     [
-        ("How do I set up an API key?", "**New API key**", "flow-assistant-quick-start"),
+        ("How do I set up an API key?", "paste the key and confirm the storage notice", "connections"),
         ("Where can I see the history of assistant changes?", "**Preview reversal**", "flow-assistant-quick-start"),
         ("Do I need an API key to use Ciaren?", "visual pipeline builder without an API key", "quick-start"),
-        ("Can Ciaren build a pipeline from a prompt?", "supported CSV operations", "flow-assistant-quick-start"),
+        (
+            "Can Ciaren build a pipeline from a prompt?",
+            "proposes real nodes, settings and connections",
+            "flow-assistant-quick-start",
+        ),
         ("How do I train a shipping cost model from three CSVs?", "seeded train/test split", "flow-assistant"),
         ("Can I connect my agent via MCP?", "does not ship a Model Context Protocol", "external-agent"),
     ],
@@ -252,7 +474,7 @@ async def test_guides_retrieve_onboarding_passages(client, enabled, monkeypatch,
     )
 
 
-async def test_scope_resources_before_provider_call(client, enabled, monkeypatch):
+async def test_scope_resources_before_provider_call(client, enabled, monkeypatch, db_session):
     flow = (await client.post("/api/flows", json={"name": "Scope"})).json()
     project = (await client.post("/api/projects", json={"name": "Separate"})).json()
     dataset = (
@@ -275,11 +497,14 @@ async def test_scope_resources_before_provider_call(client, enabled, monkeypatch
         "dataset_id": dataset["id"],
     }
     assert (await client.post(url, json=body)).status_code == 400
+    await failed_run(db_session, flow["id"])
     body["mode"] = "diagnose"
     body["graph"] = {
         "nodes": [{"id": ROW, "type": "pythonTransform", "data": {"label": ROW, "config": {"code": ROW}}}],
         "edges": [],
     }
+    saved = await client.put(f"/api/flows/{flow['id']}", json={"graph_json": body["graph"]})
+    body["revision"] = saved.json()["updated_at"]
     complete.return_value = {"check": "schema", "unexpected": ROW}
     result = await client.post(url, json=body)
     assert result.status_code == 200 and "manual edit" in result.text
@@ -287,7 +512,7 @@ async def test_scope_resources_before_provider_call(client, enabled, monkeypatch
     assert complete.await_count == 1
     monkeypatch.setattr(enabled, "ASSISTANT_ENABLED", False)
     assert (await client.post(url, json=body)).status_code == 400
-    assert (await client.put("/api/assistant/credentials/openai", json={"key": KEY})).status_code == 400
+    assert (await client.get("/api/assistant/status")).json() == {"provider": "off"}
 
 
 def test_projected_columns_and_typed_steps():
@@ -332,8 +557,6 @@ def test_file_source_rotation_and_isolation(enabled, monkeypatch, tmp_path):
     assert assistant_keys.read_key("openai").get_secret_value() == KEY
     slot.write_text(KEY + "rotated")
     assert assistant_keys.read_key("openai").get_secret_value() == KEY + "rotated"
-    with pytest.raises(ValidationError):
-        assistant_keys.write_key("openai", None)
     with pytest.raises(ConnectorError):
         ensure_allowed_path(slot, "Object")
     spec = StorageSpec(provider="local", bucket=str(tmp_path))
@@ -431,7 +654,7 @@ async def test_join_rejects_unavailable_inputs_and_plan(client, join_case, monke
 
 
 @pytest.mark.parametrize("outcome", ["valid", "abstain", "wrong_ref", "wrong_mode", "extra_field", "malformed"])
-async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeypatch, outcome):
+async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeypatch, db_session, outcome):
     from pydantic import SecretStr
 
     flow, url, body, _ = join_case
@@ -442,6 +665,8 @@ async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeyp
     path = "/api/flows/" + flow["id"]
     current = (await client.get(path)).json()
     activity = (await client.get(url + "/activity")).json()
+    await failed_run(db_session, flow["id"])
+    runs = (await client.get("/api/runs")).json()
     body.update(
         mode="diagnose",
         provider="deepseek",
@@ -499,7 +724,7 @@ async def test_deepseek_join_repair_contract(client, join_case, enabled, monkeyp
         assert response.json() == {"detail": expected}
     assert (await client.get(path)).json() == current
     assert (await client.get(url + "/activity")).json() == activity
-    assert (await client.get("/api/runs")).json() == []
+    assert (await client.get("/api/runs")).json() == runs
 
 
 @pytest.mark.parametrize("side", [0, 1])
@@ -520,6 +745,7 @@ async def test_join_repair_preserves_graph_and_checks_pinned_versions(client, jo
     join["data"]["config"]["suffixes"] = ["_a", "_b"]
     join["data"]["label"] = "private label"
     current = (await client.put(path, json={"graph_json": graph})).json()
+    await failed_run(db_session, flow["id"])
     body.update(mode="diagnose", graph=graph, revision=current["updated_at"], second_dataset_id=None)
 
     def repair(provider, instruction, context):

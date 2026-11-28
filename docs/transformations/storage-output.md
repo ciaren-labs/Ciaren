@@ -11,6 +11,10 @@ Storage, Azure Blob Storage) or a local folder via a reusable
 [Storage Connection](/guide/connections). The result is serialized and uploaded
 after the rest of the flow succeeds — a write failure marks the run failed.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never adds or edits Storage Output nodes, connections, credentials or file paths. Add and configure it in the editor.
+:::
+
 <FlowPipeline
   :nodes='[
     {"type":"input","label":"Storage Input","detail":"s3://raw-data/orders.csv"},

@@ -13,6 +13,10 @@ scheduled flows always process **fresh data**.
 During a Ciaren run, SQL sources are materialized to Parquet before the engine
 executes the flow. The portable examples below read the database directly.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never adds or edits SQL Input nodes, connections or credentials. Add and configure it in the editor.
+:::
+
 <FlowPipeline
   :nodes='[
     {"type":"input","label":"SQL Input","detail":"orders table — live DB"},

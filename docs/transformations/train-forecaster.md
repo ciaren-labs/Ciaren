@@ -9,6 +9,8 @@ Check the node's availability before planning a forecasting flow.
 
 ## What it does
 
+The [flow assistant](/guide/flow-assistant) never adds this node.
+
 Train Forecaster is a scaffold for the `timeseries` task. The built-in catalog
 currently has no forecasting estimator, so an ordinary installation has no
 model to select and the default configuration cannot train a model.

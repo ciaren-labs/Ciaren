@@ -12,6 +12,14 @@ Choose a node below for its configuration, limits and complete examples. The
 flow. A standard Ciaren installation includes scikit-learn and MLflow; optional
 XGBoost and LightGBM models need `pip install "ciaren[ml]"`.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) can add and configure every node on this page
+except Train Forecaster. It sets only documented hyperparameters up to fixed bounds
+(for example at most 500 trees), allows at most 20 cross-validation folds and 5
+repeats, and never sets preprocessing options, an MLflow experiment or a stored
+model URI.
+:::
+
 ML operations cross into pandas/scikit-learn even in Polars flows. Train nodes
 save fitted models to MLflow at runtime; exports fit pipelines in memory without
 logging or saving them. Model definitions stay unfitted for cross-validation.

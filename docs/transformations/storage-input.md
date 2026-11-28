@@ -12,6 +12,10 @@ Storage) or a local folder via a reusable
 once and materialized to a parquet snapshot so credentials never cross the
 process boundary.
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never adds or edits Storage Input nodes, connections, credentials or file paths. Add and configure it in the editor.
+:::
+
 <FlowPipeline
   :nodes='[
     {"type":"input","label":"Storage Input","detail":"s3://my-bucket/sales/2024-06.csv"},

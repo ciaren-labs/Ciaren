@@ -28,10 +28,21 @@ portable `flow_document`. It also has `notebook`, `notebook_polars`, and
 (nbformat 4, save it as `.ipynb`) when you pass `?include_notebooks=true`, and
 `null` otherwise. See [Engines → Code export](/guide/engines#code-export-pandas-polars-and-lazy-polars).
 
+`PUT /api/flows/{flow_id}` accepts an optional `expected_revision` (the flow's
+`updated_at`): when the saved flow has changed since you read it, the update is
+refused with `409` instead of overwriting the newer version. The same field is
+accepted by `POST /api/flows/{flow_id}/runs`. Clients that omit it keep the
+unconditional save and latest-version run. The editor sends it on **Save** and
+before **Run**.
+
 Previews run against the saved flow graph, not unsaved canvas edits. The preview
 path uses the same graph validation and ML feature gate as a full run, so invalid
 graphs return `400` and flows with ML nodes return `501` if ML support isn't
 enabled on the server.
+
+A flow can also be built in the editor by describing it to the
+[Flow assistant](/guide/flow-assistant), which saves through the same
+`PUT /api/flows/{flow_id}` rules only after you confirm a proposal.
 
 ## See also
 

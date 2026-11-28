@@ -88,6 +88,9 @@ const { CORE_PROVIDER, PLUGIN_PROVIDER, CORE_API_PROVIDER, SNOWFLAKE_PROVIDER, A
   };
 });
 
+// The assistant key section has its own tests and data source.
+vi.mock("../components/AssistantKeys", () => ({ AssistantKeys: () => null }));
+
 vi.mock("../hooks", () => {
   const mutationStub = () => ({
     mutate: vi.fn(),

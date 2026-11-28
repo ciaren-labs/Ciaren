@@ -81,6 +81,10 @@ Five things need fixing before the numbers are trustworthy:
 
 Select a node to see the live preview of its output, then click **Run**.
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "clean this sales file, drop refunds and total revenue and orders per region." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## What Group By Aggregate does
 
 Group By Aggregate turns many rows into one row per distinct value of the group

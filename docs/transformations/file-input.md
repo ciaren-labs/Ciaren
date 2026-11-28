@@ -29,7 +29,9 @@ Ciaren now uses one uploaded-file input node with a format selector:
 | `fileInput` | `text` | Plain text, one row per line → single `text` column |
 
 Legacy `csvInput`, `excelInput`, `parquetInput`, `jsonInput`, and `textInput`
-nodes still run in existing flows, but new flows should use **File Input**.
+nodes still run in existing flows, but new flows should use **File Input**. The
+[flow assistant](/guide/flow-assistant) also adds only File Input and leaves
+existing legacy inputs as they are.
 
 ## Use cases
 
@@ -43,7 +45,7 @@ nodes still run in existing flows, but new flows should use **File Input**.
 | --- | --- | --- | --- |
 | `dataset_id` | string | Yes | The dataset to read |
 | `dataset_version` | int | No | Pin a specific version (defaults to latest) |
-| `format` | string | Yes | How to read the file: `csv`, `tsv`, `excel`, `parquet`, `json`, `jsonl`, or `text` |
+| `format` | string | No | How to read the file: `csv` (default), `tsv`, `excel`, `parquet`, `json`, `jsonl`, or `text` |
 
 The config form only offers datasets compatible with the selected format. Changing
 the file type clears the selected dataset so you cannot accidentally run a CSV

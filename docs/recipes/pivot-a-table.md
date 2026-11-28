@@ -48,6 +48,10 @@ North,Jan,30
 
 ![Pivot Table turns month values into columns: the two North January rows, 100 and 30, sum into one cell of 130.0 in the pandas output, and the South February cell, which has no rows, is null on both engines, not 0](/illustrations/recipes/pivot-cell-placement.svg)
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "pivot the sales so each region is a row and each month is a column." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 A new flow runs on pandas, the engine shown in the editor toolbar, and Preview

@@ -8,7 +8,9 @@ search: external AI agent MCP Model Context Protocol Python SDK REST node catalo
 
 ## Does Ciaren provide an MCP server?
 
-Ciaren does not ship a Model Context Protocol (MCP) server, a stdio command for MCP clients or an MCP registration URL. The editor's Flow Assistant uses internal typed operations. Choosing a model provider in Settings configures that editor feature.
+Ciaren does not ship a Model Context Protocol (MCP) server, a stdio command for MCP clients or an MCP registration URL. The editor's Flow Assistant calls tools inside the Ciaren server through the provider's function calling. Its provider key is managed under **Connections → Assistant API keys**, or by the server environment, and applies only to that editor feature.
+
+To build and edit flows from natural language inside the editor, use the built-in assistant described in the [Flow assistant guide](flow-assistant.md). It shows every change for your review before saving.
 
 For an agent you maintain, the supported integration interfaces are the Ciaren REST API and the Python SDK. A small catalog lookup lets an agent answer a question about the installed nodes without reading a dataset or executing a pipeline.
 

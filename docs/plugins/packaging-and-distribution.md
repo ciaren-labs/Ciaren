@@ -18,8 +18,10 @@ packages from a trusted key. Ciaren cannot vet third-party plugins and is not
 responsible for their behaviour. See [Plugin Security](/security/plugin-security).
 :::
 
-> Signing/verifying needs the optional `cryptography` dependency:
-> `pip install "ciaren[signing]"`. Hashing and unsigned packages work without it.
+> Signing and checking signatures needs the optional `cryptography` dependency:
+> `pip install "ciaren[signing]"`. Hashing and unsigned packages work without it;
+> without it a signed package verifies as `untrusted` because its signature
+> cannot be checked.
 
 ## The `.ciarenplugin` format
 
@@ -159,8 +161,8 @@ ciaren-plugin search databricks --index ./marketplace.json
 ### The "Explore" catalog
 
 By default, Ciaren ships a bundled **Explore** catalog with installable
-Hello Plugin and MLP Classifier examples so users can try the plugin installation
-flow without downloading anything. Point `CIAREN_MARKETPLACE_INDEX` at a local
+Hello Plugin, HTTPS Input Connector and MLP Classifier examples so users can try
+the plugin installation flow without downloading anything. Point `CIAREN_MARKETPLACE_INDEX` at a local
 `marketplace.json` to replace that catalog, or set it to `none` to hide Explore.
 The Plugins page lists catalog entries
 (`GET /api/marketplace`), marking which are already installed. Entries whose

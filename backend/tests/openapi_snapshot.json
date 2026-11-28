@@ -1,22 +1,5 @@
 {
   "operations": {
-    "DELETE /api/assistant/credentials/{provider}": {
-      "parameters": [
-        {
-          "in": "path",
-          "name": "provider",
-          "required": true,
-          "type": "string{anthropic,deepseek,openai,opencode}"
-        }
-      ],
-      "request": null,
-      "responses": {
-        "204": null,
-        "422": {
-          "application/json": "#HTTPValidationError"
-        }
-      }
-    },
     "DELETE /api/assistant/flows/{flow_id}/turns/{request_id}": {
       "parameters": [
         {
@@ -30,6 +13,23 @@
           "name": "request_id",
           "required": true,
           "type": "string(uuid)"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "204": null,
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "DELETE /api/assistant/keys/{key_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
         }
       ],
       "request": null,
@@ -264,6 +264,33 @@
         },
         "422": {
           "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "GET /api/assistant/keychain": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "object"
+        }
+      }
+    },
+    "GET /api/assistant/keys": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#AssistantKeyRead>"
+        }
+      }
+    },
+    "GET /api/assistant/providers": {
+      "parameters": [],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "array<#ProviderModels>"
         }
       }
     },
@@ -1143,6 +1170,27 @@
         }
       }
     },
+    "PATCH /api/assistant/keys/{key_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": {
+        "application/json": "#AssistantKeyUpdate"
+      },
+      "responses": {
+        "200": {
+          "application/json": "#AssistantKeyRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
     "PATCH /api/connections/{connection_id}": {
       "parameters": [
         {
@@ -1295,7 +1343,43 @@
       },
       "responses": {
         "200": {
-          "application/json": "object"
+          "application/json": "#Reply"
+        },
+        "409": {
+          "application/json": "#Refused"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/keys": {
+      "parameters": [],
+      "request": {
+        "application/json": "#AssistantKeyCreate"
+      },
+      "responses": {
+        "201": {
+          "application/json": "#AssistantKeyRead"
+        },
+        "422": {
+          "application/json": "#HTTPValidationError"
+        }
+      }
+    },
+    "POST /api/assistant/keys/{key_id}/activate": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "key_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "request": null,
+      "responses": {
+        "200": {
+          "application/json": "#AssistantKeyRead"
         },
         "422": {
           "application/json": "#HTTPValidationError"
@@ -1891,25 +1975,6 @@
         }
       }
     },
-    "PUT /api/assistant/credentials/{provider}": {
-      "parameters": [
-        {
-          "in": "path",
-          "name": "provider",
-          "required": true,
-          "type": "string{anthropic,deepseek,openai,opencode}"
-        }
-      ],
-      "request": {
-        "application/json": "#Credential"
-      },
-      "responses": {
-        "204": null,
-        "422": {
-          "application/json": "#HTTPValidationError"
-        }
-      }
-    },
     "PUT /api/flows/{flow_id}": {
       "parameters": [
         {
@@ -2013,6 +2078,58 @@
         "value"
       ]
     },
+    "AssistantKeyCreate": {
+      "properties": {
+        "acknowledged": "boolean",
+        "effort": "string",
+        "key": "string(password)",
+        "model": "string",
+        "name": "string",
+        "provider": "string{anthropic,deepseek,openai,opencode}"
+      },
+      "required": [
+        "acknowledged",
+        "key",
+        "model",
+        "name",
+        "provider"
+      ]
+    },
+    "AssistantKeyRead": {
+      "properties": {
+        "created_at": "string(date-time)",
+        "effort": "string",
+        "id": "string",
+        "is_active": "boolean",
+        "is_enabled": "boolean",
+        "model": "string",
+        "name": "string",
+        "provider": "string{anthropic,deepseek,openai,opencode}",
+        "updated_at": "string(date-time)"
+      },
+      "required": [
+        "created_at",
+        "effort",
+        "id",
+        "is_active",
+        "is_enabled",
+        "model",
+        "name",
+        "provider",
+        "updated_at"
+      ]
+    },
+    "AssistantKeyUpdate": {
+      "properties": {
+        "acknowledged": "boolean",
+        "effort": "anyOf(null|string)",
+        "is_enabled": "anyOf(boolean|null)",
+        "key": "anyOf(null|string(password))",
+        "model": "anyOf(null|string)",
+        "name": "anyOf(null|string)"
+      },
+      "required": []
+    },
     "Body_install_plugin_api_plugins_install_post": {
       "properties": {
         "file": "string",
@@ -2038,6 +2155,36 @@
       "required": [
         "id",
         "label"
+      ]
+    },
+    "Choice": {
+      "properties": {
+        "label": "string",
+        "reply": "string"
+      },
+      "required": [
+        "label",
+        "reply"
+      ]
+    },
+    "Citation": {
+      "properties": {
+        "title": "string",
+        "url": "string"
+      },
+      "required": [
+        "title",
+        "url"
+      ]
+    },
+    "Clarification": {
+      "properties": {
+        "answer": "string",
+        "question": "string"
+      },
+      "required": [
+        "answer",
+        "question"
       ]
     },
     "CodeExportResponse": {
@@ -2150,14 +2297,6 @@
         "label"
       ]
     },
-    "Credential": {
-      "properties": {
-        "key": "string(password)"
-      },
-      "required": [
-        "key"
-      ]
-    },
     "DatasetKind": {
       "type": "string{input,output}"
     },
@@ -2211,6 +2350,21 @@
         "id",
         "row_count",
         "version_number"
+      ]
+    },
+    "Delta": {
+      "properties": {
+        "added": "array<object>",
+        "changed": "array<object>",
+        "connected": "array<object>",
+        "disconnected": "array<string>",
+        "removed": "anyOf(array<string>|null)"
+      },
+      "required": [
+        "added",
+        "changed",
+        "connected",
+        "disconnected"
       ]
     },
     "Engine": {
@@ -2796,6 +2950,49 @@
       },
       "required": []
     },
+    "ProviderModels": {
+      "properties": {
+        "efforts": "array<string>",
+        "id": "string{anthropic,deepseek,openai,opencode}",
+        "label": "string",
+        "models": "array<string>"
+      },
+      "required": [
+        "efforts",
+        "id",
+        "label",
+        "models"
+      ]
+    },
+    "Refused": {
+      "properties": {
+        "detail": "string",
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,needs_choice,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})"
+      },
+      "required": [
+        "detail"
+      ]
+    },
+    "Reply": {
+      "properties": {
+        "ask": "anyOf(null|string)",
+        "choices": "anyOf(array<#Choice>|null)",
+        "citation": "anyOf(#Citation|null)",
+        "delta": "anyOf(#Delta|null)",
+        "expires_in": "anyOf(integer|null)",
+        "message": "string",
+        "notes": "anyOf(array<string>|null)",
+        "proposal": "anyOf(null|string)",
+        "reason": "anyOf(null|string{abstained,budget_exhausted,canvas_limit,disabled_flow,locked_node,ml_disabled,multiple_inputs,needs_choice,no_change,no_dataset,no_failed_run,provider_error,provider_no_tools,step_limit,timeout,unsaved_changes,unsupported_node,validation_failed})",
+        "steps": "anyOf(array<#ToolStep>|null)",
+        "suggestions": "anyOf(array<#Suggestion>|null)",
+        "supported": "anyOf(array<string>|null)",
+        "usage": "anyOf(#Usage|null)"
+      },
+      "required": [
+        "message"
+      ]
+    },
     "RevertPreview": {
       "properties": {
         "revision": "string(date-time)"
@@ -2928,6 +3125,17 @@
     "SortOrder": {
       "type": "string{asc,desc}"
     },
+    "Suggestion": {
+      "properties": {
+        "action": "string{enable_ml,manual_edit,open_docs,retry,save,share_names,switch_mode}",
+        "label": "string",
+        "target": "anyOf(null|string)"
+      },
+      "required": [
+        "action",
+        "label"
+      ]
+    },
     "TableInfo": {
       "properties": {
         "name": "string",
@@ -2937,6 +3145,16 @@
       "required": [
         "name",
         "qualified"
+      ]
+    },
+    "ToolStep": {
+      "properties": {
+        "ok": "boolean",
+        "tool": "string"
+      },
+      "required": [
+        "ok",
+        "tool"
       ]
     },
     "TrainingSelection": {
@@ -2976,8 +3194,9 @@
     },
     "Turn": {
       "properties": {
+        "clarifications": "array<#Clarification>",
         "dataset_id": "anyOf(null|string)",
-        "graph": "object",
+        "graph": "anyOf(null|object)",
         "mode": "string{build,diagnose,docs}",
         "provider": "string{anthropic,deepseek,openai,opencode}",
         "question": "string",
@@ -2993,6 +3212,14 @@
         "question",
         "revision"
       ]
+    },
+    "Usage": {
+      "properties": {
+        "calls": "integer",
+        "input_tokens": "integer",
+        "output_tokens": "integer"
+      },
+      "required": []
     },
     "ValidationError": {
       "properties": {

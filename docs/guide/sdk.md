@@ -17,6 +17,9 @@ The package is typed and ships
 Apache-2.0.
 
 For a read-only catalog function you can expose to your own agent, follow [Connect your own agent to Ciaren](external-agent.md).
+The SDK does not wrap the [Flow assistant](flow-assistant.md) endpoints, which belong
+to the editor. To build a flow without the editor, create it with `create_flow` from
+a graph you have written or exported.
 
 ## Installation
 
@@ -92,7 +95,7 @@ names and are awaited.
 | Flows | `list_flows`, `create_flow`, `import_flow`, `get_flow`, `update_flow`, `delete_flow`, `duplicate_flow`, `migrate_flow_document`, `preview_flow`, `export_flow_python`, `list_flow_schedules`, `list_flow_ml_experiments` |
 | Runs | `create_run`, `list_runs`, `get_run`, `cancel_run`, `retry_run`, `download_run_output`, `stream_logs` |
 | Schedules | `create_schedule`, `list_schedules`, `get_schedule`, `update_schedule`, `delete_schedule`, `run_schedule_now`, `list_schedule_runs` |
-| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `test_connection_config`, `list_connection_providers`, `list_connection_tables`, `list_connection_objects`, `keyring_availability`, `store_keyring_secret`, `get_keyring_secret_status`, `delete_keyring_secret` |
+| Connections | `list_connections`, `create_connection`, `get_connection`, `update_connection`, `delete_connection`, `test_connection`, `test_connection_config`, `list_connection_providers`, `list_connection_tables`, `list_connection_objects`, `detect_connection_object_dialect`, `keyring_availability`, `store_keyring_secret`, `get_keyring_secret_status`, `delete_keyring_secret` |
 | Catalog and transforms | `list_catalog_nodes`, `list_catalog_connectors`, `list_catalog_exporters`, `list_catalog_categories`, `list_transformations`, `preview_transformation` |
 | Settings | `list_settings`, `update_setting`, `reset_setting` |
 | ML | `get_run_ml_metrics`, `register_run_model`, `list_registered_models`, `list_model_catalog`, `set_model_alias`, `clear_model_alias`, `list_ml_experiments`, `list_flow_ml_experiments`, `list_ml_experiment_runs` |
@@ -163,7 +166,7 @@ runs = client.list_runs(
 
 ```python
 run = client.get_run("run-id")
-print(run["status"])  # "pending" | "running" | "success" | "failed"
+print(run["status"])  # "pending" | "running" | "success" | "failed" | "cancelled"
 ```
 
 `retry_run` re-runs the same flow with the original run's config, creating a

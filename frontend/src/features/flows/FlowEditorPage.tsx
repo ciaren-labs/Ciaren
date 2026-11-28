@@ -79,6 +79,8 @@ export function FlowEditorPage() {
     }
   };
   const [exportOpen, setExportOpen] = useState(false);
+  const [canvasHost, setCanvasHost] = useState<HTMLDivElement | null>(null);
+  const [assistantHost, setAssistantHost] = useState<HTMLDivElement | null>(null);
   const [paramsOpen, setParamsOpen] = useState(false);
   const [runParamsOpen, setRunParamsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -231,8 +233,13 @@ export function FlowEditorPage() {
   useLayoutEffect(() => {
     latestCanvas.current = assistantCanvas;
   });
-  const saveCanvas = (run: boolean, paramValues?: Record<string, unknown>) => {
-    if (!flowId || !revision) return;
+  // `done` receives the saved revision when the canvas is clean afterwards, otherwise null.
+  const saveCanvas = (
+    run: boolean,
+    paramValues?: Record<string, unknown>,
+    done?: (revision: string | null) => void,
+  ) => {
+    if (!flowId || !revision) return done?.(null);
     const graph = assistantCanvas();
     const snapshot = JSON.stringify(graph);
     const session = useFlowEditorStore.getState().sessionId;
@@ -240,19 +247,21 @@ export function FlowEditorPage() {
     const onError = (error: Error) => {
       if (inSession() && error instanceof ApiError && error.status === 409) setConflict(true);
     };
-    updateFlow.mutate(
-      { id: flowId, body: { graph_json: graph, expected_revision: revision } },
-      {
-        onError,
-        onSuccess: (result) => {
-          if (!inSession()) return;
+    // mutateAsync, not per-call callbacks: a second mutate (Save, Run) detaches
+    // the earlier callbacks and `done` would never run, leaving its caller waiting.
+    void updateFlow
+      .mutateAsync({ id: flowId, body: { graph_json: graph, expected_revision: revision } })
+      .then(
+        (result) => {
+          if (!inSession()) return done?.(null);
           const unchanged = JSON.stringify(latestCanvas.current()) === snapshot;
           rememberSave(result.updated_at, result.graph_json);
           if (!unchanged) {
             toast.success("Saved the reviewed version. Later canvas edits remain pending.");
-            return;
+            return done?.(null);
           }
           markClean();
+          done?.(result.updated_at);
           if (run) {
             createRun.mutate(
               { engine, parameters: paramValues, expectedRevision: result.updated_at },
@@ -267,9 +276,20 @@ export function FlowEditorPage() {
             );
           } else toast.success("Flow saved");
         },
-      },
-    );
+        (error: Error) => {
+          onError(error);
+          done?.(null);
+        },
+      );
   };
+
+  // The palette search, or its expand button when the palette is collapsed.
+  const focusPalette = () =>
+    document
+      .querySelector<HTMLElement>(
+        'input[placeholder="Search nodes…"], button[aria-label="Show nodes panel"]',
+      )
+      ?.focus();
 
   if (isPending) {
     return (
@@ -332,11 +352,15 @@ export function FlowEditorPage() {
               }}
               datasets={datasets ?? []}
               current={assistantCanvas}
+              floatingHost={canvasHost}
+              dockHost={assistantHost}
               saved={(value, graph) => {
                 rememberSave(value, graph);
                 void refetch();
                 void refetchDatasets();
               }}
+              save={() => new Promise((resolve) => saveCanvas(false, undefined, resolve))}
+              focusPalette={focusPalette}
             />
           }
           flowName={flow.name}
@@ -398,7 +422,7 @@ export function FlowEditorPage() {
         <div className="flex min-h-0 flex-1">
           <NodePalette onAdd={handleAddNode} unlocked={inputReady} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1">
+            <div ref={setCanvasHost} className="relative min-h-0 flex-1">
               {graphReadyForFlowId === flow.id ? (
                 <FlowCanvas key={flow.id} />
               ) : (
@@ -423,6 +447,7 @@ export function FlowEditorPage() {
             )}
           </div>
           <NodeSidebar />
+          <div ref={setAssistantHost} className="flex min-h-0 shrink-0" />
         </div>
       </div>
 

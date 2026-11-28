@@ -59,8 +59,9 @@ df_2 = df_1.drop_nulls(subset='amount')
 
 ## Tips & common mistakes
 
-- **`how: all` needs a `subset`** to be meaningful row-wise — pair it with the
-  columns that define an "empty" row.
+- **`how: all` drops only rows where every checked column is null.** Without a
+  `subset` it checks every column; pair it with a `subset` to define which
+  columns make a row "empty".
 - To *keep* rows and fill the gaps instead, use [Fill nulls](./fill-nulls.md).
 
 ## See also

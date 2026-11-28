@@ -14,7 +14,8 @@ chosen unit.
 ## Use cases
 
 - Days between `order_date` and `ship_date`.
-- Customer age in years from `birth_date` to today (with a constant column).
+- Customer tenure in days from `signup_date` to a reference date column
+  (units are seconds, minutes, hours, days or weeks, not years).
 - Hours elapsed between two timestamps.
 
 ## What it does

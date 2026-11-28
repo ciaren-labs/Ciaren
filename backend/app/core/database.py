@@ -127,6 +127,7 @@ async def init_db() -> None:
     # without creating an import cycle (models import Base from this module).
     from app.db.models import (  # noqa: F401
         app_setting,
+        assistant_key,
         connection,
         dataset,
         dataset_version,

@@ -203,9 +203,9 @@ Some operations execute code or touch credentials. Ciaren already enforces:
   format) is the one that's genuinely code-free. See
   [Local-first trust model](/security/local-first-trust-model) and
   `app/ml/security.py`.
-- **Connection secrets are referenced, not stored** — passwords live in environment
-  variables (`password_env`); they never enter the flow graph, `.flow` files, or
-  exported code.
+- **Connection secrets are referenced, not stored** — a connection keeps only a
+  reference (`env:`, `keyring:` or `file:`, in `password_env`); the value never
+  enters the database, the flow graph, `.flow` files, or exported code.
 - **Custom SQL / Python** runs with local-process privileges — fine for local use;
   for shared environments add read-only connections and audit logging (roadmap).
 

@@ -9,6 +9,10 @@ description: Write Ciaren results to SQL tables with replace, append or fail pol
 Write the result to a database table via a reusable
 [Connection](/guide/connections).
 
+::: tip Flow assistant
+The [flow assistant](/guide/flow-assistant) never adds or edits SQL Output nodes, connections or credentials. Add and configure it in the editor.
+:::
+
 <FlowPipeline
   :nodes='[
     {"type":"input","label":"SQL Input","detail":"raw orders"},

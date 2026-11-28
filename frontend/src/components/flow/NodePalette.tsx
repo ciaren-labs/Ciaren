@@ -34,9 +34,10 @@ interface NodePaletteProps {
 }
 
 export function NodePalette({ onAdd: onAddProp, unlocked }: NodePaletteProps) {
-  // Accordion: all sections collapsed by default per design. Categories are
-  // strings (not just the built-in union) so plugin-contributed categories work.
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Accordion: Inputs starts open, since every flow begins with one; the other
+  // sections start collapsed. Categories are strings (not just the built-in
+  // union) so plugin-contributed categories work.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(["input"]));
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState(() => {
     return readLocalStorage("ciaren_palette_collapsed") === "true";
@@ -341,6 +342,7 @@ function PaletteAccordion({
             <button
               type="button"
               onClick={() => toggle(category)}
+              aria-expanded={isOpen}
               className={cn(
                 "flex items-center gap-2 rounded-md px-1.5 py-2 text-left transition-colors hover:bg-muted",
                 locked && "opacity-60",

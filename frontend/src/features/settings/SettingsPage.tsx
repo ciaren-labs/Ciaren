@@ -1,6 +1,5 @@
-import { CredentialSettings } from "@/features/assistant/CredentialSettings";
-import { useEffect, useRef, useState } from "react";
-import { Check, Info, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Info, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -35,7 +34,7 @@ function SourceBadge({ setting }: { setting: AppSetting }) {
       </span>
     );
   }
-  return setting.category === "Assistant" ? <span className="text-xs text-muted-foreground">Default</span> : null;
+  return null;
 }
 
 /** Client-side mirror of the backend's validation, for instant feedback only —
@@ -80,24 +79,13 @@ function SettingRow({ setting }: { setting: AppSetting }) {
           <h3 className="text-sm font-medium">{setting.label}</h3>
           <SourceBadge setting={setting} />
         </div>
-        {setting.category === "Assistant" ? (
-          <details className="mt-1 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Configuration details</summary>
-            <p className="mt-1">{setting.description}</p>
-            <code className="break-all">{setting.env_var}</code>
-            {setting.source === "override" && <p>Reset to follow the server environment.</p>}
-          </details>
-        ) : (
-          <>
-            <p className="mt-1 text-xs text-muted-foreground">{setting.description}</p>
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">{setting.env_var}</p>
-            {setting.source === "override" && (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400">
-                <Info className="h-3 w-3 shrink-0" />
-                Set from this page — changes to {setting.env_var} are ignored until you press Reset.
-              </p>
-            )}
-          </>
+        <p className="mt-1 text-xs text-muted-foreground">{setting.description}</p>
+        <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">{setting.env_var}</p>
+        {setting.source === "override" && (
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400">
+            <Info className="h-3 w-3 shrink-0" />
+            Set from this page — changes to {setting.env_var} are ignored until you press Reset.
+          </p>
         )}
         {setting.restart_required && (
           <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
@@ -175,11 +163,6 @@ function SettingRow({ setting }: { setting: AppSetting }) {
 
 export function SettingsPage() {
   const { data: settings, isPending, isError, error, refetch } = useAppSettings();
-  const assistantSection = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!isPending && window.location.hash === "#assistant") assistantSection.current?.scrollIntoView({block:"start"});
-  }, [isPending]);
-  const provider = String(settings?.find(s => s.key === "ASSISTANT_PROVIDER")?.value ?? "off");
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -198,27 +181,14 @@ export function SettingsPage() {
       ) : (
         <div className="space-y-8">
           {groupByCategory(settings ?? []).map(([category, items]) => (
-            <section
-              key={category}
-              aria-label={category}
-              id={category === "Assistant" ? "assistant" : undefined}
-              ref={category === "Assistant" ? assistantSection : undefined}
-            >
-              {category === "Assistant" ? (
-                <h2 className="assistant-mast flex items-center gap-3 rounded-t-xl px-4 py-3 font-semibold text-white">
-                  <Sparkles aria-hidden className="size-5" /> Flow assistant
-                </h2>
-              ) : (
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {category}
-                </h2>
-              )}
-              <div className={cn("divide-y divide-border rounded-xl border border-border bg-card", category === "Assistant" && "rounded-t-none")}>
-                {items.filter(s => category !== "Assistant" || s.key === "ASSISTANT_PROVIDER" ||
-                  s.key.startsWith(`ASSISTANT_${provider.toUpperCase()}_`)).map((s) => (
+            <section key={category} aria-label={category}>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {category}
+              </h2>
+              <div className="divide-y divide-border rounded-xl border border-border bg-card">
+                {items.map((s) => (
                   <SettingRow key={s.key} setting={s} />
                 ))}
-                {category === "Assistant" && <CredentialSettings key={provider} provider={provider} />}
               </div>
             </section>
           ))}

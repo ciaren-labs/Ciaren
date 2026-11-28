@@ -14,11 +14,18 @@ everywhere in the editor and the API. This walkthrough uses the visual editor;
 an API-only version is at the bottom for developers who want to inspect the
 REST surface.
 
+:::tip Prefer to describe the flow?
+With your own provider API key, the AI flow assistant can propose a flow like the
+one below from a sentence, and you edit it on the canvas afterwards. Follow the
+[AI quick start](flow-assistant-quick-start.md). It is available from a source
+build, not from the published 0.3.1 package.
+:::
+
 ## Do I need an API key to use Ciaren?
 
 No. Use the visual pipeline builder without an API key for a model provider. You can upload a CSV, connect nodes yourself, validate and run the flow locally, and export pandas or Polars code. A remote data service may require separate credentials if you choose its connector.
 
-To have Ciaren propose the nodes from a prompt, follow the [AI quick start](flow-assistant-quick-start.md).
+To have Ciaren propose the nodes from a prompt instead, follow the [AI quick start](flow-assistant-quick-start.md).
 
 ## Before You Start
 
@@ -104,7 +111,7 @@ Open the run from the **Runs** page to inspect each node and download the output
 
 ## 4. Export Python
 
-Click **Export → Python**. Ciaren returns standalone, readable code for your
+Click **Export**. Ciaren returns standalone, readable code for your
 flow, including **polars**, **pandas**, and **lazy polars** variants where
 available. Paste it into a script or a Jupyter notebook and it runs on its own,
 no Ciaren required.
@@ -154,7 +161,7 @@ ready-made flows step by step, from a linear cleanup to a three-input join.
 
 Other places to go from here:
 
-- [Set up the AI flow assistant](flow-assistant-quick-start.md) — review, save and reverse a CSV cleanup
+- [Set up the AI flow assistant](flow-assistant-quick-start.md) — describe a flow, review it, save it and reverse a saved change
 - [Interface Tour](/guide/interface) — learn the editor
 - [Transformations Reference](/transformations/overview) — all node types
 - [Examples](/examples/sales-analysis) — real-world, end-to-end walkthroughs

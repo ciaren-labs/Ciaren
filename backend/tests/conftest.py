@@ -74,3 +74,14 @@ async def client(db_session, tmp_path, monkeypatch):
         yield c
     app.dependency_overrides.clear()
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def structured_planner(monkeypatch):
+    """Serve build turns with the structured fallback planners: no assistant model calls tools."""
+    from dataclasses import replace
+
+    from app.core.assistant_profiles import PROFILES
+
+    for name, profile in PROFILES.items():
+        monkeypatch.setitem(PROFILES, name, replace(profile, tools=()))

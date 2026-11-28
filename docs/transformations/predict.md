@@ -28,6 +28,10 @@ reference has no trained artifact: use a Train node for prediction. Preview
 passes input rows through without loading the model or calculating predictions.
 Run the flow to see scored rows.
 
+The [flow assistant](/guide/flow-assistant) can add Predict, but only with the
+wired model: it never sets `model_uri`, so a stored model URI is always entered
+by hand.
+
 ## Configuration
 
 | Config key | Type | Required | Description |

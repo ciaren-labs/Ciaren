@@ -35,7 +35,7 @@ CIAREN_MLFLOW_TRACKING_URI=http://your-mlflow:5000   # or sqlite:///./mlflow.db
 …or edit the built-in **Local MLflow** connection in the **Connections** page
 (see below) — the connection is the source of truth and overrides the env var.
 
-Check it's ready with `ciaren check` — you should see `ml: ok`. If it isn't (or
+Check it's ready with `ciaren check` — you should see an `[ok] ml: enabled` line. If it isn't (or
 the **Machine Learning** palette section is missing), `CIAREN_ML_ENABLED` was
 probably set to `false`, or the install is broken/stripped-down.
 
@@ -150,6 +150,14 @@ in your own exported pipeline when you need them.
 5. **Evaluate** — connect Predict. Set the task type and the prediction column
    (`prediction`); choose metrics or accept the defaults.
 6. **Output** — connect a **File Output** to Evaluate to save the metrics table.
+
+:::tip Prefer to describe it?
+With a provider key set up, the [Flow assistant](./flow-assistant.md) can propose
+a flow like this from a request such as "train a random forest with 5-fold cross
+validation and show feature importance". You review the nodes, settings and wiring
+before saving, and training starts only when you choose **Run**. The assistant
+does not add forecasting models. Build those by hand.
+:::
 
 ::: tip Multi-output nodes
 Train / Test Split has two outputs (`train`, `test`). Train Classifier emits a

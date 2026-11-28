@@ -51,6 +51,9 @@ interface FlowEditorState {
   sidebarOpen: boolean;
   previewOpen: boolean;
   dirty: boolean;
+  /** Bumped to draw attention to the Save button, e.g. when the assistant needs a saved canvas. */
+  saveNudge: number;
+  nudgeSave: () => void;
   /** Ids of nodes that currently have validation errors (for canvas badges). */
   invalidNodeIds: string[];
   /** Project the current flow belongs to — used to scope the dataset picker. */
@@ -145,6 +148,8 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   sidebarOpen: false,
   previewOpen: false,
   dirty: false,
+  saveNudge: 0,
+  nudgeSave: () => set((s) => ({ saveNudge: s.saveNudge + 1 })),
   invalidNodeIds: [],
   flowProjectId: null,
   parameters: [],

@@ -44,6 +44,10 @@ stored as a number with the cell format `00000`, so Excel shows `02134`:
 
 ![A workbook with a Summary sheet and an Orders sheet: only the named sheet becomes the dataset, and the Parquet file stores one type per column, with the zip that Excel shows as 02134 stored as the number 2134](/illustrations/recipes/excel-one-sheet.svg)
 
+:::tip Prefer to describe it?
+With a provider key set up, upload the sample data, open a blank flow in the same project and ask the [Flow assistant](/guide/flow-assistant), for example: "write this dataset as a Parquet file." Review the proposed nodes and settings, then choose **Apply and save**. The manual steps above build the same flow. Pick the worksheet in **Import options** when you upload, as in step 1. The assistant never runs a flow, so click **Run** yourself.
+:::
+
 ## Result
 
 `orders.parquet` has 3 rows and these column types:

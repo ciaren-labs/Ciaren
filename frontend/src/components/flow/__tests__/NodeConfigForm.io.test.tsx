@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,7 +38,7 @@ vi.mock("@/features/connections/api", () => ({
     tables: vi.fn(() =>
       Promise.resolve([{ name: "orders", schema_name: "public", qualified: "public.orders" }]),
     ),
-    objects: vi.fn(() => Promise.resolve(["data/input.csv", "data/report.xlsx", "notes.txt", "raw.bin"])),
+    objects: vi.fn(() => Promise.resolve(["data/input.csv", "data/report.xlsx", "notes.txt", "raw.bin", "uploads/3a4e2a57-ca4f-4a73-a272-e5e1eb3448de_regional_actuals.csv"])),
     objectDialect: vi.fn(() => Promise.resolve({ delimiter: null, encoding: null, decimal: null })),
   },
 }));
@@ -97,12 +97,18 @@ describe("NodeConfigForm — sqlOutput connection picker", () => {
 });
 
 describe("NodeConfigForm — storageInput", () => {
-  it("lists only supported file extensions and filters out unsupported ones", async () => {
-    renderForm({ type: "storageInput", config: { connection_id: "s3-1" } });
-    expect(await screen.findByText("data/input.csv")).toBeInTheDocument();
-    expect(screen.getByText("data/report.xlsx")).toBeInTheDocument();
-    expect(screen.getByText("notes.txt")).toBeInTheDocument();
-    expect(screen.queryByText("raw.bin")).not.toBeInTheDocument();
+  it("lists supported files as options with readable names", async () => {
+    renderForm({ type: "storageInput", config: { connection_id: "s3-1", path: "data/report.xlsx" } });
+    const group = await screen.findByRole("radiogroup", { name: "Files in this connection" });
+    const names = within(group).getAllByRole("radio").map((r) => r.getAttribute("aria-label"));
+    expect(names).toEqual([
+      "input.csv in data/",
+      "report.xlsx in data/",
+      "notes.txt",
+      "regional_actuals.csv in uploads/",
+    ]);
+    expect(within(group).getByRole("radio", { name: "report.xlsx in data/" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "input.csv in data/" })).toHaveAttribute("aria-checked", "false");
   });
 
   it("infers the format from the picked file's extension", async () => {
@@ -110,7 +116,7 @@ describe("NodeConfigForm — storageInput", () => {
     const onChange = vi.fn();
     renderForm({ type: "storageInput", config: { connection_id: "s3-1" }, onChange });
 
-    await user.click(await screen.findByText("data/report.xlsx"));
+    await user.click(await screen.findByRole("radio", { name: "report.xlsx in data/" }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ path: "data/report.xlsx", format: "excel" }),
     );
@@ -198,7 +204,7 @@ describe("NodeConfigForm — storageInput CSV dialect", () => {
     const onChange = vi.fn();
     const { unmount } = renderForm({ type: "storageInput", config: { ...CSV_CONFIG, delimiter: ";" }, onChange });
 
-    await user.click(await screen.findByText("data/report.xlsx"));
+    await user.click(await screen.findByRole("radio", { name: "report.xlsx in data/" }));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ path: "data/report.xlsx", format: "excel", delimiter: undefined }),
     );
@@ -206,7 +212,7 @@ describe("NodeConfigForm — storageInput CSV dialect", () => {
 
     unmount();
     renderForm({ type: "storageInput", config: { connection_id: "s3-1", path: "data/report.xlsx", format: "excel" } });
-    await screen.findByText("data/report.xlsx");
+    await screen.findByRole("radio", { name: "report.xlsx in data/" });
     expect(screen.queryByLabelText("Decimal mark")).not.toBeInTheDocument();
   });
 });

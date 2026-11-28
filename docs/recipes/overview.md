@@ -11,6 +11,11 @@ exact node settings, the expected result, a way to check it, and the
 exported pandas and Polars code. For end-to-end projects, see the
 [Examples](/examples/sales-analysis).
 
+The steps place each node by hand, and that stays the reference. If you have the
+[Flow assistant](/guide/flow-assistant) set up, you can instead upload the sample
+data and describe the task in your own words. It proposes the same nodes, and you
+review them before saving.
+
 ## Format conversion
 
 - [Convert Excel to Parquet](/recipes/convert-excel-to-parquet): import one
