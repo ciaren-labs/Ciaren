@@ -799,3 +799,11 @@ async def test_bounded_nodes_are_sized_before_they_run(client: AsyncClient, db_s
     graph = _graph(ds, {"id": "keep", "type": "dropNulls", "data": {"config": {}}})
     result = await preview_graph(db_session, ds["project_id"], graph, None, limit=5, profile=False)
     assert [(i.node, i.code) for i in result.issues] == [("keep", "limit")] and not calls
+
+
+def test_assertion_passthrough_covers_every_registered_assertion() -> None:
+    # A new value-dependent check must be classified, or it would answer guesses.
+    from app.engine.registry import list_transformation_types
+
+    registered = {t for t in list_transformation_types() if t.startswith("assert")}
+    assert registered == preview_service.ASSERTION_TYPES

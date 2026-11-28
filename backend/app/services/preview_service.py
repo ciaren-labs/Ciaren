@@ -489,6 +489,12 @@ def _config_entries(config: Any) -> int:
     return 0
 
 
+#: Data-quality checks whose pass or fail depends on row values.
+ASSERTION_TYPES = frozenset(
+    {"assertNotNull", "assertUnique", "assertValueRange", "assertExpression", "assertValuesInSet", "assertRowCount"}
+)
+
+
 def _check_size(rows: int, cols: int) -> None:
     if rows > PREVIEW_MAX_NODE_ROWS or rows * max(cols, 1) > PREVIEW_MAX_CELLS:
         raise PreviewLimit("node output would exceed the preview row or cell cap")
@@ -502,15 +508,20 @@ class _PreviewExecutor(FlowExecutor):
     example a pathological regex) can overrun it. The size caps keep each node small.
     """
 
-    def __init__(self, deadline: float) -> None:
+    def __init__(self, deadline: float, skip_assertions: bool = False) -> None:
         super().__init__()
         self.deadline = deadline
+        self.skip_assertions = skip_assertions
 
     def _node_outputs(
         self, engine: Any, node: dict[str, Any], incoming: dict[str, Any], outputs: dict[str, Any], *rest: Any
     ) -> Any:
         if monotonic() >= self.deadline:
             raise PreviewLimit("preview deadline reached")
+        if self.skip_assertions and node["type"] in ASSERTION_TYPES:
+            # Pass the rows through unchecked: the check's outcome would tell the
+            # caller whether a guessed value occurs in the data.
+            return {"out": _build_inputs(incoming.get(node["id"], []), outputs)["in"]}, None
         rule = EXPANSION.get(node["type"])
         if rule is not None:
             inputs = _build_inputs(incoming.get(node["id"], []), outputs)
@@ -639,13 +650,15 @@ async def preview_graph(
     sample_rows: int = 2000,
     *,
     expression_guard: Callable[[str], None] | None = None,
+    skip_assertions: bool = False,
 ) -> GraphPreview:
     """Preview an unsaved graph on the first ``sample_rows`` rows of each input.
 
     Nodes outside the preview allowlist return ``policy`` issues before anything
     runs. Expression nodes are allowed only when ``expression_guard`` returns for
     each of their expressions; it rejects one by raising. Graph shape limits, size
-    estimates, the row cap and the deadline return ``limit`` issues.
+    estimates, the row cap and the deadline return ``limit`` issues. With
+    ``skip_assertions`` data-quality assertions pass their rows through unchecked.
 
     With ``node_id`` only that node's upstream slice is computed; without it the
     whole graph is computed and the deepest node is the target. Every input must
@@ -672,7 +685,7 @@ async def preview_graph(
     guard_graph_ml_enabled(graph)
     dataset_paths, _ = await build_dataset_paths(db, graph)
     engine = _SampleEngine(sample_rows)
-    executor = _PreviewExecutor(monotonic() + PREVIEW_DEADLINE_SECONDS)
+    executor = _PreviewExecutor(monotonic() + PREVIEW_DEADLINE_SECONDS, skip_assertions)
 
     def _compute() -> GraphPreview:
         try:

@@ -480,6 +480,39 @@ async def test_node_gates_run_before_any_preview(client, db_session, monkeypatch
     assert previews == []
 
 
+@pytest.mark.parametrize(
+    "check",
+    [
+        {"type": "assertRowCount", "config": {"min_rows": 1}},
+        {"type": "assertValuesInSet", "config": {"column": "c0", "allowed": ["guess"]}},
+        {"type": "assertExpression", "config": {"expression": "c0 != 'guess'"}},
+    ],
+)
+async def test_validate_does_not_answer_guesses_through_assertions(client, db_session, check):
+    from app.services.assistant_tools import verify
+
+    dataset = await upload(client, "g.csv", f"name,amount\n{VALUE},3\nb,4\n")
+    ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]})
+    outcomes = []
+    for guess in (VALUE, "wrong"):
+        config = json.loads(json.dumps(check["config"]).replace("guess", guess))
+        ops = [
+            add("src", "fileInput", dataset_id="d0"),
+            add("f", "filterRows", column="c0", operator="==", value=guess),
+            add("chk", check["type"], **config),
+            add("out", "fileOutput", dataset_name="G"),
+            wire("src", "f"),
+            wire("f", "chk"),
+            wire("chk", "out"),
+        ]
+        work, result = await propose_edit(ctx, edit_of(*ops), start({}))
+        assert result["ok"], result
+        ctx.graph, ctx.refs = work.graph, work.refs
+        outcomes.append(await verify.validate(ctx, verify.Validate(), work))
+    # The data checks run when the flow runs; in the assistant's preview they pass through.
+    assert outcomes[0] == outcomes[1] and outcomes[0]["ok"], outcomes
+
+
 async def test_counts_need_share_values(client, db_session):
     from app.services.assistant_tools import verify
 

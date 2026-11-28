@@ -72,7 +72,7 @@ Access follows the installation’s existing server authentication. The timeline
 
 Every request includes the text you enter. Keep credentials and confidential row values out of that text. Graph requests additionally include supported node types, indexed connections, column indexes and coarse types. For two-input creation, the provider receives temporary input and port references and the indexes of matching keys. A Join repair sends the question, a temporary Join reference, its current mode and, during diagnosis, a fixed error category. Opt in to column names for a single request when they matter. Documentation questions send up to five bundled passages without canvas context.
 
-Previews of a proposed node send the provider only column references, types and whether a column is numeric: no row values, counts, or flags such as whether a result is empty. Otherwise a provider could test guesses about your data, for example whether a filter matches any row.
+Previews of a proposed node send the provider only column references, types and whether a column is numeric: no row values, counts, or flags such as whether a result is empty. Otherwise a provider could test guesses about your data, for example whether a filter matches any row. For the same reason, data-quality checks such as Assert Row Count pass their rows through unchecked in these previews; they run when you run the flow.
 
 Files, samples, filenames, dataset IDs, connection details, node labels, scripts, full configuration, raw logs and error traces stay on the server. Recommendations and citations are rendered as text. The assistant cannot run a pipeline. Review uses ordinary Ciaren nodes, so the existing run, export and undo controls continue to work.
 
