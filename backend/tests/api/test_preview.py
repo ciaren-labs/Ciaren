@@ -766,6 +766,18 @@ async def test_split_column_estimate_counts_intermediate_pieces(client: AsyncCli
     assert issues == [("big", "limit")]
 
 
+async def test_bounded_width_counts_config_list_entries(client: AsyncClient, db_session, monkeypatch) -> None:
+    # A repeated column list multiplies the width of a "bounded" node.
+    from app.engine.transformations.columns import SelectColumnsTransformation
+
+    rows = [{"id": i, "name": "x"} for i in range(2000)]
+    step = {"type": "selectColumns", "config": {"columns": ["id"] * 1500}}
+    issues, calls = await _expanding(
+        client, db_session, monkeypatch, rows, step, (SelectColumnsTransformation, "execute")
+    )
+    assert issues == [("big", "limit")] and not calls
+
+
 async def test_cell_cap_applies_after_each_node(client: AsyncClient, db_session, monkeypatch) -> None:
     monkeypatch.setattr(preview_service, "PREVIEW_MAX_CELLS", 5)
     ds = await _upload(client)

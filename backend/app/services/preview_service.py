@@ -456,7 +456,8 @@ def _reduce_dimensions(inputs: dict[str, pd.DataFrame], config: dict[str, Any]) 
 
 
 # How each safe type sizes its output. "bounded" means at most the largest input's
-# rows and its columns plus BOUNDED_EXTRA_COLUMNS (a test checks each label on a
+# rows and its columns plus BOUNDED_EXTRA_COLUMNS and one column per config list
+# entry (a test checks each label on a
 # fixture). An estimator returns (rows, columns), computed with the engine's own
 # semantics on the sampled inputs before the node runs.
 BOUNDED_EXTRA_COLUMNS = 16
@@ -473,6 +474,19 @@ _EXPANDING: dict[str, Estimator] = {
 EXPANSION: dict[str, Estimator | Literal["bounded"]] = {
     kind: _EXPANDING.get(kind, "bounded") for kind in PREVIEW_SAFE_TYPES
 }
+
+
+def _config_entries(config: Any) -> int:
+    """Entries in every list of a config: an upper bound on the columns it can name.
+
+    A "bounded" node can still repeat names (``selectColumns`` with a duplicated
+    list), so its width estimate counts each listed entry once more.
+    """
+    if isinstance(config, dict):
+        return sum(_config_entries(v) for v in config.values())
+    if isinstance(config, list | tuple):
+        return len(config) + sum(_config_entries(v) for v in config if isinstance(v, dict | list | tuple))
+    return 0
 
 
 def _check_size(rows: int, cols: int) -> None:
@@ -502,7 +516,8 @@ class _PreviewExecutor(FlowExecutor):
             inputs = _build_inputs(incoming.get(node["id"], []), outputs)
             if rule == "bounded":
                 rows, cols = _largest(inputs)
-                _check_size(rows, cols + BOUNDED_EXTRA_COLUMNS)
+                extra = BOUNDED_EXTRA_COLUMNS + _config_entries(node["data"]["config"])
+                _check_size(rows, cols + extra)
             else:
                 _check_size(*rule(inputs, node["data"]["config"]))
         result = super()._node_outputs(engine, node, incoming, outputs, *rest)
