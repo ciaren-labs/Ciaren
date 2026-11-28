@@ -32,11 +32,14 @@ import {
   loadFlow,
   previewReversal,
   sameInstant,
+  sendTurn,
   status,
   type ActivityPage,
+  type ApplyResult,
   type Inputs,
   type Mode,
   type Reply,
+  type Suggestion,
   type Turn,
 } from "./api";
 
@@ -68,6 +71,10 @@ interface Props {
   datasets: Dataset[];
   current: () => GraphJson;
   saved: (revision: string, graph: GraphJson) => void;
+  /** Saves the canvas through the editor; resolves with the new revision, or null when nothing was saved. */
+  save: () => Promise<string | null>;
+  /** Moves focus to the node palette for a manual edit. */
+  focusPalette: () => void;
   /** Canvas element that hosts a floating launcher, so the assistant is easy to find. */
   floatingHost?: HTMLElement | null;
   /** Editor column the panel docks into beside the canvas; without it the panel floats at the right edge. */
@@ -83,6 +90,13 @@ const labels: Record<Mode, string> = {
 };
 const NARROW = "(max-width: 639px)";
 const TOAST_MS = 12000;
+const SAVE: Suggestion = { label: "Save and continue", action: "save" };
+/** Build and diagnose read the saved flow, so unsaved canvas edits always offer Save. */
+const withSave = (reply: Reply): Reply =>
+  reply.reason === "unsaved_changes" &&
+  !reply.suggestions?.some((s) => s.action === "save")
+    ? { ...reply, suggestions: [SAVE, ...(reply.suggestions ?? [])] }
+    : reply;
 
 export function AssistantPanel({
   flowId,
@@ -95,6 +109,8 @@ export function AssistantPanel({
   datasets,
   current,
   saved,
+  save,
+  focusPalette,
   floatingHost,
   dockHost,
 }: Props) {
@@ -113,6 +129,7 @@ export function AssistantPanel({
   const [shareNames, setShareNames] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [applying, setApplying] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [toast, setToast] = useState<Toast>();
   const [toastPaused, setToastPaused] = useState(false);
@@ -125,6 +142,8 @@ export function AssistantPanel({
   const abort = useRef<AbortController | null>(null);
   const openedFrom = useRef<"header" | "launcher">("header");
   const wasOpen = useRef(false);
+  // Set when closing for a manual edit, so focus goes to the palette, not the opener.
+  const toPalette = useRef(false);
   const composerFocused = useRef(false);
   const headerButton = useRef<HTMLButtonElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
@@ -140,7 +159,7 @@ export function AssistantPanel({
     latestRevision.current = revision;
   }, [revision]);
   const pending = turns.some((t) => t.state === "pending");
-  const busy = pending || applying || reversing;
+  const busy = pending || applying || reversing || saving;
   const service = useQuery({
     queryKey: ["assistant-status", flowId],
     queryFn: status,
@@ -184,13 +203,17 @@ export function AssistantPanel({
     if (!open) composerFocused.current = false;
   }, [open, ready]);
   useEffect(() => {
-    if (!open && wasOpen.current)
-      (openedFrom.current === "launcher" && launcher.current
-        ? launcher.current
-        : headerButton.current
-      )?.focus();
+    if (!open && wasOpen.current) {
+      if (toPalette.current) focusPalette();
+      else
+        (openedFrom.current === "launcher" && launcher.current
+          ? launcher.current
+          : headerButton.current
+        )?.focus();
+      toPalette.current = false;
+    }
     wasOpen.current = open;
-  }, [open]);
+  }, [open, focusPalette]);
   useEffect(() => {
     const next = focusNext.current;
     if (!open || !next) return;
@@ -243,13 +266,31 @@ export function AssistantPanel({
   };
   const staleTraining = training && !trainingVersions(composerInputs);
 
-  async function generate(text: string, turnMode: Mode, inputs: Inputs) {
+  async function generate(text: string, turnMode: Mode, inputs: Inputs, at = revision) {
     if (!service.data || !text.trim() || pending) return;
     const snapshot = current();
     const asTraining =
       turnMode === "build" && !!inputs.lookup && !snapshot.nodes.length;
     const versions = asTraining ? trainingVersions(inputs) : null;
     if (asTraining && !versions) return;
+    if (turnMode !== "docs" && useFlowEditorStore.getState().dirty) {
+      // The server refuses a canvas that differs from the saved flow, so ask for a save first.
+      const id = crypto.randomUUID();
+      setTurns((all) => [
+        ...all,
+        {
+          id,
+          mode: turnMode,
+          question: text,
+          inputs,
+          state: "reply",
+          reply: withSave({ message: "", reason: "unsaved_changes" }),
+        },
+      ]);
+      setQuestion("");
+      setFocusNext(headingId({ id }));
+      return;
+    }
     const controller = new AbortController();
     const requestId = crypto.randomUUID();
     const id = requestId;
@@ -291,32 +332,34 @@ export function AssistantPanel({
     setFocusNext("cancel");
     const sendsDataset = turnMode !== "docs" && !snapshot.nodes.length;
     try {
-      const result = await request<Reply>(`/assistant/flows/${flowId}/turn`, {
-        method: "POST",
-        signal: controller.signal,
-        redirect: "error",
-        body: JSON.stringify({
-          mode: turnMode,
-          request_id: requestId,
-          question: text,
-          revision,
-          provider: service.data.provider,
-          graph: turnMode === "docs" ? {} : snapshot,
-          dataset_id: sendsDataset ? inputs.dataset || null : null,
-          second_dataset_id:
-            turnMode === "build" && !snapshot.nodes.length
-              ? inputs.secondDataset || null
-              : null,
-          ...(asTraining && {
-            training: {
-              dataset_id: inputs.lookup,
-              versions,
-              target: inputs.target,
-            },
-          }),
-          share_names: inputs.shareNames,
-        }),
-      });
+      const result = withSave(
+        await sendTurn(
+          flowId,
+          {
+            mode: turnMode,
+            request_id: requestId,
+            question: text,
+            revision: at,
+            provider: service.data.provider,
+            // Lets the server refuse a canvas that differs from the saved flow.
+            ...(turnMode !== "docs" && { graph: snapshot }),
+            dataset_id: sendsDataset ? inputs.dataset || null : null,
+            second_dataset_id:
+              turnMode === "build" && !snapshot.nodes.length
+                ? inputs.secondDataset || null
+                : null,
+            ...(asTraining && {
+              training: {
+                dataset_id: inputs.lookup,
+                versions,
+                target: inputs.target,
+              },
+            }),
+            share_names: inputs.shareNames,
+          },
+          controller.signal,
+        ),
+      );
       if (controller.signal.aborted) return;
       const proposal = !!(result.proposal && result.delta);
       update(id, {
@@ -368,7 +411,7 @@ export function AssistantPanel({
     }
     setApplying(true);
     try {
-      const result = await request<{ revision: string }>(
+      const result = await request<ApplyResult>(
         `/assistant/flows/${flowId}/apply`,
         {
           method: "POST",
@@ -378,7 +421,8 @@ export function AssistantPanel({
       );
       void client.invalidateQueries({ queryKey: activityKey(projectId, flowId) });
       if (matchesBase(turn)) {
-        const graph = applyDelta(turn.base, reply.delta);
+        // The server's saved graph is authoritative; the local delta covers servers that omit it.
+        const graph = result.graph ?? applyDelta(turn.base, reply.delta);
         const next = graphToStore(graph);
         useFlowEditorStore.getState().acceptProposal(next.nodes, next.edges);
         saved(result.revision, graph);
@@ -483,6 +527,36 @@ export function AssistantPanel({
     setQuestion(prompt);
     setFocusNext("composer");
   }
+  async function act(turn: Turn, suggestion: Suggestion) {
+    const again = (inputs = turn.inputs, at?: string) =>
+      void generate(turn.question, turn.mode, inputs, at);
+    switch (suggestion.action) {
+      case "save": {
+        setSaving(true);
+        try {
+          const at = await save();
+          if (at) again(turn.inputs, at);
+        } finally {
+          setSaving(false);
+        }
+        return;
+      }
+      case "switch_mode":
+        if (suggestion.target && Object.keys(labels).includes(suggestion.target)) {
+          setMode(suggestion.target as Mode);
+          choose(turn.question);
+        }
+        return;
+      case "manual_edit":
+        toPalette.current = true;
+        close();
+        return;
+      case "share_names":
+        return again({ ...turn.inputs, shareNames: true });
+      case "retry":
+        return again();
+    }
+  }
   function edit(turn: Turn) {
     setMode(turn.mode);
     setDataset(turn.inputs.dataset);
@@ -498,6 +572,7 @@ export function AssistantPanel({
     target,
     training,
     joined: !!secondDataset && empty,
+    ml: mlEnabled,
   });
   const canSubmit =
     ready &&
@@ -520,7 +595,7 @@ export function AssistantPanel({
         }
       }}
       className={cn(
-        "assistant-panel flex min-h-0 w-[26rem] shrink-0 flex-col border-l border-border bg-background max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:border-l-0",
+        "assistant-panel flex min-h-0 w-[26rem] min-[1280px]:max-[1440px]:w-[22rem] shrink-0 flex-col border-l border-border bg-background max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:border-l-0",
         dockHost ? "h-full" : "fixed inset-y-0 right-0 z-40 shadow-xl",
       )}
     >
@@ -625,7 +700,9 @@ export function AssistantPanel({
                     <p className="text-sm text-muted-foreground">
                       {mode === "docs"
                         ? "Answers cite the bundled guide they come from."
-                        : "You review every node and connection before anything is saved."}
+                        : mode === "diagnose"
+                          ? "Explains the latest failed run. You review any fix before it is saved."
+                          : "Describe the result in plain words: cleaning, joins, aggregations, features, models or charts. You review every node and connection before anything is saved."}
                     </p>
                   </div>
                   {mode !== "docs" && (
@@ -694,7 +771,11 @@ export function AssistantPanel({
                     ) : turn.mode === "docs" || turn.reply?.citation ? (
                       <AnswerCard turn={turn} />
                     ) : (
-                      <GuidanceCard turn={turn} choose={choose} />
+                      <GuidanceCard
+                        turn={turn}
+                        busy={busy}
+                        act={(suggestion) => void act(turn, suggestion)}
+                      />
                     )}
                   </li>,
                 ])}
@@ -853,7 +934,7 @@ export function AssistantPanel({
                       : mode === "build"
                         ? training
                           ? "Predict shipping cost and evaluate on held-out orders"
-                          : "Keep the first 100 rows"
+                          : "Join orders with customers and aggregate revenue by month"
                         : "Why did this flow fail?"
                   }
                   value={question}

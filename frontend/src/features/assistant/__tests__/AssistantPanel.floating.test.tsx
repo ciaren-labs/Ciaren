@@ -41,6 +41,8 @@ function renderPanel(host: HTMLElement | null) {
               restored={() => {}}
               current={() => ({ nodes: [], edges: [] })}
               saved={() => {}}
+              save={async () => null}
+              focusPalette={() => {}}
               floatingHost={host}
             />
           </TooltipProvider>

@@ -142,6 +142,24 @@ export function ProposalReview({
             </li>
           );
         })}
+        {delta.removed?.map((id) => {
+          const old = base.nodes.find((n) => n.id === id);
+          if (!old) return null;
+          const { Icon } = nodeMark(old.type);
+          return (
+            <li key={id} className="flex gap-3 py-2.5">
+              <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-destructive">
+                <Icon aria-hidden className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <span className="font-medium">Remove {old.data.label}</span>
+                <p className="break-words text-xs text-muted-foreground">
+                  {settings(old, datasets)} · its connections go too
+                </p>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {delta.connected.length + delta.disconnected.length > 0 && (
         <details className="rounded-lg border border-border bg-card px-3 py-2.5">
@@ -190,7 +208,7 @@ export function ProposalReview({
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Saves this proposal with your current canvas edits.
+        Applying saves this proposal to the flow.
       </p>
         </>
       )}

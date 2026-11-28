@@ -24,7 +24,7 @@ export function deltaCounts(delta: Delta, base: GraphJson): ChangeCounts {
   }, 0);
   return {
     added: delta.added.length,
-    removed: 0,
+    removed: delta.removed?.length ?? 0,
     settings,
     connections: delta.connected.length + delta.disconnected.length,
   };

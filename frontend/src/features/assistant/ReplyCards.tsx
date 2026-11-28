@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Ban, Check, CircleAlert, Clock, Compass, Lightbulb } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Ban, Check, CircleAlert, Clock, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Dataset } from "@/features/datasets/types";
 import { cn } from "@/lib/utils";
-import { headingId, type Mode, type Turn } from "./api";
+import { headingId, type Conflict, type Mode, type Reason, type Suggestion, type Turn } from "./api";
 import { ProposalReview } from "./ProposalReview";
-import { SUPPORTED } from "./suggestions";
 
+const count = (n: number, word: string) =>
+  `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 const plain = (text: string) =>
   text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1");
 
@@ -150,6 +152,35 @@ export function ProposalCard({
         inspectNode={inspectNode}
         compact={!live}
       />
+      {!!reply.steps?.length && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="flex min-h-8 cursor-pointer items-center font-medium">
+            Steps ({reply.steps.length})
+          </summary>
+          <ol className="mt-1 space-y-1">
+            {reply.steps.map((step, i) => (
+              <li key={i} className="flex items-center gap-1.5">
+                {step.ok ? (
+                  <Check aria-hidden className="size-3.5 text-success" />
+                ) : (
+                  <CircleAlert aria-hidden className="size-3.5 text-warning" />
+                )}
+                <code>{step.tool}</code>
+                <span>· {step.ok ? "ok" : "failed"}</span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      {reply.usage && (
+        <p className="text-xs text-muted-foreground">
+          {[
+            count(reply.usage.calls, "call"),
+            count(reply.usage.input_tokens, "input token"),
+            count(reply.usage.output_tokens, "output token"),
+          ].join(" · ")}
+        </p>
+      )}
       <p
         className={cn(
           "flex items-center gap-1.5 text-xs font-medium",
@@ -197,38 +228,142 @@ export function ProposalCard({
   );
 }
 
-/** Shown when the reply proposes nothing: explain why and offer prompts that can work. */
-export function GuidanceCard({ turn, choose }: { turn: Turn; choose: (prompt: string) => void }) {
+const REASONS: Record<Reason | Conflict, { title: string; text: string }> = {
+  unsupported_node: {
+    title: "This step is not available yet",
+    text: "The assistant cannot build this kind of node, so add it from the node palette.",
+  },
+  locked_node: {
+    title: "This node is locked",
+    text: "The assistant leaves this node as it is, so change it on the canvas instead.",
+  },
+  unsaved_changes: {
+    title: "Save your changes first",
+    text: "The assistant works from the saved flow, so save your canvas edits before asking.",
+  },
+  disabled_flow: {
+    title: "This flow is disabled",
+    text: "Re-enable the flow from the banner above the canvas before asking for changes.",
+  },
+  multiple_inputs: {
+    title: "Several inputs on the canvas",
+    text: "The assistant needs to know which input to work from, so name it in the request.",
+  },
+  no_dataset: {
+    title: "Choose a dataset first",
+    text: "Pick a project dataset or add a file input so the assistant knows the columns.",
+  },
+  ml_disabled: {
+    title: "Machine learning is turned off",
+    text: "Training and model nodes need machine learning to be enabled in Settings.",
+  },
+  no_failed_run: {
+    title: "No failed run to diagnose",
+    text: "Diagnosis explains the latest failed run, and this flow has none.",
+  },
+  budget_exhausted: {
+    title: "Request budget used up",
+    text: "The assistant reached its call or token limit before it finished the proposal.",
+  },
+  provider_no_tools: {
+    title: "This model cannot edit flows",
+    text: "The selected model does not support the tools the assistant needs to build flows.",
+  },
+  abstained: {
+    title: "The assistant was not confident",
+    text: "The assistant stopped rather than guess, so add detail to the request and try again.",
+  },
+  no_change: {
+    title: "Nothing to change",
+    text: "The flow already does what the request asks for.",
+  },
+  validation_failed: {
+    title: "The proposal did not pass checks",
+    text: "The assistant drafted a change that failed validation, so nothing was proposed.",
+  },
+  step_limit: {
+    title: "Too many steps for one request",
+    text: "Split the request into smaller changes and apply them one at a time.",
+  },
+  timeout: {
+    title: "The request took too long",
+    text: "The provider did not finish in time; retry, or ask for a smaller change.",
+  },
+};
+
+const ASSISTANT_GUIDE = "https://ciaren.com/docs/latest/guide/flow-assistant";
+const docsUrl = (target?: string) =>
+  target && /^https:\/\//.test(target) ? target : ASSISTANT_GUIDE;
+
+/** Shown when the reply proposes nothing: explain why and offer next actions. */
+export function GuidanceCard({
+  turn,
+  busy,
+  act,
+}: {
+  turn: Turn;
+  busy: boolean;
+  act: (suggestion: Suggestion) => void;
+}) {
   const reply = turn.reply!;
-  const supported = reply.supported?.length ? reply.supported : SUPPORTED;
+  const reason = reply.reason ? REASONS[reply.reason] : undefined;
   return (
-    <Card turn={turn} icon={<Compass aria-hidden className="size-4 text-primary" />} title="No change proposed">
-      <p className="text-sm">{plain(reply.reason ?? reply.message)}</p>
-      {!reply.reason && (
-        <p className="text-sm text-muted-foreground">
-          The assistant edits file flows with the steps below. Rephrase the request around one of
-          them, or build the step manually from the node palette.
+    <Card
+      turn={turn}
+      icon={<Compass aria-hidden className="size-4 text-primary" />}
+      title={reason?.title ?? "No change proposed"}
+    >
+      {reason && (
+        <p data-testid="guidance-explanation" className="text-sm">
+          {reason.text}
         </p>
       )}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Supported
-        </p>
-        <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
-          {supported.map((s) => (
-            <li key={s} className="rounded-md bg-muted px-2 py-1">
-              {s}
-            </li>
-          ))}
-        </ul>
-      </div>
-      {!!reply.suggestions?.length && (
+      {reply.message && (
+        <p className={cn("text-sm", reason && "text-muted-foreground")}>{plain(reply.message)}</p>
+      )}
+      {!!reply.supported?.length && (
         <div>
-          <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Lightbulb aria-hidden className="size-3.5" />
-            Try
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Supported
           </p>
-          <PromptChips prompts={reply.suggestions} choose={choose} />
+          <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
+            {reply.supported.map((s) => (
+              <li key={s} className="rounded-md bg-muted px-2 py-1">
+                {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!!reply.suggestions?.length && (
+        <div className="flex flex-wrap gap-2">
+          {reply.suggestions.map((s, i) =>
+            s.action === "open_docs" ? (
+              <a
+                key={i}
+                href={docsUrl(s.target)}
+                target="_blank"
+                rel="noreferrer"
+                className="assistant-chip inline-flex items-center"
+              >
+                {s.label}
+              </a>
+            ) : s.action === "enable_ml" ? (
+              <Link key={i} to="/settings" className="assistant-chip inline-flex items-center">
+                {s.label}
+              </Link>
+            ) : (
+              <Button
+                key={i}
+                size="sm"
+                variant={i === 0 ? "default" : "outline"}
+                disabled={busy}
+                onClick={() => act(s)}
+              >
+                {s.label}
+              </Button>
+            ),
+          )}
         </div>
       )}
     </Card>

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { GraphJson } from "@/features/flows/types";
+import { useFlowEditorStore } from "@/stores/flowEditorStore";
 import { AssistantPanel } from "../AssistantPanel";
 import { Activity } from "../Activity";
 
@@ -25,6 +26,9 @@ function respond(body: unknown, status = 200) {
     text: async () => JSON.stringify(body),
   };
 }
+
+const conflict = (body: unknown) =>
+  new Response(JSON.stringify(body), { status: 409, headers: { "content-type": "application/json" } });
 
 beforeEach(() => {
   calls = [];
@@ -50,6 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  useFlowEditorStore.setState({ dirty: false });
 });
 
 const base: GraphJson = {
@@ -90,9 +95,21 @@ const datasets = [
   { id: "d3", name: "catalog", source_type: "csv", latest_version: 1, is_disabled: false, column_schema: [{ name: "sku", type: "string" }] },
 ];
 
-function setup(options: { graph?: GraphJson; disabled?: boolean; datasets?: unknown[] } = {}) {
+function setup(
+  options: {
+    graph?: GraphJson;
+    disabled?: boolean;
+    datasets?: unknown[];
+    save?: () => Promise<string | null>;
+  } = {},
+) {
   let canvas = options.graph ?? base;
   const restored = vi.fn();
+  const save = vi.fn(options.save ?? (async () => null));
+  const focusPalette = vi.fn();
+  const saved = vi.fn((_: string, graph: GraphJson) => {
+    canvas = graph;
+  });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const tree = (list: unknown[]) => (
     <QueryClientProvider client={client}>
@@ -109,9 +126,9 @@ function setup(options: { graph?: GraphJson; disabled?: boolean; datasets?: unkn
               validation={{ errors: [], warnings: [] } as never}
               restored={restored}
               current={() => canvas}
-              saved={(_, graph) => {
-                canvas = graph;
-              }}
+              saved={saved}
+              save={save}
+              focusPalette={focusPalette}
             />
           </TooltipProvider>
         </ReactFlowProvider>
@@ -119,7 +136,14 @@ function setup(options: { graph?: GraphJson; disabled?: boolean; datasets?: unkn
     </QueryClientProvider>
   );
   const view = render(tree(options.datasets ?? datasets));
-  return { restored, rerender: (list: unknown[]) => view.rerender(tree(list)) };
+  return {
+    restored,
+    save,
+    saved,
+    focusPalette,
+    canvas: () => canvas,
+    rerender: (list: unknown[]) => view.rerender(tree(list)),
+  };
 }
 
 async function openPanel() {
@@ -244,29 +268,254 @@ describe("proposal card (AC-U3, AC-U6)", () => {
   });
 });
 
-describe("guidance card (AC-U4)", () => {
-  it("renders the reason, supported capabilities and clickable suggestions", async () => {
+describe("guidance card (AC-U4, F2)", () => {
+  it.each([
+    ["unsupported_node", "This step is not available yet"],
+    ["locked_node", "This node is locked"],
+    ["unsaved_changes", "Save your changes first"],
+    ["multiple_inputs", "Several inputs on the canvas"],
+    ["no_dataset", "Choose a dataset first"],
+    ["ml_disabled", "Machine learning is turned off"],
+    ["no_failed_run", "No failed run to diagnose"],
+    ["budget_exhausted", "Request budget used up"],
+    ["provider_no_tools", "This model cannot edit flows"],
+    ["abstained", "The assistant was not confident"],
+    ["no_change", "Nothing to change"],
+    ["validation_failed", "The proposal did not pass checks"],
+    ["step_limit", "Too many steps for one request"],
+    ["timeout", "The request took too long"],
+  ])("explains %s in plain copy with the server message as support", async (reason, title) => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: `Server detail for ${reason}.`, reason });
+    setup();
+    await ask("Pivot by month");
+    const heading = await screen.findByRole("heading", { name: title });
+    const card = within(heading.closest("article")!);
+    expect(card.getByText(`Server detail for ${reason}.`)).toBeInTheDocument();
+    expect(card.getByTestId("guidance-explanation").textContent).toMatch(/^[A-Z].+\.$/);
+    expect(card.queryByText("Supported")).not.toBeInTheDocument();
+  });
+
+  it("lists supported capabilities only when the server sends them", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () => ({
-      message: "No supported change was identified.",
-      reason: "Pivoting is not available to the assistant yet.",
+      message: "Pivoting is not available.",
+      reason: "unsupported_node",
       supported: ["Limit rows", "Sort rows"],
-      suggestions: ["Sort by order_id"],
     });
     setup();
     await ask("Pivot by month");
-    expect(await screen.findByRole("heading", { name: "No change proposed" })).toBeInTheDocument();
-    expect(screen.getByText("Pivoting is not available to the assistant yet.")).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "This step is not available yet" });
+    expect(screen.getByText("Supported")).toBeInTheDocument();
     expect(screen.getByText("Sort rows")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sort by order_id" }));
-    expect(screen.getByRole("textbox", { name: "Request" })).toHaveValue("Sort by order_id");
   });
 
-  it("falls back to a generic explanation with the supported capabilities", async () => {
+  it("falls back to a generic title without a hardcoded capability list", async () => {
     routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: "No supported change was identified." });
     setup();
     await ask("Pivot by month");
     expect(await screen.findByRole("heading", { name: "No change proposed" })).toBeInTheDocument();
-    expect(screen.getByText(/Remove duplicate rows/)).toBeInTheDocument();
+    expect(screen.getByText("No supported change was identified.")).toBeInTheDocument();
+    expect(screen.queryByText("Supported")).not.toBeInTheDocument();
+    expect(screen.queryByText(/edits file flows/)).not.toBeInTheDocument();
+  });
+
+  const refusal = (action: string, target?: string) => ({
+    message: "The assistant stopped.",
+    reason: "abstained",
+    suggestions: [{ label: `Do ${action}`, action, ...(target && { target }) }],
+  });
+
+  it.each([
+    ["retry", false],
+    ["share_names", true],
+  ])("%s regenerates the request", async (action, shareNames) => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal(action);
+    setup();
+    await ask("Pivot by month");
+    fireEvent.click(await screen.findByRole("button", { name: `Do ${action}` }));
+    await waitFor(() => expect(turns()).toHaveLength(2));
+    expect(turns()[1].body).toMatchObject({ question: "Pivot by month", share_names: shareNames });
+  });
+
+  it("switch_mode switches to the target mode", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal("switch_mode", "docs");
+    setup();
+    await ask("Pivot by month");
+    fireEvent.click(await screen.findByRole("button", { name: "Do switch_mode" }));
+    expect(screen.getByRole("button", { name: "Guides" })).toHaveAttribute("aria-pressed", "true");
+    expect(turns()).toHaveLength(1);
+  });
+
+  it.each([
+    ["open_docs", "https://ciaren.com/docs/latest/guide/scheduling", "https://ciaren.com/docs/latest/guide/scheduling"],
+    ["open_docs", undefined, "https://ciaren.com/docs/latest/guide/flow-assistant"],
+    ["open_docs", "javascript:alert(1)", "https://ciaren.com/docs/latest/guide/flow-assistant"],
+    ["enable_ml", undefined, "/settings"],
+  ])("%s with target %s links to %s", async (action, target, href) => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal(action, target);
+    setup();
+    await ask("Pivot by month");
+    expect(await screen.findByRole("link", { name: `Do ${action}` })).toHaveAttribute("href", href);
+  });
+
+  it("manual_edit closes the panel and focuses the palette", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal("manual_edit");
+    const { focusPalette } = setup();
+    await ask("Pivot by month");
+    fireEvent.click(await screen.findByRole("button", { name: "Do manual_edit" }));
+    expect(screen.queryByRole("dialog", { name: /Flow assistant/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(focusPalette).toHaveBeenCalled());
+  });
+
+  it("save saves through the editor and regenerates on the new revision", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal("save");
+    const { save } = setup({ save: async () => "2026-01-01T00:00:05" });
+    await ask("Pivot by month");
+    fireEvent.click(await screen.findByRole("button", { name: "Do save" }));
+    await waitFor(() => expect(turns()).toHaveLength(2));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(turns()[1].body).toMatchObject({ question: "Pivot by month", revision: "2026-01-01T00:00:05" });
+  });
+
+  it("does not regenerate when the save fails", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => refusal("save");
+    const { save } = setup({ save: async () => null });
+    await ask("Pivot by month");
+    fireEvent.click(await screen.findByRole("button", { name: "Do save" }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    await act(async () => {});
+    expect(turns()).toHaveLength(1);
+  });
+});
+
+describe("conflicts and unsaved canvas (F3)", () => {
+  it.each([
+    ["unsaved_changes", "Save your changes first"],
+    ["disabled_flow", "This flow is disabled"],
+  ])("shows a 409 %s as guidance, not a failure", async (reason, title) => {
+    routes["POST /api/assistant/flows/f1/turn"] = () =>
+      conflict({ detail: "Server conflict detail.", reason });
+    setup();
+    await ask("Keep 100 rows");
+    expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
+    expect(screen.getByText("Server conflict detail.")).toBeInTheDocument();
+    expect(screen.queryByText("Request failed")).not.toBeInTheDocument();
+  });
+
+  it("keeps other 409 responses as failures", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => conflict({ detail: "Stale revision." });
+    setup();
+    await ask("Keep 100 rows");
+    expect(await screen.findByRole("heading", { name: "Request failed" })).toBeInTheDocument();
+    expect(screen.getByText("Stale revision.")).toBeInTheDocument();
+  });
+
+  it("offers Save on a server unsaved_changes conflict", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () =>
+      conflict({ detail: "Save the canvas first.", reason: "unsaved_changes" });
+    setup();
+    await ask("Keep 100 rows");
+    expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["Build", "Create proposal"],
+    ["Diagnose", "Diagnose flow"],
+  ])("sends no %s request while the canvas has unsaved edits", async (mode, submit) => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: "ok" });
+    const { save } = setup({
+      save: async () => {
+        useFlowEditorStore.setState({ dirty: false });
+        return "2026-01-01T00:00:05";
+      },
+    });
+    await openPanel();
+    fireEvent.click(screen.getByRole("button", { name: mode }));
+    act(() => useFlowEditorStore.setState({ dirty: true }));
+    await ask("Keep 100 rows", submit);
+    expect(await screen.findByRole("heading", { name: "Save your changes first" })).toBeInTheDocument();
+    expect(turns()).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+    await waitFor(() => expect(turns()).toHaveLength(1));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(turns()[0].body?.revision).toBe("2026-01-01T00:00:05");
+  });
+
+  it("still answers guide questions with unsaved edits", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => ({ message: "Use the export dialog." });
+    setup();
+    await openPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Guides" }));
+    act(() => useFlowEditorStore.setState({ dirty: true }));
+    await ask("How do I export?", "Ask the guides");
+    await waitFor(() => expect(turns()).toHaveLength(1));
+    expect(turns()[0].body?.graph).toBeUndefined();
+  });
+});
+
+describe("proposal trace, removals and server graph (F4, F5)", () => {
+  it("shows the step trace and usage when present", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () =>
+      proposal({
+        steps: [
+          { tool: "inspect_schema", ok: true },
+          { tool: "add_node", ok: false },
+        ],
+        usage: { calls: 3, input_tokens: 1200, output_tokens: 340 },
+      });
+    setup();
+    await ask("Keep 100 rows");
+    const summary = await screen.findByText("Steps (2)");
+    const trace = summary.closest("details")!;
+    expect(trace).not.toHaveAttribute("open");
+    expect(within(trace).getByText("inspect_schema").closest("li")).toHaveTextContent(/ok/);
+    expect(within(trace).getByText("add_node").closest("li")).toHaveTextContent(/failed/);
+    expect(screen.getByText("3 calls · 1,200 input tokens · 340 output tokens")).toBeInTheDocument();
+  });
+
+  it("omits trace and usage when the server sends neither", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    setup();
+    await ask("Keep 100 rows");
+    await screen.findByRole("heading", { name: "Proposed changes" });
+    expect(screen.queryByText(/^Steps \(/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tokens/)).not.toBeInTheDocument();
+  });
+
+  const removal = () => ({
+    message: "Remove the limit.",
+    proposal: "c".repeat(32),
+    delta: { added: [], changed: [], connected: [], disconnected: [], removed: ["l1"] },
+  });
+
+  it("summarises removed nodes and marks them on the map", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = removal;
+    setup();
+    await ask("Remove the limit");
+    expect(await screen.findByText("1 removed node")).toBeInTheDocument();
+    expect(screen.getByText("Remove Limit")).toBeInTheDocument();
+    expect(document.querySelector('.assistant-map [data-removed="l1"]')).not.toBeNull();
+  });
+
+  it("drops removed nodes and their edges when the server returns no graph", async () => {
+    routes["POST /api/assistant/flows/f1/turn"] = removal;
+    routes["POST /api/assistant/flows/f1/apply"] = () => ({ revision: "2026-01-01T00:00:01" });
+    const { canvas } = setup();
+    await ask("Remove the limit");
+    fireEvent.click(await screen.findByRole("button", { name: "Apply and save" }));
+    await screen.findByRole("status", { name: "Saved" });
+    expect(canvas().nodes.map((n) => n.id)).toEqual(["i1"]);
+    expect(canvas().edges).toEqual([]);
+  });
+
+  it("loads the graph the server saved instead of the local delta", async () => {
+    const server = { nodes: [{ ...base.nodes[0], position: { x: 9, y: 9 } }], edges: [] };
+    routes["POST /api/assistant/flows/f1/turn"] = () => proposal();
+    routes["POST /api/assistant/flows/f1/apply"] = () => ({ revision: "2026-01-01T00:00:01", graph: server });
+    const { saved } = setup();
+    await ask("Keep 100 rows");
+    fireEvent.click(await screen.findByRole("button", { name: "Apply and save" }));
+    await screen.findByRole("status", { name: "Saved" });
+    expect(saved).toHaveBeenCalledWith("2026-01-01T00:00:01", server);
   });
 });
 
@@ -280,6 +529,17 @@ describe("empty state (AC-U5)", () => {
     expect(screen.getByRole("textbox", { name: "Request" })).toHaveValue("Remove rows where email is empty");
     expect(screen.getByRole("button", { name: "Sort by shipping_cost" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Canvas tools" })).toBeInTheDocument();
+  });
+
+  it("suggests general capabilities instead of a fixed step list", async () => {
+    setup({ graph: { nodes: [], edges: [] } as never });
+    await openPanel();
+    fireEvent.change(screen.getByLabelText("Input dataset"), { target: { value: "d1" } });
+    for (const name of [
+      "Join orders with customers and aggregate revenue by month",
+      "Encode categories and scale numeric features",
+    ])
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
   });
 });
 
@@ -374,6 +634,8 @@ describe("apply, undo and activity (AC-U7)", () => {
                 saved={(_, graph) => {
                   canvas = graph;
                 }}
+                save={async () => null}
+                focusPalette={() => {}}
               />
             </TooltipProvider>
           </ReactFlowProvider>

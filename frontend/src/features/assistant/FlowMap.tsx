@@ -21,13 +21,22 @@ const captions: Record<string, string> = {
   dropNulls: "Drop nulls",
 };
 
-/** A compact wiring diagram of the changed nodes and their immediate neighbours. */
+/**
+ * A compact wiring diagram of the changed nodes and their immediate neighbours.
+ * Removed nodes keep their old connections, drawn dashed, so the map shows what goes away.
+ */
 export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
-  const changed = new Set([...delta.added, ...delta.changed].map((n) => n.id));
+  const removed = new Set(delta.removed);
+  const changed = new Set([
+    ...[...delta.added, ...delta.changed].map((n) => n.id),
+    ...removed,
+  ]);
   const edges = [
     ...base.edges.filter((e) => !delta.disconnected.includes(e.id)),
     ...delta.connected,
   ].filter((e) => changed.has(e.source) || changed.has(e.target));
+  const dropped = (e: { source: string; target: string }) =>
+    removed.has(e.source) || removed.has(e.target);
   const visible = new Set([
     ...changed,
     ...edges.flatMap((e) => [e.source, e.target]),
@@ -91,8 +100,9 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
             <path
               key={e.id}
               d={`M${a.x + 15} ${a.y} C${mid} ${a.y} ${mid} ${b.y} ${b.x - 15} ${b.y}`}
-              stroke="hsl(var(--primary) / .52)"
+              stroke={dropped(e) ? "hsl(var(--destructive) / .6)" : "hsl(var(--primary) / .52)"}
               strokeWidth="2.2"
+              strokeDasharray={dropped(e) ? "4 3" : undefined}
             />
           );
         })}
@@ -111,7 +121,13 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
                 : "Right input"
               : (captions[n.type] ?? getNodeTypeDef(n.type)?.label);
           return (
-            <g key={n.id} transform={`translate(${x},${y})`} className={color}>
+            <g
+              key={n.id}
+              transform={`translate(${x},${y})`}
+              className={removed.has(n.id) ? "text-destructive" : color}
+              data-removed={removed.has(n.id) ? n.id : undefined}
+              opacity={removed.has(n.id) ? 0.7 : undefined}
+            >
               {delta.changed.some((existing) => existing.id === n.id) && (
                 <rect
                   x="-20"
@@ -131,6 +147,7 @@ export function FlowMap({ base, delta }: { base: GraphJson; delta: Delta }) {
                 fill="hsl(var(--card))"
                 stroke="currentColor"
                 strokeWidth={changed.has(n.id) ? 2 : 1}
+                strokeDasharray={removed.has(n.id) ? "4 3" : undefined}
               />
               <Icon x="-9" y="-9" width="18" height="18" strokeWidth="1.9" />
               <text
