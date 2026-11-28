@@ -10,6 +10,8 @@ from app.services.assistant_inputs import InputSchema, resolve_input
 
 Graph = dict[str, Any]
 MAX_COLUMNS = 64
+#: Column refs one turn may hand out: c0 .. c255.
+MAX_REFS = 256
 
 
 class ToolError(ValueError):
@@ -33,6 +35,8 @@ class ToolContext:
     share_values: bool = False
     #: Source ref (dataset or node) -> column ref (``c0``) -> real column name.
     columns: dict[str, dict[str, str]] = field(default_factory=dict)
+    #: Real column name -> ref, one map per turn: a column keeps its ref at every node.
+    names: dict[str, str] = field(default_factory=dict)
     schemas: dict[str, InputSchema] = field(default_factory=dict)
 
     async def dataset(self, ref: str) -> InputSchema:
@@ -46,15 +50,20 @@ class ToolContext:
         return self.schemas[ref]
 
     def register(self, source: str, names: list[str]) -> dict[str, str]:
-        """Column refs of one dataset or node output, by position."""
-        self.columns[source] = {f"c{i}": name for i, name in enumerate(names[:MAX_COLUMNS])}
-        return self.columns[source]
+        """Column refs of one dataset or node output. A name seen before keeps its ref; a new
+        name gets the next one. Past ``MAX_REFS`` new names get no ref and stay unaddressable."""
+        refs = {}
+        for name in names[:MAX_COLUMNS]:
+            if name not in self.names and len(self.names) < MAX_REFS:
+                self.names[name] = f"c{len(self.names)}"
+            if name in self.names:
+                refs[self.names[name]] = name
+        self.columns[source] = refs
+        return refs
 
     def hidden(self) -> dict[str, str]:
         """Real column name -> ref for every registered column; empty when names are shared."""
-        if self.share_names:
-            return {}
-        return {name: ref for cols in self.columns.values() for ref, name in cols.items()}
+        return {} if self.share_names else dict(self.names)
 
     def column_names(self, source: str, refs: list[str]) -> list[str]:
         known = self.columns.get(source, {})

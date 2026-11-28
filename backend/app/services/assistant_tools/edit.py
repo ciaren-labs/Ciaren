@@ -26,37 +26,38 @@ from app.services.assistant_tools.ops import (
     materialize,
 )
 
-_REF = re.compile(r"\bc\d{1,2}\b")
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
-def _bind_expression(text: str, columns: dict[str, str], node: str) -> str:
+def _bind_expression(text: str, columns: dict[str, str], node: str, shared: bool, stored: str) -> str:
     """Replace column refs (c0, c1) outside single-quoted literals by real names.
 
     The guard allows only single-quoted literals without escapes, so splitting on quotes
-    separates code from literals. A refused name is reported by ref, never by name.
+    separates code from literals. With names shared a real column name wins over a ref of
+    the same spelling. With names hidden a real name is accepted only when the stored
+    expression already used it; guessed names are refused. A refused name is reported by
+    ref, never by name.
     """
     parts = text.split("'")
+    real = set(columns.values())
+    known = set(_IDENTIFIER.findall(stored))
+
+    def refused(code: str, message: str) -> EditRejected:
+        return EditRejected([Issue(code, message, node, "expression")])
 
     def name(match: re.Match[str]) -> str:
-        ref = match.group(0)
-        if ref not in columns:
-            return ref  # The expression guard reports unknown names.
-        real = columns[ref]
-        if not _IDENTIFIER.fullmatch(real):
-            raise EditRejected(
-                [
-                    Issue(
-                        "bad_type",
-                        f"Column {ref} has a name expressions cannot use; rename it first.",
-                        node,
-                        "expression",
-                    )
-                ]
-            )
-        return real
+        token = match.group(0)
+        if token in real and (shared or token in known):
+            return token
+        if token in columns:
+            if not _IDENTIFIER.fullmatch(columns[token]):
+                raise refused("bad_type", f"Column {token} has a name expressions cannot use; rename it first.")
+            return columns[token]
+        if token in real:
+            raise refused("missing_column", "Use column refs such as c0 in expressions.")
+        return token  # Functions and unknown names: the expression guard decides.
 
-    parts[::2] = [_REF.sub(name, code) for code in parts[::2]]
+    parts[::2] = [_IDENTIFIER.sub(name, code) for code in parts[::2]]
     return "'".join(parts)
 
 
@@ -106,9 +107,10 @@ async def expression_columns(db: AsyncSession, project: str, graph: Graph, node_
 async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Working) -> None:
     """Replace dataset and column refs by real values in touched nodes.
 
-    Column refs are scoped per node: they index the output columns of the node's upstream
-    node, computed by a sample preview. Values already bound by an earlier edit of the same
-    node are kept as they are.
+    A column ref must name a column of the node's upstream output, computed by a sample
+    preview; refs are stable for the whole turn. Values the stored config already holds are
+    kept as they are. With names hidden only refs are accepted; with names shared a real
+    name wins over a ref of the same spelling.
     """
     before = {n["id"]: n["data"]["config"] for n in prior.graph["nodes"]}
     by_id = {n["id"]: n for n in work.graph["nodes"]}
@@ -148,18 +150,23 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
                 source_ref = work.ref_of(source)
                 raise EditRejected([Issue(i["code"], i["message"], i.get("node", source_ref)) for i in found])
         columns = ctx.register(work.ref_of(source), [c for c, _ in schemas[source]])
-        if expression and cfg["expression"] != before.get(node_id, {}).get("expression"):
-            cfg["expression"] = _bind_expression(cfg["expression"], columns, ref)
+        stored = before.get(node_id, {})
+        if expression and cfg["expression"] != stored.get("expression"):
+            previous = stored.get("expression")
+            text = previous if isinstance(previous, str) else ""
+            cfg["expression"] = _bind_expression(cfg["expression"], columns, ref, ctx.share_names, text)
 
         def name(value: Any, field: str) -> Any:
             if not isinstance(value, str):
                 return value  # The node model gate reports the wrong type.
+            previous = stored.get(field)
+            # A value the stored config already holds is kept as is, never re-read as a ref.
+            if value == previous or isinstance(previous, list | dict) and value in previous:
+                return value
+            if ctx.share_names and value in columns.values():
+                return value
             if value in columns:
                 return columns[value]
-            previous = before.get(node_id, {}).get(field)
-            bound = value == previous or isinstance(previous, list | dict) and value in previous
-            if value in columns.values() and (ctx.share_names or bound):
-                return value
             raise EditRejected([Issue("missing_column", "Use a column ref from the input schema.", ref, field)])
 
         for field, kind in fields.items():
@@ -187,10 +194,13 @@ async def propose_edit(ctx: ToolContext, args: ProposeEdit, work: Working) -> tu
     ]
     try:
         candidate, touched = materialize(current, ops)
-        gates.policy(candidate, touched)
+        # Every per-node gate runs before anything executes, binding previews included. The
+        # expression guard runs inside each preview, with that node's own columns.
+        gates.nodes(candidate, touched, names=ctx.hidden())
         await _bind(ctx, candidate, touched, current)
         columns = await expression_columns(ctx.db, ctx.project, candidate.graph, touched)
-        gates.check(candidate, touched, columns, names=ctx.hidden())
+        # An edit in progress may lack an output; validate and finish require one.
+        gates.check(candidate, touched, columns, names=ctx.hidden(), complete=False)
     except EditRejected as exc:
         return work, {"ok": False, "issues": [i.public() for i in exc.issues]}
     except ToolError as exc:

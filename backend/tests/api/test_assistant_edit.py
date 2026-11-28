@@ -246,7 +246,8 @@ async def test_expression_proposal_applies_end_to_end(client, db_session, monkey
         {"op": "connect", "from": "src", "to": "calc"},
         {"op": "connect", "from": "calc", "to": "out"},
     ]
-    ops[1]["config"] = {"column_name": "total", "expression": f"{PRIVATE} * b + 1"}
+    # With names hidden, expressions name columns by ref.
+    ops[1]["config"] = {"column_name": "total", "expression": "c0 * c1 + 1"}
     work, result = await propose_edit(ctx, edit(*ops), start({}))
     assert result["ok"], result
     row = await db_session.get(Flow, flow["id"])

@@ -100,25 +100,34 @@ async def _stats(ctx: ToolContext, ref: str) -> tuple[int | None, list[dict[str,
 
 async def get_dataset_schema(ctx: ToolContext, args: GetDatasetSchema) -> dict[str, Any]:
     rows, profile = await _stats(ctx, args.dataset)
-    columns = ctx.schemas[args.dataset].shared_columns(ctx.share_names)
+    schema = ctx.schemas[args.dataset]
+    names, refs = list(schema.columns), ctx.names
+    columns = [c for c in schema.shared_columns(ctx.share_names) if names[c["index"]] in refs]
     return {
-        "columns": [{"ref": f"c{c.pop('index')}", **c} for c in columns],
+        "columns": [{"ref": refs[names[c.pop("index")]], **c} for c in columns],
         "row_count": rows,
         "profiled": bool(profile),
     }
 
 
-def column_profile(ref: str, dtype: str, p: dict[str, Any], share_values: bool) -> dict[str, Any]:
-    """Shape facts for one column from a profile entry; ranges only with ``share_values``."""
+def column_profile(ref: str, dtype: str, p: dict[str, Any], counts: bool, share_values: bool) -> dict[str, Any]:
+    """Shape facts for one column from a profile entry.
+
+    Without ``counts`` only flags are given: counts of a filtered node would let the model
+    test data values one query at a time. Ranges need ``share_values``.
+    """
     scanned = p.get("scanned") or 0
     entry: dict[str, Any] = {
         "ref": ref,
         "type": dtype if dtype in SHARED_TYPES else "other",
-        "null_frac": round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None,
-        "distinct": p.get("distinct"),
-        "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
         "numeric": dtype in NUMERIC,
+        "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
     }
+    if counts:
+        entry["null_frac"] = round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None
+        entry["distinct"] = p.get("distinct")
+    else:
+        entry["has_nulls"] = bool(p.get("null_count"))
     # Ranges are data values; they leave the process only with the explicit opt-in.
     if share_values and "min" in p:
         entry.update(min=p["min"], max=p["max"])
@@ -144,10 +153,18 @@ async def _node_profile(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any
     names = ctx.column_names(args.source, args.columns)
     by_name = {p.get("name"): p for p in preview.preview.profile or []}
     columns = [
-        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values)
+        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values, ctx.share_values)
         for ref, name in zip(args.columns, names, strict=True)
     ]
-    return {"columns": columns, "row_count": preview.preview.row_count, "sampled": preview.sampled}
+    return {"columns": columns, "sampled": preview.sampled, **counts(preview.preview.row_count, ctx.share_values)}
+
+
+def counts(rows: int, share_values: bool) -> dict[str, Any]:
+    """A node's row count, or only whether it is empty while values are not shared.
+
+    The flag still tells one bit per query (for example whether a filter matches anything).
+    """
+    return {"row_count": rows} if share_values else {"empty": rows == 0}
 
 
 async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
@@ -158,8 +175,9 @@ async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, A
     names = ctx.column_names(args.source, args.columns)
     by_name = {p.get("name"): p for p in profile}
     types = ctx.schemas[args.source].columns
+    # A dataset's stored profile describes the whole dataset, which the model cannot filter.
     columns = [
-        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values)
+        column_profile(ref, types[name], by_name.get(name, {}), True, ctx.share_values)
         for ref, name in zip(args.columns, names, strict=True)
     ]
     return {"columns": columns, "row_count": rows}

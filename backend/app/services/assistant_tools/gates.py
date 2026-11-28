@@ -39,58 +39,32 @@ def _graph_code(message: str) -> str:
     return "config"
 
 
-def policy(work: Working, touched: Iterable[str], rows: int | None = None) -> None:
-    """Gate 1 alone, for callers that must run it before binding refs to names."""
-    providers = {s.id: s.provider for s in get_registry().node_specs()}
-    issues = []
-    wanted = set(touched)
-    for node in work.graph["nodes"]:
-        if node["id"] not in wanted:
-            continue
-        ref, kind = work.ref_of(node["id"]), node["type"]
-        if tier(kind, providers.get(kind)) is None or kind not in MODELS:
-            issues.append(Issue("policy", "This node type is not available to the assistant.", ref))
-            continue
-        try:
-            check_fields(kind, node["data"]["config"], rows)
-        except PolicyError as exc:
-            issues.append(Issue(exc.code, str(exc), ref, exc.field))
-    if issues:
-        raise EditRejected(issues)
+def _redaction(work: Working, names: Mapping[str, str] | None) -> dict[str, str]:
+    """Everything an issue message may name, mapped to refs: labels, columns and node ids."""
+    by_id = {n["id"]: n for n in work.graph["nodes"]}
+    labels = {by_id[i]["data"].get("label"): ref for ref, i in work.refs.items() if i in by_id}
+    return {
+        **{label: ref for label, ref in labels.items() if isinstance(label, str) and label},
+        **(names or {}),
+        **{node_id: ref for ref, node_id in work.refs.items()},
+    }
 
 
-def upstream_input(graph: Graph, node_id: str) -> Graph | None:
-    """The input node feeding a node through its first incoming path, if any."""
-    by_id: dict[str, Graph] = {n["id"]: n for n in graph["nodes"]}
-    seen: set[str] = set()
-    current: str | None = node_id
-    while current and current not in seen:
-        seen.add(current)
-        if by_id[current]["type"] in INPUTS:
-            return by_id[current]
-        current = next((e["source"] for e in graph["edges"] if e["target"] == current), None)
-    return None
-
-
-def check(
+def nodes(
     work: Working,
     touched: Iterable[str],
     columns: Mapping[str, list[str]] | None = None,
     rows: int | None = None,
     names: Mapping[str, str] | None = None,
 ) -> None:
-    """Run the gates on the working graph; ``touched`` nodes get the per-node gates.
+    """The per-node gates on ``touched`` nodes: policy and field rules, the node model, the
+    expression guard and the engine's ``validate_config``.
 
-    ``columns`` are the column names expressions may reference and ``names`` maps real
-    names to the refs shown to the model (empty when names are shared).
+    ``columns`` are the column names each expression may reference; None skips the
+    expression guard, for callers that run it later with the node's scope. ``names`` maps
+    real names to the refs shown to the model (empty when names are shared).
     """
-    by_id = {n["id"]: n for n in work.graph["nodes"]}
-    labels = {by_id[i]["data"].get("label"): ref for ref, i in work.refs.items() if i in by_id}
-    names = {
-        **{label: ref for label, ref in labels.items() if isinstance(label, str) and label},
-        **(names or {}),
-        **{node_id: ref for ref, node_id in work.refs.items()},
-    }
+    names = _redaction(work, names)
     providers = {s.id: s.provider for s in get_registry().node_specs()}
     issues: list[Issue] = []
     wanted = set(touched)
@@ -115,9 +89,9 @@ def check(
             code = "bad_type" if error["type"].endswith(("_type", "_parsing")) else "config"
             issues.append(Issue(code, redact(error["msg"], names), ref, field))
             continue
-        if level == "review":
+        if level == "review" and columns is not None:
             try:
-                guard_expression(str(cfg.get("expression", "")), (columns or {}).get(node["id"], []))
+                guard_expression(str(cfg.get("expression", "")), columns.get(node["id"], []))
             except PolicyError as exc:
                 issues.append(Issue(exc.code, str(exc), ref, exc.field))
                 continue
@@ -129,6 +103,22 @@ def check(
             issues.append(Issue("config", redact(str(exc), names), ref))
     if issues:
         raise EditRejected(issues)
+
+
+def check(
+    work: Working,
+    touched: Iterable[str],
+    columns: Mapping[str, list[str]] | None = None,
+    rows: int | None = None,
+    names: Mapping[str, str] | None = None,
+    complete: bool = True,
+) -> None:
+    """Run every gate: ``nodes`` on the touched nodes, then the graph limits, parameters and
+    structure. ``complete`` also requires an output or terminal node; an edit in progress
+    may lack one, a finished proposal may not.
+    """
+    nodes(work, touched, columns or {}, rows, names)
+    names = _redaction(work, names)
     try:
         inspect(work.graph)
     except ValidationError as exc:
@@ -136,7 +126,7 @@ def check(
     try:
         validate_parameter_specs(work.graph)
         resolved, _ = apply_parameters(work.graph)
-        validate_graph(resolved)
+        validate_graph(resolved, require_output=complete)
         validate_node_configs(resolved)
     except (GraphValidationError, ParameterError, ValueError, TypeError, KeyError) as exc:
         message = redact(str(exc), names)

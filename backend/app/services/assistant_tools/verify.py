@@ -9,7 +9,7 @@ from typing import Any
 
 from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.services.assistant_tools import gates, sample
-from app.services.assistant_tools.catalog import Args, Ref, column_profile
+from app.services.assistant_tools.catalog import Args, Ref, column_profile, counts
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
 from app.services.assistant_tools.edit import expression_columns
 from app.services.assistant_tools.ops import EditRejected, Working, diff
@@ -100,15 +100,15 @@ async def preview(ctx: ToolContext, args: Preview, work: Working) -> dict[str, A
     columns = _columns(ctx, args.node, result.schemas[node_id])
     reply: dict[str, Any] = {
         "ok": True,
-        "row_count": result.preview.row_count,
         "sampled": result.sampled,
         "columns": columns,
+        **counts(result.preview.row_count, ctx.share_values),
     }
     if args.profile:
         types = dict(result.schemas[node_id])
         by_name = {p.get("name"): p for p in result.preview.profile or []}
         reply["profile"] = [
-            column_profile(ref, sample.kind(types[name]), by_name.get(name, {}), ctx.share_values)
+            column_profile(ref, sample.kind(types[name]), by_name.get(name, {}), ctx.share_values, ctx.share_values)
             for ref, name in ctx.columns[args.node].items()
         ]
     return reply
