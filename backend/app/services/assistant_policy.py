@@ -100,6 +100,9 @@ DENIED = (
     "mlTrainForecaster",
 )
 INPUTS = frozenset(_INPUTS)
+#: Format-specific inputs kept for existing flows. The assistant adds ``fileInput`` instead,
+#: so they are hidden from its catalog and refused for new nodes.
+LEGACY_INPUTS = INPUTS - {"fileInput"}
 TERMINAL = frozenset({"fileOutput", *(t for t in _CORE if t.startswith("chart"))})
 
 

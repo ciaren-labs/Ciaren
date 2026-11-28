@@ -62,6 +62,21 @@ async def _preview(ctx: ToolContext, graph: Graph, node: str | None, profile: bo
         raise ToolError("ml_disabled", "ML nodes need the ML extension. Enable it in Settings.") from None
 
 
+async def columns_of(ctx: ToolContext, work: Working, node_ids: set[str]) -> dict[str, dict[str, str]]:
+    """Output columns of the given nodes on a sample preview; nodes that fail are left out
+    (validate reports why)."""
+    if not node_ids:
+        return {}
+    try:
+        result = await _preview(ctx, affected(work.graph, node_ids), None)
+    except ToolError:
+        return {}
+    refs = {i: r for r, i in work.refs.items()}
+    return {
+        refs[i]: _columns(ctx, refs[i], schema) for i, schema in result.schemas.items() if i in node_ids and i in refs
+    }
+
+
 def fingerprint(work: Working) -> str:
     """Identity of a working graph, so ``finish`` can require that it was validated as is."""
     return json.dumps(work.graph, sort_keys=True, default=str)

@@ -233,18 +233,24 @@ async def test_denied_type_and_policy_issue_then_recovery(client, scripted):
     assert "pythonTransform" not in nodes and nodes["filterExpression"]["data"]["config"]["expression"] == "amount > 3"
 
 
-async def test_step_limit_returns_the_last_valid_draft(client, scripted):
+@pytest.mark.parametrize("complete", [True, False])
+async def test_step_limit_validates_the_last_working_graph(client, scripted, complete):
     dataset = await upload(client, "s.csv", "a\n1\n")
-    ops = LIMITED
+    # Without an output the draft fails validate's completeness check.
+    ops = LIMITED if complete else LIMITED[:2] + [wire("src", "lim")]
     # After one valid edit the model keeps reading: the call limit ends the turn.
     scripted([("propose_edit", {"ops": ops})])
     flow, url, reply = await turn(client, "Limit", dataset_id=dataset["id"])
-    assert reply["reason"] == "step_limit" and reply["usage"]["calls"] == assistant_agent.MAX_CALLS
-    assert "proposal" in reply and {n["type"] for n in reply["delta"]["added"]} == {
-        "fileInput",
-        "limitRows",
-        "fileOutput",
-    }
+    assert reply["usage"]["calls"] == 14 and "proposal" in reply
+    added = {n["type"] for n in reply["delta"]["added"]}
+    if complete:
+        # The last working graph passed validate: a normal proposal, with a note.
+        assert "reason" not in reply and "step limit" in reply["message"]
+        assert added == {"fileInput", "limitRows", "fileOutput"}
+        await applied(client, flow, url, reply)
+    else:
+        assert reply["reason"] == "step_limit" and "unvalidated" in reply["message"]
+        assert added == {"fileInput", "limitRows"}
 
 
 async def test_wall_clock_returns_the_draft_as_timeout(client, scripted, monkeypatch):
@@ -252,7 +258,7 @@ async def test_wall_clock_returns_the_draft_as_timeout(client, scripted, monkeyp
     monkeypatch.setattr(assistant_agent, "WALL_SECONDS", 0.5)
     scripted([("propose_edit", {"ops": LIMITED})], "slow")
     _, _, reply = await turn(client, "Limit", dataset_id=dataset["id"])
-    assert reply["reason"] == "timeout" and "proposal" in reply and reply["usage"]["calls"] == 2
+    assert "proposal" in reply and reply["usage"]["calls"] == 2 and "time" in reply["message"]
 
 
 def test_compaction_keeps_the_latest_results_within_budget():
@@ -526,3 +532,40 @@ async def test_shared_names_win_over_refs(client, db_session, share_names, bound
     work, result = await propose_edit(ctx, edit_of(*ops), start({}))
     assert result["ok"], result
     assert next(n for n in work.graph["nodes"] if n["type"] == "sortRows")["data"]["config"]["columns"] == [bound]
+
+
+async def test_catalog_in_the_first_message_and_legacy_inputs_hidden(client, scripted):
+    dataset = await upload(client, "c.csv", "a\n1\n")
+    legacy = [add("src", "csvInput", dataset_id="d0"), add("lim", "limitRows", n=1), wire("src", "lim")]
+    sent = scripted(
+        [("propose_edit", {"ops": legacy}), ("get_node_schema", {"types": ["csvInput", "fileInput"]})],
+        # A fileOutput without a name gets a default one.
+        [("propose_edit", {"ops": [*LIMITED[:2], add("out", "fileOutput"), wire("src", "lim"), wire("lim", "out")]})],
+        *VALIDATE_FINISH,
+    )
+    flow, url, reply = await turn(client, "Limit", dataset_id=dataset["id"])
+    first = json.loads(sent[0][0]["content"])
+    types = {entry[0] for entry in first["catalog"]}
+    assert {"fileInput", "join", "mlCrossValidate", "chartBar"} <= types and not types & {"csvInput", "parquetInput"}
+    assert len(sent[0][0]["content"].encode()) <= assistant_agent.FIRST_MESSAGE_BYTES
+    refused, schema = results(sent[1], "propose_edit")[0], results(sent[1], "get_node_schema")[0]
+    assert refused["issues"][0]["code"] == "policy" and schema["csvInput"] == {"error": "policy"}
+    # A successful edit reports the columns of the nodes it touched, so no preview call is needed.
+    proposed = results(sent[2], "propose_edit")[-1]
+    assert proposed["ok"] and proposed["columns"]["lim"] == {"c0": "integer"}, proposed
+    nodes, _ = await applied(client, flow, url, reply)
+    assert nodes["fileOutput"]["data"]["config"]["dataset_name"] == "assistant_output"
+
+
+async def test_existing_legacy_inputs_stay_editable(client, db_session):
+    dataset = await upload(client, "l.csv", "a\n1\n")
+    ctx = ToolContext(db_session, dataset["project_id"], {}, datasets={"d0": dataset["id"]})
+    base = {
+        "nodes": [
+            {"id": "i" * 32, "type": "csvInput", "data": {"label": "In", "config": {"dataset_id": dataset["id"]}}}
+        ],
+        "edges": [],
+    }
+    ops = [add("lim", "limitRows", n=1), add("out", "fileOutput"), wire("n0", "lim"), wire("lim", "out")]
+    _, result = await propose_edit(ctx, edit_of(*ops), start(base))
+    assert result["ok"], result

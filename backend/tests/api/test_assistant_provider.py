@@ -189,18 +189,18 @@ def test_strict_schema_normalisation():
 async def test_hourly_budget_reserves_and_refuses(settings, monkeypatch):
     clock = [1000.0]
     monkeypatch.setattr(provider_mod, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(settings, "ASSISTANT_TURNS_PER_HOUR", 11)
+    monkeypatch.setattr(settings, "ASSISTANT_TURNS_PER_HOUR", provider_mod.MAX_CALLS + 3)
 
     first = provider_mod.reserve()
     second = provider_mod.reserve()
-    assert (first.calls, second.calls) == (8, 3)
+    assert (first.calls, second.calls) == (provider_mod.MAX_CALLS, 3)
     with pytest.raises(BudgetExhausted) as exhausted:
         provider_mod.reserve()
     assert exhausted.value.reason == "budget_exhausted"
     second.release()  # finished without using its calls
     assert provider_mod.reserve().calls == 3
     clock[0] += 3601
-    assert provider_mod.reserve().calls == 8
+    assert provider_mod.reserve().calls == provider_mod.MAX_CALLS
 
 
 async def test_token_budget_refuses_new_turns(settings, monkeypatch):
@@ -214,7 +214,7 @@ async def test_token_budget_refuses_new_turns(settings, monkeypatch):
     with pytest.raises(BudgetExhausted):
         provider_mod.reserve()
     monkeypatch.setattr(settings, "ASSISTANT_TOKENS_PER_HOUR", 500)
-    assert provider_mod.reserve().calls == 8
+    assert provider_mod.reserve().calls == provider_mod.MAX_CALLS
 
 
 # The key spelled with JSON escapes survives the envelope check and only
@@ -240,7 +240,7 @@ async def test_decoded_answers_and_tool_arguments_cannot_echo_the_key(settings, 
 
 
 async def test_cancelled_turn_keeps_its_reservation(settings, monkeypatch):
-    monkeypatch.setattr(settings, "ASSISTANT_TURNS_PER_HOUR", 10)
+    monkeypatch.setattr(settings, "ASSISTANT_TURNS_PER_HOUR", provider_mod.MAX_CALLS + 2)
     entered = asyncio.Event()
 
     async def turn() -> None:
@@ -253,11 +253,11 @@ async def test_cancelled_turn_keeps_its_reservation(settings, monkeypatch):
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert len(provider_mod._turns) == 8
+    assert len(provider_mod._turns) == provider_mod.MAX_CALLS
     async with provider_mod.turn_budget() as budget:
         assert budget.calls == 2
     # A turn that ends normally returns the calls it did not use.
-    assert len(provider_mod._turns) == 8
+    assert len(provider_mod._turns) == provider_mod.MAX_CALLS
 
 
 async def test_concurrent_turn_cap(client, settings, monkeypatch):

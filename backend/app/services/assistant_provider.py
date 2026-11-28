@@ -34,7 +34,7 @@ MAX_OUTPUT = 2048
 MAX_STEP_OUTPUT = 4096
 MAX_REPLY_BYTES = 128 * 1024
 MAX_CALL_BYTES = 48 * 1024
-MAX_CALLS = 8
+MAX_CALLS = 14
 # One timestamp per reserved provider call, shared by every turn in the process.
 _turns: deque[float] = deque()
 # (timestamp, input + output tokens) per completed call, for the optional token budget.

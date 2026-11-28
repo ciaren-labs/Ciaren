@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     ASSISTANT_ENABLED: bool = True
     ASSISTANT_PROVIDER: Literal["off", "openai", "anthropic", "deepseek", "opencode"] = "off"
     ASSISTANT_SECRET_DIR: str = "/run/ciaren-assistant-secrets"
-    ASSISTANT_TURNS_PER_HOUR: int = 20
+    # Provider calls per rolling hour and process; one tool-calling turn uses up to 14.
+    ASSISTANT_TURNS_PER_HOUR: int = 60
     # Optional cap on provider input + output tokens per rolling hour.
     ASSISTANT_TOKENS_PER_HOUR: int | None = None
     ASSISTANT_OPENAI_MODEL: Literal["gpt-5-mini", "gpt-5"] = "gpt-5-mini"

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.plugins import get_registry
 from app.services.assistant_nodes import MODELS, column_fields
-from app.services.assistant_policy import INPUTS, REVIEW, tier
+from app.services.assistant_policy import INPUTS, LEGACY_INPUTS, REVIEW, tier
 from app.services.assistant_tools import gates, sample
 from app.services.assistant_tools.catalog import Args
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
@@ -59,6 +59,18 @@ def _bind_expression(text: str, columns: dict[str, str], node: str, shared: bool
 
     parts[::2] = [_IDENTIFIER.sub(name, code) for code in parts[::2]]
     return "'".join(parts)
+
+
+DEFAULT_OUTPUT = "assistant_output"
+
+
+def _with_defaults(op: AddNode) -> AddNode:
+    """New nodes start from their catalog defaults, as in the editor; an output gets a name."""
+    defaults = {s.id: s.default_config for s in get_registry().node_specs()}
+    config = {**deepcopy(defaults.get(op.type, {})), **op.config}
+    if op.type == "fileOutput" and not config.get("dataset_name"):
+        config["dataset_name"] = DEFAULT_OUTPUT
+    return op.model_copy(update={"config": config})
 
 
 class ProposeEdit(Args):
@@ -184,14 +196,11 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
 async def propose_edit(ctx: ToolContext, args: ProposeEdit, work: Working) -> tuple[Working, dict[str, Any]]:
     """All-or-nothing: returns the new working state on success, the unchanged one otherwise."""
     current = start(work.base) if args.reset else work
-    defaults = {s.id: s.default_config for s in get_registry().node_specs()}
-    # New nodes start from their catalog defaults, as in the editor.
-    ops = [
-        op.model_copy(update={"config": {**deepcopy(defaults.get(op.type, {})), **op.config}})
-        if isinstance(op, AddNode)
-        else op
-        for op in args.ops
-    ]
+    legacy = [op for op in args.ops if isinstance(op, AddNode) and op.type in LEGACY_INPUTS]
+    if legacy:
+        issue = Issue("policy", "Use fileInput for new inputs.", legacy[0].ref)
+        return work, {"ok": False, "issues": [issue.public()]}
+    ops = [_with_defaults(op) if isinstance(op, AddNode) else op for op in args.ops]
     try:
         candidate, touched = materialize(current, ops)
         # Every per-node gate runs before anything executes, binding previews included. The

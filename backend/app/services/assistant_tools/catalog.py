@@ -11,7 +11,7 @@ from app.db.models.dataset_version import DatasetVersion
 from app.plugin_api.specs import NodeSpec
 from app.plugins import get_registry
 from app.services.assistant_nodes import MODELS, column_fields
-from app.services.assistant_policy import TERMINAL, tier
+from app.services.assistant_policy import LEGACY_INPUTS, TERMINAL, tier
 from app.services.assistant_tools import sample
 from app.services.assistant_tools.context import ToolContext, ToolError
 
@@ -42,8 +42,27 @@ class ProfileColumns(Args):
 
 
 def allowed_specs() -> dict[str, NodeSpec]:
-    """Installed nodes the policy allows, from their expected provider only."""
-    return {s.id: s for s in get_registry().node_specs() if tier(s.id, s.provider) and s.id in MODELS}
+    """Installed nodes the assistant may add: allowed by the policy, from their expected
+    provider, and not a legacy input type."""
+    return {
+        s.id: s
+        for s in get_registry().node_specs()
+        if tier(s.id, s.provider) and s.id in MODELS and s.id not in LEGACY_INPUTS
+    }
+
+
+def compact_catalog() -> list[list[Any]]:
+    """[type, category, input ports, output ports, first sentence] for every allowed type."""
+    return [
+        [
+            s.id,
+            s.category,
+            [p.id for p in s.inputs],
+            [p.id for p in s.outputs],
+            (s.description or "").split(". ")[0].rstrip(".")[:70],
+        ]
+        for s in allowed_specs().values()
+    ]
 
 
 async def list_node_types(ctx: ToolContext, args: ListNodeTypes) -> dict[str, Any]:

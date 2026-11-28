@@ -97,7 +97,8 @@ def enum_fields(schema):
 def test_every_allowed_node_matches_engine_validation_and_catalog(ml, node_type):
     from pydantic import ValidationError
 
-    assert node_type in catalog.allowed_specs()
+    # Legacy input types stay valid for stored flows but are not offered for new nodes.
+    assert (node_type in catalog.allowed_specs()) is (node_type not in policy.LEGACY_INPUTS)
     model = MODELS[node_type]
     config = filled(node_type)
     model.model_validate(config, strict=True)
@@ -140,7 +141,7 @@ def test_registry_enums_and_denied_nodes(ml):
 async def test_list_and_schema_tools_hide_denied_nodes(ml, db_session):
     ctx = ToolContext(db_session, "project", {})
     listed = {n["type"]: n for n in (await catalog.list_node_types(ctx, catalog.ListNodeTypes()))["nodes"]}
-    assert set(listed) == set(policy.POLICY)
+    assert set(listed) == set(policy.POLICY) - policy.LEGACY_INPUTS
     assert listed["join"]["inputs"] == [
         {"id": "left", "kind": "dataframe", "required": True, "multi": False},
         {"id": "right", "kind": "dataframe", "required": True, "multi": False},
