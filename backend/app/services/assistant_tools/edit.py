@@ -1,20 +1,29 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """``propose_edit``: map refs to names, materialize the ops and run the static gates."""
 
+from copy import deepcopy
 from typing import Annotated, Any
 
 from pydantic import Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ValidationError
+from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.plugins import get_registry
-from app.services.assistant_inputs import resolve_input
 from app.services.assistant_nodes import MODELS, column_fields
 from app.services.assistant_policy import INPUTS, tier
-from app.services.assistant_tools import gates
+from app.services.assistant_tools import gates, sample
 from app.services.assistant_tools.catalog import Args
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
-from app.services.assistant_tools.ops import MAX_OPS, AnyOp, EditRejected, Issue, Working, layout, materialize
+from app.services.assistant_tools.ops import (
+    MAX_OPS,
+    AddNode,
+    AnyOp,
+    EditRejected,
+    Issue,
+    Working,
+    layout,
+    materialize,
+)
 
 
 class ProposeEdit(Args):
@@ -29,47 +38,56 @@ def start(graph: dict[str, Any]) -> Working:
     return Working.start(graph, locked)
 
 
-def _upstream_dataset(ctx: ToolContext, work: Working, node_id: str) -> str | None:
-    """The dataset ref feeding a node through its first input path, if any."""
-    source = gates.upstream_input(work.graph, node_id)
-    refs = {dataset: ref for ref, dataset in ctx.datasets.items()}
-    return refs.get(source["data"]["config"].get("dataset_id")) if source else None
+def _unavailable() -> EditRejected:
+    return EditRejected([Issue("missing_dataset", "The input dataset is unavailable.")])
+
+
+def _ml_disabled() -> EditRejected:
+    return EditRejected([Issue("ml_disabled", "ML nodes need the ML extension. Enable it in Settings.")])
 
 
 async def expression_columns(db: AsyncSession, project: str, graph: Graph, node_ids: set[str]) -> dict[str, list[str]]:
-    """Columns each review-tier node's expression may reference: its upstream input's schema.
+    """Columns each review-tier node's expression may reference: its upstream node's preview schema.
 
     Propose and apply both use this, so the apply-time recheck sees the same columns.
     """
     providers = {s.id: s.provider for s in get_registry().node_specs()}
-    result: dict[str, list[str]] = {}
-    for node in graph["nodes"]:
-        if node["id"] not in node_ids or tier(node["type"], providers.get(node["type"])) != "review":
-            continue
-        source = gates.upstream_input(graph, node["id"])
-        if source is None:
-            continue
-        try:
-            schema = await resolve_input(db, project, None, source)
-        except ValidationError:
-            raise EditRejected([Issue("missing_dataset", "The input dataset is unavailable.")]) from None
-        result[node["id"]] = list(schema.columns)
-    return result
+    wanted = {
+        n["id"] for n in graph["nodes"] if n["id"] in node_ids and tier(n["type"], providers.get(n["type"])) == "review"
+    }
+    if not wanted:
+        return {}
+    try:
+        scopes, failed = await sample.expression_scopes(db, project, graph, sample.ancestors(graph, wanted))
+    except ValidationError:
+        raise _unavailable() from None
+    except MLNotEnabledError:
+        raise _ml_disabled() from None
+    if failed is not None:
+        code = failed.issues[0].code if failed.issues else "config"
+        raise EditRejected([Issue(code, "The input of an expression node could not be previewed.")])
+    return {node: columns for node, columns in scopes.items() if node in wanted}
 
 
 async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Working) -> None:
     """Replace dataset and column refs by real values in touched nodes.
 
-    Values already bound by an earlier edit of the same node are kept as they are.
+    Column refs are scoped per node: they index the output columns of the node's upstream
+    node, computed by a sample preview. Values already bound by an earlier edit of the same
+    node are kept as they are.
     """
     before = {n["id"]: n["data"]["config"] for n in prior.graph["nodes"]}
-    for node in work.graph["nodes"]:
-        if node["id"] not in touched:
+    by_id = {n["id"]: n for n in work.graph["nodes"]}
+    schemas: dict[str, list[tuple[str, str]]] = {}
+    # Dependency order: a node's upstream settings are bound before its source is previewed.
+    for node_id in sample.order(work.graph):
+        if node_id not in touched:
             continue
-        cfg, ref = node["data"]["config"], work.ref_of(node["id"])
+        node = by_id[node_id]
+        cfg, ref = node["data"]["config"], work.ref_of(node_id)
         if node["type"] in INPUTS:
             dataset = cfg.get("dataset_id")
-            if dataset == before.get(node["id"], {}).get("dataset_id"):
+            if dataset == before.get(node_id, {}).get("dataset_id"):
                 continue
             if dataset not in ctx.datasets:
                 raise EditRejected([Issue("missing_dataset", "Use a dataset ref such as d0.", ref, "dataset_id")])
@@ -77,18 +95,31 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
             cfg["dataset_id"] = ctx.datasets[dataset]
             continue
         fields = column_fields(node["type"]) if node["type"] in MODELS else {}
-        source = _upstream_dataset(ctx, work, node["id"])
-        if source is None:
+        source = sample.data_source(work.graph, node_id)
+        if not fields or source is None:
             continue
-        await ctx.dataset(source)
-        columns = ctx.columns[source]
+        if source not in schemas:
+            try:
+                preview = await sample.scoped_preview(ctx.db, ctx.project, work.graph, source)
+            except ValidationError:
+                raise _unavailable() from None
+            except MLNotEnabledError:
+                raise _ml_disabled() from None
+            schemas.update(preview.schemas)
+            if source not in schemas:
+                refs = {i: r for r, i in work.refs.items()}
+                found = sample.public_issues(preview, refs, ctx.hidden())
+                # Unattributed graph errors point at the node whose input failed.
+                source_ref = work.ref_of(source)
+                raise EditRejected([Issue(i["code"], i["message"], i.get("node", source_ref)) for i in found])
+        columns = ctx.register(work.ref_of(source), [c for c, _ in schemas[source]])
 
         def name(value: Any, field: str) -> Any:
             if not isinstance(value, str):
                 return value  # The node model gate reports the wrong type.
             if value in columns:
                 return columns[value]
-            previous = before.get(node["id"], {}).get(field)
+            previous = before.get(node_id, {}).get(field)
             bound = value == previous or isinstance(previous, list | dict) and value in previous
             if value in columns.values() and (ctx.share_names or bound):
                 return value
@@ -109,13 +140,20 @@ async def _bind(ctx: ToolContext, work: Working, touched: set[str], prior: Worki
 async def propose_edit(ctx: ToolContext, args: ProposeEdit, work: Working) -> tuple[Working, dict[str, Any]]:
     """All-or-nothing: returns the new working state on success, the unchanged one otherwise."""
     current = start(work.base) if args.reset else work
+    defaults = {s.id: s.default_config for s in get_registry().node_specs()}
+    # New nodes start from their catalog defaults, as in the editor.
+    ops = [
+        op.model_copy(update={"config": {**deepcopy(defaults.get(op.type, {})), **op.config}})
+        if isinstance(op, AddNode)
+        else op
+        for op in args.ops
+    ]
     try:
-        candidate, touched = materialize(current, args.ops)
+        candidate, touched = materialize(current, ops)
         gates.policy(candidate, touched)
         await _bind(ctx, candidate, touched, current)
         columns = await expression_columns(ctx.db, ctx.project, candidate.graph, touched)
-        hidden = {} if ctx.share_names else {n: r for cols in ctx.columns.values() for r, n in cols.items()}
-        gates.check(candidate, touched, columns, names=hidden)
+        gates.check(candidate, touched, columns, names=ctx.hidden())
     except EditRejected as exc:
         return work, {"ok": False, "issues": [i.public() for i in exc.issues]}
     except ToolError as exc:

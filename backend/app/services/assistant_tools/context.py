@@ -24,12 +24,14 @@ class ToolError(ValueError):
 class ToolContext:
     db: AsyncSession
     project: str
+    #: The working graph and its node refs (``n0``, model-named refs) -> node ids.
     graph: Graph
+    refs: dict[str, str] = field(default_factory=dict)
     #: Dataset ref (``d0``) -> project dataset id, fixed by the caller before the turn.
     datasets: dict[str, str] = field(default_factory=dict)
     share_names: bool = False
     share_values: bool = False
-    #: Source ref -> column ref (``c0``) -> real column name.
+    #: Source ref (dataset or node) -> column ref (``c0``) -> real column name.
     columns: dict[str, dict[str, str]] = field(default_factory=dict)
     schemas: dict[str, InputSchema] = field(default_factory=dict)
 
@@ -40,8 +42,19 @@ class ToolContext:
         if ref not in self.schemas:
             schema = await resolve_input(self.db, self.project, self.datasets[ref], None)
             self.schemas[ref] = schema
-            self.columns[ref] = {f"c{i}": name for i, name in enumerate(list(schema.columns)[:MAX_COLUMNS])}
+            self.register(ref, list(schema.columns))
         return self.schemas[ref]
+
+    def register(self, source: str, names: list[str]) -> dict[str, str]:
+        """Column refs of one dataset or node output, by position."""
+        self.columns[source] = {f"c{i}": name for i, name in enumerate(names[:MAX_COLUMNS])}
+        return self.columns[source]
+
+    def hidden(self) -> dict[str, str]:
+        """Real column name -> ref for every registered column; empty when names are shared."""
+        if self.share_names:
+            return {}
+        return {name: ref for cols in self.columns.values() for ref, name in cols.items()}
 
     def column_names(self, source: str, refs: list[str]) -> list[str]:
         known = self.columns.get(source, {})

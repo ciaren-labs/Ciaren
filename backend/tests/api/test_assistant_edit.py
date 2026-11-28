@@ -184,6 +184,21 @@ async def test_malformed_values_are_issues_not_errors(ml, canvas, node_type, con
     assert result["issues"][0]["code"] == code, result
 
 
+@pytest.mark.parametrize(
+    ("message", "redacted"),
+    [
+        # Names are replaced as whole words only; a short name must not rewrite other words.
+        ("Graph must have at least one output node", "Graph must have at least one output node"),
+        ("column a is missing", "column c0 is missing"),
+        ("value 'secret' in a_b", "value '…' in c1"),
+    ],
+)
+def test_redaction_replaces_whole_names(message, redacted):
+    from app.services.assistant_tools import gates
+
+    assert gates.redact(message, {"a": "c0", "a_b": "c1"}) == redacted
+
+
 def test_graph_limit_is_reported():
     from app.services.assistant_tools import gates
     from app.services.assistant_tools.ops import EditRejected

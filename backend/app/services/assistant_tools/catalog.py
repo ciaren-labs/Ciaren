@@ -6,11 +6,13 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
+from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.db.models.dataset_version import DatasetVersion
 from app.plugin_api.specs import NodeSpec
 from app.plugins import get_registry
 from app.services.assistant_nodes import MODELS, column_fields
 from app.services.assistant_policy import TERMINAL, tier
+from app.services.assistant_tools import sample
 from app.services.assistant_tools.context import ToolContext, ToolError
 
 NUMERIC = {"integer", "float", "int64", "float64", "number"}
@@ -106,30 +108,61 @@ async def get_dataset_schema(ctx: ToolContext, args: GetDatasetSchema) -> dict[s
     }
 
 
+def column_profile(ref: str, dtype: str, p: dict[str, Any], share_values: bool) -> dict[str, Any]:
+    """Shape facts for one column from a profile entry; ranges only with ``share_values``."""
+    scanned = p.get("scanned") or 0
+    entry: dict[str, Any] = {
+        "ref": ref,
+        "type": dtype if dtype in SHARED_TYPES else "other",
+        "null_frac": round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None,
+        "distinct": p.get("distinct"),
+        "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
+        "numeric": dtype in NUMERIC,
+    }
+    # Ranges are data values; they leave the process only with the explicit opt-in.
+    if share_values and "min" in p:
+        entry.update(min=p["min"], max=p["max"])
+    return entry
+
+
+async def _node_profile(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
+    """Profile a working-graph node's output on the preview sample."""
+    node_id = ctx.refs.get(args.source)
+    if node_id is None:
+        raise ToolError("bad_ref", "Unknown dataset or node reference.")
+    try:
+        preview = await sample.scoped_preview(ctx.db, ctx.project, ctx.graph, node_id, profile=True)
+    except ValidationError:
+        raise ToolError("missing_dataset", "The input dataset is unavailable.") from None
+    except MLNotEnabledError:
+        raise ToolError("ml_disabled", "ML nodes need the ML extension.") from None
+    if preview.preview is None or node_id not in preview.schemas:
+        issue = preview.issues[0].code if preview.issues else "config"
+        raise ToolError(issue, "This node could not be previewed. Run validate for details.")
+    types = {name: sample.kind(dtype) for name, dtype in preview.schemas[node_id]}
+    ctx.register(args.source, list(types))
+    names = ctx.column_names(args.source, args.columns)
+    by_name = {p.get("name"): p for p in preview.preview.profile or []}
+    columns = [
+        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values)
+        for ref, name in zip(args.columns, names, strict=True)
+    ]
+    return {"columns": columns, "row_count": preview.preview.row_count, "sampled": preview.sampled}
+
+
 async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:
+    """Profile dataset columns from the stored profile, or node columns from a sample preview."""
     if args.source not in ctx.datasets:
-        raise ToolError("unsupported", "Only dataset sources can be profiled.")
+        return await _node_profile(ctx, args)
     rows, profile = await _stats(ctx, args.source)
     names = ctx.column_names(args.source, args.columns)
     by_name = {p.get("name"): p for p in profile}
     types = ctx.schemas[args.source].columns
-    result = []
-    for ref, name in zip(args.columns, names, strict=True):
-        p = by_name.get(name, {})
-        scanned = p.get("scanned") or 0
-        entry: dict[str, Any] = {
-            "ref": ref,
-            "type": types[name] if types[name] in SHARED_TYPES else "other",
-            "null_frac": round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None,
-            "distinct": p.get("distinct"),
-            "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
-            "numeric": types[name] in NUMERIC,
-        }
-        # Ranges are data values; they leave the process only with the explicit opt-in.
-        if ctx.share_values and "min" in p:
-            entry.update(min=p["min"], max=p["max"])
-        result.append(entry)
-    return {"columns": result, "row_count": rows}
+    columns = [
+        column_profile(ref, types[name], by_name.get(name, {}), ctx.share_values)
+        for ref, name in zip(args.columns, names, strict=True)
+    ]
+    return {"columns": columns, "row_count": rows}
 
 
 TOOLS: dict[str, tuple[type[Args], Any]] = {

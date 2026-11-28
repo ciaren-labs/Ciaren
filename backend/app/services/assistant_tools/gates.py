@@ -23,7 +23,8 @@ _QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 def redact(message: str, refs: Mapping[str, str]) -> str:
     """Replace known names by their refs, drop quoted literals and bound the length."""
     for name, ref in sorted(refs.items(), key=lambda item: -len(item[0])):
-        message = message.replace(name, ref)
+        # Whole names only: a column called "a" must not rewrite the words around it.
+        message = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", ref, message)
     return _QUOTED.sub("'…'", message)[:MESSAGE_LIMIT]
 
 
