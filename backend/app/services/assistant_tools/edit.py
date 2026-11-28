@@ -11,7 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import MLNotEnabledError, ValidationError
 from app.plugins import get_registry
 from app.services.assistant_nodes import MODELS, column_fields
-from app.services.assistant_policy import INPUTS, LEGACY_INPUTS, REVIEW, tier
+from app.services.assistant_policy import (
+    EXPRESSION_FUNCTIONS,
+    INPUTS,
+    LEGACY_INPUTS,
+    REVIEW,
+    PolicyError,
+    guard_expression,
+    tier,
+)
 from app.services.assistant_tools import gates, sample
 from app.services.assistant_tools.catalog import Args
 from app.services.assistant_tools.context import Graph, ToolContext, ToolError
@@ -38,6 +46,12 @@ def _bind_expression(text: str, columns: dict[str, str], node: str, shared: bool
     expression already used it; guessed names are refused. A refused name is reported by
     ref, never by name.
     """
+    try:
+        # Structure first, with every name treated as known: a disallowed construct is
+        # reported as such, before any name is resolved.
+        guard_expression(text, set(_IDENTIFIER.findall(text)) - EXPRESSION_FUNCTIONS)
+    except PolicyError as exc:
+        raise EditRejected([Issue(exc.code, str(exc), node, "expression")]) from None
     parts = text.split("'")
     real = set(columns.values())
     known = set(_IDENTIFIER.findall(stored))
@@ -53,13 +67,17 @@ def _bind_expression(text: str, columns: dict[str, str], node: str, shared: bool
             if not _IDENTIFIER.fullmatch(columns[token]):
                 raise refused("bad_type", f"Column {token} has a name expressions cannot use; rename it first.")
             return columns[token]
-        if token in real:
+        if token in real or not (shared or token in _EXPRESSION_WORDS):
+            # Guessed names that exist and names that do not are refused alike, so the
+            # refusal cannot confirm a hidden column name.
             raise refused("missing_column", "Use column refs such as c0 in expressions.")
-        return token  # Functions and unknown names: the expression guard decides.
+        return token  # Functions, keywords and (when shared) unknown names: the guard decides.
 
     parts[::2] = [_IDENTIFIER.sub(name, code) for code in parts[::2]]
     return "'".join(parts)
 
+
+_EXPRESSION_WORDS = EXPRESSION_FUNCTIONS | {"and", "or", "not", "True", "False"}
 
 DEFAULT_OUTPUT = "assistant_output"
 

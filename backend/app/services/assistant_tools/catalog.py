@@ -136,12 +136,11 @@ def column_profile(ref: str, dtype: str, p: dict[str, Any], counts: bool, share_
     test data values one query at a time. Ranges need ``share_values``.
     """
     scanned = p.get("scanned") or 0
-    entry: dict[str, Any] = {
-        "ref": ref,
-        "type": dtype if dtype in SHARED_TYPES else "other",
-        "numeric": dtype in NUMERIC,
-        "unique": bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0,
-    }
+    kind = dtype if dtype in SHARED_TYPES else "other"
+    entry: dict[str, Any] = {"ref": ref, "type": kind, "numeric": dtype in NUMERIC}
+    if not (counts or share_values):
+        return entry  # A filtered node's flags would answer guesses about its values.
+    entry["unique"] = bool(scanned) and p.get("distinct") == scanned == p.get("total") and p.get("null_count") == 0
     if counts:
         entry["null_frac"] = round(p["null_count"] / scanned, 4) if scanned and "null_count" in p else None
         entry["distinct"] = p.get("distinct")
@@ -179,11 +178,11 @@ async def _node_profile(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any
 
 
 def counts(rows: int, share_values: bool) -> dict[str, Any]:
-    """A node's row count, or only whether it is empty while values are not shared.
+    """A node's row count, only with share_values.
 
-    The flag still tells one bit per query (for example whether a filter matches anything).
+    Any count or flag of a filtered node tells whether a guessed value occurs in the data.
     """
-    return {"row_count": rows} if share_values else {"empty": rows == 0}
+    return {"row_count": rows} if share_values else {}
 
 
 async def profile_columns(ctx: ToolContext, args: ProfileColumns) -> dict[str, Any]:

@@ -404,9 +404,10 @@ async def test_profile_and_expressions_use_each_nodes_own_columns(client, db_ses
     assert result["ok"], result
     ctx.graph, ctx.refs = work.graph, work.refs
     profiled = await catalog.profile_columns(ctx, catalog.ProfileColumns(source="calc", columns=["c2"]))
-    expected = {"ref": "c2", "type": "integer", "numeric": True, "unique": True, "has_nulls": False}
-    assert profiled["columns"] == [expected]
-    assert profiled["empty"] is False
+    # Without share_values a node profile states shape only: any flag of a filtered node
+    # would let the model test data values one query at a time.
+    assert profiled["columns"] == [{"ref": "c2", "type": "integer", "numeric": True}]
+    assert "empty" not in profiled and "row_count" not in profiled
     # The apply-time recheck scopes the expression the same way.
     sent = scripted([("propose_edit", {"ops": ops})], *VALIDATE_FINISH)
     flow, url, reply = await turn(client, "Keep large totals", dataset_id=dataset["id"])
@@ -490,10 +491,11 @@ async def test_counts_need_share_values(client, db_session):
     ctx.graph, ctx.refs = work.graph, work.refs
     hidden = await verify.preview(ctx, verify.Preview(node="srt", profile=True), work)
     profiled = await catalog.profile_columns(ctx, catalog.ProfileColumns(source="srt", columns=["c1"]))
-    # A filtered node's counts would be an oracle for data values: only an empty flag is shared.
-    assert "row_count" not in hidden and hidden["empty"] is False
-    assert "row_count" not in profiled and profiled["empty"] is False
-    assert all("distinct" not in c and "null_frac" not in c for c in [*hidden["profile"], *profiled["columns"]])
+    # A filtered node's counts or flags would be an oracle for data values: none are shared.
+    for result in (hidden, profiled):
+        assert "row_count" not in result and "empty" not in result
+    for column in [*hidden["profile"], *profiled["columns"]]:
+        assert set(column) <= {"ref", "type", "numeric"}
     ctx.share_values = True
     shared = await verify.preview(ctx, verify.Preview(node="srt", profile=True), work)
     assert shared["row_count"] == 2 and shared["profile"][1]["distinct"] == 2
@@ -514,6 +516,10 @@ async def test_expressions_accept_guessed_names_only_when_shared(client, db_sess
     assert result["ok"] is share_names, result
     if not share_names:
         assert result["issues"][0]["code"] == "missing_column" and "price" not in json.dumps(result)
+        # A guessed name that does not exist is refused identically: no existence oracle.
+        ops[1] = add("f", "filterExpression", expression="wages > 1")
+        _, unknown = await propose_edit(ctx, edit_of(*ops), start({}))
+        assert unknown["issues"] == result["issues"]
 
 
 async def test_names_already_bound_in_the_stored_config_stay_usable(client, db_session):

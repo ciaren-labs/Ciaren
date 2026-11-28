@@ -214,6 +214,9 @@ async def test_list_and_schema_tools_hide_denied_nodes(ml, db_session):
         # Negating a non-boolean differs between the engines.
         ("not amount", False),
         ("~(amount > 1)", False),
+        # A backslash escape hides a quote from the binder's literal split.
+        ("'\\'' != amount", False),
+        ("region == '\\n'", False),
     ],
 )
 def test_expression_guard(expression, accepted):

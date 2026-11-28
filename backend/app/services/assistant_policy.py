@@ -136,6 +136,7 @@ def reject_templates(value: Any, field: str | None = None) -> None:
 
 
 EXPRESSION_LIMIT = 300
+BACKSLASH = chr(92)
 LITERAL_LIMIT = 160
 NUMBER_LIMIT = 1e12
 NODE_LIMIT = 64
@@ -178,7 +179,9 @@ def guard_expression(expression: str, columns: Iterable[str], field: str = "expr
         raise PolicyError(f"Expressions are limited to {EXPRESSION_LIMIT} characters.", field, "limit")
     if not expression.isascii() or not expression.isprintable():
         raise PolicyError("Expressions may only contain printable ASCII characters.", field)
-    if any(term in expression for term in ("@", "__", ";", "`", '"', "--", "/*", "*/", "import", "lambda")):
+    # A backslash escape would hide a quote from the binder's literal split.
+    forbidden = ("@", "__", ";", "`", '"', BACKSLASH, "--", "/*", "*/", "import", "lambda")
+    if any(term in expression for term in forbidden):
         raise PolicyError("The expression uses a disallowed construct.", field)
     try:
         tree = ast.parse(expression, mode="eval")
