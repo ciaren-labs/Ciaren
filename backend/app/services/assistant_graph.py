@@ -15,11 +15,12 @@ INPUTS = {"fileInput", "csvInput", "excelInput", "parquetInput", "textInput", "j
 OUTPUTS = {"fileOutput", "csvOutput", "excelOutput", "parquetOutput"}
 STEPS = {"limitRows", "sortRows", "dropNulls", "removeDuplicates", "selectColumns", "dropColumns", "filterRows"}
 SAFE = INPUTS | OUTPUTS | STEPS
+MAX_NODES, MAX_EDGES = 80, 160
 
 
 def inspect(graph: Graph) -> tuple[list[Graph], list[Graph]]:
     nodes, edges = graph.get("nodes", []), graph.get("edges", [])
-    if not isinstance(nodes, list) or not isinstance(edges, list) or len(nodes) > 80 or len(edges) > 160:
+    if not isinstance(nodes, list) or not isinstance(edges, list) or len(nodes) > MAX_NODES or len(edges) > MAX_EDGES:
         raise ValidationError("Canvas exceeds the assistant graph limit.")
     ids = set()
     for n in nodes:

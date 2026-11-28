@@ -15,7 +15,7 @@ from app.db.models.run import FlowRun
 from app.ml.availability import ml_extension_ready
 from app.schemas.assistant import Reason, Reply, Suggestion, Turn
 from app.services import assistant_join
-from app.services.assistant_graph import INPUTS, SAFE, STEPS, Graph, inspect
+from app.services.assistant_graph import INPUTS, MAX_EDGES, MAX_NODES, SAFE, STEPS, Graph, inspect
 
 STALE = "The flow or one of its inputs changed or became unavailable. Reopen the editor and review a fresh proposal."
 
@@ -23,7 +23,7 @@ STALE = "The flow or one of its inputs changed or became unavailable. Reopen the
 class Refusal(ConflictError):
     """A conflict the client resolves itself; ``reason`` is a stable code for the editor."""
 
-    def __init__(self, reason: str, detail: str) -> None:
+    def __init__(self, reason: Reason, detail: str) -> None:
         self.reason = reason
         super().__init__(detail)
 
@@ -34,7 +34,10 @@ def utc(value: datetime) -> datetime:
 
 
 def projection(graph: Graph) -> str:
-    """The semantic canvas: node identity, type, settings and label, plus wiring. Positions are ignored."""
+    """The semantic canvas: node identity, type, settings and label, wiring and flow parameters.
+
+    Positions are ignored.
+    """
 
     def node(n: object) -> object:
         if not isinstance(n, dict):
@@ -50,13 +53,16 @@ def projection(graph: Graph) -> str:
         return [e.get("id"), e.get("source"), e.get("target"), *handles]
 
     nodes, edges = graph.get("nodes") or [], graph.get("edges") or []
+    parameters = graph.get("parameters") or []
     if not isinstance(nodes, list) or not isinstance(edges, list):
-        return json.dumps([nodes, edges], sort_keys=True)
+        return json.dumps([nodes, edges, parameters], sort_keys=True)
     return json.dumps(
         [
             sorted(json.dumps(node(n), sort_keys=True) for n in nodes),
             sorted(json.dumps(edge(e), sort_keys=True) for e in edges),
-        ]
+            parameters,
+        ],
+        sort_keys=True,
     )
 
 
@@ -94,7 +100,7 @@ async def preflight(db: AsyncSession, flow: Flow, body: Turn) -> Route | Reply:
     """Return the planner route, or a reply explaining why the turn is unsupported.
 
     Raises for conflicts the editor must resolve (stale or disabled flow, unsaved canvas)
-    and for canvases beyond the assistant limits.
+    and for malformed canvases.
     """
     if body.training is not None and body.mode != "build":
         raise ValidationError("Regression proposals are available in Build only.")
@@ -108,8 +114,16 @@ async def preflight(db: AsyncSession, flow: Flow, body: Turn) -> Route | Reply:
     base: Graph = flow.graph_json or {}
     if body.graph is not None and projection(body.graph) != projection(base):
         raise Refusal("unsaved_changes", "Save the canvas before asking the assistant to change it.")
-    if len(json.dumps(base)) > 96000:
-        raise ValidationError("Canvas exceeds the assistant size limit.")
+    if (
+        len(json.dumps(base)) > 96000
+        or len(base.get("nodes") or []) > MAX_NODES
+        or len(base.get("edges") or []) > MAX_EDGES
+    ):
+        return unsupported(
+            "canvas_limit",
+            f"The assistant edits canvases of up to {MAX_NODES} nodes and {MAX_EDGES} connections.",
+            EDIT,
+        )
     nodes, edges = inspect(base)
     failure = ""
     if body.mode == "diagnose":

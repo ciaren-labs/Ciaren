@@ -210,7 +210,8 @@ async def test_review_apply_replay_export_and_diagnosis(client, enabled, db_sess
 
 
 @pytest.mark.parametrize(
-    "variant", ["config", "label", "extra_node", "edge", "omitted", "position", "engine", "utc", "offset"]
+    "variant",
+    ["config", "label", "extra_node", "edge", "parameters", "omitted", "position", "engine", "utc", "offset"],
 )
 async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, variant):
     from copy import deepcopy
@@ -247,6 +248,8 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         draft["nodes"].append({"id": ROW, "type": "pythonTransform", "data": {"label": "x", "config": {"code": ROW}}})
     elif variant == "edge":
         draft["edges"].pop()
+    elif variant == "parameters":
+        draft["parameters"] = [{"name": "limit", "type": "integer", "default": 1}]
     elif variant == "position":
         draft["nodes"][1]["position"] = {"x": 900, "y": 900}
     elif variant == "engine":
@@ -262,7 +265,7 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         del body["graph"]
     url = f"/api/assistant/flows/{flow['id']}"
     r = await client.post(url + "/turn", json=body)
-    if variant in {"config", "label", "extra_node", "edge"}:
+    if variant in {"config", "label", "extra_node", "edge", "parameters"}:
         assert r.status_code == 409 and r.json()["reason"] == "unsaved_changes", r.text
         assert ROW not in r.text and complete.await_count == 0
         assert (await client.get(path)).json()["graph_json"] == stored
@@ -286,6 +289,7 @@ async def test_stored_graph_is_the_proposal_base(client, enabled, monkeypatch, v
         ("unsupported_node", "unsupported_node", "manual_edit"),
         ("no_failed_run", "no_failed_run", "switch_mode"),
         ("disabled_flow", "disabled_flow", None),
+        ("canvas_limit", "canvas_limit", "manual_edit"),
     ],
 )
 async def test_preflight_refuses_before_any_provider_call(client, enabled, monkeypatch, case, reason, action):
@@ -301,6 +305,7 @@ async def test_preflight_refuses_before_any_provider_call(client, enabled, monke
         "no_input": {"nodes": [node(0, "limitRows", {"n": 1, "offset": 0})], "edges": []},
         "multiple_inputs": {"nodes": [node(0, "fileInput", source), node(1, "fileInput", source)], "edges": []},
         "unsupported_node": {"nodes": [node(0, "pythonTransform", {"code": ROW})], "edges": []},
+        "canvas_limit": {"nodes": [node(i, "limitRows", {"n": 1, "offset": 0}) for i in range(81)], "edges": []},
     }.get(case, {"nodes": [node(0, "fileInput", source)], "edges": []})
     update = {"graph_json": graph, **({"is_disabled": True} if case == "disabled_flow" else {})}
     flow = (await client.put(f"/api/flows/{flow['id']}", json=update)).json()
@@ -317,6 +322,12 @@ async def test_preflight_refuses_before_any_provider_call(client, enabled, monke
     assert r.json()["reason"] == reason and ROW not in r.text
     if action is None:
         assert r.status_code == 409
+        from app.main import app
+
+        documented = app.openapi()["paths"]["/api/assistant/flows/{flow_id}/turn"]["post"]["responses"]["409"]
+        refusal = documented["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+        reasons = app.openapi()["components"]["schemas"][refusal]["properties"]["reason"]["anyOf"][0]["enum"]
+        assert {"unsaved_changes", "disabled_flow"} <= set(reasons)
     else:
         reply = r.json()
         assert r.status_code == 200 and "proposal" not in reply and reply["message"]

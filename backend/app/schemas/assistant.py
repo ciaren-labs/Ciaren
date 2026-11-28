@@ -110,7 +110,16 @@ Reason = Literal[
     "validation_failed",
     "step_limit",
     "timeout",
+    "disabled_flow",
+    "canvas_limit",
 ]
+
+
+class Refused(ClosedModel):
+    """409 body. ``reason`` is absent when the saved flow simply changed since it was loaded."""
+
+    detail: str
+    reason: Reason | None = None
 
 
 class Suggestion(ClosedModel):
