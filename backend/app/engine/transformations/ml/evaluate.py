@@ -48,9 +48,10 @@ class MLEvaluateTransformation(MetadataMLTransformation):
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
         import pandas as pd
 
-        # During preview we skip metric computation; pass the input through.
+        # During preview we skip metric computation: an empty frame with the real columns.
         if in_preview():
-            return {"out": inputs["in"]}, None
+            empty = pd.DataFrame({"metric": pd.Series(dtype=object), "value": pd.Series(dtype=float)})
+            return {"out": engine.from_pandas(empty)}, None
 
         pdf = engine.to_pandas(inputs["in"])
         task = config["task_type"]

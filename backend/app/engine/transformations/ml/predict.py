@@ -40,9 +40,13 @@ class MLPredictTransformation(MetadataMLTransformation):
     def execute_with_metadata(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
     ) -> tuple[dict[str, AnyFrame], NodeMetadata | None]:
-        # During preview we don't load a model or score; pass the data through.
+        # During preview we don't load a model or score: the input plus empty output columns.
         if in_preview():
-            return {"out": inputs["in"]}, None
+            preview = engine.to_pandas(inputs["in"]).copy()
+            preview[config.get("output_column", "prediction")] = None
+            for column in config.get("output_proba_columns") or []:
+                preview[column] = float("nan")
+            return {"out": engine.from_pandas(preview)}, None
 
         from app.ml.loader import load_model
 
