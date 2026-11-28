@@ -22,11 +22,37 @@ The recording uses the packaged editor, the synthetic orders audit and a simulat
 
 ## Inside the editor
 
-- **Build or modify a flow.** On an empty canvas choose an uploaded dataset from the current project. On an existing file flow the assistant uses its input and pinned version. Describe the change, for example “keep the first 100 rows, then remove duplicates.” Review the nodes, configuration and connections. **Apply and save** saves the proposal and any unsaved canvas edits together. Undo restores the earlier canvas as a local edit. Save it to persist the undo.
+- **Build or modify a flow.** On an empty canvas choose an uploaded dataset from the current project. On an existing file flow the assistant uses its input and pinned version. Describe the result you want in your own words, in any language, for example “join orders with customers, compute revenue per country and chart it” or “train a random forest with 5-fold cross validation and show feature importance.” Review the nodes, configuration and connections. **Apply and save** saves the proposal and any unsaved canvas edits together. Undo restores the earlier canvas as a local edit. Save it to persist the undo.
 - **Ask the Ciaren guides.** Ask a question about the editor, exports, parameters, scheduling or another bundled guide. The server searches the local English-language index. The selected passage links to its exact Git revision and line. An unsupported question can return no matching passage.
 - **Diagnose a failure.** The server checks this flow's most recent failed run, categorizes the error locally and passes the category and graph structure to the selected model. A proposed repair goes through the same review and save path. Check an old failure against the current canvas before applying it.
 
-Generation makes one request. Cancel or close the dialog to end the wait and close the provider connection. A provider can still bill work already performed. A saved-flow revision conflict, changed input version or expired proposal requires a new proposal. Reload the editor after a concurrent save, preserving any local work first.
+A request keeps running while the panel is closed, and the **Assistant** button shows a dot when the reply is ready. The progress line names the current step, such as reading a schema or checking the flow. **Cancel** stops the request and closes the provider connection, and so does leaving the flow. A provider can still bill work already performed. A saved-flow revision conflict, changed input version or expired proposal requires a new proposal. Reload the editor after a concurrent save, preserving any local work first. A reply can end with buttons for a likely next step, such as saving, sharing column names or opening a guide.
+
+## What the assistant can build
+
+With OpenAI, Anthropic or DeepSeek the assistant works step by step through server-side tools. It looks up node settings in the installed catalog, reads the column types of the selected datasets, proposes edits and checks the result before it shows you a proposal. When a check fails, it reads the issue and corrects its own edit. You see one proposal per request.
+
+It can use these built-in nodes:
+
+| Area | Nodes |
+| --- | --- |
+| Inputs and outputs | File Input and File Output; existing format-specific inputs stay readable |
+| Rows | Filter, Sort, Limit, Sample, Remove Duplicates, Drop or Fill Nulls, Remove Outliers, Explode |
+| Columns | Select, Drop, Rename, Cast, Combine, Coalesce, Replace or Map Values, String Transform, Split, Round, Bin, Conditional Column, date parts, date parsing and date difference |
+| Combine and reshape | Join, Concatenate, Group By, Pivot, Unpivot, Window, Rolling Aggregate, Row Difference |
+| Data quality | Assert Not Null, Unique, Value Range, Row Count and Values in Set |
+| Charts | Bar, Line, Area, Scatter, Pie, Histogram, Box Plot and Heatmap |
+| Machine learning (ML extension) | Select Features, Scale, Encode, Reduce Dimensions, Train/Test Split, classifier and regressor models, training, clustering, Predict, Evaluate, Feature Importance and Cross Validate |
+
+Filter Expression, Calculated Column and Assert Expression accept a short arithmetic or comparison expression such as `price * qty > 100`. The server allows only column references, numbers, single-quoted text, comparison and arithmetic operators and the functions `abs`, `sqrt`, `exp`, `log10`, `log1p`, `sin`, `cos`, `floor` and `ceil`. The proposal highlights these nodes so you can read the expression before saving.
+
+The assistant never writes Python Transform nodes, database or cloud storage connectors, format-specific outputs, forecasting models or plugin nodes. It cannot change connections, credentials or file paths. Model settings are limited to the documented hyperparameters with upper bounds, for example at most 500 trees. A request that needs anything else ends with an explanation instead of a partial flow. Add those nodes in the editor.
+
+The checks run on placeholder rows: each input keeps its column names, types, distinct-value counts and whether a column has nulls, but every value is generated. Types and wiring are checked before you see the proposal. A value-dependent failure, such as text that does not parse as a date, appears when you run the flow, and **Diagnose** can propose a repair. Columns named after values, such as one-hot or pivot columns, have generated names in these checks, so the assistant cannot select them by name; a model node then uses every column except the target.
+
+Column names stay on the server unless you share them. When a request names columns that the types cannot identify, the assistant asks instead of guessing, and the reply offers **Share column names and retry**.
+
+The OpenCode adapter has no tool calling. It uses the guided proposals described below: the cleaning steps, the two-input Join and the shipping regression.
 
 ### Joining two CSV inputs
 
@@ -72,7 +98,7 @@ Access follows the installation’s existing server authentication. The timeline
 
 Every request includes the text you enter. Keep credentials and confidential row values out of that text. Graph requests additionally include supported node types, indexed connections, column indexes and coarse types. For two-input creation, the provider receives temporary input and port references and the indexes of matching keys. A Join repair sends the question, a temporary Join reference, its current mode and, during diagnosis, a fixed error category. Opt in to column names for a single request when they matter. Documentation questions send up to five bundled passages without canvas context.
 
-Previews of a proposed node send the provider only column references, types and whether a column is numeric: no row values, counts, or flags such as whether a result is empty. Otherwise a provider could test guesses about your data, for example whether a filter matches any row. For the same reason, data-quality checks such as Assert Row Count pass their rows through unchecked in these previews; they run when you run the flow.
+For a dataset the provider can receive the column types, the row count, and each column's null fraction and distinct count from the stored profile. Checks of a proposed node run on placeholder rows and send only column references, types and whether a column is numeric: no row values, counts or flags such as whether a result is empty. Because no check reads real values, its outcome cannot answer a guess about your data, for example whether a filter matches any row. Data-quality checks such as Assert Row Count pass their rows through in these checks and run when you run the flow.
 
 Files, samples, filenames, dataset IDs, connection details, node labels, scripts, full configuration, raw logs and error traces stay on the server. Recommendations and citations are rendered as text. The assistant cannot run a pipeline. Review uses ordinary Ciaren nodes, so the existing run, export and undo controls continue to work.
 
@@ -110,6 +136,8 @@ For the repository Compose setup, save the fragment as `docker-compose.override.
 
 Revoke compromised keys in the provider console as well. Status checks do not contact the provider. A configured status indicates a local credential exists.
 
+The server removes `CIAREN_ASSISTANT_*_API_KEY` variables from its environment at startup and from run worker processes, so flow code cannot read them there. A Python Transform node still runs with the server's privileges and can read a key that is in process memory or on disk. On a shared installation set `CIAREN_EXECUTION_MODE=process` and `CIAREN_PYTHON_TRANSFORM_STRICT=true`, prefer the `file` or `keyring` source, and allow only trusted users to edit flows. See [Advanced setup](advanced-setup.md).
+
 ## Provider contracts
 
 | Provider | Allowed models | Effort in Ciaren | API family |
@@ -123,6 +151,10 @@ Default omits the effort field. Each provider has its own fixed HTTPS destinatio
 
 ## Bounds and implementation
 
-Input is limited to 1,500 request characters, 80 canvas nodes, 160 edges, 64 columns per source, 16 KB of serialized provider context and 2,048 output tokens. The timeout is 35 seconds. Up to eight turns may be active per process. At most six steps are proposed per turn. Up to 64 proposals live in memory for three minutes. Each application process allows 60 provider calls per rolling hour by default (`CIAREN_ASSISTANT_TURNS_PER_HOUR`). The limit counts calls, not turns; one tool-calling turn uses up to 14. Use a single process or sticky routing for proposal confirmation. Configure provider-side spend limits for a currency-denominated cap. Requests use zero automatic retries. The UI waits for a complete validated answer before rendering a change.
+Input is limited to 1,500 request characters, 80 canvas nodes, 160 edges and 64 columns per source. One turn makes at most 14 provider calls and 40 tool calls within 120 seconds; each provider call has a 35-second timeout and 2,048 output tokens, and each tool call 15 seconds. The opening request is at most 12 KB, and older tool results are compacted to keep the conversation under 96 KB. One edit applies up to 24 operations. Each check previews at most 50,000 rows and 2 million cells per node within 15 seconds; a single slow node step can overrun that deadline. Up to eight turns may be active per process, one per flow. Up to 64 proposals live in memory for three minutes. Use a single process or sticky routing for proposal confirmation.
 
-The assistant uses a typed internal plan compiled against the installed node registry. It can place a file input and output, limit, filter or sort rows, select or drop columns, remove duplicates and drop nulls. It can replace a supported transformation's settings in place. Plugin, code and connector flows receive read-only diagnostic recommendations based on node types, wiring and the failure category. Edit those graphs in the regular editor. This first integration has no shell, generic network or file tools, MCP listener, direct repository access or arbitrary code generation. A local MCP transport would add another credential and authorization boundary without improving these editor actions. The two local canvas tools reuse existing documentation and validation. The activity endpoint handles confirmed edits separately from model tools and never provides history to the model.
+Each application process allows 60 provider calls per rolling hour by default (`CIAREN_ASSISTANT_TURNS_PER_HOUR`). The limit counts calls, not turns: a turn reserves its calls when it starts and returns the unused ones when it ends. Set `CIAREN_ASSISTANT_TOKENS_PER_HOUR` to also cap tokens. Configure provider-side spend limits for a currency-denominated cap. Requests use zero automatic retries. If a turn reaches its call limit, the assistant validates the latest draft and returns it when it passes. The UI renders a change only after the server has validated it.
+
+The tools run inside the Ciaren server against the installed node registry and the same validation as the editor. The model receives turn-local references (`d0` for datasets, `n0` for nodes, `c0` for columns), never dataset IDs, file paths or rows. Every edit passes an allowlist of node types and settings before anything runs, and nothing is saved until you choose **Apply and save**. Plugin, code and connector flows receive read-only diagnostic recommendations based on node types, wiring and the failure category. Edit those graphs in the regular editor.
+
+The assistant has no shell, generic network or file tools, direct repository access or arbitrary code generation, and Ciaren runs no MCP listener for it. The tools already run in-process with the editor's session and checks; an MCP transport would add a second credential and authorization boundary without giving the assistant new abilities. To drive Ciaren from your own agent, see [Connect your own agent](external-agent.md). The two local canvas tools reuse existing documentation and validation. The activity endpoint handles confirmed edits separately from model tools and never provides history to the model.
