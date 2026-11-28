@@ -76,7 +76,6 @@ df_2.to_csv('test.csv', index=False)
 
 ```python
 import polars as pl
-import pandas as pd
 from sklearn.model_selection import train_test_split
 
 df_customers = pl.read_csv('customers.csv')

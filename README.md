@@ -69,8 +69,6 @@ Start with the [AI quick start](docs/guide/flow-assistant-quick-start.md), or re
 
 Ciaren is also a visual ETL tool on its own. You drag nodes onto a canvas to load, clean, join, validate and transform data, train lightweight machine-learning models, and schedule runs. Every node previews real data, and the flow exports to the pandas or Polars code you would write by hand, with no proprietary runtime.
 
-![Ciaren editor: a File Input (CSV) and a SQL Input joined, cleaned, and fed through Scale Features, Train/Test Split, a Random Forest classifier and Predict — previewed on real data and exported to clean Polars code](docs/public/screenshots/hero-ml-pipeline.gif)
-
 Follow the [manual quick start](https://ciaren.com/docs/latest/guide/quick-start) with the seeded Demo project or your own CSV. No model API key is required, and connectors that reach external services may need their own credentials. To see exported code without installing Ciaren, [audit five orders against a product catalog](examples/orders-audit/README.md) in pandas or Polars, then import the same flow on the canvas.
 
 ## Why It Feels Different
@@ -191,6 +189,8 @@ and Swagger docs stay on `http://localhost:8055`.
 
 Every flow exports to a standalone Python script — pandas, eager Polars, or
 lazy Polars — so the visual pipeline never traps your logic.
+
+[Watch a CSV and SQL workflow export to Polars](docs/public/screenshots/hero-ml-pipeline.gif).
 
 A simple read -> clean -> aggregate -> write flow can export to code like this:
 

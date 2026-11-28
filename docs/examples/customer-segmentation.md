@@ -174,9 +174,11 @@ computes the same bin edges explicitly and writes the same file.
 
 - **Equal width or quantile.** *Equal width* splits the value range evenly, so
   one outlier can leave a bin almost empty. *Quantile* puts roughly the same
-  number of customers in each bin instead. Its edges come from the data, and with
-  four customers they fall exactly on Ada's and Margaret's totals, so look at the
-  preview before you rely on a quantile tier for a sample this small.
+  number of customers in each bin instead. Its edges come from the data: with
+  four customers they fall exactly on Ada's 100.00 and Margaret's 250.00. A
+  total equal to an edge goes into the lower bin, so Ada is Bronze and Margaret
+  is Silver on both engines. On a sample this small one changed order can move
+  a customer to another tier, so check the preview.
 - **Labels must match the bin count.** Three bins need exactly three labels,
   listed from the lowest bin to the highest. With two labels for three bins the
   node fails when it runs.

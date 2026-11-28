@@ -217,5 +217,9 @@ class MLPredictTransformation(MetadataMLTransformation):
         return "\n".join(lines)
 
     def imports(self, config: dict[str, Any]) -> list[str]:
-        # Only need the MLflow loader when there's no upstream model variable.
-        return ["import mlflow.sklearn", *(["import numpy as np"] if config.get("batch_size") is not None else [])]
+        return ["import numpy as np"] if config.get("batch_size") is not None else []
+
+    def imports_for_inputs(self, config: dict[str, Any], input_vars: dict[str, str]) -> list[str]:
+        # The MLflow loader is only used when no upstream model variable is wired.
+        loader = [] if input_vars.get("model") else ["import mlflow.sklearn"]
+        return [*loader, *self.imports(config)]

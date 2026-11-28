@@ -252,8 +252,8 @@ driver).
 
 ### What transformations are available?
 
-Ciaren ships **80 built-in nodes**: 66 transformation nodes plus file, SQL, and
-storage input/output, including:
+The editor palette shows **72 built-in nodes**: 66 transformation nodes plus
+file, SQL, and storage input and output nodes, including:
 
 - Cleaning: drop/rename/select columns, fill/drop nulls, remove duplicates, filter rows, cast types, replace values, string ops, round, remove outliers
 - Rows: sort, limit, sample

@@ -1,6 +1,6 @@
 ---
 title: Interface Tour
-description: "A tour of the Ciaren visual editor: the Projects, Datasets, Connections, Flows and Runs pages, plus the canvas, 80-node palette, config panel, live preview, AI assistant panel and export."
+description: "A tour of the Ciaren visual editor: the Projects, Datasets, Connections, Flows and Runs pages, plus the canvas, 72-node palette, config panel, live preview, AI assistant panel and export."
 search: interface ui tour navigation editor canvas assistant panel connections api keys
 ---
 
@@ -59,11 +59,11 @@ the assistant panel when you open it:
 - **Canvas** — where you place and connect nodes. Each node maps to exactly one
   dataframe operation. Drag from a node's output handle to another node's input
   handle to create an edge.
-- **Node palette** — 80 nodes grouped into 9 categories, each with its own
-  color: **Inputs** (8, emerald), **Cleaning** (9, sky), **Columns** (10,
+- **Node palette** — 72 nodes grouped into 9 categories, each with its own
+  color: **Inputs** (3, emerald), **Cleaning** (9, sky), **Columns** (10,
   indigo), **Reshape** (6, violet), **Analytics** (11, fuchsia), **Data
   Quality** (6, orange), **Charts** (8, rose), **Machine Learning** (16,
-  purple), and **Outputs** (6, amber). See the
+  purple), and **Outputs** (3, amber). See the
   [Transformations Reference](/transformations/overview).
 - **Config panel** — per-node settings (column selection, operators, target
   types, aggregations). Forms are validated as you type for fast feedback; the

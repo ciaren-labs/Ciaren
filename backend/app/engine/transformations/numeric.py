@@ -183,6 +183,14 @@ class BinColumnTransformation(BaseTransformation):
             raise ValueError("binColumn 'bins' must be an integer >= 2.")
         if config.get("method", "equalwidth") not in self._METHODS:
             raise ValueError(f"binColumn 'method' must be one of {sorted(self._METHODS)}.")
+        self._check_label_count(bins, config.get("labels") or None)
+
+    @staticmethod
+    def _check_label_count(bins: Any, labels: list[str] | None) -> None:
+        # The quantile export maps labels by position instead of letting pd.cut
+        # count them, so a mismatch must fail here rather than mislabel a bin.
+        if labels and isinstance(bins, int) and len(labels) != bins:
+            raise ValueError(f"binColumn needs one label per bin: {bins} bins, {len(labels)} labels.")
 
     def execute(
         self, engine: EngineBackend, inputs: dict[str, AnyFrame], config: dict[str, Any]
@@ -204,14 +212,33 @@ class BinColumnTransformation(BaseTransformation):
         bins = _codegen_num(config.get("bins", 4), int)
         labels = config.get("labels") or None
         label_arg = f", labels={labels!r}" if labels else ""
+        prelude = ""
         if config.get("method", "equalwidth") == "quantile":
-            binned = f"pd.qcut({src}[{col!r}], q={bins!r}{label_arg}, duplicates='drop')"
+            # Same edges and labels as PandasEngine.bin_column, which mirrors
+            # Polars' qcut so the pandas and Polars scripts agree.
+            prelude = (
+                "# Interior quantile edges, computed like Polars' qcut\n"
+                f"_s = {src}[{col!r}].dropna().astype(float).sort_values().tolist()\n"
+                f"_nc = len({src}) - len(_s)\n"
+                "_edges = []\n"
+                f"for _k in range(1, {bins!r} if _s else 1):\n"
+                f"    _f = (len(_s) - 1) * (_k / {bins!r}) + _nc\n"
+                "    _i = int(_f) - _nc\n"
+                "    _lo, _hi = _s[_i], _s[min(_i + 1, len(_s) - 1)]\n"
+                "    _edges.append(_lo if _lo == _hi else (_f - int(_f)) * (_hi - _lo) + _lo)\n"
+                "_u = sorted(set(_edges))\n"
+            )
+            if labels:
+                self._check_label_count(bins, labels)
+                prelude += f"_labels = [{labels!r}[_edges.index(_e)] for _e in _u] + [{labels[-1]!r}]\n"
+                label_arg = ", labels=_labels, ordered=False"
+            binned = f"pd.cut({src}[{col!r}], [-float('inf'), *_u, float('inf')]{label_arg})"
         else:
             binned = f"pd.cut({src}[{col!r}], bins={bins!r}{label_arg})"
         # astype('string'), not str: the nullable dtype keeps NaN as <NA>
         # instead of the literal text "nan" (mirrors PandasEngine.bin_column).
         value = binned + ".astype('string')"
-        return f"{dst} = {src}.assign({pd_assign_args({new: value})})"
+        return f"{prelude}{dst} = {src}.assign({pd_assign_args({new: value})})"
 
     def to_polars_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         src, dst = input_vars["in"], output_vars["out"]

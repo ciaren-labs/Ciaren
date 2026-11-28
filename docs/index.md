@@ -92,7 +92,7 @@ assistant today, run a source checkout or the Docker build. See the
 
 <div class="ciaren-proof-grid">
   <div class="ciaren-proof-card">
-    <strong>80 nodes</strong>
+    <strong>72 nodes</strong>
     <span>files, SQL, storage, cleaning, reshape, quality checks, charts, ML, and outputs</span>
   </div>
   <div class="ciaren-proof-card">

@@ -12,7 +12,7 @@ can be fixed, drops what cannot, and leaves two trustworthy rows. The order of
 the steps matters, and the figure below shows why.
 
 **You'll use:** File Input → String Transform (three times) → Change Types →
-Drop Nulls → Remove Duplicates → Filter by Expression → File Output.
+Drop Nulls → Remove Duplicates → Filter Rows → File Output.
 
 <FlowPipeline :nodes='[
   {"type":"input","label":"File Input","detail":"contacts.csv"},
@@ -22,7 +22,7 @@ Drop Nulls → Remove Duplicates → Filter by Expression → File Output.
   {"type":"clean","label":"Change Types","detail":"age → integer, bad values → null"},
   {"type":"clean","label":"Drop Nulls","detail":"subset: name, age"},
   {"type":"clean","label":"Remove Duplicates","detail":"subset: email · keep: first"},
-  {"type":"clean","label":"Filter by Expression","detail":"age between 0 and 120"},
+  {"type":"clean","label":"Filter Rows","detail":"age between 0 and 120"},
   {"type":"output","label":"File Output","detail":"contacts_clean.csv"}
 ]' :vertical="true" />
 
@@ -67,10 +67,9 @@ What is wrong with each row:
    Only one `grace@example.com` row is left by now, so nothing else is removed
    here on this sample; on real data, this is where repeats of the same person
    go.
-8. **Filter by Expression**: type `age >= 0 and age <= 120` into
-   **Expression**, or use **Build condition** with `age`,
-   **between (range)**, `0` and `120`, then click **Use condition**. Both bounds
-   are inclusive. This drops Linus's age of 250.
+8. **Filter Rows**: **Column** `age`, **Operator** *between (range)*,
+   **From** `0`, **To** `120`. Both bounds are inclusive. This drops Linus's age
+   of 250.
 9. **File Output**: **File type** CSV, **Dataset name** `contacts_clean`.
 
 Select steps 5 to 8 one at a time and read the preview to see each rule remove
@@ -130,10 +129,30 @@ column.
 
 ## Exported Python
 
-Click **Export** in the editor toolbar and open the **pandas** tab:
+Click **Export** in the editor toolbar and open the **pandas** tab. The
+`_filter_value` helper at the top compares the Filter Rows bounds, saved as the
+text `'0'` and `'120'`, as numbers because `age` is numeric:
 
 ```python
 import pandas as pd
+
+def _filter_value(df, column, value):
+    """Type a comparison value like its column: text becomes a number on a numeric column."""
+    if isinstance(value, list):
+        items = [_filter_value(df, column, v) for v in value]
+        # One float makes every item a float: polars types a list by its first item.
+        return [float(v) for v in items] if any(isinstance(v, float) for v in items) else items
+    numeric = pd.api.types.is_numeric_dtype(df[column]) and not pd.api.types.is_bool_dtype(df[column])
+    if not isinstance(value, str) or not numeric:
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Value {value!r} is not a number, but column {column!r} is numeric.") from None
 
 df_contacts = pd.read_csv('contacts.csv')
 
@@ -144,8 +163,7 @@ df_contacts = (
     .assign(age=lambda _d: pd.to_numeric(_d['age'], errors='coerce').astype('Int64'))
     .dropna(subset=['name', 'age'])
     .drop_duplicates(subset='email')
-    .query('age >= 0 and age <= 120')
-    .reset_index(drop=True)
+    .loc[lambda _d: _d['age'].between(_filter_value(_d, 'age', '0'), _filter_value(_d, 'age', '120'))]
 )
 
 df_contacts.to_csv('contacts_clean.csv', index=False)
@@ -154,8 +172,7 @@ df_contacts.to_csv('contacts_clean.csv', index=False)
 Run it next to `contacts.csv` and `contacts_clean.csv` holds the same two rows.
 `Int64` (capital I) is pandas' nullable integer type: it can hold the null that
 `errors='coerce'` produces, which plain `int64` cannot. The **polars** tab
-writes the same rows; its filter step converts the frame to pandas to evaluate
-the expression, so it needs pandas and PyArrow installed next to polars.
+writes the same rows.
 
 ## Pitfalls
 
@@ -170,7 +187,7 @@ the expression, so it needs pandas and PyArrow installed next to polars.
 
 ## Going further
 
-- **Fail instead of filtering.** Replace Filter by Expression with **Assert Value Range**
+- **Fail instead of filtering.** Replace Filter Rows with **Assert Value Range**
   (**Column** `age`, **Min** `0`, **Max** `120`, **On violation**
   *Error (stop run)*) when an impossible age should stop the pipeline rather
   than disappear quietly.

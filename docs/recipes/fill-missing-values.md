@@ -68,13 +68,10 @@ whole `age` column is written with decimals.
 
 ## Choose the strategy
 
-![The age column has one null and one outlier, 95: the mean fills 47.75 in Ciaren runs (47 in the exported Polars script), the median fills 35.5](/illustrations/recipes/fill-nulls-mean-median.svg)
+![The age column has one null and one outlier, 95: the mean fills 47.75, the median fills 35.5](/illustrations/recipes/fill-nulls-mean-median.svg)
 
 - **Median** is the safer default for numbers with outliers. On this sample the
-  mean would fill 47.75, older than three of the four known ages. That is the
-  value in Ciaren runs on either engine. The exported Polars script reads `age`
-  from your CSV as integers and writes 47; the median does not have this
-  problem.
+  mean would fill 47.75, older than three of the four known ages.
 - **Mean (average)**, **Minimum**, **Maximum** and **Zero** also fill numeric
   columns. **Most frequent (mode)** works for text too.
 - **Forward fill** copies the value from the row above, **Backward fill** from
@@ -93,6 +90,8 @@ be 0.
 
 - **Set the columns.** With **Columns (optional)** empty, a constant like
   `Unknown` goes into every text column that has a null, not only `region`.
+  Columns whose type the value doesn't fit are skipped: `Unknown` leaves the
+  numeric `age` alone, while `0` fills `age` and the text columns alike.
 - **A space is not missing.** A cell that contains only spaces is text, not
   null, so Fill Nulls leaves it alone. Fix such cells in the source file, where
   an empty cell is read as null.
@@ -114,12 +113,14 @@ writes `survey_filled.csv`.
 import pandas as pd
 
 df_survey = pd.read_csv('survey.csv')
-
-df_survey = (
-    df_survey.fillna({'age': df_survey['age'].median()})
-    .fillna({'region': 'Unknown'})
-)
-
+df_survey = df_survey.fillna({'age': df_survey['age'].median()})
+df_survey = df_survey.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_survey[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_survey[_col] = df_survey[_col].fillna(_fill)
 df_survey.to_csv('survey_filled.csv', index=False)
 ```
 
@@ -127,12 +128,16 @@ df_survey.to_csv('survey_filled.csv', index=False)
 import polars as pl
 
 df_survey = pl.read_csv('survey.csv')
-
-df_survey = (
-    df_survey.with_columns(pl.col('age').fill_null(pl.col('age').median()))
-    .with_columns(pl.col('region').fill_null('Unknown'))
-)
-
+_nulls = df_survey.lazy().null_count().collect()
+df_survey = df_survey.with_columns([pl.col(c).fill_null(pl.col(c).median()) for c in ['age'] if _nulls[c][0]])
+_sch = df_survey.collect_schema()
+_fills = []
+for _col in ['region']:
+    try:
+        _fills.append(pl.col(_col).fill_null(pl.Series(['Unknown']).cast(_sch[_col])[0]))
+    except pl.exceptions.PolarsError:
+        continue  # the value does not fit this column's type
+df_survey = df_survey.with_columns(_fills)
 df_survey.write_csv('survey_filled.csv')
 ```
 

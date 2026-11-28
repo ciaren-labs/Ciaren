@@ -2,9 +2,26 @@
 from typing import Any
 
 from app.engine.backends.base import AnyFrame, EngineBackend
-from app.engine.transformations.base import BaseTransformation, one_or_list
+from app.engine.codegen_params import CodeRef
+from app.engine.transformations.base import (
+    FILTER_VALUE_HELPER_PANDAS,
+    FILTER_VALUE_HELPER_POLARS,
+    BaseTransformation,
+    needs_typed_value,
+    one_or_list,
+    typed_value_code,
+)
 
 _SIMPLE_OPS = {"==", "!=", ">", ">=", "<", "<="}
+_TYPED_OPS = _SIMPLE_OPS | {"between", "in"}
+
+
+def _typed_bounds(frame: str, column: Any, bounds: list[Any]) -> list[str]:
+    """Source for both ``between`` bounds. Like an ``in`` list they are typed
+    together: one number-like bound types both, so a non-number partner fails."""
+    if not needs_typed_value(bounds):
+        return [repr(b) for b in bounds]
+    return [f"_filter_value({frame}, {column!r}, {b!r})" for b in bounds]
 
 
 class FilterRowsTransformation(BaseTransformation):
@@ -32,6 +49,10 @@ class FilterRowsTransformation(BaseTransformation):
         if op == "in":
             if isinstance(val, list):
                 return val
+            if isinstance(val, CodeRef):
+                # A flow parameter (export only): split the variable in the script
+                # exactly as the run splits the resolved value below.
+                return CodeRef(f"[_v.strip() for _v in str({val.expr}).split(',') if _v.strip()]")
             return [v.strip() for v in str(val).split(",") if v.strip()]
         return val
 
@@ -41,6 +62,15 @@ class FilterRowsTransformation(BaseTransformation):
         col = config["column"]
         op = config["operator"]
         return {"out": engine.filter_rows(inputs["in"], col, op, self._values(config))}
+
+    def _needs_helper(self, config: dict[str, Any]) -> bool:
+        return config["operator"] in _TYPED_OPS and needs_typed_value(self._values(config))
+
+    def helpers(self, config: dict[str, Any]) -> list[str]:
+        return [FILTER_VALUE_HELPER_PANDAS] if self._needs_helper(config) else []
+
+    def polars_helpers(self, config: dict[str, Any]) -> list[str]:
+        return [FILTER_VALUE_HELPER_POLARS] if self._needs_helper(config) else []
 
     def to_python_code(self, input_vars: dict[str, str], output_vars: dict[str, str], config: dict[str, Any]) -> str:
         # `.loc[lambda _d: …]` instead of `src[src[col] …]`: the callable form is
@@ -52,16 +82,18 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {val!r}]"
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}] {op} {typed_value_code('_d', col, val)}]"
         if op == "isnull":
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isna()]"
         if op == "notnull":
             return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].notna()]"
         if op == "between":
-            low, high = self._values(config)
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low!r}, {high!r})]"
+            low, high = _typed_bounds("_d", col, self._values(config))
+            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].between({low}, {high})]"
         if op == "in":
-            return f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({self._values(config)!r})]"
+            return (
+                f"{dst} = {src}.loc[lambda _d: _d[{col!r}].isin({typed_value_code('_d', col, self._values(config))})]"
+            )
         if op in {"contains", "startswith", "endswith"}:
             # str() like the engine: a numeric search value must not emit .str.contains(5).
             # regex=False mirrors PandasEngine.filter_rows: pandas' contains is
@@ -75,15 +107,21 @@ class FilterRowsTransformation(BaseTransformation):
         col, op = config["column"], config["operator"]
         val = config.get("value")
         if op in _SIMPLE_OPS:
-            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {val!r})"
+            return f"{dst} = {src}.filter(pl.col({col!r}) {op} {typed_value_code(src, col, val)})"
         if op == "isnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_null())"
         if op == "notnull":
             return f"{dst} = {src}.filter(pl.col({col!r}).is_not_null())"
         if op == "between":
-            return f"{dst} = {src}.filter(pl.col({col!r}).is_between({val!r}, {config.get('value2')!r}))"
+            # pl.lit for text and typed bounds: is_between reads bare strings as column names.
+            bounds = self._values(config)
+            low, high = (
+                f"pl.lit({code})" if isinstance(b, str) or needs_typed_value(bounds) else code
+                for b, code in zip(bounds, _typed_bounds(src, col, bounds))
+            )
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_between({low}, {high}))"
         if op == "in":
-            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({self._values(config)!r}))"
+            return f"{dst} = {src}.filter(pl.col({col!r}).is_in({typed_value_code(src, col, self._values(config))}))"
         if op in {"contains", "startswith", "endswith"}:
             method = {
                 "contains": "contains",

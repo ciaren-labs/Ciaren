@@ -77,6 +77,9 @@ CODEGEN_CASES = [
     ("fill_mode_with_empty", "fillNulls", {"strategy": "mode"}),
     ("fill_mode", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
     ("fill_mode_multimodal", "fillNulls", {"strategy": "mode", "columns": ["a"]}),
+    # all-columns constant on mixed dtypes: only columns the value converts to
+    ("fill_const_text_mixed", "fillNulls", {"value": "x"}),
+    ("fill_const_num_mixed", "fillNulls", {"value": 0}),
     # reshape / compute
     ("groupby", "groupByAggregate", {"group_by": ["a"], "aggregations": {"b": "sum"}}),
     # A widened aggfunc (var) whose polars run-path/export previously disagreed

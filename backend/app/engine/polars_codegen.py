@@ -28,6 +28,7 @@ Two opt-in modes:
   lazy mode, where the named variables are query plans, not materialized data.
 """
 
+import re
 from typing import Any
 
 from app.engine.codegen_common import (
@@ -170,12 +171,13 @@ class PolarsCodeGenerator:
                 ["import os", "import polars as pl", "from sqlalchemy import URL, create_engine"]
                 + sql_secret_imports(connections)
             )
-        # ML nodes emit pandas code; their imports (sklearn, joblib, numpy) plus a
-        # pandas import are collected during the walk and merged into the header so
-        # a polars flow containing an ML node still produces a runnable script.
+        # ML nodes emit pandas code; their imports (sklearn, numpy, and pandas when
+        # their code references pd) are collected during the walk and merged into
+        # the header so a polars flow with an ML node still produces a runnable script.
         lines: list[str] = []
         extra_imports: list[str] = []
         seen_imports: set[str] = set(base_header)
+        helpers: dict[str, None] = {}  # distinct helper definitions, first-use order
 
         def add_imports(imports: list[str]) -> None:
             for imp in imports:
@@ -279,7 +281,13 @@ class PolarsCodeGenerator:
                     converted[src_v] = pdf
                 pdf_inputs[handle] = converted[src_v]
             pdf_outs = {h: next_eager() for h in handles}
-            lines.append(transformation.to_polars_code(pdf_inputs, pdf_outs, config))
+            code = transformation.to_polars_code(pdf_inputs, pdf_outs, config)
+            # The bridge itself converts via .to_pandas()/pl.from_pandas; pandas
+            # is imported only when the node's own code references pd.
+            uses_pd = re.search(r"\bpd\.", code) is not None
+            pandas_import = ["import pandas as pd"] if uses_pd else []
+            add_imports([*pandas_import, *transformation.imports_for_inputs(config, pdf_inputs)])
+            lines.append(code)
             node_type = nodes_by_id[node_id]["type"]
             model_handles = model_output_handles(node_type)
             outs: dict[str, str] = {}
@@ -300,7 +308,6 @@ class PolarsCodeGenerator:
                 # The node's to_polars_code is actually pandas (scikit-learn). Bridge
                 # it: hand it pandas frames and lift the pandas results back to polars
                 # so the surrounding (lazy or eager) polars plan is unaffected.
-                add_imports(["import pandas as pd", *transformation.imports(config)])
                 emit_pandas_bridge(node_id, transformation, incoming[node_id], handles, config)
                 return
             input_vars = collect_input_vars(incoming[node_id], node_outputs)
@@ -319,6 +326,7 @@ class PolarsCodeGenerator:
             # its own. polars_imports, not imports: a node's pandas code may
             # need e.g. numpy where its polars code doesn't.
             add_imports(transformation.polars_imports(config))
+            helpers.update(dict.fromkeys(transformation.polars_helpers(config)))
             if lazy and not transformation.polars_lazy_safe_for(config):
                 # No lazy equivalent: collect the inputs, run the op eagerly, and
                 # re-enter the lazy plan so downstream nodes stay optimized.
@@ -470,5 +478,6 @@ class PolarsCodeGenerator:
         header = [*base_header, *ordered_imports(extra_imports)]
         assert_params_do_not_shadow_imports(header, parameter_lines or [])
         prelude = [*parameter_lines, ""] if parameter_lines else []
+        helper_lines = [line for helper in helpers for line in (helper, "")]
         script_body = insert_paragraph_breaks(fuse_method_chains(lines))
-        return "\n".join([*header, "", *prelude, *script_body]) + "\n"
+        return "\n".join([*header, "", *prelude, *helper_lines, *script_body]) + "\n"

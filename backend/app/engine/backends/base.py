@@ -223,6 +223,37 @@ DATE_UNIT_SECONDS: dict[str, int] = {
 ROLLING_FUNCS: frozenset[str] = frozenset({"mean", "sum", "min", "max", "std", "median"})
 
 
+# Filter/condition operators that compare text, so their value stays text on any column.
+TEXT_FILTER_OPERATORS: frozenset[str] = frozenset({"contains", "startswith", "endswith"})
+
+
+def numeric_filter_value(value: Any, column: str) -> Any:
+    """A filterRows / conditionalColumn comparison value typed for a numeric column.
+
+    The editor saves the value as text ("100"), and comparing text with a
+    number raises or matches nothing. Text is parsed as an int when it is
+    integral, else as a float; text that is neither raises. Lists (``between``
+    bounds, ``in`` items) are parsed per item, and all become floats once one
+    is: polars infers a list's dtype from its first item, so ``[50, 99.5]``
+    fails as Int64. Non-text values pass through.
+    The exported scripts' ``_filter_value`` helper (transformations/base.py)
+    applies the same rule.
+    """
+    if isinstance(value, (list, tuple)):
+        items = [numeric_filter_value(v, column) for v in value]
+        return [float(v) for v in items] if any(isinstance(v, float) for v in items) else items
+    if not isinstance(value, str):
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Value {value!r} is not a number, but column {column!r} is numeric.") from None
+
+
 def rule_conditions(rule: dict[str, Any]) -> list[dict[str, Any]]:
     """The conditions of a conditionalColumn rule, as a uniform list.
 

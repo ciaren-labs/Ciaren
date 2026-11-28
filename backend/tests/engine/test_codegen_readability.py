@@ -19,19 +19,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+import openpyxl
 import pandas as pd
 import pytest
 
+from app.connectors.local_storage import LocalStorageConnector
+from app.connectors.storage_base import StorageSpec
 from app.engine.backends import get_engine
 from app.engine.codegen import CodeGenerator
 from app.engine.codegen_common import frame_var_name, insert_paragraph_breaks
 from app.engine.polars_codegen import PolarsCodeGenerator
 
 
-def _text_export_script(node_type: str, dialect: str, filename: str) -> str:
-    config = {"dataset_id": "d", "format": "text"}
+def _input_export_script(node_type: str, dialect: str, filename: str, fmt: str = "text") -> str:
+    config = {"dataset_id": "d", "format": fmt}
     if node_type == "storageInput":
-        config = {"connection_id": "c", "path": f"remote/{filename}", "format": "text"}
+        config = {"connection_id": "c", "path": f"remote/{filename}", "format": fmt}
     graph = {
         "nodes": [
             {"id": "in", "type": node_type, "data": {"config": config}},
@@ -69,7 +72,7 @@ def _run_text_export(tmp_path: Path, code: str) -> subprocess.CompletedProcess[s
 def test_text_input_export_reads_utf8_lines(tmp_path: Path, node_type: str, dialect: str, payload: bytes) -> None:
     source = tmp_path / "café's notes.txt"
     source.write_bytes(payload)
-    code = _text_export_script(node_type, dialect, source.name)
+    code = _input_export_script(node_type, dialect, source.name)
     result = _run_text_export(tmp_path, code)
     assert result.returncode == 0, result.stderr
     exported = pd.read_parquet(tmp_path / "result.parquet")
@@ -87,10 +90,53 @@ def test_text_input_export_preserves_read_failures(tmp_path: Path, node_type: st
     source = tmp_path / "source.txt"
     if failure == "invalid_utf8":
         source.write_bytes(b"\xff")
-    result = _run_text_export(tmp_path, _text_export_script(node_type, dialect, source.name))
+    result = _run_text_export(tmp_path, _input_export_script(node_type, dialect, source.name))
     expected_error = "UnicodeDecodeError" if failure == "invalid_utf8" else "FileNotFoundError"
     assert result.returncode != 0 and expected_error in result.stderr, result.stderr
     assert not (tmp_path / "result.parquet").exists()
+
+
+# Text cells hold codes (zip codes, IDs) and must stay text; "code" is a number
+# that only *displays* as 02134 through its cell format and stays a number. A
+# column mixing text and number cells becomes text, so it keeps one type. Text
+# such as "NA" (Namibia's country code) or "N/A" is data, not a missing value.
+_TEXT_CODE_COLUMNS = {
+    "zip": ["02134", "10001"],
+    "code": [2134, 10001],
+    "mixed": ["007", "5"],
+    "amount": [1.5, 2.0],
+    "country": ["NA", "US"],
+    "score": ["1", "N/A"],
+}
+
+
+def _write_text_code_workbook(path: Path) -> None:
+    book = openpyxl.Workbook()
+    sheet = book.active
+    assert sheet is not None
+    sheet.append(list(_TEXT_CODE_COLUMNS))
+    sheet.append(["02134", 2134, "007", 1.5, "NA", 1])
+    sheet.append(["10001", 10001, 5, 2.0, "US", "N/A"])
+    for cell in sheet["B"][1:]:
+        cell.number_format = "00000"
+    book.save(path)
+
+
+@pytest.mark.parametrize("node_type", ["excelInput", "fileInput", "storageInput"])
+@pytest.mark.parametrize("dialect", ["pandas", "polars", "lazy"])
+def test_excel_text_cells_stay_text_in_export_and_runtime(tmp_path: Path, node_type: str, dialect: str) -> None:
+    source = tmp_path / "codes.xlsx"
+    _write_text_code_workbook(source)
+    result = _run_text_export(tmp_path, _input_export_script(node_type, dialect, source.name, fmt="excel"))
+    assert result.returncode == 0, result.stderr
+    exported = pd.read_parquet(tmp_path / "result.parquet")
+    if node_type == "storageInput":
+        spec = StorageSpec(provider="local", bucket=str(tmp_path))
+        runtime = LocalStorageConnector().read_file(spec, source.name, "excel")
+    else:
+        engine = get_engine("pandas" if dialect == "pandas" else "polars")
+        runtime = engine.to_pandas(engine.read(str(source), "excel"))
+    assert exported.to_dict("list") == runtime.to_dict("list") == _TEXT_CODE_COLUMNS
 
 
 # --- unit: frame_var_name ------------------------------------------------------

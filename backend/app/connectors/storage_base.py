@@ -17,7 +17,7 @@ from typing import Any, Protocol, runtime_checkable
 import pandas as pd
 
 from app.connectors.base import ConnectorError
-from app.engine.ingest import SNIFF_SAMPLE_BYTES, read_delimited, sniff_csv_dialect
+from app.engine.ingest import SNIFF_SAMPLE_BYTES, read_delimited, read_excel, sniff_csv_dialect
 
 log = logging.getLogger("app.connectors.storage")
 
@@ -71,7 +71,7 @@ def deserialize_dataframe(data: bytes, fmt: str, parse_options: dict[str, Any] |
     if fmt in ("csv", "tsv"):
         return read_delimited(buf, fmt, parse_options or {})
     if fmt == "excel":
-        return pd.read_excel(buf)
+        return read_excel(buf)
     if fmt == "parquet":
         return pd.read_parquet(buf)
     if fmt == "json":

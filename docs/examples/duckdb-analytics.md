@@ -34,14 +34,12 @@ Group By Aggregate → SQL Output.
 ## 1. Install the driver
 
 DuckDB connections need the `duckdb` package and its SQLAlchemy dialect,
-`duckdb-engine`, in the environment Ciaren runs in:
+`duckdb-engine`, in the environment Ciaren runs in. The `duckdb` extra
+installs both:
 
 ```bash
-pip install "ciaren[duckdb]" duckdb-engine
+pip install "ciaren[duckdb]"
 ```
-
-The `duckdb` extra installs `duckdb` only. Without `duckdb-engine`, opening the
-connection fails with `Can't load plugin: sqlalchemy.dialects:duckdb`.
 
 ## 2. Create the database file
 
@@ -162,15 +160,15 @@ from sqlalchemy import URL, create_engine
 
 _engine_1 = create_engine(URL.create('duckdb', database='analytics.duckdb'))
 df_1 = pd.read_sql_query('SELECT region, amount FROM orders WHERE amount > 0', _engine_1)
-
-df_1 = (
-    df_1.assign(region=lambda _d: _d['region'].astype('string').str.title())
-    .fillna({'region': 'Unknown'})
-    .groupby('region')
-    .agg({'amount': 'sum'})
-    .reset_index()
-)
-
+df_1 = df_1.assign(region=lambda _d: _d['region'].astype('string').str.title())
+df_1 = df_1.copy()
+for _col in ['region']:
+    try:
+        _fill = pd.array(['Unknown'], dtype=df_1[_col].dtype)[0]
+    except (ValueError, TypeError):
+        continue  # the value does not fit this column's type
+    df_1[_col] = df_1[_col].fillna(_fill)
+df_1 = df_1.groupby('region').agg({'amount': 'sum'}).reset_index()
 df_1.to_sql('revenue_by_region', _engine_1, if_exists='replace', index=False)
 ```
 
